@@ -19,6 +19,8 @@ export interface LogRule {
   disabledGroups?: string[][]; // Inactive filters
   excludes: string[];
   highlights: LogHighlight[];
+  logCommand?: string;
+  logTags?: string[];
 }
 
 export interface AppSettings {

@@ -6,7 +6,7 @@ import { IconButton } from '../ui/IconButton';
 
 const {
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, PanelLeftClose, PanelLeft, Zap, Folder, FolderOpen, X, Plus,
-    ShieldAlert, Highlighter, Palette
+    ShieldAlert, Highlighter, Palette, Play, Square, Terminal
 } = Lucide;
 
 const HIGHLIGHT_COLORS = [
@@ -24,7 +24,10 @@ const ConfigurationPanel: React.FC = () => {
         isPanelOpen, setIsPanelOpen,
         configPanelWidth, handleConfigResizeStart,
         currentConfig, updateCurrentRule,
-        groupedRoots, collapsedRoots, setCollapsedRoots, handleToggleRoot
+        groupedRoots, collapsedRoots, setCollapsedRoots, handleToggleRoot,
+        sendTizenCommand,
+        hasEverConnected,
+        tizenSocket
     } = useLogContext();
 
     const [editingTag, setEditingTag] = useState<{ groupIdx: number, termIdx: number, value: string, isActive: boolean } | null>(null);
@@ -42,6 +45,20 @@ const ConfigurationPanel: React.FC = () => {
             else next.add(root);
             return next;
         });
+    };
+
+    const defaultLogCommand = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS)';
+
+    const handleStartLogging = () => {
+        if (!currentConfig) return;
+        const cmdTemplate = currentConfig.logCommand ?? defaultLogCommand;
+        const tags = (currentConfig.logTags || []).join(' ');
+        const finalCmd = cmdTemplate.replace(/\$\(TAGS\)/g, tags);
+        sendTizenCommand(finalCmd + '\n');
+    };
+
+    const handleStopLogging = () => {
+        sendTizenCommand('\x03'); // Ctrl+C
     };
 
     if (!currentConfig) {
@@ -448,6 +465,63 @@ const ConfigurationPanel: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
+
+                    <div className="mt-8 pb-8">
+                        <label className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2"><Terminal size={16} className="text-emerald-400" /> Log Settings</label>
+                        <div className="bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-700 mb-2">
+                            <div className="flex gap-3 mb-4">
+                                <Button className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex-1 shadow-lg shadow-emerald-900/50" icon={<Play size={16} />} onClick={handleStartLogging}>Start Logging</Button>
+                                <Button className="bg-slate-700 hover:bg-red-600 text-slate-200 hover:text-white font-bold flex-1 transition-colors" icon={<Square size={16} />} onClick={handleStopLogging}>Stop Logging</Button>
+                            </div>
+
+                            <div className="mb-4">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Log Tags ($(TAGS))</label>
+                                <div className="bg-slate-900/50 rounded-lg p-2 border border-slate-700 flex flex-wrap gap-2 min-h-[40px]">
+                                    {(currentConfig.logTags || []).map((tag, idx) => (
+                                        <div key={idx} className="flex items-center bg-indigo-500/20 text-indigo-300 px-2 py-1 rounded text-xs font-bold border border-indigo-500/30">
+                                            <span>{tag}</span>
+                                            <IconButton variant="ghost" size="xs" icon={<X size={10} />} className="ml-1 hover:text-indigo-200" onClick={() => {
+                                                const newTags = (currentConfig.logTags || []).filter((_, i) => i !== idx);
+                                                updateCurrentRule({ logTags: newTags });
+                                            }} />
+                                        </div>
+                                    ))}
+                                    <input
+                                        className="bg-transparent text-xs text-slate-300 placeholder-slate-500 focus:outline-none min-w-[60px] py-1"
+                                        placeholder="+ tag"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                                const newTag = e.currentTarget.value.trim();
+                                                const currentTags = currentConfig.logTags || [];
+                                                if (!currentTags.includes(newTag)) {
+                                                    updateCurrentRule({ logTags: [...currentTags, newTag] });
+                                                }
+                                                e.currentTarget.value = '';
+                                            } else if (e.key === 'Backspace' && !e.currentTarget.value) {
+                                                const currentTags = currentConfig.logTags || [];
+                                                if (currentTags.length > 0) {
+                                                    const newTags = currentTags.slice(0, -1);
+                                                    updateCurrentRule({ logTags: newTags });
+                                                }
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Log Command</label>
+                                <textarea
+                                    className="w-full bg-slate-900/50 text-slate-300 text-xs font-mono p-3 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none resize-none leading-relaxed"
+                                    rows={3}
+                                    value={currentConfig.logCommand ?? defaultLogCommand}
+                                    onChange={(e) => updateCurrentRule({ logCommand: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             ) : (
                 <div className="h-full flex flex-col items-center pt-16 gap-4">

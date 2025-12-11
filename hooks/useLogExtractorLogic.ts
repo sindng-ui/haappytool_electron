@@ -26,9 +26,18 @@ export interface LogExtractorLogicProps {
     onUpdateRules: (rules: LogRule[]) => void;
     onExportSettings: () => void;
     onImportSettings: (settings: AppSettings) => void;
+    configPanelWidth: number;
+    setConfigPanelWidth: (width: number) => void;
+    tabId: string;
+    initialFilePath?: string;
+    onFileChange?: (filePath: string) => void;
 }
 
-export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, onImportSettings }: LogExtractorLogicProps) => {
+export const useLogExtractorLogic = ({
+    rules, onUpdateRules, onExportSettings, onImportSettings,
+    configPanelWidth, setConfigPanelWidth,
+    tabId, initialFilePath, onFileChange
+}: LogExtractorLogicProps) => {
     const [selectedRuleId, setSelectedRuleId] = useState<string>(() => {
         const saved = localStorage.getItem('lastSelectedRuleId');
         if (saved && rules.find(r => r.id === saved)) return saved;
@@ -54,6 +63,7 @@ export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, o
     const [leftTotalLines, setLeftTotalLines] = useState(0);
     const [leftFilteredCount, setLeftFilteredCount] = useState(0);
     const [leftFileName, setLeftFileName] = useState<string>('');
+    const [leftFilePath, setLeftFilePath] = useState<string>('');
     const leftPendingRequests = useRef<Map<string, (data: any) => void>>(new Map());
 
     const rightWorkerRef = useRef<Worker | null>(null);
@@ -93,11 +103,6 @@ export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, o
     const [rawContextTargetLine, setRawContextTargetLine] = useState<{ lineNum: number, content: string } | null>(null);
     const [rawContextSourcePane, setRawContextSourcePane] = useState<'left' | 'right'>('left');
 
-    const [configPanelWidth, setConfigPanelWidth] = useState(() => {
-        const saved = localStorage.getItem('configPanelWidth');
-        return saved ? parseFloat(saved) : 320;
-    });
-
     const [rawContextHeight, setRawContextHeight] = useState(() => {
         const saved = localStorage.getItem('rawContextHeight');
         return saved ? parseFloat(saved) : 50;
@@ -110,47 +115,95 @@ export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, o
     const rightViewerRef = useRef<LogViewerHandle>(null);
     const rawViewerRef = useRef<LogViewerHandle>(null);
 
-    // Initialize Left Worker
+    // State Restoration Refs
+    const pendingScrollTop = useRef<number | null>(null);
+
+    // Initialize Left Worker & Load State
     useEffect(() => {
+        console.log(`[useLog] Mounting tab ${tabId}. initialFilePath:`, initialFilePath);
+
         leftWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
 
         let cleanupListeners: (() => void)[] = [];
 
-        const lastFile = localStorage.getItem('lastLeftFilePath');
-        if (lastFile && window.electronAPI) {
-            const fileName = lastFile.split(/[/\\]/).pop() || 'last_session.log';
-            setLeftFileName(fileName);
-            // Reset states
-            setLeftWorkerReady(false);
-            setLeftIndexingProgress(0);
-            setLeftTotalLines(0);
-            setLeftFilteredCount(0);
-            setSelectedLineIndexLeft(-1);
+        // Load saved state or initial file
+        const savedStateStr = localStorage.getItem(`tabState_${tabId}`);
+        console.log(`[useLog] Raw saved state for ${tabId}:`, savedStateStr);
 
-            if (window.electronAPI.streamReadFile) {
-                // Stream Mode
-                leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM' });
+        let targetPath = initialFilePath;
+        let savedScrollTop = 0;
+        let savedSelectedLine = -1;
 
-                const unsubChunk = window.electronAPI.onFileChunk((chunk) => {
-                    leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: chunk });
-                });
-                const unsubComplete = window.electronAPI.onFileStreamComplete(() => {
-                    console.log('Stream load complete');
-                });
-                cleanupListeners.push(unsubChunk, unsubComplete);
+        if (savedStateStr) {
+            try {
+                const saved = JSON.parse(savedStateStr);
+                if (saved.filePath) {
+                    console.log(`[useLog] Found saved filePath:`, saved.filePath);
+                    targetPath = saved.filePath;
+                }
+                if (saved.scrollTop) savedScrollTop = saved.scrollTop;
+                if (saved.selectedLine) savedSelectedLine = saved.selectedLine;
+            } catch (e) {
+                console.error(`[Persistence] Failed to parse state for ${tabId}`, e);
+            }
+        }
 
-                window.electronAPI.streamReadFile(lastFile).catch(console.error);
+        console.log(`[useLog] Final targetPath:`, targetPath);
+
+        if (savedScrollTop > 0) pendingScrollTop.current = savedScrollTop;
+        if (savedSelectedLine >= 0) setSelectedLineIndexLeft(savedSelectedLine);
+
+        if (targetPath) {
+            if (window.electronAPI) {
+                console.log(`[useLog] Loading file via Electron:`, targetPath);
+                const fileName = targetPath.split(/[/\\]/).pop() || 'log_file.log';
+                setLeftFileName(fileName);
+                setLeftFilePath(targetPath);
+                setLeftWorkerReady(false);
+                setLeftIndexingProgress(0);
+                setLeftTotalLines(0);
+                setLeftFilteredCount(0);
+
+                if (window.electronAPI.streamReadFile) {
+                    console.log('[useLog] Using streamReadFile');
+                    // Stream Mode
+                    leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM' });
+
+                    const unsubChunk = window.electronAPI.onFileChunk((chunk) => {
+                        leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: chunk });
+                    });
+                    const unsubComplete = window.electronAPI.onFileStreamComplete(() => {
+                        console.log('[useLog] Stream load complete');
+                    });
+                    cleanupListeners.push(unsubChunk, unsubComplete);
+
+                    window.electronAPI.streamReadFile(targetPath).catch(e => {
+                        console.error('[useLog] streamReadFile failed:', e);
+                    });
+                } else {
+                    console.log('[useLog] Using readFile (Legacy)');
+                    // Legacy Mode
+                    window.electronAPI.readFile(targetPath).then(content => {
+                        console.log(`[useLog] File read success. size=${content.length}`);
+                        const file = new File([content], fileName);
+                        // Store path for persistence if valid
+                        (file as any).path = targetPath;
+                        leftWorkerRef.current?.postMessage({ type: 'INIT_FILE', payload: file });
+                        console.log('[useLog] Sent INIT_FILE to worker');
+                    }).catch(e => {
+                        console.error('[useLog] readFile failed:', e);
+                    });
+                }
             } else {
-                // Legacy Mode
-                window.electronAPI.readFile(lastFile).then(content => {
-                    const file = new File([content], fileName);
-                    leftWorkerRef.current?.postMessage({ type: 'INIT_FILE', payload: file });
-                }).catch(console.error);
+                console.error('[useLog] window.electronAPI is MISSING!');
             }
         }
 
         leftWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
             const { type, payload, requestId } = e.data;
+            if (type === 'ERROR') console.error('[useLog] Worker Error:', payload.error);
+            if (type === 'INDEX_COMPLETE') console.log('[useLog] Worker INDEX_COMPLETE:', payload);
+            if (type === 'FILTER_COMPLETE') console.log('[useLog] Worker FILTER_COMPLETE matches:', payload.matchCount);
 
             if (requestId && leftPendingRequests.current.has(requestId)) {
                 const resolve = leftPendingRequests.current.get(requestId);
@@ -176,14 +229,30 @@ export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, o
                     setLeftFilteredCount(payload.matchCount);
                     setLeftWorkerReady(true);
                     break;
+                case 'ERROR':
+                    console.error('Left Worker Error:', payload.error);
+                    break;
             }
         };
 
         return () => {
-            cleanupListeners.forEach(cb => cb());
             leftWorkerRef.current?.terminate();
+            cleanupListeners.forEach(cleanup => cleanup());
         };
-    }, []);
+    }, []); // Run once on mount
+
+    // Restore scroll position
+    useEffect(() => {
+        if (leftFilteredCount > 0 && pendingScrollTop.current !== null) {
+            // Small timeout to allow rendering
+            setTimeout(() => {
+                if (leftViewerRef.current && pendingScrollTop.current !== null) {
+                    leftViewerRef.current.scrollTo(pendingScrollTop.current);
+                    pendingScrollTop.current = null;
+                }
+            }, 100);
+        }
+    }, [leftFilteredCount]);
 
     // Initialize Right Worker
     useEffect(() => {
@@ -380,6 +449,8 @@ export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, o
     const lastFilterHashLeft = useRef<string>('');
     const lastFilterHashRight = useRef<string>('');
 
+    const [hasEverConnected, setHasEverConnected] = useState(false);
+
     const flushTizenBuffer = useCallback(() => {
         if (tizenBuffer.current.length === 0) return;
         const combined = tizenBuffer.current.join('');
@@ -388,6 +459,7 @@ export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, o
     }, []);
 
     const handleTizenStreamStart = useCallback((socket: Socket, deviceName: string) => {
+        setHasEverConnected(true);
         setTizenSocket(socket); // Save socket for disconnect
         setLeftFileName(deviceName);
         setLeftWorkerReady(false);
@@ -425,6 +497,16 @@ export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, o
         socket.on('disconnect', () => {
             setTizenSocket(null);
         });
+
+        // Handle logical disconnects (e.g. commands failed or finished)
+        const handleLogicalDisconnect = (data: { status: string }) => {
+            if (data.status === 'disconnected') {
+                setTizenSocket(null);
+            }
+        };
+
+        socket.on('sdb_status', handleLogicalDisconnect);
+        socket.on('ssh_status', handleLogicalDisconnect);
     }, []);
 
     // Auto-scroll effect for Tizen
@@ -475,16 +557,32 @@ export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, o
             // Try to notify server to stop processes cleanly
             tizenSocket.emit('disconnect_sdb');
             tizenSocket.emit('disconnect_ssh');
-            tizenSocket.disconnect();
-            setTizenSocket(null);
+
+            // Allow time for events to be sent before closing socket
+            setTimeout(() => {
+                tizenSocket.disconnect();
+                setTizenSocket(null);
+            }, 100);
         }
     }, [tizenSocket]);
 
     const handleLeftFileChange = useCallback((file: File) => {
         if (!leftWorkerRef.current) return;
-        if ('path' in file && (file as any).path) {
-            localStorage.setItem('lastLeftFilePath', (file as any).path);
+
+        const path = ('path' in file) ? (file as any).path : '';
+        setLeftFilePath(path);
+
+        // Update local state immediately
+        if (path) {
+            localStorage.setItem(`tabState_${tabId}`, JSON.stringify({
+                filePath: path,
+                selectedLine: -1,
+                scrollTop: 0
+            }));
+            // Notify parent to update tab state
+            if (onFileChange) onFileChange(path);
         }
+
         setLeftFileName(file.name);
         setLeftWorkerReady(false);
         setLeftIndexingProgress(0);
@@ -493,7 +591,7 @@ export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, o
         setSelectedLineIndexLeft(-1);
         lastFilterHashLeft.current = '';
         leftWorkerRef.current.postMessage({ type: 'INIT_FILE', payload: file });
-    }, []);
+    }, [tabId]);
 
     const requestLeftLines = useCallback((startIndex: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
@@ -559,6 +657,21 @@ export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, o
         setSelectedLineIndexRight(-1);
         lastFilterHashRight.current = '';
     }, []);
+
+    // Periodic State Persistence
+    useEffect(() => {
+        if (!leftFilePath) return;
+        const timer = setInterval(() => {
+            const scrollTop = leftViewerRef.current?.getScrollTop() || 0;
+            const state = {
+                filePath: leftFilePath,
+                selectedLine: selectedLineIndexLeft,
+                scrollTop
+            };
+            localStorage.setItem(`tabState_${tabId}`, JSON.stringify(state));
+        }, 1000); // 1s interval
+        return () => clearInterval(timer);
+    }, [tabId, leftFilePath, selectedLineIndexLeft]);
 
     const handleCopyLogs = useCallback(async (paneId: 'left' | 'right') => {
         alert(`Copy button clicked for ${paneId} pane!`);
@@ -770,12 +883,10 @@ export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, o
             setConfigPanelWidth(newWidth);
         };
         const handleMouseUp = () => {
-            localStorage.setItem('configPanelWidth', configPanelWidth.toString());
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
         document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
         document.addEventListener('mouseup', handleMouseUp);
     };
 
@@ -839,6 +950,7 @@ export const useLogExtractorLogic = ({ rules, onUpdateRules, onExportSettings, o
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
         handleRightFileChange, handleRightReset, requestRightLines, requestRightRawLines,
         handleCopyLogs, handleSaveLogs, jumpToHighlight,
-        sendTizenCommand
+        sendTizenCommand,
+        hasEverConnected
     };
 };

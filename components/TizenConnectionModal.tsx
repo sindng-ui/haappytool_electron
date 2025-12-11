@@ -31,9 +31,14 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
     const [isConnecting, setIsConnecting] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
 
+    const isHandedOver = React.useRef(false);
+
     useEffect(() => {
-        if (isOpen && !socket) {
-            const newSocket = io('http://localhost:3001');
+        let newSocket: Socket | null = null;
+
+        if (isOpen) {
+            isHandedOver.current = false;
+            newSocket = io('http://localhost:3001');
 
             newSocket.on('connect', () => {
                 setStatus('Connected to Local Log Server');
@@ -55,7 +60,10 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
                 setStatus(data.message);
                 if (data.status === 'connected') {
                     setIsConnected(true);
-                    onStreamStart(newSocket, `SSH:${sshHost}`);
+                    setMode('ssh');
+                    isHandedOver.current = true;
+                    onStreamStart(newSocket!, `SSH:${sshHost}`);
+                    onClose();
                 } else if (data.status === 'disconnected') {
                     setIsConnected(false);
                 }
@@ -71,7 +79,10 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
                 setStatus(data.message);
                 if (data.status === 'connected') {
                     setIsConnected(true);
-                    onStreamStart(newSocket, `SDB:${selectedDeviceId || 'Default'}`);
+                    setMode('sdb');
+                    isHandedOver.current = true;
+                    onStreamStart(newSocket!, `SDB:${selectedDeviceId || 'Default'}`);
+                    onClose();
                 } else if (data.status === 'disconnected') {
                     setIsConnected(false);
                 }
@@ -92,7 +103,12 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
         }
 
         return () => {
-            // Don't disconnect here, we pass the socket to parent
+            if (newSocket) {
+                if (!isHandedOver.current) {
+                    newSocket.disconnect();
+                }
+                setSocket(null);
+            }
         };
     }, [isOpen]);
 

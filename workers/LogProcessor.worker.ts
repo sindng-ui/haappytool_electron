@@ -127,11 +127,15 @@ const processChunk = (chunk: string) => {
 
     if (lines.length === 0) return;
 
+    // Clean ANSI codes from lines
+    // eslint-disable-next-line no-control-regex
+    const cleanLines = lines.map(line => line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, ''));
+
     const startIdx = streamLines.length;
-    streamLines.push(...lines);
+    streamLines.push(...cleanLines);
 
     const newMatches: number[] = [];
-    lines.forEach((line, i) => {
+    cleanLines.forEach((line, i) => {
         if (checkIsMatch(line, currentRule)) {
             newMatches.push(startIdx + i);
         }

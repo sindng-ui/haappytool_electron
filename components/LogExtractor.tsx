@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { LogRule, AppSettings } from '../types';
 import LogSession from './LogSession';
 import { LogProvider } from './LogViewer/LogContext';
@@ -9,6 +9,7 @@ interface Tab {
     id: string;
     title: string;
     initialFile: File | null;
+    filePath?: string;
 }
 
 interface LogExtractorProps {
@@ -19,22 +20,82 @@ interface LogExtractorProps {
 }
 
 const LogExtractor: React.FC<LogExtractorProps> = (props) => {
-    // Start with one empty tab
-    const [tabs, setTabs] = useState<Tab[]>([{ id: 'tab-1', title: 'New Log 1', initialFile: null }]);
-    const [activeTabId, setActiveTabId] = useState<string>('tab-1');
-    const [tabCounter, setTabCounter] = useState(2);
+    // Shared state for configuration panel width
+    const [configPanelWidth, setConfigPanelWidth] = useState(() => {
+        try {
+            const saved = localStorage.getItem('configPanelWidth');
+            if (!saved) return 320;
+            const parsed = parseFloat(saved);
+            return Number.isFinite(parsed) && parsed > 100 ? parsed : 320;
+        } catch (e) {
+            return 320;
+        }
+    });
+
+    useEffect(() => {
+        localStorage.setItem('configPanelWidth', configPanelWidth.toString());
+    }, [configPanelWidth]);
+
+    // Load persisted state
+    const [tabs, setTabs] = useState<Tab[]>(() => {
+        try {
+            const saved = localStorage.getItem('openTabs');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                console.log('[LogExtractor] Loaded openTabs:', parsed);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            } else {
+                console.log('[LogExtractor] No openTabs found in localStorage');
+            }
+        } catch (e) {
+            console.error('[LogExtractor] Failed to parse openTabs:', e);
+        }
+        return [{ id: 'tab-1', title: 'New Log 1', initialFile: null }];
+    });
+
+    const [activeTabId, setActiveTabId] = useState<string>(() => {
+        return localStorage.getItem('activeTabId') || 'tab-1';
+    });
+
+    const [tabCounter, setTabCounter] = useState(() => {
+        try {
+            const saved = localStorage.getItem('openTabs');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    let max = 1;
+                    parsed.forEach((t: any) => {
+                        const match = t.id.match(/tab-(\d+)/);
+                        if (match) max = Math.max(max, parseInt(match[1]));
+                    });
+                    return max + 1;
+                }
+            }
+        } catch { }
+        return 2;
+    });
+
+    useEffect(() => {
+        const safeTabs = tabs.map(t => ({ id: t.id, title: t.title, filePath: t.filePath }));
+        localStorage.setItem('openTabs', JSON.stringify(safeTabs));
+        localStorage.setItem('activeTabId', activeTabId);
+    }, [tabs, activeTabId]);
 
     const handleAddTab = useCallback((file: File | null = null) => {
         const newTabId = `tab-${tabCounter}`;
         const newTitle = file ? file.name : `New Log ${tabCounter}`;
+        const filePath = file && 'path' in file ? (file as any).path : undefined;
 
-        setTabs(prev => [...prev, { id: newTabId, title: newTitle, initialFile: file }]);
+        setTabs(prev => [...prev, { id: newTabId, title: newTitle, initialFile: file, filePath }]);
         setActiveTabId(newTabId);
         setTabCounter(prev => prev + 1);
     }, [tabCounter]);
 
     const handleCloseTab = useCallback((e: React.MouseEvent, tabId: string) => {
         e.stopPropagation();
+
+        // Cleanup storage
+        localStorage.removeItem(`tabState_${tabId}`);
 
         if (tabs.length === 1) {
             setTabs([{ id: `tab-${tabCounter}`, title: `New Log ${tabCounter}`, initialFile: null }]);
@@ -139,7 +200,18 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
 
             <div className="flex-1 overflow-hidden relative">
                 {tabs.map((tab) => (
-                    <LogProvider key={tab.id} {...props} initialFile={tab.initialFile}>
+                    <LogProvider
+                        key={tab.id}
+                        {...props}
+                        initialFile={tab.initialFile}
+                        configPanelWidth={configPanelWidth}
+                        setConfigPanelWidth={setConfigPanelWidth}
+                        tabId={tab.id}
+                        initialFilePath={tab.filePath}
+                        onFileChange={(newPath) => {
+                            setTabs(current => current.map(t => t.id === tab.id ? { ...t, filePath: newPath } : t));
+                        }}
+                    >
                         <SessionWrapper
                             isActive={tab.id === activeTabId}
                             onTitleChange={(newTitle) => {
