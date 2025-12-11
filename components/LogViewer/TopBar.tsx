@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
 import { useLogContext } from './LogContext';
-import { SettingsModal } from '../SettingsModal';
+
 
 const { Plus, Trash2, Save, Upload, FileDown, Maximize, Columns, Sparkles } = Lucide;
 
 const TopBar: React.FC = () => {
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const {
         rules, selectedRuleId, setSelectedRuleId,
         handleCreateRule, handleDeleteRule, onExportSettings,
@@ -113,11 +112,6 @@ const TopBar: React.FC = () => {
 
                 <div className="w-px h-6 bg-slate-700 mx-1"></div>
 
-                {/* Settings */}
-                <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-full transition-colors" title="Settings"><Lucide.Settings size={18} /></button>
-
-                <div className="w-px h-6 bg-slate-700 mx-1"></div>
-
                 {/* Layout Toggle */}
                 <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
                     <button onClick={() => isDualView && toggleDualView()} className={`p-2 rounded flex items-center gap-2 text-xs font-bold transition-all ${!isDualView ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Maximize size={14} /> Single</button>
@@ -127,7 +121,7 @@ const TopBar: React.FC = () => {
             <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={onImportFile} />
             <input type="file" ref={logFileInputRef} className="hidden" onChange={onLogFileSelect} />
 
-            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} currentStartLineIndex={0} />
+
         </div>
     );
 };

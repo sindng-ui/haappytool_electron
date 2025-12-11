@@ -119,7 +119,7 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
 
     const handleDownload = async () => {
         if (!resultBlob || !downloadName) {
-            // Fallback if blob is missing but url exists
+            // Fallback if blob is missing but url exists (unlikely given flow)
             if (downloadUrl) {
                 const a = document.createElement('a');
                 a.href = downloadUrl;
@@ -143,14 +143,19 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
                 if (result.status === 'success') {
                     setResultPath(`Saved to ${result.filePath}`);
                     addLog('File saved successfully.');
-                    return;
+                } else if (result.status === 'canceled') {
+                    addLog('Save canceled.');
+                } else {
+                    addLog(`Save error: ${result.error}`);
                 }
+                return; // Stop here to prevent double dialog
             } catch (err) {
                 console.error("Save failed, falling back to download", err);
+                // If native save crashes, allow fallback
             }
         }
 
-        // Fallback
+        // Fallback for web or if Electron save failed with exception
         if (downloadUrl) {
             const a = document.createElement('a');
             a.href = downloadUrl;

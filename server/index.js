@@ -114,8 +114,8 @@ io.on('connection', (socket) => {
             keepaliveCountMax: 3,
             // Add legacy algorithms for older Tizen devices compatibility
             algorithms: {
-                serverHostKey: ['ssh-rsa', 'ssh-dss'],
-                kex: ['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group14-sha256'],
+                serverHostKey: ['ssh-rsa', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-ed25519'],
+                kex: ['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group14-sha256', 'curve25519-sha256', 'curve25519-sha256@libssh.org'],
                 cipher: ['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm', 'aes128-cbc', '3des-cbc']
             }
         });
@@ -249,30 +249,50 @@ io.on('connection', (socket) => {
 
     // --- SDB Remote Connect (Addon) ---
     socket.on('connect_sdb_remote', ({ ip }) => {
-        const connectProc = spawn('sdb', ['connect', ip]);
-        let output = '';
+        // Step 1: sdb disconnect
+        const disconnectProc = spawn('sdb', ['disconnect']);
 
-        connectProc.stdout.on('data', (data) => output += data.toString());
-        connectProc.stderr.on('data', (data) => output += data.toString());
+        disconnectProc.on('close', () => {
+            // Step 2: sdb connect [ip]
+            const connectProc = spawn('sdb', ['connect', ip]);
+            let output = '';
 
-        connectProc.on('close', (code) => {
-            if (output.includes(`connected to ${ip}`) || output.includes(`already connected`)) {
-                socket.emit('sdb_remote_result', { success: true, message: `Connected to ${ip}` });
-                // Auto-refresh device list
-                socket.emit('list_sdb_devices');
-            } else {
-                socket.emit('sdb_remote_result', { success: false, message: `Failed: ${output.trim()}` });
-            }
+            connectProc.stdout.on('data', (data) => output += data.toString());
+            connectProc.stderr.on('data', (data) => output += data.toString());
+
+            connectProc.on('close', (code) => {
+                const isConnected = output.includes(`connected to ${ip}`) || output.includes(`already connected`);
+
+                if (isConnected) {
+                    // Step 3: sdb root on
+                    const rootProc = spawn('sdb', ['root', 'on']);
+
+                    rootProc.on('close', () => {
+                        socket.emit('sdb_remote_result', { success: true, message: `Connected to ${ip} (Root Enabled)` });
+                        // Auto-refresh device list
+                        socket.emit('list_sdb_devices');
+                    });
+                } else {
+                    socket.emit('sdb_remote_result', { success: false, message: `Failed: ${output.trim()}` });
+                }
+            });
         });
     });
 
     socket.on('disconnect_sdb', () => {
         logDebug('User requested SDB disconnect');
+
+        // Kill Active Shell process
         if (sdbProcess) {
             sdbProcess.kill();
             sdbProcess = null;
-            socket.emit('sdb_status', { status: 'disconnected', message: 'SDB Disconnected by user' });
         }
+
+        // REQUESTED: Execute sdb disconnect command
+        spawn('sdb', ['disconnect']);
+
+        socket.emit('sdb_status', { status: 'disconnected', message: 'SDB Disconnected by user' });
+
         if (debugStream) {
             debugStream.end();
             debugStream = null;

@@ -43,7 +43,7 @@ export const TpkResultAction: React.FC<TpkResultActionProps> = ({ status, result
 
             <button
                 onClick={onReset}
-                className="mt-6 self-center px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 border border-transparent hover:border-slate-700"
+                className="mt-6 self-center px-5 py-2.5 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 border border-slate-700 shadow-sm"
             >
                 <ArrowRight size={14} /> Process another file
             </button>

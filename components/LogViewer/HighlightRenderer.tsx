@@ -4,25 +4,29 @@ import { LogHighlight } from '../../types';
 interface HighlightRendererProps {
     text: string;
     highlights?: LogHighlight[];
+    caseSensitive?: boolean;
 }
 
-export const HighlightRenderer = React.memo(({ text, highlights }: HighlightRendererProps) => {
+export const HighlightRenderer = React.memo(({ text, highlights, caseSensitive = false }: HighlightRendererProps) => {
     const parts = useMemo(() => {
         if (!highlights || highlights.length === 0) return null;
         const validHighlights = highlights.filter(h => h.keyword.trim() !== '');
         if (validHighlights.length === 0) return null;
 
         const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const pattern = new RegExp(`(${validHighlights.map(h => escapeRegExp(h.keyword)).join('|')})`, 'g');
+        // Sort by length descending to match longest keywords first
+        const sortedHighlights = [...validHighlights].sort((a, b) => b.keyword.length - a.keyword.length);
+        const pattern = new RegExp(`(${sortedHighlights.map(h => escapeRegExp(h.keyword)).join('|')})`, caseSensitive ? 'g' : 'gi');
         return text.split(pattern);
-    }, [text, highlights]);
+    }, [text, highlights, caseSensitive]);
 
     if (!parts) return <>{text}</>;
 
     return (
         <>
             {parts.map((part, i) => {
-                const highlight = highlights?.find(h => h.keyword === part);
+                if (!part) return null; // Handle empty parts from split
+                const highlight = highlights?.find(h => caseSensitive ? h.keyword === part : h.keyword.toLowerCase() === part.toLowerCase());
                 if (highlight) {
                     const isHex = highlight.color.startsWith('#');
                     const style = isHex ? { backgroundColor: highlight.color } : undefined;

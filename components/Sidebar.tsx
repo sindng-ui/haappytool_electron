@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
 import { ToolId } from '../types';
 
-const { FileText, Send, Braces, Archive, Smile, GripVertical } = Lucide;
+const { FileText, Send, Braces, Archive, Smile, GripVertical, Settings, Smartphone } = Lucide;
 
 interface SidebarProps {
   activeTool: ToolId;
   onSelectTool: (id: ToolId) => void;
   toolOrder: ToolId[];
   onReorderTools: (order: ToolId[]) => void;
+  onOpenSettings: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, onReorderTools }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, onReorderTools, onOpenSettings }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [draggedItem, setDraggedItem] = useState<ToolId | null>(null);
 
@@ -20,6 +21,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
     [ToolId.POST_TOOL]: { label: 'Post Tool', icon: Send },
     [ToolId.JSON_TOOLS]: { label: 'JSON Tools', icon: Braces },
     [ToolId.TPK_EXTRACTOR]: { label: 'Tpk Extractor', icon: Archive },
+    [ToolId.SMARTTHINGS_DEVICES]: { label: 'SmartThings Devices', icon: Smartphone },
   };
 
   const handleDragStart = (e: React.DragEvent, id: ToolId) => {
@@ -47,7 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
 
   return (
     <div
-      className={`h-full bg-slate-950 border-r border-slate-800 text-slate-400 transition-all duration-300 ease-in-out flex flex-col z-30 shadow-2xl ${isHovered ? 'w-72' : 'w-20'
+      className={`h-full bg-slate-950 border-r border-slate-800 text-slate-400 transition-all duration-300 ease-in-out flex flex-col z-30 shadow-2xl overflow-hidden ${isHovered ? 'w-72' : 'w-20'
         }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -111,10 +113,32 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
         })}
       </div>
 
-      <div className={`p-6 border-t border-slate-900 text-xs text-slate-600 whitespace-nowrap overflow-hidden transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="flex flex-col gap-1">
-          <span className="font-bold text-slate-500">HappyTool Suite</span>
-          <span>v0.3.0 &bull; Build 2025</span>
+      <div className="px-3 pb-2 w-full mt-auto">
+        <button
+          onClick={onOpenSettings}
+          className={`w-full flex items-center h-12 px-3 rounded-2xl transition-all duration-300 ease-out group relative cursor-pointer text-slate-400 hover:bg-slate-900 hover:text-slate-200`}
+        >
+          <div className="min-w-[40px] flex items-center justify-center">
+            <Settings className="w-6 h-6 group-hover:rotate-45 transition-transform duration-300" />
+          </div>
+          <span className={`ml-3 font-medium text-sm whitespace-nowrap transition-all duration-300 ${isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'}`}>
+            Settings
+          </span>
+          {!isHovered && (
+            <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-xl border border-slate-700">
+              Settings
+              <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45 border-l border-b border-slate-700"></div>
+            </div>
+          )}
+        </button>
+      </div>
+
+      <div className="p-4 border-t border-slate-900">
+        <div className={`mt-0 text-xs text-slate-600 whitespace-nowrap overflow-hidden transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="flex flex-col gap-1">
+            <span className="font-bold text-slate-500">HappyTool Suite</span>
+            <span>v0.4.0 &bull; Build 2025</span>
+          </div>
         </div>
       </div>
     </div>

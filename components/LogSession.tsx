@@ -5,6 +5,7 @@ import ConfigurationPanel from './LogViewer/ConfigurationPanel';
 import TizenConnectionModal from './TizenConnectionModal';
 import { useLogContext } from './LogViewer/LogContext';
 import TopBar from './LogViewer/TopBar';
+import Toast from './ui/Toast';
 
 const { X } = Lucide;
 
@@ -28,14 +29,15 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, onTitleChange, header
         currentConfig,
 
         leftViewerRef, leftWorkerReady, leftFilteredCount, requestLeftLines, setSelectedLineIndexLeft,
-        handleLineDoubleClickAction, selectedLineIndexLeft, handleLeftFileChange, handleLeftReset,
+        handleLineDoubleClickAction, selectedLineIndexLeft, handleLeftFileChange, handleLeftReset, leftIndexingProgress,
 
         rightViewerRef, rightWorkerReady, rightFilteredCount, requestRightLines, setSelectedLineIndexRight,
-        selectedLineIndexRight, handleRightFileChange, handleRightReset,
+        selectedLineIndexRight, handleRightFileChange, handleRightReset, rightIndexingProgress,
         handleCopyLogs, handleSaveLogs,
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
         jumpToHighlight,
-        tizenSocket, sendTizenCommand
+        tizenSocket, sendTizenCommand,
+        toast, closeToast
     } = useLogContext();
 
     // Update Tab Title based on file name
@@ -86,6 +88,14 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, onTitleChange, header
                 onStreamStart={handleTizenStreamStart}
             />
 
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={closeToast}
+                />
+            )}
+
             {/* Raw Context View */}
             {rawContextOpen && rawContextTargetLine && (
                 <div className="absolute left-0 right-0 top-16 bottom-0 z-40 flex flex-col pointer-events-none">
@@ -130,10 +140,12 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, onTitleChange, header
                                     key={leftFileName || 'left-empty'}
                                     ref={leftViewerRef}
                                     workerReady={leftWorkerReady}
+                                    loadingProgress={leftIndexingProgress}
                                     totalMatches={leftFilteredCount}
                                     onScrollRequest={requestLeftLines}
-                                    placeholderText={leftFileName || (isDualView ? "Drag log file here" : "Drop a log file to start (New Tab)")}
+                                    placeholderText={leftFileName || (isDualView ? "Drag log file here" : "Drop a log file to start")}
                                     highlights={currentConfig?.highlights}
+                                    highlightCaseSensitive={currentConfig?.colorHighlightsCaseSensitive}
                                     onLineClick={(index) => setSelectedLineIndexLeft(index)}
                                     onLineDoubleClick={(index) => handleLineDoubleClickAction(index, 'left')}
                                     activeLineIndex={selectedLineIndexLeft}
@@ -161,10 +173,12 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, onTitleChange, header
                                             key={rightFileName || 'right-empty'}
                                             ref={rightViewerRef}
                                             workerReady={rightWorkerReady}
+                                            loadingProgress={rightIndexingProgress}
                                             totalMatches={rightFilteredCount}
                                             onScrollRequest={requestRightLines}
                                             placeholderText={rightFileName || "Drag log file here"}
                                             highlights={currentConfig?.highlights}
+                                            highlightCaseSensitive={currentConfig?.colorHighlightsCaseSensitive}
                                             hotkeyScope="alt"
                                             onLineClick={(index) => setSelectedLineIndexRight(index)}
                                             onLineDoubleClick={(index) => handleLineDoubleClickAction(index, 'right')}

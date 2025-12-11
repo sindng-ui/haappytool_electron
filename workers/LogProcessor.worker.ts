@@ -28,20 +28,32 @@ const respond = (response: LogWorkerResponse) => {
 const checkIsMatch = (line: string, rule: LogRule | null): boolean => {
     if (!rule) return true;
 
-    const lowerLine = line.toLowerCase();
-
     // 1. Excludes
-    const excludes = rule.excludes.map(e => e.trim().toLowerCase()).filter(e => e !== '');
-    if (excludes.some(exc => lowerLine.includes(exc))) return false;
+    const isBlockCaseSensitive = rule.blockListCaseSensitive;
+    const excludes = rule.excludes.map(e => e.trim()).filter(e => e !== '');
+
+    if (excludes.length > 0) {
+        const lineForBlock = isBlockCaseSensitive ? line : line.toLowerCase();
+        const effectiveExcludes = isBlockCaseSensitive ? excludes : excludes.map(e => e.toLowerCase());
+        if (effectiveExcludes.some(exc => lineForBlock.includes(exc))) return false;
+    }
 
     // 2. Includes
-    const groups = rule.includeGroups.map(g => g.map(t => t.trim().toLowerCase()).filter(t => t !== ''));
+    const isHappyCaseSensitive = rule.happyCombosCaseSensitive;
+    const groups = rule.includeGroups.map(g => g.map(t => t.trim()).filter(t => t !== ''));
     const meaningfulGroups = groups.filter(g => g.length > 0);
 
     if (meaningfulGroups.length === 0) return true; // No include filters -> Show all
 
-    return meaningfulGroups.some(group => group.every(term => lowerLine.includes(term)));
+    const lineForHappy = isHappyCaseSensitive ? line : line.toLowerCase();
+
+    return meaningfulGroups.some(group => group.every(term => {
+        const effectiveTerm = isHappyCaseSensitive ? term : term.toLowerCase();
+        return lineForHappy.includes(effectiveTerm);
+    }));
 };
+
+// ... (omitted file indexing / stream handlers)
 
 // --- Handler: File Indexing ---
 const buildFileIndex = async (file: File) => {
@@ -175,7 +187,8 @@ const applyFilter = async (rule: LogRule) => {
     // File Mode
     if (!currentFile || !lineOffsets) return;
 
-    // Optimization for empty rule
+    // Optimization for empty rule (only if no case sensitive complications)
+    // Actually safe to just use empty check
     const excludes = rule.excludes.filter(e => e.trim());
     const includes = rule.includeGroups.flat().filter(t => t.trim());
 
@@ -233,7 +246,10 @@ const applyFilter = async (rule: LogRule) => {
 
 // --- Handler: Get Lines ---
 const getLines = async (startFilterIndex: number, count: number, requestId: string) => {
-    if (!filteredIndices) return; // Should return empty
+    if (!filteredIndices) {
+        respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+        return;
+    }
 
     const resultLines: { lineNum: number, content: string }[] = [];
     const max = Math.min(startFilterIndex + count, filteredIndices.length);
@@ -247,27 +263,84 @@ const getLines = async (startFilterIndex: number, count: number, requestId: stri
         }
     } else {
         // File Mode
-        if (!currentFile || !lineOffsets) return;
+        if (!currentFile || !lineOffsets) {
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
+        }
 
-        const readSlice = (blob: Blob): Promise<string> => {
-            return new Promise((resolve) => {
-                const r = new FileReader();
-                r.onload = (e) => resolve(e.target?.result as string);
-                r.readAsText(blob);
-            });
-        };
+        // Optimize: Group contiguous original lines to read in fewer chunks
+        let currentBlockStartIdx = -1;
+        let currentBlockEndIdx = -1;
+        let blockLines: { lineNum: number, content: string }[] = [];
 
-        for (let i = startFilterIndex; i < max; i++) {
-            const originalLineNum = filteredIndices[i];
-            const startByte = Number(lineOffsets[originalLineNum]);
-            const endByte = originalLineNum < lineOffsets.length - 1 ? Number(lineOffsets[originalLineNum + 1]) : currentFile.size;
+        // Helper to fetch valid block
+        const fetchBlock = async (startFilterI: number, endFilterI: number) => {
+            const startLine = filteredIndices![startFilterI];
+            const endLine = filteredIndices![endFilterI];
+
+            // Calculate byte range for the whole block
+            const startByte = Number(lineOffsets![startLine]);
+            const endByteLine = endLine < lineOffsets!.length - 1 ? endLine + 1 : -1;
+            const endByte = endByteLine !== -1 ? Number(lineOffsets![endByteLine]) : currentFile!.size;
 
             if (startByte >= endByte) {
-                resultLines.push({ lineNum: originalLineNum + 1, content: '' });
-                continue;
+                // Should not happen for valid lines usually, but handle gracefully
+                for (let k = startFilterI; k <= endFilterI; k++) {
+                    resultLines.push({ lineNum: filteredIndices![k] + 1, content: '' });
+                }
+                return;
             }
-            const text = await readSlice(currentFile.slice(startByte, endByte));
-            resultLines.push({ lineNum: originalLineNum + 1, content: text.replace(/\r?\n$/, '') });
+
+            try {
+                const text = await currentFile!.slice(startByte, endByte).text();
+                const lines = text.split('\n');
+
+                // Map back to resultLines
+                // Note: The text might contain the trailing newline of the last line, so split might produce empty string at end if perfectly aligned.
+                // Actually, our offsets include the newline character at the end. 
+                // So line 1 is [0, 10], line 2 is [10, 20]. text(0, 20) gives "line1\nline2\n".
+                // split('\n') gives ["line1", "line2", ""].
+                // We should match them up.
+
+                for (let k = 0; k < lines.length && (startFilterI + k) <= endFilterI; k++) {
+                    // Check if we exhausted lines but still have filters (case where file truncates without newline?)
+                    // Typically lines.length shoud equal (endLine - startLine + 1).
+                    // But wait, split('\n') on "A\nB\n" gives ["A", "B", ""]. We want "A", "B".
+
+                    let content = lines[k];
+                    if (k === lines.length - 1 && content === '') continue; // Skip empty trailing split result
+
+                    // Handle \r removal if needed (Windows)
+                    if (content.endsWith('\r')) content = content.slice(0, -1);
+
+                    resultLines.push({
+                        lineNum: filteredIndices![startFilterI + k] + 1,
+                        content: content
+                    });
+                }
+            } catch (err) {
+                console.error('Error batch reading lines', err);
+                // Fallback
+                for (let k = startFilterI; k <= endFilterI; k++) {
+                    resultLines.push({ lineNum: filteredIndices![k] + 1, content: '[Error reading line]' });
+                }
+            }
+        };
+
+        // Identify contiguous blocks in filteredIndices
+        // However, 'contiguous' means originalLineNum[i+1] == originalLineNum[i] + 1
+
+        let batchStartI = startFilterIndex;
+        for (let i = startFilterIndex; i < max; i++) {
+            // If next one is not contiguous, flush batch
+            const currentOriginal = filteredIndices[i];
+            const nextOriginal = (i + 1 < max) ? filteredIndices[i + 1] : -2;
+
+            if (nextOriginal !== currentOriginal + 1) {
+                // End of a contiguous block
+                await fetchBlock(batchStartI, i);
+                batchStartI = i + 1;
+            }
         }
     }
 
@@ -292,7 +365,10 @@ const getRawLines = async (startLineNum: number, count: number, requestId: strin
             resultLines.push({ lineNum: i + 1, content: streamLines[i] });
         }
     } else {
-        if (!currentFile || !lineOffsets) return;
+        if (!currentFile || !lineOffsets) {
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
+        }
         const max = Math.min(startIdx + count, lineOffsets.length);
 
         const readSlice = (blob: Blob): Promise<string> => {
@@ -330,13 +406,16 @@ const findHighlight = async (keyword: string, startFilterIndex: number, directio
     if (direction === 'next') searchIdx++; else searchIdx--;
 
     // Safety check for cached FileReader logic if needed, but for now we create new one per request or reuse logic
+    const isCaseSensitive = currentRule?.colorHighlightsCaseSensitive || false;
+    const effectiveKeyword = isCaseSensitive ? keyword : keyword.toLowerCase();
 
     if (isStreamMode) {
         while (searchIdx >= 0 && searchIdx < filteredIndices.length) {
             const originalIdx = filteredIndices[searchIdx];
             if (originalIdx < streamLines.length) {
                 const line = streamLines[originalIdx];
-                if (line.toLowerCase().includes(keyword.toLowerCase())) {
+                const lineCheck = isCaseSensitive ? line : line.toLowerCase();
+                if (lineCheck.includes(effectiveKeyword)) {
                     respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx }, requestId });
                     return;
                 }
@@ -367,7 +446,8 @@ const findHighlight = async (keyword: string, startFilterIndex: number, directio
 
             if (startByte < endByte) {
                 const line = await readSlice(currentFile.slice(startByte, endByte));
-                if (line.toLowerCase().includes(keyword.toLowerCase())) {
+                const lineCheck = isCaseSensitive ? line : line.toLowerCase();
+                if (lineCheck.includes(effectiveKeyword)) {
                     respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx }, requestId });
                     return;
                 }
@@ -380,6 +460,72 @@ const findHighlight = async (keyword: string, startFilterIndex: number, directio
     respond({ type: 'FIND_RESULT', payload: { foundIndex: -1 }, requestId });
 };
 
+
+// --- Handler: Get Full Text (Optimized) ---
+const getFullText = async (requestId: string) => {
+    if (!filteredIndices) {
+        respond({ type: 'FULL_TEXT_DATA', payload: { text: '' }, requestId } as any);
+        return;
+    }
+
+    // If result is expected to be very large, this might still be slow or max out memory, 
+    // but avoiding object creation per line {lineNum, content} is a significant speedup (10x-100x).
+    const lines: string[] = [];
+
+    if (isStreamMode) {
+        for (let i = 0; i < filteredIndices.length; i++) {
+            const originalIdx = filteredIndices[i];
+            if (originalIdx < streamLines.length) {
+                lines.push(streamLines[originalIdx]);
+            }
+        }
+    } else {
+        if (!currentFile || !lineOffsets) {
+            respond({ type: 'FULL_TEXT_DATA', payload: { text: '' }, requestId } as any);
+            return;
+        }
+
+        // Optimize: Group contiguous original lines to read in fewer chunks
+        const max = filteredIndices.length;
+        let batchStartI = 0;
+
+        const fetchBlockStr = async (startFilterI: number, endFilterI: number) => {
+            const startLine = filteredIndices![startFilterI];
+            const endLine = filteredIndices![endFilterI];
+            const startByte = Number(lineOffsets![startLine]);
+            const endByteLine = endLine < lineOffsets!.length - 1 ? endLine + 1 : -1;
+            const endByte = endByteLine !== -1 ? Number(lineOffsets![endByteLine]) : currentFile!.size;
+
+            if (startByte >= endByte) return;
+
+            try {
+                const text = await currentFile!.slice(startByte, endByte).text();
+                const rawLines = text.split('\n');
+
+                for (let k = 0; k < rawLines.length && (startFilterI + k) <= endFilterI; k++) {
+                    let content = rawLines[k];
+                    if (k === rawLines.length - 1 && content === '') continue;
+                    if (content.endsWith('\r')) content = content.slice(0, -1);
+                    lines.push(content);
+                }
+            } catch (err) {
+                console.error('Error batch reading lines for full text', err);
+            }
+        };
+
+        for (let i = 0; i < max; i++) {
+            const currentOriginal = filteredIndices[i];
+            const nextOriginal = (i + 1 < max) ? filteredIndices[i + 1] : -2;
+
+            if (nextOriginal !== currentOriginal + 1) {
+                await fetchBlockStr(batchStartI, i);
+                batchStartI = i + 1;
+            }
+        }
+    }
+
+    respond({ type: 'FULL_TEXT_DATA', payload: { text: lines.join('\n') }, requestId } as any);
+};
 
 // --- Message Listener ---
 ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
@@ -405,6 +551,9 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             break;
         case 'FIND_HIGHLIGHT':
             findHighlight(payload.keyword, payload.startIndex, payload.direction, requestId || '');
+            break;
+        case 'GET_FULL_TEXT' as any: // Cast for now until types updated
+            getFullText(requestId || '');
             break;
     }
 };

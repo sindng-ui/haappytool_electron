@@ -1,30 +1,155 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import * as Lucide from 'lucide-react';
 
-const { Trash2, AlignLeft, Minimize2, CheckCircle, AlertCircle, Copy, FileJson } = Lucide;
+const { Trash2, AlignLeft, Minimize2, CheckCircle, AlertCircle, Copy, FileJson, PlusSquare, MinusSquare, ChevronDown, ChevronRight } = Lucide;
+
+// --- Helper Components ---
+
+interface JsonNodeProps {
+    keyName?: string;
+    value: any;
+    isLast: boolean;
+    level: number;
+    initialExpand: boolean;
+    expandSignal: number; // 0=none, 1=expand, 2=collapse
+}
+
+const JsonNode: React.FC<JsonNodeProps> = ({ keyName, value, isLast, level, initialExpand, expandSignal }) => {
+    const [expanded, setExpanded] = useState(initialExpand);
+
+    useEffect(() => {
+        if (expandSignal === 1) setExpanded(true);
+        if (expandSignal === 2) setExpanded(false);
+    }, [expandSignal]);
+
+    const isObject = value !== null && typeof value === 'object';
+    const isArray = Array.isArray(value);
+    const isEmpty = isObject && Object.keys(value).length === 0;
+
+    const renderValue = (val: any) => {
+        if (val === null) return <span className="text-red-400">null</span>;
+        if (typeof val === 'string') return <span className="text-emerald-400">"{val}"</span>;
+        if (typeof val === 'number') return <span className="text-blue-400">{val}</span>;
+        if (typeof val === 'boolean') return <span className="text-orange-400">{val ? 'true' : 'false'}</span>;
+        return <span className="text-slate-300">{String(val)}</span>;
+    };
+
+    if (isObject && !isEmpty) {
+        const keys = Object.keys(value);
+        return (
+            <div className="font-mono text-sm leading-6">
+                <div className="flex items-start hover:bg-slate-800/30 rounded px-1 transition-colors group">
+                    <span className="w-4 mr-1 shrink-0 flex items-center justify-center cursor-pointer text-slate-500 hover:text-indigo-400 mt-1" onClick={() => setExpanded(!expanded)}>
+                        {expanded ? <MinusSquare size={12} /> : <PlusSquare size={12} />}
+                    </span>
+                    <div className="flex-1 break-all">
+                        {keyName && <span className="text-indigo-400 font-bold mr-1">"{keyName}":</span>}
+                        <span className="text-slate-400">{isArray ? '[' : '{'}</span>
+                        {!expanded && (
+                            <span className="text-slate-500 italic text-xs mx-1 cursor-pointer select-none" onClick={() => setExpanded(true)}>
+                                {isArray ? `${keys.length} items` : `${keys.length} keys`}
+                            </span>
+                        )}
+                        {!expanded && <span className="text-slate-400">{isArray ? ']' : '}'}</span>}
+                        {!expanded && !isLast && <span className="text-slate-500">,</span>}
+                    </div>
+                </div>
+                {expanded && (
+                    <div style={{ paddingLeft: '1.5rem' }}>
+                        {keys.map((key, idx) => (
+                            <JsonNode
+                                key={key}
+                                keyName={isArray ? undefined : key} // Arrays don't show index keys usually
+                                value={value[key]}
+                                isLast={idx === keys.length - 1}
+                                level={level + 1}
+                                initialExpand={initialExpand}
+                                expandSignal={expandSignal}
+                            />
+                        ))}
+                    </div>
+                )}
+                {expanded && (
+                    <div className="pl-[1.5rem]">
+                        <span className="text-slate-400">{isArray ? ']' : '}'}</span>
+                        {!isLast && <span className="text-slate-500">,</span>}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // Primitive or Empty
+    return (
+        <div className="font-mono text-sm leading-6 flex hover:bg-slate-800/30 rounded px-1 group transition-colors">
+            <span className="w-4 mr-1 shrink-0"></span> {/* Spacer for align */}
+            <div className="break-all">
+                {keyName && <span className="text-indigo-400 font-bold mr-1">"{keyName}":</span>}
+                {isObject ? (
+                    // Empty Object/Array
+                    <span className="text-slate-500">{isArray ? '[]' : '{}'}</span>
+                ) : (
+                    renderValue(value)
+                )}
+                {!isLast && <span className="text-slate-500">,</span>}
+            </div>
+        </div>
+    );
+};
+
+
+// --- Main Formatter Component ---
 
 const JsonFormatter: React.FC = () => {
     const [input, setInput] = useState('');
-    const [formatted, setFormatted] = useState('');
+    const [parsedData, setParsedData] = useState<any>(null);
+    const [formattedString, setFormattedString] = useState(''); // For Copy/Minify view
     const [error, setError] = useState<string | null>(null);
     const [valid, setValid] = useState(false);
+    const [expandSignal, setExpandSignal] = useState(0); // 0=IDLE, 1=EXPAND, 2=COLLAPSE
+
+    const [showToast, setShowToast] = useState(false);
+
+    // ... (useEffect for expandSignal)
+
+    // Hide toast after 2s
+    useEffect(() => {
+        if (showToast) {
+            const t = setTimeout(() => setShowToast(false), 2000);
+            return () => clearTimeout(t);
+        }
+    }, [showToast]);
+
+    const copyToClipboard = (text: string) => {
+        if (window.electronAPI?.copyToClipboard) {
+            window.electronAPI.copyToClipboard(text);
+        } else if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).catch(console.error);
+        }
+        setShowToast(true);
+    };
 
     const handleFormat = () => {
         if (!input.trim()) {
-            setFormatted('');
+            setParsedData(null);
+            setFormattedString('');
             setValid(false);
             setError(null);
             return;
         }
         try {
             const obj = JSON.parse(input);
-            setFormatted(JSON.stringify(obj, null, 2));
+            setParsedData(obj);
+            // formattedString serves as the default copy text (Beautified)
+            setFormattedString(JSON.stringify(obj, null, 2));
             setValid(true);
             setError(null);
+            setExpandSignal(1); // Default expand all on new format
         } catch (e: any) {
             setValid(false);
+            setParsedData(null);
             setError(e.message);
-            setFormatted('');
+            setFormattedString('');
         }
     };
 
@@ -32,48 +157,19 @@ const JsonFormatter: React.FC = () => {
         if (!input.trim()) return;
         try {
             const obj = JSON.parse(input);
-            setFormatted(JSON.stringify(obj));
-            setValid(true);
-            setError(null);
+            const minified = JSON.stringify(obj);
+            copyToClipboard(minified);
         } catch (e: any) {
-            setValid(false);
             setError(e.message);
         }
     };
 
     const clearFormatter = () => {
         setInput('');
-        setFormatted('');
+        setParsedData(null);
+        setFormattedString('');
         setError(null);
         setValid(false);
-    };
-
-    const highlightJson = (jsonStr: string) => {
-        if (!jsonStr) return null;
-        return jsonStr.split('\n').map((line, lineIdx) => {
-            const keyMatch = line.match(/^(\s*)(".*?")(\s*:\s*)(.*)$/);
-            if (keyMatch) {
-                const [, indent, key, colon, value] = keyMatch;
-                return (
-                    <div key={lineIdx} className="whitespace-pre">
-                        {indent}
-                        <span className="text-indigo-400 font-bold">{key}</span>
-                        <span className="text-slate-500">{colon}</span>
-                        <span className={getValueClass(value)}>{value}</span>
-                    </div>
-                );
-            }
-            return <div key={lineIdx} className="whitespace-pre text-slate-400">{line}</div>;
-        });
-    };
-
-    const getValueClass = (val: string) => {
-        val = val.trim();
-        if (val.startsWith('"')) return 'text-emerald-400';
-        if (val === 'true' || val === 'false') return 'text-orange-400';
-        if (val === 'null') return 'text-red-400';
-        if (!isNaN(Number(val.replace(',', '')))) return 'text-blue-400';
-        return 'text-slate-300';
     };
 
     return (
@@ -96,34 +192,45 @@ const JsonFormatter: React.FC = () => {
                 />
                 <div className="flex gap-3 mt-2">
                     <button onClick={handleFormat} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-900/30 transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
-                        <AlignLeft size={16} /> Beautify
+                        <AlignLeft size={16} /> Beautify (Tree View)
                     </button>
-                    <button onClick={handleMinify} className="px-6 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-sm border border-slate-700 transition-colors flex items-center gap-2">
-                        <Minimize2 size={16} /> Minify
+                    <button onClick={handleMinify} className="px-6 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-sm border border-slate-700 transition-colors flex items-center gap-2" title="Copy Minified to Clipboard">
+                        <Minimize2 size={16} /> Minify (Copy)
                     </button>
                 </div>
             </div>
 
-            <div className="flex-1 flex flex-col gap-2">
+            <div className="flex-1 flex flex-col gap-2 relative">
                 <div className="flex justify-between items-center text-slate-400 px-2">
                     <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
                         {valid ? <span className="text-green-500 flex items-center gap-1"><CheckCircle size={12} /> Valid JSON</span> :
                             error ? <span className="text-red-500 flex items-center gap-1"><AlertCircle size={12} /> Invalid JSON</span> :
-                                'Formatted Output'}
+                                'Tree Output'}
                     </span>
-                    <button
-                        onClick={() => {
-                            if (formatted) {
-                                navigator.clipboard.writeText(formatted);
-                                alert("Copied!");
-                            }
-                        }}
-                        disabled={!valid}
-                        className="p-1 hover:text-indigo-400 transition-colors disabled:opacity-30"
-                        title="Copy Result"
-                    >
-                        <Copy size={14} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {valid && (
+                            <>
+                                <button onClick={() => setExpandSignal(1)} className="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-700 transition-colors mr-2">
+                                    Expand All
+                                </button>
+                                <button onClick={() => setExpandSignal(2)} className="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-700 transition-colors mr-2">
+                                    Collapse All
+                                </button>
+                            </>
+                        )}
+                        <button
+                            onClick={() => {
+                                if (formattedString) {
+                                    copyToClipboard(formattedString);
+                                }
+                            }}
+                            disabled={!valid}
+                            className="p-1 hover:text-indigo-400 transition-colors disabled:opacity-30"
+                            title="Copy Formatted Result"
+                        >
+                            <Copy size={14} />
+                        </button>
+                    </div>
                 </div>
                 <div className="flex-1 bg-slate-950 rounded-2xl border border-slate-800 p-4 font-mono text-sm overflow-auto custom-scrollbar relative shadow-inner">
                     {error ? (
@@ -131,9 +238,15 @@ const JsonFormatter: React.FC = () => {
                             <strong>Error parsing JSON:</strong><br />
                             {error}
                         </div>
-                    ) : formatted ? (
+                    ) : parsedData ? (
                         <div className="text-sm leading-6">
-                            {highlightJson(formatted)}
+                            <JsonNode
+                                value={parsedData}
+                                isLast={true}
+                                level={0}
+                                initialExpand={true}
+                                expandSignal={expandSignal}
+                            />
                         </div>
                     ) : (
                         <div className="h-full flex flex-col items-center justify-center text-slate-600">
@@ -141,6 +254,12 @@ const JsonFormatter: React.FC = () => {
                             <p>Ready to format</p>
                         </div>
                     )}
+
+                    {/* Toast Notification */}
+                    <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded-full shadow-xl border border-slate-700 flex items-center gap-2 transition-all duration-300 pointer-events-none ${showToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                        <CheckCircle size={16} className="text-emerald-400" />
+                        <span className="text-xs font-bold">Copied to clipboard!</span>
+                    </div>
                 </div>
             </div>
         </div>

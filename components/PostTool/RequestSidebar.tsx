@@ -18,6 +18,17 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
     savedRequests, activeRequestId, currentRequest,
     onSelectRequest, onNewRequest, onDeleteRequest, onChangeCurrentRequest
 }) => {
+    const [editingId, setEditingId] = React.useState<string | null>(null);
+    const prevCountRef = React.useRef(savedRequests.length);
+
+    React.useEffect(() => {
+        if (savedRequests.length > prevCountRef.current) {
+            // New item added, enter edit mode for it (assuming it's set as active)
+            if (activeRequestId) setEditingId(activeRequestId);
+        }
+        prevCountRef.current = savedRequests.length;
+    }, [savedRequests.length, activeRequestId]);
+
     const getMethodColor = (m: string) => {
         switch (m) {
             case 'GET': return 'text-blue-400';
@@ -46,6 +57,7 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                     <div
                         key={req.id}
                         onClick={() => onSelectRequest(req.id)}
+                        onDoubleClick={() => setEditingId(req.id)}
                         className={`group flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-all border ${activeRequestId === req.id
                             ? 'bg-indigo-600/10 border-indigo-500/30 text-indigo-300'
                             : 'border-transparent hover:bg-slate-800 text-slate-400'
@@ -53,19 +65,20 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                     >
                         <div className="flex items-center gap-2 overflow-hidden flex-1">
                             <span className={`text-[10px] font-bold w-8 shrink-0 ${getMethodColor(req.method)}`}>{req.method}</span>
-                            {activeRequestId === req.id ? (
+                            {editingId === req.id && activeRequestId === req.id ? (
                                 <input
+                                    autoFocus
                                     type="text"
                                     value={currentRequest.name}
                                     onChange={(e) => onChangeCurrentRequest({ ...currentRequest, name: e.target.value })}
                                     onClick={(e) => e.stopPropagation()}
+                                    onBlur={() => setEditingId(null)}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
-                                            e.currentTarget.blur();
+                                            setEditingId(null);
                                         }
                                     }}
                                     className="flex-1 bg-slate-800 text-sm font-medium px-2 py-0.5 rounded border border-indigo-500/30 focus:outline-none focus:border-indigo-500 text-indigo-300"
-                                // Removed autoFocus as it might steal focus unexpectedly
                                 />
                             ) : (
                                 <span className="text-sm font-medium truncate">{req.name || 'Untitled'}</span>

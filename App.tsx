@@ -4,7 +4,9 @@ import LogExtractor from './components/LogExtractor';
 import PostTool from './components/PostTool';
 import TpkExtractor from './components/TpkExtractor';
 import JsonTools from './components/JsonTools';
+import SmartThingsDevicesPane from './components/SmartThingsDevices/SmartThingsDevicesPane';
 import { ToolId, LogRule, AppSettings, SavedRequest } from './types';
+import { SettingsModal } from './components/SettingsModal';
 
 const App: React.FC = () => {
   const [activeTool, setActiveTool] = useState<ToolId>(ToolId.LOG_EXTRACTOR);
@@ -23,18 +25,32 @@ const App: React.FC = () => {
   const [lastMethod, setLastMethod] = useState('GET');
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   const [savedRequests, setSavedRequests] = useState<SavedRequest[]>([]);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Tool Order State
   const [toolOrder, setToolOrder] = useState<ToolId[]>([
     ToolId.LOG_EXTRACTOR,
     ToolId.POST_TOOL,
     ToolId.JSON_TOOLS,
-    ToolId.TPK_EXTRACTOR
+    ToolId.TPK_EXTRACTOR,
+    ToolId.SMARTTHINGS_DEVICES
   ]);
 
   // Load settings on mount
   useEffect(() => {
     const saved = localStorage.getItem('devtool_suite_settings');
+    const defaultRequest: SavedRequest = {
+      id: 'default-st-devices',
+      name: 'SmartThings Devices',
+      method: 'GET',
+      url: 'https://client.smartthings.com/v1/devices?includeAllowedActions=true&includeHealth=true&includeGroups=true&includeStatus=true',
+      headers: [
+        { key: 'Accept', value: 'application/json' },
+        { key: 'Authorization', value: 'Bearer AccessTokenHere' }
+      ],
+      body: ''
+    };
+
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -60,11 +76,21 @@ const App: React.FC = () => {
           });
           setLogRules(migratedRules);
         }
-        if (parsed.savedRequests) setSavedRequests(parsed.savedRequests);
+        if (parsed.savedRequests && Array.isArray(parsed.savedRequests) && parsed.savedRequests.length > 0) {
+          setSavedRequests(parsed.savedRequests);
+        } else {
+          // If missing OR empty array, force default item
+          setSavedRequests([defaultRequest]);
+        }
         if (parsed.lastEndpoint) setLastApiUrl(parsed.lastEndpoint);
       } catch (e) {
         console.error("Failed to load settings", e);
+        // Fallback to default on error
+        setSavedRequests([defaultRequest]);
       }
+    } else {
+      // First run ever
+      setSavedRequests([defaultRequest]);
     }
     setIsSettingsLoaded(true);
   }, []);
@@ -135,6 +161,8 @@ const App: React.FC = () => {
         return <JsonTools />;
       case ToolId.TPK_EXTRACTOR:
         return <TpkExtractor />;
+      case ToolId.SMARTTHINGS_DEVICES:
+        return <SmartThingsDevicesPane />;
       default:
         return <div className="p-8 text-slate-400">Select a tool from the sidebar</div>;
     }
@@ -148,6 +176,7 @@ const App: React.FC = () => {
           onSelectTool={setActiveTool}
           toolOrder={toolOrder}
           onReorderTools={setToolOrder}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
 
         <main className="flex-1 overflow-hidden relative bg-slate-50 dark:bg-slate-950 min-h-0 transition-colors duration-300">
@@ -156,6 +185,7 @@ const App: React.FC = () => {
           ) : (
             renderContent()
           )}
+          <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} currentStartLineIndex={0} />
         </main>
       </div>
     </div>

@@ -148,6 +148,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         { action: "Next Bookmark", keys: ["F4"] },
                                         { action: "Prev Bookmark", keys: ["F3"] },
                                         { action: "Sync Scroll", keys: ["Shift", "Scroll"] },
+                                        { action: "Scroll Page", keys: ["PageUp", "PageDown"] },
                                         { action: "Focus Left Pane", keys: ["Ctrl", "←"] },
                                         { action: "Focus Right Pane", keys: ["Ctrl", "→"] },
                                         { action: "Create Rule", keys: ["Context Menu"] },
@@ -177,7 +178,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                 </div>
                                 <div>
                                     <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-500">HappyTool</h1>
-                                    <p className="text-slate-500 font-mono mt-2">v0.3.0 (Beta)</p>
+                                    <p className="text-slate-500 font-mono mt-2">v0.4.0 (Beta)</p>
                                 </div>
                                 <div className="p-6 bg-slate-200 dark:bg-slate-800/50 rounded-2xl border border-slate-300 dark:border-slate-700 text-sm leading-relaxed max-w-sm mx-auto">
                                     <p>

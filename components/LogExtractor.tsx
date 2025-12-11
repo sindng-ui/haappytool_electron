@@ -36,44 +36,13 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
         localStorage.setItem('configPanelWidth', configPanelWidth.toString());
     }, [configPanelWidth]);
 
-    // Load persisted state
-    const [tabs, setTabs] = useState<Tab[]>(() => {
-        try {
-            const saved = localStorage.getItem('openTabs');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                console.log('[LogExtractor] Loaded openTabs:', parsed);
-                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-            } else {
-                console.log('[LogExtractor] No openTabs found in localStorage');
-            }
-        } catch (e) {
-            console.error('[LogExtractor] Failed to parse openTabs:', e);
-        }
-        return [{ id: 'tab-1', title: 'New Log 1', initialFile: null }];
-    });
+    // Default initial state (do not load validation files)
+    const [tabs, setTabs] = useState<Tab[]>([{ id: 'tab-1', title: 'New Log 1', initialFile: null }]);
 
-    const [activeTabId, setActiveTabId] = useState<string>(() => {
-        return localStorage.getItem('activeTabId') || 'tab-1';
-    });
+    const [activeTabId, setActiveTabId] = useState<string>('tab-1');
 
-    const [tabCounter, setTabCounter] = useState(() => {
-        try {
-            const saved = localStorage.getItem('openTabs');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) {
-                    let max = 1;
-                    parsed.forEach((t: any) => {
-                        const match = t.id.match(/tab-(\d+)/);
-                        if (match) max = Math.max(max, parseInt(match[1]));
-                    });
-                    return max + 1;
-                }
-            }
-        } catch { }
-        return 2;
-    });
+    const [tabCounter, setTabCounter] = useState(2);
+
 
     useEffect(() => {
         const safeTabs = tabs.map(t => ({ id: t.id, title: t.title, filePath: t.filePath }));
@@ -143,23 +112,24 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
     // Tab Bar Component
     const renderTabBar = () => (
         <div
-            className="h-9 flex items-center bg-slate-950/90 border-b border-indigo-500/30 select-none pl-1 gap-1"
+            className="h-9 flex items-center bg-slate-950/90 border-b border-indigo-500/30 select-none pl-1"
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleGlobalDrop}
         >
-            <div className="flex-1 flex overflow-x-auto no-scrollbar items-end h-full px-2 gap-1">
-                {tabs.map((tab) => {
+            <div className="flex-1 flex overflow-x-auto no-scrollbar items-end h-full px-2">
+                {tabs.map((tab, idx) => {
                     const isActive = tab.id === activeTabId;
                     return (
                         <div
                             key={tab.id}
                             onClick={() => setActiveTabId(tab.id)}
                             className={`
-                                group relative flex items-center gap-2 px-3 py-1.5 min-w-[120px] max-w-[200px] h-[34px] 
-                                text-xs font-medium cursor-pointer transition-all rounded-t-lg border-t border-l border-r
+                                group relative flex items-center gap-2 px-4 py-1.5 min-w-[120px] max-w-[200px] h-[34px] 
+                                text-xs font-medium cursor-pointer transition-all rounded-t-lg border-t border-l border-r shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.5)]
+                                ${idx > 0 ? '-ml-3' : ''}
                                 ${isActive
-                                    ? 'bg-slate-900 border-indigo-500/50 text-indigo-300 z-10'
-                                    : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-900 hover:text-slate-300 border-b border-b-indigo-500/30'
+                                    ? 'bg-slate-900 border-indigo-500/50 text-indigo-300 z-20 shadow-lg'
+                                    : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-900 hover:text-slate-300 border-b-indigo-500/30 z-10 hover:z-15'
                                 }
                             `}
                             title={tab.title}
@@ -179,13 +149,17 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
                             {isActive && (
                                 <div className="absolute top-0 left-0 right-0 h-[2px] bg-indigo-500 rounded-t-full" />
                             )}
+                            {/* Bottom border hider for active tab */}
+                            {isActive && (
+                                <div className="absolute -bottom-[1px] left-0 right-0 h-[1px] bg-slate-900 z-30" />
+                            )}
                         </div>
                     );
                 })}
 
                 <button
                     onClick={() => handleAddTab(null)}
-                    className="h-[28px] w-[28px] flex items-center justify-center rounded-lg text-slate-500 hover:text-indigo-400 hover:bg-slate-800 transition-colors ml-1 mb-0.5"
+                    className="h-[28px] w-[28px] flex items-center justify-center rounded-lg text-slate-500 hover:text-indigo-400 hover:bg-slate-800 transition-colors ml-1 mb-0.5 z-0"
                     title="New Tab"
                 >
                     <Plus size={16} />
@@ -196,8 +170,6 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
 
     return (
         <div className="flex h-full flex-col font-sans overflow-hidden bg-slate-950">
-
-
             <div className="flex-1 overflow-hidden relative">
                 {tabs.map((tab) => (
                     <LogProvider
@@ -211,6 +183,7 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
                         onFileChange={(newPath) => {
                             setTabs(current => current.map(t => t.id === tab.id ? { ...t, filePath: newPath } : t));
                         }}
+                        isActive={tab.id === activeTabId}
                     >
                         <SessionWrapper
                             isActive={tab.id === activeTabId}
@@ -231,8 +204,8 @@ const SessionWrapper: React.FC<{
     isActive: boolean;
     onTitleChange: (title: string) => void;
     headerElement: React.ReactNode;
-}> = ({ isActive, onTitleChange, headerElement }) => {
+}> = React.memo(({ isActive, onTitleChange, headerElement }) => {
     return <LogSession isActive={isActive} onTitleChange={onTitleChange} headerElement={headerElement} />;
-};
+});
 
 export default LogExtractor;

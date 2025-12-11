@@ -31,12 +31,14 @@ export interface LogExtractorLogicProps {
     tabId: string;
     initialFilePath?: string;
     onFileChange?: (filePath: string) => void;
+    isActive?: boolean;
 }
 
 export const useLogExtractorLogic = ({
     rules, onUpdateRules, onExportSettings, onImportSettings,
     configPanelWidth, setConfigPanelWidth,
-    tabId, initialFilePath, onFileChange
+    tabId, initialFilePath, onFileChange,
+    isActive = true
 }: LogExtractorLogicProps) => {
     const [selectedRuleId, setSelectedRuleId] = useState<string>(() => {
         const saved = localStorage.getItem('lastSelectedRuleId');
@@ -56,6 +58,14 @@ export const useLogExtractorLogic = ({
     const toggleDualView = useCallback(() => {
         setIsDualView(prev => !prev);
     }, []);
+
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
+
+    const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
+        setToast({ message, type });
+    }, []);
+
+    const closeToast = useCallback(() => setToast(null), []);
 
     const leftWorkerRef = useRef<Worker | null>(null);
     const [leftWorkerReady, setLeftWorkerReady] = useState(false);
@@ -137,12 +147,12 @@ export const useLogExtractorLogic = ({
         if (savedStateStr) {
             try {
                 const saved = JSON.parse(savedStateStr);
-                if (saved.filePath) {
-                    console.log(`[useLog] Found saved filePath:`, saved.filePath);
-                    targetPath = saved.filePath;
-                }
+
                 if (saved.scrollTop) savedScrollTop = saved.scrollTop;
                 if (saved.selectedLine) savedSelectedLine = saved.selectedLine;
+                if (saved.ruleOverrides) {
+                    // setRuleOverrides(saved.ruleOverrides); // Removed causing ReferenceError
+                }
             } catch (e) {
                 console.error(`[Persistence] Failed to parse state for ${tabId}`, e);
             }
@@ -211,6 +221,8 @@ export const useLogExtractorLogic = ({
                     resolve && resolve(payload.lines);
                 } else if (type === 'FIND_RESULT') {
                     resolve && resolve(payload);
+                } else if (type === 'FULL_TEXT_DATA') {
+                    resolve && resolve(payload);
                 }
                 leftPendingRequests.current.delete(requestId);
                 return;
@@ -266,6 +278,8 @@ export const useLogExtractorLogic = ({
                 if (type === 'LINES_DATA') {
                     resolve && resolve(payload.lines);
                 } else if (type === 'FIND_RESULT') {
+                    resolve && resolve(payload);
+                } else if (type === 'FULL_TEXT_DATA') {
                     resolve && resolve(payload);
                 }
                 rightPendingRequests.current.delete(requestId);
@@ -419,12 +433,18 @@ export const useLogExtractorLogic = ({
             const refinedGroups = refineGroups(currentConfig.includeGroups);
 
             // Optimization: Check if effective filter changed
+            // Optimization: Check if effective filter changed
             const effectiveIncludes = refinedGroups.map(g =>
-                g.map(t => t.trim().toLowerCase()).filter(t => t !== '')
+                g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
             ).filter(g => g.length > 0);
-            const effectiveExcludes = currentConfig.excludes.map(e => e.trim().toLowerCase()).filter(e => e !== '');
+            const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
 
-            const payloadHash = JSON.stringify({ inc: effectiveIncludes, exc: effectiveExcludes });
+            const payloadHash = JSON.stringify({
+                inc: effectiveIncludes,
+                exc: effectiveExcludes,
+                happyCase: !!currentConfig.happyCombosCaseSensitive,
+                blockCase: !!currentConfig.blockListCaseSensitive
+            });
 
             if (payloadHash === lastFilterHashLeft.current) {
                 return;
@@ -472,24 +492,35 @@ export const useLogExtractorLogic = ({
 
         leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM' });
 
+        // Apply current filter immediately to the worker
+        const config = rules.find(r => r.id === selectedRuleId);
+        if (config) {
+            const refined = refineGroups(config.includeGroups);
+            leftWorkerRef.current?.postMessage({
+                type: 'FILTER_LOGS',
+                payload: { ...config, includeGroups: refined }
+            });
+        }
+
         socket.on('log_data', (data: any) => {
             const chunk = typeof data === 'string' ? data : (data.chunk || data.log || JSON.stringify(data));
             tizenBuffer.current.push(chunk);
 
+            // "Better Way" (Adaptive):
+            // 1. If buffer gets too large (high traffic), flush immediately to prevent accumulation lag.
+            if (tizenBuffer.current.length > 2000) {
+                if (tizenBufferTimeout.current) clearTimeout(tizenBufferTimeout.current);
+                flushTizenBuffer();
+                tizenBufferTimeout.current = null;
+                return;
+            }
+
+            // 2. Otherwise, buffer for 500ms to reduce UI flickering (User Request)
             if (!tizenBufferTimeout.current) {
                 tizenBufferTimeout.current = setTimeout(() => {
-                    // Check if we should maintain auto-scroll before processing
-                    if (leftViewerRef.current) {
-                        const scrollTop = leftViewerRef.current.getScrollTop();
-                        // This logic is imperfect without exact dimensions, but we can assume
-                        // if user scrolled up significantly, stop auto-scrolling
-                        // But since we can't easily get scrollHeight here, we rely on user action
-                        // For now, let's keep it simple: always auto-scroll if it was enabled.
-                        // We will add scroll listener in LogViewerPane to toggle shouldAutoScroll.
-                    }
                     flushTizenBuffer();
                     tizenBufferTimeout.current = null;
-                }, 100); // 100ms buffering
+                }, 500); // Increased from 100ms to 500ms for smoother UI
             }
         });
 
@@ -532,12 +563,18 @@ export const useLogExtractorLogic = ({
             const refinedGroups = refineGroups(currentConfig.includeGroups);
 
             // Optimization: Check if effective filter changed
+            // Optimization: Check if effective filter changed
             const effectiveIncludes = refinedGroups.map(g =>
-                g.map(t => t.trim().toLowerCase()).filter(t => t !== '')
+                g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
             ).filter(g => g.length > 0);
-            const effectiveExcludes = currentConfig.excludes.map(e => e.trim().toLowerCase()).filter(e => e !== '');
+            const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
 
-            const payloadHash = JSON.stringify({ inc: effectiveIncludes, exc: effectiveExcludes });
+            const payloadHash = JSON.stringify({
+                inc: effectiveIncludes,
+                exc: effectiveExcludes,
+                happyCase: !!currentConfig.happyCombosCaseSensitive,
+                blockCase: !!currentConfig.blockListCaseSensitive
+            });
 
             if (payloadHash === lastFilterHashRight.current) {
                 return;
@@ -596,7 +633,7 @@ export const useLogExtractorLogic = ({
     const requestLeftLines = useCallback((startIndex: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
             if (!leftWorkerRef.current) return resolve([]);
-            const reqId = crypto.randomUUID();
+            const reqId = Math.random().toString(36).substring(7);
             leftPendingRequests.current.set(reqId, resolve);
             leftWorkerRef.current.postMessage({ type: 'GET_LINES', payload: { startLine: startIndex, count }, requestId: reqId });
         });
@@ -605,7 +642,7 @@ export const useLogExtractorLogic = ({
     const requestLeftRawLines = useCallback((startLine: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
             if (!leftWorkerRef.current) return resolve([]);
-            const reqId = crypto.randomUUID();
+            const reqId = Math.random().toString(36).substring(7);
             leftPendingRequests.current.set(reqId, resolve);
             leftWorkerRef.current.postMessage({ type: 'GET_RAW_LINES', payload: { startLine, count }, requestId: reqId });
         });
@@ -625,7 +662,7 @@ export const useLogExtractorLogic = ({
     const requestRightLines = useCallback((startIndex: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
             if (!rightWorkerRef.current) return resolve([]);
-            const reqId = crypto.randomUUID();
+            const reqId = Math.random().toString(36).substring(7);
             rightPendingRequests.current.set(reqId, resolve);
             rightWorkerRef.current.postMessage({ type: 'GET_LINES', payload: { startLine: startIndex, count }, requestId: reqId });
         });
@@ -637,6 +674,24 @@ export const useLogExtractorLogic = ({
             const reqId = crypto.randomUUID();
             rightPendingRequests.current.set(reqId, resolve);
             rightWorkerRef.current.postMessage({ type: 'GET_RAW_LINES', payload: { startLine, count }, requestId: reqId });
+        });
+    }, []);
+
+    const requestLeftFullText = useCallback(() => {
+        return new Promise<string>((resolve) => {
+            if (!leftWorkerRef.current) return resolve('');
+            const reqId = Math.random().toString(36).substring(7);
+            leftPendingRequests.current.set(reqId, (payload: any) => resolve(payload.text));
+            leftWorkerRef.current.postMessage({ type: 'GET_FULL_TEXT', requestId: reqId });
+        });
+    }, []);
+
+    const requestRightFullText = useCallback(() => {
+        return new Promise<string>((resolve) => {
+            if (!rightWorkerRef.current) return resolve('');
+            const reqId = Math.random().toString(36).substring(7);
+            rightPendingRequests.current.set(reqId, (payload: any) => resolve(payload.text));
+            rightWorkerRef.current.postMessage({ type: 'GET_FULL_TEXT', requestId: reqId });
         });
     }, []);
 
@@ -674,53 +729,78 @@ export const useLogExtractorLogic = ({
     }, [tabId, leftFilePath, selectedLineIndexLeft]);
 
     const handleCopyLogs = useCallback(async (paneId: 'left' | 'right') => {
-        alert(`Copy button clicked for ${paneId} pane!`);
         const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
-        console.log(`[Copy] Request for ${paneId}, count=${count}`);
-        const requestLines = paneId === 'left' ? requestLeftLines : requestRightLines;
+        const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
         if (count <= 0) {
-            console.warn('[Copy] No logs to copy');
-            alert('No logs to copy.');
+            showToast('No logs to copy.', 'info');
             return;
         }
 
         try {
-            const lines = await requestLines(0, count);
-            console.log(`[Copy] Received ${lines.length} lines`);
-            const content = lines.map(l => l.content).join('\n');
-            if (window.electronAPI?.copyToClipboard) {
-                window.electronAPI.copyToClipboard(content);
-            } else {
-                await navigator.clipboard.writeText(content);
+            console.time('copy-fetch');
+            const content = await requestFullText();
+            console.timeEnd('copy-fetch');
+
+            if (!content) {
+                showToast('Failed to retrieve log content.', 'error');
+                return;
             }
-            console.log('[Copy] Success');
-            alert(`Copied ${count} lines from ${paneId === 'left' ? 'Left' : 'Right'} pane!`);
+
+            if (window.electronAPI?.copyToClipboard) {
+                await window.electronAPI.copyToClipboard(content);
+                showToast('Copied to clipboard!', 'success');
+            } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(content);
+                showToast('Copied to clipboard!', 'success');
+            } else {
+                // Fallback
+                const textArea = document.createElement("textarea");
+                textArea.value = content;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast('Copied to clipboard!', 'success');
+                } catch (e) {
+                    console.error('Fallback copy failed', e);
+                    showToast('Failed to copy logs.', 'error');
+                }
+                document.body.removeChild(textArea);
+            }
         } catch (e) {
             console.error('[Copy] Failed', e);
-            alert('Failed to copy. Check console for details.');
+            showToast('Failed to copy logs.', 'error');
         }
-    }, [leftFilteredCount, rightFilteredCount, requestLeftLines, requestRightLines]);
+    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, showToast]);
 
     const handleSaveLogs = useCallback(async (paneId: 'left' | 'right') => {
-        alert(`Save button clicked for ${paneId} pane!`);
         const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
-        console.log(`[Save] Request for ${paneId}, count=${count}`);
-        const requestLines = paneId === 'left' ? requestLeftLines : requestRightLines;
+        const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
         if (count <= 0) {
-            alert('No logs to save.');
+            showToast('No logs to save.', 'info');
             return;
         }
 
         try {
-            const lines = await requestLines(0, count);
-            console.log(`[Save] Received ${lines.length} lines`);
-            const content = lines.map(l => l.content).join('\n');
+            console.time('save-fetch');
+            const content = await requestFullText();
+            console.timeEnd('save-fetch');
+
+            if (!content) {
+                showToast('Failed to retrieve log content.', 'error');
+                return;
+            }
 
             if (window.electronAPI?.saveFile) {
                 const result = await window.electronAPI.saveFile(content);
                 if (result.status === 'success') {
                     console.log('[Save] Success', result.filePath);
-                    alert('Saved successfully!');
+                    showToast(`Saved to ${result.filePath}`, 'success');
+                } else if (result.status === 'error') {
+                    showToast(`Save failed: ${(result as any).error}`, 'error');
                 } else {
                     console.log('[Save] Canceled');
                 }
@@ -735,13 +815,13 @@ export const useLogExtractorLogic = ({
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                console.log('[Save] Download triggered (Web)');
+                showToast('Download triggered (Web)', 'success');
             }
         } catch (e) {
             console.error('[Save] Failed', e);
-            alert('Failed to save logs.');
+            showToast('Failed to save logs.', 'error');
         }
-    }, [leftFilteredCount, rightFilteredCount, requestLeftLines, requestRightLines]);
+    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, showToast]);
 
     const updateCurrentRule = (updates: Partial<LogRule>) => {
         const updatedRules = rules.map(r => r.id === selectedRuleId ? { ...r, ...updates } : r);
@@ -749,8 +829,17 @@ export const useLogExtractorLogic = ({
     };
 
     const handleCreateRule = () => {
-        const newId = crypto.randomUUID();
-        const newRule: LogRule = { id: newId, name: 'New Analysis', includeGroups: [['']], excludes: [], highlights: [] };
+        const newId = Math.random().toString(36).substring(7);
+        const newRule: LogRule = {
+            id: newId,
+            name: 'New Analysis',
+            includeGroups: [['']],
+            excludes: [],
+            highlights: [],
+            happyCombosCaseSensitive: false,
+            blockListCaseSensitive: false,
+            colorHighlightsCaseSensitive: false
+        };
         onUpdateRules([...rules, newRule]);
         setSelectedRuleId(newId);
         if (!isPanelOpen) setIsPanelOpen(true);
@@ -770,8 +859,8 @@ export const useLogExtractorLogic = ({
             try {
                 const json = JSON.parse(event.target?.result as string);
                 onImportSettings(json);
-                alert('Settings imported!');
-            } catch (error) { alert('Failed to parse settings file.'); }
+                showToast('Settings imported!', 'success');
+            } catch (error) { showToast('Failed to parse settings file.', 'error'); }
         };
         reader.readAsText(file);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -818,10 +907,12 @@ export const useLogExtractorLogic = ({
                 groups.get(root)!.push({ group, active: false, originalIdx: idx });
             });
         }
-        return Array.from(groups.entries()).map(([root, items]) => {
-            const isRootEnabled = items.some(i => i.active);
-            return { root, isRootEnabled, items };
-        });
+        return Array.from(groups.entries())
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([root, items]) => {
+                const isRootEnabled = items.some(i => i.active);
+                return { root, isRootEnabled, items };
+            });
     }, [currentConfig]);
 
     const [collapsedRoots, setCollapsedRoots] = useState<Set<string>>(() => {
@@ -904,7 +995,7 @@ export const useLogExtractorLogic = ({
         if (!worker) return;
 
         const result: any = await new Promise((resolve) => {
-            const reqId = crypto.randomUUID();
+            const reqId = Math.random().toString(36).substring(7);
             requestMap.current.set(reqId, resolve);
             worker.postMessage({
                 type: 'FIND_HIGHLIGHT',
@@ -939,6 +1030,8 @@ export const useLogExtractorLogic = ({
         isTizenModalOpen, setIsTizenModalOpen,
         fileInputRef, logFileInputRef,
         leftViewerRef, rightViewerRef, rawViewerRef,
+        toast,
+        closeToast,
         handleImportFile, handleLogFileSelect,
         handleTizenStreamStart, handleTizenDisconnect, tizenSocket,
         handleLineDoubleClickAction,

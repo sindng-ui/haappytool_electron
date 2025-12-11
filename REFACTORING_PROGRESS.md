@@ -59,3 +59,10 @@
     - `LogViewerPane` 내부의 렌더링 로직을 `LogLine`과 `HighlightRenderer` 컴포넌트로 분리하여 성능 및 유지보수성 향상.
     - `components/ui` 폴더 생성 및 `Button`, `IconButton` 공통 컴포넌트 구현.
     - `ConfigurationPanel`에 공통 UI 컴포넌트 적용하여 코드 중복 제거 및 스타일 일관성 확보.
+
+## Phase 6: 안정성 및 기능 개선 (SSH & UI)
+- ✅ **상태**: 완료.
+    - **SSH 연결 문제 해결**: 최신 호스트 키 알고리즘(`ecdsa-sha2-nistp256` 등) 지원 추가로 연결 호환성 확보.
+    - **파일 로딩 UI 개선**: 파일 드래그 앤 드롭 및 로딩 시 시각적 진행률(Progress Bar, Spinner, Blur Effect) 표시 기능 추가.
+    - **단일 라인 복사**: `Ctrl+C` 단축키로 선택된 줄만 복사하는 기능 추가 (Toast 메시지 없음).
+    - **보안 및 최적화**: `crypto.randomUUID()`를 호환성 있는 `Math.random` 기반 폴백으로 교체.

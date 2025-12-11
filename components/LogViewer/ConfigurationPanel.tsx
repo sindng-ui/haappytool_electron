@@ -6,7 +6,7 @@ import { IconButton } from '../ui/IconButton';
 
 const {
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, PanelLeftClose, PanelLeft, Zap, Folder, FolderOpen, X, Plus,
-    ShieldAlert, Highlighter, Palette, Play, Square, Terminal
+    ShieldAlert, Highlighter, Palette, Play, Square, Terminal, Copy, Save
 } = Lucide;
 
 const HIGHLIGHT_COLORS = [
@@ -27,9 +27,12 @@ const ConfigurationPanel: React.FC = () => {
         groupedRoots, collapsedRoots, setCollapsedRoots, handleToggleRoot,
         sendTizenCommand,
         hasEverConnected,
-        tizenSocket
+        tizenSocket,
+        handleCopyLogs,
+        handleSaveLogs
     } = useLogContext();
 
+    // ... (state hooks remain same)
     const [editingTag, setEditingTag] = useState<{ groupIdx: number, termIdx: number, value: string, isActive: boolean } | null>(null);
     const [newHighlightWord, setNewHighlightWord] = useState('');
     const [newHighlightColor, setNewHighlightColor] = useState('');
@@ -76,7 +79,7 @@ const ConfigurationPanel: React.FC = () => {
         >
             {isPanelOpen && (
                 <div
-                    className="absolute top-0 bottom-0 -right-1 w-2 cursor-col-resize z-50 hover:bg-indigo-500/20 transition-colors"
+                    className="absolute right-0 top-0 bottom-0 w-1.5 hover:bg-indigo-500/50 cursor-col-resize z-50 transition-colors"
                     onMouseDown={handleConfigResizeStart}
                 />
             )}
@@ -84,20 +87,29 @@ const ConfigurationPanel: React.FC = () => {
             <div className="absolute top-[18px] right-[-10px] z-50">
                 <Button
                     variant="secondary"
-                    className="w-8 h-8 rounded-full p-0 bg-indigo-600 border-2 border-indigo-400 hover:bg-indigo-500 shadow-xl flex items-center justify-center transition-transform hover:scale-110"
+                    className="w-6 h-10 rounded-r-lg p-0 bg-indigo-600 border-y-2 border-r-2 border-indigo-400 hover:bg-indigo-500 shadow-xl flex items-center justify-center transition-all active:scale-100 focus:scale-100"
                     onClick={onToggle}
                 >
-                    {isPanelOpen ? <PanelLeftClose size={20} className="text-white" /> : <PanelLeft size={20} className="text-white" />}
+                    {isPanelOpen ? <ChevronLeft size={16} className="text-white" /> : <ChevronRight size={16} className="text-white" />}
                 </Button>
             </div>
             {isPanelOpen ? (
                 <div className="p-6 overflow-y-auto h-full">
                     <div className="mb-6">
-                        <label className="block text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Mission Name</label>
+                        <div className="flex justify-between items-end mb-1">
+                            <label className="block text-[15px] font-bold text-indigo-400 uppercase tracking-widest">Mission Name</label>
+
+                        </div>
                         <input className="w-full bg-slate-800/50 rounded-xl px-2 py-1 text-2xl font-black text-slate-200 focus:outline-none border-b-2 border-transparent focus:border-indigo-500 placeholder-slate-600 transition-all" value={currentConfig.name} onChange={(e) => updateCurrentRule({ name: e.target.value })} placeholder="Untitled Rule" />
                     </div>
                     <div className="mb-8">
-                        <div className="flex items-center justify-between mb-4"><label className="text-sm font-bold text-slate-300 flex items-center gap-2"><Zap size={16} className="text-yellow-500 fill-yellow-500" /> Happy Combos</label></div>
+                        <div className="flex items-center justify-between mb-4">
+                            <label className="text-sm font-bold text-slate-300 flex items-center gap-2"><Zap size={16} className="text-yellow-500 fill-yellow-500" /> Happy Combos</label>
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-500 hover:text-indigo-400">
+                                <input type="checkbox" checked={currentConfig.happyCombosCaseSensitive || false} onChange={(e) => updateCurrentRule({ happyCombosCaseSensitive: e.target.checked })} className="accent-indigo-500 rounded-sm" />
+                                <span>Case Sensitive</span>
+                            </label>
+                        </div>
                         <div className="space-y-4">
                             {groupedRoots.map(({ root, isRootEnabled, items }, rootIdx) => (
                                 <div key={rootIdx} className={`bg-slate-800/40 rounded-2xl p-4 border flex flex-col gap-2 relative group transition-colors ${isRootEnabled ? 'border-slate-700/50' : 'border-slate-800 opacity-60'}`}>
@@ -436,25 +448,47 @@ const ConfigurationPanel: React.FC = () => {
                     </div>
 
                     <div className="mt-4">
-                        <label className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2"><ShieldAlert size={16} className="text-red-500" /> Block List</label>
+                        <div className="flex items-center justify-between mb-3">
+                            <label className="text-sm font-bold text-slate-300 flex items-center gap-2"><ShieldAlert size={16} className="text-red-500" /> Block List</label>
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-500 hover:text-indigo-400">
+                                <input type="checkbox" checked={currentConfig.blockListCaseSensitive || false} onChange={(e) => updateCurrentRule({ blockListCaseSensitive: e.target.checked })} className="accent-indigo-500 rounded-sm" />
+                                <span>Case Sensitive</span>
+                            </label>
+                        </div>
                         <div className="bg-red-900/10 rounded-2xl p-4 border border-red-900/20 border-dashed relative">
                             <div className="flex flex-wrap gap-2">
                                 {currentConfig.excludes.map((exc, idx) => (exc.trim() !== '' ? (<div key={idx} className="flex items-center bg-red-500/10 text-red-300 px-3 py-1.5 rounded-lg text-sm font-medium border border-red-500/20 shadow-sm"> <span>{exc}</span>
                                     <IconButton variant="ghost" size="xs" icon={<X size={12} />} className="ml-2 text-red-400/50 hover:text-red-300" onClick={() => updateCurrentRule({ excludes: currentConfig.excludes.filter((_, i) => i !== idx) })} />
                                 </div>) : null))}
-                                <input className="bg-slate-700 text-sm text-slate-200 placeholder-slate-400 focus:bg-slate-600 focus:outline-none py-1.5 px-3 rounded-lg border border-slate-700/50 focus:border-red-500/50 transition-colors min-w-[120px]" placeholder="+ block word..." onKeyDown={(e) => { if (e.key === 'Enter' && e.currentTarget.value.trim()) { updateCurrentRule({ excludes: [...currentConfig.excludes.filter(t => t !== ''), e.currentTarget.value.trim()] }); e.currentTarget.value = ''; } }} />
+                                <input className="bg-slate-700 text-sm text-slate-200 placeholder-slate-400 focus:bg-slate-600 focus:outline-none py-1.5 px-3 rounded-lg border border-slate-700/50 focus:border-red-500/50 transition-colors min-w-[120px]" placeholder="+ block word..." onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                        updateCurrentRule({ excludes: [...currentConfig.excludes.filter(t => t !== ''), e.currentTarget.value.trim()] });
+                                        e.currentTarget.value = '';
+                                    } else if (e.key === 'Backspace' && !e.currentTarget.value) {
+                                        const activeExcludes = currentConfig.excludes.filter(t => t !== '');
+                                        if (activeExcludes.length > 0) {
+                                            updateCurrentRule({ excludes: activeExcludes.slice(0, -1) });
+                                        }
+                                    }
+                                }} />
                             </div>
                         </div>
                     </div>
                     <div className="mt-8">
-                        <label className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2"><Highlighter size={16} className="text-pink-400" /> Color Highlights</label>
+                        <div className="flex items-center justify-between mb-3">
+                            <label className="text-sm font-bold text-slate-300 flex items-center gap-2"><Highlighter size={16} className="text-pink-400" /> Color Highlights</label>
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-500 hover:text-indigo-400">
+                                <input type="checkbox" checked={currentConfig.colorHighlightsCaseSensitive || false} onChange={(e) => updateCurrentRule({ colorHighlightsCaseSensitive: e.target.checked })} className="accent-indigo-500 rounded-sm" />
+                                <span>Case Sensitive</span>
+                            </label>
+                        </div>
                         <div className="bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-700 mb-2">
                             <div className="flex flex-col gap-2 mb-4">
                                 <div className="flex gap-1 flex-wrap">
                                     {HIGHLIGHT_COLORS.map(c => (<button key={c.value} onClick={() => { setNewHighlightColor(c.value); highlightInputRef.current?.focus(); }} className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${c.value} ${newHighlightColor === c.value ? 'border-white scale-110 shadow-md' : 'border-transparent opacity-80'}`} title={c.label} />))}
                                     <label className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 cursor-pointer flex items-center justify-center overflow-hidden bg-slate-700 relative ${isHexColor(newHighlightColor) ? 'border-white scale-110 shadow-md' : 'border-slate-500 opacity-80'}`} title="Custom Color"> {isHexColor(newHighlightColor) && (<div className="absolute inset-0" style={{ backgroundColor: newHighlightColor }}></div>)} <Palette size={12} className={`relative z-10 ${isHexColor(newHighlightColor) ? 'text-white drop-shadow-md' : 'text-slate-400'}`} /> <input type="color" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" value={isHexColor(newHighlightColor) ? newHighlightColor : '#000000'} onChange={(e) => { setNewHighlightColor(e.target.value); highlightInputRef.current?.focus(); }} /> </label>
                                 </div>
-                                <input ref={highlightInputRef} className="w-full bg-slate-700 text-sm text-slate-200 placeholder-slate-400 focus:bg-slate-600 focus:outline-none py-1.5 px-3 rounded-lg border border-slate-700/50 focus:border-pink-500 transition-colors" placeholder="Word to color..." value={newHighlightWord} onChange={(e) => setNewHighlightWord(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newHighlightWord.trim()) { const h = { id: crypto.randomUUID(), keyword: newHighlightWord.trim(), color: newHighlightColor || HIGHLIGHT_COLORS[0].value }; updateCurrentRule({ highlights: [...(currentConfig.highlights || []), h] }); setNewHighlightWord(''); } }} />
+                                <input ref={highlightInputRef} className="w-full bg-slate-700 text-sm text-slate-200 placeholder-slate-400 focus:bg-slate-600 focus:outline-none py-1.5 px-3 rounded-lg border border-slate-700/50 focus:border-pink-500 transition-colors" placeholder="Word to color..." value={newHighlightWord} onChange={(e) => setNewHighlightWord(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newHighlightWord.trim()) { const h = { id: Math.random().toString(36).substring(7), keyword: newHighlightWord.trim(), color: newHighlightColor || HIGHLIGHT_COLORS[0].value }; updateCurrentRule({ highlights: [...(currentConfig.highlights || []), h] }); setNewHighlightWord(''); } }} />
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {(currentConfig.highlights || []).map((h, i) => {

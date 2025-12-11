@@ -4,6 +4,7 @@ export enum ToolId {
   POST_TOOL = 'POST_TOOL',
   TPK_EXTRACTOR = 'TPK_EXTRACTOR',
   JSON_TOOLS = 'JSON_TOOLS',
+  SMARTTHINGS_DEVICES = 'SMARTTHINGS_DEVICES',
 }
 
 export interface LogHighlight {
@@ -21,6 +22,9 @@ export interface LogRule {
   highlights: LogHighlight[];
   logCommand?: string;
   logTags?: string[];
+  happyCombosCaseSensitive?: boolean;
+  blockListCaseSensitive?: boolean;
+  colorHighlightsCaseSensitive?: boolean;
 }
 
 export interface AppSettings {
