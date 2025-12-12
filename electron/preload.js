@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     setZoomFactor: (factor) => require('electron').webFrame.setZoomFactor(factor),
     getZoomFactor: () => require('electron').webFrame.getZoomFactor(),
-    copyToClipboard: (text) => clipboard.writeText(text),
+    copyToClipboard: (text) => ipcRenderer.invoke('copyToClipboard', text),
     saveFile: (content) => ipcRenderer.invoke('saveFile', content),
     saveBinaryFile: (data, fileName) => ipcRenderer.invoke('saveBinaryFile', { data, fileName }),
     openExternal: (url) => ipcRenderer.invoke('openExternal', url),

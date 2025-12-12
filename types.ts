@@ -30,8 +30,15 @@ export interface LogRule {
 export interface AppSettings {
   logRules: LogRule[];
   savedRequests: SavedRequest[];
+  savedRequestGroups?: RequestGroup[];
   lastEndpoint: string;
   lastMethod: string;
+}
+
+export interface RequestGroup {
+  id: string;
+  name: string;
+  collapsed: boolean;
 }
 
 export interface SavedRequest {
@@ -41,6 +48,7 @@ export interface SavedRequest {
   url: string;
   headers: { key: string; value: string }[];
   body: string;
+  groupId?: string;
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -64,7 +72,7 @@ export interface LogWorkerMessage {
 }
 
 export interface LogWorkerResponse {
-  type: 'STATUS_UPDATE' | 'INDEX_COMPLETE' | 'FILTER_COMPLETE' | 'LINES_DATA' | 'ERROR' | 'STREAM_FLUSH' | 'FIND_RESULT';
+  type: 'STATUS_UPDATE' | 'INDEX_COMPLETE' | 'FILTER_COMPLETE' | 'LINES_DATA' | 'ERROR' | 'STREAM_FLUSH' | 'FIND_RESULT' | 'FULL_TEXT_DATA';
   payload?: any;
   requestId?: string;
 }

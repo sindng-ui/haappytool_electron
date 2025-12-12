@@ -10,6 +10,36 @@ interface ResponseViewerProps {
 
 const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
     const [showToast, setShowToast] = useState(false);
+    const [formattedData, setFormattedData] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    // Worker Ref
+    const workerRef = React.useRef<Worker | null>(null);
+
+    useEffect(() => {
+        workerRef.current = new Worker(new URL('../../workers/JsonParser.worker.ts', import.meta.url), { type: 'module' });
+
+        workerRef.current.onmessage = (e) => {
+            const { type, payload } = e.data;
+            if (type === 'SUCCESS') {
+                // Determine if payload is string or object (from format mode)
+                // Worker returns { data, formatted } for 'format' mode now
+                if (typeof payload === 'object' && payload.formatted) {
+                    setFormattedData(payload.formatted);
+                } else {
+                    setFormattedData(payload); // Fallback
+                }
+                setIsProcessing(false);
+            } else if (type === 'ERROR') {
+                setFormattedData(typeof response?.data === 'string' ? response.data : JSON.stringify(response?.data));
+                setIsProcessing(false);
+            }
+        };
+
+        return () => {
+            workerRef.current?.terminate();
+        };
+    }, []);
 
     useEffect(() => {
         if (showToast) {
@@ -18,23 +48,47 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         }
     }, [showToast]);
 
-    const getResponseString = () => {
-        if (!response) return '';
-        return typeof response.data === 'string'
-            ? response.data
-            : JSON.stringify(response.data, null, 2);
-    };
+    useEffect(() => {
+        if (!response) {
+            setFormattedData('');
+            return;
+        }
+
+        const rawData = response.data;
+        if (typeof rawData === 'string') {
+            try {
+                // Attempt to parse string as JSON to format it
+                const json = JSON.parse(rawData);
+                setIsProcessing(true);
+                workerRef.current?.postMessage({
+                    type: 'PARSE_AND_FORMAT',
+                    payload: { text: JSON.stringify(json), mode: 'format' },
+                    requestId: 'response_view'
+                });
+            } catch {
+                setFormattedData(rawData); // Plain string, just show
+            }
+        } else if (typeof rawData === 'object') {
+            setIsProcessing(true);
+            // It's already an object, but we want to format it pretty via worker to avoid blocking
+            workerRef.current?.postMessage({
+                type: 'PARSE_AND_FORMAT',
+                payload: { text: JSON.stringify(rawData), mode: 'format' },
+                requestId: 'response_view'
+            });
+        } else {
+            setFormattedData(String(rawData));
+        }
+    }, [response]);
 
     const handleCopy = () => {
-        const text = getResponseString();
-        if (!text) return;
-        navigator.clipboard.writeText(text);
+        if (!formattedData) return;
+        navigator.clipboard.writeText(formattedData);
         setShowToast(true);
     };
 
     const handleExport = async () => {
-        const text = getResponseString();
-        if (!text) return;
+        if (!formattedData) return;
 
         const filename = `response_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
 
@@ -43,7 +97,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         if (window.electronAPI && window.electronAPI.saveTextFile) {
             try {
                 // @ts-ignore
-                await window.electronAPI.saveTextFile(text, filename);
+                await window.electronAPI.saveTextFile(formattedData, filename);
                 return;
             } catch (e) {
                 console.error("Electron save failed", e);
@@ -51,7 +105,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         }
 
         // Fallback
-        const blob = new Blob([text], { type: 'application/json' });
+        const blob = new Blob([formattedData], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -96,11 +150,18 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                 )}
             </div>
 
-            <div className="flex-1 overflow-auto p-4 custom-scrollbar">
+            <div className="flex-1 overflow-auto p-4 custom-scrollbar relative">
                 {response ? (
-                    <pre className="font-mono text-xs text-emerald-400 whitespace-pre-wrap break-all">
-                        {getResponseString()}
-                    </pre>
+                    isProcessing ? (
+                        <div className="absolute inset-0 flex items-center justify-center text-slate-500 gap-2">
+                            <Activity className="animate-spin" size={24} />
+                            <span className="text-xs">Formatting...</span>
+                        </div>
+                    ) : (
+                        <pre className="font-mono text-xs text-emerald-400 whitespace-pre-wrap break-all">
+                            {formattedData}
+                        </pre>
+                    )
                 ) : (
                     <div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2 opacity-50">
                         <Activity size={32} />

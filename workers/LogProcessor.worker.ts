@@ -246,7 +246,10 @@ const applyFilter = async (rule: LogRule) => {
 
 // --- Handler: Get Lines ---
 const getLines = async (startFilterIndex: number, count: number, requestId: string) => {
+    // console.log(`[Worker] getLines request: start=${startFilterIndex}, count=${count}`);
+
     if (!filteredIndices) {
+        console.warn('[Worker] No filteredIndices available');
         respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
         return;
     }
@@ -264,82 +267,54 @@ const getLines = async (startFilterIndex: number, count: number, requestId: stri
     } else {
         // File Mode
         if (!currentFile || !lineOffsets) {
+            console.warn('[Worker] No currentFile or lineOffsets');
             respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
             return;
         }
 
-        // Optimize: Group contiguous original lines to read in fewer chunks
-        let currentBlockStartIdx = -1;
-        let currentBlockEndIdx = -1;
-        let blockLines: { lineNum: number, content: string }[] = [];
+        const readSlice = (blob: Blob): Promise<string> => {
+            return new Promise((resolve) => {
+                const r = new FileReader();
+                r.onload = (e) => resolve(e.target?.result as string);
+                r.onerror = (e) => {
+                    console.error('[Worker] FileReader error', e);
+                    resolve('');
+                };
+                r.readAsText(blob);
+            });
+        };
 
-        // Helper to fetch valid block
-        const fetchBlock = async (startFilterI: number, endFilterI: number) => {
-            const startLine = filteredIndices![startFilterI];
-            const endLine = filteredIndices![endFilterI];
+        for (let i = startFilterIndex; i < max; i++) {
+            const originalIdx = filteredIndices[i];
 
-            // Calculate byte range for the whole block
-            const startByte = Number(lineOffsets![startLine]);
-            const endByteLine = endLine < lineOffsets!.length - 1 ? endLine + 1 : -1;
-            const endByte = endByteLine !== -1 ? Number(lineOffsets![endByteLine]) : currentFile!.size;
+            // Safety Check
+            if (originalIdx >= lineOffsets.length) {
+                console.warn(`[Worker] originalIdx ${originalIdx} out of bounds (offsets: ${lineOffsets.length})`);
+                continue;
+            }
+
+            const startByte = Number(lineOffsets[originalIdx]);
+            // If it's the last line, read to end of file
+            const endByte = originalIdx < lineOffsets.length - 1 ? Number(lineOffsets[originalIdx + 1]) : currentFile.size;
 
             if (startByte >= endByte) {
-                // Should not happen for valid lines usually, but handle gracefully
-                for (let k = startFilterI; k <= endFilterI; k++) {
-                    resultLines.push({ lineNum: filteredIndices![k] + 1, content: '' });
-                }
-                return;
+                resultLines.push({ lineNum: originalIdx + 1, content: '' });
+                continue;
             }
 
             try {
-                const text = await currentFile!.slice(startByte, endByte).text();
-                const lines = text.split('\n');
+                // Read exact slice for this line
+                const text = await readSlice(currentFile.slice(startByte, endByte));
+                // Remove trailing newline if present (offsets include it)
+                const cleanText = text.replace(/\r?\n$/, '');
 
-                // Map back to resultLines
-                // Note: The text might contain the trailing newline of the last line, so split might produce empty string at end if perfectly aligned.
-                // Actually, our offsets include the newline character at the end. 
-                // So line 1 is [0, 10], line 2 is [10, 20]. text(0, 20) gives "line1\nline2\n".
-                // split('\n') gives ["line1", "line2", ""].
-                // We should match them up.
-
-                for (let k = 0; k < lines.length && (startFilterI + k) <= endFilterI; k++) {
-                    // Check if we exhausted lines but still have filters (case where file truncates without newline?)
-                    // Typically lines.length shoud equal (endLine - startLine + 1).
-                    // But wait, split('\n') on "A\nB\n" gives ["A", "B", ""]. We want "A", "B".
-
-                    let content = lines[k];
-                    if (k === lines.length - 1 && content === '') continue; // Skip empty trailing split result
-
-                    // Handle \r removal if needed (Windows)
-                    if (content.endsWith('\r')) content = content.slice(0, -1);
-
-                    resultLines.push({
-                        lineNum: filteredIndices![startFilterI + k] + 1,
-                        content: content
-                    });
-                }
+                resultLines.push({
+                    lineNum: originalIdx + 1,
+                    content: cleanText
+                });
             } catch (err) {
-                console.error('Error batch reading lines', err);
-                // Fallback
-                for (let k = startFilterI; k <= endFilterI; k++) {
-                    resultLines.push({ lineNum: filteredIndices![k] + 1, content: '[Error reading line]' });
-                }
-            }
-        };
-
-        // Identify contiguous blocks in filteredIndices
-        // However, 'contiguous' means originalLineNum[i+1] == originalLineNum[i] + 1
-
-        let batchStartI = startFilterIndex;
-        for (let i = startFilterIndex; i < max; i++) {
-            // If next one is not contiguous, flush batch
-            const currentOriginal = filteredIndices[i];
-            const nextOriginal = (i + 1 < max) ? filteredIndices[i + 1] : -2;
-
-            if (nextOriginal !== currentOriginal + 1) {
-                // End of a contiguous block
-                await fetchBlock(batchStartI, i);
-                batchStartI = i + 1;
+                console.error(`[Worker] Error reading line ${originalIdx}`, err);
+                resultLines.push({ lineNum: originalIdx + 1, content: '[Error reading line]' });
             }
         }
     }
@@ -468,63 +443,121 @@ const getFullText = async (requestId: string) => {
         return;
     }
 
-    // If result is expected to be very large, this might still be slow or max out memory, 
-    // but avoiding object creation per line {lineNum, content} is a significant speedup (10x-100x).
-    const lines: string[] = [];
-
+    // Stream Mode: Collect strings (cannot do binary seek easily on stream cache without tracking offsets)
     if (isStreamMode) {
+        const lines: string[] = [];
         for (let i = 0; i < filteredIndices.length; i++) {
             const originalIdx = filteredIndices[i];
             if (originalIdx < streamLines.length) {
                 lines.push(streamLines[originalIdx]);
             }
         }
-    } else {
-        if (!currentFile || !lineOffsets) {
-            respond({ type: 'FULL_TEXT_DATA', payload: { text: '' }, requestId } as any);
-            return;
+        const fullText = lines.join('\n');
+        try {
+            const encoder = new TextEncoder();
+            const raw = encoder.encode(fullText);
+            ctx.postMessage({ type: 'FULL_TEXT_DATA', payload: { buffer: raw.buffer }, requestId }, [raw.buffer]);
+        } catch (e) {
+            console.error('Failed to encode full text', e);
+            respond({ type: 'ERROR', payload: { error: 'Failed to encode text buffer' }, requestId });
         }
-
-        // Optimize: Group contiguous original lines to read in fewer chunks
-        const max = filteredIndices.length;
-        let batchStartI = 0;
-
-        const fetchBlockStr = async (startFilterI: number, endFilterI: number) => {
-            const startLine = filteredIndices![startFilterI];
-            const endLine = filteredIndices![endFilterI];
-            const startByte = Number(lineOffsets![startLine]);
-            const endByteLine = endLine < lineOffsets!.length - 1 ? endLine + 1 : -1;
-            const endByte = endByteLine !== -1 ? Number(lineOffsets![endByteLine]) : currentFile!.size;
-
-            if (startByte >= endByte) return;
-
-            try {
-                const text = await currentFile!.slice(startByte, endByte).text();
-                const rawLines = text.split('\n');
-
-                for (let k = 0; k < rawLines.length && (startFilterI + k) <= endFilterI; k++) {
-                    let content = rawLines[k];
-                    if (k === rawLines.length - 1 && content === '') continue;
-                    if (content.endsWith('\r')) content = content.slice(0, -1);
-                    lines.push(content);
-                }
-            } catch (err) {
-                console.error('Error batch reading lines for full text', err);
-            }
-        };
-
-        for (let i = 0; i < max; i++) {
-            const currentOriginal = filteredIndices[i];
-            const nextOriginal = (i + 1 < max) ? filteredIndices[i + 1] : -2;
-
-            if (nextOriginal !== currentOriginal + 1) {
-                await fetchBlockStr(batchStartI, i);
-                batchStartI = i + 1;
-            }
-        }
+        return;
     }
 
-    respond({ type: 'FULL_TEXT_DATA', payload: { text: lines.join('\n') }, requestId } as any);
+    // File Mode: Binary Read Optimization
+    if (!currentFile || !lineOffsets) {
+        respond({ type: 'FULL_TEXT_DATA', payload: { text: '' }, requestId } as any);
+        return;
+    }
+
+    try {
+        // 1. Identify Contiguous Byte Ranges
+        const rawChunks: { start: number, end: number }[] = [];
+        let rangeStartIdx = 0;
+        let totalLen = 0;
+
+        for (let i = 0; i < filteredIndices.length; i++) {
+            const currentLine = filteredIndices[i];
+            const nextLine = (i + 1 < filteredIndices.length) ? filteredIndices[i + 1] : -2;
+
+            if (nextLine !== currentLine + 1) {
+                const startLine = filteredIndices[rangeStartIdx];
+                const endLine = currentLine;
+
+                const startByte = Number(lineOffsets[startLine]);
+                const endByteLine = endLine < lineOffsets.length - 1 ? endLine + 1 : -1;
+                const endByte = endByteLine !== -1 ? Number(lineOffsets[endByteLine]) : currentFile.size;
+
+                if (startByte < endByte) {
+                    rawChunks.push({ start: startByte, end: endByte });
+                    totalLen += (endByte - startByte);
+                }
+                rangeStartIdx = i + 1;
+            }
+        }
+
+        // 2. Merge Close Chunks (Read Clustering to reduce IOPS)
+        // If the gap between chunks is small, read the continuous block to avoid FS overhead
+        const GAP_THRESHOLD = 64 * 1024; // 64KB
+        const readOps: { fileStart: number, fileEnd: number, subCopies: { srcOffset: number, len: number, dstOffset: number }[] }[] = [];
+
+        let currentDstOffset = 0;
+
+        if (rawChunks.length > 0) {
+            let currentOp = {
+                fileStart: rawChunks[0].start,
+                fileEnd: rawChunks[0].end,
+                subCopies: [{ srcOffset: 0, len: rawChunks[0].end - rawChunks[0].start, dstOffset: 0 }]
+            };
+            currentDstOffset += (rawChunks[0].end - rawChunks[0].start);
+
+            for (let i = 1; i < rawChunks.length; i++) {
+                const chunk = rawChunks[i];
+                const gap = chunk.start - currentOp.fileEnd;
+
+                // Merge if gap is small or chunks are irrelevant (negative gap shouldn't happen here)
+                if (gap < GAP_THRESHOLD) {
+                    const srcOffset = chunk.start - currentOp.fileStart;
+                    const len = chunk.end - chunk.start;
+                    currentOp.subCopies.push({ srcOffset, len, dstOffset: currentDstOffset });
+                    currentOp.fileEnd = chunk.end;
+                } else {
+                    readOps.push(currentOp);
+                    currentOp = {
+                        fileStart: chunk.start,
+                        fileEnd: chunk.end,
+                        subCopies: [{ srcOffset: 0, len: chunk.end - chunk.start, dstOffset: currentDstOffset }]
+                    };
+                }
+                currentDstOffset += (chunk.end - chunk.start);
+            }
+            readOps.push(currentOp);
+        }
+
+        // 3. Execute Reads & Scatter-Gather Copy
+        const merged = new Uint8Array(totalLen);
+        const reader = new FileReaderSync();
+
+        for (const op of readOps) {
+            const blob = currentFile.slice(op.fileStart, op.fileEnd);
+            const buf = new Uint8Array(reader.readAsArrayBuffer(blob));
+
+            for (const copy of op.subCopies) {
+                // Safety subset copy
+                if (copy.srcOffset < buf.length) {
+                    const slice = buf.subarray(copy.srcOffset, Math.min(buf.length, copy.srcOffset + copy.len));
+                    merged.set(slice, copy.dstOffset);
+                }
+            }
+        }
+
+        // 4. Send Buffer Directly
+        ctx.postMessage({ type: 'FULL_TEXT_DATA', payload: { buffer: merged.buffer }, requestId }, [merged.buffer]);
+
+    } catch (e) {
+        console.error('Fast copy failed', e);
+        respond({ type: 'ERROR', payload: { error: 'Failed to copy logs' }, requestId });
+    }
 };
 
 // --- Message Listener ---

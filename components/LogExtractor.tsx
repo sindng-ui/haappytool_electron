@@ -37,12 +37,51 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
     }, [configPanelWidth]);
 
     // Default initial state (do not load validation files)
-    const [tabs, setTabs] = useState<Tab[]>([{ id: 'tab-1', title: 'New Log 1', initialFile: null }]);
+    const [tabs, setTabs] = useState<Tab[]>(() => {
+        try {
+            const saved = localStorage.getItem('openTabs');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return parsed.map((t: any) => ({
+                        id: t.id,
+                        title: t.title,
+                        initialFile: null, // File object cannot be restored, but filePath can
+                        filePath: t.filePath
+                    }));
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load tabs', e);
+        }
+        return [{ id: 'tab-1', title: 'New Log 1', initialFile: null }];
+    });
 
-    const [activeTabId, setActiveTabId] = useState<string>('tab-1');
+    const [activeTabId, setActiveTabId] = useState<string>(() => {
+        const saved = localStorage.getItem('activeTabId');
+        return saved || 'tab-1';
+    });
 
-    const [tabCounter, setTabCounter] = useState(2);
-
+    // Determine next tab counter based on existing IDs
+    const [tabCounter, setTabCounter] = useState(() => {
+        const saved = localStorage.getItem('openTabs');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    const maxId = parsed.reduce((max: number, t: any) => {
+                        const match = t.id.match(/^tab-(\d+)$/);
+                        if (match) {
+                            return Math.max(max, parseInt(match[1], 10));
+                        }
+                        return max;
+                    }, 1);
+                    return maxId + 1;
+                }
+            } catch { }
+        }
+        return 2;
+    });
 
     useEffect(() => {
         const safeTabs = tabs.map(t => ({ id: t.id, title: t.title, filePath: t.filePath }));
@@ -168,6 +207,10 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
         </div>
     );
 
+    const handleTitleChange = useCallback((tabId: string, newTitle: string) => {
+        setTabs(current => current.map(t => t.id === tabId ? { ...t, title: newTitle } : t));
+    }, []);
+
     return (
         <div className="flex h-full flex-col font-sans overflow-hidden bg-slate-950">
             <div className="flex-1 overflow-hidden relative">
@@ -187,9 +230,9 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
                     >
                         <SessionWrapper
                             isActive={tab.id === activeTabId}
-                            onTitleChange={(newTitle) => {
-                                setTabs(current => current.map(t => t.id === tab.id ? { ...t, title: newTitle } : t));
-                            }}
+                            title={tab.title}
+                            tabId={tab.id}
+                            onTitleChange={handleTitleChange}
                             headerElement={renderTabBar()}
                         />
                     </LogProvider>
@@ -202,10 +245,17 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
 // Wrapper to properly pass props
 const SessionWrapper: React.FC<{
     isActive: boolean;
-    onTitleChange: (title: string) => void;
+    title: string;
+    onTitleChange: (id: string, title: string) => void;
+    tabId: string;
     headerElement: React.ReactNode;
-}> = React.memo(({ isActive, onTitleChange, headerElement }) => {
-    return <LogSession isActive={isActive} onTitleChange={onTitleChange} headerElement={headerElement} />;
+}> = React.memo(({ isActive, title, onTitleChange, tabId, headerElement }) => {
+    // We create a stable callback for this specific session instance
+    const handleTitleChange = useCallback((newTitle: string) => {
+        onTitleChange(tabId, newTitle);
+    }, [onTitleChange, tabId]);
+
+    return <LogSession isActive={isActive} currentTitle={title} onTitleChange={handleTitleChange} headerElement={headerElement} />;
 });
 
 export default LogExtractor;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as Lucide from 'lucide-react';
 
-const { Trash2, AlignLeft, Minimize2, CheckCircle, AlertCircle, Copy, FileJson, PlusSquare, MinusSquare, ChevronDown, ChevronRight } = Lucide;
+const { Trash2, AlignLeft, Minimize2, CheckCircle, AlertCircle, Copy, FileJson, PlusSquare, MinusSquare, ChevronDown, ChevronRight, Search, ArrowUp, ArrowDown } = Lucide;
 
 // --- Helper Components ---
 
@@ -100,19 +100,248 @@ const JsonNode: React.FC<JsonNodeProps> = ({ keyName, value, isLast, level, init
 
 // --- Main Formatter Component ---
 
+// --- Flattening Logic for Virtualization ---
+
+interface FlattenedNode {
+    id: string;
+    key: string;
+    value: any;
+    level: number;
+    isExpanded: boolean;
+    hasChildren: boolean;
+    parentKeyPath: string; // "key1.key2"
+    path: string[];
+}
+
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
+
+// ... (imports remain)
+
+// Remove List and AutoSizer imports/definitions
+
+// ...
+
+// Row Renderer for Virtuoso
+
+
+// Optimized Flattener
+const createFlattenedData = (data: any, expandedPaths: Set<string>): FlattenedNode[] => {
+    // ... (no changes to createFlattenedData)
+    const results: FlattenedNode[] = [];
+
+    const traverse = (node: any, level: number, path: string[]) => {
+        const pathStr = path.join('.');
+
+        // This is a simplified traversal that assumes we're rendering `node` itself? 
+        // No, usually we iterate keys.
+
+        // The Root is special.
+        if (level === 0) {
+            // We treat the top level object as the container
+            if (node !== null && typeof node === 'object') {
+                Object.keys(node).forEach((key, idx, arr) => {
+                    const val = node[key];
+                    const isObj = val !== null && typeof val === 'object';
+                    const hasChildren = isObj && Object.keys(val).length > 0;
+                    const currentPath = [...path, key];
+                    const currentPathStr = currentPath.join('.');
+                    const isExpanded = expandedPaths.has(currentPathStr);
+
+                    results.push({
+                        id: currentPathStr,
+                        key: key,
+                        value: val,
+                        level,
+                        isExpanded,
+                        hasChildren,
+                        parentKeyPath: pathStr,
+                        path: currentPath
+                    });
+
+                    if (isExpanded && hasChildren) {
+                        traverse(val, level + 1, currentPath);
+                    }
+                });
+            }
+        } else {
+            // For nested objects/arrays
+            if (node !== null && typeof node === 'object') {
+                Object.keys(node).forEach((key) => {
+                    const val = node[key];
+                    const isObj = val !== null && typeof val === 'object';
+                    const hasChildren = isObj && Object.keys(val).length > 0;
+                    const currentPath = [...path, key];
+                    const currentPathStr = currentPath.join('.');
+                    const isExpanded = expandedPaths.has(currentPathStr);
+
+                    results.push({
+                        id: currentPathStr,
+                        key: key,
+                        value: val,
+                        level,
+                        isExpanded,
+                        hasChildren,
+                        parentKeyPath: pathStr,
+                        path: currentPath
+                    });
+
+                    if (isExpanded && hasChildren) {
+                        traverse(val, level + 1, currentPath);
+                    }
+                });
+            }
+        }
+    };
+
+    // Special handling for Root:
+    // If root is object, we start traversal inside it.
+    // If root is string/number, we just make one node.
+    if (data !== null && typeof data === 'object') {
+        // We actually want to show the brace if it's the root? 
+        // The original formatter showed "root" keys.
+        // Let's simulate the previous recursive structure but linearly.
+
+        // BUT, recreating the array on every toggle is expensive for huge JSON.
+        // However, it's MUCH cheaper than rendering 10,000 DOM nodes.
+        // For 100k nodes, creating an array of 100k objects takes ~10-20ms. 
+        // Rendering them takes seconds. So this is the right tradeoff.
+
+        // Root Wrapper (Virtual) - actually we skip root wrapper and just show keys
+        traverse(data, 0, []);
+    }
+
+    return results;
+};
+
+
 const JsonFormatter: React.FC = () => {
     const [input, setInput] = useState('');
     const [parsedData, setParsedData] = useState<any>(null);
-    const [formattedString, setFormattedString] = useState(''); // For Copy/Minify view
+    const [formattedString, setFormattedString] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [valid, setValid] = useState(false);
-    const [expandSignal, setExpandSignal] = useState(0); // 0=IDLE, 1=EXPAND, 2=COLLAPSE
-
+    const [isProcessing, setIsProcessing] = useState(false);
     const [showToast, setShowToast] = useState(false);
 
-    // ... (useEffect for expandSignal)
+    // Virtualization State
+    const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+    const [flattenedItems, setFlattenedItems] = useState<FlattenedNode[]>([]);
 
-    // Hide toast after 2s
+    const workerRef = React.useRef<Worker | null>(null);
+    const searchWorkerRef = React.useRef<Worker | null>(null);
+    const virtuosoRef = React.useRef<VirtuosoHandle>(null);
+
+    // Search State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<string[]>([]);
+    const [currentResultIndex, setCurrentResultIndex] = useState(-1);
+    const [isSearching, setIsSearching] = useState(false);
+
+    useEffect(() => {
+        workerRef.current = new Worker(new URL('../../workers/JsonParser.worker.ts', import.meta.url), { type: 'module' });
+        workerRef.current.onmessage = (e) => {
+            const { type, payload, error: errMsg, requestId } = e.data;
+            setIsProcessing(false);
+
+            if (type === 'ERROR') {
+                setError(errMsg);
+                setValid(false);
+                setParsedData(null);
+                setFormattedString('');
+                setFlattenedItems([]);
+            } else if (type === 'SUCCESS') {
+                if (requestId === 'format') {
+                    setParsedData(payload.data);
+                    setFormattedString(payload.formatted);
+                    setValid(true);
+                    setError(null);
+
+                    // Initial Expand: Level 1
+                    const initialPaths = new Set<string>();
+                    // We don't auto-expand everything for performance on huge files
+                    // But we can expand top level
+                    setExpandedPaths(initialPaths);
+
+                    // Trigger calc
+                    const items = createFlattenedData(payload.data, initialPaths);
+                    setFlattenedItems(items);
+                    setSearchResults([]);
+                    setCurrentResultIndex(-1);
+
+                } else if (requestId === 'minify') {
+                    copyToClipboard(payload);
+                }
+            }
+        };
+
+        searchWorkerRef.current = new Worker(new URL('../../workers/Search.worker.ts', import.meta.url), { type: 'module' });
+        searchWorkerRef.current.onmessage = (e) => {
+            const { type, payload } = e.data;
+            setIsSearching(false);
+            if (type === 'SEARCH_COMPLETE') {
+                setSearchResults(payload); // payload is string[] of paths
+                if (payload.length > 0) {
+                    setCurrentResultIndex(0);
+                    jumpToResult(payload[0]);
+                } else {
+                    setCurrentResultIndex(-1);
+                }
+            }
+        };
+
+        return () => {
+            workerRef.current?.terminate();
+            searchWorkerRef.current?.terminate();
+        };
+    }, []);
+
+    const toggleExpand = (pathStr: string) => {
+        const newSet = new Set(expandedPaths);
+        if (newSet.has(pathStr)) {
+            newSet.delete(pathStr);
+        } else {
+            newSet.add(pathStr);
+        }
+        setExpandedPaths(newSet);
+
+        // Re-calculate flattened items
+        // Wrapping in requestAnimationFrame or similar might be needed for huge datasets to not block click
+        // But usually fast enough.
+        if (parsedData) {
+            setFlattenedItems(createFlattenedData(parsedData, newSet));
+        }
+    };
+
+    // Batch Expand/Collapse
+    const expandAll = () => {
+        if (!parsedData) return;
+        // WARNING: expanding ALL on huge JSON will crash the browser even with virtualization 
+        // if the flat list becomes millions of items. 
+        // We should limit depth or just expand top levels.
+        // For safe implementation, let's expand up to 3 levels deep?
+        const newSet = new Set<string>();
+        const traverseAdd = (node: any, path: string[], depth: number) => {
+            if (depth > 5) return; // Safety Limit
+            if (node && typeof node === 'object') {
+                Object.keys(node).forEach(key => {
+                    const p = [...path, key];
+                    const ps = p.join('.');
+                    newSet.add(ps);
+                    traverseAdd(node[key], p, depth + 1);
+                });
+            }
+        };
+        traverseAdd(parsedData, [], 0);
+        setExpandedPaths(newSet);
+        setFlattenedItems(createFlattenedData(parsedData, newSet));
+    };
+
+    const collapseAll = () => {
+        setExpandedPaths(new Set());
+        if (parsedData) setFlattenedItems(createFlattenedData(parsedData, new Set()));
+    };
+
+    // ... (Keep existing copyToClipboard, handleFormat, handleMinify ... )
     useEffect(() => {
         if (showToast) {
             const t = setTimeout(() => setShowToast(false), 2000);
@@ -130,38 +359,24 @@ const JsonFormatter: React.FC = () => {
     };
 
     const handleFormat = () => {
-        if (!input.trim()) {
-            setParsedData(null);
-            setFormattedString('');
-            setValid(false);
-            setError(null);
-            return;
-        }
-        try {
-            const obj = JSON.parse(input);
-            setParsedData(obj);
-            // formattedString serves as the default copy text (Beautified)
-            setFormattedString(JSON.stringify(obj, null, 2));
-            setValid(true);
-            setError(null);
-            setExpandSignal(1); // Default expand all on new format
-        } catch (e: any) {
-            setValid(false);
-            setParsedData(null);
-            setError(e.message);
-            setFormattedString('');
-        }
+        if (!input.trim()) return;
+        setIsProcessing(true);
+        setError(null);
+        workerRef.current?.postMessage({
+            type: 'PARSE_AND_FORMAT',
+            payload: { text: input, mode: 'format' },
+            requestId: 'format'
+        });
     };
 
     const handleMinify = () => {
         if (!input.trim()) return;
-        try {
-            const obj = JSON.parse(input);
-            const minified = JSON.stringify(obj);
-            copyToClipboard(minified);
-        } catch (e: any) {
-            setError(e.message);
-        }
+        setIsProcessing(true);
+        workerRef.current?.postMessage({
+            type: 'PARSE_AND_FORMAT',
+            payload: { text: input, mode: 'minify' },
+            requestId: 'minify'
+        });
     };
 
     const clearFormatter = () => {
@@ -170,92 +385,250 @@ const JsonFormatter: React.FC = () => {
         setFormattedString('');
         setError(null);
         setValid(false);
+        setFlattenedItems([]);
+        setSearchResults([]);
+        setCurrentResultIndex(-1);
+        setSearchQuery('');
+    };
+
+    const handleSearch = () => {
+        if (!searchQuery || !formattedString) return; // Search in what we have. formattedString is generic text, but worker parses input or we pass input? 
+        // We pass 'input' (original text) if it matches 'formattedString', but safe to pass 'input' if valid.
+        // Actually, 'input' might be minified. 'formattedString' is pretty.
+        // The worker parses it anyway. Let's pass 'input'.
+
+        setIsSearching(true);
+        searchWorkerRef.current?.postMessage({
+            type: 'SEARCH_JSON',
+            payload: { text: input, query: searchQuery, caseSensitive: false }
+        });
+    };
+
+    const jumpToResult = (pathStr: string) => {
+        // 1. Ensure all parents are expanded
+        const parts = pathStr.split('.');
+        if (parts.length === 0) return;
+
+        const newSet = new Set(expandedPaths);
+        let currentPath = '';
+        let changed = false;
+
+        // Add all partial paths to expanded set
+        for (let i = 0; i < parts.length - 1; i++) {
+            currentPath = i === 0 ? parts[0] : `${currentPath}.${parts[i]}`;
+            if (!newSet.has(currentPath)) {
+                newSet.add(currentPath);
+                changed = true;
+            }
+        }
+
+        // Always update expanded paths if changed, to ensure item is rendered
+        if (changed) {
+            setExpandedPaths(newSet);
+            // We need to wait for flattenedItems to update?
+            // createFlattenedData is synchronous.
+            const newItems = createFlattenedData(parsedData, newSet);
+            setFlattenedItems(newItems);
+
+            // Now find index
+            const index = newItems.findIndex(item => item.id === pathStr);
+            if (index !== -1 && virtuosoRef.current) {
+                virtuosoRef.current.scrollToIndex({ index, align: 'center' });
+            }
+        } else {
+            // Already expanded, just scroll
+            const index = flattenedItems.findIndex(item => item.id === pathStr);
+            if (index !== -1 && virtuosoRef.current) {
+                virtuosoRef.current.scrollToIndex({ index, align: 'center' });
+            } else {
+                // Not found in current flattened list? Maybe logic error or it's hidden?
+                // Re-calc to be safe
+                const newItems = createFlattenedData(parsedData, newSet);
+                setFlattenedItems(newItems);
+                const idx = newItems.findIndex(item => item.id === pathStr);
+                if (idx !== -1 && virtuosoRef.current) virtuosoRef.current.scrollToIndex({ index: idx, align: 'center' });
+            }
+        }
+    };
+
+    const nextResult = () => {
+        if (searchResults.length === 0) return;
+        const next = (currentResultIndex + 1) % searchResults.length;
+        setCurrentResultIndex(next);
+        jumpToResult(searchResults[next]);
+    };
+
+    const prevResult = () => {
+        if (searchResults.length === 0) return;
+        const prev = (currentResultIndex - 1 + searchResults.length) % searchResults.length;
+        setCurrentResultIndex(prev);
+        jumpToResult(searchResults[prev]);
+    };
+
+
+
+    // Updating Row definition to handle highlighting
+    const RowWithHighlight = (index: number) => {
+        const item = flattenedItems[index];
+        if (!item) return null;
+        const { key, value, level, isExpanded, hasChildren, id } = item;
+
+        const isMatch = currentResultIndex >= 0 && searchResults[currentResultIndex] === id;
+
+        const isArray = Array.isArray(value);
+        const indent = level * 20;
+
+        return (
+            <div className={`font-mono text-sm leading-6 flex items-center pr-2 whitespace-nowrap h-6 ${isMatch ? 'bg-indigo-500/30' : 'hover:bg-slate-800/50'}`}>
+                <div style={{ width: indent, flexShrink: 0 }}></div>
+
+                {/* Expander */}
+                <span
+                    className="w-5 h-5 flex items-center justify-center cursor-pointer text-slate-500 hover:text-indigo-400 mr-1 shrink-0 select-none"
+                    onClick={() => hasChildren && toggleExpand(id)}
+                >
+                    {hasChildren ? (
+                        isExpanded ? <MinusSquare size={12} /> : <PlusSquare size={12} />
+                    ) : (
+                        <span className="w-3"></span>
+                    )}
+                </span>
+
+                {/* Content */}
+                <div className="flex items-center gap-1">
+                    <span className={isMatch ? "text-indigo-300 font-bold" : "text-indigo-400 font-bold"}>"{key}":</span>
+
+                    {hasChildren ? (
+                        <>
+                            <span className="text-slate-400">{isArray ? '[' : '{'}</span>
+                            {!isExpanded && (
+                                <span className="text-slate-500 italic text-xs mx-1 cursor-pointer select-none" onClick={() => toggleExpand(id)}>
+                                    {isArray ? `${value.length} items` : `${Object.keys(value).length} keys`}
+                                </span>
+                            )}
+                            {!isExpanded && <span className="text-slate-400">{isArray ? ']' : '}'}</span>}
+                        </>
+                    ) : (
+                        // Primitive
+                        <span className="break-all text-ellipsis overflow-hidden">
+                            {value === null ? <span className="text-red-400">null</span> :
+                                typeof value === 'string' ? <span className="text-emerald-400">"{value}"</span> :
+                                    typeof value === 'number' ? <span className="text-blue-400">{value}</span> :
+                                        typeof value === 'boolean' ? <span className="text-orange-400">{String(value)}</span> :
+                                            <span className="text-slate-300">{String(value)}</span>
+                            }
+                        </span>
+                    )}
+                    <span className="text-slate-500">,</span>
+                </div>
+            </div>
+        );
     };
 
     return (
         <div className="flex h-full gap-6">
             <div className="flex-1 flex flex-col gap-2">
-                <div className="flex justify-between items-center text-slate-400 px-2">
+                <div className="flex justify-between items-center text-slate-400 px-2 shrink-0">
                     <span className="text-xs font-bold uppercase tracking-wider">Raw Input</span>
-                    <div className="flex gap-2">
-                        <button onClick={clearFormatter} className="p-1 hover:text-red-400 transition-colors" title="Clear">
-                            <Trash2 size={14} />
-                        </button>
-                    </div>
-                </div>
-                <textarea
-                    className={`flex-1 bg-slate-900 rounded-2xl border p-4 font-mono text-sm text-slate-300 focus:outline-none focus:ring-1 resize-none shadow-inner custom-scrollbar ${error ? 'border-red-500/50 focus:ring-red-500' : 'border-slate-800 focus:ring-indigo-500'}`}
-                    placeholder="Paste your JSON here..."
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    spellCheck={false}
-                />
-                <div className="flex gap-3 mt-2">
-                    <button onClick={handleFormat} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-900/30 transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
-                        <AlignLeft size={16} /> Beautify (Tree View)
+                    <button onClick={clearFormatter} className="p-1 hover:text-red-400 transition-colors" title="Clear">
+                        <Trash2 size={14} />
                     </button>
-                    <button onClick={handleMinify} className="px-6 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-sm border border-slate-700 transition-colors flex items-center gap-2" title="Copy Minified to Clipboard">
+                </div>
+                <div className="relative flex-1 flex flex-col min-h-0">
+                    <textarea
+                        className={`flex-1 bg-slate-900 rounded-2xl border p-4 font-mono text-sm text-slate-300 focus:outline-none focus:ring-1 resize-none shadow-inner custom-scrollbar ${error ? 'border-red-500/50 focus:ring-red-500' : 'border-slate-800 focus:ring-indigo-500'}`}
+                        placeholder="Paste JSON here (Large files supported)..."
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        spellCheck={false}
+                        disabled={isProcessing}
+                    />
+                    {isProcessing && (
+                        <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                            <Lucide.Loader2 className="animate-spin text-indigo-500" size={32} />
+                        </div>
+                    )}
+                </div>
+                <div className="flex gap-3 mt-2 shrink-0">
+                    <button onClick={handleFormat} disabled={isProcessing} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-900/30 transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
+                        <AlignLeft size={16} /> Beautify (Virtual Tree)
+                    </button>
+                    <button onClick={handleMinify} disabled={isProcessing} className="px-6 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 py-3 rounded-xl font-bold text-sm border border-slate-700 transition-colors flex items-center gap-2" title="Copy Minified">
                         <Minimize2 size={16} /> Minify (Copy)
                     </button>
                 </div>
             </div>
 
-            <div className="flex-1 flex flex-col gap-2 relative">
-                <div className="flex justify-between items-center text-slate-400 px-2">
+            <div className="flex-1 flex flex-col gap-2 relative min-h-0">
+                <div className="flex justify-between items-center text-slate-400 px-2 shrink-0">
                     <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                        {valid ? <span className="text-green-500 flex items-center gap-1"><CheckCircle size={12} /> Valid JSON</span> :
+                        {valid ? <span className="text-green-500 flex items-center gap-1"><CheckCircle size={12} /> Valid JSON ({flattenedItems.length} nodes)</span> :
                             error ? <span className="text-red-500 flex items-center gap-1"><AlertCircle size={12} /> Invalid JSON</span> :
                                 'Tree Output'}
                     </span>
                     <div className="flex items-center gap-2">
                         {valid && (
+                            <div className="flex items-center bg-slate-900 rounded-md border border-slate-800 mr-2 h-7">
+                                <Search size={14} className="text-slate-500 ml-2" />
+                                <input
+                                    className="bg-transparent border-none text-xs text-slate-300 w-32 px-2 focus:outline-none placeholder-slate-600"
+                                    placeholder="Search key/val..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+                                />
+                                {searchResults.length > 0 && (
+                                    <div className="flex items-center border-l border-slate-800 px-1">
+                                        <span className="text-[10px] text-slate-500 mr-1 font-mono">{currentResultIndex + 1}/{searchResults.length}</span>
+                                        <button onClick={prevResult} className="p-0.5 hover:text-indigo-400 text-slate-500"><ArrowUp size={12} /></button>
+                                        <button onClick={nextResult} className="p-0.5 hover:text-indigo-400 text-slate-500"><ArrowDown size={12} /></button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {valid && (
                             <>
-                                <button onClick={() => setExpandSignal(1)} className="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-700 transition-colors mr-2">
-                                    Expand All
+                                <button onClick={expandAll} className="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-700 transition-colors mr-2">
+                                    Expand All (Safe)
                                 </button>
-                                <button onClick={() => setExpandSignal(2)} className="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-700 transition-colors mr-2">
+                                <button onClick={collapseAll} className="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-700 transition-colors mr-2">
                                     Collapse All
                                 </button>
                             </>
                         )}
                         <button
-                            onClick={() => {
-                                if (formattedString) {
-                                    copyToClipboard(formattedString);
-                                }
-                            }}
+                            onClick={() => formattedString && copyToClipboard(formattedString)}
                             disabled={!valid}
                             className="p-1 hover:text-indigo-400 transition-colors disabled:opacity-30"
-                            title="Copy Formatted Result"
+                            title="Copy Result"
                         >
                             <Copy size={14} />
                         </button>
                     </div>
                 </div>
-                <div className="flex-1 bg-slate-950 rounded-2xl border border-slate-800 p-4 font-mono text-sm overflow-auto custom-scrollbar relative shadow-inner">
+                <div className="flex-1 bg-slate-950 rounded-2xl border border-slate-800 p-2 font-mono text-sm relative shadow-inner overflow-hidden">
                     {error ? (
-                        <div className="text-red-400 p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+                        <div className="text-red-400 p-4 overflow-auto h-full">
                             <strong>Error parsing JSON:</strong><br />
                             {error}
                         </div>
                     ) : parsedData ? (
-                        <div className="text-sm leading-6">
-                            <JsonNode
-                                value={parsedData}
-                                isLast={true}
-                                level={0}
-                                initialExpand={true}
-                                expandSignal={expandSignal}
-                            />
-                        </div>
+                        <Virtuoso
+                            ref={virtuosoRef}
+                            style={{ height: '100%', width: '100%' }}
+                            totalCount={flattenedItems.length}
+                            itemContent={RowWithHighlight}
+                        />
                     ) : (
                         <div className="h-full flex flex-col items-center justify-center text-slate-600">
                             <FileJson size={48} className="mb-4 opacity-50" />
                             <p>Ready to format</p>
                         </div>
                     )}
+// ... (rest of file)
 
-                    {/* Toast Notification */}
+                    {/* Toast */}
                     <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded-full shadow-xl border border-slate-700 flex items-center gap-2 transition-all duration-300 pointer-events-none ${showToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
                         <CheckCircle size={16} className="text-emerald-400" />
                         <span className="text-xs font-bold">Copied to clipboard!</span>

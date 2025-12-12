@@ -178,7 +178,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                 </div>
                                 <div>
                                     <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-500">HappyTool</h1>
-                                    <p className="text-slate-500 font-mono mt-2">v0.4.0 (Beta)</p>
+                                    <p className="text-slate-500 font-mono mt-2">v{__APP_VERSION__} (Beta)</p>
                                 </div>
                                 <div className="p-6 bg-slate-200 dark:bg-slate-800/50 rounded-2xl border border-slate-300 dark:border-slate-700 text-sm leading-relaxed max-w-sm mx-auto">
                                     <p>

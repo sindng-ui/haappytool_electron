@@ -6,16 +6,18 @@ import TizenConnectionModal from './TizenConnectionModal';
 import { useLogContext } from './LogViewer/LogContext';
 import TopBar from './LogViewer/TopBar';
 import Toast from './ui/Toast';
+import LoadingOverlay from './ui/LoadingOverlay';
 
 const { X } = Lucide;
 
 interface LogSessionProps {
     isActive: boolean;
+    currentTitle?: string;
     onTitleChange?: (title: string) => void;
     headerElement?: React.ReactNode;
 }
 
-const LogSession: React.FC<LogSessionProps> = ({ isActive, onTitleChange, headerElement }) => {
+const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitleChange, headerElement }) => {
     const leftFileInputRef = React.useRef<HTMLInputElement>(null);
     const rightFileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -43,10 +45,13 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, onTitleChange, header
     // Update Tab Title based on file name
     React.useEffect(() => {
         if (onTitleChange) {
-            // Always use left filename as main title, ignoring split view state
-            onTitleChange(leftFileName || 'New Log');
+            const newTitle = leftFileName || 'New Log';
+            // Only update if title actually changed to prevent loops
+            if (newTitle !== currentTitle) {
+                onTitleChange(newTitle);
+            }
         }
-    }, [leftFileName, onTitleChange]);
+    }, [leftFileName, onTitleChange, currentTitle]);
 
     const handleFocusPaneRequest = (direction: 'left' | 'right', visualY?: number) => {
         const targetRef = direction === 'left' ? leftViewerRef : rightViewerRef;
@@ -65,13 +70,31 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, onTitleChange, header
         }
     };
 
-    const handleSyncScroll = React.useCallback((deltaY: number, source: 'left' | 'right') => {
+    const handleSyncScroll = React.useCallback((scrollTop: number, source: 'left' | 'right') => {
         if (!isDualView) return;
         const targetRef = source === 'left' ? rightViewerRef : leftViewerRef;
         if (targetRef.current) {
-            targetRef.current.scrollBy(deltaY);
+            targetRef.current.scrollTo(scrollTop);
         }
     }, [isDualView]);
+
+    // Memoized handlers for Left Pane
+    const onLineClickLeft = React.useCallback((index: number) => setSelectedLineIndexLeft(index), [setSelectedLineIndexLeft]);
+    const onLineDoubleClickLeft = React.useCallback((index: number) => handleLineDoubleClickAction(index, 'left'), [handleLineDoubleClickAction]);
+    const onBrowseLeft = React.useCallback(() => leftFileInputRef.current?.click(), []);
+    const onCopyLeft = React.useCallback(() => handleCopyLogs('left'), [handleCopyLogs]);
+    const onSaveLeft = React.useCallback(() => handleSaveLogs('left'), [handleSaveLogs]);
+    const onSyncScrollLeft = React.useCallback((dy: number) => handleSyncScroll(dy, 'left'), [handleSyncScroll]);
+    const onHighlightJumpLeft = React.useCallback((idx: number) => jumpToHighlight(idx, 'left'), [jumpToHighlight]);
+
+    // Memoized handlers for Right Pane
+    const onLineClickRight = React.useCallback((index: number) => setSelectedLineIndexRight(index), [setSelectedLineIndexRight]);
+    const onLineDoubleClickRight = React.useCallback((index: number) => handleLineDoubleClickAction(index, 'right'), [handleLineDoubleClickAction]);
+    const onBrowseRight = React.useCallback(() => rightFileInputRef.current?.click(), []);
+    const onCopyRight = React.useCallback(() => handleCopyLogs('right'), [handleCopyLogs]);
+    const onSaveRight = React.useCallback(() => handleSaveLogs('right'), [handleSaveLogs]);
+    const onSyncScrollRight = React.useCallback((dy: number) => handleSyncScroll(dy, 'right'), [handleSyncScroll]);
+    const onHighlightJumpRight = React.useCallback((idx: number) => jumpToHighlight(idx, 'right'), [jumpToHighlight]);
 
     return (
         <div className="flex h-full flex-col font-sans overflow-hidden" style={{ display: isActive ? 'flex' : 'none' }}>
@@ -135,66 +158,72 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, onTitleChange, header
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="flex w-full h-full">
                             {/* Left Pane */}
-                            <div className={`flex flex-col h-full min-w-0 transition-all ${isDualView ? 'w-1/2' : 'w-full'}`}>
+                            <div className={`flex flex-col h-full min-w-0 transition-all relative ${isDualView ? 'w-1/2' : 'w-full'}`}>
+                                <LoadingOverlay
+                                    isVisible={!!leftFileName && !leftWorkerReady && leftIndexingProgress < 100}
+                                    fileName={leftFileName}
+                                    progress={leftIndexingProgress}
+                                />
                                 <LogViewerPane
-                                    key={leftFileName || 'left-empty'}
                                     ref={leftViewerRef}
                                     workerReady={leftWorkerReady}
-                                    loadingProgress={leftIndexingProgress}
                                     totalMatches={leftFilteredCount}
                                     onScrollRequest={requestLeftLines}
                                     placeholderText={leftFileName || (isDualView ? "Drag log file here" : "Drop a log file to start")}
                                     highlights={currentConfig?.highlights}
                                     highlightCaseSensitive={currentConfig?.colorHighlightsCaseSensitive}
-                                    onLineClick={(index) => setSelectedLineIndexLeft(index)}
-                                    onLineDoubleClick={(index) => handleLineDoubleClickAction(index, 'left')}
+                                    onLineClick={onLineClickLeft}
+                                    onLineDoubleClick={onLineDoubleClickLeft}
                                     activeLineIndex={selectedLineIndexLeft}
                                     onDrop={handleLeftFileChange}
-                                    onBrowse={() => leftFileInputRef.current?.click()}
+                                    onBrowse={onBrowseLeft}
                                     paneId="left"
                                     fileName={leftFileName}
                                     onReset={handleLeftReset}
-                                    onCopy={() => handleCopyLogs('left')}
-                                    onSave={() => handleSaveLogs('left')}
+                                    onCopy={onCopyLeft}
+                                    onSave={onSaveLeft}
                                     bookmarks={leftBookmarks}
                                     onToggleBookmark={toggleLeftBookmark}
                                     onFocusPaneRequest={handleFocusPaneRequest}
-                                    onSyncScroll={(dy) => handleSyncScroll(dy, 'left')}
-                                    onHighlightJump={(idx) => jumpToHighlight(idx, 'left')}
+                                    onSyncScroll={onSyncScrollLeft}
+                                    onHighlightJump={onHighlightJumpLeft}
                                 />
                             </div>
 
                             {/* Right Pane */}
-                            <div className={`flex flex-col h-full min-w-0 bg-slate-950 ${isDualView ? 'flex w-1/2' : 'hidden w-0'}`}>
+                            <div className={`flex flex-col h-full min-w-0 bg-slate-950 relative ${isDualView ? 'flex w-1/2' : 'hidden w-0'}`}>
+                                <LoadingOverlay
+                                    isVisible={!!rightFileName && !rightWorkerReady && rightIndexingProgress < 100}
+                                    fileName={rightFileName}
+                                    progress={rightIndexingProgress}
+                                />
                                 <div className="flex w-full h-full">
                                     <div className="w-1 bg-slate-900 hover:bg-indigo-600 transition-colors cursor-col-resize z-30 shadow-xl"></div>
                                     <div className="flex-1 h-full min-w-0">
                                         <LogViewerPane
-                                            key={rightFileName || 'right-empty'}
                                             ref={rightViewerRef}
                                             workerReady={rightWorkerReady}
-                                            loadingProgress={rightIndexingProgress}
                                             totalMatches={rightFilteredCount}
                                             onScrollRequest={requestRightLines}
                                             placeholderText={rightFileName || "Drag log file here"}
                                             highlights={currentConfig?.highlights}
                                             highlightCaseSensitive={currentConfig?.colorHighlightsCaseSensitive}
                                             hotkeyScope="alt"
-                                            onLineClick={(index) => setSelectedLineIndexRight(index)}
-                                            onLineDoubleClick={(index) => handleLineDoubleClickAction(index, 'right')}
+                                            onLineClick={onLineClickRight}
+                                            onLineDoubleClick={onLineDoubleClickRight}
                                             activeLineIndex={selectedLineIndexRight}
                                             onDrop={handleRightFileChange}
-                                            onBrowse={() => rightFileInputRef.current?.click()}
+                                            onBrowse={onBrowseRight}
                                             paneId="right"
                                             fileName={rightFileName}
                                             onReset={handleRightReset}
-                                            onCopy={() => handleCopyLogs('right')}
-                                            onSave={() => handleSaveLogs('right')}
+                                            onCopy={onCopyRight}
+                                            onSave={onSaveRight}
                                             bookmarks={rightBookmarks}
                                             onToggleBookmark={toggleRightBookmark}
                                             onFocusPaneRequest={handleFocusPaneRequest}
-                                            onSyncScroll={(dy) => handleSyncScroll(dy, 'right')}
-                                            onHighlightJump={(idx) => jumpToHighlight(idx, 'right')}
+                                            onSyncScroll={onSyncScrollRight}
+                                            onHighlightJump={onHighlightJumpRight}
                                         />
                                     </div>
                                 </div>

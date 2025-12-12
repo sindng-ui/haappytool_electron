@@ -21,7 +21,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, hasBookmark, 
     return (
         <div
             style={style}
-            className={`group flex items-center text-xs font-mono whitespace-pre hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer select-text ${isActive ? 'bg-indigo-100 dark:bg-indigo-900/30' : ''} ${hasBookmark ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}`}
+            className={`group flex items-center text-xs font-mono whitespace-pre hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer select-text ${isActive ? 'bg-emerald-100/80 dark:bg-emerald-900/40 font-medium' : ''} ${hasBookmark ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}`}
             onClick={() => onClick && onClick(index)}
             onDoubleClick={() => onDoubleClick && onDoubleClick(index)}
         >
@@ -30,7 +30,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, hasBookmark, 
                 {/* Background Blocker (matches pane bg) */}
                 <div className="absolute inset-0 bg-slate-100 dark:bg-slate-950" />
                 {/* State Overlay (matches row state) */}
-                <div className={`absolute inset-0 group-hover:bg-slate-200 dark:group-hover:bg-slate-800 transition-colors ${isActive ? 'bg-indigo-100 dark:bg-indigo-900/30' : ''} ${hasBookmark ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}`} />
+                <div className={`absolute inset-0 group-hover:bg-slate-200 dark:group-hover:bg-slate-800 transition-colors ${isActive ? 'bg-emerald-100/80 dark:bg-emerald-900/40' : ''} ${hasBookmark ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}`} />
 
                 <div className="relative z-10">
                     {hasBookmark && <span className="text-yellow-600 dark:text-yellow-500 font-bold text-[10px]">★</span>}
@@ -51,7 +51,11 @@ export const LogLine = React.memo(({ index, style, data, isActive, hasBookmark, 
 
             {/* Content */}
             <div className={`min-w-0 flex-1 px-2 ${isActive ? 'text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'}`}>
-                {isLoading ? 'Loading...' : (isRawMode ? data?.content : <HighlightRenderer text={data?.content || ''} highlights={highlights} caseSensitive={highlightCaseSensitive} />)}
+                {isLoading ? (
+                    <div className="h-3 w-48 bg-slate-200 dark:bg-slate-800 rounded animate-pulse mt-1" />
+                ) : (
+                    isRawMode ? data?.content : <HighlightRenderer text={data?.content || ''} highlights={highlights} caseSensitive={highlightCaseSensitive} />
+                )}
             </div>
         </div>
     );

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { getStoredValue, setStoredValue } from '../utils/db';
 import { LogRule, AppSettings, LogWorkerResponse } from '../types';
 import { LogViewerHandle } from '../components/LogViewer/LogViewerPane';
 import { Socket } from 'socket.io-client';
@@ -41,19 +42,33 @@ export const useLogExtractorLogic = ({
     isActive = true
 }: LogExtractorLogicProps) => {
     const [selectedRuleId, setSelectedRuleId] = useState<string>(() => {
-        const saved = localStorage.getItem('lastSelectedRuleId');
-        if (saved && rules.find(r => r.id === saved)) return saved;
         return rules.length > 0 ? rules[0].id : '';
     });
 
+    // Load saved rule ID on mount
+    useEffect(() => {
+        getStoredValue('lastSelectedRuleId').then(saved => {
+            if (saved && rules.find(r => r.id === saved)) {
+                setSelectedRuleId(saved);
+            }
+        });
+    }, [rules]);
+
     useEffect(() => {
         if (selectedRuleId) {
-            localStorage.setItem('lastSelectedRuleId', selectedRuleId);
+            setStoredValue('lastSelectedRuleId', selectedRuleId);
         }
     }, [selectedRuleId]);
 
     const [isDualView, setIsDualView] = useState(false);
-    const [isPanelOpen, setIsPanelOpen] = useState(true);
+    const [isPanelOpen, setIsPanelOpen] = useState(() => {
+        const saved = localStorage.getItem('isConfigPanelOpen');
+        return saved !== null ? saved === 'true' : true;
+    });
+
+    useEffect(() => {
+        localStorage.setItem('isConfigPanelOpen', String(isPanelOpen));
+    }, [isPanelOpen]);
 
     const toggleDualView = useCallback(() => {
         setIsDualView(prev => !prev);
@@ -113,10 +128,14 @@ export const useLogExtractorLogic = ({
     const [rawContextTargetLine, setRawContextTargetLine] = useState<{ lineNum: number, content: string } | null>(null);
     const [rawContextSourcePane, setRawContextSourcePane] = useState<'left' | 'right'>('left');
 
-    const [rawContextHeight, setRawContextHeight] = useState(() => {
-        const saved = localStorage.getItem('rawContextHeight');
-        return saved ? parseFloat(saved) : 50;
-    });
+    const [rawContextHeight, setRawContextHeight] = useState(50);
+
+    // Load saved height
+    useEffect(() => {
+        getStoredValue('rawContextHeight').then(val => {
+            if (val) setRawContextHeight(parseFloat(val));
+        });
+    }, []);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const logFileInputRef = useRef<HTMLInputElement>(null);
@@ -137,33 +156,37 @@ export const useLogExtractorLogic = ({
         let cleanupListeners: (() => void)[] = [];
 
         // Load saved state or initial file
-        const savedStateStr = localStorage.getItem(`tabState_${tabId}`);
-        console.log(`[useLog] Raw saved state for ${tabId}:`, savedStateStr);
+        const loadState = async () => {
+            const savedStateStr = await getStoredValue(`tabState_${tabId}`);
+            console.log(`[useLog] Raw saved state for ${tabId}:`, savedStateStr);
 
-        let targetPath = initialFilePath;
-        let savedScrollTop = 0;
-        let savedSelectedLine = -1;
+            let targetPath = initialFilePath;
+            let savedScrollTop = 0;
+            let savedSelectedLine = -1;
 
-        if (savedStateStr) {
-            try {
-                const saved = JSON.parse(savedStateStr);
+            if (savedStateStr) {
+                try {
+                    const saved = JSON.parse(savedStateStr);
 
-                if (saved.scrollTop) savedScrollTop = saved.scrollTop;
-                if (saved.selectedLine) savedSelectedLine = saved.selectedLine;
-                if (saved.ruleOverrides) {
-                    // setRuleOverrides(saved.ruleOverrides); // Removed causing ReferenceError
+                    if (saved.scrollTop) savedScrollTop = saved.scrollTop;
+                    if (saved.selectedLine) savedSelectedLine = saved.selectedLine;
+                    if (saved.filePath && !initialFilePath) targetPath = saved.filePath; // Use saved path if no initial overrides
+                } catch (e) {
+                    console.error(`[Persistence] Failed to parse state for ${tabId}`, e);
                 }
-            } catch (e) {
-                console.error(`[Persistence] Failed to parse state for ${tabId}`, e);
             }
-        }
 
-        console.log(`[useLog] Final targetPath:`, targetPath);
+            console.log(`[useLog] Final targetPath:`, targetPath);
 
-        if (savedScrollTop > 0) pendingScrollTop.current = savedScrollTop;
-        if (savedSelectedLine >= 0) setSelectedLineIndexLeft(savedSelectedLine);
+            if (savedScrollTop > 0) pendingScrollTop.current = savedScrollTop;
+            if (savedSelectedLine >= 0) setSelectedLineIndexLeft(savedSelectedLine);
 
-        if (targetPath) {
+            if (targetPath) {
+                loadFile(targetPath);
+            }
+        };
+
+        const loadFile = (targetPath: string) => {
             if (window.electronAPI) {
                 console.log(`[useLog] Loading file via Electron:`, targetPath);
                 const fileName = targetPath.split(/[/\\]/).pop() || 'log_file.log';
@@ -208,6 +231,8 @@ export const useLogExtractorLogic = ({
                 console.error('[useLog] window.electronAPI is MISSING!');
             }
         }
+
+        loadState();
 
         leftWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
             const { type, payload, requestId } = e.data;
@@ -611,7 +636,7 @@ export const useLogExtractorLogic = ({
 
         // Update local state immediately
         if (path) {
-            localStorage.setItem(`tabState_${tabId}`, JSON.stringify({
+            setStoredValue(`tabState_${tabId}`, JSON.stringify({
                 filePath: path,
                 selectedLine: -1,
                 scrollTop: 0
@@ -631,10 +656,18 @@ export const useLogExtractorLogic = ({
     }, [tabId]);
 
     const requestLeftLines = useCallback((startIndex: number, count: number) => {
-        return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
+        return new Promise<{ lineNum: number; content: string }[]>((resolve, reject) => {
             if (!leftWorkerRef.current) return resolve([]);
             const reqId = Math.random().toString(36).substring(7);
-            leftPendingRequests.current.set(reqId, resolve);
+            const timeout = setTimeout(() => {
+                leftPendingRequests.current.delete(reqId);
+                reject(new Error('Request timed out'));
+            }, 10000); // 10s timeout
+
+            leftPendingRequests.current.set(reqId, (data: any) => {
+                clearTimeout(timeout);
+                resolve(data);
+            });
             leftWorkerRef.current.postMessage({ type: 'GET_LINES', payload: { startLine: startIndex, count }, requestId: reqId });
         });
     }, []);
@@ -643,6 +676,8 @@ export const useLogExtractorLogic = ({
         return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
             if (!leftWorkerRef.current) return resolve([]);
             const reqId = Math.random().toString(36).substring(7);
+            // Raw lines don't need strict timeout as they are user-initiated interactions usually, but good practice.
+            // Keeping simple for now to avoid complexity in this signature which might be different.
             leftPendingRequests.current.set(reqId, resolve);
             leftWorkerRef.current.postMessage({ type: 'GET_RAW_LINES', payload: { startLine, count }, requestId: reqId });
         });
@@ -660,10 +695,18 @@ export const useLogExtractorLogic = ({
     }, []);
 
     const requestRightLines = useCallback((startIndex: number, count: number) => {
-        return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
+        return new Promise<{ lineNum: number; content: string }[]>((resolve, reject) => {
             if (!rightWorkerRef.current) return resolve([]);
             const reqId = Math.random().toString(36).substring(7);
-            rightPendingRequests.current.set(reqId, resolve);
+            const timeout = setTimeout(() => {
+                rightPendingRequests.current.delete(reqId);
+                reject(new Error('Request timed out'));
+            }, 10000);
+
+            rightPendingRequests.current.set(reqId, (data: any) => {
+                clearTimeout(timeout);
+                resolve(data);
+            });
             rightWorkerRef.current.postMessage({ type: 'GET_LINES', payload: { startLine: startIndex, count }, requestId: reqId });
         });
     }, []);
@@ -681,7 +724,14 @@ export const useLogExtractorLogic = ({
         return new Promise<string>((resolve) => {
             if (!leftWorkerRef.current) return resolve('');
             const reqId = Math.random().toString(36).substring(7);
-            leftPendingRequests.current.set(reqId, (payload: any) => resolve(payload.text));
+            leftPendingRequests.current.set(reqId, (payload: any) => {
+                if (payload.buffer) {
+                    const decoder = new TextDecoder();
+                    resolve(decoder.decode(payload.buffer));
+                } else {
+                    resolve(payload.text || '');
+                }
+            });
             leftWorkerRef.current.postMessage({ type: 'GET_FULL_TEXT', requestId: reqId });
         });
     }, []);
@@ -690,7 +740,14 @@ export const useLogExtractorLogic = ({
         return new Promise<string>((resolve) => {
             if (!rightWorkerRef.current) return resolve('');
             const reqId = Math.random().toString(36).substring(7);
-            rightPendingRequests.current.set(reqId, (payload: any) => resolve(payload.text));
+            rightPendingRequests.current.set(reqId, (payload: any) => {
+                if (payload.buffer) {
+                    const decoder = new TextDecoder();
+                    resolve(decoder.decode(payload.buffer));
+                } else {
+                    resolve(payload.text || '');
+                }
+            });
             rightWorkerRef.current.postMessage({ type: 'GET_FULL_TEXT', requestId: reqId });
         });
     }, []);
@@ -723,7 +780,7 @@ export const useLogExtractorLogic = ({
                 selectedLine: selectedLineIndexLeft,
                 scrollTop
             };
-            localStorage.setItem(`tabState_${tabId}`, JSON.stringify(state));
+            setStoredValue(`tabState_${tabId}`, JSON.stringify(state));
         }, 1000); // 1s interval
         return () => clearInterval(timer);
     }, [tabId, leftFilePath, selectedLineIndexLeft]);
@@ -736,22 +793,28 @@ export const useLogExtractorLogic = ({
             return;
         }
 
+        // Show loading toast immediately
+        showToast('Copying logs to clipboard...', 'info');
+
         try {
             console.time('copy-fetch');
             const content = await requestFullText();
             console.timeEnd('copy-fetch');
 
             if (!content) {
-                showToast('Failed to retrieve log content.', 'error');
+                showToast('Failed to retrieve log content. Log might be empty.', 'error');
                 return;
             }
 
+            // Allow UI to breathe before heavy copy
+            await new Promise(resolve => setTimeout(resolve, 50));
+
             if (window.electronAPI?.copyToClipboard) {
                 await window.electronAPI.copyToClipboard(content);
-                showToast('Copied to clipboard!', 'success');
+                showToast(`Copied ${count.toLocaleString()} lines to clipboard!`, 'success');
             } else if (navigator.clipboard && navigator.clipboard.writeText) {
                 await navigator.clipboard.writeText(content);
-                showToast('Copied to clipboard!', 'success');
+                showToast(`Copied ${count.toLocaleString()} lines to clipboard!`, 'success');
             } else {
                 // Fallback
                 const textArea = document.createElement("textarea");
@@ -763,16 +826,16 @@ export const useLogExtractorLogic = ({
                 textArea.select();
                 try {
                     document.execCommand('copy');
-                    showToast('Copied to clipboard!', 'success');
+                    showToast(`Copied ${count.toLocaleString()} lines to clipboard!`, 'success');
                 } catch (e) {
                     console.error('Fallback copy failed', e);
-                    showToast('Failed to copy logs.', 'error');
+                    showToast('Failed to copy logs (Fallback error).', 'error');
                 }
                 document.body.removeChild(textArea);
             }
         } catch (e) {
             console.error('[Copy] Failed', e);
-            showToast('Failed to copy logs.', 'error');
+            showToast('Failed to copy logs. Content might be too large.', 'error');
         }
     }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, showToast]);
 
@@ -823,12 +886,12 @@ export const useLogExtractorLogic = ({
         }
     }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, showToast]);
 
-    const updateCurrentRule = (updates: Partial<LogRule>) => {
+    const updateCurrentRule = useCallback((updates: Partial<LogRule>) => {
         const updatedRules = rules.map(r => r.id === selectedRuleId ? { ...r, ...updates } : r);
         onUpdateRules(updatedRules);
-    };
+    }, [rules, selectedRuleId, onUpdateRules]);
 
-    const handleCreateRule = () => {
+    const handleCreateRule = useCallback(() => {
         const newId = Math.random().toString(36).substring(7);
         const newRule: LogRule = {
             id: newId,
@@ -843,15 +906,15 @@ export const useLogExtractorLogic = ({
         onUpdateRules([...rules, newRule]);
         setSelectedRuleId(newId);
         if (!isPanelOpen) setIsPanelOpen(true);
-    };
+    }, [rules, onUpdateRules, isPanelOpen]);
 
-    const handleDeleteRule = () => {
+    const handleDeleteRule = useCallback(() => {
         const updated = rules.filter(r => r.id !== selectedRuleId);
         onUpdateRules(updated);
         setSelectedRuleId(updated.length > 0 ? updated[0].id : '');
-    };
+    }, [rules, selectedRuleId, onUpdateRules]);
 
-    const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImportFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
@@ -864,13 +927,13 @@ export const useLogExtractorLogic = ({
         };
         reader.readAsText(file);
         if (fileInputRef.current) fileInputRef.current.value = '';
-    };
+    }, [onImportSettings, showToast]);
 
-    const handleLogFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleLogFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) handleLeftFileChange(e.target.files[0]);
-    };
+    }, [handleLeftFileChange]);
 
-    const handleToggleRoot = (root: string, enabled: boolean) => {
+    const handleToggleRoot = useCallback((root: string, enabled: boolean) => {
         if (!currentConfig) return;
         const newIncludes = [...currentConfig.includeGroups];
         const newDisabled = [...(currentConfig.disabledGroups || [])];
@@ -888,7 +951,7 @@ export const useLogExtractorLogic = ({
             else newDisabled.push(item.g);
         });
         updateCurrentRule({ includeGroups: newIncludes, disabledGroups: newDisabled });
-    };
+    }, [currentConfig, updateCurrentRule]);
 
     const groupedRoots = useMemo(() => {
         if (!currentConfig) return [];
@@ -907,27 +970,30 @@ export const useLogExtractorLogic = ({
                 groups.get(root)!.push({ group, active: false, originalIdx: idx });
             });
         }
-        return Array.from(groups.entries())
-            .sort((a, b) => a[0].localeCompare(b[0]))
-            .map(([root, items]) => {
-                const isRootEnabled = items.some(i => i.active);
-                return { root, isRootEnabled, items };
-            });
+        return Array.from(groups.entries()).map(([root, items]) => {
+            const isRootEnabled = items.some(i => i.active);
+            return { root, isRootEnabled, items };
+        });
     }, [currentConfig]);
 
-    const [collapsedRoots, setCollapsedRoots] = useState<Set<string>>(() => {
-        const saved = localStorage.getItem('collapsedRoots');
-        if (saved) {
-            try { return new Set(JSON.parse(saved)); } catch (e) { return new Set(); }
-        }
-        return new Set();
-    });
+    const [collapsedRoots, setCollapsedRoots] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        localStorage.setItem('collapsedRoots', JSON.stringify(Array.from(collapsedRoots)));
+        getStoredValue('collapsedRoots').then(saved => {
+            if (saved) {
+                try {
+                    setCollapsedRoots(new Set(JSON.parse(saved)));
+                } catch (e) { }
+            }
+        });
+    }, []);
+
+    useEffect(() => {
+        if (collapsedRoots.size > 0)
+            setStoredValue('collapsedRoots', JSON.stringify(Array.from(collapsedRoots)));
     }, [collapsedRoots]);
 
-    const handleLineDoubleClickAction = async (index: number, paneId: 'left' | 'right' = 'left') => {
+    const handleLineDoubleClickAction = useCallback(async (index: number, paneId: 'left' | 'right' = 'left') => {
         const requestLines = paneId === 'left' ? requestLeftLines : requestRightLines;
         const lines = await requestLines(index, 1);
         if (lines && lines.length > 0) {
@@ -942,9 +1008,9 @@ export const useLogExtractorLogic = ({
                 }
             }, 100);
         }
-    };
+    }, [requestLeftLines, requestRightLines]);
 
-    const handleRawContextResizeStart = (e: React.MouseEvent) => {
+    const handleRawContextResizeStart = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
         const startY = e.clientY;
         const startHeight = rawContextHeight;
@@ -956,15 +1022,15 @@ export const useLogExtractorLogic = ({
             setRawContextHeight(newHeight);
         };
         const handleMouseUp = () => {
-            localStorage.setItem('rawContextHeight', rawContextHeight.toString());
+            setStoredValue('rawContextHeight', rawContextHeight.toString());
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
-    };
+    }, [rawContextHeight]);
 
-    const handleConfigResizeStart = (e: React.MouseEvent) => {
+    const handleConfigResizeStart = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
         const startX = e.clientX;
         const startWidth = configPanelWidth;
@@ -979,40 +1045,49 @@ export const useLogExtractorLogic = ({
         };
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
-    };
+    }, [configPanelWidth, setConfigPanelWidth]);
 
     const jumpToHighlight = useCallback(async (highlightIndex: number, paneId: 'left' | 'right') => {
         if (!currentConfig || !currentConfig.highlights || !currentConfig.highlights[highlightIndex]) return;
 
         const keyword = currentConfig.highlights[highlightIndex].keyword;
+        // Reuse generic find
+        findText(keyword, 'next', paneId);
+    }, [currentConfig]);
+
+    const findText = useCallback(async (text: string, direction: 'next' | 'prev', paneId: 'left' | 'right') => {
         const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
         const viewer = paneId === 'left' ? leftViewerRef.current : rightViewerRef.current;
         const currentLineIdx = paneId === 'left' ? selectedLineIndexLeft : selectedLineIndexRight;
         const requestMap = paneId === 'left' ? leftPendingRequests : rightPendingRequests;
+        if (!worker) return;
 
         const startIdx = currentLineIdx !== -1 ? currentLineIdx : (viewer?.getScrollTop() ? Math.floor(viewer.getScrollTop() / 24) : 0);
-
-        if (!worker) return;
 
         const result: any = await new Promise((resolve) => {
             const reqId = Math.random().toString(36).substring(7);
             requestMap.current.set(reqId, resolve);
             worker.postMessage({
-                type: 'FIND_HIGHLIGHT',
-                payload: { keyword, startIndex: startIdx, direction: 'next' },
+                type: 'FIND_HIGHLIGHT', // We reuse this message type as it just searches for a keyword
+                payload: { keyword: text, startIndex: startIdx, direction },
                 requestId: reqId
             });
         });
 
         if (result && result.foundIndex !== -1 && viewer) {
             const ROW_HEIGHT = 24;
-            const scrollTop = Math.max(0, (result.foundIndex * ROW_HEIGHT) - (viewer.getScrollTop() ? 100 : 100)); // Little offset
-            viewer.scrollTo(result.foundIndex * ROW_HEIGHT);
+            // Center the result
+            // viewer.scrollToIndex({ index: result.foundIndex, align: 'center' }); // If available
+            // Fallback to scrollTo
+            viewer.scrollTo(result.foundIndex * ROW_HEIGHT - 100);
 
             if (paneId === 'left') setSelectedLineIndexLeft(result.foundIndex);
             else setSelectedLineIndexRight(result.foundIndex);
+            showToast(`Found "${text}" at line ${result.foundIndex + 1}`, 'success');
+        } else {
+            showToast(`"${text}" not found`, 'info');
         }
-    }, [currentConfig, selectedLineIndexLeft, selectedLineIndexRight]);
+    }, [selectedLineIndexLeft, selectedLineIndexRight, showToast]);
 
     return {
         rules, onExportSettings,
@@ -1042,7 +1117,7 @@ export const useLogExtractorLogic = ({
         selectedLineIndexRight, setSelectedLineIndexRight,
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
         handleRightFileChange, handleRightReset, requestRightLines, requestRightRawLines,
-        handleCopyLogs, handleSaveLogs, jumpToHighlight,
+        handleCopyLogs, handleSaveLogs, jumpToHighlight, findText,
         sendTizenCommand,
         hasEverConnected
     };

@@ -38,7 +38,12 @@ const JsonTools: React.FC = () => {
 
             {/* Content Area */}
             <div className="flex-1 overflow-hidden p-6 relative">
-                {mode === 'FORMATTER' ? <JsonFormatter /> : <JsonDiffViewer />}
+                <div className={mode === 'FORMATTER' ? 'h-full w-full' : 'hidden'}>
+                    <JsonFormatter />
+                </div>
+                <div className={mode === 'DIFF' ? 'h-full w-full' : 'hidden'}>
+                    <JsonDiffViewer />
+                </div>
             </div>
         </div>
     );

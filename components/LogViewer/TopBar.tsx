@@ -16,7 +16,7 @@ const TopBar: React.FC = () => {
         setIsTizenModalOpen,
         requestLeftLines, requestRightLines,
         leftFilteredCount, rightFilteredCount,
-        tizenSocket, handleTizenDisconnect
+        tizenSocket, handleTizenDisconnect, findText
     } = useLogContext();
 
     const onSelectRule = setSelectedRuleId;
@@ -109,6 +109,28 @@ const TopBar: React.FC = () => {
                         <span className="text-sm font-medium">Connect</span>
                     </button>
                 )}
+
+                <div className="w-px h-6 bg-slate-700 mx-1"></div>
+
+                {/* Find Bar */}
+                <div className="flex items-center bg-slate-900 rounded-lg border border-slate-800 h-9 px-2">
+                    <Lucide.Search size={14} className="text-slate-500 mr-2" />
+                    <input
+                        className="bg-transparent border-none text-xs text-slate-300 w-32 focus:outline-none placeholder-slate-600 font-mono"
+                        placeholder="Find in logs..."
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                const val = e.currentTarget.value;
+                                if (val.trim()) {
+                                    // Default to Left pane for now
+                                    findText(val, e.shiftKey ? 'prev' : 'next', 'left');
+                                    // If Dual View, maybe search Right too? 
+                                    if (isDualView) findText(val, e.shiftKey ? 'prev' : 'next', 'right');
+                                }
+                            }
+                        }}
+                    />
+                </div>
 
                 <div className="w-px h-6 bg-slate-700 mx-1"></div>
 

@@ -24,7 +24,7 @@ const TpkExtractor: React.FC = () => {
     return (
         <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
             {/* Title Bar - Draggable Area */}
-            <div className="h-16 w-full flex-shrink-0 title-drag z-50 flex items-center gap-3 pl-4 pr-36" style={{ backgroundColor: '#0f172a', borderBottom: '1px solid rgba(99, 102, 241, 0.3)' }}>
+            <div className="h-16 w-full flex-shrink-0 title-drag z-20 flex items-center gap-3 pl-4 pr-36" style={{ backgroundColor: '#0f172a', borderBottom: '1px solid rgba(99, 102, 241, 0.3)' }}>
                 <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Archive size={16} /></div>
                 <span className="font-bold text-sm text-slate-300 no-drag">TPK Extractor</span>
             </div>

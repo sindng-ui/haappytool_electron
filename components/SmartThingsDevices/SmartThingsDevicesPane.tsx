@@ -28,8 +28,13 @@ interface Location {
 type ServerType = 'stacceptance' | 'smartthings';
 
 const SmartThingsDevicesPane: React.FC = () => {
-    const [accessToken, setAccessToken] = useState('');
+    const [accessToken, setAccessToken] = useState(() => localStorage.getItem('st_access_token') || '');
     const [serverType, setServerType] = useState<ServerType>('smartthings'); // Default to PROD (smartthings)
+
+    // Save token when changed
+    React.useEffect(() => {
+        localStorage.setItem('st_access_token', accessToken);
+    }, [accessToken]);
     const [isLoading, setIsLoading] = useState(false);
     const [groupedData, setGroupedData] = useState<Record<string, Location> | null>(null);
     const [error, setError] = useState<string | null>(null);

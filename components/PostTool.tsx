@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as Lucide from 'lucide-react';
-import { PerfResponse, SavedRequest } from '../types';
+import { PerfResponse, SavedRequest, RequestGroup } from '../types';
 import RequestSidebar from './PostTool/RequestSidebar';
 import RequestEditor from './PostTool/RequestEditor';
 import ResponseViewer from './PostTool/ResponseViewer';
@@ -16,9 +16,11 @@ const generateUUID = () => {
 interface PostToolProps {
     savedRequests: SavedRequest[];
     onUpdateRequests: (requests: SavedRequest[]) => void;
+    savedRequestGroups?: RequestGroup[];
+    onUpdateGroups?: (groups: RequestGroup[]) => void;
 }
 
-const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests }) => {
+const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests, savedRequestGroups, onUpdateGroups }) => {
     const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [response, setResponse] = useState<PerfResponse | null>(null);
@@ -27,15 +29,45 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests }) 
         id: 'temp', name: 'New Request', method: 'GET', url: '', headers: [{ key: '', value: '' }], body: ''
     });
 
+    // Sidebar Resizing
+    const [sidebarWidth, setSidebarWidth] = useState(() => {
+        const saved = localStorage.getItem('postToolSidebarWidth');
+        return saved ? parseInt(saved, 10) : 256;
+    });
+    const isResizing = React.useRef(false);
+
     useEffect(() => {
-        if (activeRequestId) {
-            const req = savedRequests.find(r => r.id === activeRequestId);
-            if (req) {
-                setCurrentRequest(JSON.parse(JSON.stringify(req)));
-                setResponse(null);
+        const handleGlobalMouseMove = (e: MouseEvent) => {
+            if (!isResizing.current) return;
+            const newWidth = Math.max(200, Math.min(600, e.clientX - 80)); // 80 is sidebar offset
+            setSidebarWidth(newWidth);
+        };
+
+        const handleGlobalMouseUp = () => {
+            if (isResizing.current) {
+                isResizing.current = false;
+                localStorage.setItem('postToolSidebarWidth', sidebarWidth.toString());
+                document.body.style.cursor = 'default';
             }
-        }
-    }, [activeRequestId]);
+        };
+
+        window.addEventListener('mousemove', handleGlobalMouseMove);
+        window.addEventListener('mouseup', handleGlobalMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleGlobalMouseMove);
+            window.removeEventListener('mouseup', handleGlobalMouseUp);
+        };
+    }, [sidebarWidth]);
+
+    const handleResizeStart = () => {
+        isResizing.current = true;
+        document.body.style.cursor = 'col-resize';
+    };
+    // Dummy handlers since we use global listeners, but we kept them in XML for safety in previous step.
+    // We can just ignore them or remove them from JSX if we update JSX again. 
+    // Actually, let's keep the JSX listeners as fallbacks or just placeholders/noop if global handles it.
+    const handleMouseMove = () => { };
+    const handleMouseUp = () => { };
 
     useEffect(() => {
         if (activeRequestId && activeRequestId !== 'temp') {
@@ -44,10 +76,16 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests }) 
         }
     }, [currentRequest]);
 
-    const handleNewRequest = () => {
+    const handleNewRequest = (groupId?: string) => {
         const newId = generateUUID();
         const newReq: SavedRequest = {
-            id: newId, name: 'New Request', method: 'GET', url: '', headers: [{ key: '', value: '' }], body: ''
+            id: newId,
+            name: 'New Request',
+            method: 'GET',
+            url: '',
+            headers: [{ key: '', value: '' }],
+            body: '',
+            groupId: groupId
         };
         onUpdateRequests([...savedRequests, newReq]);
         setActiveRequestId(newId);
@@ -103,13 +141,15 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests }) 
     return (
         <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
             {/* Title Bar - Draggable Area */}
-            <div className="h-16 w-full flex-shrink-0 title-drag z-50 flex items-center gap-3 pl-4 pr-36" style={{ backgroundColor: '#0f172a', borderBottom: '1px solid rgba(99, 102, 241, 0.3)' }}>
+            <div className="h-16 w-full flex-shrink-0 title-drag z-20 flex items-center gap-3 pl-4 pr-36" style={{ backgroundColor: '#0f172a', borderBottom: '1px solid rgba(99, 102, 241, 0.3)' }}>
                 <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Lucide.Send size={16} /></div>
                 <span className="font-bold text-sm text-slate-300 no-drag">POST Tool</span>
             </div>
 
-            <div className="flex-1 flex min-h-0 bg-slate-950">
+            <div className="flex-1 flex min-h-0 bg-slate-950 on-resize-container" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
                 <RequestSidebar
+                    width={sidebarWidth}
+                    onResizeStart={handleResizeStart}
                     savedRequests={savedRequests}
                     activeRequestId={activeRequestId}
                     currentRequest={currentRequest}
@@ -117,6 +157,9 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests }) 
                     onNewRequest={handleNewRequest}
                     onDeleteRequest={handleDeleteRequest}
                     onChangeCurrentRequest={setCurrentRequest}
+                    onUpdateRequests={onUpdateRequests}
+                    savedRequestGroups={savedRequestGroups}
+                    onUpdateGroups={onUpdateGroups}
                 />
                 <div className="flex-1 flex flex-col min-w-0 bg-slate-950">
                     <RequestEditor

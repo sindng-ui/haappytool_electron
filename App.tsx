@@ -5,7 +5,7 @@ import PostTool from './components/PostTool';
 import TpkExtractor from './components/TpkExtractor';
 import JsonTools from './components/JsonTools';
 import SmartThingsDevicesPane from './components/SmartThingsDevices/SmartThingsDevicesPane';
-import { ToolId, LogRule, AppSettings, SavedRequest } from './types';
+import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup } from './types';
 import { SettingsModal } from './components/SettingsModal';
 
 const App: React.FC = () => {
@@ -25,6 +25,7 @@ const App: React.FC = () => {
   const [lastMethod, setLastMethod] = useState('GET');
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   const [savedRequests, setSavedRequests] = useState<SavedRequest[]>([]);
+  const [savedRequestGroups, setSavedRequestGroups] = useState<RequestGroup[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Tool Order State
@@ -82,6 +83,9 @@ const App: React.FC = () => {
           // If missing OR empty array, force default item
           setSavedRequests([defaultRequest]);
         }
+        if (parsed.savedRequestGroups && Array.isArray(parsed.savedRequestGroups)) {
+          setSavedRequestGroups(parsed.savedRequestGroups);
+        }
         if (parsed.lastEndpoint) setLastApiUrl(parsed.lastEndpoint);
       } catch (e) {
         console.error("Failed to load settings", e);
@@ -102,11 +106,12 @@ const App: React.FC = () => {
     const settings: AppSettings = {
       logRules,
       savedRequests,
+      savedRequestGroups,
       lastEndpoint: lastApiUrl,
       lastMethod
     };
     localStorage.setItem('devtool_suite_settings', JSON.stringify(settings));
-  }, [logRules, lastApiUrl, lastMethod, savedRequests]);
+  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups]);
 
   const handleExportSettings = () => {
     const settings: AppSettings = {
@@ -142,30 +147,11 @@ const App: React.FC = () => {
       });
       setLogRules(migratedRules);
     }
+    if (settings.savedRequestGroups) {
+      setSavedRequestGroups(settings.savedRequestGroups);
+    }
     if (settings.lastEndpoint) setLastApiUrl(settings.lastEndpoint);
     if (settings.lastMethod) setLastMethod(settings.lastMethod);
-  };
-
-  const renderContent = () => {
-    switch (activeTool) {
-      case ToolId.LOG_EXTRACTOR:
-        return <LogExtractor
-          rules={logRules}
-          onUpdateRules={setLogRules}
-          onExportSettings={handleExportSettings}
-          onImportSettings={handleImportSettings}
-        />;
-      case ToolId.POST_TOOL:
-        return <PostTool savedRequests={savedRequests} onUpdateRequests={setSavedRequests} />;
-      case ToolId.JSON_TOOLS:
-        return <JsonTools />;
-      case ToolId.TPK_EXTRACTOR:
-        return <TpkExtractor />;
-      case ToolId.SMARTTHINGS_DEVICES:
-        return <SmartThingsDevicesPane />;
-      default:
-        return <div className="p-8 text-slate-400">Select a tool from the sidebar</div>;
-    }
   };
 
   return (
@@ -183,7 +169,37 @@ const App: React.FC = () => {
           {!isSettingsLoaded ? (
             <div className="flex h-full items-center justify-center text-slate-500">Loading settings...</div>
           ) : (
-            renderContent()
+            <>
+              <div className={activeTool === ToolId.LOG_EXTRACTOR ? "h-full w-full" : "hidden"}>
+                <LogExtractor
+                  rules={logRules}
+                  onUpdateRules={setLogRules}
+                  onExportSettings={handleExportSettings}
+                  onImportSettings={handleImportSettings}
+                />
+              </div>
+
+              <div className={activeTool === ToolId.POST_TOOL ? "h-full w-full" : "hidden"}>
+                <PostTool
+                  savedRequests={savedRequests}
+                  onUpdateRequests={setSavedRequests}
+                  savedRequestGroups={savedRequestGroups}
+                  onUpdateGroups={setSavedRequestGroups}
+                />
+              </div>
+
+              <div className={activeTool === ToolId.JSON_TOOLS ? "h-full w-full" : "hidden"}>
+                <JsonTools />
+              </div>
+
+              <div className={activeTool === ToolId.TPK_EXTRACTOR ? "h-full w-full" : "hidden"}>
+                <TpkExtractor />
+              </div>
+
+              <div className={activeTool === ToolId.SMARTTHINGS_DEVICES ? "h-full w-full" : "hidden"}>
+                <SmartThingsDevicesPane />
+              </div>
+            </>
           )}
           <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} currentStartLineIndex={0} />
         </main>

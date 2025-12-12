@@ -31,7 +31,8 @@ async function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            preload: path.join(__dirname, 'preload.js')
+            preload: path.join(__dirname, 'preload.js'),
+            backgroundThrottling: false
         },
         autoHideMenuBar: true,
         backgroundColor: '#0f172a',
@@ -111,6 +112,18 @@ app.whenReady().then(async () => {
         } catch (error) {
             console.error('Save failed:', error);
             return { status: 'error', error: error.message };
+        }
+    });
+
+    // IPC Handler for clipboard
+    const { clipboard } = require('electron');
+    ipcMain.handle('copyToClipboard', async (event, text) => {
+        try {
+            clipboard.writeText(text);
+            return { status: 'success' };
+        } catch (error) {
+            console.error('Clipboard error:', error);
+            throw error;
         }
     });
 
