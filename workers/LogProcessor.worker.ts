@@ -370,6 +370,72 @@ const getRawLines = async (startLineNum: number, count: number, requestId: strin
 };
 
 
+// --- Handler: Get Lines By Indices (for Bookmarks) ---
+const getLinesByIndices = async (indices: number[], requestId: string) => {
+    if (!filteredIndices) {
+        respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+        return;
+    }
+
+    const resultLines: any[] = [];
+
+    // Sort indices to optimize disk seeking (if OS optimizes)
+    // But we need to map results back to request order?
+    // Actually, responding with list is fine. The caller typically wants to show them in order.
+    // If we sort, we return in line order. That's usually desired for "Bookmarks List".
+    const sortedIndices = [...indices].sort((a, b) => a - b);
+
+    if (isStreamMode) {
+        for (const idx of sortedIndices) {
+            if (idx >= 0 && idx < filteredIndices.length) {
+                const originalIdx = filteredIndices[idx];
+                if (originalIdx < streamLines.length) {
+                    resultLines.push({
+                        lineNum: originalIdx + 1,
+                        content: streamLines[originalIdx],
+                        formattedLineIndex: idx // Pass back the view index for jumping
+                    });
+                }
+            }
+        }
+    } else {
+        if (!currentFile || !lineOffsets) {
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
+        }
+
+        const readSlice = (blob: Blob): Promise<string> => {
+            return new Promise((resolve) => {
+                const r = new FileReader();
+                r.onload = (e) => resolve(e.target?.result as string);
+                r.onerror = (e) => resolve('');
+                r.readAsText(blob);
+            });
+        };
+
+        for (const idx of sortedIndices) {
+            if (idx >= 0 && idx < filteredIndices.length) {
+                const originalIdx = filteredIndices[idx];
+                if (originalIdx < lineOffsets.length) {
+                    const startByte = Number(lineOffsets[originalIdx]);
+                    const endByte = originalIdx < lineOffsets.length - 1 ? Number(lineOffsets[originalIdx + 1]) : currentFile.size;
+
+                    if (startByte < endByte) {
+                        const text = await readSlice(currentFile.slice(startByte, endByte));
+                        resultLines.push({
+                            lineNum: originalIdx + 1,
+                            content: text.replace(/\r?\n$/, ''),
+                            formattedLineIndex: idx
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    respond({ type: 'LINES_DATA', payload: { lines: resultLines }, requestId });
+};
+
 // --- Handler: Find Highlight ---
 const findHighlight = async (keyword: string, startFilterIndex: number, direction: 'next' | 'prev', requestId: string) => {
     if (!filteredIndices) {
@@ -391,7 +457,7 @@ const findHighlight = async (keyword: string, startFilterIndex: number, directio
                 const line = streamLines[originalIdx];
                 const lineCheck = isCaseSensitive ? line : line.toLowerCase();
                 if (lineCheck.includes(effectiveKeyword)) {
-                    respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx }, requestId });
+                    respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx, originalLineNum: originalIdx + 1 }, requestId });
                     return;
                 }
             }
@@ -423,7 +489,7 @@ const findHighlight = async (keyword: string, startFilterIndex: number, directio
                 const line = await readSlice(currentFile.slice(startByte, endByte));
                 const lineCheck = isCaseSensitive ? line : line.toLowerCase();
                 if (lineCheck.includes(effectiveKeyword)) {
-                    respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx }, requestId });
+                    respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx, originalLineNum: originalLineNum + 1 }, requestId });
                     return;
                 }
             }
@@ -432,7 +498,7 @@ const findHighlight = async (keyword: string, startFilterIndex: number, directio
         }
     }
 
-    respond({ type: 'FIND_RESULT', payload: { foundIndex: -1 }, requestId });
+    respond({ type: 'FIND_RESULT', payload: { foundIndex: -1, originalLineNum: -1 }, requestId });
 };
 
 
@@ -581,6 +647,9 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             break;
         case 'GET_RAW_LINES':
             getRawLines(payload.startLine, payload.count, requestId || '');
+            break;
+        case 'GET_LINES_BY_INDICES':
+            getLinesByIndices(payload.indices, requestId || '');
             break;
         case 'FIND_HIGHLIGHT':
             findHighlight(payload.keyword, payload.startIndex, payload.direction, requestId || '');

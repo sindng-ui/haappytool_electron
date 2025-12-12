@@ -122,6 +122,9 @@ export const useLogExtractorLogic = ({
             return next;
         });
     }, []);
+
+    const clearLeftBookmarks = useCallback(() => setLeftBookmarks(new Set()), []);
+    const clearRightBookmarks = useCallback(() => setRightBookmarks(new Set()), []);
     const [isTizenModalOpen, setIsTizenModalOpen] = useState(false);
 
     const [rawContextOpen, setRawContextOpen] = useState(false);
@@ -752,6 +755,19 @@ export const useLogExtractorLogic = ({
         });
     }, []);
 
+    const requestBookmarkedLines = useCallback((indices: number[], paneId: 'left' | 'right') => {
+        return new Promise<any[]>((resolve) => {
+            const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
+            const requestMap = paneId === 'left' ? leftPendingRequests.current : rightPendingRequests.current;
+
+            if (!worker || indices.length === 0) return resolve([]);
+
+            const reqId = Math.random().toString(36).substring(7);
+            requestMap.set(reqId, resolve);
+            worker.postMessage({ type: 'GET_LINES_BY_INDICES', payload: { indices }, requestId: reqId });
+        });
+    }, []);
+
     const handleLeftReset = useCallback(() => {
         setLeftFileName('');
         setLeftWorkerReady(false);
@@ -1083,7 +1099,9 @@ export const useLogExtractorLogic = ({
 
             if (paneId === 'left') setSelectedLineIndexLeft(result.foundIndex);
             else setSelectedLineIndexRight(result.foundIndex);
-            showToast(`Found "${text}" at line ${result.foundIndex + 1}`, 'success');
+
+            const lineNumDisplay = result.originalLineNum ? result.originalLineNum : (result.foundIndex + 1);
+            showToast(`Found "${text}" at line ${lineNumDisplay}`, 'success');
         } else {
             showToast(`"${text}" not found`, 'info');
         }
@@ -1116,8 +1134,10 @@ export const useLogExtractorLogic = ({
         rightFileName, rightWorkerReady, rightIndexingProgress, rightTotalLines, rightFilteredCount,
         selectedLineIndexRight, setSelectedLineIndexRight,
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
+        clearLeftBookmarks, clearRightBookmarks,
         handleRightFileChange, handleRightReset, requestRightLines, requestRightRawLines,
         handleCopyLogs, handleSaveLogs, jumpToHighlight, findText,
+        requestBookmarkedLines,
         sendTizenCommand,
         hasEverConnected
     };

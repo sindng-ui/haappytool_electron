@@ -4,7 +4,7 @@ import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { LogHighlight } from '../../types';
 import { LogLine } from './LogLine';
 
-const { Upload, X, Zap, Split, Copy, Download } = Lucide;
+const { Upload, X, Zap, Split, Copy, Download, Bookmark } = Lucide;
 
 const ROW_HEIGHT = 24;
 const OVERSCAN = 120; // Reduced to 120 for better performance
@@ -33,6 +33,7 @@ interface LogViewerPaneProps {
     onToggleBookmark?: (index: number) => void;
     onFocusPaneRequest?: (direction: 'left' | 'right', visualY?: number) => void;
     onHighlightJump?: (index: number) => void;
+    onShowBookmarks?: () => void;
 }
 
 export interface LogViewerHandle {
@@ -40,6 +41,7 @@ export interface LogViewerHandle {
     scrollByLines: (count: number) => void;
     scrollByPage: (direction: number) => void;
     scrollTo: (scrollTop: number) => void;
+    scrollToIndex: (index: number) => void;
     jumpToNextBookmark: () => void;
     jumpToPrevBookmark: () => void;
     focus: () => void;
@@ -47,7 +49,7 @@ export interface LogViewerHandle {
 }
 
 const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>(({
-    workerReady, totalMatches, onScrollRequest, placeholderText, hotkeyScope = 'none', onSyncScroll, isRawMode = false, highlights, highlightCaseSensitive = false, activeLineIndex = -1, onLineClick, onLineDoubleClick, onDrop, onBrowse, paneId = 'single', fileName, onReset, onCopy, onSave, bookmarks = new Set(), onToggleBookmark, onFocusPaneRequest, onHighlightJump
+    workerReady, totalMatches, onScrollRequest, placeholderText, hotkeyScope = 'none', onSyncScroll, isRawMode = false, highlights, highlightCaseSensitive = false, activeLineIndex = -1, onLineClick, onLineDoubleClick, onDrop, onBrowse, paneId = 'single', fileName, onReset, onCopy, onSave, bookmarks = new Set(), onToggleBookmark, onFocusPaneRequest, onHighlightJump, onShowBookmarks
 }, ref) => {
     const scrollTopRef = useRef<number>(0);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -98,6 +100,11 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         scrollTo: (top: number) => {
             ignoreSyncRef.current = true;
             virtuosoRef.current?.scrollTo({ top });
+            setTimeout(() => { ignoreSyncRef.current = false; }, 100);
+        },
+        scrollToIndex: (index: number) => {
+            ignoreSyncRef.current = true;
+            virtuosoRef.current?.scrollToIndex({ index, align: 'center' });
             setTimeout(() => { ignoreSyncRef.current = false; }, 100);
         },
         jumpToNextBookmark: () => {
@@ -451,6 +458,11 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                         </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-50 group-hover/toolbar:opacity-100 transition-opacity">
+                        {workerReady && !isRawMode && onShowBookmarks && (
+                            <button onClick={onShowBookmarks} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 dark:text-slate-500 hover:text-yellow-600 dark:hover:text-yellow-500 transition-colors" title="View Bookmarks">
+                                <Bookmark size={12} fill={bookmarks.size > 0 ? "currentColor" : "none"} />
+                            </button>
+                        )}
                         {workerReady && !isRawMode && onCopy && (
                             <button onClick={onCopy} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" title="Copy Filtered Logs">
                                 <Copy size={12} />

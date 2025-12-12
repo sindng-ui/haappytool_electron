@@ -7,6 +7,7 @@ import { useLogContext } from './LogViewer/LogContext';
 import TopBar from './LogViewer/TopBar';
 import Toast from './ui/Toast';
 import LoadingOverlay from './ui/LoadingOverlay';
+import { BookmarksModal } from './BookmarksModal';
 
 const { X } = Lucide;
 
@@ -20,6 +21,10 @@ interface LogSessionProps {
 const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitleChange, headerElement }) => {
     const leftFileInputRef = React.useRef<HTMLInputElement>(null);
     const rightFileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Bookmark Modal States
+    const [isLeftBookmarksOpen, setLeftBookmarksOpen] = React.useState(false);
+    const [isRightBookmarksOpen, setRightBookmarksOpen] = React.useState(false);
 
     const {
         leftFileName, isDualView, rightFileName,
@@ -37,7 +42,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         selectedLineIndexRight, handleRightFileChange, handleRightReset, rightIndexingProgress,
         handleCopyLogs, handleSaveLogs,
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
-        jumpToHighlight,
+        clearLeftBookmarks, clearRightBookmarks,
+        jumpToHighlight, requestBookmarkedLines,
         tizenSocket, sendTizenCommand,
         toast, closeToast
     } = useLogContext();
@@ -86,6 +92,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const onSaveLeft = React.useCallback(() => handleSaveLogs('left'), [handleSaveLogs]);
     const onSyncScrollLeft = React.useCallback((dy: number) => handleSyncScroll(dy, 'left'), [handleSyncScroll]);
     const onHighlightJumpLeft = React.useCallback((idx: number) => jumpToHighlight(idx, 'left'), [jumpToHighlight]);
+    const onShowBookmarksLeft = React.useCallback(() => setLeftBookmarksOpen(true), []);
 
     // Memoized handlers for Right Pane
     const onLineClickRight = React.useCallback((index: number) => setSelectedLineIndexRight(index), [setSelectedLineIndexRight]);
@@ -95,11 +102,47 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const onSaveRight = React.useCallback(() => handleSaveLogs('right'), [handleSaveLogs]);
     const onSyncScrollRight = React.useCallback((dy: number) => handleSyncScroll(dy, 'right'), [handleSyncScroll]);
     const onHighlightJumpRight = React.useCallback((idx: number) => jumpToHighlight(idx, 'right'), [jumpToHighlight]);
+    const onShowBookmarksRight = React.useCallback(() => setRightBookmarksOpen(true), []);
+
+    const onBookmarkJumpLeft = React.useCallback((index: number) => {
+        setSelectedLineIndexLeft(index);
+        leftViewerRef.current?.scrollToIndex(index);
+    }, [setSelectedLineIndexLeft]);
+
+    const onBookmarkJumpRight = React.useCallback((index: number) => {
+        setSelectedLineIndexRight(index);
+        rightViewerRef.current?.scrollToIndex(index);
+    }, [setSelectedLineIndexRight]);
 
     return (
         <div className="flex h-full flex-col font-sans overflow-hidden" style={{ display: isActive ? 'flex' : 'none' }}>
 
             <TopBar />
+
+            <BookmarksModal
+                isOpen={isLeftBookmarksOpen}
+                onClose={() => setLeftBookmarksOpen(false)}
+                bookmarks={leftBookmarks}
+                requestLines={(indices) => requestBookmarkedLines(indices, 'left')}
+                onJump={onBookmarkJumpLeft}
+                highlights={currentConfig?.highlights}
+                caseSensitive={currentConfig?.colorHighlightsCaseSensitive}
+                title={`Bookmarks - ${leftFileName || 'Left Pane'}`}
+                onClearAll={clearLeftBookmarks}
+                onDeleteBookmark={toggleLeftBookmark}
+            />
+            <BookmarksModal
+                isOpen={isRightBookmarksOpen}
+                onClose={() => setRightBookmarksOpen(false)}
+                bookmarks={rightBookmarks}
+                requestLines={(indices) => requestBookmarkedLines(indices, 'right')}
+                onJump={onBookmarkJumpRight}
+                highlights={currentConfig?.highlights}
+                caseSensitive={currentConfig?.colorHighlightsCaseSensitive}
+                title={`Bookmarks - ${rightFileName || 'Right Pane'}`}
+                onClearAll={clearRightBookmarks}
+                onDeleteBookmark={toggleRightBookmark}
+            />
 
             {/* Hidden File Inputs for Click-to-Upload */}
             <input type="file" ref={leftFileInputRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleLeftFileChange(e.target.files[0]); e.target.value = ''; } }} />
@@ -187,6 +230,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onFocusPaneRequest={handleFocusPaneRequest}
                                     onSyncScroll={onSyncScrollLeft}
                                     onHighlightJump={onHighlightJumpLeft}
+                                    onShowBookmarks={onShowBookmarksLeft}
                                 />
                             </div>
 
@@ -224,6 +268,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onFocusPaneRequest={handleFocusPaneRequest}
                                             onSyncScroll={onSyncScrollRight}
                                             onHighlightJump={onHighlightJumpRight}
+                                            onShowBookmarks={onShowBookmarksRight}
                                         />
                                     </div>
                                 </div>
