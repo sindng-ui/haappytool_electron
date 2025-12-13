@@ -152,30 +152,50 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 (() => {
                     React.useEffect(() => {
                         const handleGlobalKeyDown = (e: KeyboardEvent) => {
-                            if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+                            if (e.ctrlKey || e.metaKey) {
                                 // Check if we are in this session (should be active)
                                 if (!isActive) return;
 
-                                e.preventDefault();
-                                e.stopPropagation();
+                                // Ctrl + B: View Bookmarks
+                                if (e.key === 'b' || e.key === 'B') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
 
-                                // Determine target based on focus or default to left
-                                // If dual view and right pane has focus, open right.
-                                let target = 'left';
-                                if (isDualView) {
-                                    const activeEl = document.activeElement;
-                                    if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
-                                        target = 'right';
+                                    // Determine target based on focus or default to left
+                                    let target = 'left';
+                                    if (isDualView) {
+                                        const activeEl = document.activeElement;
+                                        if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
+                                            target = 'right';
+                                        }
                                     }
+
+                                    if (target === 'right') onShowBookmarksRight();
+                                    else onShowBookmarksLeft();
                                 }
 
-                                if (target === 'right') onShowBookmarksRight();
-                                else onShowBookmarksLeft();
+                                // Ctrl + 1~5: Jump to Highlight #N
+                                if (['1', '2', '3', '4', '5'].includes(e.key)) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+
+                                    const highlightIdx = parseInt(e.key, 10) - 1;
+
+                                    let targetPath = 'left';
+                                    if (isDualView) {
+                                        const activeEl = document.activeElement;
+                                        if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
+                                            targetPath = 'right';
+                                        }
+                                    }
+
+                                    jumpToHighlight(highlightIdx, targetPath as 'left' | 'right');
+                                }
                             }
                         };
                         window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
                         return () => window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight]);
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight]);
                     return null;
                 })()
             )}

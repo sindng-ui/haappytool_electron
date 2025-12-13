@@ -1063,22 +1063,16 @@ export const useLogExtractorLogic = ({
         document.addEventListener('mouseup', handleMouseUp);
     }, [configPanelWidth, setConfigPanelWidth]);
 
-    const jumpToHighlight = useCallback(async (highlightIndex: number, paneId: 'left' | 'right') => {
-        if (!currentConfig || !currentConfig.highlights || !currentConfig.highlights[highlightIndex]) return;
-
-        const keyword = currentConfig.highlights[highlightIndex].keyword;
-        // Reuse generic find
-        findText(keyword, 'next', paneId);
-    }, [currentConfig]);
-
-    const findText = useCallback(async (text: string, direction: 'next' | 'prev', paneId: 'left' | 'right') => {
+    const findText = useCallback(async (text: string, direction: 'next' | 'prev', paneId: 'left' | 'right', startOffset?: number, isWrapRetry = false) => {
         const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
         const viewer = paneId === 'left' ? leftViewerRef.current : rightViewerRef.current;
         const currentLineIdx = paneId === 'left' ? selectedLineIndexLeft : selectedLineIndexRight;
+        const totalCount = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
         const requestMap = paneId === 'left' ? leftPendingRequests : rightPendingRequests;
         if (!worker) return;
 
-        const startIdx = currentLineIdx !== -1 ? currentLineIdx : (viewer?.getScrollTop() ? Math.floor(viewer.getScrollTop() / 24) : 0);
+        let startIdx = currentLineIdx !== -1 ? currentLineIdx : (viewer?.getScrollTop() ? Math.floor(viewer.getScrollTop() / 24) : 0);
+        if (startOffset !== undefined) startIdx = startOffset;
 
         const result: any = await new Promise((resolve) => {
             const reqId = Math.random().toString(36).substring(7);
@@ -1101,11 +1095,26 @@ export const useLogExtractorLogic = ({
             else setSelectedLineIndexRight(result.foundIndex);
 
             const lineNumDisplay = result.originalLineNum ? result.originalLineNum : (result.foundIndex + 1);
-            showToast(`Found "${text}" at line ${lineNumDisplay}`, 'success');
+            if (isWrapRetry) showToast(`Found "${text}" at line ${lineNumDisplay} (Wrapped)`, 'success');
+            else showToast(`Found "${text}" at line ${lineNumDisplay}`, 'success');
         } else {
-            showToast(`"${text}" not found`, 'info');
+            // If not found and not already a retry, try wrapping
+            if (!isWrapRetry && totalCount > 0) {
+                const wrapStart = direction === 'next' ? -1 : totalCount;
+                findText(text, direction, paneId, wrapStart, true);
+            } else {
+                showToast(`"${text}" not found`, 'info');
+            }
         }
-    }, [selectedLineIndexLeft, selectedLineIndexRight, showToast]);
+    }, [selectedLineIndexLeft, selectedLineIndexRight, leftFilteredCount, rightFilteredCount, showToast]);
+
+    const jumpToHighlight = useCallback(async (highlightIndex: number, paneId: 'left' | 'right') => {
+        if (!currentConfig || !currentConfig.highlights || !currentConfig.highlights[highlightIndex]) return;
+
+        const keyword = currentConfig.highlights[highlightIndex].keyword;
+        // Reuse generic find
+        findText(keyword, 'next', paneId);
+    }, [currentConfig, findText]);
 
     return {
         rules, onExportSettings,

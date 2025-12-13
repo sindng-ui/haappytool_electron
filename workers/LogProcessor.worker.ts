@@ -477,10 +477,7 @@ const findHighlight = async (keyword: string, startFilterIndex: number, directio
 
         // Limit search depth to prevent freezing?
         // Let's search max 5000 lines for now to keep it responsive, or until end.
-        const MAX_SEARCH = 20000;
-        let checked = 0;
-
-        while (searchIdx >= 0 && searchIdx < filteredIndices.length && checked < MAX_SEARCH) {
+        while (searchIdx >= 0 && searchIdx < filteredIndices.length) {
             const originalLineNum = filteredIndices[searchIdx];
             const startByte = Number(lineOffsets[originalLineNum]);
             const endByte = originalLineNum < lineOffsets.length - 1 ? Number(lineOffsets[originalLineNum + 1]) : currentFile.size;
@@ -494,7 +491,6 @@ const findHighlight = async (keyword: string, startFilterIndex: number, directio
                 }
             }
             if (direction === 'next') searchIdx++; else searchIdx--;
-            checked++;
         }
     }
 

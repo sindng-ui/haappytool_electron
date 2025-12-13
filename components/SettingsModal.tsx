@@ -152,6 +152,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         { action: "Scroll Page", keys: ["PageUp", "PageDown"] },
                                         { action: "Focus Left Pane", keys: ["Ctrl", "←"] },
                                         { action: "Focus Right Pane", keys: ["Ctrl", "→"] },
+                                        { action: "Jump Highlight 1-5", keys: ["Ctrl", "1-5"] },
                                         { action: "Create Rule", keys: ["Context Menu"] },
                                         { action: "Delete Tag/Branch", keys: ["Backspace"] },
                                         { action: "Next Tag Input", keys: ["Enter"] },
