@@ -18,7 +18,7 @@ interface HappyComboSectionProps {
 
 // Helper to check if a specific tag is being edited
 const isTagEditing = (target: { groupIdx: number, termIdx: number, isActive: boolean } | null, originalIdx: number, termIdx: number, isActive: boolean) => {
-    return target && target.groupIdx === originalIdx && target.termIdx === termIdx && target.isActive === isActive;
+    return !!(target && target.groupIdx === originalIdx && target.termIdx === termIdx && target.isActive === isActive);
 };
 
 // Component for a single editable tag
@@ -75,9 +75,36 @@ const EditableTag = memo(({
                         if (isLast) onNavigate('NextInput', false); // Special handling to jump to + tag
                     } else if (e.key === 'Escape') {
                         onCommit(value); // Revert
-                    } else if (e.key === 'Backspace' && !localValue) {
+                    } else if (e.key === 'Backspace') {
+                        if (!localValue) {
+                            e.preventDefault();
+                            onDelete();
+                        } else if (e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0) {
+                            // Jump to previous item if at start
+                            e.preventDefault();
+                            onCommit(localValue);
+                            onNavigate('Backspace', false);
+                        }
+                    } else if (e.key === 'ArrowUp') {
                         e.preventDefault();
-                        onDelete();
+                        onCommit(localValue);
+                        onNavigate('Up', false);
+                    } else if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        onCommit(localValue);
+                        onNavigate('Down', false);
+                    } else if (e.key === 'ArrowLeft') {
+                        if (e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0) {
+                            e.preventDefault();
+                            onCommit(localValue);
+                            onNavigate('Left', false);
+                        }
+                    } else if (e.key === 'ArrowRight') {
+                        if (e.currentTarget.selectionStart === localValue.length) {
+                            e.preventDefault();
+                            onCommit(localValue);
+                            onNavigate('Right', false);
+                        }
                     }
                 }}
             />
@@ -184,6 +211,19 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                     }}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') e.currentTarget.blur();
+                                        else if (e.key === 'ArrowDown') {
+                                            e.preventDefault();
+                                            if (items.length > 0) {
+                                                if (items[0].group.length > 1) {
+                                                    // Focus first tag of first branch
+                                                    setEditingTarget({ groupIdx: items[0].originalIdx, termIdx: 1, isActive: items[0].active });
+                                                } else {
+                                                    // Focus +tag of first branch
+                                                    const input = document.querySelector(`input[data-add-tag="${rootIdx}-0"]`) as HTMLInputElement;
+                                                    input?.focus();
+                                                }
+                                            }
+                                        }
                                     }}
                                 />
                             ) : (
@@ -217,7 +257,7 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                             {/* Branch Line */}
                                             <div className="absolute -left-4 top-[14px] w-4 h-px bg-slate-800" />
 
-                                            <div className="flex flex-wrap items-center gap-2">
+                                            <div className="flex flex-wrap items-center gap-2 flex-1">
                                                 {branchTags.map((term, tIdx) => (
                                                     <React.Fragment key={tIdx}>
                                                         {tIdx > 0 && <div className="w-1 h-1 bg-slate-700 rounded-full mx-0.5" />}
@@ -243,9 +283,60 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                                 handleUpdateGroup(item.originalIdx, newGroup, item.active);
                                                             }}
                                                             onNavigate={(key) => {
-                                                                if (key === 'NextInput') {
-                                                                    const input = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx}"]`) as HTMLInputElement;
-                                                                    input?.focus();
+                                                                // Handle Input Focus (Next/Add Tag)
+                                                                if (key === 'NextInput' || key === 'Right') {
+                                                                    if (tIdx < branchTags.length - 1 && key === 'Right') {
+                                                                        // Go to next tag
+                                                                        setEditingTarget({ groupIdx: item.originalIdx, termIdx: tIdx + 2, isActive: item.active });
+                                                                    } else {
+                                                                        // Go to input
+                                                                        const input = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx}"]`) as HTMLInputElement;
+                                                                        input?.focus();
+                                                                    }
+                                                                } else if (key === 'Left' || key === 'Backspace') {
+                                                                    if (tIdx > 0) {
+                                                                        setEditingTarget({ groupIdx: item.originalIdx, termIdx: tIdx, isActive: item.active });
+                                                                    }
+                                                                } else if (key === 'Up') {
+                                                                    if (itemIdx > 0) {
+                                                                        const targetItem = items[itemIdx - 1];
+                                                                        // Try to maintain column index
+                                                                        const targetLen = targetItem.group.length - 1;
+                                                                        const targetTermIdx = Math.min(tIdx, targetLen - 1);
+
+                                                                        if (targetTermIdx >= 0) {
+                                                                            setEditingTarget({ groupIdx: targetItem.originalIdx, termIdx: targetTermIdx + 1, isActive: targetItem.active });
+                                                                        } else {
+                                                                            // If target branch has no tags (just root), focus its add-tag logic? 
+                                                                            // Or if we are at index 0 and target has none...
+                                                                            // Let's just focus the input if no tags match
+                                                                            const input = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx - 1}"]`) as HTMLInputElement;
+                                                                            input?.focus();
+                                                                        }
+                                                                    } else {
+                                                                        // Focus Root
+                                                                        setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root });
+                                                                    }
+                                                                } else if (key === 'Down') {
+                                                                    if (itemIdx < items.length - 1) {
+                                                                        const targetItem = items[itemIdx + 1];
+                                                                        const targetLen = targetItem.group.length - 1;
+                                                                        const targetTermIdx = Math.min(tIdx, targetLen - 1);
+
+                                                                        if (targetTermIdx >= 0) {
+                                                                            setEditingTarget({ groupIdx: targetItem.originalIdx, termIdx: targetTermIdx + 1, isActive: targetItem.active });
+                                                                        } else {
+                                                                            const input = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx + 1}"]`) as HTMLInputElement;
+                                                                            input?.focus();
+                                                                        }
+                                                                    } else {
+                                                                        // Create Branch
+                                                                        updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] });
+                                                                        setTimeout(() => {
+                                                                            const input = document.querySelector(`input[data-add-tag="${rootIdx}-${items.length}"]`) as HTMLInputElement;
+                                                                            input?.focus();
+                                                                        }, 50);
+                                                                    }
                                                                 }
                                                             }}
                                                         />
@@ -263,42 +354,78 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                             handleUpdateGroup(item.originalIdx, newGroup, item.active);
                                                             e.currentTarget.value = '';
                                                         } else if (e.key === 'Backspace' && !e.currentTarget.value) {
-                                                            // Logic to delete last tag or branch handled in parent usually, 
-                                                            // simplifed here for performance: just focus last tag?
-                                                            // For now, let's keep it simple.
-                                                        }
-                                                        else if (e.key === 'ArrowDown') {
-                                                            // Focus next branch add-tag
-                                                            const nextInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx + 1}"]`) as HTMLInputElement;
-                                                            nextInput?.focus();
-                                                        }
-                                                        else if (e.key === 'ArrowUp') {
-                                                            const prevInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx - 1}"]`) as HTMLInputElement;
-                                                            prevInput?.focus();
-                                                        }
-                                                    }}
-                                                />
-                                                <IconButton
-                                                    variant="ghost"
-                                                    size="xs"
-                                                    icon={<X size={12} />}
-                                                    className="opacity-0 group-hover/branch:opacity-100 transition-opacity text-slate-600 hover:text-red-400"
-                                                    title="Remove Branch"
-                                                    onClick={() => {
-                                                        const sourceArray = item.active ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
-                                                        if (items.length === 1) {
-                                                            // If last branch, reset to root only
-                                                            const newGroup = [root];
-                                                            handleUpdateGroup(item.originalIdx, newGroup, item.active);
-                                                        } else {
-                                                            // Remove completely
-                                                            const newGroups = sourceArray.filter((_, i) => i !== item.originalIdx);
-                                                            if (item.active) updateCurrentRule({ includeGroups: newGroups });
-                                                            else updateCurrentRule({ disabledGroups: newGroups });
+                                                            // Backspace empty input
+                                                            if (branchTags.length > 0) {
+                                                                e.preventDefault();
+                                                                setEditingTarget({ groupIdx: item.originalIdx, termIdx: branchTags.length, isActive: item.active });
+                                                            } else if (items.length > 1) {
+                                                                // Delete Branch if empty and not the only one
+                                                                e.preventDefault();
+                                                                const sourceArray = item.active ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
+                                                                const newGroups = sourceArray.filter((_, i) => i !== item.originalIdx);
+                                                                if (item.active) updateCurrentRule({ includeGroups: newGroups });
+                                                                else updateCurrentRule({ disabledGroups: newGroups });
+
+                                                                // Focus Previous
+                                                                if (itemIdx > 0) {
+                                                                    setTimeout(() => {
+                                                                        const prevInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx - 1}"]`) as HTMLInputElement;
+                                                                        prevInput?.focus();
+                                                                    }, 50);
+                                                                }
+                                                            }
+                                                        } else if (e.key === 'ArrowDown') {
+                                                            if (itemIdx < items.length - 1) {
+                                                                // Focus next branch add-tag
+                                                                const nextInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx + 1}"]`) as HTMLInputElement;
+                                                                if (nextInput) nextInput.focus();
+                                                            } else {
+                                                                // Create Branch
+                                                                updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] });
+                                                                setTimeout(() => {
+                                                                    const input = document.querySelector(`input[data-add-tag="${rootIdx}-${items.length}"]`) as HTMLInputElement;
+                                                                    input?.focus();
+                                                                }, 50);
+                                                            }
+                                                        } else if (e.key === 'ArrowUp') {
+                                                            if (itemIdx > 0) {
+                                                                const prevInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx - 1}"]`) as HTMLInputElement;
+                                                                if (prevInput) prevInput.focus();
+                                                            } else {
+                                                                // Focus Root
+                                                                setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root });
+                                                            }
+                                                        } else if (e.key === 'ArrowLeft') {
+                                                            if (!e.currentTarget.value || e.currentTarget.selectionStart === 0) {
+                                                                if (branchTags.length > 0) {
+                                                                    e.preventDefault();
+                                                                    setEditingTarget({ groupIdx: item.originalIdx, termIdx: branchTags.length, isActive: item.active });
+                                                                }
+                                                            }
                                                         }
                                                     }}
                                                 />
                                             </div>
+                                            <IconButton
+                                                variant="ghost"
+                                                size="xs"
+                                                icon={<X size={12} />}
+                                                className="ml-auto opacity-0 group-hover/branch:opacity-100 transition-opacity text-slate-600 hover:text-red-400"
+                                                title="Remove Branch"
+                                                onClick={() => {
+                                                    const sourceArray = item.active ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
+                                                    if (items.length === 1) {
+                                                        // If last branch, reset to root only
+                                                        const newGroup = [root];
+                                                        handleUpdateGroup(item.originalIdx, newGroup, item.active);
+                                                    } else {
+                                                        // Remove completely
+                                                        const newGroups = sourceArray.filter((_, i) => i !== item.originalIdx);
+                                                        if (item.active) updateCurrentRule({ includeGroups: newGroups });
+                                                        else updateCurrentRule({ disabledGroups: newGroups });
+                                                    }
+                                                }}
+                                            />
                                         </div>
                                     );
                                 })}
