@@ -442,10 +442,10 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             tabIndex={0}
             className={`flex-1 flex flex-col relative overflow-hidden transition-all duration-300 outline-none h-full 
                 ${dragActive
-                    ? 'bg-indigo-500/10 ring-4 ring-inset ring-indigo-500/50 backdrop-blur-sm'
+                    ? 'bg-indigo-500/10 ring-4 ring-inset ring-indigo-500/50'
                     : isRawMode
                         ? 'bg-slate-100 dark:bg-slate-900'
-                        : 'bg-white/80 dark:bg-slate-950/70' // Glassy main bg
+                        : 'bg-white dark:bg-slate-950'
                 }
                 border-r border-slate-200 dark:border-white/5 last:border-r-0
             `}
@@ -455,7 +455,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             {/* Toolbar */}
             {!isRawMode && (
                 <div className={`h-11 border-b border-slate-200 dark:border-white/5 flex items-center justify-between shrink-0 z-20 group/toolbar px-3 
-                    ${isRawMode ? 'bg-transparent' : 'bg-white/50 dark:bg-slate-950/50 backdrop-blur-md'}`}>
+                    ${isRawMode ? 'bg-transparent' : 'bg-white/50 dark:bg-slate-950/50'}`}>
                     <div className="flex items-center gap-3 overflow-hidden">
                         <div className={`p-1.5 rounded-lg shadow-sm transition-all duration-300 ${workerReady ? (isRawMode ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-300' : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 icon-glow') : 'bg-slate-100 text-slate-500 dark:bg-slate-800/50 dark:text-slate-500'}`}>
                             {isRawMode ? <Split size={14} /> : <Zap size={14} />}
@@ -532,7 +532,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             </div>
                         ) : (
                             <div
-                                className="group flex flex-col items-center gap-4 p-12 rounded-3xl border-2 border-dashed border-slate-700/50 bg-slate-900/20 backdrop-blur-sm transition-all duration-300 hover:bg-slate-800/40 hover:border-indigo-500/50 hover:scale-[1.02] cursor-pointer pointer-events-auto"
+                                className="group flex flex-col items-center gap-4 p-12 rounded-3xl border-2 border-dashed border-slate-700/50 bg-slate-900/20 transition-all duration-300 hover:bg-slate-800/40 hover:border-indigo-500/50 hover:scale-[1.02] cursor-pointer pointer-events-auto"
                                 onClick={onBrowse}
                             >
                                 <div className="p-4 rounded-2xl bg-slate-800/50 group-hover:bg-indigo-500/20 transition-colors shadow-xl">
@@ -555,7 +555,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             {/* Footer */}
             {
                 workerReady && (
-                    <div className="h-7 border-t border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-slate-950/80 backdrop-blur px-3 flex items-center justify-between text-[10px] text-slate-500 font-medium select-none">
+                    <div className="h-7 border-t border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-slate-950 px-3 flex items-center justify-between text-[10px] text-slate-500 font-medium select-none">
                         <div className="flex gap-4"><span>Matches: <span className="text-slate-700 dark:text-slate-300">{totalMatches.toLocaleString()}</span></span></div>
                         <div className="flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]"></span>

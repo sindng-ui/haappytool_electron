@@ -54,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
 
       {/* Floating Animated Sidebar */}
       <div
-        className={`absolute top-0 left-0 h-full bg-slate-900/95 border-r border-white/5 text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden ${isHovered ? 'w-72' : 'w-20'
+        className={`absolute top-0 left-0 h-full bg-slate-900 border-r border-white/5 text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden transform-gpu backface-hidden ${isHovered ? 'w-72' : 'w-20'
           }`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
