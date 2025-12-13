@@ -151,7 +151,7 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
     // Memoize the header element to prevent re-renders of SessionWrapper
     const headerElement = React.useMemo(() => (
         <div
-            className="h-9 flex items-center bg-slate-950/90 border-b border-indigo-500/30 select-none pl-1"
+            className="h-9 flex items-center bg-slate-950 border-b border-indigo-500/30 select-none pl-1"
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleGlobalDrop}
         >

@@ -45,7 +45,7 @@ const ConfigurationPanel: React.FC = () => {
 
     if (!currentConfig) {
         return (
-            <div className={`glass-panel border-r border-slate-800 p-6 flex items-center justify-center text-slate-500 ${isPanelOpen ? '' : 'hidden'}`} style={{ width: configPanelWidth }}>
+            <div className="border-r border-slate-800 bg-slate-950 p-6 flex items-center justify-center text-slate-500 flex-col h-full shrink-0" style={{ width: isPanelOpen ? configPanelWidth : undefined }}>
                 Select or Create a Rule
             </div>
         );
@@ -53,7 +53,7 @@ const ConfigurationPanel: React.FC = () => {
 
     return (
         <div
-            className={`${isPanelOpen ? '' : 'w-12'} glass-panel flex flex-col h-full shadow-2xl z-20 custom-scrollbar relative shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]`}
+            className={`${isPanelOpen ? '' : 'w-12'} bg-slate-100 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col h-full shadow-xl z-20 custom-scrollbar relative shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]`}
             style={{ width: isPanelOpen ? configPanelWidth : undefined }}
         >
             {isPanelOpen && (
