@@ -1063,7 +1063,7 @@ export const useLogExtractorLogic = ({
         document.addEventListener('mouseup', handleMouseUp);
     }, [configPanelWidth, setConfigPanelWidth]);
 
-    const findText = useCallback(async (text: string, direction: 'next' | 'prev', paneId: 'left' | 'right', startOffset?: number, isWrapRetry = false) => {
+    const findText = useCallback(async (text: string, direction: 'next' | 'prev', paneId: 'left' | 'right', startOffset?: number, isWrapRetry = false, silent = false) => {
         const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
         const viewer = paneId === 'left' ? leftViewerRef.current : rightViewerRef.current;
         const currentLineIdx = paneId === 'left' ? selectedLineIndexLeft : selectedLineIndexRight;
@@ -1095,15 +1095,17 @@ export const useLogExtractorLogic = ({
             else setSelectedLineIndexRight(result.foundIndex);
 
             const lineNumDisplay = result.originalLineNum ? result.originalLineNum : (result.foundIndex + 1);
-            if (isWrapRetry) showToast(`Found "${text}" at line ${lineNumDisplay} (Wrapped)`, 'success');
-            else showToast(`Found "${text}" at line ${lineNumDisplay}`, 'success');
+            if (!silent) {
+                if (isWrapRetry) showToast(`Found "${text}" at line ${lineNumDisplay} (Wrapped)`, 'success');
+                else showToast(`Found "${text}" at line ${lineNumDisplay}`, 'success');
+            }
         } else {
             // If not found and not already a retry, try wrapping
             if (!isWrapRetry && totalCount > 0) {
                 const wrapStart = direction === 'next' ? -1 : totalCount;
-                findText(text, direction, paneId, wrapStart, true);
+                findText(text, direction, paneId, wrapStart, true, silent);
             } else {
-                showToast(`"${text}" not found`, 'info');
+                if (!silent) showToast(`"${text}" not found`, 'info');
             }
         }
     }, [selectedLineIndexLeft, selectedLineIndexRight, leftFilteredCount, rightFilteredCount, showToast]);
@@ -1113,7 +1115,7 @@ export const useLogExtractorLogic = ({
 
         const keyword = currentConfig.highlights[highlightIndex].keyword;
         // Reuse generic find
-        findText(keyword, 'next', paneId);
+        findText(keyword, 'next', paneId, undefined, false, true);
     }, [currentConfig, findText]);
 
     return {
