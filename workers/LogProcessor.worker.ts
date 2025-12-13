@@ -28,6 +28,31 @@ const respond = (response: LogWorkerResponse) => {
 const checkIsMatch = (line: string, rule: LogRule | null): boolean => {
     if (!rule) return true;
 
+    // "Show Shell/Raw Text Always" Bypass Logic
+    // ONLY applied in Stream Mode (SDB/SSH) for shell output visibility.
+    // In File Mode, we treat everything as content to be filtered strictly.
+    if (isStreamMode && rule.showRawLogLines !== false) {
+
+        // Strict Log Detection for Stream Mode
+        // We want to detect standard dlogutil formats. Anything else is "Shell Output".
+        const isStandardLog = (inputLine: string) => {
+            // 1. Timestamp "MM-DD HH:mm:ss" or "HH:mm:ss"
+            if (/\d{1,2}:\d{2}:\d{2}/.test(inputLine)) return true;
+            // 2. Kernel Float "  123.456"
+            if (/^\s*\[?\s*\d+\.\d+\s*\]?/.test(inputLine)) return true;
+            // 3. Level/Tag "I/Tag", "W/Tag" (common in some formats)
+            if (/^[A-Z]\//.test(inputLine.trim())) return true;
+
+            return false;
+        };
+
+        if (!isStandardLog(line)) {
+            // It's shell output / raw text -> Force Include
+            return true;
+        }
+        // If it IS a standard log, fall through to normal filtering (Includes/Excludes)
+    }
+
     // 1. Excludes
     const isBlockCaseSensitive = rule.blockListCaseSensitive;
     const excludes = rule.excludes.map(e => e.trim()).filter(e => e !== '');
@@ -64,7 +89,13 @@ const buildFileIndex = async (file: File) => {
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 0 } });
 
     const fileSize = file.size;
-    const offsets: bigint[] = [0n];
+
+    // Optimization: Use TypedArray with growth strategy to handle millions of lines efficiently
+    let capacity = 2 * 1024 * 1024; // Start with 2M lines
+    let tempOffsets = new BigInt64Array(capacity);
+    tempOffsets[0] = 0n;
+    let lineCount = 1;
+
     let offset = 0n;
     let processedBytes = 0;
 
@@ -77,30 +108,41 @@ const buildFileIndex = async (file: File) => {
             if (done) break;
 
             const chunk: Uint8Array = value;
-            for (let i = 0; i < chunk.length; i++) {
+            const chunkLen = chunk.length;
+
+            for (let i = 0; i < chunkLen; i++) {
                 if (chunk[i] === 10) { // \n
-                    offsets.push(offset + BigInt(i) + 1n);
+                    if (lineCount >= capacity) {
+                        // Grow
+                        const newCapacity = capacity * 2;
+                        const newArr = new BigInt64Array(newCapacity);
+                        newArr.set(tempOffsets);
+                        tempOffsets = newArr;
+                        capacity = newCapacity;
+                    }
+                    tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
                 }
             }
-            offset += BigInt(chunk.length);
-            processedBytes += chunk.length;
+            offset += BigInt(chunkLen);
+            processedBytes += chunkLen;
 
             if (processedBytes % (50 * 1024 * 1024) === 0) {
                 respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: (processedBytes / fileSize) * 100 } });
             }
         }
     } catch (e) {
+        console.error('Indexing failed', e);
         respond({ type: 'ERROR', payload: 'Failed to index file' });
         return;
     }
 
-    lineOffsets = new BigInt64Array(offsets);
+    lineOffsets = tempOffsets.slice(0, lineCount);
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 100 } });
-    respond({ type: 'INDEX_COMPLETE', payload: { totalLines: offsets.length } });
+    respond({ type: 'INDEX_COMPLETE', payload: { totalLines: lineCount } });
 
     // Initial Filter (All Pass)
-    const all = new Int32Array(offsets.length);
-    for (let i = 0; i < offsets.length; i++) all[i] = i;
+    const all = new Int32Array(lineCount);
+    for (let i = 0; i < lineCount; i++) all[i] = i;
     filteredIndices = all;
 
     respond({ type: 'FILTER_COMPLETE', payload: { matchCount: all.length } });

@@ -4,12 +4,13 @@ import LogViewerPane, { ROW_HEIGHT } from './LogViewer/LogViewerPane';
 import ConfigurationPanel from './LogViewer/ConfigurationPanel';
 import TizenConnectionModal from './TizenConnectionModal';
 import { useLogContext } from './LogViewer/LogContext';
+import { MAX_SEGMENT_SIZE } from '../hooks/useLogExtractorLogic';
 import TopBar from './LogViewer/TopBar';
 import Toast from './ui/Toast';
 import LoadingOverlay from './ui/LoadingOverlay';
 import { BookmarksModal } from './BookmarksModal';
 
-const { X, Eraser } = Lucide;
+const { X, Eraser, ChevronLeft, ChevronRight } = Lucide;
 
 interface LogSessionProps {
     isActive: boolean;
@@ -43,10 +44,22 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         handleCopyLogs, handleSaveLogs,
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
         clearLeftBookmarks, clearRightBookmarks,
-        jumpToHighlight, requestBookmarkedLines,
+        jumpToHighlight, requestBookmarkedLines, jumpToGlobalLine,
         tizenSocket, sendTizenCommand, handleClearLogs,
-        toast, closeToast
+        toast, closeToast,
+        // Segmentation
+        leftSegmentIndex, setLeftSegmentIndex, leftTotalSegments, leftCurrentSegmentLines,
+        rightSegmentIndex, setRightSegmentIndex, rightTotalSegments, rightCurrentSegmentLines
     } = useLogContext();
+
+    const requestLeftBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'left'), [requestBookmarkedLines]);
+    const requestRightBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'right'), [requestBookmarkedLines]);
+
+    // Track latest state for global shortcuts
+    const stateRef = React.useRef({ selectedLineIndexLeft, selectedLineIndexRight, leftBookmarks, rightBookmarks });
+    React.useEffect(() => {
+        stateRef.current = { selectedLineIndexLeft, selectedLineIndexRight, leftBookmarks, rightBookmarks };
+    });
 
     // Update Tab Title based on file name
     React.useEffect(() => {
@@ -63,15 +76,17 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         const targetRef = direction === 'left' ? leftViewerRef : rightViewerRef;
         const targetSetter = direction === 'left' ? setSelectedLineIndexLeft : setSelectedLineIndexRight;
         const targetCount = direction === 'left' ? leftFilteredCount : rightFilteredCount;
+        const targetOffset = direction === 'left' ? leftSegmentIndex * MAX_SEGMENT_SIZE : rightSegmentIndex * MAX_SEGMENT_SIZE;
 
         targetRef.current?.focus();
 
         if (visualY !== undefined && targetRef.current && targetCount > 0) {
             const targetScrollTop = targetRef.current.getScrollTop();
             const targetAbsY = targetScrollTop + visualY;
-            const targetIndex = Math.floor(targetAbsY / ROW_HEIGHT);
+            const targetLocalIndex = Math.floor(targetAbsY / ROW_HEIGHT);
+            const targetGlobalIndex = targetLocalIndex + targetOffset;
 
-            const clampedIndex = Math.max(0, Math.min(targetIndex, targetCount - 1));
+            const clampedIndex = Math.max(0, Math.min(targetGlobalIndex, targetCount - 1));
             targetSetter(clampedIndex);
         }
     };
@@ -114,6 +129,55 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         rightViewerRef.current?.scrollToIndex(index);
     }, [setSelectedLineIndexRight]);
 
+    // Page Navigation Handlers
+    const handlePageNavRequestLeft = React.useCallback((direction: 'next' | 'prev') => {
+        if (direction === 'next') {
+            if (leftSegmentIndex < leftTotalSegments - 1) {
+                // Jump to the START of the NEXT page
+                const target = (leftSegmentIndex + 1) * MAX_SEGMENT_SIZE;
+                console.log(`[LogSession] PageDown (Left): Jumping to start of next segment (Index ${target})`);
+                jumpToGlobalLine(target, 'left', 'start');
+            }
+        } else {
+            if (leftSegmentIndex > 0) {
+                // Jump to the END of the PREVIOUS page
+                const target = (leftSegmentIndex * MAX_SEGMENT_SIZE) - 1;
+                console.log(`[LogSession] PageUp (Left): Jumping to end of prev segment (Index ${target})`);
+                jumpToGlobalLine(target, 'left', 'end');
+            }
+        }
+    }, [leftSegmentIndex, leftTotalSegments, jumpToGlobalLine]);
+
+    const handlePageNavRequestRight = React.useCallback((direction: 'next' | 'prev') => {
+        if (direction === 'next') {
+            if (rightSegmentIndex < rightTotalSegments - 1) {
+                const target = (rightSegmentIndex + 1) * MAX_SEGMENT_SIZE;
+                console.log(`[LogSession] PageDown (Right): Jumping to start of next segment (Index ${target})`);
+                jumpToGlobalLine(target, 'right', 'start');
+            }
+        } else {
+            if (rightSegmentIndex > 0) {
+                const target = (rightSegmentIndex * MAX_SEGMENT_SIZE) - 1;
+                console.log(`[LogSession] PageUp (Right): Jumping to end of prev segment (Index ${target})`);
+                jumpToGlobalLine(target, 'right', 'end');
+            }
+        }
+    }, [rightSegmentIndex, rightTotalSegments, jumpToGlobalLine]);
+
+    // Scroll To Bottom Handlers
+    const handleScrollToBottomRequestLeft = React.useCallback(() => {
+        // Jump to very last global line
+        if (leftFilteredCount > 0) {
+            jumpToGlobalLine(leftFilteredCount - 1, 'left', 'end');
+        }
+    }, [leftFilteredCount, jumpToGlobalLine]);
+
+    const handleScrollToBottomRequestRight = React.useCallback(() => {
+        if (rightFilteredCount > 0) {
+            jumpToGlobalLine(rightFilteredCount - 1, 'right', 'end');
+        }
+    }, [rightFilteredCount, jumpToGlobalLine]);
+
     return (
         <div className="flex h-full flex-col font-sans overflow-hidden" style={{ display: isActive ? 'flex' : 'none' }}>
 
@@ -152,6 +216,121 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 (() => {
                     React.useEffect(() => {
                         const handleGlobalKeyDown = (e: KeyboardEvent) => {
+                            // F3: Next Bookmark, F4 (or Shift+F3): Prev Bookmark
+                            if (e.key === 'F3' || e.key === 'F4') {
+                                // If inside input, ignore? No, usually F3 works globally unless consumed.
+                                e.preventDefault();
+                                e.stopPropagation();
+
+                                if (!isActive) return;
+
+                                if (!isDualView && e.shiftKey) return;
+
+                                let targetPane = 'left';
+                                if (isDualView) {
+                                    if (e.shiftKey) {
+                                        targetPane = 'right';
+                                    } else {
+                                        const activeEl = document.activeElement;
+                                        if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
+                                            targetPane = 'right';
+                                        }
+                                    }
+                                }
+
+                                const isPrev = e.key === 'F3'; // F3 (and Shift+F3) = Prev, F4 (and Shift+F4) = Next
+                                const st = stateRef.current;
+                                const bookmarks = targetPane === 'right' ? st.rightBookmarks : st.leftBookmarks;
+                                const currentLine = targetPane === 'right' ? st.selectedLineIndexRight : st.selectedLineIndexLeft;
+
+                                const sorted = Array.from(bookmarks).sort((a, b) => a - b);
+                                if (sorted.length === 0) return;
+
+                                let targetIdx = -1;
+
+                                if (isPrev) {
+                                    // Find largest bookmark < currentLine
+                                    const prevs = sorted.filter(b => b < currentLine);
+                                    if (prevs.length > 0) targetIdx = prevs[prevs.length - 1];
+                                    else targetIdx = sorted[sorted.length - 1]; // Wrap to last
+                                } else {
+                                    // Find smallest bookmark > currentLine
+                                    const nexts = sorted.filter(b => b > currentLine);
+                                    if (nexts.length > 0) targetIdx = nexts[0];
+                                    else targetIdx = sorted[0]; // Wrap to first
+                                }
+
+                                if (targetIdx !== -1) {
+                                    jumpToGlobalLine(targetIdx, targetPane as 'left' | 'right');
+                                }
+
+                                return;
+                            }
+
+
+                            if (e.code === 'Space') {
+                                if (!isActive) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+
+                                let targetPane = 'left';
+                                if (isDualView) {
+                                    const activeEl = document.activeElement;
+                                    if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
+                                        targetPane = 'right';
+                                    }
+                                }
+
+                                const st = stateRef.current;
+                                const currentIndex = targetPane === 'right' ? st.selectedLineIndexRight : st.selectedLineIndexLeft;
+
+                                if (currentIndex !== -1) {
+                                    if (targetPane === 'right') toggleRightBookmark(currentIndex);
+                                    else toggleLeftBookmark(currentIndex);
+                                }
+                                return;
+                            }
+
+
+                            if (e.key === 'PageDown' || e.key === 'PageUp') {
+                                if (!isActive) return;
+
+                                let targetPane = 'left';
+                                if (isDualView) {
+                                    const activeEl = document.activeElement;
+                                    if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
+                                        targetPane = 'right';
+                                    }
+                                }
+
+                                const viewer = targetPane === 'left' ? leftViewerRef.current : rightViewerRef.current;
+                                if (!viewer) return;
+
+                                if (e.key === 'PageDown') {
+                                    if (viewer.isAtBottom()) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const handler = targetPane === 'left' ? handlePageNavRequestLeft : handlePageNavRequestRight;
+                                        // We need to access the LATEST callback.
+                                        // Since we are inside useEffect with deps...
+                                        // We must depend on handlePageNavRequestLeft/Right in useEffect
+                                        // OR use stateRef approach?
+                                        // But handlePageNavRequestLeft depends on state.
+                                        // Adding handlePageNavRequestLeft to dependency array is correct.
+                                        if (targetPane === 'left') handlePageNavRequestLeft('next');
+                                        else handlePageNavRequestRight('next');
+                                    }
+                                } else {
+                                    if (viewer.isAtTop()) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (targetPane === 'left') handlePageNavRequestLeft('prev');
+                                        else handlePageNavRequestRight('prev');
+                                    }
+                                }
+                                return;
+                            }
+
                             if (e.ctrlKey || e.metaKey) {
                                 // Check if we are in this session (should be active)
                                 if (!isActive) return;
@@ -195,7 +374,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                         };
                         window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
                         return () => window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight]);
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark]);
                     return null;
                 })()
             )}
@@ -264,10 +443,12 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     progress={leftIndexingProgress}
                                 />
                                 <LogViewerPane
+                                    key={`left-pane-${leftSegmentIndex}`} // Force remount on segment change to clear cache
                                     ref={leftViewerRef}
                                     workerReady={leftWorkerReady}
-                                    totalMatches={leftFilteredCount}
+                                    totalMatches={leftCurrentSegmentLines} // Show limited segment count
                                     onScrollRequest={requestLeftLines}
+                                    absoluteOffset={leftSegmentIndex * MAX_SEGMENT_SIZE}
                                     placeholderText={leftFileName || (isDualView ? "Drag log file here" : "Drop a log file to start")}
                                     highlights={currentConfig?.highlights}
                                     highlightCaseSensitive={currentConfig?.colorHighlightsCaseSensitive}
@@ -286,8 +467,40 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onFocusPaneRequest={handleFocusPaneRequest}
                                     onSyncScroll={onSyncScrollLeft}
                                     onHighlightJump={onHighlightJumpLeft}
+
                                     onShowBookmarks={onShowBookmarksLeft}
+                                    onPageNavRequest={handlePageNavRequestLeft}
+                                    onScrollToBottomRequest={handleScrollToBottomRequestLeft}
                                 />
+                                {leftTotalSegments > 1 && (
+                                    <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
+                                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                                            <span className="font-bold text-indigo-600 dark:text-indigo-400">PAGE {leftSegmentIndex + 1}/{leftTotalSegments}</span>
+                                            <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
+                                            <span className="font-medium">{(leftSegmentIndex * MAX_SEGMENT_SIZE + 1).toLocaleString()} - {Math.min((leftSegmentIndex + 1) * MAX_SEGMENT_SIZE, leftFilteredCount).toLocaleString()}</span>
+                                            <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
+                                            <span className="opacity-70">Total: {leftFilteredCount.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                disabled={leftSegmentIndex === 0}
+                                                onClick={() => setLeftSegmentIndex(Math.max(0, leftSegmentIndex - 1))}
+                                                className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
+                                                title="Previous Page (1.5M lines)"
+                                            >
+                                                <ChevronLeft size={14} />
+                                            </button>
+                                            <button
+                                                disabled={leftSegmentIndex >= leftTotalSegments - 1}
+                                                onClick={() => setLeftSegmentIndex(Math.min(leftTotalSegments - 1, leftSegmentIndex + 1))}
+                                                className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
+                                                title="Next Page (1.5M lines)"
+                                            >
+                                                <ChevronRight size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Right Pane */}
@@ -299,12 +512,14 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 />
                                 <div className="flex w-full h-full">
                                     <div className="w-1 bg-slate-900 hover:bg-indigo-600 transition-colors cursor-col-resize z-30 shadow-xl"></div>
-                                    <div className="flex-1 h-full min-w-0">
+                                    <div className="flex-1 h-full min-w-0 flex flex-col">
                                         <LogViewerPane
+                                            key={`right-pane-${rightSegmentIndex}`}
                                             ref={rightViewerRef}
                                             workerReady={rightWorkerReady}
-                                            totalMatches={rightFilteredCount}
+                                            totalMatches={rightCurrentSegmentLines}
                                             onScrollRequest={requestRightLines}
+                                            absoluteOffset={rightSegmentIndex * MAX_SEGMENT_SIZE}
                                             placeholderText={rightFileName || "Drag log file here"}
                                             highlights={currentConfig?.highlights}
                                             highlightCaseSensitive={currentConfig?.colorHighlightsCaseSensitive}
@@ -324,8 +539,40 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onFocusPaneRequest={handleFocusPaneRequest}
                                             onSyncScroll={onSyncScrollRight}
                                             onHighlightJump={onHighlightJumpRight}
+
                                             onShowBookmarks={onShowBookmarksRight}
+                                            onPageNavRequest={handlePageNavRequestRight}
+                                            onScrollToBottomRequest={handleScrollToBottomRequestRight}
                                         />
+                                        {rightTotalSegments > 1 && (
+                                            <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
+                                                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                                                    <span className="font-bold text-indigo-600 dark:text-indigo-400">PAGE {rightSegmentIndex + 1}/{rightTotalSegments}</span>
+                                                    <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
+                                                    <span className="font-medium">{(rightSegmentIndex * MAX_SEGMENT_SIZE + 1).toLocaleString()} - {Math.min((rightSegmentIndex + 1) * MAX_SEGMENT_SIZE, rightFilteredCount).toLocaleString()}</span>
+                                                    <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
+                                                    <span className="opacity-70">Total: {rightFilteredCount.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        disabled={rightSegmentIndex === 0}
+                                                        onClick={() => setRightSegmentIndex(Math.max(0, rightSegmentIndex - 1))}
+                                                        className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
+                                                        title="Previous Page (1.5M lines)"
+                                                    >
+                                                        <ChevronLeft size={14} />
+                                                    </button>
+                                                    <button
+                                                        disabled={rightSegmentIndex >= rightTotalSegments - 1}
+                                                        onClick={() => setRightSegmentIndex(Math.min(rightTotalSegments - 1, rightSegmentIndex + 1))}
+                                                        className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
+                                                        title="Next Page (1.5M lines)"
+                                                    >
+                                                        <ChevronRight size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -357,6 +604,39 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     </div>
                 </div>
             </div>
+
+            {/* Bookmarks Modals */}
+            <BookmarksModal
+                isOpen={isLeftBookmarksOpen}
+                onClose={() => setLeftBookmarksOpen(false)}
+                title={`Bookmarks - ${leftFileName || 'Left Pane'}`}
+                bookmarks={leftBookmarks}
+                requestLines={requestLeftBookmarkedLines}
+                onJump={(idx) => {
+                    setLeftBookmarksOpen(false);
+                    jumpToGlobalLine(idx, 'left');
+                }}
+                onClearAll={clearLeftBookmarks}
+                onDeleteBookmark={toggleLeftBookmark}
+                highlights={currentConfig?.highlights || []}
+                caseSensitive={currentConfig?.colorHighlightsCaseSensitive}
+            />
+
+            <BookmarksModal
+                isOpen={isRightBookmarksOpen}
+                onClose={() => setRightBookmarksOpen(false)}
+                title={`Bookmarks - ${rightFileName || 'Right Pane'}`}
+                bookmarks={rightBookmarks}
+                requestLines={requestRightBookmarkedLines}
+                onJump={(idx) => {
+                    setRightBookmarksOpen(false);
+                    jumpToGlobalLine(idx, 'right');
+                }}
+                onClearAll={clearRightBookmarks}
+                onDeleteBookmark={toggleRightBookmark}
+                highlights={currentConfig?.highlights || []}
+                caseSensitive={currentConfig?.colorHighlightsCaseSensitive}
+            />
         </div>
     );
 };

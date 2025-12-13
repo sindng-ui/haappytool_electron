@@ -110,7 +110,7 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
                                 >
                                     {/* Line Number */}
                                     <div className="w-16 shrink-0 py-2 px-3 text-right font-mono text-xs text-slate-400 border-r border-slate-100 dark:border-slate-800 group-hover:text-yellow-600 dark:group-hover:text-yellow-500">
-                                        {item.lineNum}
+                                        {item.originalLineNum || item.lineNum}
                                     </div>
                                     {/* Content */}
                                     <div className="flex-1 py-1 px-3 font-mono text-xs text-slate-700 dark:text-slate-300 break-all whitespace-pre-wrap overflow-hidden">

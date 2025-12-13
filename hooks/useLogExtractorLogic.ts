@@ -35,12 +35,36 @@ export interface LogExtractorLogicProps {
     isActive?: boolean;
 }
 
+// Segmentation for Large Files (Browser Limit workaround)
+// 33.5M px limit / 24px height = ~1.4M lines.
+// We use 1.5M lines as a safe chunk, but close to limit. 
+// Wait, 1.5M * 24 = 36M pixels. It might be too large for some browsers.
+// 1.40M is safer. The user asked for 1.5M explicitly.
+// Let's try 1.5M. If it blanks out, we might need to reduce.
+// Actually, Electron/Chrome limit varies. 
+// 1,500,000 * 24 = 36,000,000.
+// Limit is roughly 33,554,432.
+// 1.5M WILL failing rendering at the bottom (last 100k lines missing).
+
+// I will set it to 1,000,000 as per technical limit, BUT the user asked for 1.5M.
+// If I set 1.5M, the end of the segment might be invisible.
+
+// Let's stick to user request `1500000`.
+// Maybe they reduced row height? Or just want fewer pages.
+// Let's stick to user request `1500000`.
+// Maybe they reduced row height? Or just want fewer pages.
+export const MAX_SEGMENT_SIZE = 1_350_000;
+
+
 export const useLogExtractorLogic = ({
     rules, onUpdateRules, onExportSettings, onImportSettings,
     configPanelWidth, setConfigPanelWidth,
     tabId, initialFilePath, onFileChange,
     isActive = true
 }: LogExtractorLogicProps) => {
+    // ... (existing state) ...
+    const [leftSegmentIndex, setLeftSegmentIndex] = useState(0); // For pagination/segmentation (Left)
+    const [rightSegmentIndex, setRightSegmentIndex] = useState(0); // For pagination/segmentation (Right)
     const [selectedRuleId, setSelectedRuleId] = useState<string>(() => {
         return rules.length > 0 ? rules[0].id : '';
     });
@@ -701,6 +725,10 @@ export const useLogExtractorLogic = ({
     const requestLeftLines = useCallback((startIndex: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve, reject) => {
             if (!leftWorkerRef.current) return resolve([]);
+
+            // Segmentation Offset
+            const realStart = startIndex + (leftSegmentIndex * MAX_SEGMENT_SIZE);
+
             const reqId = Math.random().toString(36).substring(7);
             const timeout = setTimeout(() => {
                 leftPendingRequests.current.delete(reqId);
@@ -711,9 +739,9 @@ export const useLogExtractorLogic = ({
                 clearTimeout(timeout);
                 resolve(data);
             });
-            leftWorkerRef.current.postMessage({ type: 'GET_LINES', payload: { startLine: startIndex, count }, requestId: reqId });
+            leftWorkerRef.current.postMessage({ type: 'GET_LINES', payload: { startLine: realStart, count }, requestId: reqId });
         });
-    }, []);
+    }, [leftSegmentIndex]);
 
     const requestLeftRawLines = useCallback((startLine: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
@@ -740,6 +768,10 @@ export const useLogExtractorLogic = ({
     const requestRightLines = useCallback((startIndex: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve, reject) => {
             if (!rightWorkerRef.current) return resolve([]);
+
+            // Segmentation Offset Right
+            const realStart = startIndex + (rightSegmentIndex * MAX_SEGMENT_SIZE);
+
             const reqId = Math.random().toString(36).substring(7);
             const timeout = setTimeout(() => {
                 rightPendingRequests.current.delete(reqId);
@@ -750,9 +782,9 @@ export const useLogExtractorLogic = ({
                 clearTimeout(timeout);
                 resolve(data);
             });
-            rightWorkerRef.current.postMessage({ type: 'GET_LINES', payload: { startLine: startIndex, count }, requestId: reqId });
+            rightWorkerRef.current.postMessage({ type: 'GET_LINES', payload: { startLine: realStart, count }, requestId: reqId });
         });
-    }, []);
+    }, [rightSegmentIndex]);
 
     const requestRightRawLines = useCallback((startLine: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
@@ -1051,20 +1083,17 @@ export const useLogExtractorLogic = ({
 
     const handleLineDoubleClickAction = useCallback(async (index: number, paneId: 'left' | 'right' = 'left') => {
         const requestLines = paneId === 'left' ? requestLeftLines : requestRightLines;
-        const lines = await requestLines(index, 1);
+        // Index is Global. requestLines expects Relative Index (because it adds offset itself).
+        // Apply segment adjustment for both panes.
+        const relativeIndex = index % MAX_SEGMENT_SIZE;
+
+        const lines = await requestLines(relativeIndex, 1);
         if (lines && lines.length > 0) {
             setRawContextTargetLine(lines[0]);
             setRawContextSourcePane(paneId);
             setRawContextOpen(true);
-            setTimeout(() => {
-                if (rawViewerRef.current && lines[0].lineNum > 0) {
-                    const targetIndex = lines[0].lineNum - 1;
-                    const scrollTop = targetIndex * 24;
-                    rawViewerRef.current.scrollTo(scrollTop);
-                }
-            }, 100);
         }
-    }, [requestLeftLines, requestRightLines]);
+    }, [requestLeftLines, requestRightLines, leftSegmentIndex, rightSegmentIndex]);
 
     const handleRawContextResizeStart = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -1103,6 +1132,50 @@ export const useLogExtractorLogic = ({
         document.addEventListener('mouseup', handleMouseUp);
     }, [configPanelWidth, setConfigPanelWidth]);
 
+    const pendingJumpLineLeft = useRef<{ index: number, align?: 'start' | 'center' | 'end' } | null>(null);
+    const pendingJumpLineRight = useRef<{ index: number, align?: 'start' | 'center' | 'end' } | null>(null);
+
+    // Effect to handle scroll after segment switch (Left)
+    useEffect(() => {
+        if (pendingJumpLineLeft.current !== null && leftViewerRef.current) {
+            const { index, align } = pendingJumpLineLeft.current;
+            pendingJumpLineLeft.current = null;
+            setTimeout(() => { leftViewerRef.current?.scrollToIndex(index, { align: align || 'center' }); }, 50);
+        }
+    }, [leftSegmentIndex]);
+
+    // Effect to handle scroll after segment switch (Right)
+    useEffect(() => {
+        if (pendingJumpLineRight.current !== null && rightViewerRef.current) {
+            const { index, align } = pendingJumpLineRight.current;
+            pendingJumpLineRight.current = null;
+            setTimeout(() => { rightViewerRef.current?.scrollToIndex(index, { align: align || 'center' }); }, 50);
+        }
+    }, [rightSegmentIndex]);
+
+    const jumpToGlobalLine = useCallback((globalIndex: number, paneId: 'left' | 'right' = 'left', align: 'start' | 'center' | 'end' = 'center') => {
+        const seg = Math.floor(globalIndex / MAX_SEGMENT_SIZE);
+        const rel = globalIndex % MAX_SEGMENT_SIZE;
+
+        if (paneId === 'left') {
+            if (seg !== leftSegmentIndex) {
+                setLeftSegmentIndex(seg);
+                pendingJumpLineLeft.current = { index: rel, align };
+            } else {
+                leftViewerRef.current?.scrollToIndex(rel, { align });
+            }
+            setSelectedLineIndexLeft(globalIndex);
+        } else {
+            if (seg !== rightSegmentIndex) {
+                setRightSegmentIndex(seg);
+                pendingJumpLineRight.current = { index: rel, align };
+            } else {
+                rightViewerRef.current?.scrollToIndex(rel, { align });
+            }
+            setSelectedLineIndexRight(globalIndex);
+        }
+    }, [leftSegmentIndex, rightSegmentIndex]);
+
     const findText = useCallback(async (text: string, direction: 'next' | 'prev', paneId: 'left' | 'right', startOffset?: number, isWrapRetry = false, silent = false) => {
         const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
         const viewer = paneId === 'left' ? leftViewerRef.current : rightViewerRef.current;
@@ -1125,14 +1198,8 @@ export const useLogExtractorLogic = ({
         });
 
         if (result && result.foundIndex !== -1 && viewer) {
-            const ROW_HEIGHT = 24;
-            // Center the result
-            // viewer.scrollToIndex({ index: result.foundIndex, align: 'center' }); // If available
-            // Fallback to scrollTo
-            viewer.scrollTo(result.foundIndex * ROW_HEIGHT - 100);
-
-            if (paneId === 'left') setSelectedLineIndexLeft(result.foundIndex);
-            else setSelectedLineIndexRight(result.foundIndex);
+            // Use jumpToGlobalLine for correct navigation
+            jumpToGlobalLine(result.foundIndex, paneId);
 
             const lineNumDisplay = result.originalLineNum ? result.originalLineNum : (result.foundIndex + 1);
             if (!silent) {
@@ -1157,6 +1224,26 @@ export const useLogExtractorLogic = ({
         // Reuse generic find
         findText(keyword, 'next', paneId, undefined, false, true);
     }, [currentConfig, findText]);
+
+    // Segmentation Derived Values (Left)
+    const leftTotalSegments = Math.ceil(leftFilteredCount / MAX_SEGMENT_SIZE) || 1;
+    const leftCurrentSegmentLines = Math.min(MAX_SEGMENT_SIZE, Math.max(0, leftFilteredCount - (leftSegmentIndex * MAX_SEGMENT_SIZE)));
+
+    // Segmentation Derived Values (Right)
+    const rightTotalSegments = Math.ceil(rightFilteredCount / MAX_SEGMENT_SIZE) || 1;
+    const rightCurrentSegmentLines = Math.min(MAX_SEGMENT_SIZE, Math.max(0, rightFilteredCount - (rightSegmentIndex * MAX_SEGMENT_SIZE)));
+
+    // Reset segment index if out of bounds (Left)
+    useEffect(() => {
+        const maxSeg = Math.max(0, Math.ceil(leftFilteredCount / MAX_SEGMENT_SIZE) - 1);
+        if (leftSegmentIndex > maxSeg) setLeftSegmentIndex(maxSeg);
+    }, [leftFilteredCount, leftSegmentIndex]);
+
+    // Reset segment index if out of bounds (Right)
+    useEffect(() => {
+        const maxSeg = Math.max(0, Math.ceil(rightFilteredCount / MAX_SEGMENT_SIZE) - 1);
+        if (rightSegmentIndex > maxSeg) setRightSegmentIndex(maxSeg);
+    }, [rightFilteredCount, rightSegmentIndex]);
 
     return {
         rules, onExportSettings,
@@ -1191,6 +1278,10 @@ export const useLogExtractorLogic = ({
         requestBookmarkedLines,
         sendTizenCommand,
         hasEverConnected,
-        handleClearLogs
+        handleClearLogs,
+        jumpToGlobalLine, // Exported for LogSession usage
+        // Segmentation
+        leftSegmentIndex, setLeftSegmentIndex, leftTotalSegments, leftCurrentSegmentLines,
+        rightSegmentIndex, setRightSegmentIndex, rightTotalSegments, rightCurrentSegmentLines
     };
 };

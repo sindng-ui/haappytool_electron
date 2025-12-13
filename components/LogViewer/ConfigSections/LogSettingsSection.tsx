@@ -103,6 +103,18 @@ export const LogSettingsSection: React.FC<LogSettingsSectionProps> = ({ currentC
                         onChange={(e) => setLocalCommand(e.target.value)}
                         onBlur={handleCommandBlur}
                     />
+
+                    <div className="flex items-center mt-3">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer select-none hover:text-slate-300 transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={currentConfig.showRawLogLines !== false}
+                                onChange={(e) => updateCurrentRule({ showRawLogLines: e.target.checked })}
+                                className="accent-emerald-500 w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 focus:ring-0 focus:ring-offset-0"
+                            />
+                            <span>Show Shell/Raw Text Always (Bypass Filters)</span>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>

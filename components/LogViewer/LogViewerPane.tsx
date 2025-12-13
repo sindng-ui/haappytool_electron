@@ -4,7 +4,7 @@ import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { LogHighlight } from '../../types';
 import { LogLine } from './LogLine';
 
-const { Upload, X, Zap, Split, Copy, Download, Bookmark } = Lucide;
+const { Upload, X, Zap, Split, Copy, Download, Bookmark, ArrowDown } = Lucide;
 
 const ROW_HEIGHT = 24;
 const OVERSCAN = 120; // Reduced to 120 for better performance
@@ -34,6 +34,9 @@ interface LogViewerPaneProps {
     onFocusPaneRequest?: (direction: 'left' | 'right', visualY?: number) => void;
     onHighlightJump?: (index: number) => void;
     onShowBookmarks?: () => void;
+    absoluteOffset?: number; // Global index offset for this segment
+    onPageNavRequest?: (direction: 'next' | 'prev') => void;
+    onScrollToBottomRequest?: () => void;
 }
 
 export interface LogViewerHandle {
@@ -41,19 +44,51 @@ export interface LogViewerHandle {
     scrollByLines: (count: number) => void;
     scrollByPage: (direction: number) => void;
     scrollTo: (scrollTop: number) => void;
-    scrollToIndex: (index: number) => void;
+    scrollToIndex: (index: number, options?: { align: 'start' | 'center' | 'end' }) => void;
     jumpToNextBookmark: () => void;
     jumpToPrevBookmark: () => void;
     focus: () => void;
     getScrollTop: () => number;
+    isAtTop: () => boolean;
+    isAtBottom: () => boolean;
 }
 
 const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>(({
-    workerReady, totalMatches, onScrollRequest, placeholderText, hotkeyScope = 'none', onSyncScroll, isRawMode = false, highlights, highlightCaseSensitive = false, activeLineIndex = -1, onLineClick, onLineDoubleClick, onDrop, onBrowse, paneId = 'single', fileName, onReset, onCopy, onSave, bookmarks = new Set(), onToggleBookmark, onFocusPaneRequest, onHighlightJump, onShowBookmarks
+    workerReady,
+    totalMatches,
+    onScrollRequest,
+    placeholderText,
+    hotkeyScope = 'none',
+    onSyncScroll,
+    isRawMode = false,
+    highlights,
+    highlightCaseSensitive = false,
+    activeLineIndex = -1,
+    onLineClick,
+    onLineDoubleClick,
+    onDrop,
+    onBrowse,
+    paneId = 'single',
+    fileName,
+    onReset,
+    onCopy,
+    onSave,
+    bookmarks = new Set(),
+    onToggleBookmark,
+    onFocusPaneRequest,
+    onHighlightJump,
+    onShowBookmarks,
+    onPageNavRequest,
+    onScrollToBottomRequest,
+    absoluteOffset = 0
 }, ref) => {
     const scrollTopRef = useRef<number>(0);
     const containerRef = useRef<HTMLDivElement>(null);
     const virtuosoRef = useRef<VirtuosoHandle>(null);
+
+    // Auto-scroll (Sticky Bottom) State
+    const [atBottom, setAtBottom] = useState(false);
+    const showScrollToBottom = !atBottom && totalMatches > 0;
 
     // Cache for lines
     const [cachedLines, setCachedLines] = useState<Map<number, { lineNum: number, content: string }>>(new Map());
@@ -67,7 +102,10 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     const ignoreSyncRef = useRef(false);
 
     useImperativeHandle(ref, () => ({
-        focus: () => containerRef.current?.focus(),
+        focus: () => {
+            // Prevent scrolling when focusing
+            containerRef.current?.focus({ preventScroll: true });
+        },
         getScrollTop: () => scrollTopRef.current,
         scrollBy: (deltaY: number) => {
             ignoreSyncRef.current = true;
@@ -102,9 +140,9 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             virtuosoRef.current?.scrollTo({ top });
             setTimeout(() => { ignoreSyncRef.current = false; }, 100);
         },
-        scrollToIndex: (index: number) => {
+        scrollToIndex: (index: number, options?: { align: 'start' | 'center' | 'end' }) => {
             ignoreSyncRef.current = true;
-            virtuosoRef.current?.scrollToIndex({ index, align: 'center' });
+            virtuosoRef.current?.scrollToIndex({ index, align: options?.align || 'center' });
             setTimeout(() => { ignoreSyncRef.current = false; }, 100);
         },
         jumpToNextBookmark: () => {
@@ -143,7 +181,9 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 virtuosoRef.current?.scrollToIndex({ index: target, align: 'center' });
                 if (onLineClick) onLineClick(target);
             }
-        }
+        },
+        isAtTop: () => scrollTopRef.current === 0,
+        isAtBottom: () => atBottom
     }));
 
     const prevScrollTopRef = useRef<number>(0);
@@ -255,6 +295,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     // Track Shift key for sync scrolling
     // Track Shift key for sync scrolling and performance optimizations
     const [isShiftDown, setIsShiftDown] = useState(false);
+
+
     const shiftPressedRef = useRef(false);
 
     useEffect(() => {
@@ -336,52 +378,60 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             }
             if (e.key === 'ArrowLeft' && onFocusPaneRequest) {
                 e.preventDefault();
-                const visualY = (activeLineIndex >= 0) ? (activeLineIndex * ROW_HEIGHT) - scrollTopRef.current : undefined;
+                const relativeActive = activeLineIndex - absoluteOffset;
+                const visualY = (relativeActive >= 0) ? (relativeActive * ROW_HEIGHT) - scrollTopRef.current : undefined;
                 onFocusPaneRequest('left', visualY);
             }
             if (e.key === 'ArrowRight' && onFocusPaneRequest) {
                 e.preventDefault();
-                const visualY = (activeLineIndex >= 0) ? (activeLineIndex * ROW_HEIGHT) - scrollTopRef.current : undefined;
+                const relativeActive = activeLineIndex - absoluteOffset;
+                const visualY = (relativeActive >= 0) ? (relativeActive * ROW_HEIGHT) - scrollTopRef.current : undefined;
                 onFocusPaneRequest('right', visualY);
             }
         }
 
         if (!e.ctrlKey) {
+            const relativeActive = activeLineIndex - absoluteOffset;
+            const isFocusedOnPage = relativeActive >= 0 && relativeActive < totalMatches;
+
             if (e.code === 'ArrowDown' && onLineClick) {
                 e.preventDefault();
-                const nextIndex = Math.min(totalMatches - 1, activeLineIndex + 1);
-                onLineClick(nextIndex);
-                virtuosoRef.current?.scrollIntoView({ index: nextIndex, behavior: 'auto' });
+                const nextRel = isFocusedOnPage ? Math.min(totalMatches - 1, relativeActive + 1) : 0;
+                onLineClick(nextRel + absoluteOffset);
+                virtuosoRef.current?.scrollIntoView({ index: nextRel, behavior: 'auto' });
             }
             if (e.code === 'ArrowUp' && onLineClick) {
                 e.preventDefault();
-                const prevIndex = Math.max(0, activeLineIndex - 1);
-                onLineClick(prevIndex);
-                virtuosoRef.current?.scrollIntoView({ index: prevIndex, behavior: 'auto' });
+                const prevRel = isFocusedOnPage ? Math.max(0, relativeActive - 1) : 0;
+                onLineClick(prevRel + absoluteOffset);
+                virtuosoRef.current?.scrollIntoView({ index: prevRel, behavior: 'auto' });
             }
             if (e.code === 'Home' && onLineClick) {
                 e.preventDefault();
-                onLineClick(0);
+                onLineClick(0 + absoluteOffset);
                 virtuosoRef.current?.scrollToIndex({ index: 0 });
             }
             if (e.code === 'End' && onLineClick) {
                 e.preventDefault();
-                onLineClick(totalMatches - 1);
-                virtuosoRef.current?.scrollToIndex({ index: totalMatches - 1 });
+                const lastRel = totalMatches - 1;
+                onLineClick(lastRel + absoluteOffset);
+                virtuosoRef.current?.scrollToIndex({ index: lastRel });
             }
             if ((e.code === 'PageUp' || e.code === 'PageDown') && onLineClick) {
                 e.preventDefault();
                 const direction = e.code === 'PageUp' ? -1 : 1;
                 const pageHeight = containerRef.current?.clientHeight || 800;
-                virtuosoRef.current?.scrollBy({ top: direction * pageHeight * 0.8 });
-                // We don't change selection line on generic PageUp/Down usually, unless requested?
-                // Original logic did complex calculation to move cursor.
-                // For now let's just scroll. User requested improved PageUp previously.
-                // Re-implementing "Move Cursor with PageUp":
                 const linesPerPage = Math.floor(pageHeight / ROW_HEIGHT);
-                const nextIndex = Math.max(0, Math.min(totalMatches - 1, activeLineIndex + (direction * linesPerPage)));
-                onLineClick(nextIndex);
-                virtuosoRef.current?.scrollToIndex({ index: nextIndex, align: 'center' });
+
+                let targetRel = 0;
+                if (isFocusedOnPage) {
+                    targetRel = Math.max(0, Math.min(totalMatches - 1, relativeActive + (direction * linesPerPage)));
+                } else {
+                    targetRel = direction === 1 ? Math.min(totalMatches - 1, linesPerPage) : 0;
+                }
+
+                onLineClick(targetRel + absoluteOffset);
+                virtuosoRef.current?.scrollToIndex({ index: targetRel, align: 'center' });
             }
         }
     };
@@ -394,7 +444,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         // Use Ref for data access to keep callback stable across data updates
         // But we depend on cachedLines state to force re-render when data arrives!
         const data = cachedLinesRef.current.get(index);
-        const isActive = index === activeLineIndex;
+        const globalIndex = index + absoluteOffset;
+        const isActive = globalIndex === activeLineIndex;
         // Bookmarks and other props still need to match, but they update less frequently than data
         return (
             <LogLine
@@ -402,15 +453,15 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 style={{ height: ROW_HEIGHT, width: '100%' }}
                 data={data}
                 isActive={isActive}
-                hasBookmark={bookmarks.has(index)}
+                hasBookmark={bookmarks.has(globalIndex)}
                 isRawMode={isRawMode}
                 highlights={highlights}
                 highlightCaseSensitive={highlightCaseSensitive}
-                onClick={(idx) => onLineClick && onLineClick(idx)}
-                onDoubleClick={(idx) => onLineDoubleClick && onLineDoubleClick(idx)}
+                onClick={() => onLineClick && onLineClick(globalIndex)}
+                onDoubleClick={() => onLineDoubleClick && onLineDoubleClick(globalIndex)}
             />
         );
-    }, [activeLineIndex, bookmarks, isRawMode, highlights, highlightCaseSensitive, onLineClick, onLineDoubleClick, cachedLines]); // Added cachedLines to force update
+    }, [activeLineIndex, bookmarks, isRawMode, highlights, highlightCaseSensitive, onLineClick, onLineDoubleClick, cachedLines, absoluteOffset]); // Added absoluteOffset
 
     // Non-passive wheel listener to allow preventDefault for Shift+Scroll
     useEffect(() => {
@@ -500,33 +551,58 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             )}
 
             {/* Content */}
-            <div className="flex-1 relative overflow-hidden">
+            <div
+                className="flex-1 relative overflow-hidden"
+            // Keydown handling moved to LogSession for global scope
+            >
                 {workerReady ? (
-                    <Virtuoso
-                        ref={virtuosoRef}
-                        totalCount={totalMatches}
-                        overscan={OVERSCAN * ROW_HEIGHT}
-                        itemContent={itemContent}
-                        rangeChanged={({ startIndex, endIndex }) => {
-                            loadMoreItems(startIndex, endIndex);
-                        }}
-                        onScroll={(e) => {
-                            const top = (e.currentTarget as HTMLElement).scrollTop;
-                            // const delta = top - prevScrollTopRef.current;
-                            prevScrollTopRef.current = top;
-                            scrollTopRef.current = top;
+                    <>
+                        <Virtuoso
+                            ref={virtuosoRef}
+                            totalCount={totalMatches}
+                            overscan={OVERSCAN * ROW_HEIGHT}
+                            itemContent={itemContent}
+                            atBottomThreshold={50}
+                            followOutput={atBottom ? 'auto' : false}
+                            atBottomStateChange={setAtBottom}
+                            rangeChanged={({ startIndex, endIndex }) => {
+                                loadMoreItems(startIndex, endIndex);
+                            }}
+                            onScroll={(e) => {
+                                const top = (e.currentTarget as HTMLElement).scrollTop;
+                                // const delta = top - prevScrollTopRef.current;
+                                prevScrollTopRef.current = top;
+                                scrollTopRef.current = top;
 
-                            if (ignoreSyncRef.current) {
-                                ignoreSyncRef.current = false;
-                                return;
-                            }
+                                if (ignoreSyncRef.current) {
+                                    ignoreSyncRef.current = false;
+                                    return;
+                                }
 
-                            // Pass absolute position for robust sync, ONLY if Shift is pressed
-                            if (onSyncScroll && shiftPressedRef.current) onSyncScroll(top);
-                        }}
-                        style={{ height: '100%' }}
-                        className="custom-scrollbar"
-                    />
+                                // Pass absolute position for robust sync, ONLY if Shift is pressed
+                                if (onSyncScroll && shiftPressedRef.current) onSyncScroll(top);
+
+
+                            }}
+                            style={{ height: '100%' }}
+                            className="custom-scrollbar"
+                        />
+                        {showScrollToBottom && (
+                            <button
+                                className="absolute bottom-6 right-8 z-40 p-3 bg-indigo-600 text-white rounded-full shadow-xl hover:bg-indigo-500 transition-all animate-in fade-in zoom-in duration-200 hover:scale-110 border border-white/10"
+                                onClick={() => {
+                                    if (onScrollToBottomRequest) {
+                                        onScrollToBottomRequest();
+                                    } else {
+                                        virtuosoRef.current?.scrollToIndex({ index: totalMatches - 1, align: 'end', behavior: 'auto' });
+                                    }
+                                }}
+                                title="Scroll to Bottom"
+                            >
+                                <ArrowDown size={20} />
+                            </button>
+                        )}
+                    </>
                 ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-slate-400 pointer-events-none">
                         {fileName ? (

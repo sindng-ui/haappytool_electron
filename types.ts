@@ -25,6 +25,7 @@ export interface LogRule {
   happyCombosCaseSensitive?: boolean;
   blockListCaseSensitive?: boolean;
   colorHighlightsCaseSensitive?: boolean;
+  showRawLogLines?: boolean;
 }
 
 export interface AppSettings {
