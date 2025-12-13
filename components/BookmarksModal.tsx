@@ -24,6 +24,16 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isOpen) {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
+    useEffect(() => {
         if (isOpen && bookmarks.size > 0) {
             setIsLoading(true);
             const indices = Array.from(bookmarks).sort((a, b) => a - b);

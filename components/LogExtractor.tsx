@@ -136,10 +136,20 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
     // Keyboard Navigation for Tabs
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Check for Ctrl+Tab (Next Tab)
+            // Note: Shift+Ctrl+Tab for previous tab is also standard, implementing both for completeness
             if (e.ctrlKey && e.key === 'Tab') {
                 e.preventDefault();
                 const currentIndex = tabs.findIndex(t => t.id === activeTabId);
-                const nextIndex = (currentIndex + 1) % tabs.length;
+                if (currentIndex === -1) return;
+
+                let nextIndex;
+                if (e.shiftKey) {
+                    nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+                } else {
+                    nextIndex = (currentIndex + 1) % tabs.length;
+                }
+
                 setActiveTabId(tabs[nextIndex].id);
             }
         };

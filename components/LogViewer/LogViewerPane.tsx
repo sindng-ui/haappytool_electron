@@ -318,6 +318,13 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             }
         }
 
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+            if (onShowBookmarks) {
+                e.preventDefault();
+                onShowBookmarks();
+            }
+        }
+
         if (e.ctrlKey) {
             if (e.key === 'ArrowUp') {
                 e.preventDefault();

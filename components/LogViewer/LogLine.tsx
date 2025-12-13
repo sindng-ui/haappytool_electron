@@ -24,9 +24,10 @@ export const LogLine = React.memo(({ index, style, data, isActive, hasBookmark, 
             className={`group flex items-center text-xs font-mono whitespace-pre cursor-pointer select-text transition-colors duration-75
                 ${isActive
                     ? 'bg-indigo-500/10 dark:bg-indigo-500/20 font-medium'
-                    : 'hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
-                } 
-                ${hasBookmark ? 'bg-yellow-50/50 dark:bg-yellow-500/10' : ''}`}
+                    : hasBookmark
+                        ? 'bg-yellow-50/50 dark:bg-yellow-500/10 hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
+                        : 'hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
+                }`}
             onClick={() => onClick && onClick(index)}
             onDoubleClick={() => onDoubleClick && onDoubleClick(index)}
         >
@@ -37,8 +38,12 @@ export const LogLine = React.memo(({ index, style, data, isActive, hasBookmark, 
 
                 {/* State Overlay (matches row state) */}
                 <div className={`absolute inset-0 transition-colors 
-                    ${isActive ? 'bg-indigo-500/10 dark:bg-indigo-500/20' : 'group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'} 
-                    ${hasBookmark ? 'bg-yellow-50/50 dark:bg-yellow-500/10' : ''}`}
+                    ${isActive
+                        ? 'bg-indigo-500/10 dark:bg-indigo-500/20'
+                        : hasBookmark
+                            ? 'bg-yellow-50/50 dark:bg-yellow-500/10 group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'
+                            : 'group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'
+                    }`}
                 />
 
                 {/* Left Active Indicator */}

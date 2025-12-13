@@ -144,6 +144,42 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 onDeleteBookmark={toggleRightBookmark}
             />
 
+            {/* Global Shortcut Handler for Ctrl+B */}
+            {React.createElement(
+                React.Fragment,
+                null,
+                // Inline effect for global shortcut
+                (() => {
+                    React.useEffect(() => {
+                        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+                            if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+                                // Check if we are in this session (should be active)
+                                if (!isActive) return;
+
+                                e.preventDefault();
+                                e.stopPropagation();
+
+                                // Determine target based on focus or default to left
+                                // If dual view and right pane has focus, open right.
+                                let target = 'left';
+                                if (isDualView) {
+                                    const activeEl = document.activeElement;
+                                    if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
+                                        target = 'right';
+                                    }
+                                }
+
+                                if (target === 'right') onShowBookmarksRight();
+                                else onShowBookmarksLeft();
+                            }
+                        };
+                        window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
+                        return () => window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight]);
+                    return null;
+                })()
+            )}
+
             {/* Hidden File Inputs for Click-to-Upload */}
             <input type="file" ref={leftFileInputRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleLeftFileChange(e.target.files[0]); e.target.value = ''; } }} />
             <input type="file" ref={rightFileInputRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleRightFileChange(e.target.files[0]); e.target.value = ''; } }} />
@@ -235,7 +271,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                             </div>
 
                             {/* Right Pane */}
-                            <div className={`flex flex-col h-full min-w-0 bg-slate-950 relative ${isDualView ? 'flex w-1/2' : 'hidden w-0'}`}>
+                            <div className={`flex flex-col h-full min-w-0 bg-slate-950 relative ${isDualView ? 'flex w-1/2' : 'hidden w-0'}`} data-pane-id="right">
                                 <LoadingOverlay
                                     isVisible={!!rightFileName && !rightWorkerReady && rightIndexingProgress < 100}
                                     fileName={rightFileName}
