@@ -139,14 +139,14 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests, sa
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
+        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-300">
             {/* Title Bar - Draggable Area */}
-            <div className="h-16 w-full flex-shrink-0 title-drag z-20 flex items-center gap-3 pl-4 pr-36" style={{ backgroundColor: '#0f172a', borderBottom: '1px solid rgba(99, 102, 241, 0.3)' }}>
-                <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Lucide.Send size={16} /></div>
-                <span className="font-bold text-sm text-slate-300 no-drag">POST Tool</span>
+            <div className="h-11 w-full flex-shrink-0 title-drag z-20 flex items-center gap-3 pl-4 pr-36 border-b border-slate-200 dark:border-white/5 bg-white dark:bg-slate-950">
+                <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Lucide.Send size={16} className="icon-glow" /></div>
+                <span className="font-bold text-sm text-slate-700 dark:text-slate-200 no-drag">Post Tool</span>
             </div>
 
-            <div className="flex-1 flex min-h-0 bg-slate-950 on-resize-container" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+            <div className="flex-1 flex min-h-0 relative" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
                 <RequestSidebar
                     width={sidebarWidth}
                     onResizeStart={handleResizeStart}
@@ -161,7 +161,7 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests, sa
                     savedRequestGroups={savedRequestGroups}
                     onUpdateGroups={onUpdateGroups}
                 />
-                <div className="flex-1 flex flex-col min-w-0 bg-slate-950">
+                <div className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-900">
                     <RequestEditor
                         currentRequest={currentRequest}
                         onChangeCurrentRequest={setCurrentRequest}

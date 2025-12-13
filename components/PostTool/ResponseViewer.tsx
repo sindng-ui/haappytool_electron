@@ -117,31 +117,31 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
     };
 
     return (
-        <div className="flex-1 flex flex-col min-h-0 bg-slate-900 relative">
-            <div className="px-4 py-2 border-b border-slate-800 flex items-center justify-between bg-slate-800/30 shrink-0 h-10">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Response</span>
+        <div className="flex-1 flex flex-col min-h-0 bg-transparent relative">
+            <div className="px-4 py-2 border-b border-slate-200 dark:border-white/5 flex items-center justify-between bg-zinc-50 dark:bg-white/5 shrink-0 h-9">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Response</span>
                 {response && (
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2 text-xs font-mono mr-2">
-                            <span className={response.status >= 200 && response.status < 300 ? "text-green-400" : "text-red-400"}>
+                            <span className={`font-bold ${response.status >= 200 && response.status < 300 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
                                 {response.status} {response.statusText}
                             </span>
-                            <span className="text-slate-500">|</span>
-                            <span className="text-slate-400 flex items-center gap-1">
+                            <span className="text-slate-300 dark:text-slate-600">|</span>
+                            <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
                                 <Clock size={12} /> {response.timeTaken}ms
                             </span>
                         </div>
-                        <div className="h-4 w-px bg-slate-700 mx-1"></div>
+                        <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
                         <button
                             onClick={handleCopy}
-                            className="text-slate-400 hover:text-white hover:bg-slate-700 p-1 rounded transition-colors"
+                            className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-white/10 p-1 rounded transition-colors"
                             title="Copy to Clipboard"
                         >
                             <Copy size={14} />
                         </button>
                         <button
                             onClick={handleExport}
-                            className="text-slate-400 hover:text-white hover:bg-slate-700 p-1 rounded transition-colors"
+                            className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-white/10 p-1 rounded transition-colors"
                             title="Export to File"
                         >
                             <FileDown size={14} />
@@ -150,29 +150,31 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                 )}
             </div>
 
-            <div className="flex-1 overflow-auto p-4 custom-scrollbar relative">
+            <div className="flex-1 overflow-auto p-4 custom-scrollbar relative bg-slate-50 dark:bg-[#0B1120]">
                 {response ? (
                     isProcessing ? (
                         <div className="absolute inset-0 flex items-center justify-center text-slate-500 gap-2">
-                            <Activity className="animate-spin" size={24} />
-                            <span className="text-xs">Formatting...</span>
+                            <Activity className="animate-spin text-indigo-500" size={24} />
+                            <span className="text-xs font-medium">Formatting...</span>
                         </div>
                     ) : (
-                        <pre className="font-mono text-xs text-emerald-400 whitespace-pre-wrap break-all">
+                        <pre className="font-mono text-xs text-slate-800 dark:text-emerald-400 whitespace-pre-wrap break-all leading-relaxed">
                             {formattedData}
                         </pre>
                     )
                 ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2 opacity-50">
-                        <Activity size={32} />
-                        <p className="text-sm font-medium">Ready to send</p>
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 gap-3 opacity-60">
+                        <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/5">
+                            <Activity size={32} />
+                        </div>
+                        <p className="text-sm font-medium">Ready to send request</p>
                     </div>
                 )}
             </div>
 
             {/* Toast Notification */}
-            <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded-full shadow-xl border border-slate-700 flex items-center gap-2 transition-all duration-300 pointer-events-none z-10 ${showToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                <CheckCircle size={16} className="text-emerald-400" />
+            <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white px-4 py-2 rounded-full shadow-xl border border-slate-200 dark:border-slate-700 flex items-center gap-2 transition-all duration-300 pointer-events-none z-10 ${showToast ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}`}>
+                <CheckCircle size={16} className="text-emerald-500" />
                 <span className="text-xs font-bold">Copied to clipboard!</span>
             </div>
         </div>

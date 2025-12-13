@@ -51,61 +51,33 @@ pre {
   -webkit-app-region: no-drag;
 }
 
-/* Custom Scrollbar - Light Theme Default */
+/* Custom Scrollbar - Premium & Adaptive */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-  border: 2px solid #f1f5f9;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-/* Custom Scrollbar - Dark Theme */
-.dark ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border: 2px solid #0f172a;
+  background: rgba(148, 163, 184, 0.2);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: rgba(148, 163, 184, 0.4);
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-
-.dark .custom-scrollbar::-webkit-scrollbar-track {
-  background: #0f172a;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-
-.dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #334155;
-}
 
 /* Animations */
 @keyframes fadeIn {
@@ -142,20 +114,60 @@ pre {
   }
 }
 
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes gradientX {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 .animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
+  animation: fadeIn 0.4s ease-out forwards;
 }
 
 .animate-fade-in-up {
-  animation: fadeInUp 0.5s ease-out forwards;
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-fade-in-down {
-  animation: fadeDown 0.3s ease-out forwards;
+  animation: fadeDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-gradient-x {
+  background-size: 200% auto;
+  animation: gradientX 5s linear infinite;
 }
 
 /* Selection Color */
 ::selection {
+  background-color: rgba(99, 102, 241, 0.2);
+  color: inherit;
+}
+
+.dark ::selection {
   background-color: rgba(99, 102, 241, 0.3);
   color: #e2e8f0;
 }
@@ -165,46 +177,20 @@ pre {
   text-orientation: mixed;
 }
 
-/* Zoom Keyboard Shortcuts Documentation
-   Ctrl+Shift+Plus (Ctrl++) - Zoom In
-   Ctrl+Shift+Minus (Ctrl+Shift+-) - Zoom Out  
-   Ctrl+0 - Reset Zoom
-   Note: These are handled by Electron/Browser natively
-*/
-
 @layer utilities {
   .glass {
-    @apply bg-slate-900/70 backdrop-blur-md border border-white/5;
+    @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm border border-slate-200 dark:border-white/5;
   }
-  
+
   .glass-panel {
-    @apply bg-slate-950/80 backdrop-blur-xl border-r border-white/5;
+    @apply bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-r border-slate-200 dark:border-white/5;
   }
 
   .text-glow {
-    text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+    text-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
   }
-  
+
   .icon-glow {
-    filter: drop-shadow(0 0 2px rgba(99, 102, 241, 0.5));
+    filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.4));
   }
-}
-
-/* Premium Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.4);
 }

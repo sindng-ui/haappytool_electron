@@ -42,10 +42,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 w-screen h-screen z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden transition-colors duration-300 transform scale-100">
+        <div className="fixed inset-0 w-screen h-screen z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden transition-colors duration-300 transform scale-100 animate-slide-up">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+                <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-slate-950/50">
                     <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                         Settings
                     </h2>
@@ -57,45 +57,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 {/* Body */}
                 <div className="flex flex-1 overflow-hidden">
                     {/* Sidebar */}
-                    <div className="w-48 bg-slate-100 dark:bg-slate-950/50 border-r border-slate-200 dark:border-slate-800 p-2 flex flex-col gap-1">
+                    <div className="w-48 bg-slate-50/50 dark:bg-slate-950/30 border-r border-slate-200 dark:border-white/5 p-2 flex flex-col gap-1">
                         <button
                             onClick={() => setActiveTab('general')}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'general' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'general' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
                         >
                             <Type size={16} /> General
                         </button>
                         <button
                             onClick={() => setActiveTab('shortcuts')}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'shortcuts' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'shortcuts' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
                         >
                             <Keyboard size={16} /> Shortcuts
                         </button>
                         <button
                             onClick={() => setActiveTab('about')}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'about' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'about' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
                         >
                             <Info size={16} /> About
                         </button>
                         <button
                             onClick={() => setActiveTab('guide')}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'guide' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'guide' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
                         >
                             <BookOpen size={16} /> User Guide
                         </button>
                     </div>
 
                     {/* Content Area */}
-                    <div className="flex-1 p-6 overflow-y-auto bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                    <div className="flex-1 p-6 overflow-y-auto bg-slate-50/30 dark:bg-transparent text-slate-800 dark:text-slate-200 custom-scrollbar">
 
                         {/* General Tab */}
                         {activeTab === 'general' && (
                             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform">
                                 <div>
-                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Moon size={18} /> Appearance</h3>
+                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-700 dark:text-slate-300"><Moon size={18} /> Appearance</h3>
                                     <div className="flex gap-4">
                                         <button
                                             onClick={() => { /* setTheme('dark') */ }}
-                                            className={`flex-1 p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${theme === 'dark' ? 'border-indigo-500 bg-slate-800 text-white' : 'border-slate-300 bg-slate-100 text-slate-500 hover:border-slate-400 opacity-50 cursor-not-allowed'}`}
+                                            className={`flex-1 p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${theme === 'dark' ? 'border-indigo-500 bg-slate-800 text-white shadow-lg shadow-indigo-500/20' : 'border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-600 opacity-50 cursor-not-allowed'}`}
                                             title="Theme switching is disabled"
                                         >
                                             <Moon size={24} />
@@ -103,7 +103,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         </button>
                                         <button
                                             onClick={() => { /* setTheme('light') */ }}
-                                            className={`flex-1 p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${theme === 'light' ? 'border-indigo-500 bg-white text-slate-900' : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600 opacity-50 cursor-not-allowed'}`}
+                                            className={`flex-1 p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${theme === 'light' ? 'border-indigo-500 bg-white text-slate-900 shadow-lg' : 'border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-600 opacity-50 cursor-not-allowed'}`}
                                             title="Theme switching is disabled"
                                         >
                                             <Sun size={24} />
@@ -113,9 +113,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                 </div>
 
                                 <div>
-                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Type size={18} /> UI Zoom</h3>
-                                    <div className="flex items-center gap-4 bg-slate-200 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-300 dark:border-slate-700">
-                                        <button onClick={() => handleZoomChange(zoom - 0.1)} className="p-2 hover:bg-slate-300 dark:hover:bg-slate-700 rounded">-</button>
+                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-700 dark:text-slate-300"><Type size={18} /> UI Zoom</h3>
+                                    <div className="flex items-center gap-4 bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-white/5 backdrop-blur-sm">
+                                        <button onClick={() => handleZoomChange(zoom - 0.1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-500 dark:text-slate-300">-</button>
                                         <div className="flex-1">
                                             <input
                                                 type="range"
@@ -124,14 +124,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                 step="0.1"
                                                 value={zoom}
                                                 onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                                                className="w-full accent-indigo-500 h-2 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                                                className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                                             />
                                         </div>
-                                        <button onClick={() => handleZoomChange(zoom + 0.1)} className="p-2 hover:bg-slate-300 dark:hover:bg-slate-700 rounded">+</button>
-                                        <span className="font-mono w-16 text-center">{Math.round(zoom * 100)}%</span>
-                                        <button onClick={() => handleZoomChange(1.0)} className="text-xs text-slate-500 hover:text-indigo-400 flex items-center gap-1" title="Reset Zoom"><RotateCcw size={12} /> Reset</button>
+                                        <button onClick={() => handleZoomChange(zoom + 0.1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors text-slate-500 dark:text-slate-300">+</button>
+                                        <span className="font-mono w-16 text-center text-slate-700 dark:text-slate-300 font-bold">{Math.round(zoom * 100)}%</span>
+                                        <button onClick={() => handleZoomChange(1.0)} className="text-xs text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors ml-2" title="Reset Zoom"><RotateCcw size={12} /> Reset</button>
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-2">Use Ctrl + Shift + +/- to zoom quickly.</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 ml-1">Use Ctrl + Shift + +/- to zoom quickly.</p>
                                 </div>
                             </div>
                         )}
@@ -139,7 +139,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         {/* Shortcuts Tab */}
                         {activeTab === 'shortcuts' && (
                             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform">
-                                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Keyboard size={18} /> Keyboard Shortcuts</h3>
+                                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-700 dark:text-slate-300"><Keyboard size={18} /> Keyboard Shortcuts</h3>
                                 <div className="space-y-2">
                                     {[
                                         { action: "Zoom In", keys: ["Ctrl", "Shift", "+"] },
@@ -156,11 +156,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         { action: "Next Tag Input", keys: ["Enter"] },
                                         { action: "Navigate Branches", keys: ["↑", "↓"] },
                                     ].map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center p-3 bg-slate-200 dark:bg-slate-800/50 rounded-lg border border-slate-300 dark:border-slate-700/50">
-                                            <span className="font-medium">{item.action}</span>
+                                        <div key={idx} className="flex justify-between items-center p-3 bg-white dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                                            <span className="font-medium text-slate-700 dark:text-slate-300">{item.action}</span>
                                             <div className="flex gap-1">
                                                 {item.keys.map((k, kIdx) => (
-                                                    <span key={kIdx} className="px-2 py-1 bg-white dark:bg-slate-700 rounded text-xs font-mono border border-slate-300 dark:border-slate-600 shadow-sm min-w-[24px] text-center">{k}</span>
+                                                    <span key={kIdx} className="px-2 py-1 bg-slate-100 dark:bg-slate-700/50 rounded text-xs font-mono border border-slate-200 dark:border-slate-600/50 shadow-sm min-w-[24px] text-center text-slate-600 dark:text-slate-300">{k}</span>
                                                 ))}
                                             </div>
                                         </div>
@@ -173,19 +173,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         {/* About Tab */}
                         {activeTab === 'about' && (
                             <div className="text-center space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform py-10">
-                                <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl mx-auto shadow-2xl flex items-center justify-center transform rotate-3">
-                                    <span className="text-4xl font-black text-white">H</span>
+                                <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2rem] mx-auto shadow-2xl shadow-indigo-500/20 flex items-center justify-center transform rotate-3 hover:rotate-0 transition-transform duration-500">
+                                    <span className="text-5xl font-black text-white">H</span>
                                 </div>
                                 <div>
-                                    <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-500">HappyTool</h1>
-                                    <p className="text-slate-500 font-mono mt-2">v{__APP_VERSION__} (Beta)</p>
+                                    <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 animate-gradient-x">HappyTool</h1>
+                                    <p className="text-slate-500 dark:text-slate-400 font-mono mt-2 text-sm bg-slate-100 dark:bg-slate-800/50 inline-block px-3 py-1 rounded-full border border-slate-200 dark:border-white/5">v{__APP_VERSION__} (Beta)</p>
                                 </div>
-                                <div className="p-6 bg-slate-200 dark:bg-slate-800/50 rounded-2xl border border-slate-300 dark:border-slate-700 text-sm leading-relaxed max-w-sm mx-auto">
-                                    <p>
+                                <div className="p-8 bg-white dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-white/5 text-sm leading-relaxed max-w-sm mx-auto shadow-xl backdrop-blur-sm">
+                                    <p className="text-slate-600 dark:text-slate-300 font-medium">
                                         The ultimate log analysis tool for Tizen developers.
+                                        Designed for speed and clarity.
                                     </p>
-                                    <div className="mt-4 pt-4 border-t border-slate-300 dark:border-slate-700 text-xs text-slate-500">
-                                        © 2025 Samsung Electronics Co., Ltd. All rights reserved.
+                                    <div className="mt-6 pt-6 border-t border-slate-200 dark:border-white/5 text-xs text-slate-400 dark:text-slate-500">
+                                        © 2025 Samsung Electronics Co., Ltd. <br />All rights reserved.
                                     </div>
                                 </div>
                             </div>
@@ -195,64 +196,62 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         {activeTab === 'guide' && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform">
                                 <div className="text-center">
-                                    <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl mx-auto shadow-xl flex items-center justify-center mb-4">
+                                    <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl mx-auto shadow-xl shadow-indigo-500/20 flex items-center justify-center mb-4 icon-glow">
                                         <BookOpen size={32} className="text-white" />
                                     </div>
                                     <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">HappyTool 사용 가이드</h3>
                                     <p className="text-slate-600 dark:text-slate-400">모든 기능을 자세히 알아보세요</p>
                                 </div>
 
-                                <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 shadow-md">
-                                    <div className="space-y-4">
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <span className="text-xl">📊</span>
+                                <div className="bg-white dark:bg-slate-800/50 rounded-3xl p-6 border border-slate-200 dark:border-white/5 shadow-xl backdrop-blur-sm">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700/50">
+                                            <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center flex-shrink-0 text-indigo-500">
+                                                <span className="text-2xl">📊</span>
                                             </div>
                                             <div>
                                                 <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">Log Extractor</h4>
-                                                <p className="text-sm text-slate-600 dark:text-slate-400">로그 파일에서 원하는 내용만 빠르게 찾아내는 강력한 분석 도구</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">로그 파일에서 원하는 내용만 빠르게 찾아내는 강력한 분석 도구</p>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <span className="text-xl">🚀</span>
+                                        <div className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700/50">
+                                            <div className="w-12 h-12 bg-green-100 dark:bg-green-500/10 rounded-xl flex items-center justify-center flex-shrink-0 text-green-500">
+                                                <span className="text-2xl">🚀</span>
                                             </div>
                                             <div>
                                                 <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">POST Tool</h4>
-                                                <p className="text-sm text-slate-600 dark:text-slate-400">REST API를 간편하게 테스트하는 도구</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">REST API를 간편하게 테스트하는 도구</p>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <span className="text-xl">🔧</span>
+                                        <div className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700/50">
+                                            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-500/10 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-500">
+                                                <span className="text-2xl">🔧</span>
                                             </div>
                                             <div>
                                                 <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">JSON Tools</h4>
-                                                <p className="text-sm text-slate-600 dark:text-slate-400">JSON 데이터를 쉽게 다루는 도구</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">JSON 데이터를 쉽게 다루는 도구</p>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <span className="text-xl">📦</span>
+                                        <div className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700/50">
+                                            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-500/10 rounded-xl flex items-center justify-center flex-shrink-0 text-orange-500">
+                                                <span className="text-2xl">📦</span>
                                             </div>
                                             <div>
                                                 <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">TPK Extractor</h4>
-                                                <p className="text-sm text-slate-600 dark:text-slate-400">Tizen RPM 패키지에서 TPK 파일 추출</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Tizen RPM 패키지에서 TPK 파일 추출</p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+                                    <div className="mt-8 pt-6 border-t border-slate-200 dark:border-white/5">
                                         <button
                                             onClick={async () => {
                                                 try {
                                                     if (window.electronAPI?.getAppPath && window.electronAPI?.openExternal) {
-                                                        // Get the app directory path
                                                         const appPath = await window.electronAPI.getAppPath();
-                                                        // Construct the file:// URL to USER_GUIDE.md
                                                         const guidePath = 'file:///' + appPath.replace(/\\/g, '/') + '/USER_GUIDE.md';
                                                         console.log('Opening guide at:', guidePath);
                                                         await window.electronAPI.openExternal(guidePath);
@@ -264,12 +263,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     alert('가이드를 열 수 없습니다.');
                                                 }
                                             }}
-                                            className="w-full bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                                            className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:scale-[1.02] flex items-center justify-center gap-3 border-2 border-transparent"
                                         >
                                             <BookOpen size={20} />
                                             전체 사용자 가이드 열기
                                         </button>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 text-center mt-3">
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 text-center mt-3 font-medium">
                                             브라우저에서 상세한 사용 가이드를 확인하세요
                                         </p>
                                     </div>

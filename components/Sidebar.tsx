@@ -54,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
 
       {/* Floating Animated Sidebar */}
       <div
-        className={`absolute top-0 left-0 h-full glass-panel text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden ${isHovered ? 'w-72' : 'w-20'
+        className={`absolute top-0 left-0 h-full bg-slate-900/95 border-r border-white/5 text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden ${isHovered ? 'w-72' : 'w-20'
           }`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -97,8 +97,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
                 onDragEnter={(e) => handleDragEnter(e, toolId)}
                 onClick={() => onSelectTool(toolId)}
                 className={`w-full flex items-center h-12 px-3 rounded-xl transition-all duration-200 group relative cursor-pointer outline-none border border-transparent ${isActive
-                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/20 border-indigo-400/20'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 active:scale-95'
+                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/20 border-indigo-400/20'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 active:scale-95'
                   } ${isDragging ? 'opacity-20 border-dashed border-slate-600' : ''}`}
               >
                 {isHovered && (

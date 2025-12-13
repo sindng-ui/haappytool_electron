@@ -117,18 +117,18 @@ const JsonDiffViewer: React.FC = () => {
         return (
             <div className="flex font-mono text-xs w-full">
                 {/* Left Side */}
-                <div className={`flex-1 flex px-2 border-r border-slate-800 transition-colors py-0.5 ${isDiff ? 'bg-red-500/10' : 'hover:bg-white/5'}`}>
-                    <span className={`w-8 select-none text-right mr-4 shrink-0 ${isDiff ? 'text-red-400 font-bold' : 'text-slate-600'}`}>{index + 1}</span>
-                    <span className={`whitespace-pre-wrap break-all ${isDiff ? 'text-red-300' : 'text-slate-400'}`}>
-                        {lineLeft || <span className="opacity-20 italic">empty</span>}
+                <div className={`flex-1 flex px-2 border-r border-slate-200 dark:border-white/5 transition-colors py-0.5 ${isDiff ? 'bg-red-500/10 dark:bg-red-500/20' : 'hover:bg-indigo-50/50 dark:hover:bg-white/5'}`}>
+                    <span className={`w-8 select-none text-right mr-4 shrink-0 ${isDiff ? 'text-red-500 dark:text-red-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}>{index + 1}</span>
+                    <span className={`whitespace-pre-wrap break-all ${isDiff ? 'text-red-600 dark:text-red-300' : 'text-slate-600 dark:text-slate-400'}`}>
+                        {lineLeft || <span className="opacity-30 italic">empty</span>}
                     </span>
                 </div>
 
                 {/* Right Side */}
-                <div className={`flex-1 flex px-2 pl-4 transition-colors py-0.5 ${isDiff ? 'bg-green-500/10' : 'hover:bg-white/5'}`}>
-                    <span className={`w-8 select-none text-right mr-4 shrink-0 ${isDiff ? 'text-green-400 font-bold' : 'text-slate-600'}`}>{index + 1}</span>
-                    <span className={`whitespace-pre-wrap break-all ${isDiff ? 'text-green-300' : 'text-slate-400'}`}>
-                        {lineRight || <span className="opacity-20 italic">empty</span>}
+                <div className={`flex-1 flex px-2 pl-4 transition-colors py-0.5 ${isDiff ? 'bg-emerald-500/10 dark:bg-emerald-500/20' : 'hover:bg-indigo-50/50 dark:hover:bg-white/5'}`}>
+                    <span className={`w-8 select-none text-right mr-4 shrink-0 ${isDiff ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}>{index + 1}</span>
+                    <span className={`whitespace-pre-wrap break-all ${isDiff ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400'}`}>
+                        {lineRight || <span className="opacity-30 italic">empty</span>}
                     </span>
                 </div>
             </div>
@@ -142,7 +142,7 @@ const JsonDiffViewer: React.FC = () => {
                 <div className="flex-1 flex flex-col">
                     <label className="text-xs font-bold text-slate-500 uppercase mb-2 ml-1">Original JSON</label>
                     <textarea
-                        className="flex-1 bg-slate-900 rounded-xl border border-slate-800 p-3 font-mono text-xs text-slate-400 focus:outline-none focus:border-indigo-500 resize-none custom-scrollbar shadow-inner"
+                        className="flex-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-white/10 p-3 font-mono text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500 resize-none custom-scrollbar shadow-sm focus:shadow-md transition-shadow placeholder-slate-400 dark:placeholder-slate-600"
                         value={leftJson}
                         onChange={(e) => setLeftJson(e.target.value)}
                         placeholder='{"a": 1}'
@@ -152,7 +152,7 @@ const JsonDiffViewer: React.FC = () => {
                 <div className="flex items-center justify-center">
                     <button
                         onClick={handleCompare}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white p-4 rounded-full shadow-lg shadow-indigo-900/50 transition-transform hover:scale-110 active:scale-95"
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white p-4 rounded-full shadow-lg shadow-indigo-500/30 transition-all hover:scale-110 active:scale-95 border-4 border-slate-100 dark:border-slate-800"
                         title="Compare"
                     >
                         <ArrowRightLeft size={24} />
@@ -161,7 +161,7 @@ const JsonDiffViewer: React.FC = () => {
                 <div className="flex-1 flex flex-col">
                     <label className="text-xs font-bold text-slate-500 uppercase mb-2 ml-1">Modified JSON</label>
                     <textarea
-                        className="flex-1 bg-slate-900 rounded-xl border border-slate-800 p-3 font-mono text-xs text-slate-400 focus:outline-none focus:border-indigo-500 resize-none custom-scrollbar shadow-inner"
+                        className="flex-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-white/10 p-3 font-mono text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500 resize-none custom-scrollbar shadow-sm focus:shadow-md transition-shadow placeholder-slate-400 dark:placeholder-slate-600"
                         value={rightJson}
                         onChange={(e) => setRightJson(e.target.value)}
                         placeholder='{"a": 2}'
@@ -171,22 +171,22 @@ const JsonDiffViewer: React.FC = () => {
             </div>
 
             {/* Diff Output */}
-            <div className="flex-1 bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden flex flex-col shadow-inner">
-                <div className="bg-slate-950/50 px-4 py-2 border-b border-slate-800 flex justify-between items-center shrink-0">
+            <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col shadow-sm">
+                <div className="bg-slate-100 dark:bg-slate-950 px-4 py-2 border-b border-slate-200 dark:border-white/5 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comparison Result</span>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Comparison Result</span>
                         {diffResult && (
-                            <span className={`text-[13px] font-bold px-2 py-0.5 rounded-full ${getDiffCount() > 0 ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                            <span className={`text-[13px] font-bold px-2 py-0.5 rounded-full ${getDiffCount() > 0 ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'}`}>
                                 {getDiffCount()} Lines Different
                             </span>
                         )}
                     </div>
-                    {diffError && <span className="text-xs text-red-400 font-bold bg-red-500/10 px-2 py-1 rounded">{diffError}</span>}
+                    {diffError && <span className="text-xs text-red-600 dark:text-red-400 font-bold bg-red-100 dark:bg-red-500/10 px-2 py-1 rounded">{diffError}</span>}
                 </div>
 
                 <div className="flex-1 min-h-0 flex relative" ref={containerRef}>
                     {/* Main Scroll Area */}
-                    <div className="flex-1 h-full">
+                    <div className="flex-1 h-full bg-slate-50 dark:bg-black/20">
                         {diffResult ? (
                             <Virtuoso
                                 ref={virtuosoRef}
@@ -195,16 +195,18 @@ const JsonDiffViewer: React.FC = () => {
                                 itemContent={Row}
                             />
                         ) : (
-                            <div className="h-full flex items-center justify-center text-slate-700 flex-col gap-2">
-                                <GitCompare size={32} opacity={0.5} />
-                                <p>Enter JSON logs and click compare</p>
+                            <div className="h-full flex items-center justify-center text-slate-400 dark:text-slate-600 flex-col gap-3">
+                                <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/5">
+                                    <GitCompare size={32} className="opacity-50" />
+                                </div>
+                                <p className="font-medium opacity-70">Enter JSON logs above to compare</p>
                             </div>
                         )}
                     </div>
 
                     {/* Minimap Sidebar (Only visible if diff result exists) */}
                     {diffResult && (
-                        <div className="w-[40px] border-l border-slate-800 bg-slate-950 flex flex-col items-center py-2 shrink-0 z-10">
+                        <div className="w-[40px] border-l border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-slate-950 flex flex-col items-center py-2 shrink-0 z-10">
                             <canvas
                                 ref={minimapRef}
                                 className="w-[30px] h-full cursor-pointer opacity-80 hover:opacity-100 transition-opacity"

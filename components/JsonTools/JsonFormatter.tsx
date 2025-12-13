@@ -479,47 +479,47 @@ const JsonFormatter: React.FC = () => {
         const indent = level * 20;
 
         return (
-            <div className={`font-mono text-sm leading-6 flex items-center pr-2 whitespace-nowrap h-6 ${isMatch ? 'bg-indigo-500/30' : 'hover:bg-slate-800/50'}`}>
+            <div className={`font-mono text-sm leading-6 flex items-center pr-2 whitespace-nowrap h-7 transition-colors ${isMatch ? 'bg-indigo-500/30' : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}>
                 <div style={{ width: indent, flexShrink: 0 }}></div>
 
                 {/* Expander */}
                 <span
-                    className="w-5 h-5 flex items-center justify-center cursor-pointer text-slate-500 hover:text-indigo-400 mr-1 shrink-0 select-none"
+                    className="w-5 h-5 flex items-center justify-center cursor-pointer text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 mr-1 shrink-0 select-none transition-colors"
                     onClick={() => hasChildren && toggleExpand(id)}
                 >
                     {hasChildren ? (
-                        isExpanded ? <MinusSquare size={12} /> : <PlusSquare size={12} />
+                        isExpanded ? <MinusSquare size={13} /> : <PlusSquare size={13} />
                     ) : (
                         <span className="w-3"></span>
                     )}
                 </span>
 
                 {/* Content */}
-                <div className="flex items-center gap-1">
-                    <span className={isMatch ? "text-indigo-300 font-bold" : "text-indigo-400 font-bold"}>"{key}":</span>
+                <div className="flex items-center gap-1.5">
+                    <span className={isMatch ? "text-indigo-600 dark:text-indigo-300 font-bold" : "text-indigo-600 dark:text-indigo-400 font-bold"}>"{key}":</span>
 
                     {hasChildren ? (
                         <>
-                            <span className="text-slate-400">{isArray ? '[' : '{'}</span>
+                            <span className="text-slate-500 dark:text-slate-400 font-bold">{isArray ? '[' : '{'}</span>
                             {!isExpanded && (
-                                <span className="text-slate-500 italic text-xs mx-1 cursor-pointer select-none" onClick={() => toggleExpand(id)}>
+                                <span className="text-slate-500 italic text-xs mx-1 cursor-pointer select-none bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" onClick={() => toggleExpand(id)}>
                                     {isArray ? `${value.length} items` : `${Object.keys(value).length} keys`}
                                 </span>
                             )}
-                            {!isExpanded && <span className="text-slate-400">{isArray ? ']' : '}'}</span>}
+                            {!isExpanded && <span className="text-slate-500 dark:text-slate-400 font-bold">{isArray ? ']' : '}'}</span>}
                         </>
                     ) : (
                         // Primitive
                         <span className="break-all text-ellipsis overflow-hidden">
-                            {value === null ? <span className="text-red-400">null</span> :
-                                typeof value === 'string' ? <span className="text-emerald-400">"{value}"</span> :
-                                    typeof value === 'number' ? <span className="text-blue-400">{value}</span> :
-                                        typeof value === 'boolean' ? <span className="text-orange-400">{String(value)}</span> :
-                                            <span className="text-slate-300">{String(value)}</span>
+                            {value === null ? <span className="text-red-500 dark:text-red-400 font-bold">null</span> :
+                                typeof value === 'string' ? <span className="text-emerald-600 dark:text-emerald-400">"{value}"</span> :
+                                    typeof value === 'number' ? <span className="text-blue-600 dark:text-blue-400 font-medium">{value}</span> :
+                                        typeof value === 'boolean' ? <span className="text-orange-600 dark:text-orange-400 font-bold">{String(value)}</span> :
+                                            <span className="text-slate-500 dark:text-slate-300">{String(value)}</span>
                             }
                         </span>
                     )}
-                    <span className="text-slate-500">,</span>
+                    <span className="text-slate-400 dark:text-slate-500">,</span>
                 </div>
             </div>
         );
@@ -528,15 +528,15 @@ const JsonFormatter: React.FC = () => {
     return (
         <div className="flex h-full gap-6">
             <div className="flex-1 flex flex-col gap-2">
-                <div className="flex justify-between items-center text-slate-400 px-2 shrink-0">
+                <div className="flex justify-between items-center text-slate-500 font-medium px-2 shrink-0">
                     <span className="text-xs font-bold uppercase tracking-wider">Raw Input</span>
-                    <button onClick={clearFormatter} className="p-1 hover:text-red-400 transition-colors" title="Clear">
+                    <button onClick={clearFormatter} className="p-1 hover:text-red-500 dark:hover:text-red-400 transition-colors" title="Clear">
                         <Trash2 size={14} />
                     </button>
                 </div>
                 <div className="relative flex-1 flex flex-col min-h-0">
                     <textarea
-                        className={`flex-1 bg-slate-900 rounded-2xl border p-4 font-mono text-sm text-slate-300 focus:outline-none focus:ring-1 resize-none shadow-inner custom-scrollbar ${error ? 'border-red-500/50 focus:ring-red-500' : 'border-slate-800 focus:ring-indigo-500'}`}
+                        className={`flex-1 bg-white dark:bg-slate-900 rounded-2xl border p-4 font-mono text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 resize-none shadow-sm custom-scrollbar transition-all ${error ? 'border-red-500/50 focus:ring-red-500/50' : 'border-slate-200 dark:border-white/10 focus:ring-indigo-500/50'}`}
                         placeholder="Paste JSON here (Large files supported)..."
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
@@ -544,44 +544,44 @@ const JsonFormatter: React.FC = () => {
                         disabled={isProcessing}
                     />
                     {isProcessing && (
-                        <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                        <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 rounded-2xl flex items-center justify-center">
                             <Lucide.Loader2 className="animate-spin text-indigo-500" size={32} />
                         </div>
                     )}
                 </div>
                 <div className="flex gap-3 mt-2 shrink-0">
-                    <button onClick={handleFormat} disabled={isProcessing} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-900/30 transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
+                    <button onClick={handleFormat} disabled={isProcessing} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-500/30 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 border-2 border-transparent">
                         <AlignLeft size={16} /> Beautify (Virtual Tree)
                     </button>
-                    <button onClick={handleMinify} disabled={isProcessing} className="px-6 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 py-3 rounded-xl font-bold text-sm border border-slate-700 transition-colors flex items-center gap-2" title="Copy Minified">
+                    <button onClick={handleMinify} disabled={isProcessing} className="px-6 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-slate-600 dark:text-slate-300 py-3 rounded-xl font-bold text-sm border border-slate-200 dark:border-slate-700 transition-colors flex items-center gap-2 shadow-sm" title="Copy Minified">
                         <Minimize2 size={16} /> Minify (Copy)
                     </button>
                 </div>
             </div>
 
             <div className="flex-1 flex flex-col gap-2 relative min-h-0">
-                <div className="flex justify-between items-center text-slate-400 px-2 shrink-0">
+                <div className="flex justify-between items-center text-slate-500 font-medium px-2 shrink-0">
                     <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                        {valid ? <span className="text-green-500 flex items-center gap-1"><CheckCircle size={12} /> Valid JSON ({flattenedItems.length} nodes)</span> :
+                        {valid ? <span className="text-emerald-600 dark:text-emerald-500 flex items-center gap-1"><CheckCircle size={12} /> Valid JSON ({flattenedItems.length} nodes)</span> :
                             error ? <span className="text-red-500 flex items-center gap-1"><AlertCircle size={12} /> Invalid JSON</span> :
                                 'Tree Output'}
                     </span>
                     <div className="flex items-center gap-2">
                         {valid && (
-                            <div className="flex items-center bg-slate-900 rounded-md border border-slate-800 mr-2 h-7">
-                                <Search size={14} className="text-slate-500 ml-2" />
+                            <div className="flex items-center bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 mr-2 h-7 shadow-sm">
+                                <Search size={14} className="text-slate-400 ml-2" />
                                 <input
-                                    className="bg-transparent border-none text-xs text-slate-300 w-32 px-2 focus:outline-none placeholder-slate-600"
+                                    className="bg-transparent border-none text-xs text-slate-700 dark:text-slate-300 w-32 px-2 focus:outline-none placeholder-slate-400"
                                     placeholder="Search key/val..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
                                 />
                                 {searchResults.length > 0 && (
-                                    <div className="flex items-center border-l border-slate-800 px-1">
-                                        <span className="text-[10px] text-slate-500 mr-1 font-mono">{currentResultIndex + 1}/{searchResults.length}</span>
-                                        <button onClick={prevResult} className="p-0.5 hover:text-indigo-400 text-slate-500"><ArrowUp size={12} /></button>
-                                        <button onClick={nextResult} className="p-0.5 hover:text-indigo-400 text-slate-500"><ArrowDown size={12} /></button>
+                                    <div className="flex items-center border-l border-slate-200 dark:border-slate-800 px-1">
+                                        <span className="text-[10px] text-slate-400 mr-1 font-mono">{currentResultIndex + 1}/{searchResults.length}</span>
+                                        <button onClick={prevResult} className="p-0.5 hover:text-indigo-400 text-slate-400"><ArrowUp size={12} /></button>
+                                        <button onClick={nextResult} className="p-0.5 hover:text-indigo-400 text-slate-400"><ArrowDown size={12} /></button>
                                     </div>
                                 )}
                             </div>
@@ -589,10 +589,10 @@ const JsonFormatter: React.FC = () => {
 
                         {valid && (
                             <>
-                                <button onClick={expandAll} className="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-700 transition-colors mr-2">
-                                    Expand All (Safe)
+                                <button onClick={expandAll} className="text-xs bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 px-2 py-1 rounded text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors mr-2 shadow-sm">
+                                    Expand All
                                 </button>
-                                <button onClick={collapseAll} className="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 border border-slate-700 transition-colors mr-2">
+                                <button onClick={collapseAll} className="text-xs bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 px-2 py-1 rounded text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors mr-2 shadow-sm">
                                     Collapse All
                                 </button>
                             </>
@@ -600,37 +600,40 @@ const JsonFormatter: React.FC = () => {
                         <button
                             onClick={() => formattedString && copyToClipboard(formattedString)}
                             disabled={!valid}
-                            className="p-1 hover:text-indigo-400 transition-colors disabled:opacity-30"
+                            className="p-1 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors disabled:opacity-30"
                             title="Copy Result"
                         >
                             <Copy size={14} />
                         </button>
                     </div>
                 </div>
-                <div className="flex-1 bg-slate-950 rounded-2xl border border-slate-800 p-2 font-mono text-sm relative shadow-inner overflow-hidden">
+                <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/5 p-2 font-mono text-sm relative shadow-sm overflow-hidden">
                     {error ? (
-                        <div className="text-red-400 p-4 overflow-auto h-full">
+                        <div className="text-red-500 dark:text-red-400 p-4 overflow-auto h-full">
                             <strong>Error parsing JSON:</strong><br />
                             {error}
                         </div>
                     ) : parsedData ? (
-                        <Virtuoso
-                            ref={virtuosoRef}
-                            style={{ height: '100%', width: '100%' }}
-                            totalCount={flattenedItems.length}
-                            itemContent={RowWithHighlight}
-                        />
+                        <div className="h-full w-full bg-slate-50 dark:bg-transparent rounded-xl">
+                            <Virtuoso
+                                ref={virtuosoRef}
+                                style={{ height: '100%', width: '100%' }}
+                                totalCount={flattenedItems.length}
+                                itemContent={RowWithHighlight}
+                            />
+                        </div>
                     ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-slate-600">
-                            <FileJson size={48} className="mb-4 opacity-50" />
-                            <p>Ready to format</p>
+                        <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
+                            <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/5 mb-4">
+                                <FileJson size={32} className="opacity-50" />
+                            </div>
+                            <p className="font-medium opacity-70">Ready to format</p>
                         </div>
                     )}
-// ... (rest of file)
 
                     {/* Toast */}
-                    <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded-full shadow-xl border border-slate-700 flex items-center gap-2 transition-all duration-300 pointer-events-none ${showToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                        <CheckCircle size={16} className="text-emerald-400" />
+                    <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white px-4 py-2 rounded-full shadow-xl border border-slate-200 dark:border-slate-700 flex items-center gap-2 transition-all duration-300 pointer-events-none ${showToast ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}`}>
+                        <CheckCircle size={16} className="text-emerald-500" />
                         <span className="text-xs font-bold">Copied to clipboard!</span>
                     </div>
                 </div>
