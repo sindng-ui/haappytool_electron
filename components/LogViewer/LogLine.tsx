@@ -62,7 +62,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, hasBookmark, 
             )}
 
             {/* Line Number */}
-            <div className={`min-w-[70px] w-[70px] shrink-0 text-right pr-3 select-none flex justify-end gap-1 items-center font-mono text-[11px] 
+            <div className={`min-w-[90px] w-[90px] shrink-0 text-right pr-3 select-none flex justify-end gap-1 items-center font-mono text-[11px] 
                 ${hasBookmark ? 'text-yellow-600 dark:text-yellow-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}>
                 {isLoading ? '' : data?.lineNum}
             </div>

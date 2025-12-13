@@ -35,6 +35,7 @@ interface LogViewerPaneProps {
     onHighlightJump?: (index: number) => void;
     onShowBookmarks?: () => void;
     absoluteOffset?: number; // Global index offset for this segment
+    initialScrollIndex?: number;
     onPageNavRequest?: (direction: 'next' | 'prev') => void;
     onScrollToBottomRequest?: () => void;
 }
@@ -80,7 +81,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     onShowBookmarks,
     onPageNavRequest,
     onScrollToBottomRequest,
-    absoluteOffset = 0
+    absoluteOffset = 0,
+    initialScrollIndex
 }, ref) => {
     const scrollTopRef = useRef<number>(0);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -461,7 +463,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 onDoubleClick={() => onLineDoubleClick && onLineDoubleClick(globalIndex)}
             />
         );
-    }, [activeLineIndex, bookmarks, isRawMode, highlights, highlightCaseSensitive, onLineClick, onLineDoubleClick, cachedLines, absoluteOffset]); // Added absoluteOffset
+    }, [activeLineIndex, bookmarks, isRawMode, highlights, highlightCaseSensitive, onLineClick, onLineDoubleClick, cachedLines, absoluteOffset]);
 
     // Non-passive wheel listener to allow preventDefault for Shift+Scroll
     useEffect(() => {
@@ -493,6 +495,20 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         container.addEventListener('wheel', onWheel, { passive: false });
         return () => container.removeEventListener('wheel', onWheel);
     }, [isShiftDown]);
+
+    // Handle Initial Scroll Request safely
+    useEffect(() => {
+        if (workerReady && initialScrollIndex !== undefined) {
+            const relative = initialScrollIndex - absoluteOffset;
+            if (relative >= 0 && relative < totalMatches) {
+                // Slight delay to allow Virtuoso to measure content
+                setTimeout(() => {
+                    const target = Math.max(0, relative - 5);
+                    virtuosoRef.current?.scrollToIndex({ index: target, align: 'start' });
+                }, 50);
+            }
+        }
+    }, [workerReady]); // Intentionally on mount/ready only. Rely on key change for re-mounts in Raw Mode.
 
     return (
         <div

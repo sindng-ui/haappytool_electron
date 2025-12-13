@@ -648,35 +648,19 @@ export const useLogExtractorLogic = ({
             setLeftTotalLines(0);
             setLeftFilteredCount(0);
             setSelectedLineIndexLeft(-1);
+            setLeftBookmarks(new Set()); // Clear bookmarks
             leftWorkerRef.current.postMessage({ type: 'INIT_STREAM' });
 
-            // Re-apply filter immediately after clear
             if (currentConfig) {
-                // ... same filter logic as handleTizenStreamStart ...
-                // Actually if I just trigger INIT_STREAM, the worker clears.
-                // But does it keep the filter?
-                // The worker stores `currentFilter` in a variable?
-                // I need to check worker. Usually worker state persists unless I reload worker.
-                // 'INIT_STREAM' usually resets 'lines', but does it reset 'currentFilter'?
-                // If the worker logic for INIT_STREAM doesn't touch 'currentFilter', then we are good.
-                // Assuming it works or I'll re-send filter.
-                // Safer to re-send filter or trust the 'Auto-Apply' effect which watches 'leftTotalLines' or 'tizenSocket'.
-                // If I set leftTotalLines to 0, the effect might run?
-                // My previous fix allows effect if (leftTotalLines > 0 || tizenSocket).
-                // So the effect will run if tizenSocket is present.
-                // But lastFilterHash might prevent it if config didn't change.
-                // So I might need to force it.
+                // ... (re-apply filter logic if needed)
             }
         }
     }, [currentConfig]);
 
     const handleTizenDisconnect = useCallback(() => {
         if (tizenSocket) {
-            // Try to notify server to stop processes cleanly
             tizenSocket.emit('disconnect_sdb');
             tizenSocket.emit('disconnect_ssh');
-
-            // Allow time for events to be sent before closing socket
             setTimeout(() => {
                 tizenSocket.disconnect();
                 setTizenSocket(null);
@@ -684,7 +668,6 @@ export const useLogExtractorLogic = ({
         }
     }, [tizenSocket]);
 
-    // Cleanup Tizen Socket on component unmount
     useEffect(() => {
         return () => {
             if (tizenSocket) {
@@ -701,14 +684,12 @@ export const useLogExtractorLogic = ({
         const path = ('path' in file) ? (file as any).path : '';
         setLeftFilePath(path);
 
-        // Update local state immediately
         if (path) {
             setStoredValue(`tabState_${tabId}`, JSON.stringify({
                 filePath: path,
                 selectedLine: -1,
                 scrollTop: 0
             }));
-            // Notify parent to update tab state
             if (onFileChange) onFileChange(path);
         }
 
@@ -718,23 +699,20 @@ export const useLogExtractorLogic = ({
         setLeftTotalLines(0);
         setLeftFilteredCount(0);
         setSelectedLineIndexLeft(-1);
+        setLeftBookmarks(new Set()); // Clear bookmarks
         lastFilterHashLeft.current = '';
         leftWorkerRef.current.postMessage({ type: 'INIT_FILE', payload: file });
-    }, [tabId]);
+    }, [tabId, onFileChange]);
 
     const requestLeftLines = useCallback((startIndex: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve, reject) => {
             if (!leftWorkerRef.current) return resolve([]);
-
-            // Segmentation Offset
             const realStart = startIndex + (leftSegmentIndex * MAX_SEGMENT_SIZE);
-
             const reqId = Math.random().toString(36).substring(7);
             const timeout = setTimeout(() => {
                 leftPendingRequests.current.delete(reqId);
                 reject(new Error('Request timed out'));
-            }, 10000); // 10s timeout
-
+            }, 10000);
             leftPendingRequests.current.set(reqId, (data: any) => {
                 clearTimeout(timeout);
                 resolve(data);
@@ -747,8 +725,6 @@ export const useLogExtractorLogic = ({
         return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
             if (!leftWorkerRef.current) return resolve([]);
             const reqId = Math.random().toString(36).substring(7);
-            // Raw lines don't need strict timeout as they are user-initiated interactions usually, but good practice.
-            // Keeping simple for now to avoid complexity in this signature which might be different.
             leftPendingRequests.current.set(reqId, resolve);
             leftWorkerRef.current.postMessage({ type: 'GET_RAW_LINES', payload: { startLine, count }, requestId: reqId });
         });
@@ -761,6 +737,7 @@ export const useLogExtractorLogic = ({
         setRightIndexingProgress(0);
         setRightTotalLines(0);
         setRightFilteredCount(0);
+        setRightBookmarks(new Set()); // Clear bookmarks
         lastFilterHashRight.current = '';
         rightWorkerRef.current.postMessage({ type: 'INIT_FILE', payload: file });
     }, []);
@@ -768,10 +745,7 @@ export const useLogExtractorLogic = ({
     const requestRightLines = useCallback((startIndex: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve, reject) => {
             if (!rightWorkerRef.current) return resolve([]);
-
-            // Segmentation Offset Right
             const realStart = startIndex + (rightSegmentIndex * MAX_SEGMENT_SIZE);
-
             const reqId = Math.random().toString(36).substring(7);
             const timeout = setTimeout(() => {
                 rightPendingRequests.current.delete(reqId);
@@ -846,6 +820,7 @@ export const useLogExtractorLogic = ({
         setLeftTotalLines(0);
         setLeftFilteredCount(0);
         setSelectedLineIndexLeft(-1);
+        setLeftBookmarks(new Set()); // Clear bookmarks
         lastFilterHashLeft.current = '';
     }, []);
 
@@ -855,6 +830,7 @@ export const useLogExtractorLogic = ({
         setRightTotalLines(0);
         setRightFilteredCount(0);
         setSelectedLineIndexRight(-1);
+        setRightBookmarks(new Set()); // Clear bookmarks
         lastFilterHashRight.current = '';
     }, []);
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import * as Lucide from 'lucide-react';
-import LogViewerPane, { ROW_HEIGHT } from './LogViewer/LogViewerPane';
+import LogViewerPane, { ROW_HEIGHT, LogViewerHandle } from './LogViewer/LogViewerPane';
 import ConfigurationPanel from './LogViewer/ConfigurationPanel';
 import TizenConnectionModal from './TizenConnectionModal';
 import { useLogContext } from './LogViewer/LogContext';
@@ -11,6 +11,67 @@ import LoadingOverlay from './ui/LoadingOverlay';
 import { BookmarksModal } from './BookmarksModal';
 
 const { X, Eraser, ChevronLeft, ChevronRight } = Lucide;
+
+interface RawContextViewerProps {
+    sourcePane: 'left' | 'right';
+    leftFileName: string;
+    rightFileName: string;
+    targetLine: { lineNum: number; content: string };
+    onClose: () => void;
+    heightPercent: number;
+    onResizeStart: (e: React.MouseEvent) => void;
+    leftTotalLines: number;
+    rightTotalLines: number;
+    requestLeftRawLines: (start: number, count: number) => Promise<any>;
+    requestRightRawLines: (start: number, count: number) => Promise<any>;
+}
+
+const RawContextViewer: React.FC<RawContextViewerProps> = ({
+    sourcePane, leftFileName, rightFileName, targetLine, onClose, heightPercent, onResizeStart,
+    leftTotalLines, rightTotalLines, requestLeftRawLines, requestRightRawLines
+}) => {
+    const rawViewerRef = React.useRef<LogViewerHandle>(null);
+    const rawTotalLines = sourcePane === 'left' ? leftTotalLines : rightTotalLines;
+    const rawTargetLineIndex = targetLine.lineNum - 1;
+    const rawSegmentIndex = Math.floor(rawTargetLineIndex / MAX_SEGMENT_SIZE);
+    const rawSegmentOffset = rawSegmentIndex * MAX_SEGMENT_SIZE;
+    const rawSegmentLength = Math.min(MAX_SEGMENT_SIZE, Math.max(0, rawTotalLines - rawSegmentOffset));
+
+    const handleRawScrollRequest = React.useCallback((start: number, count: number) => {
+        const globalStart = start + rawSegmentOffset;
+        const fn = sourcePane === 'left' ? requestLeftRawLines : requestRightRawLines;
+        return fn(globalStart, count);
+    }, [rawSegmentOffset, sourcePane, requestLeftRawLines, requestRightRawLines]);
+
+    return (
+        <div className="absolute left-0 right-0 top-16 bottom-0 z-40 flex flex-col pointer-events-none">
+            <div className="flex flex-col bg-slate-950 pointer-events-auto border-b-2 border-indigo-500 shadow-2xl" style={{ height: `${heightPercent}%` }}>
+                <div className="bg-indigo-950/80 px-4 py-1 flex justify-between items-center border-b border-indigo-500/30 backdrop-blur">
+                    <span className="text-xs font-bold text-indigo-300">Raw View ({sourcePane === 'left' ? leftFileName : rightFileName}) - Line {targetLine.lineNum}</span>
+                    <button onClick={onClose} className="text-indigo-400 hover:text-white"><X size={14} /></button>
+                </div>
+                <LogViewerPane
+                    key={`raw-${sourcePane}-${rawTargetLineIndex}`}
+                    ref={rawViewerRef}
+                    workerReady={true}
+                    totalMatches={rawSegmentLength}
+                    onScrollRequest={handleRawScrollRequest}
+                    absoluteOffset={rawSegmentOffset}
+                    placeholderText=""
+                    isRawMode={true}
+                    activeLineIndex={rawTargetLineIndex}
+                    initialScrollIndex={rawTargetLineIndex}
+                />
+                <div
+                    className="h-1 bg-indigo-500/50 hover:bg-indigo-400 cursor-ns-resize flex items-center justify-center group"
+                    onMouseDown={onResizeStart}
+                >
+                    <div className="w-12 h-1 bg-indigo-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 interface LogSessionProps {
     isActive: boolean;
@@ -227,15 +288,11 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 if (!isDualView && e.shiftKey) return;
 
                                 let targetPane = 'left';
-                                if (isDualView) {
-                                    if (e.shiftKey) {
-                                        targetPane = 'right';
-                                    } else {
-                                        const activeEl = document.activeElement;
-                                        if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
-                                            targetPane = 'right';
-                                        }
-                                    }
+                                if (e.shiftKey) {
+                                    if (!isDualView) return;
+                                    targetPane = 'right';
+                                } else {
+                                    targetPane = 'left';
                                 }
 
                                 const isPrev = e.key === 'F3'; // F3 (and Shift+F3) = Prev, F4 (and Shift+F4) = Next
@@ -399,29 +456,19 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
             {/* Raw Context View */}
             {rawContextOpen && rawContextTargetLine && (
-                <div className="absolute left-0 right-0 top-16 bottom-0 z-40 flex flex-col pointer-events-none">
-                    <div className="flex flex-col bg-slate-950 pointer-events-auto border-b-2 border-indigo-500 shadow-2xl" style={{ height: `${rawContextHeight}%` }}>
-                        <div className="bg-indigo-950/80 px-4 py-1 flex justify-between items-center border-b border-indigo-500/30 backdrop-blur">
-                            <span className="text-xs font-bold text-indigo-300">Raw View ({rawContextSourcePane === 'left' ? leftFileName : rightFileName}) - Line {rawContextTargetLine.lineNum}</span>
-                            <button onClick={() => setRawContextOpen(false)} className="text-indigo-400 hover:text-white"><X size={14} /></button>
-                        </div>
-                        <LogViewerPane
-                            ref={rawViewerRef}
-                            workerReady={true}
-                            totalMatches={rawContextSourcePane === 'left' ? leftTotalLines : rightTotalLines}
-                            onScrollRequest={rawContextSourcePane === 'left' ? requestLeftRawLines : requestRightRawLines}
-                            placeholderText=""
-                            isRawMode={true}
-                            activeLineIndex={rawContextTargetLine.lineNum - 1}
-                        />
-                        <div
-                            className="h-1 bg-indigo-500/50 hover:bg-indigo-400 cursor-ns-resize flex items-center justify-center group"
-                            onMouseDown={handleRawContextResizeStart}
-                        >
-                            <div className="w-12 h-1 bg-indigo-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        </div>
-                    </div>
-                </div>
+                <RawContextViewer
+                    sourcePane={rawContextSourcePane}
+                    leftFileName={leftFileName}
+                    rightFileName={rightFileName}
+                    targetLine={rawContextTargetLine}
+                    onClose={() => setRawContextOpen(false)}
+                    heightPercent={rawContextHeight}
+                    onResizeStart={handleRawContextResizeStart}
+                    leftTotalLines={leftTotalLines}
+                    rightTotalLines={rightTotalLines}
+                    requestLeftRawLines={requestLeftRawLines}
+                    requestRightRawLines={requestRightRawLines}
+                />
             )}
 
             <div className="flex-1 flex overflow-hidden h-full relative group/layout">
