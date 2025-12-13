@@ -249,10 +249,19 @@ io.on('connection', (socket) => {
 
     // --- SDB Remote Connect (Addon) ---
     socket.on('connect_sdb_remote', ({ ip }) => {
+        let isTimedOut = false;
+        // Total timeout 10 seconds
+        const timeoutTimer = setTimeout(() => {
+            isTimedOut = true;
+            socket.emit('sdb_remote_result', { success: false, message: 'Connection timed out (10s)' });
+        }, 10000);
+
         // Step 1: sdb disconnect
         const disconnectProc = spawn('sdb', ['disconnect']);
 
         disconnectProc.on('close', () => {
+            if (isTimedOut) return;
+
             // Step 2: sdb connect [ip]
             const connectProc = spawn('sdb', ['connect', ip]);
             let output = '';
@@ -261,6 +270,9 @@ io.on('connection', (socket) => {
             connectProc.stderr.on('data', (data) => output += data.toString());
 
             connectProc.on('close', (code) => {
+                if (isTimedOut) return;
+
+                // Check output for success confirmation
                 const isConnected = output.includes(`connected to ${ip}`) || output.includes(`already connected`);
 
                 if (isConnected) {
@@ -268,11 +280,12 @@ io.on('connection', (socket) => {
                     const rootProc = spawn('sdb', ['root', 'on']);
 
                     rootProc.on('close', () => {
+                        if (isTimedOut) return;
+                        clearTimeout(timeoutTimer);
                         socket.emit('sdb_remote_result', { success: true, message: `Connected to ${ip} (Root Enabled)` });
-                        // Auto-refresh device list
-                        socket.emit('list_sdb_devices');
                     });
                 } else {
+                    clearTimeout(timeoutTimer);
                     socket.emit('sdb_remote_result', { success: false, message: `Failed: ${output.trim()}` });
                 }
             });
@@ -301,8 +314,18 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('Client disconnected');
-        if (sshConnection) sshConnection.end();
-        if (sdbProcess) sdbProcess.kill();
+        if (sshConnection) {
+            sshConnection.end();
+            sshConnection = null;
+        }
+
+        // Ensure clean SDB state by forcing disconnect
+        spawn('sdb', ['disconnect']);
+
+        if (sdbProcess) {
+            sdbProcess.kill();
+            sdbProcess = null;
+        }
         if (debugStream) { debugStream.end(); debugStream = null; }
     });
 });

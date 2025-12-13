@@ -29,18 +29,31 @@ const ConfigurationPanel: React.FC = () => {
             return next;
         });
     };
-    const defaultLogCommand = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS)';
+    const defaultLogCommand = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
 
     const handleStartLogging = () => {
         if (!currentConfig) return;
+
+        // 1. Kill existing dlogutil
+        sendTizenCommand('pkill dlogutil\n');
+
+        // 2. Refresh tags and build command
         const cmdTemplate = currentConfig.logCommand ?? defaultLogCommand;
         const tags = (currentConfig.logTags || []).join(' ');
         const finalCmd = cmdTemplate.replace(/\$\(TAGS\)/g, tags);
+
+        // Execute
         sendTizenCommand(finalCmd + '\n');
     };
 
     const handleStopLogging = () => {
-        sendTizenCommand('\x03'); // Ctrl+C
+        // 1. Send Ctrl+C
+        sendTizenCommand('\x03');
+
+        // 2. Kill dlogutil explicitly after a short delay
+        setTimeout(() => {
+            sendTizenCommand('pkill dlogutil\n');
+        }, 300);
     };
 
     if (!currentConfig) {

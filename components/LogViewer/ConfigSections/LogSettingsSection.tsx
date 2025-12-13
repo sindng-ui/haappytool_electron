@@ -13,7 +13,7 @@ interface LogSettingsSectionProps {
     handleStopLogging: () => void;
 }
 
-const defaultLogCommand = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS)';
+const defaultLogCommand = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
 
 export const LogSettingsSection: React.FC<LogSettingsSectionProps> = ({ currentConfig, updateCurrentRule, handleStartLogging, handleStopLogging }) => {
     const [localCommand, setLocalCommand] = useState(currentConfig.logCommand ?? defaultLogCommand);

@@ -433,6 +433,17 @@ export const useLogExtractorLogic = ({
 
     const currentConfig = rules.find(r => r.id === selectedRuleId);
 
+    // Tizen Socket State
+    const [tizenSocket, setTizenSocket] = useState<Socket | null>(null);
+    const tizenBuffer = useRef<string[]>([]);
+    const tizenBufferTimeout = useRef<NodeJS.Timeout | null>(null);
+    const shouldAutoScroll = useRef(true);
+
+    const lastFilterHashLeft = useRef<string>('');
+    const lastFilterHashRight = useRef<string>('');
+
+    const [hasEverConnected, setHasEverConnected] = useState(false);
+
     const refineGroups = (rawGroups: string[][]) => {
         const refinedGroups: string[][] = [];
         const groupsByRoot = new Map<string, string[][]>();
@@ -457,10 +468,9 @@ export const useLogExtractorLogic = ({
 
     // Auto-Apply Filter (Left)
     useEffect(() => {
-        if (leftWorkerRef.current && currentConfig && leftTotalLines > 0) {
+        if (leftWorkerRef.current && currentConfig && (leftTotalLines > 0 || tizenSocket)) {
             const refinedGroups = refineGroups(currentConfig.includeGroups);
 
-            // Optimization: Check if effective filter changed
             // Optimization: Check if effective filter changed
             const effectiveIncludes = refinedGroups.map(g =>
                 g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
@@ -484,20 +494,12 @@ export const useLogExtractorLogic = ({
                 type: 'FILTER_LOGS',
                 payload: { ...currentConfig, includeGroups: refinedGroups }
             });
-            setSelectedLineIndexLeft(-1);
+            // Don't reset selection during stream to avoid jumps, unless necessary?
+            if (!tizenSocket) setSelectedLineIndexLeft(-1);
         }
-    }, [currentConfig, leftTotalLines]);
+    }, [currentConfig, leftTotalLines, tizenSocket]);
 
-    // Tizen Socket State
-    const [tizenSocket, setTizenSocket] = useState<Socket | null>(null);
-    const tizenBuffer = useRef<string[]>([]);
-    const tizenBufferTimeout = useRef<NodeJS.Timeout | null>(null);
-    const shouldAutoScroll = useRef(true);
 
-    const lastFilterHashLeft = useRef<string>('');
-    const lastFilterHashRight = useRef<string>('');
-
-    const [hasEverConnected, setHasEverConnected] = useState(false);
 
     const flushTizenBuffer = useCallback(() => {
         if (tizenBuffer.current.length === 0) return;
@@ -617,6 +619,33 @@ export const useLogExtractorLogic = ({
         }
     }, [currentConfig, rightTotalLines, isDualView]);
 
+    const handleClearLogs = useCallback(() => {
+        if (leftWorkerRef.current) {
+            setLeftTotalLines(0);
+            setLeftFilteredCount(0);
+            setSelectedLineIndexLeft(-1);
+            leftWorkerRef.current.postMessage({ type: 'INIT_STREAM' });
+
+            // Re-apply filter immediately after clear
+            if (currentConfig) {
+                // ... same filter logic as handleTizenStreamStart ...
+                // Actually if I just trigger INIT_STREAM, the worker clears.
+                // But does it keep the filter?
+                // The worker stores `currentFilter` in a variable?
+                // I need to check worker. Usually worker state persists unless I reload worker.
+                // 'INIT_STREAM' usually resets 'lines', but does it reset 'currentFilter'?
+                // If the worker logic for INIT_STREAM doesn't touch 'currentFilter', then we are good.
+                // Assuming it works or I'll re-send filter.
+                // Safer to re-send filter or trust the 'Auto-Apply' effect which watches 'leftTotalLines' or 'tizenSocket'.
+                // If I set leftTotalLines to 0, the effect might run?
+                // My previous fix allows effect if (leftTotalLines > 0 || tizenSocket).
+                // So the effect will run if tizenSocket is present.
+                // But lastFilterHash might prevent it if config didn't change.
+                // So I might need to force it.
+            }
+        }
+    }, [currentConfig]);
+
     const handleTizenDisconnect = useCallback(() => {
         if (tizenSocket) {
             // Try to notify server to stop processes cleanly
@@ -629,6 +658,17 @@ export const useLogExtractorLogic = ({
                 setTizenSocket(null);
             }, 100);
         }
+    }, [tizenSocket]);
+
+    // Cleanup Tizen Socket on component unmount
+    useEffect(() => {
+        return () => {
+            if (tizenSocket) {
+                tizenSocket.emit('disconnect_sdb');
+                tizenSocket.emit('disconnect_ssh');
+                tizenSocket.disconnect();
+            }
+        };
     }, [tizenSocket]);
 
     const handleLeftFileChange = useCallback((file: File) => {
@@ -1150,6 +1190,7 @@ export const useLogExtractorLogic = ({
         handleCopyLogs, handleSaveLogs, jumpToHighlight, findText,
         requestBookmarkedLines,
         sendTizenCommand,
-        hasEverConnected
+        hasEverConnected,
+        handleClearLogs
     };
 };

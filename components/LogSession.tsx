@@ -9,7 +9,7 @@ import Toast from './ui/Toast';
 import LoadingOverlay from './ui/LoadingOverlay';
 import { BookmarksModal } from './BookmarksModal';
 
-const { X } = Lucide;
+const { X, Eraser } = Lucide;
 
 interface LogSessionProps {
     isActive: boolean;
@@ -44,7 +44,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
         clearLeftBookmarks, clearRightBookmarks,
         jumpToHighlight, requestBookmarkedLines,
-        tizenSocket, sendTizenCommand,
+        tizenSocket, sendTizenCommand, handleClearLogs,
         toast, closeToast
     } = useLogContext();
 
@@ -345,6 +345,13 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                         }
                                     }}
                                 />
+                                <button
+                                    onClick={handleClearLogs}
+                                    className="p-1.5 text-slate-500 hover:text-red-400 rounded-md hover:bg-white/5 transition-colors"
+                                    title="Clear Logs"
+                                >
+                                    <Eraser size={16} />
+                                </button>
                             </div>
                         )}
                     </div>

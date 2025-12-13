@@ -112,21 +112,19 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
         };
     }, [isOpen]);
 
-    const handleScanSdb = () => {
+    const refreshDeviceList = () => {
         if (socket) {
-            setIsScanning(true);
+            // Keep scanning true until list returns
             setSdbDevices([]);
             socket.emit('list_sdb_devices');
         }
     };
 
-    // SDB Remote State
-    const [sdbRemoteIp, setSdbRemoteIp] = useState('');
-
-    const handleSdbRemoteConnect = () => {
-        if (socket && sdbRemoteIp) {
-            setStatus(`Connecting to ${sdbRemoteIp}...`);
-            socket.emit('connect_sdb_remote', { ip: sdbRemoteIp });
+    const handleScanSdb = () => {
+        if (socket) {
+            setIsScanning(true);
+            setStatus('Connecting to 192.168.250.250...');
+            socket.emit('connect_sdb_remote', { ip: '192.168.250.250' });
         }
     };
 
@@ -135,12 +133,12 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
             socket.on('sdb_remote_result', (data) => {
                 if (data.success) {
                     setStatus(data.message);
-                    handleScanSdb(); // Refresh list automatically
-                    setSdbRemoteIp(''); // Clear input
                 } else {
-                    setError(data.message);
-                    setStatus('');
+                    // Even if remote connect fails, we simply report it but continue to list local devices
+                    setStatus(`Remote: ${data.message}`);
                 }
+                // Always refresh list after connection attempt
+                refreshDeviceList();
             });
         }
     }, [socket]);
@@ -228,26 +226,6 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
                                     <option key={d.id} value={d.id}>{d.id} ({d.type})</option>
                                 ))}
                             </select>
-                            <div className="pt-4 border-t border-slate-700">
-                                <div className="flex justify-between items-end mb-2">
-                                    <label className="text-xs font-bold text-slate-400 uppercase">Remote Connection (IP)</label>
-                                </div>
-                                <div className="flex gap-2">
-                                    <input
-                                        className="flex-1 bg-slate-800 text-slate-200 p-2 rounded border border-slate-700 focus:border-indigo-500 focus:outline-none placeholder-slate-600"
-                                        placeholder="192.168.1.xxx"
-                                        value={sdbRemoteIp}
-                                        onChange={(e) => setSdbRemoteIp(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSdbRemoteConnect()}
-                                    />
-                                    <button
-                                        onClick={handleSdbRemoteConnect}
-                                        className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold text-sm transition-colors"
-                                    >
-                                        Connect IP
-                                    </button>
-                                </div>
-                            </div>
                         </div>
                     )}
 
