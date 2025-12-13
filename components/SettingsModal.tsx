@@ -89,7 +89,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                         {/* General Tab */}
                         {activeTab === 'general' && (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform">
                                 <div>
                                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Moon size={18} /> Appearance</h3>
                                     <div className="flex gap-4">
@@ -138,7 +138,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                         {/* Shortcuts Tab */}
                         {activeTab === 'shortcuts' && (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform">
                                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Keyboard size={18} /> Keyboard Shortcuts</h3>
                                 <div className="space-y-2">
                                     {[
@@ -172,7 +172,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                         {/* About Tab */}
                         {activeTab === 'about' && (
-                            <div className="text-center space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 py-10">
+                            <div className="text-center space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform py-10">
                                 <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl mx-auto shadow-2xl flex items-center justify-center transform rotate-3">
                                     <span className="text-4xl font-black text-white">H</span>
                                 </div>
@@ -193,7 +193,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                         {/* User Guide Tab */}
                         {activeTab === 'guide' && (
-                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform">
                                 <div className="text-center">
                                     <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl mx-auto shadow-xl flex items-center justify-center mb-4">
                                         <BookOpen size={32} className="text-white" />

@@ -1,7 +1,7 @@
 {
   "name": "happytool",
   "private": true,
-  "version": "0.4.1",
+  "version": "0.5.0",
   "type": "module",
   "homepage": "./",
   "main": "electron/main.js",

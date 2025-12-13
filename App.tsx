@@ -155,7 +155,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e293b] font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300">
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
           activeTool={activeTool}

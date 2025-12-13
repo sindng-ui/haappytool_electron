@@ -66,3 +66,18 @@
     - **파일 로딩 UI 개선**: 파일 드래그 앤 드롭 및 로딩 시 시각적 진행률(Progress Bar, Spinner, Blur Effect) 표시 기능 추가.
     - **단일 라인 복사**: `Ctrl+C` 단축키로 선택된 줄만 복사하는 기능 추가 (Toast 메시지 없음).
     - **보안 및 최적화**: `crypto.randomUUID()`를 호환성 있는 `Math.random` 기반 폴백으로 교체.
+
+## Phase 7: UI 고급화 및 성능 최적화 (Premium Glass & Performance)
+- ✅ **상태**: 완료.
+    - **Premium UI Overhaul**:
+        - 전체 앱에 'Glassmorphism' 디자인 컨셉 적용 (`App`, `Sidebar`, `ConfigurationPanel`, `LogViewerPane`).
+        - `ConfigHeader`, `HappyComboSection`, `HighlightSection` 등 설정 패널을 5개의 하위 컴포넌트로 분리하여 구조화 및 지역 상태 최적화.
+        - 세련된 스크롤바 커스터마이징 및 Glow 효과(Icon/Text) 추가.
+    - **성능 최적화**:
+        - `LogExtractor.tsx`의 탭 렌더링 로직(`headerElement`)을 메모이제이션하여 불필요한 리렌더링 방지.
+        - `ConfigurationPanel` 내부의 입력(태그 수정 등)을 로컬 상태로 분리하여 입력 지연 제거.
+        - `groupedRoots` 계산 최적화 (`useLogExtractorLogic`).
+        - `SettingsModal` 애니메이션 성능 개선 (`will-change-transform`).
+    - **UI 폴리싱**:
+        - `LogViewerPane`의 'Empty State' 디자인 개선 (Drop Zone 시각화).
+        - `LogLine`의 Hover/Active 스타일을 앱 전체 테마와 일치하도록 투명도 및 그라데이션 적용.

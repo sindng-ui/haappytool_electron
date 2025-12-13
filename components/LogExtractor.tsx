@@ -148,8 +148,8 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [tabs, activeTabId]);
 
-    // Tab Bar Component
-    const renderTabBar = () => (
+    // Memoize the header element to prevent re-renders of SessionWrapper
+    const headerElement = React.useMemo(() => (
         <div
             className="h-9 flex items-center bg-slate-950/90 border-b border-indigo-500/30 select-none pl-1"
             onDragOver={(e) => e.preventDefault()}
@@ -205,7 +205,7 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
                 </button>
             </div>
         </div>
-    );
+    ), [tabs, activeTabId, handleAddTab, handleCloseTab, handleGlobalDrop]);
 
     const handleTitleChange = useCallback((tabId: string, newTitle: string) => {
         setTabs(current => current.map(t => t.id === tabId ? { ...t, title: newTitle } : t));
@@ -218,7 +218,6 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
                     <LogProvider
                         key={tab.id}
                         {...props}
-                        initialFile={tab.initialFile}
                         configPanelWidth={configPanelWidth}
                         setConfigPanelWidth={setConfigPanelWidth}
                         tabId={tab.id}
@@ -233,7 +232,7 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
                             title={tab.title}
                             tabId={tab.id}
                             onTitleChange={handleTitleChange}
-                            headerElement={renderTabBar()}
+                            headerElement={headerElement}
                         />
                     </LogProvider>
                 ))}

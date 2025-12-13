@@ -990,7 +990,7 @@ export const useLogExtractorLogic = ({
             const isRootEnabled = items.some(i => i.active);
             return { root, isRootEnabled, items };
         });
-    }, [currentConfig]);
+    }, [currentConfig?.includeGroups, currentConfig?.disabledGroups]);
 
     const [collapsedRoots, setCollapsedRoots] = useState<Set<string>>(new Set());
 

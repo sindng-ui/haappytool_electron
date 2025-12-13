@@ -50,31 +50,36 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
   return (
     <div className="h-full relative shrink-0 z-50">
       {/* Placeholder to reserve layout space */}
-      <div className="w-20 h-full bg-slate-950 border-r border-slate-800" />
+      <div className="w-20 h-full" />
 
       {/* Floating Animated Sidebar */}
       <div
-        className={`absolute top-0 left-0 h-full bg-slate-950 border-r border-slate-800 text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden ${isHovered ? 'w-72' : 'w-20'
+        className={`absolute top-0 left-0 h-full glass-panel text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden ${isHovered ? 'w-72' : 'w-20'
           }`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className="h-20 flex items-center justify-center relative border-b border-slate-900/50">
+        <div className="h-24 flex items-center justify-center relative">
           <div className={`transition-all duration-300 ${isHovered ? 'scale-100' : 'scale-90'}`}>
             {isHovered ? (
-              <div className="flex items-center gap-2 text-indigo-400">
-                <Smile className="w-8 h-8" strokeWidth={2.5} />
-                <span className="font-bold text-2xl tracking-tight text-white">HappyTool</span>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-indigo-500 blur-lg opacity-40"></div>
+                  <Smile className="w-8 h-8 text-indigo-400 relative z-10" strokeWidth={2.5} />
+                </div>
+                <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-indigo-200 via-indigo-100 to-white bg-clip-text text-transparent">
+                  HappyTool
+                </span>
               </div>
             ) : (
-              <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-900/20">
+              <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-2.5 rounded-xl shadow-lg shadow-indigo-500/30 ring-1 ring-white/10 group-hover:scale-110 transition-transform">
                 <Smile className="w-6 h-6 text-white" />
               </div>
             )}
           </div>
         </div>
 
-        <div className="flex-1 px-3 py-6 space-y-2 overflow-y-auto overflow-x-hidden">
+        <div className="flex-1 px-3 py-2 space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar">
           {toolOrder.map((toolId) => {
             const item = toolDefinitions[toolId];
             if (!item) return null;
@@ -91,10 +96,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
                 onDragOver={handleDragOver}
                 onDragEnter={(e) => handleDragEnter(e, toolId)}
                 onClick={() => onSelectTool(toolId)}
-                className={`w-full flex items-center h-12 px-3 rounded-2xl transition-all duration-300 ease-out group relative cursor-pointer ${isActive
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-                  } ${isDragging ? 'opacity-20 border-2 border-dashed border-slate-600' : ''}`}
+                className={`w-full flex items-center h-12 px-3 rounded-xl transition-all duration-200 group relative cursor-pointer outline-none border border-transparent ${isActive
+                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/20 border-indigo-400/20'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 active:scale-95'
+                  } ${isDragging ? 'opacity-20 border-dashed border-slate-600' : ''}`}
               >
                 {isHovered && (
                   <div className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-30 cursor-grab active:cursor-grabbing">
@@ -102,15 +107,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
                   </div>
                 )}
                 <div className="min-w-[40px] flex items-center justify-center">
-                  <Icon className={`w-6 h-6 transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+                  <Icon className={`w-[22px] h-[22px] transition-transform duration-200 ${isActive ? 'scale-110 icon-glow' : 'group-hover:scale-110'
+                    }`} />
                 </div>
-                <span className={`ml-3 font-medium text-sm whitespace-nowrap transition-all duration-300 ${isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'}`}>
+                <span className={`ml-3 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
+                  }`}>
                   {item.label}
                 </span>
                 {!isHovered && !isDragging && (
-                  <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-xl border border-slate-700">
+                  <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 border border-slate-700 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-50 shadow-xl">
                     {item.label}
-                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45 border-l border-b border-slate-700"></div>
+                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900 rotate-45 border-l border-b border-slate-700"></div>
                   </div>
                 )}
               </button>
@@ -118,32 +125,32 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
           })}
         </div>
 
-        <div className="px-3 pb-2 w-full mt-auto">
+        <div className="px-3 pb-4 w-full mt-auto space-y-3">
+          <div className={`h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent ${isHovered ? 'opacity-100' : 'opacity-0'} transition-opacity`} />
+
           <button
             onClick={onOpenSettings}
-            className={`w-full flex items-center h-12 px-3 rounded-2xl transition-all duration-300 ease-out group relative cursor-pointer text-slate-400 hover:bg-slate-900 hover:text-slate-200`}
+            className={`w-full flex items-center h-12 px-3 rounded-xl transition-all duration-200 group relative cursor-pointer text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 border border-transparent active:scale-95`}
           >
             <div className="min-w-[40px] flex items-center justify-center">
-              <Settings className="w-6 h-6 group-hover:rotate-45 transition-transform duration-300" />
+              <Settings className="w-[22px] h-[22px] group-hover:rotate-90 transition-transform duration-500 ease-out" />
             </div>
-            <span className={`ml-3 font-medium text-sm whitespace-nowrap transition-all duration-300 ${isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'}`}>
+            <span className={`ml-3 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
+              }`}>
               Settings
             </span>
             {!isHovered && (
-              <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-xl border border-slate-700">
+              <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 border border-slate-700 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-50 shadow-xl">
                 Settings
-                <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45 border-l border-b border-slate-700"></div>
+                <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900 rotate-45 border-l border-b border-slate-700"></div>
               </div>
             )}
           </button>
         </div>
 
-        <div className="p-4 border-t border-slate-900">
-          <div className={`mt-0 text-xs text-slate-600 whitespace-nowrap overflow-hidden transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
-            <div className="flex flex-col gap-1">
-              <span className="font-bold text-slate-500">HappyTool Suite</span>
-              <span>v{__APP_VERSION__} &bull; Build 2025</span>
-            </div>
+        <div className={`p-4 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="text-[10px] text-slate-600 font-mono text-center">
+            v{__APP_VERSION__} &bull; Build 2025
           </div>
         </div>
       </div>

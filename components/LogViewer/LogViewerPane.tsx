@@ -440,43 +440,52 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         <div
             ref={containerRef}
             tabIndex={0}
-            className={`flex-1 flex flex-col relative overflow-hidden transition-colors border-r border-slate-300 dark:border-slate-900 last:border-r-0 outline-none h-full ${dragActive ? 'bg-indigo-100 dark:bg-indigo-900/10 ring-4 ring-inset ring-indigo-500/50' : 'bg-slate-100 dark:bg-slate-950'} ${isRawMode ? 'bg-slate-200 dark:bg-slate-900' : ''}`}
+            className={`flex-1 flex flex-col relative overflow-hidden transition-all duration-300 outline-none h-full 
+                ${dragActive
+                    ? 'bg-indigo-500/10 ring-4 ring-inset ring-indigo-500/50 backdrop-blur-sm'
+                    : isRawMode
+                        ? 'bg-slate-100 dark:bg-slate-900'
+                        : 'bg-white/80 dark:bg-slate-950/70' // Glassy main bg
+                }
+                border-r border-slate-200 dark:border-white/5 last:border-r-0
+            `}
             onDragEnter={handleDrag} onDragOver={handleDrag} onDragLeave={handleDrag} onDrop={handleDropEvent}
             onKeyDown={handleKeyDown}
         >
             {/* Toolbar */}
             {!isRawMode && (
-                <div className={`h-12 border-b border-slate-300 dark:border-slate-800 flex items-center justify-between shrink-0 z-10 group/toolbar ${!isRawMode && (paneId === 'left' || paneId === 'single') ? 'pl-10 pr-3' : 'px-3'} ${isRawMode ? 'bg-slate-200/50 dark:bg-indigo-950/0' : 'bg-slate-100/50 dark:bg-slate-950/50'}`}>
+                <div className={`h-11 border-b border-slate-200 dark:border-white/5 flex items-center justify-between shrink-0 z-20 group/toolbar px-3 
+                    ${isRawMode ? 'bg-transparent' : 'bg-white/50 dark:bg-slate-950/50 backdrop-blur-md'}`}>
                     <div className="flex items-center gap-3 overflow-hidden">
-                        <div className={`p-1.5 rounded-md ${workerReady ? (isRawMode ? 'bg-orange-200 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400' : 'bg-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400') : 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-600'}`}>
+                        <div className={`p-1.5 rounded-lg shadow-sm transition-all duration-300 ${workerReady ? (isRawMode ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-300' : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 icon-glow') : 'bg-slate-100 text-slate-500 dark:bg-slate-800/50 dark:text-slate-500'}`}>
                             {isRawMode ? <Split size={14} /> : <Zap size={14} />}
                         </div>
                         <div className="flex flex-col min-w-0">
-                            <span className="font-bold text-xs text-slate-600 dark:text-slate-300 truncate max-w-[300px]">
+                            <span className="font-bold text-xs text-slate-700 dark:text-slate-200 truncate max-w-[300px] tracking-tight">
                                 {workerReady ? (isRawMode ? 'Raw View' : (placeholderText.includes('Drag') ? placeholderText : placeholderText.replace('Processing...', '').replace('Drop a log file to start', 'No file loaded'))) : (fileName ? 'Processing...' : 'Empty')}
                             </span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-50 group-hover/toolbar:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-0 group-hover/toolbar:opacity-100 transition-opacity duration-200">
                         {workerReady && !isRawMode && onShowBookmarks && (
-                            <button onClick={onShowBookmarks} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 dark:text-slate-500 hover:text-yellow-600 dark:hover:text-yellow-500 transition-colors" title="View Bookmarks">
-                                <Bookmark size={12} fill={bookmarks.size > 0 ? "currentColor" : "none"} />
+                            <button onClick={onShowBookmarks} className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors" title="View Bookmarks">
+                                <Bookmark size={14} fill={bookmarks.size > 0 ? "currentColor" : "none"} />
                             </button>
                         )}
                         {workerReady && !isRawMode && onCopy && (
-                            <button onClick={onCopy} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" title="Copy Filtered Logs">
-                                <Copy size={12} />
+                            <button onClick={onCopy} className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" title="Copy Filtered Logs">
+                                <Copy size={14} />
                             </button>
                         )}
                         {workerReady && !isRawMode && onSave && (
-                            <button onClick={onSave} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" title="Save Filtered Logs">
-                                <Download size={12} />
+                            <button onClick={onSave} className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 dark:text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors" title="Save Filtered Logs">
+                                <Download size={14} />
                             </button>
                         )}
 
                         {fileName && onReset && !isRawMode && (
-                            <button onClick={onReset} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors" title="Reset File">
-                                <X size={12} />
+                            <button onClick={onReset} className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors" title="Reset File">
+                                <X size={14} />
                             </button>
                         )}
                     </div>
@@ -512,16 +521,31 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                         className="custom-scrollbar"
                     />
                 ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-slate-400">
+                    <div className="absolute inset-0 flex items-center justify-center text-slate-400 pointer-events-none">
                         {fileName ? (
-                            <div className="flex flex-col items-center gap-2">
-                                <Lucide.Loader2 className="animate-spin" />
-                                <span className="text-xs">Processing log...</span>
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-indigo-500 blur-xl opacity-20 animate-pulse"></div>
+                                    <Lucide.Loader2 className="animate-spin text-indigo-400 relative z-10" size={32} />
+                                </div>
+                                <span className="text-xs font-medium text-indigo-300 animate-pulse">Processing log...</span>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center gap-2 opacity-50 cursor-pointer hover:opacity-100 transition-opacity" onClick={onBrowse}>
-                                <Upload size={24} />
-                                <span className="text-xs">{placeholderText}</span>
+                            <div
+                                className="group flex flex-col items-center gap-4 p-12 rounded-3xl border-2 border-dashed border-slate-700/50 bg-slate-900/20 backdrop-blur-sm transition-all duration-300 hover:bg-slate-800/40 hover:border-indigo-500/50 hover:scale-[1.02] cursor-pointer pointer-events-auto"
+                                onClick={onBrowse}
+                            >
+                                <div className="p-4 rounded-2xl bg-slate-800/50 group-hover:bg-indigo-500/20 transition-colors shadow-xl">
+                                    <Upload size={32} className="text-slate-500 group-hover:text-indigo-400 transition-colors icon-glow" />
+                                </div>
+                                <div className="text-center space-y-1">
+                                    <span className="text-sm font-bold text-slate-300 group-hover:text-indigo-200 transition-colors block">
+                                        Drop a log file here
+                                    </span>
+                                    <span className="text-xs text-slate-500 group-hover:text-indigo-400/70 transition-colors block">
+                                        or click to browse
+                                    </span>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -531,9 +555,12 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             {/* Footer */}
             {
                 workerReady && (
-                    <div className="bg-slate-200 dark:bg-slate-950 border-t border-slate-300 dark:border-slate-900 px-3 py-1 text-[10px] text-slate-600 dark:text-slate-600 font-mono flex justify-between">
-                        <div className="flex gap-4"><span>Matches: {totalMatches}</span></div>
-                        <div className="flex gap-2 text-indigo-600 dark:text-indigo-400">Ready</div>
+                    <div className="h-7 border-t border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-slate-950/80 backdrop-blur px-3 flex items-center justify-between text-[10px] text-slate-500 font-medium select-none">
+                        <div className="flex gap-4"><span>Matches: <span className="text-slate-700 dark:text-slate-300">{totalMatches.toLocaleString()}</span></span></div>
+                        <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]"></span>
+                            <span className="text-slate-600 dark:text-slate-400">Ready</span>
+                        </div>
                     </div>
                 )
             }

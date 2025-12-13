@@ -171,3 +171,40 @@ pre {
    Ctrl+0 - Reset Zoom
    Note: These are handled by Electron/Browser natively
 */
+
+@layer utilities {
+  .glass {
+    @apply bg-slate-900/70 backdrop-blur-md border border-white/5;
+  }
+  
+  .glass-panel {
+    @apply bg-slate-950/80 backdrop-blur-xl border-r border-white/5;
+  }
+
+  .text-glow {
+    text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+  }
+  
+  .icon-glow {
+    filter: drop-shadow(0 0 2px rgba(99, 102, 241, 0.5));
+  }
+}
+
+/* Premium Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
+}
