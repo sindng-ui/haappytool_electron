@@ -148,6 +148,30 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
     const [newRootName, setNewRootName] = useState('');
     const [isCreatingRoot, setIsCreatingRoot] = useState(false);
 
+    // Ref to handle auto-focus on new branch creation
+    const pendingBranchFocus = useRef<{ rootIdx: number, branchIdx: number } | null>(null);
+    // Ref to handle auto-focus on new root creation
+    const pendingRootFocus = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (pendingBranchFocus.current) {
+            const { rootIdx, branchIdx } = pendingBranchFocus.current;
+            const input = document.querySelector(`input[data-add-tag="${rootIdx}-${branchIdx}"]`) as HTMLInputElement;
+            if (input) {
+                input.focus();
+                pendingBranchFocus.current = null;
+            }
+        }
+
+        if (pendingRootFocus.current) {
+            // Find the root that matches the name
+            if (groupedRoots.some(g => g.root === pendingRootFocus.current)) {
+                setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: pendingRootFocus.current });
+                pendingRootFocus.current = null;
+            }
+        }
+    }, [groupedRoots]);
+
     // Helper to update groups
     const handleUpdateGroup = (originalIdx: number, newGroup: string[], isActive: boolean) => {
         const sourceArray = isActive ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
@@ -434,7 +458,10 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                 <div className="relative pl-4 pt-1">
                                     <div className="absolute left-[11px] top-4 w-4 h-px bg-slate-800" />
                                     <button
-                                        onClick={() => updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] })}
+                                        onClick={() => {
+                                            updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] });
+                                            pendingBranchFocus.current = { rootIdx, branchIdx: items.length };
+                                        }}
                                         className="text-[10px] font-bold text-indigo-400/70 hover:text-indigo-300 flex items-center gap-1 py-1 px-2 rounded hover:bg-indigo-500/10 transition-colors uppercase tracking-wider"
                                     >
                                         <Plus size={10} /> Add Branch
@@ -456,6 +483,7 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                     const existing = new Set(groupedRoots.map(g => g.root));
                     while (existing.has(newName)) { newName = `NewRoot (${counter++})`; }
                     updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [newName]] });
+                    pendingRootFocus.current = newName;
                 }}
             >
                 Create New Combo Group
