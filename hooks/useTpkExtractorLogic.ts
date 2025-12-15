@@ -15,6 +15,7 @@ export interface UseTpkExtractorLogicReturn {
     handleDownload: () => void;
     reset: () => void;
     processFile: (file: File) => Promise<void>;
+    processUrl: (url: string) => Promise<void>;
 }
 
 export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
@@ -166,6 +167,58 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
         }
     };
 
+    const processUrl = async (targetUrl: string) => {
+        setStatus('PROCESSING');
+        setProgressStep(0);
+        setLogs([]);
+        addLog(`Accessing URL: ${targetUrl}`);
+
+        try {
+            // 1. Fetch HTML to find link
+            // Note: This relies on Cross-Origin access being enabled in Electron or the target server allowing CORS.
+            // If CORS issues arise, this needs to be moved to the main process via IPC.
+            const response = await fetch(targetUrl);
+            if (!response.ok) throw new Error(`Failed to access URL: ${response.status} ${response.statusText}`);
+
+            const htmlText = await response.text();
+
+            // 2. Parse HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlText, 'text/html');
+            const links = Array.from(doc.querySelectorAll('a'));
+
+            // Find first .rpm link
+            const rpmLink = links.find(a => a.href && a.href.endsWith('.rpm'));
+
+            if (!rpmLink) {
+                throw new Error('No .rpm link found on the page.');
+            }
+
+            const rpmUrl = rpmLink.href;
+            const rpmName = rpmUrl.split('/').pop() || 'downloaded.rpm';
+            addLog(`Found RPM: ${rpmName}`);
+            addLog(`Downloading from: ${rpmUrl}`);
+
+            // 3. Download RPM
+            // We fetch as blob
+            const rpmRes = await fetch(rpmUrl);
+            if (!rpmRes.ok) throw new Error(`Failed to download RPM: ${rpmRes.status}`);
+
+            const blob = await rpmRes.blob();
+            const file = new File([blob], rpmName, { type: 'application/x-rpm' });
+
+            addLog('Download complete. Starting extraction...');
+
+            // 4. Process
+            await processFile(file);
+
+        } catch (err: any) {
+            console.error(err);
+            setStatus('ERROR');
+            addLog(`Error: ${err.message}`);
+        }
+    };
+
     const reset = () => {
         setStatus('IDLE');
         setResultPath('');
@@ -188,6 +241,8 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
         handleDrop,
         handleDownload,
         reset,
-        processFile
+
+        processFile,
+        processUrl
     };
 };

@@ -18,8 +18,17 @@ const TpkExtractor: React.FC = () => {
         handleDrag,
         handleDrop,
         handleDownload,
-        reset
+        reset,
+        processUrl
     } = useTpkExtractorLogic();
+
+    const [urlInput, setUrlInput] = React.useState('');
+
+    const handleUrlSubmit = () => {
+        if (urlInput.trim()) {
+            processUrl(urlInput.trim());
+        }
+    };
 
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-300">
@@ -48,13 +57,36 @@ const TpkExtractor: React.FC = () => {
                     {/* Content */}
                     <div className="p-8 min-h-[400px] flex flex-col bg-slate-50/30 dark:bg-transparent">
                         {status === 'IDLE' && (
-                            <TpkDropZone
-                                dragActive={dragActive}
-                                onDragEnter={handleDrag}
-                                onDragLeave={handleDrag}
-                                onDragOver={handleDrag}
-                                onDrop={handleDrop}
-                            />
+                            <>
+                                <TpkDropZone
+                                    dragActive={dragActive}
+                                    onDragEnter={handleDrag}
+                                    onDragLeave={handleDrag}
+                                    onDragOver={handleDrag}
+                                    onDrop={handleDrop}
+                                />
+
+                                <div className="mt-6 flex flex-col items-center w-full max-w-lg mx-auto">
+                                    <div className="text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">OR Extract from URL</div>
+                                    <div className="flex w-full gap-2">
+                                        <input
+                                            type="text"
+                                            value={urlInput}
+                                            onChange={(e) => setUrlInput(e.target.value)}
+                                            placeholder="Enter Page URL containing .rpm link..."
+                                            className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all"
+                                            onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
+                                        />
+                                        <button
+                                            onClick={handleUrlSubmit}
+                                            disabled={!urlInput.trim()}
+                                            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white font-bold py-2 px-6 rounded-xl shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
+                                        >
+                                            Extract
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
                         )}
 
                         {(status === 'PROCESSING' || status === 'COMPLETED' || status === 'ERROR') && (
@@ -80,6 +112,7 @@ const TpkExtractor: React.FC = () => {
                 </div>
             </div>
         </div>
+
     );
 };
 
