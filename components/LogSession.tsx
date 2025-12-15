@@ -327,6 +327,11 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
                             if (e.code === 'Space') {
                                 if (!isActive) return;
+
+                                // Ignore if typing in an input
+                                const target = e.target as HTMLElement;
+                                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+
                                 e.preventDefault();
                                 e.stopPropagation();
 
