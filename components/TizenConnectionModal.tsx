@@ -32,6 +32,24 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
     const [isConnected, setIsConnected] = useState(false);
 
     const isHandedOver = React.useRef(false);
+    const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    const startTimeout = () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+            setIsConnecting(false);
+            setIsScanning(false);
+            setStatus('Connection timed out (15s). Please try again.');
+            setError('Request timed out. Please check your connection.');
+        }, 15000);
+    };
+
+    const clearConnectionTimeout = () => {
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
+    };
 
     useEffect(() => {
         let newSocket: Socket | null = null;
@@ -57,6 +75,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
             });
 
             newSocket.on('ssh_status', (data) => {
+                clearConnectionTimeout();
                 setStatus(data.message);
                 if (data.status === 'connected') {
                     setIsConnected(true);
@@ -71,11 +90,13 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
             });
 
             newSocket.on('ssh_error', (data) => {
+                clearConnectionTimeout();
                 setError(data.message);
                 setIsConnecting(false);
             });
 
             newSocket.on('sdb_status', (data) => {
+                clearConnectionTimeout();
                 setStatus(data.message);
                 if (data.status === 'connected') {
                     setIsConnected(true);
@@ -90,7 +111,13 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
             });
 
             newSocket.on('sdb_error', (data) => {
-                setError(data.message);
+                clearConnectionTimeout();
+                let msg = data.message;
+                // Check for common 'command not found' patterns for sdb
+                if (msg && (msg.includes('spawn sdb ENOENT') || msg.includes('is not recognized') || msg.includes('command not found'))) {
+                    msg = "SDB command not found. Please add 'sdb' to your system PATH.";
+                }
+                setError(msg);
                 setIsConnecting(false);
             });
 
@@ -103,6 +130,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
         }
 
         return () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
             if (newSocket) {
                 if (!isHandedOver.current) {
                     newSocket.disconnect();
@@ -124,6 +152,8 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
         if (socket) {
             setIsScanning(true);
             setStatus('Connecting to 192.168.250.250...');
+            setError('');
+            startTimeout();
             socket.emit('connect_sdb_remote', { ip: '192.168.250.250' });
         }
     };
@@ -131,6 +161,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
     useEffect(() => {
         if (socket) {
             socket.on('sdb_remote_result', (data) => {
+                clearConnectionTimeout();
                 if (data.success) {
                     setStatus(data.message);
                 } else {
@@ -147,6 +178,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
         if (!socket) return;
         setError('');
         setIsConnecting(true);
+        startTimeout();
 
         if (mode === 'ssh') {
             socket.emit('connect_ssh', {
