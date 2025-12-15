@@ -165,7 +165,7 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleGlobalDrop}
         >
-            <div className="flex-1 flex overflow-x-auto no-scrollbar items-end h-full px-2">
+            <div className="flex-1 flex overflow-x-auto items-end h-full px-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 {tabs.map((tab, idx) => {
                     const isActive = tab.id === activeTabId;
                     return (
