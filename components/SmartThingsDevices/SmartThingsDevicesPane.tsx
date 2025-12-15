@@ -94,11 +94,14 @@ const SmartThingsDevicesPane: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200">
+            {/* Consistent System Header */}
+            <div className="h-9 shrink-0 title-drag pl-4 pr-36 flex items-center gap-3 border-b border-indigo-500/30 bg-slate-950">
+                <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Smartphone size={14} className="icon-glow" /></div>
+                <span className="font-bold text-xs text-slate-200 no-drag">SmartThings Devices</span>
+            </div>
+
             {/* Control Panel */}
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm z-10">
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                    <Smartphone className="w-5 h-5" /> SmartThings Devices
-                </h2>
 
                 <div className="flex flex-col gap-4">
                     {/* Access Token Input */}

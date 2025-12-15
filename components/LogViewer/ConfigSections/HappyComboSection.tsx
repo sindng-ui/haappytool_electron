@@ -348,6 +348,7 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                     className="bg-transparent text-[11px] text-slate-500 placeholder-slate-600 focus:text-indigo-300 focus:placeholder-indigo-500/50 focus:outline-none min-w-[60px] py-1 px-2 border border-transparent focus:border-indigo-500/30 rounded-lg transition-all hover:bg-white/5"
                                                     placeholder="+ tag"
                                                     data-add-tag={`${rootIdx}-${itemIdx}`}
+                                                    onBlur={(e) => { e.currentTarget.value = ''; }}
                                                     onKeyDown={(e) => {
                                                         if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                                                             const newGroup = [...item.group, e.currentTarget.value.trim()];

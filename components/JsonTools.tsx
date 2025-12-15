@@ -13,9 +13,9 @@ const JsonTools: React.FC = () => {
     return (
         <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
             {/* System Header */}
-            <div className="h-11 shrink-0 title-drag pl-4 pr-36 flex items-center gap-3 border-b border-slate-200 dark:border-white/5 bg-white dark:bg-slate-950">
-                <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-500 dark:text-indigo-400"><Braces size={16} className="icon-glow" /></div>
-                <span className="font-bold text-sm text-slate-700 dark:text-slate-200">JSON Tools</span>
+            <div className="h-9 shrink-0 title-drag pl-4 pr-36 flex items-center gap-3 border-b border-indigo-500/30 bg-slate-950">
+                <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400"><Braces size={14} className="icon-glow" /></div>
+                <span className="font-bold text-xs text-slate-200">JSON Tools</span>
             </div>
 
             {/* Navigation Tabs */}
