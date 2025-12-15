@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import * as Lucide from 'lucide-react';
-import { PerfResponse, SavedRequest, RequestGroup } from '../types';
+import { PerfResponse, SavedRequest, RequestGroup, PostGlobalVariable } from '../types';
 import RequestSidebar from './PostTool/RequestSidebar';
 import RequestEditor from './PostTool/RequestEditor';
 import ResponseViewer from './PostTool/ResponseViewer';
+import EnvironmentModal from './PostTool/EnvironmentModal';
 
 const generateUUID = () => {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -18,12 +19,19 @@ interface PostToolProps {
     onUpdateRequests: (requests: SavedRequest[]) => void;
     savedRequestGroups?: RequestGroup[];
     onUpdateGroups?: (groups: RequestGroup[]) => void;
+    globalVariables?: PostGlobalVariable[];
+    onUpdateGlobalVariables?: (vars: PostGlobalVariable[]) => void;
 }
 
-const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests, savedRequestGroups, onUpdateGroups }) => {
+const PostTool: React.FC<PostToolProps> = ({
+    savedRequests, onUpdateRequests,
+    savedRequestGroups, onUpdateGroups,
+    globalVariables = [], onUpdateGlobalVariables
+}) => {
     const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [response, setResponse] = useState<PerfResponse | null>(null);
+    const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
 
     const [currentRequest, setCurrentRequest] = useState<SavedRequest>({
         id: 'temp', name: 'New Request', method: 'GET', url: '', headers: [{ key: '', value: '' }], body: ''
@@ -63,9 +71,7 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests, sa
         isResizing.current = true;
         document.body.style.cursor = 'col-resize';
     };
-    // Dummy handlers since we use global listeners, but we kept them in XML for safety in previous step.
-    // We can just ignore them or remove them from JSX if we update JSX again. 
-    // Actually, let's keep the JSX listeners as fallbacks or just placeholders/noop if global handles it.
+
     const handleMouseMove = () => { };
     const handleMouseUp = () => { };
 
@@ -108,17 +114,40 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests, sa
         }
     };
 
+    const replaceVariables = (text: string): string => {
+        if (!text) return text;
+        let result = text;
+        globalVariables.forEach(v => {
+            if (v.enabled) {
+                // Global replace of {{key}}
+                const regex = new RegExp(`{{${v.key}}}`, 'g');
+                result = result.replace(regex, v.value);
+            }
+        });
+        return result;
+    };
+
     const handleSend = async () => {
         setLoading(true);
         setResponse(null);
         const startTime = performance.now();
         try {
-            const headers: Record<string, string> = {};
-            currentRequest.headers.forEach(h => { if (h.key.trim()) headers[h.key] = h.value; });
-            const options: RequestInit = { method: currentRequest.method, headers };
-            if (['POST', 'PUT', 'PATCH'].includes(currentRequest.method) && currentRequest.body) options.body = currentRequest.body;
+            // Apply variable substitution
+            const finalUrl = replaceVariables(currentRequest.url);
 
-            const res = await fetch(currentRequest.url, options);
+            const headers: Record<string, string> = {};
+            currentRequest.headers.forEach(h => {
+                if (h.key.trim()) {
+                    headers[replaceVariables(h.key)] = replaceVariables(h.value);
+                }
+            });
+
+            const options: RequestInit = { method: currentRequest.method, headers };
+            if (['POST', 'PUT', 'PATCH'].includes(currentRequest.method) && currentRequest.body) {
+                options.body = replaceVariables(currentRequest.body);
+            }
+
+            const res = await fetch(finalUrl, options);
             const endTime = performance.now();
             const contentType = res.headers.get("content-type");
             let data;
@@ -171,6 +200,7 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests, sa
                     onUpdateRequests={onUpdateRequests}
                     savedRequestGroups={savedRequestGroups}
                     onUpdateGroups={onUpdateGroups}
+                    onOpenSettings={() => setIsEnvModalOpen(true)}
                 />
                 <div className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-900">
                     <RequestEditor
@@ -178,10 +208,20 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests, sa
                         onChangeCurrentRequest={setCurrentRequest}
                         onSend={handleSend}
                         loading={loading}
+                        globalVariables={globalVariables}
                     />
                     <ResponseViewer response={response} />
                 </div>
             </div>
+
+            {onUpdateGlobalVariables && (
+                <EnvironmentModal
+                    isOpen={isEnvModalOpen}
+                    onClose={() => setIsEnvModalOpen(false)}
+                    variables={globalVariables}
+                    onUpdateVariables={onUpdateGlobalVariables}
+                />
+            )}
         </div>
     );
 };

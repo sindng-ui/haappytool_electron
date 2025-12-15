@@ -28,10 +28,18 @@ export interface LogRule {
   showRawLogLines?: boolean;
 }
 
+export interface PostGlobalVariable {
+  id: string;
+  key: string;
+  value: string;
+  enabled: boolean;
+}
+
 export interface AppSettings {
   logRules: LogRule[];
   savedRequests: SavedRequest[];
   savedRequestGroups?: RequestGroup[];
+  postGlobalVariables?: PostGlobalVariable[];
   lastEndpoint: string;
   lastMethod: string;
 }

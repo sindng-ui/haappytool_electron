@@ -5,7 +5,7 @@ import PostTool from './components/PostTool';
 import TpkExtractor from './components/TpkExtractor';
 import JsonTools from './components/JsonTools';
 import SmartThingsDevicesPane from './components/SmartThingsDevices/SmartThingsDevicesPane';
-import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup } from './types';
+import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable } from './types';
 import { mergeById } from './utils/settingsHelper';
 import { SettingsModal } from './components/SettingsModal';
 
@@ -27,6 +27,7 @@ const App: React.FC = () => {
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   const [savedRequests, setSavedRequests] = useState<SavedRequest[]>([]);
   const [savedRequestGroups, setSavedRequestGroups] = useState<RequestGroup[]>([]);
+  const [postGlobalVariables, setPostGlobalVariables] = useState<PostGlobalVariable[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Tool Order State
@@ -87,6 +88,9 @@ const App: React.FC = () => {
         if (parsed.savedRequestGroups && Array.isArray(parsed.savedRequestGroups)) {
           setSavedRequestGroups(parsed.savedRequestGroups);
         }
+        if (parsed.postGlobalVariables && Array.isArray(parsed.postGlobalVariables)) {
+          setPostGlobalVariables(parsed.postGlobalVariables);
+        }
         if (parsed.lastEndpoint) setLastApiUrl(parsed.lastEndpoint);
       } catch (e) {
         console.error("Failed to load settings", e);
@@ -108,16 +112,19 @@ const App: React.FC = () => {
       logRules,
       savedRequests,
       savedRequestGroups,
+      postGlobalVariables,
       lastEndpoint: lastApiUrl,
       lastMethod
     };
     localStorage.setItem('devtool_suite_settings', JSON.stringify(settings));
-  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups]);
+  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, postGlobalVariables]);
 
   const handleExportSettings = () => {
     const settings: AppSettings = {
       logRules,
       savedRequests,
+      savedRequestGroups,
+      postGlobalVariables,
       lastEndpoint: lastApiUrl,
       lastMethod
     };
@@ -159,6 +166,10 @@ const App: React.FC = () => {
       setSavedRequestGroups(current => mergeById(current, groups));
     }
 
+    if (settings.postGlobalVariables) {
+      setPostGlobalVariables(current => mergeById(current, settings.postGlobalVariables!));
+    }
+
     if (settings.lastEndpoint) setLastApiUrl(settings.lastEndpoint);
     if (settings.lastMethod) setLastMethod(settings.lastMethod);
   };
@@ -194,6 +205,8 @@ const App: React.FC = () => {
                   onUpdateRequests={setSavedRequests}
                   savedRequestGroups={savedRequestGroups}
                   onUpdateGroups={setSavedRequestGroups}
+                  globalVariables={postGlobalVariables}
+                  onUpdateGlobalVariables={setPostGlobalVariables}
                 />
               </div>
 

@@ -17,13 +17,14 @@ interface RequestSidebarProps {
     onUpdateRequests: (requests: SavedRequest[]) => void;
     savedRequestGroups?: RequestGroup[];
     onUpdateGroups?: (groups: RequestGroup[]) => void;
+    onOpenSettings?: () => void;
 }
 
 const RequestSidebar: React.FC<RequestSidebarProps> = ({
     width, onResizeStart,
     savedRequests, activeRequestId, currentRequest,
     onSelectRequest, onNewRequest, onDeleteRequest, onChangeCurrentRequest, onUpdateRequests,
-    savedRequestGroups = [], onUpdateGroups
+    savedRequestGroups = [], onUpdateGroups, onOpenSettings
 }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
@@ -245,6 +246,9 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                     <List size={14} className="text-slate-500 dark:text-slate-400" /> Collections
                 </span>
                 <div className="flex items-center gap-1 no-drag">
+                    <button onClick={onOpenSettings} className="p-1.5 hover:bg-white/20 dark:hover:bg-white/10 rounded-lg text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" title="Environment Settings">
+                        <Lucide.Settings size={16} />
+                    </button>
                     <button onClick={handleCreateGroup} className="p-1.5 hover:bg-white/20 dark:hover:bg-white/10 rounded-lg text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" title="New Group">
                         <FolderPlus size={16} />
                     </button>
