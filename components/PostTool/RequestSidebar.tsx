@@ -104,8 +104,10 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
         const midY = rect.top + rect.height / 2;
         const pos = e.clientY < midY ? 'top' : 'bottom';
 
-        setDragOverId(targetId);
-        setDragOverPosition(pos);
+        if (dragOverId !== targetId || dragOverPosition !== pos) {
+            setDragOverId(targetId);
+            setDragOverPosition(pos);
+        }
     };
 
     const handleDragOverGroup = (e: React.DragEvent, groupId: string) => {
@@ -114,8 +116,10 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
         if (!draggedRequestId) return;
 
         // If hovering group header, we mean "Drop into group"
-        setDragOverId(groupId);
-        setDragOverPosition('center');
+        if (dragOverId !== groupId || dragOverPosition !== 'center') {
+            setDragOverId(groupId);
+            setDragOverPosition('center');
+        }
     };
 
     const handleDrop = (e: React.DragEvent, targetId: string, isGroup: boolean) => {
@@ -127,16 +131,19 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
         if (sourceIndex === -1) return;
 
         const newRequests = [...savedRequests];
-        const [movedItem] = newRequests.splice(sourceIndex, 1);
+        // Create a copy of the item to avoid mutating state directly
+        const movedItem = { ...savedRequests[sourceIndex] };
+
+        // Remove from old position
+        newRequests.splice(sourceIndex, 1);
 
         if (isGroup) {
-            // Drop INTO group
+            // Drop INTO group (Append to group)
             movedItem.groupId = targetId;
             newRequests.push(movedItem);
         } else {
             // Drop Relative to Item
             // Target might be source (handled above), or logic adjusted for splicing
-            // Safe bet: Find target in `newRequests` (array sans dragged item).
             const adjustedTargetIndex = newRequests.findIndex(r => r.id === targetId);
 
             if (adjustedTargetIndex !== -1) {
@@ -151,6 +158,7 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                     newRequests.splice(adjustedTargetIndex + 1, 0, movedItem);
                 }
             } else {
+                // Fallback: append if target lost
                 newRequests.push(movedItem);
             }
         }
@@ -331,7 +339,11 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                             </div>
 
                             {!group.collapsed && (
-                                <div className="p-1 space-y-0.5 bg-slate-50/30 dark:bg-black/20">
+                                <div
+                                    className="p-1 space-y-0.5 bg-slate-50/30 dark:bg-black/20"
+                                    onDragOver={(e) => handleDragOverGroup(e, group.id)}
+                                    onDrop={(e) => handleDrop(e, group.id, true)}
+                                >
                                     {groupRequests.map(renderRequestItem)}
                                     {groupRequests.length === 0 && (
                                         <div className="pl-8 py-2 text-xs text-slate-400 dark:text-slate-600 italic">Empty group</div>
