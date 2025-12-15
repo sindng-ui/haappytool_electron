@@ -188,6 +188,11 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
                 password: sshPassword,
                 debug: debugMode
             });
+            // Immediate Handover for SSH to support interactive prompts in main view
+            setIsConnected(true);
+            isHandedOver.current = true;
+            onStreamStart(socket, `SSH:${sshHost}`);
+            onClose();
         } else {
             socket.emit('connect_sdb', { deviceId: selectedDeviceId, debug: debugMode });
         }

@@ -468,6 +468,8 @@ export const useLogExtractorLogic = ({
 
     const [hasEverConnected, setHasEverConnected] = useState(false);
 
+    const isWaitingForSshAuth = useRef(false);
+
     const refineGroups = (rawGroups: string[][]) => {
         const refinedGroups: string[][] = [];
         const groupsByRoot = new Map<string, string[][]>();
@@ -578,9 +580,25 @@ export const useLogExtractorLogic = ({
             }
         });
 
+        socket.on('ssh_auth_request', (data: { prompt: string, echo: boolean }) => {
+            isWaitingForSshAuth.current = true;
+            // We rely on the log data emission to show the prompt, but we flag state here
+            // Additionally we can show a toast
+            showToast(`SSH Auth Input Required: ${data.prompt}`, 'info');
+        });
+
+        socket.on('ssh_error', (data: { message: string }) => {
+            showToast(`SSH Error: ${data.message}`, 'error');
+            // Also log it
+            const errLine = `[SSH ERROR] ${data.message}`;
+            tizenBuffer.current.push(errLine);
+            flushTizenBuffer();
+        });
+
         // Handle disconnect from server side
         socket.on('disconnect', () => {
             setTizenSocket(null);
+            isWaitingForSshAuth.current = false;
         });
 
         // Handle logical disconnects (e.g. commands failed or finished)
@@ -607,7 +625,14 @@ export const useLogExtractorLogic = ({
 
     const sendTizenCommand = useCallback((cmd: string) => {
         if (tizenSocket) {
-            tizenSocket.emit('sdb_write', cmd);
+            if (isWaitingForSshAuth.current) {
+                // Auth response (remove trailing newline usually added by UI)
+                tizenSocket.emit('ssh_auth_response', cmd.replace(/\n$/, ''));
+                isWaitingForSshAuth.current = false;
+            } else {
+                tizenSocket.emit('sdb_write', cmd);
+                tizenSocket.emit('ssh_write', cmd);
+            }
         }
     }, [tizenSocket]);
 

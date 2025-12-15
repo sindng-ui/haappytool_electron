@@ -39,6 +39,9 @@ function logDebug(msg) {
 io.on('connection', (socket) => {
     console.log('Client connected');
 
+    // SSH Auth Flow State
+    let sshAuthFinish = null;
+
     // --- SSH Handler ---
     socket.on('connect_ssh', ({ host, port, username, password, debug }) => {
         if (sshConnection) {
@@ -50,11 +53,18 @@ io.on('connection', (socket) => {
             debugStream = null;
         }
 
+        // Reset Auth State
+        sshAuthFinish = null;
+
         if (debug) {
+            // Use process.cwd() to verify where the file goes (requested by user)
+            // Typically this is the root of the app or dist folder.
             const fileName = `tizen_debug_ssh_${Date.now()}.log`;
-            debugStream = fs.createWriteStream(path.join(__dirname, fileName), { flags: 'a' });
+            const filePath = path.join(process.cwd(), fileName);
+            debugStream = fs.createWriteStream(filePath, { flags: 'a' });
             logDebug(`Starting SSH Connection to ${host}:${port} as ${username}`);
-            socket.emit('debug_log', `Debug logging started: ${fileName}`);
+            logDebug(`Debug file path: ${filePath}`);
+            socket.emit('debug_log', `Debug logging started: ${filePath}`);
         }
 
         const conn = new Client();
@@ -63,8 +73,16 @@ io.on('connection', (socket) => {
             logDebug('SSH Client ready');
             socket.emit('ssh_status', { status: 'connected', message: 'SSH Connection Established' });
 
-            logDebug('Executing: dlogutil -v threadtime');
             // Start dlog tail only after connection is ready
+            // Use 'shell' to allow interactive commands if needed, or exec if strictly dlog?
+            // User wants to see "id/password" prompts from MobaXterm. 
+            // If those prompts are from the DEVICE SHELL (post-auth), we need a shell.
+            // If they are SSH Auth prompts, they happen before 'ready'.
+            // MobaXterm prompts are likely SSH Auth.
+            // But if the user successfully connects via SSH (e.g. key/password) and THEN sees prompts, that's shell.
+            // Given "connect & start stream" hanging, it's likely pre-auth.
+
+            logDebug('Executing: dlogutil -v threadtime');
             conn.exec('dlogutil -v threadtime', (err, stream) => {
                 if (err) {
                     logDebug(`SSH Exec Error: ${err.message}`);
@@ -72,33 +90,44 @@ io.on('connection', (socket) => {
                     return;
                 }
 
+                // Store stream for writing (if needed later)
+                sshConnection.stream = stream;
+
                 stream.on('close', (code, signal) => {
                     logDebug(`Stream closed. Code: ${code}, Signal: ${signal}`);
                     socket.emit('ssh_status', { status: 'disconnected', message: 'Log stream closed' });
                     if (debugStream) { debugStream.end(); debugStream = null; }
                 }).on('data', (data) => {
-                    // Stream log data to client
                     if (debugStream) logDebug(`[DATA CHUNK] ${data.length} bytes`);
                     socket.emit('log_data', data.toString());
                 }).stderr.on('data', (data) => {
                     logDebug(`STDERR: ${data}`);
+                    socket.emit('log_data', data.toString()); // Emit stderr as log too
                 });
             });
 
+        }).on('keyboard-interactive', (name, instructions, instructionsLang, prompts, finish) => {
+            logDebug(`SSH Keyboard Interactive: ${JSON.stringify(prompts)}`);
+
+            // If we have prompts, ask the client
+            if (prompts.length > 0) {
+                sshAuthFinish = finish;
+                // Emit event to client to ask user
+                // tailored for the first prompt usually
+                const promptMsg = prompts[0].prompt;
+                socket.emit('log_data', `[SSH Auth] ${name || 'Server'} asks: ${promptMsg}\n`);
+                socket.emit('ssh_auth_request', { prompt: promptMsg, echo: prompts[0].echo });
+            } else {
+                finish([]);
+            }
         }).on('error', (err) => {
             logDebug(`SSH Connection Error: ${err.level} - ${err.message}`);
 
             let userMessage = err.message;
-
-            // Provide user-friendly messages for common SSH errors
             if (err.level === 'client-authentication') {
-                userMessage = 'Authentication failed.\\n\\nPlease check:\\n??Username and password are correct\\n??SSH is enabled on the device';
+                userMessage = 'Authentication failed. Check username/password or generated keys.';
             } else if (err.level === 'client-timeout') {
-                userMessage = 'Connection timeout.\\n\\nPlease check:\\n??Device IP address is correct\\n??Device is powered on and connected to the network\\n??Firewall is not blocking SSH port (22)';
-            } else if (err.code === 'ENOTFOUND') {
-                userMessage = 'Host not found.\\n\\nPlease check:\\n??IP address is typed correctly\\n??Device is connected to the network';
-            } else if (err.code === 'ECONNREFUSED') {
-                userMessage = 'Connection refused.\\n\\nPlease check:\\n??SSH service is running on the device\\n??Port number is correct (default: 22)';
+                userMessage = 'Connection timeout. Check IP and Port.';
             }
 
             socket.emit('ssh_error', { message: userMessage });
@@ -109,10 +138,9 @@ io.on('connection', (socket) => {
             username: username || 'root',
             password,
             readyTimeout: 20000,
-            tryKeyboard: true, // Try keyboard-interactive auth
-            keepaliveInterval: 10000, // Keep connection alive
+            tryKeyboard: true,
+            keepaliveInterval: 10000,
             keepaliveCountMax: 3,
-            // Add legacy algorithms for older Tizen devices compatibility
             algorithms: {
                 serverHostKey: ['ssh-rsa', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-ed25519'],
                 kex: ['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group14-sha256', 'curve25519-sha256', 'curve25519-sha256@libssh.org'],
@@ -121,6 +149,24 @@ io.on('connection', (socket) => {
         });
 
         sshConnection = conn;
+    });
+
+    socket.on('ssh_auth_response', (response) => {
+        logDebug(`Received SSH Auth Response: ${response ? '***' : '(empty)'}`);
+        if (sshAuthFinish) {
+            sshAuthFinish([response]);
+            sshAuthFinish = null;
+        }
+    });
+
+    socket.on('ssh_write', (data) => {
+        if (sshConnection && sshConnection.stream) {
+            try {
+                sshConnection.stream.write(data);
+            } catch (e) {
+                logDebug(`Failed to write to SSH stream: ${e.message}`);
+            }
+        }
     });
 
     socket.on('disconnect_ssh', () => {
@@ -135,6 +181,7 @@ io.on('connection', (socket) => {
             debugStream.end();
             debugStream = null;
         }
+        sshAuthFinish = null;
     });
 
     // --- SDB Handler ---
