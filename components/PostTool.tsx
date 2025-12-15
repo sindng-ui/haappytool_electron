@@ -95,13 +95,15 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests, sa
 
     const handleDeleteRequest = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
-        const updated = savedRequests.filter(r => r.id !== id);
-        onUpdateRequests(updated);
-        if (activeRequestId === id) {
-            if (updated.length > 0) setActiveRequestId(updated[0].id);
-            else {
-                setActiveRequestId(null);
-                setCurrentRequest({ id: 'temp', name: 'New Request', method: 'GET', url: '', headers: [{ key: '', value: '' }], body: '' });
+        if (window.confirm('Are you sure you want to delete this request?')) {
+            const updated = savedRequests.filter(r => r.id !== id);
+            onUpdateRequests(updated);
+            if (activeRequestId === id) {
+                if (updated.length > 0) setActiveRequestId(updated[0].id);
+                else {
+                    setActiveRequestId(null);
+                    setCurrentRequest({ id: 'temp', name: 'New Request', method: 'GET', url: '', headers: [{ key: '', value: '' }], body: '' });
+                }
             }
         }
     };
@@ -138,6 +140,15 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests, sa
         }
     };
 
+    const handleSelectRequest = (id: string) => {
+        const req = savedRequests.find(r => r.id === id);
+        if (req) {
+            setActiveRequestId(id);
+            setCurrentRequest(req);
+            setResponse(null);
+        }
+    };
+
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-300">
             {/* Title Bar - Draggable Area */}
@@ -153,7 +164,7 @@ const PostTool: React.FC<PostToolProps> = ({ savedRequests, onUpdateRequests, sa
                     savedRequests={savedRequests}
                     activeRequestId={activeRequestId}
                     currentRequest={currentRequest}
-                    onSelectRequest={setActiveRequestId}
+                    onSelectRequest={handleSelectRequest}
                     onNewRequest={handleNewRequest}
                     onDeleteRequest={handleDeleteRequest}
                     onChangeCurrentRequest={setCurrentRequest}

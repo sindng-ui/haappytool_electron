@@ -67,13 +67,13 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
         if (!onUpdateGroups) return;
 
         const children = savedRequests.filter(r => r.groupId === group.id);
-        if (children.length > 0) {
-            if (!window.confirm(`Group "${group.name}" has ${children.length} requests. Are you sure you want to delete it? The requests will not be deleted but will become unassigned.`)) {
-                return;
-            }
-        }
+        const confirmMessage = children.length > 0
+            ? `Group "${group.name}" has ${children.length} requests. Are you sure you want to delete it? The requests will not be deleted but will become unassigned.`
+            : `Are you sure you want to delete group "${group.name}"?`;
 
-        onUpdateGroups(savedRequestGroups.filter(g => g.id !== group.id));
+        if (window.confirm(confirmMessage)) {
+            onUpdateGroups(savedRequestGroups.filter(g => g.id !== group.id));
+        }
     };
 
     const toggleGroup = (group: RequestGroup) => {
