@@ -6,6 +6,7 @@ import TpkExtractor from './components/TpkExtractor';
 import JsonTools from './components/JsonTools';
 import SmartThingsDevicesPane from './components/SmartThingsDevices/SmartThingsDevicesPane';
 import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup } from './types';
+import { mergeById } from './utils/settingsHelper';
 import { SettingsModal } from './components/SettingsModal';
 
 const App: React.FC = () => {
@@ -145,11 +146,19 @@ const App: React.FC = () => {
         }
         return rule;
       });
-      setLogRules(migratedRules);
+
+      setLogRules(current => mergeById(current, migratedRules));
     }
+
+    if (settings.savedRequests) {
+      setSavedRequests(current => mergeById(current, settings.savedRequests));
+    }
+
     if (settings.savedRequestGroups) {
-      setSavedRequestGroups(settings.savedRequestGroups);
+      const groups = settings.savedRequestGroups;
+      setSavedRequestGroups(current => mergeById(current, groups));
     }
+
     if (settings.lastEndpoint) setLastApiUrl(settings.lastEndpoint);
     if (settings.lastMethod) setLastMethod(settings.lastMethod);
   };
