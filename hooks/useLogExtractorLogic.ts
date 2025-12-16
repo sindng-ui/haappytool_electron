@@ -70,13 +70,25 @@ export const useLogExtractorLogic = ({
     });
 
     // Load saved rule ID on mount
+    const hasRestoredFromDb = useRef(false);
+
+    // Load saved rule ID on mount, but respect manual selection (like Create Rule)
     useEffect(() => {
-        getStoredValue('lastSelectedRuleId').then(saved => {
-            if (saved && rules.find(r => r.id === saved)) {
-                setSelectedRuleId(saved);
+        if (rules.length === 0) return;
+
+        if (!hasRestoredFromDb.current) {
+            hasRestoredFromDb.current = true;
+            getStoredValue('lastSelectedRuleId').then(saved => {
+                const target = saved && rules.find(r => r.id === saved) ? saved : (rules[0]?.id || '');
+                if (target) setSelectedRuleId(target);
+            });
+        } else {
+            // If the currently selected rule is deleted, fallback to the first one
+            if (!rules.find(r => r.id === selectedRuleId)) {
+                setSelectedRuleId(rules.length > 0 ? rules[0].id : '');
             }
-        });
-    }, [rules]);
+        }
+    }, [rules, selectedRuleId]);
 
     useEffect(() => {
         if (selectedRuleId) {
