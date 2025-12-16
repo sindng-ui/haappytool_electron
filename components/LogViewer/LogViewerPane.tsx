@@ -579,8 +579,10 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             overscan={OVERSCAN * ROW_HEIGHT}
                             itemContent={itemContent}
                             atBottomThreshold={50}
-                            followOutput={atBottom ? 'auto' : false}
-                            atBottomStateChange={setAtBottom}
+                            followOutput={'auto'}
+                            atBottomStateChange={(isAtBottom) => {
+                                setAtBottom(isAtBottom);
+                            }}
                             rangeChanged={({ startIndex, endIndex }) => {
                                 loadMoreItems(startIndex, endIndex);
                             }}
