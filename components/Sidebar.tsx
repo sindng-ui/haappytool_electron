@@ -13,7 +13,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, onReorderTools, onOpenSettings }) => {
-  const [isHovered, setIsHovered] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [draggedItem, setDraggedItem] = useState<ToolId | null>(null);
 
   const toolDefinitions = {
@@ -47,6 +47,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
     onReorderTools(newOrder);
   };
 
+  const handleBlur = (e: React.FocusEvent) => {
+    // Collapse ONLY if focus moves outside the Sidebar
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsExpanded(false);
+    }
+  };
+
   return (
     <div className="h-full relative shrink-0 z-50">
       {/* Placeholder to reserve layout space */}
@@ -54,14 +61,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
 
       {/* Floating Animated Sidebar */}
       <div
-        className={`absolute top-0 left-0 h-full bg-slate-900 border-r border-white/5 text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden transform-gpu backface-hidden ${isHovered ? 'w-72' : 'w-20'
+        className={`absolute top-0 left-0 h-full bg-slate-900 border-r border-white/5 text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden transform-gpu backface-hidden outline-none ${isExpanded ? 'w-72' : 'w-20'
           }`}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        tabIndex={0}
+        onBlur={handleBlur}
+        onClick={() => setIsExpanded(true)}
+        onMouseLeave={() => setIsExpanded(false)}
       >
         <div className="h-24 flex items-center justify-center relative">
-          <div className={`transition-all duration-300 ${isHovered ? 'scale-100' : 'scale-90'}`}>
-            {isHovered ? (
+          <div className={`transition-all duration-300 ${isExpanded ? 'scale-100' : 'scale-90'}`}>
+            {isExpanded ? (
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <div className="absolute inset-0 bg-indigo-500 blur-lg opacity-40"></div>
@@ -101,7 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
                   : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 active:scale-95'
                   } ${isDragging ? 'opacity-20 border-dashed border-slate-600' : ''}`}
               >
-                {isHovered && (
+                {isExpanded && (
                   <div className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-30 cursor-grab active:cursor-grabbing">
                     <GripVertical size={14} />
                   </div>
@@ -110,11 +119,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
                   <Icon className={`w-[22px] h-[22px] transition-transform duration-200 ${isActive ? 'scale-110 icon-glow' : 'group-hover:scale-110'
                     }`} />
                 </div>
-                <span className={`ml-3 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
+                <span className={`ml-3 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
                   }`}>
                   {item.label}
                 </span>
-                {!isHovered && !isDragging && (
+                {!isExpanded && !isDragging && (
                   <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 border border-slate-700 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-50 shadow-xl">
                     {item.label}
                     <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900 rotate-45 border-l border-b border-slate-700"></div>
@@ -126,7 +135,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
         </div>
 
         <div className="px-3 pb-4 w-full mt-auto space-y-3">
-          <div className={`h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent ${isHovered ? 'opacity-100' : 'opacity-0'} transition-opacity`} />
+          <div className={`h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent ${isExpanded ? 'opacity-100' : 'opacity-0'} transition-opacity`} />
 
           <button
             onClick={onOpenSettings}
@@ -135,11 +144,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
             <div className="min-w-[40px] flex items-center justify-center">
               <Settings className="w-[22px] h-[22px] group-hover:rotate-90 transition-transform duration-500 ease-out" />
             </div>
-            <span className={`ml-3 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
+            <span className={`ml-3 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
               }`}>
               Settings
             </span>
-            {!isHovered && (
+            {!isExpanded && (
               <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 border border-slate-700 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-50 shadow-xl">
                 Settings
                 <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900 rotate-45 border-l border-b border-slate-700"></div>
@@ -148,7 +157,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
           </button>
         </div>
 
-        <div className={`p-4 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`p-4 transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>
           <div className="text-[10px] text-slate-600 font-mono text-center">
             v{__APP_VERSION__} &bull; Build 2025
           </div>
