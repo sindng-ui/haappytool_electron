@@ -5,6 +5,7 @@ import PostTool from './components/PostTool';
 import TpkExtractor from './components/TpkExtractor';
 import JsonTools from './components/JsonTools';
 import SmartThingsDevicesPane from './components/SmartThingsDevices/SmartThingsDevicesPane';
+import ReverseEngineer from './components/ReverseEngineer';
 import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable } from './types';
 import { mergeById } from './utils/settingsHelper';
 import { SettingsModal } from './components/SettingsModal';
@@ -36,7 +37,8 @@ const App: React.FC = () => {
     ToolId.POST_TOOL,
     ToolId.JSON_TOOLS,
     ToolId.TPK_EXTRACTOR,
-    ToolId.SMARTTHINGS_DEVICES
+    ToolId.SMARTTHINGS_DEVICES,
+    ToolId.REVERSE_ENGINEER
   ]);
 
   // Load settings on mount
@@ -220,6 +222,10 @@ const App: React.FC = () => {
 
               <div className={activeTool === ToolId.SMARTTHINGS_DEVICES ? "h-full w-full" : "hidden"}>
                 <SmartThingsDevicesPane />
+              </div>
+
+              <div className={activeTool === ToolId.REVERSE_ENGINEER ? "h-full w-full" : "hidden"}>
+                <ReverseEngineer />
               </div>
             </>
           )}

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
 import { ToolId } from '../types';
 
-const { FileText, Send, Braces, Archive, Smile, GripVertical, Settings, Smartphone } = Lucide;
+const { FileText, Send, Braces, Archive, Smile, GripVertical, Settings, Smartphone, Pickaxe } = Lucide;
 
 interface SidebarProps {
   activeTool: ToolId;
@@ -22,6 +22,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
     [ToolId.JSON_TOOLS]: { label: 'JSON Tools', icon: Braces },
     [ToolId.TPK_EXTRACTOR]: { label: 'Tpk Extractor', icon: Archive },
     [ToolId.SMARTTHINGS_DEVICES]: { label: 'SmartThings Devices', icon: Smartphone },
+    [ToolId.REVERSE_ENGINEER]: { label: 'Reverse Engineer', icon: Pickaxe },
   };
 
   const handleDragStart = (e: React.DragEvent, id: ToolId) => {
