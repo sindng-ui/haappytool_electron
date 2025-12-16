@@ -13,11 +13,17 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
     const [socket, setSocket] = useState<Socket | null>(null);
 
     // SSH State
-    const [sshHost, setSshHost] = useState('');
-    const [sshPort, setSshPort] = useState('22');
-    const [sshUser, setSshUser] = useState('root');
-    const [sshPassword, setSshPassword] = useState('');
+    const [sshHost, setSshHost] = useState(() => localStorage.getItem('sshHost') || '');
+    const [sshPort, setSshPort] = useState(() => localStorage.getItem('sshPort') || '22');
+    const [sshUser, setSshUser] = useState(() => localStorage.getItem('sshUser') || 'root');
+    const [sshPassword, setSshPassword] = useState(() => localStorage.getItem('sshPassword') || '');
     // const [sshKeyPath, setSshKeyPath] = useState(''); // Removed per request
+
+    // Persist SSH Settings
+    useEffect(() => { localStorage.setItem('sshHost', sshHost); }, [sshHost]);
+    useEffect(() => { localStorage.setItem('sshPort', sshPort); }, [sshPort]);
+    useEffect(() => { localStorage.setItem('sshUser', sshUser); }, [sshUser]);
+    useEffect(() => { localStorage.setItem('sshPassword', sshPassword); }, [sshPassword]);
 
     // SDB State
     const [sdbDevices, setSdbDevices] = useState<{ id: string, type: string }[]>([]);

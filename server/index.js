@@ -82,11 +82,13 @@ io.on('connection', (socket) => {
             // But if the user successfully connects via SSH (e.g. key/password) and THEN sees prompts, that's shell.
             // Given "connect & start stream" hanging, it's likely pre-auth.
 
-            logDebug('Executing: dlogutil -v threadtime');
-            conn.exec('dlogutil -v threadtime', (err, stream) => {
+            // User requested Shell mode instead of auto dlogutil
+            // "ssh 연결후 shell이 나오게 해줘"
+            logDebug('Starting Interactive Shell...');
+            conn.shell((err, stream) => {
                 if (err) {
-                    logDebug(`SSH Exec Error: ${err.message}`);
-                    socket.emit('ssh_error', { message: 'Failed to execute dlogutil: ' + err.message });
+                    logDebug(`SSH Shell Error: ${err.message}`);
+                    socket.emit('ssh_error', { message: 'Failed to start shell: ' + err.message });
                     return;
                 }
 
@@ -95,7 +97,7 @@ io.on('connection', (socket) => {
 
                 stream.on('close', (code, signal) => {
                     logDebug(`Stream closed. Code: ${code}, Signal: ${signal}`);
-                    socket.emit('ssh_status', { status: 'disconnected', message: 'Log stream closed' });
+                    socket.emit('ssh_status', { status: 'disconnected', message: 'Shell closed' });
                     if (debugStream) { debugStream.end(); debugStream = null; }
                 }).on('data', (data) => {
                     if (debugStream) logDebug(`[DATA CHUNK] ${data.length} bytes`);
@@ -111,6 +113,14 @@ io.on('connection', (socket) => {
 
             // If we have prompts, ask the client
             if (prompts.length > 0) {
+                // Auto-Answer if password is provided and prompt looks like password
+                const firstPrompt = prompts[0].prompt.toLowerCase();
+                if (password && (firstPrompt.includes('password') || firstPrompt.includes('passphrase'))) {
+                    logDebug(`Auto-answering SSH password prompt`);
+                    finish([password]);
+                    return;
+                }
+
                 sshAuthFinish = finish;
                 // Emit event to client to ask user
                 // tailored for the first prompt usually
