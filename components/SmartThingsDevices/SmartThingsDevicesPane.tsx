@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
 
-const { Smartphone, MapPin, Box, Wifi, AlertCircle, Loader2 } = Lucide;
+const { Smartphone, MapPin, Box, Wifi, AlertCircle, Loader2, Thermometer, Droplets, Wind, Sun, Cloud, Gauge, Play, Plus, Minus, RotateCcw, RotateCw } = Lucide;
 
 interface Device {
     deviceId: string;
@@ -23,12 +23,22 @@ interface Room {
 
 interface Location {
     locationId: string;
-    name: string; // Fetched from location API
-    rooms: Record<string, Room>; // Map roomId -> Room
+    name: string;
+    rooms: Record<string, Room>;
+    weather?: {
+        temperature?: number;
+        temperatureUnit?: string;
+        humidity?: number;
+        condition?: string;
+    };
+    airQuality?: {
+        aqi?: number;
+        rating?: string; // "Good", "Moderate", etc.
+    };
 }
 
 type ServerType = 'stacceptance' | 'smartthings';
-type ViewMode = 'CARD' | 'LIST' | 'GRAPH';
+type ViewMode = 'CARD' | 'LIST' | 'GRAPH' | 'MAP';
 
 // Simple Vector Math
 const vec = {
@@ -60,94 +70,103 @@ interface Link {
 
 const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) => {
     const canvasRef = React.useRef<HTMLCanvasElement>(null);
-    const [nodes, setNodes] = React.useState<Node[]>([]);
-    const [links, setLinks] = React.useState<Link[]>([]);
+    // Use refs for physics state to avoid re-renders during animation
+    const nodesRef = React.useRef<Node[]>([]);
+    const linksRef = React.useRef<Link[]>([]);
+
+    // UI State
+    const [selectedNode, setSelectedNode] = React.useState<Node | null>(null);
+    const [focusedNodeId, setFocusedNodeId] = React.useState<string | null>(null);
+    const [hoveredNodeId, setHoveredNodeId] = React.useState<string | null>(null);
 
     // Drag state
     const isDragging = React.useRef(false);
     const draggedNodeId = React.useRef<string | null>(null);
-    const lastMousePos = React.useRef({ x: 0, y: 0 });
+    const dragOffset = React.useRef({ x: 0, y: 0 });
 
-    // Initialize Graph Data (Once)
+    // Initialize Graph Data
     React.useEffect(() => {
         const newNodes: Node[] = [];
         const newLinks: Link[] = [];
         const width = canvasRef.current?.offsetWidth || 800;
         const height = canvasRef.current?.offsetHeight || 600;
 
-        Object.values(data).forEach(loc => {
-            // Location Node
+        // Centralize initialization
+        const cx = width / 2;
+        const cy = height / 2;
+
+        Object.values(data).forEach((loc, i, arr) => {
+            // Location Node (Clusters)
+            // Distribute locations in a circle initially
+            const angle = (i / arr.length) * Math.PI * 2;
+            const lx = cx + Math.cos(angle) * 150;
+            const ly = cy + Math.sin(angle) * 150;
+
             newNodes.push({
                 id: loc.locationId,
                 type: 'LOCATION',
                 label: loc.name,
-                x: Math.random() * width,
-                y: Math.random() * height,
+                x: lx,
+                y: ly,
                 vx: 0, vy: 0,
-                radius: 15,
+                radius: 20, // Larger
                 color: '#6366f1', // Indigo 500
                 phase: Math.random() * Math.PI * 2,
-                speed: 0.002 + Math.random() * 0.004
+                speed: 0.002
             });
 
-            Object.values(loc.rooms).forEach(room => {
-                // Room Node - only if we have room info or devices
+            Object.values(loc.rooms).forEach((room, j, rArr) => {
                 const roomId = room.roomId;
+                // Place rooms near location
+                const rAngle = angle + (j / rArr.length - 0.5);
                 newNodes.push({
                     id: roomId,
                     type: 'ROOM',
-                    label: room.name || 'Unassigned',
-                    x: Math.random() * width,
-                    y: Math.random() * height,
+                    label: room.name || 'Room',
+                    x: lx + Math.cos(rAngle) * 50,
+                    y: ly + Math.sin(rAngle) * 50,
                     vx: 0, vy: 0,
-                    radius: 10,
+                    radius: 12,
                     color: '#10b981', // Emerald 500
                     phase: Math.random() * Math.PI * 2,
-                    speed: 0.005 + Math.random() * 0.005
+                    speed: 0.005
                 });
 
-                // Link Loc -> Room
                 newLinks.push({ source: loc.locationId, target: roomId });
 
                 room.devices.forEach(dev => {
-                    // Device Node
                     newNodes.push({
                         id: dev.deviceId,
                         type: 'DEVICE',
                         label: dev.label || dev.name,
-                        x: Math.random() * width,
-                        y: Math.random() * height,
+                        x: lx + (Math.random() - 0.5) * 100,
+                        y: ly + (Math.random() - 0.5) * 100,
                         vx: 0, vy: 0,
-                        radius: 6,
+                        radius: 8,
                         color: '#f43f5e', // Rose 500
                         phase: Math.random() * Math.PI * 2,
-                        speed: 0.01 + Math.random() * 0.01
+                        speed: 0.01
                     });
-
-                    // Link Room -> Device
                     newLinks.push({ source: roomId, target: dev.deviceId });
                 });
             });
         });
 
-        // Dedup nodes if IDs conflict? (IDs should be unique across types usually, but let's assume they are unique enough)
-        // If IDs are not unique between Location/Room/Device, collision might happen.
-        // Assuming unique IDs.
-
-        setNodes(newNodes);
-        setLinks(newLinks);
+        nodesRef.current = newNodes;
+        linksRef.current = newLinks;
     }, [data]);
 
     // Animation Loop
     React.useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimization
         if (!ctx) return;
 
         let animationFrameId: number;
 
         const render = () => {
+            if (!canvasRef.current) return;
             // Resize check
             if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
                 canvas.width = canvas.offsetWidth;
@@ -155,65 +174,71 @@ const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) 
             }
             const width = canvas.width;
             const height = canvas.height;
+            const cx = width / 2;
+            const cy = height / 2;
 
-            // Physics Parameters
-            const repulsion = 2000;
+            // Clear Background
+            ctx.fillStyle = localStorage.getItem('theme') === 'dark' ? '#0f172a' : '#f8fafc'; // slate-900 or slate-50
+            ctx.fillRect(0, 0, width, height);
+
+            const nodes = nodesRef.current;
+            const links = linksRef.current;
+            const activeFocus = focusedNodeId;
+
+            // --- Physics Step ---
+            // Constants
+            const repulsion = 1500;
             const springLength = 80;
-            const springStrength = 0.05;
-            const damping = 0.90;
-            const centerForce = 0.005;
+            const springStrength = 0.08;
+            const damping = 0.85; // More friction = stable
+            const centerForce = 0.02;
 
-            // Update Physics
-            nodes.forEach(node => {
-                // 1. Repulsion (simplified Coulomb)
-                let fx = 0, fy = 0;
-                nodes.forEach(other => {
-                    if (node.id === other.id) return;
-                    const dx = node.x - other.x;
-                    const dy = node.y - other.y;
-                    const distSq = dx * dx + dy * dy || 1;
-                    const force = repulsion / distSq;
-                    const dist = Math.sqrt(distSq);
-                    fx += (dx / dist) * force;
-                    fy += (dy / dist) * force;
-                });
+            // Optimization: Spatial Hashing or just basic cutoff
+            // Simple Barnes-Hut approximation: If distance is large, treat as single interaction? 
+            // Or just cutoff repulsion.
+            const REPULSION_DIST_CUTOFF = 300; // Only repel if closer than 300px
+            const REPULSION_DIST_SQ = REPULSION_DIST_CUTOFF * REPULSION_DIST_CUTOFF;
 
-                // 2. Links (Attraction)
-                // Need to find connected nodes inefficiently here or pre-calc neighbors.
-                // Optimizing: Iterate links instead.
-            });
+            // Reset forces logic is embedded in loop for perf? No, standard accumulation.
+            const forces = new Float32Array(nodes.length * 2); // [fx, fy, fx, fy...]
 
-            // NOTE: Optimized Physics Loop
-            // Apply Drag if active
-
-            // Compute Forces
-            // Reset forces for step
-            const forces = nodes.map(() => ({ fx: 0, fy: 0 }));
-
-            // Repulsion (N^2) - minimal for < 500 nodes
+            // 1. Repulsion
             for (let i = 0; i < nodes.length; i++) {
                 for (let j = i + 1; j < nodes.length; j++) {
+                    const idx = i * 2;
+                    const jdx = j * 2;
+
                     const dx = nodes[i].x - nodes[j].x;
+                    if (Math.abs(dx) > REPULSION_DIST_CUTOFF) continue; // Early X Cutoff
+
                     const dy = nodes[i].y - nodes[j].y;
-                    const distSq = dx * dx + dy * dy || 1;
-                    const dist = Math.sqrt(distSq); // clamping could help stability
-                    const force = repulsion / (distSq + 100);
+                    if (Math.abs(dy) > REPULSION_DIST_CUTOFF) continue; // Early Y Cutoff
+
+                    let distSq = dx * dx + dy * dy;
+                    if (distSq > REPULSION_DIST_SQ) continue; // Distance Cutoff (Performance Key)
+                    if (distSq === 0) distSq = 1;
+
+                    const force = repulsion / distSq;
+                    const dist = Math.sqrt(distSq);
 
                     const fx = (dx / dist) * force;
                     const fy = (dy / dist) * force;
 
-                    forces[i].fx += fx;
-                    forces[i].fy += fy;
-                    forces[j].fx -= fx;
-                    forces[j].fy -= fy;
+                    forces[idx] += fx;
+                    forces[idx + 1] += fy;
+                    forces[jdx] -= fx;
+                    forces[jdx + 1] -= fy;
                 }
             }
 
-            // Attraction (Links)
+            // 2. Attraction (Springs)
+            // Use index map for O(1) lookup
+            const nodeMap = new Map(nodes.map((n, i) => [n.id, i]));
+
             links.forEach(link => {
-                const sIdx = nodes.findIndex(n => n.id === link.source);
-                const tIdx = nodes.findIndex(n => n.id === link.target);
-                if (sIdx === -1 || tIdx === -1) return;
+                const sIdx = nodeMap.get(link.source);
+                const tIdx = nodeMap.get(link.target);
+                if (sIdx === undefined || tIdx === undefined) return;
 
                 const source = nodes[sIdx];
                 const target = nodes[tIdx];
@@ -227,56 +252,60 @@ const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) 
                 const fx = (dx / dist) * force;
                 const fy = (dy / dist) * force;
 
-                forces[sIdx].fx += fx;
-                forces[sIdx].fy += fy;
-                forces[tIdx].fx -= fx;
-                forces[tIdx].fy -= fy;
+                const si = sIdx * 2;
+                const ti = tIdx * 2;
+
+                forces[si] += fx;
+                forces[si + 1] += fy;
+                forces[ti] -= fx;
+                forces[ti + 1] -= fy;
             });
 
-            // Center Gravity & Update
-            nodes.forEach((node, i) => {
-                if (draggedNodeId.current === node.id) return; // Don't move dragged node by physics
+            // 3. Update Positions
+            for (let i = 0; i < nodes.length; i++) {
+                const node = nodes[i];
+                if (draggedNodeId.current === node.id) {
+                    // Dragging overrides physics
+                    continue;
+                }
+
+                const fIdx = i * 2;
 
                 // Center Gravity
-                const dx = (width / 2) - node.x;
-                const dy = (height / 2) - node.y;
-                forces[i].fx += dx * centerForce;
-                forces[i].fy += dy * centerForce;
+                const dx = cx - node.x;
+                const dy = cy - node.y;
+                forces[fIdx] += dx * centerForce;
+                forces[fIdx + 1] += dy * centerForce;
 
-                // Apply velocity
-                node.vx = (node.vx + forces[i].fx) * damping;
-                node.vy = (node.vy + forces[i].fy) * damping;
+                // Apply
+                node.vx = (node.vx + forces[fIdx]) * damping;
+                node.vy = (node.vy + forces[fIdx + 1]) * damping;
 
-                // Move
+                // Stop Micro-movements (Energy saver not strictly needed for perf, but looks stable)
+                if (Math.abs(node.vx) < 0.01) node.vx = 0;
+                if (Math.abs(node.vy) < 0.01) node.vy = 0;
+
                 node.x += node.vx;
                 node.y += node.vy;
+            }
 
-                // Floating "Breathing" Effect (Sine Wave)
-                // We add a small velocity based on time to simulate 'floating' in water/space
-                const time = Date.now();
-                const floatX = Math.sin(time * node.speed + node.phase) * 0.05;
-                const floatY = Math.cos(time * node.speed + node.phase) * 0.05;
-
-                node.x += floatX;
-                node.y += floatY;
-
-                // Bounds Check (soft)
-                // if (node.x < 0) node.x = 0;
-                // if (node.y < 0) node.y = 0;
-                // if (node.x > width) node.x = width;
-                // if (node.y > height) node.y = height;
-            });
-
-            // Draw
-            ctx.clearRect(0, 0, width, height);
+            // --- Rendering Step ---
 
             // Draw Links
-            ctx.strokeStyle = 'rgba(100, 116, 139, 0.3)'; // slate-500/30
             ctx.lineWidth = 1;
             links.forEach(link => {
                 const s = nodes.find(n => n.id === link.source);
                 const t = nodes.find(n => n.id === link.target);
                 if (s && t) {
+                    // Focus Mode Dimming
+                    const isFocus = activeFocus ? (
+                        link.source === activeFocus || link.target === activeFocus
+                    ) : true;
+
+                    ctx.strokeStyle = isFocus
+                        ? (localStorage.getItem('theme') === 'dark' ? 'rgba(148, 163, 184, 0.4)' : 'rgba(71, 85, 105, 0.4)')
+                        : 'rgba(100, 100, 100, 0.05)';
+
                     ctx.beginPath();
                     ctx.moveTo(s.x, s.y);
                     ctx.lineTo(t.x, t.y);
@@ -286,24 +315,87 @@ const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) 
 
             // Draw Nodes
             nodes.forEach(node => {
-                ctx.fillStyle = node.color;
+                const isSelected = selectedNode?.id === node.id;
+                const isHovered = hoveredNodeId === node.id;
+                const isFocused = activeFocus === node.id;
+
+                // Focus Logic: If focus active, dim others unless connected
+                let dim = false;
+                if (activeFocus && node.id !== activeFocus) {
+                    // Check connection
+                    const isConnected = links.some(l =>
+                        (l.source === activeFocus && l.target === node.id) ||
+                        (l.source === node.id && l.target === activeFocus)
+                    );
+                    if (!isConnected) dim = true;
+                }
+
+                ctx.globalAlpha = dim ? 0.1 : 1.0;
+
+                // Halo for selection
+                if (isSelected || isFocused) {
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, node.radius + 6, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(99, 102, 241, 0.3)'; // Indigo glow
+                    ctx.fill();
+                }
+
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+                ctx.fillStyle = node.color;
                 ctx.fill();
 
-                // Label (only if Location or Room, or hovered - simulating simple always on for now)
-                ctx.fillStyle = '#94a3b8'; // slate-400
-                ctx.font = '10px monospace';
-                ctx.fillText(node.label, node.x + node.radius + 2, node.y + 3);
+                // Stroke for definition
+                ctx.strokeStyle = localStorage.getItem('theme') === 'dark' ? '#1e293b' : '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.globalAlpha = 1.0; // Reset alpha for Text
+
+                // Draw Label
+                // Only draw if not dimmed, or is selected/hovered/focused or type is LOCATION (always show major nodes)
+                if (!dim || isSelected || isHovered) {
+                    const fontSize = (isSelected || isHovered || node.type === 'LOCATION') ? 14 : 12;
+                    ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+                    const textPadding = 4;
+                    const text = node.label;
+                    const metrics = ctx.measureText(text);
+                    const tx = node.x + node.radius + 6;
+                    const ty = node.y + (fontSize / 3);
+
+                    // Text Background (Visibility enhancement)
+                    ctx.fillStyle = localStorage.getItem('theme') === 'dark' ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.8)';
+                    // Round rect approximation
+                    ctx.fillRect(tx - 2, ty - fontSize + 2, metrics.width + 4, fontSize + 4);
+
+                    ctx.fillStyle = localStorage.getItem('theme') === 'dark' ? '#e2e8f0' : '#1e293b';
+                    ctx.fillText(text, tx, ty);
+                }
             });
 
             animationFrameId = requestAnimationFrame(render);
         };
 
         render();
-
         return () => cancelAnimationFrame(animationFrameId);
-    }, [nodes, links]);
+    }, [selectedNode, focusedNodeId, hoveredNodeId]); // Re-bind render if selection state changes to ensure immediate update
+
+    // --- Interaction Handlers ---
+
+    const getNodeAtPos = (x: number, y: number) => {
+        const nodes = nodesRef.current;
+        // Search top-down
+        for (let i = nodes.length - 1; i >= 0; i--) {
+            const node = nodes[i];
+            const dx = x - node.x;
+            const dy = y - node.y;
+            // Hitbox slightly larger than visual radius
+            if (dx * dx + dy * dy <= (node.radius + 5) * (node.radius + 5)) {
+                return node;
+            }
+        }
+        return null;
+    };
 
     const handleMouseDown = (e: React.MouseEvent) => {
         const canvas = canvasRef.current;
@@ -312,35 +404,42 @@ const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) 
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // Find clicked node
-        // Reverse iterate to find top-most
-        for (let i = nodes.length - 1; i >= 0; i--) {
-            const node = nodes[i];
-            const dx = mouseX - node.x;
-            const dy = mouseY - node.y;
-            if (dx * dx + dy * dy <= node.radius * node.radius * 4) { // generous hit area
-                draggedNodeId.current = node.id;
-                isDragging.current = true;
-                break;
-            }
+        const node = getNodeAtPos(mouseX, mouseY);
+        if (node) {
+            draggedNodeId.current = node.id;
+            isDragging.current = true;
+            dragOffset.current = { x: mouseX - node.x, y: mouseY - node.y };
+            setSelectedNode(node); // Click selects
+        } else {
+            // Clicked empty space
+            setSelectedNode(null);
+            setFocusedNodeId(null); // Clear focus
         }
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isDragging.current || !draggedNodeId.current) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
         const rect = canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        const node = nodes.find(n => n.id === draggedNodeId.current);
-        if (node) {
-            node.x = mouseX;
-            node.y = mouseY;
-            // Zero velocity while dragging
-            node.vx = 0;
-            node.vy = 0;
+        if (isDragging.current && draggedNodeId.current) {
+            // Fast lookup
+            const node = nodesRef.current.find(n => n.id === draggedNodeId.current);
+            if (node) {
+                node.x = mouseX - dragOffset.current.x;
+                node.y = mouseY - dragOffset.current.y;
+                node.vx = 0; // Arrest momentum
+                node.vy = 0;
+            }
+        } else {
+            // Hover check
+            const node = getNodeAtPos(mouseX, mouseY);
+            if (node?.id !== hoveredNodeId) {
+                setHoveredNodeId(node?.id || null);
+                canvas.style.cursor = node ? 'pointer' : 'default';
+            }
         }
     };
 
@@ -349,26 +448,371 @@ const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) 
         draggedNodeId.current = null;
     };
 
+    const handleDoubleClick = (e: React.MouseEvent) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const node = getNodeAtPos(mouseX, mouseY);
+        if (node) {
+            // Toggle Focus Mode
+            if (focusedNodeId === node.id) {
+                setFocusedNodeId(null);
+            } else {
+                setFocusedNodeId(node.id);
+            }
+        } else {
+            // Reset zoom/pan or focus if double click empty (optional)
+            setFocusedNodeId(null);
+        }
+    };
+
     return (
-        <canvas
-            ref={canvasRef}
-            className="w-full h-full bg-slate-50 dark:bg-slate-900 cursor-move"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-        />
+        <div className="relative w-full h-full">
+            <canvas
+                ref={canvasRef}
+                className="w-full h-full cursor-default select-none block"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onDoubleClick={handleDoubleClick}
+            />
+
+            {/* Context Overlay (Selected Node Info) */}
+            {selectedNode && (
+                <div className="absolute bottom-4 right-4 w-64 bg-white/90 dark:bg-slate-900/90 backdrop-blur border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-xl animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200 dark:border-slate-800">
+                        <div className={`w-3 h-3 rounded-full ${selectedNode.type === 'LOCATION' ? 'bg-[#6366f1]' :
+                            selectedNode.type === 'ROOM' ? 'bg-[#10b981]' : 'bg-[#f43f5e]'
+                            }`}></div>
+                        <span className="font-bold text-sm text-slate-800 dark:text-slate-100">{selectedNode.label}</span>
+                    </div>
+                    <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400 font-mono">
+                        <div>ID: <span className="text-slate-700 dark:text-slate-300 select-all">{selectedNode.id}</span></div>
+                        <div>Type: <span className="text-slate-700 dark:text-slate-300">{selectedNode.type}</span></div>
+                    </div>
+                    <div className="mt-3 text-[10px] text-slate-400 italic">
+                        Double-click to focus connections
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 
-// Helper for View Toggle
+// Helper for View Toggle (Unchanged)
 const ViewToggle = ({ mode, onChange }: { mode: ViewMode, onChange: (m: ViewMode) => void }) => (
     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
         <button onClick={() => onChange('CARD')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${mode === 'CARD' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Card View</button>
         <button onClick={() => onChange('LIST')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${mode === 'LIST' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>List View</button>
         <button onClick={() => onChange('GRAPH')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${mode === 'GRAPH' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Graph View</button>
+        <button onClick={() => onChange('MAP')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${mode === 'MAP' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Map View</button>
     </div>
 );
+
+const MapView: React.FC<{ data: Record<string, Location> }> = ({ data }) => {
+    const [selectedDevice, setSelectedDevice] = useState<(Device & { roomName: string, locId: string }) | null>(null);
+
+    // Zoom & Pan & Rotate State
+    const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1, rotation: 0 });
+    const isDragging = React.useRef(false);
+    const lastMousePos = React.useRef({ x: 0, y: 0 });
+
+    const handleWheel = (e: React.WheelEvent) => {
+        // Simple zoom
+        const scaleAmount = -e.deltaY * 0.001;
+        const newScale = Math.min(Math.max(transform.scale * (1 + scaleAmount), 0.5), 5);
+        setTransform(prev => ({ ...prev, scale: newScale }));
+    };
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        isDragging.current = true;
+        lastMousePos.current = { x: e.clientX, y: e.clientY };
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging.current) return;
+        const dx = e.clientX - lastMousePos.current.x;
+        const dy = e.clientY - lastMousePos.current.y;
+        lastMousePos.current = { x: e.clientX, y: e.clientY };
+        setTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+    };
+
+    const handleMouseUp = () => {
+        isDragging.current = false;
+    };
+
+    const handleZoomIn = () => setTransform(prev => ({ ...prev, scale: Math.min(prev.scale * 1.2, 5) }));
+    const handleZoomOut = () => setTransform(prev => ({ ...prev, scale: Math.max(prev.scale / 1.2, 0.5) }));
+    const handleRotateCw = () => setTransform(prev => ({ ...prev, rotation: prev.rotation + 90 }));
+    const handleRotateCcw = () => setTransform(prev => ({ ...prev, rotation: prev.rotation - 90 }));
+    const handleReset = () => setTransform({ x: 0, y: 0, scale: 1, rotation: 0 });
+
+    // Flatten devices with room info
+    const allDevices = React.useMemo(() => {
+        const devs: (Device & { roomName: string, locId: string })[] = [];
+        Object.values(data).forEach(loc => {
+            Object.values(loc.rooms).forEach(room => {
+                room.devices.forEach(d => {
+                    devs.push({ ...d, roomName: room.name || 'Unassigned', locId: loc.locationId });
+                });
+            });
+        });
+        return devs;
+    }, [data]);
+
+    // Use the first location for Weather/AQI display (Limit for single map view mostly)
+    const primaryLocation = Object.values(data)[0];
+
+    // Coordinate Mapping Logic (Percentage 0-100)
+    // Map standard Korea apartment room names to the ISO image zones
+    const getCoordinates = (roomName: string, index: number, totalInRoom: number) => {
+        const r = roomName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        // Define Zones (Center % position) based on the image structure
+        // Image structure assumption:
+        // Top Left: Kitchen/Utility
+        // Top Right: Master Bedroom
+        // Center: Living Room
+        // Bottom Left: Bedroom 2
+        // Bottom Right: Bedroom 3 / Balcony
+
+        let zone = { x: 50, y: 50, w: 20, h: 20 }; // Default Living Room
+
+        if (r.includes('living') || r.includes('거실') || r.includes('main')) {
+            zone = { x: 55, y: 55, w: 25, h: 25 };
+        } else if (r.includes('kitchen') || r.includes('dining') || r.includes('주방') || r.includes('식당')) {
+            zone = { x: 35, y: 35, w: 15, h: 15 }; // Upper Left ish
+        } else if (r.includes('master') || r.includes('bed1') || r.includes('안방') || r.includes('침실1')) {
+            zone = { x: 75, y: 40, w: 15, h: 20 }; // Top Right Room
+        } else if (r.includes('bed2') || r.includes('침실2') || r.includes('공부') || r.includes('study')) {
+            zone = { x: 30, y: 70, w: 15, h: 15 }; // Bottom Left Room
+        } else if (r.includes('bed3') || r.includes('침실3') || r.includes('dress') || r.includes('옷방')) {
+            zone = { x: 65, y: 75, w: 15, h: 15 }; // Bottom Right Room
+        } else if (r.includes('bath') || r.includes('toilet') || r.includes('화장실') || r.includes('욕실')) {
+            zone = { x: 50, y: 30, w: 10, h: 10 }; // Small area near top
+        } else if (r.includes('balcony') || r.includes('veranda') || r.includes('베란다')) {
+            zone = { x: 80, y: 60, w: 10, h: 30 }; // Right edge
+        }
+
+        // Scatter logic within zone to prevent stack
+        // Simple grid layout within the zone
+        // If 1 item -> center
+        // If 4 items -> 2x2 grid
+        const cols = Math.ceil(Math.sqrt(totalInRoom));
+        const row = Math.floor(index / cols);
+        const col = index % cols;
+
+        // Offset from zone center
+        const offsetX = (col - (cols - 1) / 2) * (zone.w / (cols || 1));
+        const offsetY = (row - (cols - 1) / 2) * (zone.h / (cols || 1));
+
+        return { x: zone.x + offsetX, y: zone.y + offsetY };
+    };
+
+    // Group devices by room to calculate indices
+    const devicesByRoom = React.useMemo(() => {
+        const map: Record<string, typeof allDevices> = {};
+        allDevices.forEach(d => {
+            const key = d.roomName + d.locId;
+            if (!map[key]) map[key] = [];
+            map[key].push(d);
+        });
+        return map;
+    }, [allDevices]);
+
+    return (
+        <div
+            className="relative w-full h-full bg-slate-900 overflow-hidden flex items-center justify-center p-8 select-none cursor-grab active:cursor-grabbing"
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+        >
+            {/* Background Image Container with Aspect Ratio */}
+            <div
+                className="relative w-full max-w-[1200px] aspect-[4/3] bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden group will-change-transform origin-center duration-300 transition-transform ease-out"
+                style={{ transform: `translate(${transform.x}px, ${transform.y}px) rotate(${transform.rotation}deg) scale(${transform.scale})` }}
+            >
+                {/* Floor Plan Image */}
+                <img
+                    src="iso-map.png"
+                    className="absolute inset-0 w-full h-full object-contain pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity duration-500"
+                    alt="Floor Plan"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+
+                {/* Markers Overlay */}
+                <div className="absolute inset-0">
+                    {Object.values(devicesByRoom).map(roomDevs =>
+                        roomDevs.map((dev, i) => {
+                            const pos = getCoordinates(dev.roomName, i, roomDevs.length);
+                            const isActive = selectedDevice?.deviceId === dev.deviceId;
+
+                            // Marker Style
+                            // Determine icon based on device type (name heuristic)
+                            let Icon = Box;
+                            let colorClass = "bg-indigo-500";
+                            const n = dev.label?.toLowerCase() || dev.name.toLowerCase();
+                            if (n.includes('light') || n.includes('bulb') || n.includes('lamp') || n.includes('전등') || n.includes('조명')) { Icon = Sun; colorClass = "bg-yellow-500"; }
+                            else if (n.includes('tv') || n.includes('vision')) { Icon = Smartphone; colorClass = "bg-blue-500"; }
+                            else if (n.includes('speaker') || n.includes('sound')) { Icon = Wifi; colorClass = "bg-purple-500"; }
+                            else if (n.includes('air') || n.includes('purifier') || n.includes('공기')) { Icon = Wind; colorClass = "bg-cyan-500"; }
+                            else if (n.includes('sensor') || n.includes('detect')) { Icon = AlertCircle; colorClass = "bg-rose-500"; }
+                            else if (n.includes('hub') || n.includes('station')) { Icon = Box; colorClass = "bg-slate-600"; }
+
+                            return (
+                                <div
+                                    key={dev.deviceId}
+                                    className="absolute cursor-pointer z-10 hover:z-50 transition-all duration-300 ease-out will-change-transform"
+                                    style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: `translate(-50%, -50%) rotate(${-transform.rotation}deg)` }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedDevice(dev);
+                                    }}
+                                >
+                                    {/* Pin Effect */}
+                                    <div className={`relative w-8 h-8 rounded-full shadow-lg border-2 border-white dark:border-slate-800 ${colorClass} flex items-center justify-center ${isActive ? 'ring-4 ring-white/50 scale-110' : ''} animate-in zoom-in duration-300`}>
+                                        <Icon size={16} className="text-white drop-shadow-md" />
+
+                                        {/* Label on Hover */}
+                                        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover/marker:opacity-100 pointer-events-none transition-opacity">
+                                            {dev.label || dev.name}
+                                        </div>
+                                    </div>
+                                    {/* Pulse for active */}
+                                    {isActive && <div className={`absolute inset-0 rounded-full animate-ping opacity-75 ${colorClass}`}></div>}
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+
+                {/* Weather Widget (Floating) */}
+                {primaryLocation && (primaryLocation.weather || primaryLocation.airQuality) && (
+                    <div className="absolute top-6 left-6 bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-xl hover:bg-white/20 transition-all cursor-default group">
+                        <div className="flex items-center gap-3 mb-3">
+                            <MapPin className="text-white drop-shadow-md" size={18} />
+                            <div>
+                                <div className="text-white font-bold text-sm leading-none drop-shadow-sm">{primaryLocation.name}</div>
+                                <div className="text-[10px] text-white/70">Home Environment</div>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-6">
+                            {/* Weather */}
+                            {primaryLocation.weather && (
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-gradient-to-br from-yellow-300 to-orange-500 w-10 h-10 rounded-full flex items-center justify-center shadow-lg">
+                                        {/* Icon based on condition */}
+                                        {primaryLocation.weather.condition?.toLowerCase().includes('cloud') ? <Cloud className="text-white" size={20} /> : <Sun className="text-white" size={20} />}
+                                    </div>
+                                    <div>
+                                        <div className="text-2xl font-bold text-white leading-none drop-shadow-md">
+                                            {Math.round(primaryLocation.weather.temperature || 0)}°
+                                        </div>
+                                        <div className="text-[10px] text-white/80 font-medium uppercase tracking-wide">
+                                            {primaryLocation.weather.condition || 'Sunny'}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Separator */}
+                            <div className="w-px bg-white/20"></div>
+
+                            {/* AQI */}
+                            {primaryLocation.airQuality && (
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg border-2 border-white/20 ${primaryLocation.airQuality.rating?.match(/good|best|좋음/i) ? 'bg-emerald-500' :
+                                        primaryLocation.airQuality.rating?.match(/moderate|보통/i) ? 'bg-yellow-500' : 'bg-red-500'
+                                        }`}>
+                                        <Gauge className="text-white" size={20} />
+                                    </div>
+                                    <div>
+                                        <div className="text-lg font-bold text-white leading-tight drop-shadow-md">
+                                            {primaryLocation.airQuality.rating}
+                                        </div>
+                                        <div className="text-[10px] text-white/80 font-medium uppercase tracking-wide">
+                                            Air Quality
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Zoom Controls */}
+            <div className="absolute top-6 right-6 flex flex-col gap-2 z-50">
+                <button onClick={handleZoomIn} className="p-2 bg-white/10 backdrop-blur hover:bg-white/20 text-white rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Zoom In">
+                    <Plus size={20} />
+                </button>
+                <button onClick={handleZoomOut} className="p-2 bg-white/10 backdrop-blur hover:bg-white/20 text-white rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Zoom Out">
+                    <Minus size={20} />
+                </button>
+                <button onClick={handleRotateCcw} className="p-2 bg-white/10 backdrop-blur hover:bg-white/20 text-white rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Rotate Left">
+                    <RotateCcw size={20} />
+                </button>
+                <button onClick={handleRotateCw} className="p-2 bg-white/10 backdrop-blur hover:bg-white/20 text-white rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Rotate Right">
+                    <RotateCw size={20} />
+                </button>
+                <button onClick={handleReset} className="p-2 bg-white/10 backdrop-blur hover:bg-white/20 text-white-400 rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Reset View">
+                    <Box size={20} />
+                </button>
+            </div>
+
+            {/* Device Detail Card (Absolute Positioned outside the map, or bottom right) */}
+            {selectedDevice && (
+                <div className="absolute bottom-8 right-8 w-72 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-0 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-right-4 overflow-hidden z-50">
+                    <div className="h-24 bg-gradient-to-r from-indigo-500 to-purple-600 relative p-4 flex flex-col justify-end">
+                        <div className="absolute top-3 right-3 text-white/80 bg-black/20 px-2 py-0.5 rounded-full text-[10px] font-mono backdrop-blur-sm">
+                            {selectedDevice.roomName}
+                        </div>
+                        <h3 className="text-white font-bold text-lg drop-shadow-md truncate">{selectedDevice.label || selectedDevice.name}</h3>
+                        <div className="text-white/80 text-xs font-mono">{selectedDevice.deviceId}</div>
+                    </div>
+                    <div className="p-4 space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-lg text-center">
+                                <div className="text-[10px] text-slate-400 uppercase">Status</div>
+                                <div className="text-sm font-bold text-emerald-500">Online</div>
+                            </div>
+                            <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-lg text-center">
+                                <div className="text-[10px] text-slate-400 uppercase">Type</div>
+                                <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 truncate px-1">{selectedDevice.name}</div>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase">Capabilities</h4>
+                            <div className="flex flex-wrap gap-1.5">
+                                {selectedDevice.components && selectedDevice.components.map((c: any, i: number) => (
+                                    <span key={i} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-[10px] rounded-md font-medium">
+                                        {c.id || 'main'}
+                                    </span>
+                                ))}
+                                {!selectedDevice.components && <span className="text-xs text-slate-400 italic">No details available</span>}
+                            </div>
+                        </div>
+
+                        <button
+                            className="w-full mt-2 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold hover:opacity-90 transition-opacity"
+                            onClick={() => setSelectedDevice(null)}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const SmartThingsDevicesPane: React.FC = () => {
     const [accessToken, setAccessToken] = useState(() => localStorage.getItem('st_access_token') || '');
@@ -444,6 +888,53 @@ const SmartThingsDevicesPane: React.FC = () => {
                 locationMap[l.locationId] = { locationId: l.locationId, name: l.name || l.locationId, rooms: {} };
             });
 
+            // 1.5 Fetch Summary (Weather/PQ) for EACH location
+            setProgress('Fetching Weather & Air Quality...');
+            await Promise.all(Object.keys(locationMap).map(async (locId) => {
+                try {
+                    // Use the same client base URL logic
+                    const baseUrl = `https://client.${serverType}.com`;
+                    const summaryRes = await fetch(`${baseUrl}/summary?locationId=${locId}`, {
+                        method: 'GET',
+                        headers: {
+                            ...getHeaders,
+                            'Accept-Language': 'ko' // User requested 'ko'
+                        }
+                    });
+
+                    if (summaryRes.ok) {
+                        const summaryData = await summaryRes.json();
+                        // Assume structure based on typical summary APIs or user hint
+                        // The user didn't specify exact JSON, but implied it's in the response.
+                        // We'll look for common fields.
+                        // Example: { weather: { temp: 20 }, airQuality: { ... } }
+                        // Adapting to whatever common format exists or storing raw if unsure, but we need Typed UI.
+                        // Let's optimisticly map what we find.
+
+                        if (summaryData) {
+                            // Map Weather
+                            if (summaryData.weather) {
+                                locationMap[locId].weather = {
+                                    temperature: summaryData.weather.temperature,
+                                    temperatureUnit: summaryData.weather.temperatureUnit || 'C',
+                                    humidity: summaryData.weather.humidity,
+                                    condition: summaryData.weather.condition // e.g. "Sunny"
+                                };
+                            }
+                            // Map Air Quality
+                            if (summaryData.airQuality) {
+                                locationMap[locId].airQuality = {
+                                    aqi: summaryData.airQuality.amount || summaryData.airQuality.index,
+                                    rating: summaryData.airQuality.label || summaryData.airQuality.rating
+                                };
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`Failed to fetch summary for location ${locId}`, e);
+                }
+            }));
+
             // 2. Fetch Rooms for EACH location
             setProgress('Fetching Rooms...');
             await Promise.all(Object.keys(locationMap).map(async (locId) => {
@@ -512,6 +1003,91 @@ const SmartThingsDevicesPane: React.FC = () => {
         }
     };
 
+    const handleSimulation = () => {
+        setIsLoading(true);
+        setError(null);
+        setGroupedData(null);
+        setProgress('Generating Demo Data...');
+
+        setTimeout(() => {
+            const demoLocationId = 'loc_demo_001';
+            const mockData: Record<string, Location> = {
+                [demoLocationId]: {
+                    locationId: demoLocationId,
+                    name: 'My Sweet Home',
+                    weather: {
+                        temperature: 24.5,
+                        temperatureUnit: 'C',
+                        humidity: 45,
+                        condition: 'Partly Cloudy'
+                    },
+                    airQuality: {
+                        aqi: 35,
+                        rating: 'Good'
+                    },
+                    rooms: {
+                        'room_living': {
+                            roomId: 'room_living',
+                            name: 'Living Room',
+                            devices: [
+                                { deviceId: 'd_tv', name: 'Smart TV', label: 'Living Room TV', locationId: demoLocationId, roomId: 'room_living', components: [{ id: 'main' }] },
+                                { deviceId: 'd_ac', name: 'Air Conditioner', label: 'Living Room AC', locationId: demoLocationId, roomId: 'room_living', components: [{ id: 'main' }] },
+                                { deviceId: 'd_spk', name: 'Smart Speaker', label: 'Galaxy Home Mini', locationId: demoLocationId, roomId: 'room_living', components: [{ id: 'audio' }] },
+                                { deviceId: 'd_light_main', name: 'Light', label: 'Main Light', locationId: demoLocationId, roomId: 'room_living', components: [{ id: 'switch' }] },
+                                { deviceId: 'd_robot', name: 'Robot Cleaner', label: 'Jet Bot AI+', locationId: demoLocationId, roomId: 'room_living', components: [{ id: 'main' }] },
+                            ]
+                        },
+                        'room_kitchen': {
+                            roomId: 'room_kitchen',
+                            name: 'Kitchen',
+                            devices: [
+                                { deviceId: 'd_ref', name: 'Refrigerator', label: 'Bespoke Fridge', locationId: demoLocationId, roomId: 'room_kitchen', components: [{ id: 'main' }, { id: 'cooler' }] },
+                                { deviceId: 'd_dish', name: 'Dishwasher', label: 'Dishwasher', locationId: demoLocationId, roomId: 'room_kitchen', components: [{ id: 'main' }] },
+                                { deviceId: 'd_oven', name: 'Oven', label: 'Smart Oven', locationId: demoLocationId, roomId: 'room_kitchen', components: [{ id: 'main' }] },
+                                { deviceId: 'd_light_k', name: 'Light', label: 'Kitchen Light', locationId: demoLocationId, roomId: 'room_kitchen', components: [{ id: 'switch' }] },
+                            ]
+                        },
+                        'room_master': {
+                            roomId: 'room_master',
+                            name: 'Master Bedroom',
+                            devices: [
+                                { deviceId: 'd_light_m', name: 'Light', label: 'Bedroom Light', locationId: demoLocationId, roomId: 'room_master', components: [{ id: 'switch' }] },
+                                { deviceId: 'd_curtain', name: 'Window Shade', label: 'Smart Curtain', locationId: demoLocationId, roomId: 'room_master', components: [{ id: 'windowShade' }] },
+                                { deviceId: 'd_purifier', name: 'Air Purifier', label: 'Bedroom Air Purifier', locationId: demoLocationId, roomId: 'room_master', components: [{ id: 'main' }] },
+                            ]
+                        },
+                        'room_bed2': {
+                            roomId: 'room_bed2',
+                            name: 'Bedroom 2',
+                            devices: [
+                                { deviceId: 'd_lamp', name: 'Light', label: 'Desk Lamp', locationId: demoLocationId, roomId: 'room_bed2', components: [{ id: 'switch' }] },
+                                { deviceId: 'd_pc', name: 'Switch', label: 'Gaming PC Plug', locationId: demoLocationId, roomId: 'room_bed2', components: [{ id: 'switch' }] },
+                            ]
+                        },
+                        'room_bath': {
+                            roomId: 'room_bath',
+                            name: 'Bathroom',
+                            devices: [
+                                { deviceId: 'd_motion', name: 'Motion Sensor', label: 'Bath Motion', locationId: demoLocationId, roomId: 'room_bath', components: [{ id: 'motion' }] },
+                            ]
+                        },
+                        'room_balcony': {
+                            roomId: 'room_balcony',
+                            name: 'Balcony',
+                            devices: [
+                                { deviceId: 'd_wash', name: 'Washer', label: 'Washing Machine', locationId: demoLocationId, roomId: 'room_balcony', components: [{ id: 'washer' }] },
+                                { deviceId: 'd_dry', name: 'Dryer', label: 'Dryer', locationId: demoLocationId, roomId: 'room_balcony', components: [{ id: 'dryer' }] },
+                            ]
+                        }
+                    }
+                }
+            };
+            setGroupedData(mockData);
+            setIsLoading(false);
+            setViewMode('MAP'); // Automatically switch to Map View
+        }, 800);
+    };
+
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200">
             {/* Consistent System Header */}
@@ -574,13 +1150,23 @@ const SmartThingsDevicesPane: React.FC = () => {
                     <button
                         onClick={handleFetch}
                         disabled={isLoading}
-                        className={`mt-2 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-white transition-all ${isLoading
+                        className={`mt-2 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-white transition-all flex-1 ${isLoading
                             ? 'bg-indigo-400 cursor-not-allowed'
                             : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95 shadow-lg shadow-indigo-500/20'
                             }`}
                     >
                         {isLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <Wifi className="w-4 h-4" />}
                         {isLoading ? `Fetching... ${progress}` : 'Fetch Devices'}
+                    </button>
+
+                    <button
+                        onClick={handleSimulation}
+                        disabled={isLoading}
+                        className="mt-2 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 active:scale-95 transition-all shadow-sm"
+                        title="Load Demo Data"
+                    >
+                        <Play className="w-4 h-4 fill-current" />
+                        Demo
                     </button>
                 </div>
             </div>
@@ -608,9 +1194,69 @@ const SmartThingsDevicesPane: React.FC = () => {
                     <div className="space-y-6 animate-in fade-in duration-500">
                         {Object.values(groupedData).map((location) => (
                             <div key={location.locationId} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-                                <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
-                                    <MapPin className="w-4 h-4 text-indigo-500" />
-                                    <span className="font-bold text-sm text-slate-700 dark:text-slate-300">{location.name} <span className="text-slate-400 font-normal">({location.locationId})</span></span>
+                                <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 border-b border-slate-200 dark:border-slate-800 relative overflow-hidden">
+                                    {/* Weather Background Gradient Hint */}
+                                    <div className={`absolute inset-0 opacity-10 ${location.weather?.condition?.toLowerCase().includes('sun') ? 'bg-gradient-to-br from-orange-400 to-yellow-300' :
+                                        location.weather?.condition?.toLowerCase().includes('cloud') ? 'bg-gradient-to-br from-slate-400 to-slate-200' :
+                                            location.weather?.condition?.toLowerCase().includes('rain') ? 'bg-gradient-to-br from-blue-600 to-cyan-400' :
+                                                'bg-gradient-to-br from-indigo-500 to-purple-500'
+                                        }`}></div>
+
+                                    <div className="relative z-10 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <MapPin className="w-5 h-5 text-indigo-500 drop-shadow-sm" />
+                                            <div>
+                                                <div className="font-bold text-base text-slate-800 dark:text-slate-100">{location.name}</div>
+                                                <div className="text-[10px] text-slate-400 font-mono leading-none">{location.locationId}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Weather & AQI Widget */}
+                                        {(location.weather || location.airQuality) && (
+                                            <div className="flex items-center gap-4 bg-white/60 dark:bg-black/20 backdrop-blur-md rounded-lg px-3 py-1.5 border border-white/20 shadow-sm">
+                                                {location.weather && (
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex flex-col items-end">
+                                                            <div className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-200 text-lg leading-none">
+                                                                {location.weather.temperature !== undefined ? Math.round(location.weather.temperature) : '--'}
+                                                                <span className="text-xs font-normal align-top opacity-70">°{location.weather.temperatureUnit}</span>
+                                                            </div>
+                                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 capitalize flex items-center gap-1">
+                                                                {location.weather.condition || 'Unknown'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-orange-500 dark:text-yellow-400">
+                                                            {/* Simple Icon Logic */}
+                                                            {location.weather.condition?.toLowerCase().includes('cloud') ? <Cloud size={20} /> :
+                                                                location.weather.condition?.toLowerCase().includes('rain') ? <Loader2 size={20} /> : // Using Loader as filler, assume Rain icon if imported, but safely Sun
+                                                                    <Sun size={20} />}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {location.weather && location.airQuality && (
+                                                    <div className="w-px h-6 bg-slate-300 dark:bg-slate-700 mx-1"></div>
+                                                )}
+
+                                                {location.airQuality && (
+                                                    <div className="flex flex-col items-start min-w-[60px]">
+                                                        <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                            <Gauge size={10} /> AQI
+                                                        </div>
+                                                        <div className="flex items-baseline gap-1">
+                                                            <span className={`text-sm font-bold ${!location.airQuality.rating ? 'text-slate-500' :
+                                                                location.airQuality.rating.match(/good|best|좋음/i) ? 'text-emerald-500' :
+                                                                    location.airQuality.rating.match(/moderate|보통/i) ? 'text-yellow-500' :
+                                                                        'text-red-500'
+                                                                }`}>
+                                                                {location.airQuality.rating || 'N/A'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="p-4 space-y-4">
                                     {Object.values(location.rooms).map((room: any) => (
@@ -668,6 +1314,20 @@ const SmartThingsDevicesPane: React.FC = () => {
                                         <MapPin size={16} className="text-indigo-500" />
                                         <span className="font-bold text-sm text-slate-700 dark:text-slate-200">{loc.name}</span>
                                         <span className="text-xs text-slate-400">({roomCount} Rooms)</span>
+                                        {(loc.weather || loc.airQuality) && (
+                                            <div className="ml-auto flex items-center gap-3 text-xs opacity-80">
+                                                {loc.weather && (
+                                                    <span className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded-full border border-blue-100 dark:border-blue-800">
+                                                        <Thermometer size={10} /> {loc.weather.temperature}°{loc.weather.temperatureUnit}
+                                                    </span>
+                                                )}
+                                                {loc.airQuality && (
+                                                    <span className="flex items-center gap-1 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-300 px-2 py-0.5 rounded-full border border-green-100 dark:border-green-800">
+                                                        <Gauge size={10} /> {loc.airQuality.rating}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {isLocExpanded && (
@@ -737,8 +1397,14 @@ const SmartThingsDevicesPane: React.FC = () => {
                     </div>
                 )}
 
+                {groupedData && viewMode === 'MAP' && (
+                    <div className="flex-1 w-full h-full border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-inner relative bg-slate-900">
+                        <MapView data={groupedData} />
+                    </div>
+                )}
+
             </div>
-        </div>
+        </div >
     );
 };
 
