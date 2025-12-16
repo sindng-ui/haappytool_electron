@@ -187,16 +187,32 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
             const doc = parser.parseFromString(htmlText, 'text/html');
             const links = Array.from(doc.querySelectorAll('a'));
 
-            // Find first .rpm link
-            const rpmLink = links.find(a => a.href && a.href.endsWith('.rpm'));
+            // Find first .rpm link by checking the raw 'href' attribute
+            const rpmLink = links.find(a => {
+                const href = a.getAttribute('href');
+                return href && href.trim().endsWith('.rpm');
+            });
 
             if (!rpmLink) {
                 throw new Error('No .rpm link found on the page.');
             }
 
-            const rpmUrl = rpmLink.href;
-            const rpmName = rpmUrl.split('/').pop() || 'downloaded.rpm';
-            addLog(`Found RPM: ${rpmName}`);
+            const rpmFilename = rpmLink.getAttribute('href')!.trim();
+            addLog(`Found pattern: ${rpmFilename}`);
+
+            // Construct full URL manually as requested: UserURL + Filename
+            // Check for slash consistency
+            let rpmUrl = '';
+            if (targetUrl.endsWith('/')) {
+                // User provided trailing slash
+                rpmUrl = targetUrl + rpmFilename;
+            } else {
+                // No trailing slash, add one
+                rpmUrl = targetUrl + '/' + rpmFilename;
+            }
+
+            const rpmName = rpmFilename.split('/').pop() || 'downloaded.rpm';
+            addLog(`Target RPM URL: ${rpmUrl}`);
             addLog(`Downloading from: ${rpmUrl}`);
 
             // 3. Download RPM
