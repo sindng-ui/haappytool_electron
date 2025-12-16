@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
+import isoMapBg from '../../iso-map.png';
 
 const { Smartphone, MapPin, Box, Wifi, AlertCircle, Loader2, Thermometer, Droplets, Wind, Sun, Cloud, Gauge, Play, Plus, Minus, RotateCcw, RotateCw } = Lucide;
 
@@ -85,6 +86,7 @@ const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) 
     const dragOffset = React.useRef({ x: 0, y: 0 });
 
     // Initialize Graph Data
+    // Initialize Graph Data
     React.useEffect(() => {
         const newNodes: Node[] = [];
         const newLinks: Link[] = [];
@@ -119,12 +121,15 @@ const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) 
                 const roomId = room.roomId;
                 // Place rooms near location
                 const rAngle = angle + (j / rArr.length - 0.5);
+                const rx = lx + Math.cos(rAngle) * 60;
+                const ry = ly + Math.sin(rAngle) * 60;
+
                 newNodes.push({
                     id: roomId,
                     type: 'ROOM',
                     label: room.name || 'Room',
-                    x: lx + Math.cos(rAngle) * 50,
-                    y: ly + Math.sin(rAngle) * 50,
+                    x: rx,
+                    y: ry,
                     vx: 0, vy: 0,
                     radius: 12,
                     color: '#10b981', // Emerald 500
@@ -139,8 +144,9 @@ const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) 
                         id: dev.deviceId,
                         type: 'DEVICE',
                         label: dev.label || dev.name,
-                        x: lx + (Math.random() - 0.5) * 100,
-                        y: ly + (Math.random() - 0.5) * 100,
+                        // Place near Room instead of Location
+                        x: rx + (Math.random() - 0.5) * 50,
+                        y: ry + (Math.random() - 0.5) * 50,
                         vx: 0, vy: 0,
                         radius: 8,
                         color: '#f43f5e', // Rose 500
@@ -151,6 +157,83 @@ const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) 
                 });
             });
         });
+
+        // --- Warm Up Simulation ---
+        // Run physics for N ticks to stabilize standard layout
+        const warmUpTicks = 120;
+        const nodeMap = new Map(newNodes.map((n, i) => [n.id, i]));
+
+        // Physics Consts (Match Render Loop)
+        const repulsion = 5000; // Updated to match render loop
+        const springLength = 200; // Updated
+        const springStrength = 0.015; // Updated for floaty feel
+        const damping = 0.75; // Updated
+        const centerForce = 0.005; // Slightly stronger centering during warm-up
+        const REPULSION_DIST_CUTOFF = 1000; // Updated
+        const REPULSION_DIST_SQ = REPULSION_DIST_CUTOFF * REPULSION_DIST_CUTOFF;
+
+        for (let tick = 0; tick < warmUpTicks; tick++) {
+            const forces = new Float32Array(newNodes.length * 2);
+
+            // 1. Repulsion
+            for (let i = 0; i < newNodes.length; i++) {
+                for (let j = i + 1; j < newNodes.length; j++) {
+                    const idx = i * 2;
+                    const jdx = j * 2;
+                    const dx = newNodes[i].x - newNodes[j].x;
+                    if (Math.abs(dx) > REPULSION_DIST_CUTOFF) continue;
+                    const dy = newNodes[i].y - newNodes[j].y;
+                    if (Math.abs(dy) > REPULSION_DIST_CUTOFF) continue;
+                    let distSq = dx * dx + dy * dy;
+                    if (distSq > REPULSION_DIST_SQ) continue;
+                    if (distSq === 0) distSq = 1;
+                    const force = repulsion / distSq;
+                    const dist = Math.sqrt(distSq);
+                    const fx = (dx / dist) * force;
+                    const fy = (dy / dist) * force;
+                    forces[idx] += fx;
+                    forces[idx + 1] += fy;
+                    forces[jdx] -= fx;
+                    forces[jdx + 1] -= fy;
+                }
+            }
+
+            // 2. Attraction
+            newLinks.forEach(link => {
+                const sIdx = nodeMap.get(link.source);
+                const tIdx = nodeMap.get(link.target);
+                if (sIdx === undefined || tIdx === undefined) return;
+                const source = newNodes[sIdx];
+                const target = newNodes[tIdx];
+                const dx = target.x - source.x;
+                const dy = target.y - source.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                const force = (dist - springLength) * springStrength;
+                const fx = (dx / dist) * force;
+                const fy = (dy / dist) * force;
+                const si = sIdx * 2;
+                const ti = tIdx * 2;
+                forces[si] += fx;
+                forces[si + 1] += fy;
+                forces[ti] -= fx;
+                forces[ti + 1] -= fy;
+            });
+
+            // 3. Apply
+            for (let i = 0; i < newNodes.length; i++) {
+                const node = newNodes[i];
+                const fIdx = i * 2;
+                const dx = cx - node.x;
+                const dy = cy - node.y;
+                forces[fIdx] += dx * centerForce;
+                forces[fIdx + 1] += dy * centerForce;
+
+                node.vx = (node.vx + forces[fIdx]) * damping;
+                node.vy = (node.vy + forces[fIdx + 1]) * damping;
+                node.x += node.vx;
+                node.y += node.vy;
+            }
+        }
 
         nodesRef.current = newNodes;
         linksRef.current = newLinks;
@@ -186,17 +269,17 @@ const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) 
             const activeFocus = focusedNodeId;
 
             // --- Physics Step ---
-            // Constants
-            const repulsion = 1500;
-            const springLength = 80;
-            const springStrength = 0.08;
-            const damping = 0.85; // More friction = stable
-            const centerForce = 0.02;
+            // Constants - tuned for Obsidian-like feel (Spacious, floaty)
+            const repulsion = 5000;
+            const springLength = 200;
+            const springStrength = 0.015;
+            const damping = 0.75;
+            const centerForce = 0.005; // Very weak center pull to allow sprawl
 
             // Optimization: Spatial Hashing or just basic cutoff
             // Simple Barnes-Hut approximation: If distance is large, treat as single interaction? 
             // Or just cutoff repulsion.
-            const REPULSION_DIST_CUTOFF = 300; // Only repel if closer than 300px
+            const REPULSION_DIST_CUTOFF = 1000; // Large influence range
             const REPULSION_DIST_SQ = REPULSION_DIST_CUTOFF * REPULSION_DIST_CUTOFF;
 
             // Reset forces logic is embedded in loop for perf? No, standard accumulation.
@@ -277,9 +360,18 @@ const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) 
                 forces[fIdx] += dx * centerForce;
                 forces[fIdx + 1] += dy * centerForce;
 
-                // Apply
+                // Apply with velocity limit
                 node.vx = (node.vx + forces[fIdx]) * damping;
                 node.vy = (node.vy + forces[fIdx + 1]) * damping;
+
+                // Velocity cap to prevent "shattering" (Instability)
+                const maxV = 10.0;
+                const vSq = node.vx * node.vx + node.vy * node.vy;
+                if (vSq > maxV * maxV) {
+                    const vLen = Math.sqrt(vSq);
+                    node.vx = (node.vx / vLen) * maxV;
+                    node.vy = (node.vy / vLen) * maxV;
+                }
 
                 // Stop Micro-movements (Energy saver not strictly needed for perf, but looks stable)
                 if (Math.abs(node.vx) < 0.01) node.vx = 0;
@@ -640,7 +732,7 @@ const MapView: React.FC<{ data: Record<string, Location> }> = ({ data }) => {
             >
                 {/* Floor Plan Image */}
                 <img
-                    src="iso-map.png"
+                    src={isoMapBg}
                     className="absolute inset-0 w-full h-full object-contain pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity duration-500"
                     alt="Floor Plan"
                     onError={(e) => { e.currentTarget.style.display = 'none'; }}
