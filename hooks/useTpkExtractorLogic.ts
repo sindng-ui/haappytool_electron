@@ -174,20 +174,26 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
         addLog(`Accessing URL: ${targetUrl}`);
 
         try {
-            // 1. Fetch HTML to find link
-            // Note: This relies on Cross-Origin access being enabled in Electron or the target server allowing CORS.
-            // If CORS issues arise, this needs to be moved to the main process via IPC.
-            const response = await fetch(targetUrl);
-            if (!response.ok) throw new Error(`Failed to access URL: ${response.status} ${response.statusText}`);
+            let htmlText = '';
 
-            const htmlText = await response.text();
+            // 1. Fetch HTML
+            // @ts-ignore
+            if (window.electronAPI && window.electronAPI.fetchUrl) {
+                addLog('Using Electron Native Fetch...');
+                // @ts-ignore
+                htmlText = await window.electronAPI.fetchUrl(targetUrl, 'text');
+            } else {
+                const response = await fetch(targetUrl);
+                if (!response.ok) throw new Error(`Failed to access URL: ${response.status} ${response.statusText}`);
+                htmlText = await response.text();
+            }
 
             // 2. Parse HTML
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlText, 'text/html');
             const links = Array.from(doc.querySelectorAll('a'));
 
-            // Find first .rpm link by checking the raw 'href' attribute
+            // Find first .rpm link
             const rpmLink = links.find(a => {
                 const href = a.getAttribute('href');
                 return href && href.trim().endsWith('.rpm');
@@ -197,31 +203,49 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
                 throw new Error('No .rpm link found on the page.');
             }
 
-            const rpmFilename = rpmLink.getAttribute('href')!.trim();
-            addLog(`Found pattern: ${rpmFilename}`);
+            // Get the raw href value (which is expected to be the filename)
+            const rawHref = rpmLink.getAttribute('href')!.trim();
+            // Just the filename part in case it's a path, but User request says "extract name" implies simple concat
+            // But to be safe properly, and as user example "~~~~.rpm", we assume it's relative.
+            const rpmFilename = rawHref;
 
-            // Construct full URL manually as requested: UserURL + Filename
-            // Check for slash consistency
+            addLog(`Found RPM link: ${rpmFilename}`);
+
+            // Construct full URL manually: UserURL + Filename
+            // As per user request: "유저가 입력한 url + ~~~~.rpm 형태로 최종 url이 완성된다." (User URL + RPM Name)
+            // We ensure exactly one slash separator if User URL doesn't have one
             let rpmUrl = '';
-            if (targetUrl.endsWith('/')) {
-                // User provided trailing slash
-                rpmUrl = targetUrl + rpmFilename;
-            } else {
-                // No trailing slash, add one
-                rpmUrl = targetUrl + '/' + rpmFilename;
-            }
+            // Remove trailing slash from targetUrl if present to normalize
+            const baseUrl = targetUrl.endsWith('/') ? targetUrl.slice(0, -1) : targetUrl;
+            // Remove leading slash from filename if present
+            const cleanFilename = rpmFilename.startsWith('/') ? rpmFilename.slice(1) : rpmFilename;
+
+            rpmUrl = `${baseUrl}/${cleanFilename}`;
 
             const rpmName = rpmFilename.split('/').pop() || 'downloaded.rpm';
             addLog(`Target RPM URL: ${rpmUrl}`);
             addLog(`Downloading from: ${rpmUrl}`);
 
             // 3. Download RPM
-            // We fetch as blob
-            const rpmRes = await fetch(rpmUrl);
-            if (!rpmRes.ok) throw new Error(`Failed to download RPM: ${rpmRes.status}`);
+            let file: File;
 
-            const blob = await rpmRes.blob();
-            const file = new File([blob], rpmName, { type: 'application/x-rpm' });
+            // @ts-ignore
+            if (window.electronAPI && window.electronAPI.fetchUrl) {
+                // @ts-ignore
+                const buffer = await window.electronAPI.fetchUrl(rpmUrl, 'buffer');
+                // Buffer is returned as Uint8Array (Node Buffer -> Uint8Array in IPC)? 
+                // Buffer from preload is likely Uint8Array in renderer.
+
+                // Note: The IPC handler returns Buffer.from(arrayBuffer). 
+                // In Electron, Buffer is often passed as Uint8Array across context bridge if not explictly optimized?
+                // Actually, let's assume it works as Blob/ArrayBuffer compatible.
+                file = new File([buffer], rpmName, { type: 'application/x-rpm' });
+            } else {
+                const rpmRes = await fetch(rpmUrl);
+                if (!rpmRes.ok) throw new Error(`Failed to download RPM: ${rpmRes.status}`);
+                const blob = await rpmRes.blob();
+                file = new File([blob], rpmName, { type: 'application/x-rpm' });
+            }
 
             addLog('Download complete. Starting extraction...');
 
@@ -231,7 +255,39 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
         } catch (err: any) {
             console.error(err);
             setStatus('ERROR');
-            addLog(`Error: ${err.message}`);
+
+            // --- Verbose Debugging for "Failed to fetch" ---
+            let errorMsg = err.message;
+            if (err.message === 'Failed to fetch') {
+                errorMsg += ' (서버 연결 실패 또는 CORS 문제)';
+                addLog(`Error: ${errorMsg}`);
+
+                // Diagnostic Checks
+                addLog(`[진단] 네트워크 상태: ${navigator.onLine ? '온라인' : '오프라인'}`);
+                addLog(`[진단] 내부 서버(Port 3001) 접근 시도 중...`);
+                try {
+                    // Attempt to ping the server root to see if it's alive (standard fetch)
+                    // Using no-cors just to check connectivity (status might be opaque but if it throws it's down)
+                    await fetch('http://localhost:3001', { mode: 'no-cors' });
+                    addLog(`[진단] 내부 서버 연결 확인됨 (응답 있음).`);
+                } catch (pingErr) {
+                    addLog(`[진단] 내부 서버 연결 실패. 서버가 꺼져있을 수 있습니다.`);
+                }
+            } else {
+                addLog(`Error: ${errorMsg}`);
+            }
+
+            // Electron API Check
+            // @ts-ignore
+            if (!window.electronAPI) {
+                addLog('[진단] window.electronAPI가 감지되지 않음 (Preload 스크립트 로드 실패).');
+            } else {
+                // @ts-ignore
+                if (!window.electronAPI.fetchUrl) {
+                    addLog('[진단] electronAPI.fetchUrl 기능이 없음. 앱이 최신 코드로 재시작되지 않았습니다.');
+                    addLog('>>> 조치 필요: 앱을 완전히 껐다가 다시 실행해주세요 (npm run electron:dev 재실행). <<<');
+                }
+            }
         }
     };
 

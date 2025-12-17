@@ -76,7 +76,19 @@ export const extractTpkFromRpm = async (file: File, onProgress: (msg: string, st
     }
 
     if (gzStart === -1) {
-        throw new Error('No GZIP payload found in RPM');
+        // Fallback: Check if it's already a CPIO (e.g. uncompressed RPM payload or raw CPIO)
+        onProgress('No GZIP found, checking for CPIO...', 2);
+        const isCpio = (uint8[0] === 0x30 && uint8[1] === 0x37 && uint8[2] === 0x30 && uint8[3] === 0x37 && uint8[4] === 0x30); // 07070...
+        if (isCpio) {
+            onProgress('Parsing CPIO archive...', 4);
+            const result = parseCpio(uint8, '.tpk');
+            if (result) {
+                onProgress('TPK Extracted!', 5);
+                return result;
+            }
+        }
+
+        throw new Error('No supported payload (GZIP or CPIO) found in RPM/File');
     }
 
     onProgress('Decompressing payload...', 3);

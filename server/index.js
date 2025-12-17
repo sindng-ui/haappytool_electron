@@ -14,6 +14,57 @@ app.use(cors());
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../dist')));
 
+// --- TEST ROUTES ---
+app.get('/test-rpm', (req, res) => {
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head><title>RPM Test Page</title></head>
+    <body>
+        <h1>RPM Download Test</h1>
+        <p>This is a simulated package directory.</p>
+        <ul>
+            <li><a href="test-package.rpm">test-package.rpm</a></li>
+        </ul>
+    </body>
+    </html>
+    `;
+    res.send(html);
+});
+
+app.get('/test-package.rpm', (req, res) => {
+    // Construct a minimal valid CPIO archive containing 'mock.tpk'
+    // Header format: 110 bytes fixed ASCII
+    // 0-6: Magic (070701)
+    // 54-62: Filesize (8 hex)
+    // 94-102: Namesize (8 hex)
+
+    // Content: "MOCK_TPK_DATA" (13 bytes)
+    // Filename: "mock.tpk" (8 bytes + 1 null = 9 bytes)
+
+    const header = Buffer.alloc(110, '0');
+    header.write('070701', 0); // Magic
+    header.write('0000000D', 54); // Filesize = 13 (D in hex)
+    header.write('00000009', 94); // Namesize = 9
+
+    const filename = Buffer.from('mock.tpk\0'); // 9 bytes
+    // Padding after filename to 4-byte align
+    // 110 + 9 = 119. Next multiple of 4 is 120. Pad = 1 byte.
+    const namePad = Buffer.alloc(1, 0);
+
+    const content = Buffer.from('MOCK_TPK_DATA'); // 13 bytes
+    // Padding after data to 4-byte align
+    // 13 is not div by 4. Next is 16. Pad = 3 bytes.
+    const contentPad = Buffer.alloc(3, 0);
+
+    const fullBody = Buffer.concat([header, filename, namePad, content, contentPad]);
+
+    res.setHeader('Content-Type', 'application/x-rpm');
+    res.setHeader('Content-Disposition', 'attachment; filename="test-package.rpm"');
+    res.send(fullBody);
+});
+// -------------------
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {

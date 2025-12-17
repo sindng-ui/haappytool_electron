@@ -55,7 +55,17 @@ const TpkExtractor: React.FC = () => {
                     </div>
 
                     {/* Content */}
-                    <div className="p-8 min-h-[400px] flex flex-col bg-slate-50/30 dark:bg-transparent">
+                    <div className="p-8 min-h-[400px] flex flex-col bg-slate-50/30 dark:bg-transparent relative">
+                        {/* API Status Indicator */}
+                        <div className="absolute top-2 right-4 text-[10px] uppercase font-bold tracking-wider opacity-50">
+                            {/* @ts-ignore */}
+                            {window.electronAPI?.fetchUrl ? (
+                                <span className="text-green-500 flex items-center gap-1">● Native Bridge Active</span>
+                            ) : (
+                                <span className="text-red-500 flex items-center gap-1">● Native Bridge Inactive (Restart App)</span>
+                            )}
+                        </div>
+
                         {status === 'IDLE' && (
                             <>
                                 <TpkDropZone

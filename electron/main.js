@@ -138,6 +138,25 @@ app.whenReady().then(async () => {
         }
     });
 
+    // IPC Handler for fetching URLs (Bypass CORS)
+    ipcMain.handle('fetchUrl', async (event, { url, type }) => {
+        try {
+            // Using Node.js native fetch (Node 18+)
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+
+            if (type === 'buffer') {
+                const arrayBuffer = await response.arrayBuffer();
+                return Buffer.from(arrayBuffer);
+            } else {
+                return await response.text();
+            }
+        } catch (error) {
+            console.error('Fetch URL failed:', error);
+            throw error;
+        }
+    });
+
     // IPC Handler for getting app path
     ipcMain.handle('getAppPath', () => {
         // In development: return project root
