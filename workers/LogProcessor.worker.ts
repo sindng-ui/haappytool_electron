@@ -26,6 +26,11 @@ const respond = (response: LogWorkerResponse) => {
 
 // --- Helper: Match Logic ---
 const checkIsMatch = (line: string, rule: LogRule | null): boolean => {
+    // Force include Simulated Logs (for Tizen Connection Test) regardless of rules
+    if (isStreamMode && line.includes('[TEST_LOG_')) {
+        return true;
+    }
+
     if (!rule) return true;
 
     // "Show Shell/Raw Text Always" Bypass Logic

@@ -9,7 +9,7 @@ interface TizenConnectionModalProps {
 }
 
 const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onClose, onStreamStart }) => {
-    const [mode, setMode] = useState<'ssh' | 'sdb'>('sdb');
+    const [mode, setMode] = useState<'ssh' | 'sdb' | 'test'>('sdb');
     const [socket, setSocket] = useState<Socket | null>(null);
 
     // SSH State
@@ -62,7 +62,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
 
         if (isOpen) {
             isHandedOver.current = false;
-            newSocket = io('http://localhost:3001');
+            newSocket = io('http://localhost:3002');
 
             newSocket.on('connect', () => {
                 setStatus('Connected to Local Log Server');
@@ -186,6 +186,15 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
         setIsConnecting(true);
         startTimeout();
 
+        if (mode === 'test') {
+            socket.emit('start_scroll_stream');
+            setIsConnected(true);
+            isHandedOver.current = true;
+            onStreamStart(socket, 'TEST:Simulated Stream');
+            onClose();
+            return;
+        }
+
         if (mode === 'ssh') {
             socket.emit('connect_ssh', {
                 host: sshHost,
@@ -248,6 +257,13 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
                             <Wifi size={24} />
                             <span className="font-bold">SSH (Network)</span>
                         </button>
+                        <button
+                            onClick={() => setMode('test')}
+                            className={`flex-1 py-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${mode === 'test' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:bg-slate-700'}`}
+                        >
+                            <RefreshCw size={24} />
+                            <span className="font-bold">Simulate</span>
+                        </button>
                     </div>
 
                     {/* SDB Form */}
@@ -295,6 +311,16 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
                                     <input type="password" className="w-full bg-slate-800 text-slate-200 p-2 rounded border border-slate-700 focus:border-indigo-500 focus:outline-none" value={sshPassword} onChange={e => setSshPassword(e.target.value)} placeholder="Optional" />
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Test Simulation Form */}
+                    {mode === 'test' && (
+                        <div className="p-4 bg-slate-800/50 rounded-xl border border-dashed border-slate-700 text-center">
+                            <h3 className="text-indigo-300 font-bold mb-2">Test Infinite Scroll</h3>
+                            <p className="text-xs text-slate-400 mb-4">
+                                Connects to the local server and generates 10 lines of simulated logs per second to test performance and auto-scroll behavior.
+                            </p>
                         </div>
                     )}
 

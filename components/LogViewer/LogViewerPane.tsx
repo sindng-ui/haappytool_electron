@@ -510,6 +510,13 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         }
     }, [workerReady]); // Intentionally on mount/ready only. Rely on key change for re-mounts in Raw Mode.
 
+    // Auto-scroll State
+    // We rely on Virtuoso's 'followOutput' and 'atBottomStateChange' for "Smart" auto-scrolling
+    // When the user is at the bottom, followOutput="auto" keeps them there.
+    // When they scroll up, 'atBottom' becomes false, and followOutput turns off.
+
+    const scrollerRef = useRef<HTMLElement | null>(null);
+
     return (
         <div
             ref={containerRef}
@@ -523,6 +530,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 }
                 border-r border-slate-200 dark:border-white/5 last:border-r-0
             `}
+            // REMOVED: style={{ overflowAnchor: 'none' }} - We want native anchoring behavior!
             onDragEnter={handleDrag} onDragOver={handleDrag} onDragLeave={handleDrag} onDrop={handleDropEvent}
             onKeyDown={handleKeyDown}
         >
@@ -575,32 +583,42 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                     <>
                         <Virtuoso
                             ref={virtuosoRef}
+                            scrollerRef={(ref) => {
+                                if (ref instanceof HTMLElement) {
+                                    scrollerRef.current = ref;
+                                    // NO overflowAnchor manipulation here either! Leave it 'auto'.
+                                }
+                            }}
                             totalCount={totalMatches}
-                            overscan={OVERSCAN * ROW_HEIGHT}
+                            overscan={OVERSCAN * ROW_HEIGHT} // Pixel based overscan
                             itemContent={itemContent}
-                            atBottomThreshold={50}
-                            followOutput={'auto'}
+
+                            // SMART AUTO SCROLL CONFIGURATION
+                            atBottomThreshold={50} // 50px tolerance for "stickiness"
+                            // If user is at bottom, followOutput="auto" (stick)
+                            // If user scrolls up, followOutput=false (stop sticking)
+                            followOutput={atBottom ? 'auto' : false}
+
                             atBottomStateChange={(isAtBottom) => {
+                                // Virtuoso tells us when user enters/leaves bottom zone
                                 setAtBottom(isAtBottom);
                             }}
+
                             rangeChanged={({ startIndex, endIndex }) => {
                                 loadMoreItems(startIndex, endIndex);
                             }}
                             onScroll={(e) => {
                                 const top = (e.currentTarget as HTMLElement).scrollTop;
-                                // const delta = top - prevScrollTopRef.current;
-                                prevScrollTopRef.current = top;
                                 scrollTopRef.current = top;
 
-                                if (ignoreSyncRef.current) {
-                                    ignoreSyncRef.current = false;
-                                    return;
+                                // Helper specifically for Sync Scrolling feature
+                                if (onSyncScroll && shiftPressedRef.current) {
+                                    if (ignoreSyncRef.current) {
+                                        ignoreSyncRef.current = false;
+                                        return;
+                                    }
+                                    onSyncScroll(top);
                                 }
-
-                                // Pass absolute position for robust sync, ONLY if Shift is pressed
-                                if (onSyncScroll && shiftPressedRef.current) onSyncScroll(top);
-
-
                             }}
                             style={{ height: '100%' }}
                             className="custom-scrollbar"

@@ -543,6 +543,7 @@ export const useLogExtractorLogic = ({
         if (tizenBuffer.current.length === 0) return;
         const combined = tizenBuffer.current.join('');
         tizenBuffer.current = [];
+        // console.log(`[useLog] Flushing ${combined.length} bytes to worker`);
         leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: combined });
     }, []);
 
@@ -572,6 +573,12 @@ export const useLogExtractorLogic = ({
 
         socket.on('log_data', (data: any) => {
             const chunk = typeof data === 'string' ? data : (data.chunk || data.log || JSON.stringify(data));
+            console.log('[useLogExtractorLogic] Received chunk:', chunk.substring(0, 50));
+            // Only show toast for the first chunk to avoid spam
+            if (!hasEverConnected) {
+                showToast('Receiving data stream...', 'success');
+            }
+
             tizenBuffer.current.push(chunk);
 
             // "Better Way" (Adaptive):
@@ -624,16 +631,19 @@ export const useLogExtractorLogic = ({
         socket.on('ssh_status', handleLogicalDisconnect);
     }, []);
 
-    // Auto-scroll effect for Tizen
+    // Auto-scroll effect is now handled by LogViewerPane's smart followOutput prop.
+    // We do NOT need to manually specific scrollTo calls here which override user scroll.
+
+    /* REMOVED: conflicting manual scroll logic
     useEffect(() => {
         if (tizenSocket && leftFilteredCount > 0 && shouldAutoScroll.current) {
-            // Scroll to bottom
             if (leftViewerRef.current) {
-                const totalHeight = leftFilteredCount * 24; // ROW_HEIGHT
+                const totalHeight = leftFilteredCount * 24; 
                 leftViewerRef.current.scrollTo(totalHeight);
             }
         }
-    }, [leftFilteredCount, tizenSocket]);
+    }, [leftFilteredCount, tizenSocket]); 
+    */
 
     const sendTizenCommand = useCallback((cmd: string) => {
         if (tizenSocket) {

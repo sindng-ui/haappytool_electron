@@ -68,7 +68,7 @@ app.get('/test-package.rpm', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:5173", "http://localhost:3001"], // Allow both Dev and Prod(Self)
+        origin: "*", // Allow all origins for local tool flexibility
         methods: ["GET", "POST"]
     }
 });
@@ -89,6 +89,44 @@ function logDebug(msg) {
 
 io.on('connection', (socket) => {
     console.log('Client connected');
+
+    // --- SCROLL TEST STREAM ---
+    let scrollInterval = null;
+
+    socket.on('start_scroll_stream', () => {
+        if (scrollInterval) clearInterval(scrollInterval);
+        let counter = 0;
+        scrollInterval = setInterval(() => {
+            // Generate multiple lines to simulate burst
+            const lines = [];
+            for (let i = 0; i < 5; i++) {
+                lines.push(`[TEST_LOG_${counter++}] ${new Date().toISOString()} - Simulated log line for testing auto-scroll behavior. Data packet #${counter}`);
+            }
+            socket.emit('log_data', lines.join('\n') + '\n');
+        }, 100); // 100ms interval => 50 lines/sec
+    });
+
+    socket.on('toggle_scroll_stream', (active) => {
+        if (!active && scrollInterval) {
+            clearInterval(scrollInterval);
+            scrollInterval = null;
+        } else if (active && !scrollInterval) {
+            let counter = 0;
+            scrollInterval = setInterval(() => {
+                const lines = [];
+                for (let i = 0; i < 5; i++) {
+                    lines.push(`[TEST_LOG_${counter++}] ${new Date().toISOString()} - Simulated log line for testing auto-scroll behavior. Data packet #${counter}`);
+                }
+                socket.emit('log_data', lines.join('\n') + '\n');
+            }, 100);
+        }
+    });
+
+    // Clean up on disconnect
+    socket.on('disconnect', () => {
+        if (scrollInterval) clearInterval(scrollInterval);
+    });
+    // --------------------------
 
     // SSH Auth Flow State
     let sshAuthFinish = null;
@@ -442,7 +480,7 @@ app.get(/(.*)/, (req, res) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
-const PORT = 3001;
+const PORT = 3002;
 
 function startServer() {
     return new Promise((resolve, reject) => {
