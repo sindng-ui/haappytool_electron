@@ -5,18 +5,18 @@ export interface AppState {
     value: any;
 }
 
-export class HappyToolDB extends Dexie {
+export class UFToolDB extends Dexie {
     appState!: Table<AppState>;
 
     constructor() {
-        super('HappyToolDB');
+        super('UFToolDB');
         this.version(1).stores({
             appState: 'key' // Primary key is 'key'
         });
     }
 }
 
-export const db = new HappyToolDB();
+export const db = new UFToolDB();
 
 // Helper functions to mimic localStorage interface but async
 export const getStoredValue = async (key: string, defaultValue: any = null) => {

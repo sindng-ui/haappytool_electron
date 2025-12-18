@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
 import { ToolId } from '../types';
 
-const { FileText, Send, Braces, Archive, Smile, GripVertical, Settings, Smartphone, Pickaxe } = Lucide;
+const { FileText, Send, Braces, Archive, Smile, GripVertical, Settings, Smartphone, Pickaxe, Activity, Zap } = Lucide;
 
 interface SidebarProps {
   activeTool: ToolId;
@@ -73,17 +73,20 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
           <div className={`transition-all duration-300 ${isExpanded ? 'scale-100' : 'scale-90'}`}>
             {isExpanded ? (
               <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-indigo-500 blur-lg opacity-40"></div>
-                  <Smile className="w-8 h-8 text-indigo-400 relative z-10" strokeWidth={2.5} />
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 relative z-10 group-hover:scale-105 transition-transform duration-300">
+                  <span className="text-white font-black text-lg">U</span>
                 </div>
                 <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-indigo-200 via-indigo-100 to-white bg-clip-text text-transparent">
-                  HappyTool
+                  UFTool
                 </span>
               </div>
             ) : (
-              <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-2.5 rounded-xl shadow-lg shadow-indigo-500/30 ring-1 ring-white/10 group-hover:scale-110 transition-transform">
-                <Smile className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 animate-gradient-xy flex items-center justify-center shadow-lg shadow-indigo-500/30 ring-1 ring-white/20 group-hover:scale-110 transition-transform cursor-pointer relative overflow-hidden">
+                {/* Shine Effect */}
+                <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full group-hover:animate-[shimmer_1s_infinite]"></div>
+
+                {/* Dynamic Icon */}
+                <Activity className="text-white w-6 h-6 animate-pulse-fast drop-shadow-md" strokeWidth={3} />
               </div>
             )}
           </div>
