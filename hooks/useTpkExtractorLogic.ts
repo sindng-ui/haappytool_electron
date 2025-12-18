@@ -171,122 +171,147 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
         setStatus('PROCESSING');
         setProgressStep(0);
         setLogs([]);
-        addLog(`Accessing URL: ${targetUrl}`);
+        addLog(`Step 1: Accessing User URL: ${targetUrl}`);
 
-        try {
-            let htmlText = '';
-
-            // 1. Fetch HTML
+        // Helper to fetch text content (HTML)
+        const fetchHtmlContent = async (url: string) => {
             // @ts-ignore
             if (window.electronAPI && window.electronAPI.fetchUrl) {
-                addLog('Using Electron Native Fetch...');
                 // @ts-ignore
-                htmlText = await window.electronAPI.fetchUrl(targetUrl, 'text');
+                return await window.electronAPI.fetchUrl(url, 'text');
             } else {
-                const response = await fetch(targetUrl);
-                if (!response.ok) throw new Error(`Failed to access URL: ${response.status} ${response.statusText}`);
-                htmlText = await response.text();
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP Error ${response.status} at ${url}`);
+                return await response.text();
+            }
+        };
+
+        try {
+            // --- STEP 1: Parse User URL to find HQ URL ---
+            const html1 = await fetchHtmlContent(targetUrl);
+            const doc1 = new DOMParser().parseFromString(html1, 'text/html');
+
+            // Strategy: Find element containing "Artifact" text directly, then find next TABLE
+            const allElements = Array.from(doc1.body.querySelectorAll('*'));
+            let artifactIdx = -1;
+
+            for (let i = 0; i < allElements.length; i++) {
+                const el = allElements[i];
+                // Check direct text nodes to find the specific label element
+                const hasText = Array.from(el.childNodes).some(n => n.nodeType === Node.TEXT_NODE && n.textContent?.includes('Artifact'));
+                if (hasText) {
+                    artifactIdx = i;
+                    break;
+                }
             }
 
-            // 2. Parse HTML
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlText, 'text/html');
-            const links = Array.from(doc.querySelectorAll('a'));
+            if (artifactIdx === -1) {
+                // Fallback: Check textContent if simple include not found (less precise)
+                artifactIdx = allElements.findIndex(el => el.textContent?.includes('Artifact'));
+                if (artifactIdx === -1) throw new Error("'Artifact' keyword not found on the page.");
+            }
+
+            let table: HTMLTableElement | null = null;
+            for (let i = artifactIdx + 1; i < allElements.length; i++) {
+                if (allElements[i].tagName === 'TABLE') {
+                    table = allElements[i] as HTMLTableElement;
+                    break;
+                }
+            }
+
+            if (!table) throw new Error("No table found after 'Artifact' keyword.");
+
+            // Find 'HQ URL' column
+            // Assuming the first row is the header (standard)
+            const headerRow = table.rows[0];
+            if (!headerRow) throw new Error("Target table has no rows.");
+
+            let hqColIndex = -1;
+            for (let i = 0; i < headerRow.cells.length; i++) {
+                if (headerRow.cells[i].textContent?.trim() === 'HQ URL') {
+                    hqColIndex = i;
+                    break;
+                }
+            }
+
+            if (hqColIndex === -1) throw new Error("'HQ URL' column not found in the table.");
+
+            // Get the URL from the first data row (row 1)
+            if (table.rows.length < 2) throw new Error("No data rows in the table.");
+            const targetCell = table.rows[1].cells[hqColIndex];
+
+            // Extract URL from <a> or text
+            const anchor = targetCell.querySelector('a');
+            let hqUrl = anchor ? anchor.getAttribute('href') : targetCell.textContent?.trim();
+
+            if (!hqUrl) throw new Error("No URL found in the 'HQ URL' cell.");
+
+            // Resolve relative URLs
+            hqUrl = new URL(hqUrl, targetUrl).href;
+            addLog(`[STEP 1 SUCCESS] Found HQ URL from Table: ${hqUrl}`);
+
+            // --- STEP 2: Append Path and Find RPM ---
+            // "repos/product/armv7l/packages/armv7l/"
+            const suffix = 'repos/product/armv7l/packages/armv7l/';
+            const repoUrl = hqUrl.endsWith('/') ? hqUrl + suffix : hqUrl + '/' + suffix;
+
+            addLog(`[STEP 2 OPEN] Accessing Repo URL...`);
+            addLog(`> Target: ${repoUrl}`);
+
+            const html2 = await fetchHtmlContent(repoUrl);
+            const doc2 = new DOMParser().parseFromString(html2, 'text/html');
+            const anchors = Array.from(doc2.querySelectorAll('a'));
 
             // Find first .rpm link
-            const rpmLink = links.find(a => {
-                const href = a.getAttribute('href');
-                return href && href.trim().endsWith('.rpm');
-            });
+            const rpmLink = anchors.find(a => a.href && a.href.trim().endsWith('.rpm'));
+            if (!rpmLink) throw new Error("No .rpm file found in the repo listing.");
 
-            if (!rpmLink) {
-                throw new Error('No .rpm link found on the page.');
-            }
+            // Resolve RPM URL (href property of anchor is already absolute in browser DOM, but getAttribute might be relative)
+            // But DOMParser doc anchors might have empty origin if parsed from string.
+            // Safest to use getAttribute and new URL(..., repoUrl)
+            const rpmRawHref = rpmLink.getAttribute('href')!;
+            const finalRpmUrl = new URL(rpmRawHref, repoUrl).href;
 
-            // Get the raw href value (which is expected to be the filename)
-            const rawHref = rpmLink.getAttribute('href')!.trim();
-            // Just the filename part in case it's a path, but User request says "extract name" implies simple concat
-            // But to be safe properly, and as user example "~~~~.rpm", we assume it's relative.
-            const rpmFilename = rawHref;
+            const rpmName = finalRpmUrl.split('/').pop() || 'downloaded.rpm';
+            addLog(`[STEP 3 SUCCESS] Found RPM File: ${rpmName}`);
+            addLog(`> Final Download URL: ${finalRpmUrl}`);
 
-            addLog(`Found RPM link: ${rpmFilename}`);
-
-            // Construct full URL manually: UserURL + Filename
-            // As per user request: "유저가 입력한 url + ~~~~.rpm 형태로 최종 url이 완성된다." (User URL + RPM Name)
-            // We ensure exactly one slash separator if User URL doesn't have one
-            let rpmUrl = '';
-            // Remove trailing slash from targetUrl if present to normalize
-            const baseUrl = targetUrl.endsWith('/') ? targetUrl.slice(0, -1) : targetUrl;
-            // Remove leading slash from filename if present
-            const cleanFilename = rpmFilename.startsWith('/') ? rpmFilename.slice(1) : rpmFilename;
-
-            rpmUrl = `${baseUrl}/${cleanFilename}`;
-
-            const rpmName = rpmFilename.split('/').pop() || 'downloaded.rpm';
-            addLog(`Target RPM URL: ${rpmUrl}`);
-            addLog(`Downloading from: ${rpmUrl}`);
-
-            // 3. Download RPM
+            // --- STEP 3: Download ---
+            addLog(`Downloading RPM...`);
             let file: File;
 
             // @ts-ignore
             if (window.electronAPI && window.electronAPI.fetchUrl) {
                 // @ts-ignore
-                const buffer = await window.electronAPI.fetchUrl(rpmUrl, 'buffer');
-                // Buffer is returned as Uint8Array (Node Buffer -> Uint8Array in IPC)? 
-                // Buffer from preload is likely Uint8Array in renderer.
-
-                // Note: The IPC handler returns Buffer.from(arrayBuffer). 
-                // In Electron, Buffer is often passed as Uint8Array across context bridge if not explictly optimized?
-                // Actually, let's assume it works as Blob/ArrayBuffer compatible.
+                const buffer = await window.electronAPI.fetchUrl(finalRpmUrl, 'buffer');
                 file = new File([buffer], rpmName, { type: 'application/x-rpm' });
             } else {
-                const rpmRes = await fetch(rpmUrl);
-                if (!rpmRes.ok) throw new Error(`Failed to download RPM: ${rpmRes.status}`);
+                const rpmRes = await fetch(finalRpmUrl);
+                if (!rpmRes.ok) throw new Error(`Download failed: ${rpmRes.status}`);
                 const blob = await rpmRes.blob();
                 file = new File([blob], rpmName, { type: 'application/x-rpm' });
             }
 
             addLog('Download complete. Starting extraction...');
-
-            // 4. Process
             await processFile(file);
 
         } catch (err: any) {
             console.error(err);
             setStatus('ERROR');
-
-            // --- Verbose Debugging for "Failed to fetch" ---
             let errorMsg = err.message;
+
             if (err.message === 'Failed to fetch') {
-                errorMsg += ' (서버 연결 실패 또는 CORS 문제)';
+                errorMsg += ' (CORS/Network Error)';
                 addLog(`Error: ${errorMsg}`);
-
-                // Diagnostic Checks
-                addLog(`[진단] 네트워크 상태: ${navigator.onLine ? '온라인' : '오프라인'}`);
-                addLog(`[진단] 내부 서버(Port 3001) 접근 시도 중...`);
+                // Basic diagnostic
                 try {
-                    // Attempt to ping the server root to see if it's alive (standard fetch)
-                    // Using no-cors just to check connectivity (status might be opaque but if it throws it's down)
-                    await fetch('http://localhost:3001', { mode: 'no-cors' });
-                    addLog(`[진단] 내부 서버 연결 확인됨 (응답 있음).`);
-                } catch (pingErr) {
-                    addLog(`[진단] 내부 서버 연결 실패. 서버가 꺼져있을 수 있습니다.`);
+                    await fetch('http://127.0.0.1:3002', { mode: 'no-cors' });
+                    addLog(`Diagnostic: Local Server reachable.`);
+                } catch {
+                    addLog(`Diagnostic: Local Server unreachable.`);
                 }
             } else {
                 addLog(`Error: ${errorMsg}`);
-            }
-
-            // Electron API Check
-            // @ts-ignore
-            if (!window.electronAPI) {
-                addLog('[진단] window.electronAPI가 감지되지 않음 (Preload 스크립트 로드 실패).');
-            } else {
-                // @ts-ignore
-                if (!window.electronAPI.fetchUrl) {
-                    addLog('[진단] electronAPI.fetchUrl 기능이 없음. 앱이 최신 코드로 재시작되지 않았습니다.');
-                    addLog('>>> 조치 필요: 앱을 완전히 껐다가 다시 실행해주세요 (npm run electron:dev 재실행). <<<');
-                }
             }
         }
     };

@@ -9,7 +9,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: '*' }));
 
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../dist')));
@@ -62,6 +62,70 @@ app.get('/test-package.rpm', (req, res) => {
     res.setHeader('Content-Type', 'application/x-rpm');
     res.setHeader('Content-Disposition', 'attachment; filename="test-package.rpm"');
     res.send(fullBody);
+});
+
+// --- Mock Step 1: Initial Page with Artifact Table ---
+app.get('/test-step1', (req, res) => {
+    // Current host url for absolute linking
+    const host = `http://127.0.0.1:${PORT}`;
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <body>
+        <h1>Build Info</h1>
+        <p>Some random text...</p>
+        <div>Artifact</div> <!-- Keyword found -->
+        <p>Below is the artifact table</p>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>HQ URL</th> <!-- Target Column -->
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <!-- The logic should find this URL -->
+                    <td><a href="${host}/test-step2">http://internal.repo/view/123</a></td> 
+                    <td>Success</td>
+                </tr>
+            </tbody>
+        </table>
+    </body>
+    </html>
+    `;
+    res.send(html);
+});
+
+// --- Mock Step 2: The Repo Directory ---
+// The user logic appends: /repos/product/armv7l/packages/armv7l/
+app.get('/test-step2/repos/product/armv7l/packages/armv7l/', (req, res) => {
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <body>
+        <h1>Index of /packages/armv7l</h1>
+        <ul>
+            <li><a href="../">Parent Directory</a></li>
+            <!-- The logic should find this .rpm file -->
+            <li><a href="test-package.rpm">mock-target-app.rpm</a></li> 
+            <li><a href="other.txt">other.txt</a></li>
+        </ul>
+    </body>
+    </html>
+    `;
+    res.send(html);
+});
+
+// --- Mock Step 3: The RPM File itself (Relative link handling) ---
+// Since the browser/logic resolves relative to Step 2 URL, it will request:
+// /test-step2/repos/product/armv7l/packages/armv7l/test-package.rpm
+app.get('/test-step2/repos/product/armv7l/packages/armv7l/test-package.rpm', (req, res) => {
+    // Reuse the existing RPM generator logic by redirecting or just calling the handler
+    // For simplicity, redirect to the existing /test-package.rpm handler
+    res.redirect('/test-package.rpm');
 });
 // -------------------
 
@@ -484,8 +548,8 @@ const PORT = 3002;
 
 function startServer() {
     return new Promise((resolve, reject) => {
-        server.listen(PORT, '127.0.0.1', () => {
-            console.log(`Log Server running on port ${PORT} (Local Only)`);
+        server.listen(PORT, () => {
+            console.log(`Log Server running on port ${PORT}`);
             resolve(server);
         }).on('error', (err) => {
             if (err.code === 'EADDRINUSE') {
