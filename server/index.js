@@ -484,8 +484,8 @@ const PORT = 3002;
 
 function startServer() {
     return new Promise((resolve, reject) => {
-        server.listen(PORT, () => {
-            console.log(`Log Server running on port ${PORT}`);
+        server.listen(PORT, '127.0.0.1', () => {
+            console.log(`Log Server running on port ${PORT} (Local Only)`);
             resolve(server);
         }).on('error', (err) => {
             if (err.code === 'EADDRINUSE') {
