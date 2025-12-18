@@ -9,7 +9,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const app = express();
-app.use(cors({ origin: '*' }));
+app.use(cors());
 
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../dist')));
@@ -548,8 +548,8 @@ const PORT = 3002;
 
 function startServer() {
     return new Promise((resolve, reject) => {
-        server.listen(PORT, () => {
-            console.log(`Log Server running on port ${PORT}`);
+        server.listen(PORT, '127.0.0.1', () => {
+            console.log(`Log Server running on port ${PORT} (Local Only)`);
             resolve(server);
         }).on('error', (err) => {
             if (err.code === 'EADDRINUSE') {
