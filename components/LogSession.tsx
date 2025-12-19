@@ -47,7 +47,13 @@ const RawContextViewer: React.FC<RawContextViewerProps> = ({
         <div className="absolute left-0 right-0 top-16 bottom-0 z-40 flex flex-col pointer-events-none">
             <div className="flex flex-col bg-slate-950 pointer-events-auto border-b-2 border-indigo-500 shadow-2xl" style={{ height: `${heightPercent}%` }}>
                 <div className="bg-indigo-950/80 px-4 py-1 flex justify-between items-center border-b border-indigo-500/30 backdrop-blur">
-                    <span className="text-xs font-bold text-indigo-300">Raw View ({sourcePane === 'left' ? leftFileName : rightFileName}) - Line {targetLine.lineNum}</span>
+                    <span className="text-xs font-bold text-indigo-300">
+                        Raw View ({sourcePane === 'left' ? leftFileName : rightFileName})
+                        <span className="mx-2 opacity-50">|</span>
+                        Original Line: <span className="text-white">{targetLine.lineNum}</span>
+                        <span className="mx-2 opacity-50">|</span>
+                        Filtered Row: <span className="text-yellow-400">#{(targetLine as any).formattedLineIndex ?? '?'}</span>
+                    </span>
                     <button onClick={onClose} className="text-indigo-400 hover:text-white"><X size={14} /></button>
                 </div>
                 <LogViewerPane

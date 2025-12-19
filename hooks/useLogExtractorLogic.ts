@@ -1105,16 +1105,24 @@ export const useLogExtractorLogic = ({
     }, [collapsedRoots]);
 
     const handleLineDoubleClickAction = useCallback(async (index: number, paneId: 'left' | 'right' = 'left') => {
+        console.log(`[Double Click Debug] Clicked Index (Filtered Global): ${index}`);
+
         const requestLines = paneId === 'left' ? requestLeftLines : requestRightLines;
+        const currentSegmentIndex = paneId === 'left' ? leftSegmentIndex : rightSegmentIndex;
+
         // Index is Global. requestLines expects Relative Index (because it adds offset itself).
         // Apply segment adjustment for both panes.
         const relativeIndex = index % MAX_SEGMENT_SIZE;
+        console.log(`[Double Click Debug] Relative Index: ${relativeIndex}, Current Segment: ${currentSegmentIndex}`);
 
         const lines = await requestLines(relativeIndex, 1);
         if (lines && lines.length > 0) {
-            setRawContextTargetLine(lines[0]);
+            console.log(`[Double Click Debug] Worker Returned Original Line Num: ${lines[0].lineNum}`);
+            setRawContextTargetLine({ ...lines[0], formattedLineIndex: index + 1 } as any);
             setRawContextSourcePane(paneId);
             setRawContextOpen(true);
+        } else {
+            console.warn(`[Double Click Debug] Worker returned NO lines for index ${relativeIndex}`);
         }
     }, [requestLeftLines, requestRightLines, leftSegmentIndex, rightSegmentIndex]);
 

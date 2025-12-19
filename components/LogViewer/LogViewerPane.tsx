@@ -508,7 +508,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 }, 50);
             }
         }
-    }, [workerReady]); // Intentionally on mount/ready only. Rely on key change for re-mounts in Raw Mode.
+    }, [workerReady, initialScrollIndex, absoluteOffset]);
 
     // Auto-scroll State
     // We rely on Virtuoso's 'followOutput' and 'atBottomStateChange' for "Smart" auto-scrolling
@@ -592,12 +592,14 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             totalCount={totalMatches}
                             overscan={OVERSCAN * ROW_HEIGHT} // Pixel based overscan
                             itemContent={itemContent}
+                            initialTopMostItemIndex={initialScrollIndex !== undefined ? Math.max(0, initialScrollIndex - absoluteOffset - 5) : undefined}
 
                             // SMART AUTO SCROLL CONFIGURATION
                             atBottomThreshold={50} // 50px tolerance for "stickiness"
                             // If user is at bottom, followOutput="auto" (stick)
                             // If user scrolls up, followOutput=false (stop sticking)
-                            followOutput={atBottom ? 'auto' : false}
+                            // Disable auto-scroll in Raw Mode to prevent jumping
+                            followOutput={(!isRawMode && atBottom) ? 'auto' : false}
 
                             atBottomStateChange={(isAtBottom) => {
                                 // Virtuoso tells us when user enters/leaves bottom zone
