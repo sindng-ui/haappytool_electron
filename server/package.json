@@ -1,7 +1,7 @@
 {
-    "name": "uftool-server",
+    "name": "happytool-server",
     "version": "1.0.0",
-    "description": "Local server for UFTool Tizen connectivity",
+    "description": "Local server for HappyTool Tizen connectivity",
     "type": "commonjs",
     "main": "index.js",
     "scripts": {

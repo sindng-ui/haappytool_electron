@@ -1,5 +1,5 @@
 {
-  "name": "uftool",
+  "name": "happytool",
   "private": true,
   "version": "0.7.0",
   "type": "module",
@@ -55,8 +55,8 @@
     "wait-on": "^9.0.3"
   },
   "build": {
-    "appId": "com.sindng.uftool",
-    "productName": "UFTool",
+    "appId": "com.sindng.happytool",
+    "productName": "HappyTool",
     "directories": {
       "output": "dist_electron"
     },

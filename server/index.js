@@ -413,7 +413,7 @@ io.on('connection', (socket) => {
                 logDebug(`SDB Process Error: ${err.code} - ${err.message}`);
                 if (err.code === 'ENOENT') {
                     socket.emit('sdb_error', {
-                        message: 'SDB command not found.\n\nPlease:\n1. Install Tizen Studio\n2. Add sdb to your system PATH\n3. Restart UFTool'
+                        message: 'SDB command not found.\n\nPlease:\n1. Install Tizen Studio\n2. Add sdb to your system PATH\n3. Restart HappyTool'
                     });
                 } else {
                     socket.emit('sdb_error', { message: `SDB error: ${err.message}` });

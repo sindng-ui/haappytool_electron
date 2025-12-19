@@ -176,10 +176,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         {activeTab === 'about' && (
                             <div className="text-center space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform py-10">
                                 <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2rem] mx-auto shadow-2xl shadow-indigo-500/20 flex items-center justify-center transform rotate-3 hover:rotate-0 transition-transform duration-500">
-                                    <span className="text-5xl font-black text-white">U</span>
+                                    <span className="text-5xl font-black text-white">H</span>
                                 </div>
                                 <div>
-                                    <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 animate-gradient-x">UFTool</h1>
+                                    <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 animate-gradient-x">HappyTool</h1>
                                     <p className="text-slate-500 dark:text-slate-400 font-mono mt-2 text-sm bg-slate-100 dark:bg-slate-800/50 inline-block px-3 py-1 rounded-full border border-slate-200 dark:border-white/5">v{__APP_VERSION__} (Beta)</p>
                                 </div>
                                 <div className="p-8 bg-white dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-white/5 text-sm leading-relaxed max-w-sm mx-auto shadow-xl backdrop-blur-sm">
@@ -201,7 +201,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl mx-auto shadow-xl shadow-indigo-500/20 flex items-center justify-center mb-4 icon-glow">
                                         <BookOpen size={32} className="text-white" />
                                     </div>
-                                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">UFTool 사용 가이드</h3>
+                                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">HappyTool 사용 가이드</h3>
                                     <p className="text-slate-600 dark:text-slate-400">모든 기능을 자세히 알아보세요</p>
                                 </div>
 
