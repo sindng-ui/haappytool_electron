@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
 import { ToolId } from '../types';
 
-const { FileText, Send, Braces, Archive, Smile, GripVertical, Settings, Smartphone, Pickaxe, Activity, Zap } = Lucide;
+const { FileText, Send, Braces, Archive, Smile, GripVertical, Settings, Smartphone, Pickaxe, Activity, Zap, Atom } = Lucide;
 
 interface SidebarProps {
   activeTool: ToolId;

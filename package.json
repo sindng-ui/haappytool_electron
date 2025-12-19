@@ -60,6 +60,7 @@
     "directories": {
       "output": "dist_electron"
     },
+    "icon": "build/icon.png",
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -67,7 +68,8 @@
       "USER_GUIDE.md"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.png"
     },
     "nsis": {
       "oneClick": false,
