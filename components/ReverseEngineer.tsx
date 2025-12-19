@@ -34,11 +34,23 @@ const ReverseEngineer: React.FC = () => {
     const [processedLines, setProcessedLines] = useState(0);
     const [totalLines, setTotalLines] = useState(0);
 
+    const dragCounter = useRef(0);
+
     const handleDrag = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
-        else if (e.type === 'dragleave') setDragActive(false);
+
+        if (e.type === 'dragenter') {
+            dragCounter.current += 1;
+            setDragActive(true);
+        } else if (e.type === 'dragleave') {
+            dragCounter.current -= 1;
+            if (dragCounter.current === 0) {
+                setDragActive(false);
+            }
+        } else if (e.type === 'dragover') {
+            // Necessary to allow dropping
+        }
     }, []);
 
     const parseLogFile = async (file: File) => {
@@ -194,15 +206,23 @@ const ReverseEngineer: React.FC = () => {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(false);
+        dragCounter.current = 0;
+
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             parseLogFile(e.dataTransfer.files[0]);
         }
     }, []);
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 transition-colors duration-300">
+        <div
+            className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 transition-colors duration-300 relative"
+            onDragEnter={handleDrag}
+            onDragOver={handleDrag}
+            onDragLeave={handleDrag}
+            onDrop={handleDrop}
+        >
             {/* Header */}
-            <div className="h-14 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center px-6 justify-between shrink-0">
+            <div className="h-14 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center px-6 justify-between shrink-0 z-10 relative">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-indigo-500/10 rounded-lg">
                         <Smartphone className="text-indigo-500" size={20} />
@@ -225,21 +245,23 @@ const ReverseEngineer: React.FC = () => {
                 )}
             </div>
 
+            {/* Drag Overlay */}
+            {dragActive && (
+                <div className="absolute inset-0 z-50 bg-indigo-500/10 backdrop-blur-sm flex items-center justify-center border-4 border-indigo-500 border-dashed m-4 rounded-3xl pointer-events-none">
+                    <div className="flex flex-col items-center gap-4 bg-slate-900/80 p-8 rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <Upload size={48} className="text-indigo-400 animate-bounce" />
+                        <span className="text-xl font-bold text-white">Release to analyze log</span>
+                    </div>
+                </div>
+            )}
+
             {/* Content */}
-            <div className="flex-1 overflow-hidden relative">
+            <div className="flex-1 overflow-hidden relative z-0">
                 {status === 'IDLE' && (
-                    <div className="absolute inset-0 flex items-center justify-center text-slate-400 pointer-events-none">
+                    <div className="absolute inset-0 flex items-center justify-center text-slate-400">
                         <div
-                            className={`group flex flex-col items-center gap-4 p-12 rounded-3xl border-2 border-dashed border-slate-700/50 bg-slate-900/20 transition-all duration-300 hover:bg-slate-800/40 hover:border-indigo-500/50 hover:scale-[1.02] cursor-pointer pointer-events-auto
-                                ${dragActive
-                                    ? 'bg-indigo-500/10 ring-4 ring-inset ring-indigo-500/50 border-indigo-500'
-                                    : ''
-                                }
+                            className={`group flex flex-col items-center gap-4 p-12 rounded-3xl border-2 border-dashed border-slate-700/50 bg-slate-900/20 transition-all duration-300 hover:bg-slate-800/40 hover:border-indigo-500/50 hover:scale-[1.02] cursor-pointer
                             `}
-                            onDragEnter={handleDrag}
-                            onDragOver={handleDrag}
-                            onDragLeave={handleDrag}
-                            onDrop={handleDrop}
                             onClick={() => {
                                 const input = document.createElement('input');
                                 input.type = 'file';
@@ -255,10 +277,10 @@ const ReverseEngineer: React.FC = () => {
                             </div>
                             <div className="text-center space-y-1">
                                 <span className="text-sm font-bold text-slate-300 group-hover:text-indigo-200 transition-colors block">
-                                    Drop a log file here
+                                    Click to browse log file
                                 </span>
                                 <span className="text-xs text-slate-500 group-hover:text-indigo-400/70 transition-colors block">
-                                    or click to browse
+                                    or drag and drop anywhere
                                 </span>
                             </div>
                         </div>
