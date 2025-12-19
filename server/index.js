@@ -74,7 +74,7 @@ app.get('/test-step1', (req, res) => {
     <body>
         <h1>Build Info</h1>
         <p>Some random text...</p>
-        <div>Artifact</div> <!-- Keyword found -->
+        <div>Artifacts</div> <!-- Keyword found -->
         <p>Below is the artifact table</p>
         <table border="1">
             <thead>

@@ -198,7 +198,7 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
             for (let i = 0; i < allElements.length; i++) {
                 const el = allElements[i];
                 // Check direct text nodes to find the specific label element
-                const hasText = Array.from(el.childNodes).some(n => n.nodeType === Node.TEXT_NODE && n.textContent?.includes('Artifact'));
+                const hasText = Array.from(el.childNodes).some(n => n.nodeType === Node.TEXT_NODE && n.textContent?.includes('Artifacts'));
                 if (hasText) {
                     artifactIdx = i;
                     break;
@@ -207,8 +207,8 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
 
             if (artifactIdx === -1) {
                 // Fallback: Check textContent if simple include not found (less precise)
-                artifactIdx = allElements.findIndex(el => el.textContent?.includes('Artifact'));
-                if (artifactIdx === -1) throw new Error("'Artifact' keyword not found on the page.");
+                artifactIdx = allElements.findIndex(el => el.textContent?.includes('Artifacts'));
+                if (artifactIdx === -1) throw new Error("'Artifacts' keyword not found on the page.");
             }
 
             let table: HTMLTableElement | null = null;
@@ -219,7 +219,7 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
                 }
             }
 
-            if (!table) throw new Error("No table found after 'Artifact' keyword.");
+            if (!table) throw new Error("No table found after 'Artifacts' keyword.");
 
             // Find 'HQ URL' column
             // Assuming the first row is the header (standard)
