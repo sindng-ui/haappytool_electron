@@ -581,9 +581,9 @@ export const useLogExtractorLogic = ({
             const chunk = typeof data === 'string' ? data : (data.chunk || data.log || JSON.stringify(data));
             console.log('[useLogExtractorLogic] Received chunk:', chunk.substring(0, 50));
             // Only show toast for the first chunk to avoid spam
-            if (!hasEverConnected) {
-                showToast('Receiving data stream...', 'success');
-            }
+            // if (!hasEverConnected) {
+            //     showToast('Receiving data stream...', 'success');
+            // }
 
             tizenBuffer.current.push(chunk);
 
