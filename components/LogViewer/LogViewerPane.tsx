@@ -551,7 +551,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             </span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover/toolbar:opacity-100 transition-opacity duration-200">
+                    <div className="flex items-center gap-1 transition-opacity duration-200">
                         {workerReady && !isRawMode && onShowBookmarks && (
                             <button onClick={onShowBookmarks} className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors" title="View Bookmarks">
                                 <Bookmark size={14} fill={bookmarks.size > 0 ? "currentColor" : "none"} />
