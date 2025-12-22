@@ -1,31 +1,23 @@
 import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
-import { ToolId } from '../types';
+import { HappyPlugin } from '../plugins/types';
 
-const { FileText, Send, Braces, Archive, Smile, GripVertical, Settings, Smartphone, Pickaxe, Activity, Zap, Atom } = Lucide;
+const { GripVertical, Settings, Activity } = Lucide;
 
 interface SidebarProps {
-  activeTool: ToolId;
-  onSelectTool: (id: ToolId) => void;
-  toolOrder: ToolId[];
-  onReorderTools: (order: ToolId[]) => void;
+  activePluginId: string;
+  onSelectPlugin: (id: string) => void;
+  pluginOrder: string[];
+  onReorderPlugins: (order: string[]) => void;
   onOpenSettings: () => void;
+  plugins: HappyPlugin[];
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, onReorderTools, onOpenSettings }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, pluginOrder, onReorderPlugins, onOpenSettings, plugins }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [draggedItem, setDraggedItem] = useState<ToolId | null>(null);
+  const [draggedItem, setDraggedItem] = useState<string | null>(null);
 
-  const toolDefinitions = {
-    [ToolId.LOG_EXTRACTOR]: { label: 'Log Extractor', icon: FileText },
-    [ToolId.POST_TOOL]: { label: 'Post Tool', icon: Send },
-    [ToolId.JSON_TOOLS]: { label: 'JSON Tools', icon: Braces },
-    [ToolId.TPK_EXTRACTOR]: { label: 'Tpk Extractor', icon: Archive },
-    [ToolId.SMARTTHINGS_DEVICES]: { label: 'SmartThings Devices', icon: Smartphone },
-    [ToolId.REVERSE_ENGINEER]: { label: 'Reverse Engineer', icon: Pickaxe },
-  };
-
-  const handleDragStart = (e: React.DragEvent, id: ToolId) => {
+  const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedItem(id);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -33,19 +25,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
   const handleDragEnd = () => setDraggedItem(null);
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
 
-  const handleDragEnter = (e: React.DragEvent, targetId: ToolId) => {
+  const handleDragEnter = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
     if (!draggedItem || draggedItem === targetId) return;
 
-    const currentIndex = toolOrder.indexOf(draggedItem);
-    const targetIndex = toolOrder.indexOf(targetId);
+    const currentIndex = pluginOrder.indexOf(draggedItem);
+    const targetIndex = pluginOrder.indexOf(targetId);
 
     if (currentIndex === -1 || targetIndex === -1) return;
 
-    const newOrder = [...toolOrder];
+    const newOrder = [...pluginOrder];
     newOrder.splice(currentIndex, 1);
     newOrder.splice(targetIndex, 0, draggedItem);
-    onReorderTools(newOrder);
+    onReorderPlugins(newOrder);
   };
 
   const handleBlur = (e: React.FocusEvent) => {
@@ -93,22 +85,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
         </div>
 
         <div className="flex-1 px-3 py-2 space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar">
-          {toolOrder.map((toolId) => {
-            const item = toolDefinitions[toolId];
-            if (!item) return null;
-            const Icon = item.icon;
-            const isActive = activeTool === toolId;
-            const isDragging = draggedItem === toolId;
+          {pluginOrder.map((pluginId) => {
+            const plugin = plugins.find(p => p.id === pluginId);
+            if (!plugin) return null;
+            const Icon = plugin.icon;
+            const isActive = activePluginId === pluginId;
+            const isDragging = draggedItem === pluginId;
 
             return (
               <button
-                key={toolId}
+                key={pluginId}
                 draggable="true"
-                onDragStart={(e) => handleDragStart(e, toolId)}
+                onDragStart={(e) => handleDragStart(e, pluginId)}
                 onDragEnd={handleDragEnd}
                 onDragOver={handleDragOver}
-                onDragEnter={(e) => handleDragEnter(e, toolId)}
-                onClick={() => onSelectTool(toolId)}
+                onDragEnter={(e) => handleDragEnter(e, pluginId)}
+                onClick={() => onSelectPlugin(pluginId)}
                 className={`w-full flex items-center h-12 px-3 rounded-xl transition-all duration-200 group relative cursor-pointer outline-none border border-transparent ${isActive
                   ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/20 border-indigo-400/20'
                   : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 active:scale-95'
@@ -125,11 +117,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool, toolOrder, 
                 </div>
                 <span className={`ml-3 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
                   }`}>
-                  {item.label}
+                  {plugin.name}
                 </span>
                 {!isExpanded && !isDragging && (
                   <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 border border-slate-700 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-50 shadow-xl">
-                    {item.label}
+                    {plugin.name}
                     <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900 rotate-45 border-l border-b border-slate-700"></div>
                   </div>
                 )}

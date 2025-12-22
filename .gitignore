@@ -23,3 +23,6 @@ npm-debug.log*
 # 환경 설정 및 시크릿 파일 (필요시)
 # --------------------
 .env
+
+# Antigravity
+.antigravityrules

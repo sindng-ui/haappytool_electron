@@ -496,19 +496,22 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         return () => container.removeEventListener('wheel', onWheel);
     }, [isShiftDown]);
 
-    // Handle Initial Scroll Request safely
+    // Handle Initial Scroll Request safely (Robust Fallback)
     useEffect(() => {
-        if (workerReady && initialScrollIndex !== undefined) {
+        if (workerReady && initialScrollIndex !== undefined && totalMatches > 0) {
             const relative = initialScrollIndex - absoluteOffset;
             if (relative >= 0 && relative < totalMatches) {
-                // Slight delay to allow Virtuoso to measure content
-                setTimeout(() => {
-                    const target = Math.max(0, relative - 5);
-                    virtuosoRef.current?.scrollToIndex({ index: target, align: 'start' });
-                }, 50);
+                // Use double-raf or raf+timeout to guarantee Virtuoso is ready
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        const target = Math.max(0, relative - 5);
+                        // console.log('[LogViewerPane] Executing initial scroll to:', target);
+                        virtuosoRef.current?.scrollToIndex({ index: target, align: 'start' });
+                    }, 100); // 100ms delay for safety in production
+                });
             }
         }
-    }, [workerReady, initialScrollIndex, absoluteOffset]);
+    }, [workerReady, initialScrollIndex, absoluteOffset, totalMatches]);
 
     // Auto-scroll State
     // We rely on Virtuoso's 'followOutput' and 'atBottomStateChange' for "Smart" auto-scrolling
@@ -589,10 +592,10 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                     // NO overflowAnchor manipulation here either! Leave it 'auto'.
                                 }
                             }}
-                            totalCount={totalMatches}
+                            totalCount={totalMatches || 0}
                             overscan={OVERSCAN * ROW_HEIGHT} // Pixel based overscan
                             itemContent={itemContent}
-                            initialTopMostItemIndex={initialScrollIndex !== undefined ? Math.max(0, initialScrollIndex - absoluteOffset - 5) : undefined}
+
 
                             // SMART AUTO SCROLL CONFIGURATION
                             atBottomThreshold={50} // 50px tolerance for "stickiness"

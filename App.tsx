@@ -9,9 +9,10 @@ import ReverseEngineer from './components/ReverseEngineer';
 import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable } from './types';
 import { mergeById } from './utils/settingsHelper';
 import { SettingsModal } from './components/SettingsModal';
+import { ALL_PLUGINS } from './plugins/registry';
 
 const App: React.FC = () => {
-  const [activeTool, setActiveTool] = useState<ToolId>(ToolId.LOG_EXTRACTOR);
+  const [activeTool, setActiveTool] = useState<string>(ToolId.LOG_EXTRACTOR);
 
   // App-wide state (Settings)
   const [logRules, setLogRules] = useState<LogRule[]>([
@@ -31,15 +32,10 @@ const App: React.FC = () => {
   const [postGlobalVariables, setPostGlobalVariables] = useState<PostGlobalVariable[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Tool Order State
-  const [toolOrder, setToolOrder] = useState<ToolId[]>([
-    ToolId.LOG_EXTRACTOR,
-    ToolId.POST_TOOL,
-    ToolId.JSON_TOOLS,
-    ToolId.TPK_EXTRACTOR,
-    ToolId.SMARTTHINGS_DEVICES,
-    ToolId.REVERSE_ENGINEER
-  ]);
+  // Tool Order State - now generic strings
+  const [toolOrder, setToolOrder] = useState<string[]>(
+    ALL_PLUGINS.sort((a, b) => (a.order || 99) - (b.order || 99)).map(p => p.id)
+  );
 
   // Load settings on mount
   useEffect(() => {
@@ -180,11 +176,12 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e293b] font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300">
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
-          activeTool={activeTool}
-          onSelectTool={setActiveTool}
-          toolOrder={toolOrder}
-          onReorderTools={setToolOrder}
+          activePluginId={activeTool}
+          onSelectPlugin={setActiveTool}
+          pluginOrder={toolOrder}
+          onReorderPlugins={setToolOrder}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          plugins={ALL_PLUGINS}
         />
 
         <main className="flex-1 overflow-hidden relative bg-slate-50 dark:bg-slate-950 min-h-0 transition-colors duration-300">

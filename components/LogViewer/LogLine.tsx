@@ -77,13 +77,4 @@ export const LogLine = React.memo(({ index, style, data, isActive, hasBookmark, 
             </div>
         </div>
     );
-}, (prev, next) => {
-    return prev.index === next.index &&
-        prev.style.top === next.style.top &&
-        prev.isActive === next.isActive &&
-        prev.hasBookmark === next.hasBookmark &&
-        prev.data === next.data &&
-        prev.isRawMode === next.isRawMode &&
-        prev.highlights === next.highlights &&
-        prev.highlightCaseSensitive === next.highlightCaseSensitive;
 });

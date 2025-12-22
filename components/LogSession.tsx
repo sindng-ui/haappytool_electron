@@ -501,7 +501,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     progress={leftIndexingProgress}
                                 />
                                 <LogViewerPane
-                                    key={`left-pane-${leftSegmentIndex}`} // Force remount on segment change to clear cache
+                                    key={`left-pane-${leftFileName || 'empty'}-${leftSegmentIndex}`} // Force remount on segment change to clear cache
                                     ref={leftViewerRef}
                                     workerReady={leftWorkerReady}
                                     totalMatches={leftCurrentSegmentLines} // Show limited segment count
@@ -572,7 +572,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     <div className="w-1 bg-slate-900 hover:bg-indigo-600 transition-colors cursor-col-resize z-30 shadow-xl"></div>
                                     <div className="flex-1 h-full min-w-0 flex flex-col">
                                         <LogViewerPane
-                                            key={`right-pane-${rightSegmentIndex}`}
+                                            key={`right-pane-${rightFileName || 'empty'}-${rightSegmentIndex}`}
                                             ref={rightViewerRef}
                                             workerReady={rightWorkerReady}
                                             totalMatches={rightCurrentSegmentLines}
