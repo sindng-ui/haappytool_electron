@@ -16,7 +16,8 @@ const TopBar: React.FC = () => {
         setIsTizenModalOpen,
         requestLeftLines, requestRightLines,
         leftFilteredCount, rightFilteredCount,
-        tizenSocket, handleTizenDisconnect, findText
+        tizenSocket, handleTizenDisconnect, findText,
+        searchInputRef
     } = useLogContext();
 
     const onSelectRule = setSelectedRuleId;
@@ -116,6 +117,7 @@ const TopBar: React.FC = () => {
                 <div className="flex items-center bg-slate-900 rounded-lg border border-slate-800 h-9 px-2">
                     <Lucide.Search size={14} className="text-slate-500 mr-2" />
                     <input
+                        ref={searchInputRef}
                         className="bg-transparent border-none text-xs text-slate-300 w-32 focus:outline-none placeholder-slate-600 font-mono"
                         placeholder="Find in logs..."
                         onKeyDown={(e) => {

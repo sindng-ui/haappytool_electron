@@ -123,8 +123,12 @@ export const useLogExtractorLogic = ({
     const [leftIndexingProgress, setLeftIndexingProgress] = useState(0);
     const [leftTotalLines, setLeftTotalLines] = useState(0);
     const [leftFilteredCount, setLeftFilteredCount] = useState(0);
-    const [leftFileName, setLeftFileName] = useState<string>('');
+    const [leftFileName, setLeftFileName] = useState<string | null>(null);
     const [leftFilePath, setLeftFilePath] = useState<string>('');
+
+    // References
+    const searchInputRef = useRef<HTMLInputElement>(null);
+    const [isGoToLineModalOpen, setIsGoToLineModalOpen] = useState(false);
     const leftPendingRequests = useRef<Map<string, (data: any) => void>>(new Map());
 
     const rightWorkerRef = useRef<Worker | null>(null);
@@ -412,6 +416,8 @@ export const useLogExtractorLogic = ({
                     setSelectedLineIndexLeft(-1); // Deselect left
                 }
             }
+
+
 
             // Bookmark Navigation
             if (e.key === 'F3') {
@@ -1313,6 +1319,8 @@ export const useLogExtractorLogic = ({
         jumpToGlobalLine, // Exported for LogSession usage
         // Segmentation
         leftSegmentIndex, setLeftSegmentIndex, leftTotalSegments, leftCurrentSegmentLines,
-        rightSegmentIndex, setRightSegmentIndex, rightTotalSegments, rightCurrentSegmentLines
+        rightSegmentIndex, setRightSegmentIndex, rightTotalSegments, rightCurrentSegmentLines,
+        // Refs & State for Shortcuts
+        searchInputRef, isGoToLineModalOpen, setIsGoToLineModalOpen
     };
 };

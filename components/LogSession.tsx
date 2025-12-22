@@ -9,6 +9,7 @@ import TopBar from './LogViewer/TopBar';
 import Toast from './ui/Toast';
 import LoadingOverlay from './ui/LoadingOverlay';
 import { BookmarksModal } from './BookmarksModal';
+import GoToLineModal from './GoToLineModal';
 
 const { X, Eraser, ChevronLeft, ChevronRight } = Lucide;
 
@@ -116,7 +117,9 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         toast, closeToast,
         // Segmentation
         leftSegmentIndex, setLeftSegmentIndex, leftTotalSegments, leftCurrentSegmentLines,
-        rightSegmentIndex, setRightSegmentIndex, rightTotalSegments, rightCurrentSegmentLines
+        rightSegmentIndex, setRightSegmentIndex, rightTotalSegments, rightCurrentSegmentLines,
+        isGoToLineModalOpen, setIsGoToLineModalOpen,
+        searchInputRef,
     } = useLogContext();
 
     const requestLeftBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'left'), [requestBookmarkedLines]);
@@ -249,31 +252,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         <div className="flex h-full flex-col font-sans overflow-hidden" style={{ display: isActive ? 'flex' : 'none' }}>
 
             <TopBar />
-
-            <BookmarksModal
-                isOpen={isLeftBookmarksOpen}
-                onClose={() => setLeftBookmarksOpen(false)}
-                bookmarks={leftBookmarks}
-                requestLines={(indices) => requestBookmarkedLines(indices, 'left')}
-                onJump={onBookmarkJumpLeft}
-                highlights={currentConfig?.highlights}
-                caseSensitive={currentConfig?.colorHighlightsCaseSensitive}
-                title={`Bookmarks - ${leftFileName || 'Left Pane'}`}
-                onClearAll={clearLeftBookmarks}
-                onDeleteBookmark={toggleLeftBookmark}
-            />
-            <BookmarksModal
-                isOpen={isRightBookmarksOpen}
-                onClose={() => setRightBookmarksOpen(false)}
-                bookmarks={rightBookmarks}
-                requestLines={(indices) => requestBookmarkedLines(indices, 'right')}
-                onJump={onBookmarkJumpRight}
-                highlights={currentConfig?.highlights}
-                caseSensitive={currentConfig?.colorHighlightsCaseSensitive}
-                title={`Bookmarks - ${rightFileName || 'Right Pane'}`}
-                onClearAll={clearRightBookmarks}
-                onDeleteBookmark={toggleRightBookmark}
-            />
 
             {/* Global Shortcut Handler for Ctrl+B */}
             {React.createElement(
@@ -438,11 +416,25 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
                                     jumpToHighlight(highlightIdx, targetPath as 'left' | 'right');
                                 }
+
+                                // Ctrl + F (Find)
+                                if (e.key === 'f' || e.key === 'F') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    searchInputRef.current?.focus();
+                                }
+
+                                // Ctrl + G (Go To Line)
+                                if (e.key === 'g' || e.key === 'G') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setIsGoToLineModalOpen((prev: boolean) => !prev);
+                                }
                             }
                         };
                         window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
                         return () => window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark]);
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen]);
                     return null;
                 })()
             )}
@@ -516,7 +508,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onDrop={handleLeftFileChange}
                                     onBrowse={onBrowseLeft}
                                     paneId="left"
-                                    fileName={leftFileName}
+                                    fileName={leftFileName || undefined}
                                     onReset={handleLeftReset}
                                     onCopy={onCopyLeft}
                                     onSave={onSaveLeft}
@@ -588,7 +580,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onDrop={handleRightFileChange}
                                             onBrowse={onBrowseRight}
                                             paneId="right"
-                                            fileName={rightFileName}
+                                            fileName={rightFileName || undefined}
                                             onReset={handleRightReset}
                                             onCopy={onCopyRight}
                                             onSave={onSaveRight}
@@ -662,6 +654,18 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     </div>
                 </div>
             </div>
+
+            {/* Go To Line Modal */}
+            <GoToLineModal
+                isOpen={isGoToLineModalOpen}
+                onClose={() => setIsGoToLineModalOpen(false)}
+                onGo={(lineIndex, pane) => jumpToGlobalLine(lineIndex, pane)}
+                isDualView={isDualView}
+                leftTotalLines={leftFilteredCount || 0}
+                rightTotalLines={rightFilteredCount || 0}
+                leftFileName={leftFileName || 'Left'}
+                rightFileName={rightFileName || 'Right'}
+            />
 
             {/* Bookmarks Modals */}
             <BookmarksModal
