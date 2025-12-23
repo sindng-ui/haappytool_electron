@@ -54,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
 
       {/* Floating Animated Sidebar */}
       <div
-        className={`absolute top-0 left-0 h-full bg-slate-900 border-r border-white/5 text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden transform-gpu backface-hidden outline-none ${isExpanded ? 'w-72' : 'w-20'
+        className={`absolute top-0 left-0 h-full glass-morphism text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden transform-gpu backface-hidden outline-none z-50 ${isExpanded ? 'w-72' : 'w-20'
           }`}
         tabIndex={0}
         onBlur={handleBlur}
@@ -68,12 +68,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 relative z-10 group-hover:scale-105 transition-transform duration-300">
                   <span className="text-white font-black text-lg">H</span>
                 </div>
-                <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-indigo-200 via-indigo-100 to-white bg-clip-text text-transparent">
+                <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-indigo-200 via-indigo-100 to-white bg-clip-text text-transparent drop-shadow-sm">
                   HappyTool
                 </span>
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 animate-gradient-xy flex items-center justify-center shadow-lg shadow-indigo-500/30 ring-1 ring-white/20 group-hover:scale-110 transition-transform cursor-pointer relative overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 animate-gradient-xy flex items-center justify-center shadow-lg shadow-indigo-500/40 ring-1 ring-white/20 group-hover:scale-110 transition-transform cursor-pointer relative overflow-hidden">
                 {/* Shine Effect */}
                 <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full group-hover:animate-[shimmer_1s_infinite]"></div>
 
@@ -102,8 +102,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                 onDragEnter={(e) => handleDragEnter(e, pluginId)}
                 onClick={() => onSelectPlugin(pluginId)}
                 className={`w-full flex items-center h-12 px-3 rounded-xl transition-all duration-200 group relative cursor-pointer outline-none border border-transparent ${isActive
-                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-500/20 border-indigo-400/20'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 active:scale-95'
+                  ? 'bg-gradient-to-r from-indigo-600/90 to-indigo-500/90 backdrop-blur-md text-white shadow-lg shadow-indigo-500/25 border-indigo-400/20 scale-[1.02]'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 active:scale-95 hover:shadow-lg hover:shadow-indigo-500/10'
                   } ${isDragging ? 'opacity-20 border-dashed border-slate-600' : ''}`}
               >
                 {isExpanded && (
@@ -112,7 +112,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                   </div>
                 )}
                 <div className="min-w-[40px] flex items-center justify-center">
-                  <Icon className={`w-[22px] h-[22px] transition-transform duration-200 ${isActive ? 'scale-110 icon-glow' : 'group-hover:scale-110'
+                  <Icon className={`w-[22px] h-[22px] transition-transform duration-200 ${isActive ? 'scale-110 icon-glow' : 'group-hover:scale-110 group-hover:text-indigo-300'
                     }`} />
                 </div>
                 <span className={`ml-3 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
@@ -120,9 +120,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                   {plugin.name}
                 </span>
                 {!isExpanded && !isDragging && (
-                  <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 border border-slate-700 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-50 shadow-xl">
+                  <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900/90 backdrop-blur border border-slate-700 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-[100] shadow-xl">
                     {plugin.name}
-                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900 rotate-45 border-l border-b border-slate-700"></div>
+                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900/90 rotate-45 border-l border-b border-slate-700"></div>
                   </div>
                 )}
               </button>
@@ -135,19 +135,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
 
           <button
             onClick={onOpenSettings}
-            className={`w-full flex items-center h-12 px-3 rounded-xl transition-all duration-200 group relative cursor-pointer text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 border border-transparent active:scale-95`}
+            className={`w-full flex items-center h-12 px-3 rounded-xl transition-all duration-200 group relative cursor-pointer text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 border border-transparent active:scale-95 hover:shadow-lg hover:shadow-indigo-500/10`}
           >
             <div className="min-w-[40px] flex items-center justify-center">
-              <Settings className="w-[22px] h-[22px] group-hover:rotate-90 transition-transform duration-500 ease-out" />
+              <Settings className="w-[22px] h-[22px] group-hover:rotate-90 transition-transform duration-500 ease-out group-hover:text-indigo-300" />
             </div>
             <span className={`ml-3 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
               }`}>
               Settings
             </span>
             {!isExpanded && (
-              <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 border border-slate-700 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-50 shadow-xl">
+              <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900/90 backdrop-blur border border-slate-700 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-[100] shadow-xl">
                 Settings
-                <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900 rotate-45 border-l border-b border-slate-700"></div>
+                <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900/90 rotate-45 border-l border-b border-slate-700"></div>
               </div>
             )}
           </button>

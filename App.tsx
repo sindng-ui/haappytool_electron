@@ -300,7 +300,7 @@ const AppContent: React.FC = () => {
         onChange={onImportFileChange}
       />
 
-      <div className="flex flex-col h-screen w-screen overflow-hidden bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e293b] font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300">
+      <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0B0F19] font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300">
         <div className="flex-1 flex overflow-hidden">
           <Sidebar
             activePluginId={activeTool}

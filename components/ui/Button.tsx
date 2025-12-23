@@ -14,12 +14,12 @@ export const Button: React.FC<ButtonProps> = ({
     className = '',
     ...props
 }) => {
-    const baseStyle = "flex items-center justify-center font-medium transition-all rounded-lg focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed";
+    const baseStyle = "flex items-center justify-center font-medium transition-all rounded-lg focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed active:scale-95";
 
     const variants = {
-        primary: "bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-900/50 hover:scale-105",
-        secondary: "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700",
-        danger: "bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20",
+        primary: "bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-900/50 hover:shadow-indigo-500/30 hover:scale-[1.02]",
+        secondary: "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700 shadow-sm",
+        danger: "bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20 shadow-sm",
         ghost: "bg-transparent text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10",
         outline: "border-2 border-dashed border-slate-700 text-slate-500 hover:bg-slate-800 hover:border-slate-600 hover:text-indigo-400"
     };

@@ -15,13 +15,13 @@ export const IconButton: React.FC<IconButtonProps> = ({
     className = '',
     ...props
 }) => {
-    const baseStyle = "rounded-full transition-colors flex items-center justify-center disabled:opacity-50";
+    const baseStyle = "rounded-full transition-all flex items-center justify-center disabled:opacity-50 active:scale-90";
 
     const variants = {
-        default: "bg-slate-800 text-slate-400 hover:text-white border border-slate-700 shadow-md hover:scale-110",
-        ghost: "text-slate-500 hover:text-indigo-400 hover:bg-slate-700",
+        default: "bg-slate-800 text-slate-400 hover:text-white border border-slate-700 shadow-md hover:scale-110 hover:shadow-lg hover:shadow-indigo-500/20",
+        ghost: "text-slate-500 hover:text-indigo-400 hover:bg-slate-700/50",
         danger: "text-slate-500 hover:text-red-400 hover:bg-red-500/10",
-        delete: "bg-slate-700 text-slate-400 hover:text-red-400 hover:bg-slate-600 border border-slate-600 shadow-sm"
+        delete: "bg-slate-700 text-slate-400 hover:text-white hover:bg-red-500 border border-slate-600 shadow-sm"
     };
 
     const sizes = {

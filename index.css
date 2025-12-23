@@ -81,9 +81,9 @@ pre {
 
 /* Specific wider scrollbar for Log Viewer */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 18px;
+  width: 15px;
   /* Increased from 6px */
-  height: 18px;
+  height: 15px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
@@ -205,6 +205,20 @@ pre {
 
   .glass-panel {
     @apply bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-r border-slate-200 dark:border-white/5;
+  }
+
+  /* New Premium Utilities */
+  .bg-deep {
+    background-color: #0B0F19;
+  }
+
+  .glass-morphism {
+    @apply bg-slate-900/60 backdrop-blur-xl border-r border-white/5;
+  }
+
+  .card-gradient {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+    @apply border border-white/5 rounded-2xl;
   }
 
   .text-glow {

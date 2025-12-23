@@ -66,65 +66,73 @@ const ConfigurationPanel: React.FC = () => {
 
     return (
         <div
-            className={`${isPanelOpen ? '' : 'w-12'} bg-slate-100 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col h-full shadow-xl z-20 custom-scrollbar relative shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]`}
+            className={`${isPanelOpen ? '' : 'w-12'} glass-morphism flex flex-col h-full shadow-2xl z-20 custom-scrollbar relative shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]`}
             style={{ width: isPanelOpen ? configPanelWidth : undefined }}
         >
             {isPanelOpen && (
                 <div
-                    className="absolute right-0 top-0 bottom-0 w-1.5 hover:bg-indigo-500/50 cursor-col-resize z-50 transition-colors"
+                    className="absolute right-0 top-0 bottom-0 w-1 hover:bg-indigo-500/50 cursor-col-resize z-50 transition-colors"
                     onMouseDown={handleConfigResizeStart}
                 />
             )}
 
-            <div className="absolute top-[18px] right-[-10px] z-50">
+            <div className="absolute top-[18px] right-[-14px] z-50">
                 <Button
                     variant="secondary"
-                    className="w-6 h-10 rounded-r-xl p-0 bg-indigo-600 border-y border-r border-indigo-400/50 hover:bg-indigo-500 shadow-xl flex items-center justify-center transition-all active:scale-95 focus:scale-100 ring-0"
+                    className="w-7 h-8 rounded-full bg-indigo-600 border border-indigo-400/30 hover:bg-indigo-500 shadow-lg shadow-indigo-900/40 flex items-center justify-center transition-all active:scale-95 focus:scale-100 ring-0 hover:scale-110"
                     onClick={onToggle}
                 >
                     {isPanelOpen ? <ChevronLeft size={16} className="text-white" /> : <ChevronRight size={16} className="text-white" />}
                 </Button>
             </div>
             {isPanelOpen ? (
-                <div className="p-6 overflow-y-auto h-full custom-scrollbar pb-20">
+                <div className="p-6 overflow-y-auto h-full custom-scrollbar pb-20 space-y-6">
                     <ConfigHeader
                         name={currentConfig.name}
                         onUpdateName={(name) => updateCurrentRule({ name })}
                     />
 
-                    <HappyComboSection
-                        currentConfig={currentConfig}
-                        updateCurrentRule={updateCurrentRule}
-                        groupedRoots={groupedRoots}
-                        collapsedRoots={collapsedRoots}
-                        onToggleRootCollapse={onToggleRootCollapse}
-                        handleToggleRoot={handleToggleRoot}
-                        happyCombosCaseSensitive={currentConfig.happyCombosCaseSensitive || false}
-                    />
+                    <div className="card-gradient p-1">
+                        <HappyComboSection
+                            currentConfig={currentConfig}
+                            updateCurrentRule={updateCurrentRule}
+                            groupedRoots={groupedRoots}
+                            collapsedRoots={collapsedRoots}
+                            onToggleRootCollapse={onToggleRootCollapse}
+                            handleToggleRoot={handleToggleRoot}
+                            happyCombosCaseSensitive={currentConfig.happyCombosCaseSensitive || false}
+                        />
+                    </div>
 
-                    <BlockListSection
-                        currentConfig={currentConfig}
-                        updateCurrentRule={updateCurrentRule}
-                        blockListCaseSensitive={currentConfig.blockListCaseSensitive || false}
-                    />
+                    <div className="card-gradient p-1">
+                        <BlockListSection
+                            currentConfig={currentConfig}
+                            updateCurrentRule={updateCurrentRule}
+                            blockListCaseSensitive={currentConfig.blockListCaseSensitive || false}
+                        />
+                    </div>
 
-                    <HighlightSection
-                        currentConfig={currentConfig}
-                        updateCurrentRule={updateCurrentRule}
-                        colorHighlightsCaseSensitive={currentConfig.colorHighlightsCaseSensitive || false}
-                    />
+                    <div className="card-gradient p-1">
+                        <HighlightSection
+                            currentConfig={currentConfig}
+                            updateCurrentRule={updateCurrentRule}
+                            colorHighlightsCaseSensitive={currentConfig.colorHighlightsCaseSensitive || false}
+                        />
+                    </div>
 
-                    <LogSettingsSection
-                        currentConfig={currentConfig}
-                        updateCurrentRule={updateCurrentRule}
-                        handleStartLogging={handleStartLogging}
-                        handleStopLogging={handleStopLogging}
-                    />
+                    <div className="card-gradient p-1">
+                        <LogSettingsSection
+                            currentConfig={currentConfig}
+                            updateCurrentRule={updateCurrentRule}
+                            handleStartLogging={handleStartLogging}
+                            handleStopLogging={handleStopLogging}
+                        />
+                    </div>
 
                 </div>
             ) : (
-                <div className="h-full flex flex-col items-center pt-24 gap-4 cursor-pointer hover:bg-white/5 transition-colors" onClick={onToggle}>
-                    <div className="vertical-text text-slate-500 font-bold tracking-[0.2em] text-[10px] uppercase transform rotate-180 opacity-60 hover:opacity-100 transition-opacity whitespace-nowrap" style={{ writingMode: 'vertical-rl' }}>
+                <div className="h-full flex flex-col items-center pt-24 gap-4 cursor-pointer hover:bg-white/5 transition-colors group" onClick={onToggle}>
+                    <div className="vertical-text text-slate-500 font-bold tracking-[0.2em] text-[10px] uppercase transform rotate-180 opacity-60 group-hover:text-indigo-400 group-hover:opacity-100 transition-all whitespace-nowrap" style={{ writingMode: 'vertical-rl' }}>
                         Configuration
                     </div>
                 </div>
