@@ -74,8 +74,29 @@ pre {
   background: rgba(148, 163, 184, 0.5);
 }
 
+
 .dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.4);
+}
+
+/* Specific wider scrollbar for Log Viewer */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 18px;
+  /* Increased from 6px */
+  height: 18px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 7px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+  background-clip: padding-box;
+  border: 3px solid transparent;
 }
 
 

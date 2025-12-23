@@ -12,14 +12,22 @@ interface Tab {
     filePath?: string;
 }
 
-interface LogExtractorProps {
-    rules: LogRule[];
-    onUpdateRules: (rules: LogRule[]) => void;
-    onExportSettings: () => void;
-    onImportSettings: (settings: AppSettings) => void;
+import { useHappyTool } from '../contexts/HappyToolContext';
+
+interface Tab {
+    id: string;
+    title: string;
+    initialFile: File | null;
+    filePath?: string;
 }
 
-const LogExtractor: React.FC<LogExtractorProps> = (props) => {
+const LogExtractor: React.FC = () => {
+    const {
+        logRules: rules,
+        setLogRules: onUpdateRules,
+        handleExportSettings: onExportSettings,
+        handleImportSettings: onImportSettings
+    } = useHappyTool();
     // Shared state for configuration panel width
     const [configPanelWidth, setConfigPanelWidth] = useState(() => {
         try {
@@ -227,7 +235,10 @@ const LogExtractor: React.FC<LogExtractorProps> = (props) => {
                 {tabs.map((tab) => (
                     <LogProvider
                         key={tab.id}
-                        {...props}
+                        rules={rules}
+                        onUpdateRules={onUpdateRules}
+                        onExportSettings={onExportSettings}
+                        onImportSettings={onImportSettings}
                         configPanelWidth={configPanelWidth}
                         setConfigPanelWidth={setConfigPanelWidth}
                         tabId={tab.id}

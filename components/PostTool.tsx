@@ -14,20 +14,20 @@ const generateUUID = () => {
     });
 };
 
-interface PostToolProps {
-    savedRequests: SavedRequest[];
-    onUpdateRequests: (requests: SavedRequest[]) => void;
-    savedRequestGroups?: RequestGroup[];
-    onUpdateGroups?: (groups: RequestGroup[]) => void;
-    globalVariables?: PostGlobalVariable[];
-    onUpdateGlobalVariables?: (vars: PostGlobalVariable[]) => void;
-}
+import { useHappyTool } from '../contexts/HappyToolContext';
+// ... imports
 
-const PostTool: React.FC<PostToolProps> = ({
-    savedRequests, onUpdateRequests,
-    savedRequestGroups, onUpdateGroups,
-    globalVariables = [], onUpdateGlobalVariables
-}) => {
+// ... generateUUID
+
+const PostTool: React.FC = () => {
+    const {
+        savedRequests,
+        setSavedRequests: onUpdateRequests,
+        savedRequestGroups,
+        setSavedRequestGroups: onUpdateGroups,
+        postGlobalVariables: globalVariables,
+        setPostGlobalVariables: onUpdateGlobalVariables
+    } = useHappyTool();
     const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [response, setResponse] = useState<PerfResponse | null>(null);
