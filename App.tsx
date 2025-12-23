@@ -5,9 +5,77 @@ import { mergeById } from './utils/settingsHelper';
 import { SettingsModal } from './components/SettingsModal';
 import { ALL_PLUGINS } from './plugins/registry';
 import { HappyToolProvider, HappyToolContextType } from './contexts/HappyToolContext';
+import { ToastProvider } from './contexts/ToastContext';
+import { CommandProvider, useCommand } from './contexts/CommandContext';
 import PluginContainer from './components/PluginContainer';
+import CommandPalette from './components/CommandPalette/CommandPalette';
+import * as Lucide from 'lucide-react';
 
-const App: React.FC = () => {
+const { Settings, Monitor, Terminal, Database, Code, Activity, Home, FileUp, FileDown } = Lucide;
+
+// Component to register global commands (runs inside CommandProvider)
+const CommandRegistrar: React.FC<{
+  setActiveTool: (id: string) => void;
+  setIsSettingsOpen: (open: boolean) => void;
+  handleExport: () => void;
+  handleImport: () => void;
+}> = ({ setActiveTool, setIsSettingsOpen, handleExport, handleImport }) => {
+  const { registerCommand, unregisterCommand } = useCommand();
+
+  useEffect(() => {
+    // Register Navigation Commands
+    ALL_PLUGINS.forEach(plugin => {
+      registerCommand({
+        id: `nav-${plugin.id}`,
+        title: `Go to ${plugin.name}`,
+        section: 'Navigation',
+        icon: plugin.icon ? <plugin.icon size={18} /> : <Activity size={18} />,
+        action: () => setActiveTool(plugin.id),
+        keywords: [plugin.name, 'nav', 'switch']
+      });
+    });
+
+    // Register Global Settings Command
+    registerCommand({
+      id: 'global-settings',
+      title: 'Open Settings',
+      section: 'General',
+      icon: <Settings size={18} />,
+      action: () => setIsSettingsOpen(true),
+      shortcut: 'Ctrl+,'
+    });
+
+    // Register Export Settings
+    registerCommand({
+      id: 'export-settings',
+      title: 'Export Settings',
+      section: 'General',
+      icon: <FileUp size={18} />,
+      action: handleExport
+    });
+
+    // Register Import Settings
+    registerCommand({
+      id: 'import-settings',
+      title: 'Import Settings',
+      section: 'General',
+      icon: <FileDown size={18} />,
+      action: handleImport
+    });
+
+    return () => {
+      // Cleanup
+      ALL_PLUGINS.forEach(plugin => unregisterCommand(`nav-${plugin.id}`));
+      unregisterCommand('global-settings');
+      unregisterCommand('export-settings');
+      unregisterCommand('import-settings');
+    };
+  }, [registerCommand, unregisterCommand, setActiveTool, setIsSettingsOpen, handleExport, handleImport]);
+
+  return null;
+};
+
+const AppContent: React.FC = () => {
   const [activeTool, setActiveTool] = useState<string>(ToolId.LOG_EXTRACTOR);
 
   // App-wide state (Settings)
@@ -27,6 +95,7 @@ const App: React.FC = () => {
   const [savedRequestGroups, setSavedRequestGroups] = useState<RequestGroup[]>([]);
   const [postGlobalVariables, setPostGlobalVariables] = useState<PostGlobalVariable[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const importInputRef = React.useRef<HTMLInputElement>(null);
 
   // Tool Order State - now generic strings
   const [toolOrder, setToolOrder] = useState<string[]>(
@@ -168,6 +237,31 @@ const App: React.FC = () => {
     if (settings.lastMethod) setLastMethod(settings.lastMethod);
   };
 
+  const handleImportClick = () => {
+    importInputRef.current?.click();
+  };
+
+  const onImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const content = ev.target?.result as string;
+        const settings = JSON.parse(content);
+        handleImportSettings(settings);
+        // useToast isn't directly available here unless we move AppContent logic deeper or assume ToastProvider wraps this.
+        // Since AppContent is inside ToastProvider, we can use useToast if we hook it.
+        // But AppContent is a component, so we can add 'const { addToast } = useToast()' to it.
+      } catch (err) {
+        console.error('Failed to parse settings file', err);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset
+  };
+
   const contextValue: HappyToolContextType = React.useMemo(() => ({
     logRules,
     setLogRules,
@@ -184,17 +278,28 @@ const App: React.FC = () => {
     savedRequests,
     savedRequestGroups,
     postGlobalVariables,
-    lastApiUrl, // Included as it might be relevant? No, handleExport uses it but it's a closure. 
-    // Wait, handleExportSettings closes over 'lastApiUrl'. 
-    // So if lastApiUrl changes, handleExportSettings refers to OLD value if not recreated?
-    // Actually handleExportSettings is defined in the component body, so it IS recreated every render.
-    // So useMemo won't help unless we also useCallback for the handlers OR include them in dependency.
-    // Simply including the primatives is safest.
+    lastApiUrl,
     lastMethod
   ]);
 
   return (
     <HappyToolProvider value={contextValue}>
+      <CommandRegistrar
+        setActiveTool={setActiveTool}
+        setIsSettingsOpen={setIsSettingsOpen}
+        handleExport={handleExportSettings}
+        handleImport={handleImportClick}
+      />
+
+      {/* Hidden Import Input for Command Palette */}
+      <input
+        type="file"
+        ref={importInputRef}
+        className="hidden"
+        accept=".json"
+        onChange={onImportFileChange}
+      />
+
       <div className="flex flex-col h-screen w-screen overflow-hidden bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e293b] font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300">
         <div className="flex-1 flex overflow-hidden">
           <Sidebar
@@ -221,10 +326,21 @@ const App: React.FC = () => {
               </>
             )}
             <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} currentStartLineIndex={0} />
+            <CommandPalette />
           </main>
         </div>
       </div>
     </HappyToolProvider>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ToastProvider>
+      <CommandProvider>
+        <AppContent />
+      </CommandProvider>
+    </ToastProvider>
   );
 };
 

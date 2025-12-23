@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Moon, Sun, Keyboard, Info, Type, RotateCcw, BookOpen } from 'lucide-react';
 import { Button } from './ui/Button';
+import { useToast } from '../contexts/ToastContext';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -9,6 +10,7 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+    const { addToast } = useToast();
     const [activeTab, setActiveTab] = useState<'general' | 'shortcuts' | 'about' | 'guide'>('general');
     const [theme, setTheme] = useState<'dark' | 'light'>(() => {
         return localStorage.getItem('theme') as 'dark' | 'light' || 'dark';
@@ -257,12 +259,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         const guidePath = 'file:///' + appPath.replace(/\\/g, '/') + '/USER_GUIDE.md';
                                                         console.log('Opening guide at:', guidePath);
                                                         await window.electronAPI.openExternal(guidePath);
+                                                        await window.electronAPI.openExternal(guidePath);
                                                     } else {
-                                                        alert('현재 환경에서는 지원되지 않는 기능입니다.');
+                                                        addToast('현재 환경에서는 지원되지 않는 기능입니다.', 'error');
                                                     }
                                                 } catch (error) {
                                                     console.error('Failed to open guide:', error);
-                                                    alert('가이드를 열 수 없습니다.');
+                                                    addToast('가이드를 열 수 없습니다.', 'error');
                                                 }
                                             }}
                                             className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:scale-[1.02] flex items-center justify-center gap-3 border-2 border-transparent"

@@ -83,6 +83,22 @@ export const ALL_PLUGINS: HappyPlugin[] = [
 const { savedRequests } = useHappyTool();
 ```
 
+## 토스트 알림 (Toast Notifications)
+`useToast` 훅을 사용하여 알림을 표시할 수 있습니다.
+
+```typescript
+import { useToast } from '../../contexts/ToastContext';
+
+const MyComponent = () => {
+    const { addToast } = useToast();
+
+    const handleSave = () => {
+        // ... 저장 로직
+        addToast("성공적으로 저장되었습니다!", "success");
+    };
+};
+```
+
 ## 스타일 가이드라인
 - 모든 스타일링에 **Tailwind CSS**를 사용하세요.
 - **다크 모드**를 지원하세요 (`dark:` 수정자 사용).

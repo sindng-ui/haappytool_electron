@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
 import { useLogContext } from './LogContext';
+import { useToast } from '../../contexts/ToastContext';
 
 
 const { Plus, Trash2, Save, Upload, FileDown, Maximize, Columns, Sparkles } = Lucide;
 
 const TopBar: React.FC = () => {
+    const { addToast } = useToast();
     const {
         rules, selectedRuleId, setSelectedRuleId,
         handleCreateRule, handleDeleteRule, onExportSettings,
@@ -39,11 +41,14 @@ const TopBar: React.FC = () => {
             content += `\n--- RIGHT PANE (${lines.length} lines) ---\n`;
             content += lines.map(l => l.content).join('\n');
         }
-        if (!content) return alert('No logs to copy.');
+        if (!content) {
+            console.log('[TopBar] No content to copy, showing warning toast');
+            return addToast('No logs to copy.', 'warning');
+        }
         try {
             await navigator.clipboard.writeText(content);
-            alert('Logs copied to clipboard!');
-        } catch (e) { alert('Failed to copy.'); }
+            addToast('Logs copied to clipboard!', 'success');
+        } catch (e) { addToast('Failed to copy.', 'error'); }
     };
 
     const handleSaveLogs = async () => {
@@ -58,7 +63,8 @@ const TopBar: React.FC = () => {
             content += `\n--- RIGHT PANE (${lines.length} lines) ---\n`;
             content += lines.map(l => l.content).join('\n');
         }
-        if (!content) return alert('No logs to save.');
+
+        if (!content) return addToast('No logs to save.', 'warning');
 
         const blob = new Blob([content], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);

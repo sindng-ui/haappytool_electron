@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import * as Lucide from 'lucide-react';
 
 const { Trash2, AlignLeft, Minimize2, CheckCircle, AlertCircle, Copy, FileJson, PlusSquare, MinusSquare, ChevronDown, ChevronRight, Search, ArrowUp, ArrowDown } = Lucide;
+import { useToast } from '../../contexts/ToastContext';
 
 // --- Helper Components ---
 
@@ -221,7 +222,10 @@ const JsonFormatter: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [valid, setValid] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [showToast, setShowToast] = useState(false);
+
+
+    // Toast
+    const { addToast } = useToast();
 
     // Virtualization State
     const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
@@ -342,20 +346,13 @@ const JsonFormatter: React.FC = () => {
     };
 
     // ... (Keep existing copyToClipboard, handleFormat, handleMinify ... )
-    useEffect(() => {
-        if (showToast) {
-            const t = setTimeout(() => setShowToast(false), 2000);
-            return () => clearTimeout(t);
-        }
-    }, [showToast]);
-
     const copyToClipboard = (text: string) => {
         if (window.electronAPI?.copyToClipboard) {
             window.electronAPI.copyToClipboard(text);
         } else if (navigator.clipboard) {
             navigator.clipboard.writeText(text).catch(console.error);
         }
-        setShowToast(true);
+        addToast("Copied to clipboard!", "success");
     };
 
     const handleFormat = () => {
@@ -631,11 +628,7 @@ const JsonFormatter: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Toast */}
-                    <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white px-4 py-2 rounded-full shadow-xl border border-slate-200 dark:border-slate-700 flex items-center gap-2 transition-all duration-300 pointer-events-none ${showToast ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}`}>
-                        <CheckCircle size={16} className="text-emerald-500" />
-                        <span className="text-xs font-bold">Copied to clipboard!</span>
-                    </div>
+
                 </div>
             </div>
         </div>

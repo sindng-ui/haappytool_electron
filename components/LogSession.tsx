@@ -6,7 +6,6 @@ import TizenConnectionModal from './TizenConnectionModal';
 import { useLogContext } from './LogViewer/LogContext';
 import { MAX_SEGMENT_SIZE } from '../hooks/useLogExtractorLogic';
 import TopBar from './LogViewer/TopBar';
-import Toast from './ui/Toast';
 import LoadingOverlay from './ui/LoadingOverlay';
 import { BookmarksModal } from './BookmarksModal';
 import GoToLineModal from './GoToLineModal';
@@ -114,7 +113,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         clearLeftBookmarks, clearRightBookmarks,
         jumpToHighlight, requestBookmarkedLines, jumpToGlobalLine,
         tizenSocket, sendTizenCommand, handleClearLogs,
-        toast, closeToast,
+
         // Segmentation
         leftSegmentIndex, setLeftSegmentIndex, leftTotalSegments, leftCurrentSegmentLines,
         rightSegmentIndex, setRightSegmentIndex, rightTotalSegments, rightCurrentSegmentLines,
@@ -449,13 +448,11 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 onStreamStart={handleTizenStreamStart}
             />
 
-            {toast && (
-                <Toast
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={closeToast}
-                />
-            )}
+            <TizenConnectionModal
+                isOpen={isTizenModalOpen}
+                onClose={() => setIsTizenModalOpen(false)}
+                onStreamStart={handleTizenStreamStart}
+            />
 
             {/* Raw Context View */}
             {rawContextOpen && rawContextTargetLine && (

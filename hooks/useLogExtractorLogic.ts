@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useToast } from '../contexts/ToastContext';
 import { getStoredValue, setStoredValue } from '../utils/db';
 import { LogRule, AppSettings, LogWorkerResponse } from '../types';
 import { LogViewerHandle } from '../components/LogViewer/LogViewerPane';
@@ -110,13 +111,15 @@ export const useLogExtractorLogic = ({
         setIsDualView(prev => !prev);
     }, []);
 
-    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
+    const { addToast } = useToast();
 
-    const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
-        setToast({ message, type });
-    }, []);
+    // Mapping for legacy showToast calls if needed, otherwise replace them
+    const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+        addToast(message, type);
+    }, [addToast]);
 
-    const closeToast = useCallback(() => setToast(null), []);
+    // closeToast is no longer needed but kept for ABI compatibility if used elsewhere (bound to be removed)
+    const closeToast = useCallback(() => { }, []);
 
     const leftWorkerRef = useRef<Worker | null>(null);
     const [leftWorkerReady, setLeftWorkerReady] = useState(false);
@@ -1298,8 +1301,7 @@ export const useLogExtractorLogic = ({
         isTizenModalOpen, setIsTizenModalOpen,
         fileInputRef, logFileInputRef,
         leftViewerRef, rightViewerRef, rawViewerRef,
-        toast,
-        closeToast,
+
         handleImportFile, handleLogFileSelect,
         handleTizenStreamStart, handleTizenDisconnect, tizenSocket,
         handleLineDoubleClickAction,

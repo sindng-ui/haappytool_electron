@@ -83,6 +83,22 @@ The `HappyToolContext` provides:
 const { savedRequests } = useHappyTool();
 ```
 
+## Toast Notifications
+Use the `useToast` hook to show notifications.
+
+```typescript
+import { useToast } from '../../contexts/ToastContext';
+
+const MyComponent = () => {
+    const { addToast } = useToast();
+
+    const handleSave = () => {
+        // ... save logic
+        addToast("Saved successfully!", "success");
+    };
+};
+```
+
 ## Styling Guidelines
 - Use **Tailwind CSS** for all styling.
 - Support **Dark Mode** (`dark:` modifiers).
