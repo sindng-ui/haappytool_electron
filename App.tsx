@@ -168,7 +168,7 @@ const App: React.FC = () => {
     if (settings.lastMethod) setLastMethod(settings.lastMethod);
   };
 
-  const contextValue: HappyToolContextType = {
+  const contextValue: HappyToolContextType = React.useMemo(() => ({
     logRules,
     setLogRules,
     savedRequests,
@@ -179,7 +179,19 @@ const App: React.FC = () => {
     setPostGlobalVariables,
     handleExportSettings,
     handleImportSettings
-  };
+  }), [
+    logRules,
+    savedRequests,
+    savedRequestGroups,
+    postGlobalVariables,
+    lastApiUrl, // Included as it might be relevant? No, handleExport uses it but it's a closure. 
+    // Wait, handleExportSettings closes over 'lastApiUrl'. 
+    // So if lastApiUrl changes, handleExportSettings refers to OLD value if not recreated?
+    // Actually handleExportSettings is defined in the component body, so it IS recreated every render.
+    // So useMemo won't help unless we also useCallback for the handlers OR include them in dependency.
+    // Simply including the primatives is safest.
+    lastMethod
+  ]);
 
   return (
     <HappyToolProvider value={contextValue}>

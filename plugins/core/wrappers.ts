@@ -1,11 +1,14 @@
 import { HappyPlugin } from '../types';
 import * as Lucide from 'lucide-react';
-import LogExtractor from '../../components/LogExtractor';
-import PostTool from '../../components/PostTool';
-import TpkExtractor from '../../components/TpkExtractor';
-import JsonTools from '../../components/JsonTools';
-import SmartThingsDevicesPane from '../../components/SmartThingsDevices/SmartThingsDevicesPane';
-import ReverseEngineer from '../../components/ReverseEngineer';
+import React from 'react';
+
+// Lazy Load Components
+const LogExtractor = React.lazy(() => import('../../components/LogExtractor'));
+const PostTool = React.lazy(() => import('../../components/PostTool'));
+const TpkExtractor = React.lazy(() => import('../../components/TpkExtractor'));
+const JsonTools = React.lazy(() => import('../../components/JsonTools'));
+const SmartThingsDevicesPane = React.lazy(() => import('../../components/SmartThingsDevices/SmartThingsDevicesPane'));
+const ReverseEngineer = React.lazy(() => import('../../components/ReverseEngineer'));
 import { ToolId } from '../../types';
 
 const { FileText, Send, Braces, Archive, Smartphone, Pickaxe } = Lucide;
