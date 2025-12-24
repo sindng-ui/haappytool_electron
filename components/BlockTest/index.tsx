@@ -128,6 +128,7 @@ const BlockTest: React.FC = () => {
                 {/* Editor or Empty State */}
                 {editingPipeline ? (
                     <PipelineEditor
+                        key={editingPipeline.id}
                         pipeline={editingPipeline}
                         blocks={blocks}
                         onChange={updatePipeline}

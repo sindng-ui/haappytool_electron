@@ -16,7 +16,7 @@ const PluginContainer: React.FC<PluginContainerProps> = ({ plugin, isActive }) =
             </div>
         }>
             <div className={isActive ? "h-full w-full" : "hidden"}>
-                <Component />
+                <Component isActive={isActive} />
             </div>
         </React.Suspense>
     );

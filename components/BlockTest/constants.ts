@@ -63,6 +63,20 @@ export const PREDEFINED_BLOCKS: CommandBlock[] = [
     }
 ];
 
+export const SPECIAL_BLOCK_IDS = {
+    SLEEP: 'special_sleep'
+};
+
+export const SPECIAL_BLOCKS: CommandBlock[] = [
+    {
+        id: SPECIAL_BLOCK_IDS.SLEEP,
+        name: 'Sleep',
+        type: 'special',
+        description: 'Wait for specified time',
+        commands: []
+    }
+];
+
 // User specified "Enter block : Clicking or selection command block. Command is sdb vk_send 36"
 // I will adhere to the prompt's specific command for Enter.
 // For others, prompt said "Command is empty".

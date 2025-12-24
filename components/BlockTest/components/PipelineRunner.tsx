@@ -47,6 +47,19 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
     const startTime = stats[pipeline.items[0]?.id]?.startTime;
     const runningDuration = startTime ? ((Date.now() - startTime) / 1000).toFixed(1) : '0.0';
 
+    const handleSaveLogs = () => {
+        const content = logs.join('\n');
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `execution_logs_${pipeline.name}_${Date.now()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950">
             {/* Header */}
@@ -79,15 +92,26 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
                         </div>
                     </div>
                 </div>
-                {isRunning && (
+                <div className="flex items-center gap-2">
                     <button
-                        onClick={onStop}
-                        className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg shadow-red-500/30 transition-all hover:scale-105 active:scale-95"
+                        onClick={handleSaveLogs}
+                        className="px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg font-medium text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95"
+                        title="Save Logs to File"
                     >
-                        <Lucide.Square size={16} fill="currentColor" />
-                        STOP
+                        <Lucide.Download size={16} />
+                        <span className="hidden sm:inline">Save Logs</span>
                     </button>
-                )}
+
+                    {isRunning && (
+                        <button
+                            onClick={onStop}
+                            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg shadow-red-500/30 transition-all hover:scale-105 active:scale-95"
+                        >
+                            <Lucide.Square size={16} fill="currentColor" />
+                            STOP
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="flex-1 flex overflow-hidden">

@@ -26,7 +26,7 @@ export const PostToolPlugin: HappyPlugin = {
     name: 'Post Tool',
     icon: Send,
     component: PostTool,
-    order: 2,
+    order: 5,
 };
 
 export const JsonToolsPlugin: HappyPlugin = {
@@ -34,7 +34,7 @@ export const JsonToolsPlugin: HappyPlugin = {
     name: 'JSON Tools',
     icon: Braces,
     component: JsonTools,
-    order: 3,
+    order: 4,
 };
 
 export const TpkExtractorPlugin: HappyPlugin = {
@@ -42,7 +42,7 @@ export const TpkExtractorPlugin: HappyPlugin = {
     name: 'Tpk Extractor',
     icon: Archive,
     component: TpkExtractor,
-    order: 4,
+    order: 6,
 };
 
 export const SmartThingsDevicesPlugin: HappyPlugin = {
@@ -50,7 +50,7 @@ export const SmartThingsDevicesPlugin: HappyPlugin = {
     name: 'SmartThings Devices',
     icon: Smartphone,
     component: SmartThingsDevicesPane,
-    order: 5,
+    order: 7,
 };
 
 export const ReverseEngineerPlugin: HappyPlugin = {
@@ -58,7 +58,7 @@ export const ReverseEngineerPlugin: HappyPlugin = {
     name: 'Reverse Engineer',
     icon: Pickaxe,
     component: ReverseEngineer,
-    order: 6,
+    order: 2,
 };
 
 const BlockTest = React.lazy(() => import('../../components/BlockTest'));
@@ -69,5 +69,5 @@ export const BlockTestPlugin: HappyPlugin = {
     name: 'Block Test',
     icon: Blocks,
     component: BlockTest,
-    order: 7,
+    order: 3,
 };

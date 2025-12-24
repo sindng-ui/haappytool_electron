@@ -21,7 +21,7 @@ interface Tab {
     filePath?: string;
 }
 
-const LogExtractor: React.FC = () => {
+const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     const {
         logRules: rules,
         setLogRules: onUpdateRules,
@@ -246,10 +246,10 @@ const LogExtractor: React.FC = () => {
                         onFileChange={(newPath) => {
                             setTabs(current => current.map(t => t.id === tab.id ? { ...t, filePath: newPath } : t));
                         }}
-                        isActive={tab.id === activeTabId}
+                        isActive={isActive && tab.id === activeTabId}
                     >
                         <SessionWrapper
-                            isActive={tab.id === activeTabId}
+                            isActive={isActive && tab.id === activeTabId}
                             title={tab.title}
                             tabId={tab.id}
                             onTitleChange={handleTitleChange}

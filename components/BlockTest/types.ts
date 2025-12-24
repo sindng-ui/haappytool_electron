@@ -3,15 +3,17 @@ export interface CommandBlock {
     name: string;
     description?: string;
     commands: string[]; // List of commands to execute
-    type: 'custom' | 'predefined';
+    type: 'custom' | 'predefined' | 'special';
 }
 
 export interface PipelineItem {
     id: string;
     type: 'block' | 'loop';
     blockId?: string; // If type is block
+    sleepDuration?: number; // If block is Sleep type
     loopCount?: number; // If type is loop
     children?: PipelineItem[]; // If type is loop
+    hint?: string; // User annotation
 }
 
 export interface Pipeline {

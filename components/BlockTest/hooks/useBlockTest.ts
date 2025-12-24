@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useHappyTool } from '../../contexts/HappyToolContext'; // Assuming access to socket from here or context
 import { CommandBlock, Pipeline, TestResult, PipelineItem, ExecutionStats } from '../types';
-import { PREDEFINED_BLOCKS } from '../constants';
+import { PREDEFINED_BLOCKS, SPECIAL_BLOCKS, SPECIAL_BLOCK_IDS } from '../constants';
 import { io, Socket } from 'socket.io-client';
 
 // We need a way to access the socket. usually passed via context or imported.
@@ -12,7 +12,7 @@ import { io, Socket } from 'socket.io-client';
 // EXISTING PATTERN: `const socket = io('http://localhost:3002');` in components.
 
 export const useBlockTest = () => {
-    const [blocks, setBlocks] = useState<CommandBlock[]>(PREDEFINED_BLOCKS);
+    const [blocks, setBlocks] = useState<CommandBlock[]>([...PREDEFINED_BLOCKS, ...SPECIAL_BLOCKS]);
     const [pipelines, setPipelines] = useState<Pipeline[]>([]);
     const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
     const [isRunning, setIsRunning] = useState(false);
@@ -23,6 +23,7 @@ export const useBlockTest = () => {
 
     // Socket ref
     const socketRef = useRef<Socket | null>(null);
+    const fullLogsRef = useRef<string[]>([]);
 
     useEffect(() => {
         socketRef.current = io('http://localhost:3002');
@@ -49,7 +50,7 @@ export const useBlockTest = () => {
                     // But we want to ensure PREDEFINED are always present.
                     // Let's filter out predefined from loaded and re-merge PREDEFINED.
                     const custom = loaded.filter(b => b.type === 'custom');
-                    setBlocks([...PREDEFINED_BLOCKS, ...custom]);
+                    setBlocks([...PREDEFINED_BLOCKS, ...SPECIAL_BLOCKS, ...custom]);
                 } else if (filename === 'pipelines.json') {
                     setPipelines(JSON.parse(content));
                 }
@@ -79,7 +80,10 @@ export const useBlockTest = () => {
             if (p) {
                 try {
                     const parsedPipelines = JSON.parse(p);
-                    setPipelines(parsedPipelines);
+                    if (Array.isArray(parsedPipelines)) {
+                        const validPipelines = parsedPipelines.filter((p: any) => p && p.id);
+                        setPipelines(validPipelines);
+                    }
                     socketRef.current?.emit('save_file', { filename: 'pipelines.json', content: p });
                 } catch (e) {
                     console.error("Failed to import pipelines", e);
@@ -102,12 +106,14 @@ export const useBlockTest = () => {
     }, []);
 
     const savePipelines = useCallback((newPipelines: Pipeline[]) => {
-        setPipelines(newPipelines);
-        localStorage.setItem('happytool_pipelines', JSON.stringify(newPipelines));
+        // Double check for validity
+        const validPipelines = newPipelines.filter(p => p && p.id);
+        setPipelines(validPipelines);
+        localStorage.setItem('happytool_pipelines', JSON.stringify(validPipelines));
         if (socketRef.current) {
             socketRef.current.emit('save_file', {
                 filename: 'pipelines.json',
-                content: JSON.stringify(newPipelines, null, 2)
+                content: JSON.stringify(validPipelines, null, 2)
             });
         }
     }, []);
@@ -118,14 +124,15 @@ export const useBlockTest = () => {
 
     const updateBlock = (updatedBlock: CommandBlock) => {
         // if (PREDEFINED_BLOCKS.find(b => b.id === updatedBlock.id)) return; // Allow updates
-        setBlocks(prev => prev.map(b => b.id === updatedBlock.id ? updatedBlock : b));
+        const nextBlocks = blocks.map(b => b.id === updatedBlock.id ? updatedBlock : b);
+        saveBlocks(nextBlocks);
     };
 
     const deleteBlock = (id: string) => {
         // Prevent deleting predefined
-        if (PREDEFINED_BLOCKS.find(p => p.id === id)) return;
-        setBlocks(prev => prev.filter(b => b.id !== id));
-        // Also remove from pipelines? Ideally yes, but validation handles missing blocks.
+        if (PREDEFINED_BLOCKS.find(p => p.id === id) || SPECIAL_BLOCKS.find(s => s.id === id)) return;
+        const nextBlocks = blocks.filter(b => b.id !== id);
+        saveBlocks(nextBlocks);
     };
 
     const addPipeline = (pipeline: Pipeline) => {
@@ -133,7 +140,8 @@ export const useBlockTest = () => {
     };
 
     const updatePipeline = (pipeline: Pipeline) => {
-        const next = pipelines.map(p => p.id === pipeline.id ? pipeline : p);
+        if (!pipeline || !pipeline.id) return;
+        const next = pipelines.map(p => (p && p.id === pipeline.id) ? pipeline : p).filter(Boolean);
         savePipelines(next);
     };
 
@@ -183,6 +191,7 @@ export const useBlockTest = () => {
         setIsRunnerOpen(true);
         setActivePipelineId(pipeline.id);
         setExecutionLogs([]);
+        fullLogsRef.current = []; // Clear full logs
         setExecutionStats({});
         setCompletedStepCount(0);
 
@@ -190,8 +199,12 @@ export const useBlockTest = () => {
 
         const logs: string[] = [];
         const log = (msg: string) => {
-            logs.push(msg);
-            setExecutionLogs(prev => [...prev, msg]);
+            fullLogsRef.current.push(msg); // Store in full logs
+            setExecutionLogs(prev => {
+                const next = [...prev, msg];
+                if (next.length > 5000) return next.slice(next.length - 5000);
+                return next;
+            });
         };
 
         log(`Starting Pipeline: ${pipeline.name}`);
@@ -264,6 +277,30 @@ export const useBlockTest = () => {
 
                 log(`-- Loop Ended --`);
             } else if (item.type === 'block' && item.blockId) {
+                // Sleep Handling
+                if (item.blockId === SPECIAL_BLOCK_IDS.SLEEP) {
+                    const duration = item.sleepDuration || 1000;
+                    log(`[Sleep] Waiting ${duration}ms...`);
+
+                    const startTime = Date.now();
+                    setExecutionStats(prev => ({ ...prev, [item.id]: { startTime, status: 'running' } }));
+
+                    await new Promise(resolve => setTimeout(resolve, duration));
+
+                    const endTime = Date.now();
+                    setExecutionStats(prev => ({
+                        ...prev,
+                        [item.id]: {
+                            startTime,
+                            endTime,
+                            duration: endTime - startTime,
+                            status: 'success'
+                        }
+                    }));
+                    setCompletedStepCount(prev => prev + 1);
+                    continue;
+                }
+
                 const block = blocks.find(b => b.id === item.blockId);
                 if (!block) {
                     log(`Error: Block ${item.blockId} not found`);
@@ -311,6 +348,19 @@ export const useBlockTest = () => {
         }
     };
 
+    const downloadLogs = useCallback(() => {
+        const content = fullLogsRef.current.join('\n');
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pipeline_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, []);
+
     return {
         blocks,
         pipelines,
@@ -323,6 +373,7 @@ export const useBlockTest = () => {
         executePipeline,
         stopPipeline,
         closePipelineRunner,
+        downloadLogs,
         isRunning,
         executionLogs,
         currentBlockId,

@@ -20,9 +20,13 @@ function useUndoRedo<T>(initialState: T, onChange: (state: T) => void): [T, (new
         setHistory(prev => {
             const next = prev.slice(0, index + 1);
             next.push(newState);
+            if (next.length > 50) return next.slice(next.length - 50); // Limit history
             return next;
         });
-        setIndex(prev => prev + 1);
+        setIndex(prev => {
+            const newIndex = prev + 1;
+            return newIndex > 49 ? 49 : newIndex; // Keep index within bounds if sliced
+        });
         onChange(newState);
     }, [index, onChange]);
 
@@ -40,7 +44,7 @@ function useUndoRedo<T>(initialState: T, onChange: (state: T) => void): [T, (new
         }
     }, [index, history, onChange]);
 
-    return [history[index], setState, undo, redo, index > 0, index < history.length - 1];
+    return [history[index] || initialState, setState, undo, redo, index > 0, index < history.length - 1];
 }
 
 const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onChange, onRun, hasResults, onViewResults }) => {
@@ -50,6 +54,8 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
 
     // Selection State
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [lastClickedId, setLastClickedId] = useState<string | null>(null);
+    const [editingHintId, setEditingHintId] = useState<string | null>(null);
 
     // Toast State
     const [toast, setToast] = useState<{ message: string, visible: boolean }>({ message: '', visible: false });
@@ -62,6 +68,8 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
     // Undo/Redo Wrapper
     const [currentPipeline, setPipeline, undo, redo, canUndo, canRedo] = useUndoRedo(pipeline, onChange);
 
+    if (!currentPipeline) return <div className="p-10 text-center text-slate-500">Loading Pipeline...</div>;
+
     const updateItems = (newItems: PipelineItem[]) => {
         setPipeline({ ...currentPipeline, items: newItems });
     };
@@ -69,13 +77,11 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
     // Keyboard Shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Ignore if user is typing in an input
             const target = e.target as HTMLElement;
             if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
                 return;
             }
 
-            // Undo/Redo
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
                 if (e.shiftKey) {
                     e.preventDefault();
@@ -92,18 +98,15 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                 return;
             }
 
-            // Deselect on Escape
             if (e.key === 'Escape') {
                 e.preventDefault();
                 setSelectedIds(new Set());
                 return;
             }
 
-            // Delete (Backpsace / Delete only, NO Escape)
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 if (selectedIds.size > 0) {
                     e.preventDefault();
-                    // Recursive deletion function
                     const deleteFromList = (items: PipelineItem[]): PipelineItem[] => {
                         return items
                             .filter(item => !selectedIds.has(item.id))
@@ -130,7 +133,29 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
     }, [selectedIds, currentPipeline, undo, redo, canUndo, canRedo]);
 
     // Selection Handlers - STRICT CONTIGUOUS LOGIC
-    const handleSelect = (id: string, multi: boolean, siblings: PipelineItem[]) => {
+    const handleSelect = (id: string, multi: boolean, range: boolean, siblings: PipelineItem[]) => {
+        if (range && lastClickedId) {
+            const currentIndex = siblings.findIndex(item => item.id === id);
+            const lastIndex = siblings.findIndex(item => item.id === lastClickedId);
+
+            if (currentIndex !== -1 && lastIndex !== -1) {
+                const start = Math.min(currentIndex, lastIndex);
+                const end = Math.max(currentIndex, lastIndex);
+                const rangeItems = siblings.slice(start, end + 1);
+
+                if (multi) {
+                    const next = new Set(selectedIds);
+                    rangeItems.forEach(item => next.add(item.id));
+                    setSelectedIds(next);
+                } else {
+                    setSelectedIds(new Set(rangeItems.map(item => item.id)));
+                }
+                return;
+            }
+        }
+
+        setLastClickedId(id);
+
         if (multi) {
             const next = new Set(selectedIds);
 
@@ -221,7 +246,7 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
         }
     };
 
-    const handleDrop = (e: React.DragEvent, targetIndex: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void) => {
+    const handleDrop = (e: React.DragEvent, targetIndex: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void, targetContainerId?: string) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -230,8 +255,81 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
 
         try {
             const payload = JSON.parse(data);
-            let newItem: PipelineItem | null = null;
 
+            if (payload.type === 'move_item') {
+                const itemId = payload.itemId;
+                if (!itemId) return;
+
+                // Find item info
+                const findItemInfo = (items: PipelineItem[], containerId: string = 'root'): { item: PipelineItem, containerId: string, index: number, list: PipelineItem[] } | null => {
+                    for (let i = 0; i < items.length; i++) {
+                        if (items[i].id === itemId) return { item: items[i], containerId, index: i, list: items };
+                        if (items[i].children) {
+                            const found = findItemInfo(items[i].children!, items[i].id);
+                            if (found) return found;
+                        }
+                    }
+                    return null;
+                };
+
+                const sourceInfo = findItemInfo(currentPipeline.items);
+                if (!sourceInfo) return;
+
+                // 1. Same Container Move
+                if (sourceInfo.containerId === (targetContainerId || 'root')) {
+                    if (parentItems && updateParent) {
+                        const newList = [...parentItems];
+                        const [movedItem] = newList.splice(sourceInfo.index, 1);
+                        let adjustedTarget = targetIndex;
+                        if (sourceInfo.index < targetIndex) adjustedTarget--;
+
+                        newList.splice(adjustedTarget, 0, movedItem);
+                        updateParent(newList);
+                    }
+                }
+                // 2. Cross Container Move
+                else {
+                    const removeFromTree = (items: PipelineItem[]): PipelineItem[] => {
+                        return items.filter(item => {
+                            if (item.id === itemId) return false;
+                            if (item.children) item.children = removeFromTree(item.children);
+                            return true;
+                        });
+                    };
+
+                    let newRootItems = removeFromTree(currentPipeline.items);
+                    const itemToMove = sourceInfo.item;
+
+                    const insertIntoTree = (items: PipelineItem[], cId: string): boolean => {
+                        if (cId === 'root') {
+                            items.splice(targetIndex, 0, itemToMove);
+                            return true;
+                        }
+                        for (const item of items) {
+                            if (item.id === cId && item.children) {
+                                item.children.splice(targetIndex, 0, itemToMove);
+                                return true;
+                            }
+                            if (item.children) {
+                                if (insertIntoTree(item.children, cId)) return true;
+                            }
+                        }
+                        return false;
+                    };
+
+                    if (targetContainerId === 'root') {
+                        newRootItems.splice(targetIndex, 0, itemToMove);
+                        updateItems(newRootItems);
+                    } else {
+                        if (insertIntoTree(newRootItems, targetContainerId || 'root')) {
+                            updateItems(newRootItems);
+                        }
+                    }
+                }
+                return;
+            }
+
+            let newItem: PipelineItem | null = null;
             if (payload.type === 'add_block') {
                 newItem = {
                     id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -276,20 +374,13 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (e.target === e.currentTarget) {
-            clearSelection();
-        }
-        if (e.button === 0 || e.button === 1) {
-            setIsPanning(true);
-        }
+        if (e.target === e.currentTarget) clearSelection();
+        if (e.button === 0 || e.button === 1) setIsPanning(true);
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (isPanning) {
-            setPan(prev => ({
-                x: prev.x + e.movementX,
-                y: prev.y + e.movementY
-            }));
+            setPan(prev => ({ x: prev.x + e.movementX, y: prev.y + e.movementY }));
         }
     };
 
@@ -297,7 +388,6 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
 
     return (
         <div className="flex-1 flex flex-col h-full bg-slate-950 text-slate-200 relative">
-            {/* Toast Notification */}
             {toast.visible && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4 pointer-events-none">
                     <div className="bg-red-500/90 backdrop-blur text-white px-4 py-2 rounded-lg shadow-xl border border-red-400 font-bold flex items-center gap-2">
@@ -307,7 +397,6 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                 </div>
             )}
 
-            {/* Header */}
             <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900 shadow-md z-10">
                 <div className="flex items-center gap-4">
                     <div className="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
@@ -355,12 +444,11 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                 </div>
             </div>
 
-            {/* Canvas */}
             <div
                 className={`flex-1 overflow-hidden relative bg-[#0B0F19] bg-[radial-gradient(#1f2937_1px,transparent_1px)] select-none ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
                 style={{ backgroundSize: `${20 * scale}px ${20 * scale}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}
                 onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => handleDrop(e, currentPipeline.items.length)}
+                onDrop={(e) => handleDrop(e, currentPipeline.items.length, undefined, undefined, 'root')}
                 onWheel={handleWheel}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
@@ -379,7 +467,10 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                             onDrop={handleDrop}
                             selectedIds={selectedIds}
                             onSelect={handleSelect}
+                            editingHintId={editingHintId}
+                            onEditHint={setEditingHintId}
                             direction="row"
+                            containerId="root"
                         />
                     </div>
                 </div>
@@ -392,17 +483,19 @@ const GraphFlow: React.FC<{
     items: PipelineItem[];
     blocks: CommandBlock[];
     onChange: (items: PipelineItem[]) => void;
-    onDrop: (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void) => void;
+    onDrop: (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void, targetContainerId?: string) => void;
     selectedIds: Set<string>;
-    onSelect: (id: string, multi: boolean, siblings: PipelineItem[]) => void;
+    onSelect: (id: string, multi: boolean, range: boolean, siblings: PipelineItem[]) => void;
+    editingHintId: string | null;
+    onEditHint: (id: string | null) => void;
     direction?: 'row' | 'col';
     isNested?: boolean;
-}> = ({ items, blocks, onChange, onDrop, selectedIds, onSelect, direction = 'row', isNested = false }) => {
+    containerId?: string;
+}> = ({ items, blocks, onChange, onDrop, selectedIds, onSelect, editingHintId, onEditHint, direction = 'row', isNested = false, containerId = 'root' }) => {
     const isRow = direction === 'row';
 
     return (
         <div className={`flex ${isRow ? 'flex-row items-start' : 'flex-col items-center'} cursor-default`}>
-            {/* Start Node - Hidden if Nested */}
             {!isNested && (
                 <div
                     className={`${isRow ? 'mr-2 mt-[calc(48px/2-28px)]' : 'mb-2'} relative z-10 group`}
@@ -420,9 +513,8 @@ const GraphFlow: React.FC<{
                     key={item.id}
                     className={`flex ${isRow ? 'flex-row h-full items-start' : 'flex-col w-full items-center'} justify-center`}
                 >
-                    {/* Connector Wire */}
-                    <div className={`${isRow ? 'mt-[24px]' : ''}`}>
-                        <Wire onDrop={(e) => onDrop(e, index, items, onChange)} vertical={!isRow} />
+                    <div className={`${isRow ? '-mt-2' : ''}`}>
+                        <Wire onDrop={(e) => onDrop(e, index, items, onChange, containerId)} vertical={!isRow} />
                     </div>
 
                     <div className={`relative z-10 flex items-start justify-center node-appear-animation group/node ${isRow ? 'px-1 h-full' : 'py-1 w-full'}`}>
@@ -430,16 +522,39 @@ const GraphFlow: React.FC<{
                             <div
                                 onMouseDown={(e) => {
                                     e.stopPropagation();
-                                    onSelect(item.id, e.ctrlKey || e.shiftKey || e.metaKey, items);
+                                    onSelect(item.id, e.ctrlKey || e.metaKey, e.shiftKey, items);
+                                }}
+                                draggable
+                                onDragStart={(e) => {
+                                    e.stopPropagation();
+                                    e.dataTransfer.setData('application/json', JSON.stringify({ type: 'move_item', itemId: item.id }));
+                                    e.dataTransfer.effectAllowed = 'move';
                                 }}
                             >
-                                <BlockNode item={item} blocks={blocks} selected={selectedIds.has(item.id)} />
+                                <BlockNode
+                                    item={item}
+                                    blocks={blocks}
+                                    selected={selectedIds.has(item.id)}
+                                    onChange={(updatedItem) => {
+                                        const next = [...items];
+                                        next[index] = updatedItem;
+                                        onChange(next);
+                                    }}
+                                    editingHintId={editingHintId}
+                                    onEditHint={onEditHint}
+                                />
                             </div>
                         ) : (
                             <div
                                 onMouseDown={(e) => {
                                     e.stopPropagation();
-                                    onSelect(item.id, e.ctrlKey || e.shiftKey || e.metaKey, items);
+                                    onSelect(item.id, e.ctrlKey || e.metaKey, e.shiftKey, items);
+                                }}
+                                draggable
+                                onDragStart={(e) => {
+                                    e.stopPropagation();
+                                    e.dataTransfer.setData('application/json', JSON.stringify({ type: 'move_item', itemId: item.id }));
+                                    e.dataTransfer.effectAllowed = 'move';
                                 }}
                             >
                                 <LoopNode
@@ -454,6 +569,8 @@ const GraphFlow: React.FC<{
                                     selectedIds={selectedIds}
                                     onSelect={onSelect}
                                     selected={selectedIds.has(item.id)}
+                                    editingHintId={editingHintId}
+                                    onEditHint={onEditHint}
                                 />
                             </div>
                         )}
@@ -461,14 +578,12 @@ const GraphFlow: React.FC<{
                 </div>
             ))}
 
-            {/* Final Wire - Hidden if Nested */}
             {!isNested && (
-                <div className={`${isRow ? 'mt-[24px]' : ''}`}>
-                    <Wire onDrop={(e) => onDrop(e, items.length, items, onChange)} isLast vertical={!isRow} />
+                <div className={`${isRow ? '-mt-2' : ''}`}>
+                    <Wire onDrop={(e) => onDrop(e, items.length, items, onChange, containerId)} isLast vertical={!isRow} />
                 </div>
             )}
 
-            {/* End Node - Hidden if Nested */}
             {!isNested && (
                 <div className={`${isRow ? 'ml-2 mt-[calc(48px/2-24px)]' : 'mt-2'} relative z-10 opacity-50 grayscale`} onMouseDown={(e) => e.stopPropagation()}>
                     <div className="w-12 h-12 rounded-full border-2 border-slate-700 bg-slate-900 flex items-center justify-center">
@@ -482,42 +597,128 @@ const GraphFlow: React.FC<{
 };
 
 const Wire: React.FC<{ onDrop: (e: React.DragEvent) => void, isLast?: boolean, vertical?: boolean }> = ({ onDrop, isLast, vertical }) => {
-    const baseClasses = `relative group transition-all duration-300 hover:bg-indigo-500 hover:shadow-[0_0_15px_rgba(99,102,241,0.6)] cursor-crosshair z-0 flex items-center justify-center`;
+    const [isDragOver, setIsDragOver] = useState(false);
 
-    let sizeClasses = '';
+    // Large hit area container (Invisible target)
+    // The sizes here determine how "easy" it is to hit the gap.
+    const containerClasses = vertical
+        ? `w-20 ${isLast ? 'h-24' : 'h-16'} flex items-center justify-center relative cursor-crosshair`
+        : `${isLast ? 'w-24' : 'w-20'} h-16 flex items-center justify-center relative cursor-crosshair`;
+
+    // Visible Line Styles
+    const activeColor = 'bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.8)]';
+    const inactiveColor = 'bg-slate-700 group-hover:bg-slate-600';
+
+    let lineElement = null;
+
     if (vertical) {
-        sizeClasses = isLast
-            ? 'h-16 w-1.5 border-l-2 border-dashed border-slate-700 bg-transparent hover:w-2.5'
-            : 'h-8 w-1.5 bg-slate-700 hover:w-2.5';
+        if (isLast) {
+            // Vertical Dashed Line (End)
+            lineElement = <div className={`h-full w-0 border-l-4 border-dashed transition-colors duration-300 ${isDragOver ? 'border-indigo-500' : 'border-slate-700 group-hover:border-indigo-400'}`} />;
+        } else {
+            // Vertical Solid Line
+            lineElement = <div className={`h-full w-2 rounded-full transition-all duration-300 ${isDragOver ? activeColor : inactiveColor}`} />;
+        }
     } else {
-        sizeClasses = isLast
-            ? 'w-16 h-1.5 border-t-2 border-dashed border-slate-700 bg-transparent hover:h-2.5'
-            : 'w-12 h-1.5 bg-slate-700 hover:h-2.5';
+        if (isLast) {
+            // Horizontal Dashed Line (End)
+            lineElement = <div className={`w-full h-0 border-t-4 border-dashed transition-colors duration-300 ${isDragOver ? 'border-indigo-500' : 'border-slate-700 group-hover:border-indigo-400'}`} />;
+        } else {
+            // Horizontal Solid Line
+            lineElement = <div className={`w-full h-2 rounded-full transition-all duration-300 ${isDragOver ? activeColor : inactiveColor}`} />;
+        }
     }
 
     return (
         <div
-            className={`${baseClasses} ${sizeClasses}`}
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onDrop={(e) => { e.stopPropagation(); onDrop(e); }}
-            onMouseDown={(e) => e.stopPropagation()}
+            className={`group ${containerClasses} transition-all ${isDragOver ? 'z-30 scale-105' : 'z-0'}`}
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
+            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(false); }}
+            onDrop={(e) => { e.stopPropagation(); setIsDragOver(false); onDrop(e); }}
         >
-            <div className="w-6 h-6 rounded-full bg-indigo-500 border-2 border-white opacity-0 group-hover:opacity-100 flex items-center justify-center shadow-lg transition-all scale-0 group-hover:scale-100 z-20">
-                <Lucide.Plus size={14} className="text-white" />
+            {lineElement}
+
+            {/* Plus Icon (centered) */}
+            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-indigo-500 border-2 border-white flex items-center justify-center shadow-lg transition-all z-20 pointer-events-none ${isDragOver ? 'opacity-100 scale-100' : 'opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100'}`}>
+                <Lucide.Plus size={20} className="text-white" />
             </div>
         </div>
     );
 };
 
-const BlockNode: React.FC<{ item: PipelineItem; blocks: CommandBlock[]; selected?: boolean }> = ({ item, blocks, selected }) => {
+const BlockNode: React.FC<{
+    item: PipelineItem;
+    blocks: CommandBlock[];
+    selected?: boolean;
+    onChange: (item: PipelineItem) => void;
+    editingHintId: string | null;
+    onEditHint: (id: string | null) => void;
+}> = ({ item, blocks, selected, onChange, editingHintId, onEditHint }) => {
     const block = blocks.find(b => b.id === item.blockId);
     if (!block) return <div className="p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-xl backdrop-blur-md">Unknown</div>;
     const isPredefined = block.type === 'predefined';
+    const isSpecial = block.type === 'special';
+
     return (
-        <div className={`relative w-48 rounded-xl border backdrop-blur-md shadow-xl transition-all hover:scale-105 active:scale-95 cursor-default group h-[48px] ${selected ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0B0F19] bg-indigo-900/90 border-indigo-400' : isPredefined ? 'bg-slate-800/90 border-slate-600 shadow-slate-900/50' : 'bg-indigo-950/90 border-indigo-500/50 shadow-indigo-900/40'}`}>
+        <div
+            className={`relative w-48 rounded-xl border backdrop-blur-md shadow-xl transition-all hover:scale-105 active:scale-95 cursor-default group h-[48px] ${selected ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0B0F19] bg-indigo-900/90 border-indigo-400' : isPredefined ? 'bg-slate-800/90 border-slate-600 shadow-slate-900/50' : isSpecial ? 'bg-violet-950/40 border-violet-500/30 shadow-violet-900/40' : 'bg-indigo-950/90 border-indigo-500/50 shadow-indigo-900/40'}`}
+            onDoubleClick={(e) => {
+                e.stopPropagation();
+                onEditHint(item.id);
+            }}
+        >
+            {/* Hint Display/Editor */}
+            {(item.hint || editingHintId === item.id) && (
+                <div className="absolute -top-3 left-4 z-50">
+                    {editingHintId === item.id ? (
+                        <input
+                            autoFocus
+                            className="bg-yellow-100 text-yellow-900 text-xs px-2 py-1 rounded shadow-lg outline-none border border-yellow-300 min-w-[100px]"
+                            defaultValue={item.hint || ''}
+                            onBlur={(e) => {
+                                onChange({ ...item, hint: e.target.value });
+                                onEditHint(null);
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.currentTarget.blur();
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    ) : (
+                        <div className="bg-yellow-100/90 text-yellow-900/90 text-[10px] font-bold px-2 py-0.5 rounded shadow border border-yellow-200/50 max-w-[150px] truncate">
+                            {item.hint}
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="p-3 flex items-center gap-3 h-full">
-                <div className={`p-1.5 rounded-lg ${isPredefined ? 'bg-slate-700 text-slate-300' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'}`}><Lucide.Box size={16} /></div>
+                <div className={`p-1.5 rounded-lg ${isPredefined ? 'bg-slate-700 text-slate-300' : isSpecial ? 'bg-violet-900/50 text-violet-300' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'}`}>
+                    {isSpecial ? <Lucide.Moon size={16} /> : <Lucide.Box size={16} />}
+                </div>
                 <div className="flex-1 min-w-0"><h4 className="font-bold text-sm text-slate-100 truncate">{block.name}</h4></div>
+
+                {isSpecial && block.id === 'special_sleep' && (
+                    <div className="ml-auto flex items-center gap-1 bg-black/40 rounded px-2 py-0.5 border border-violet-500/30 transition-colors hover:border-violet-400" onClick={e => e.stopPropagation()}>
+                        <input
+                            type="number"
+                            className="w-12 bg-transparent text-right outline-none text-xs text-violet-200 font-mono focus:text-white"
+                            placeholder="ms"
+                            defaultValue={item.sleepDuration || 1000}
+                            step={1000}
+                            min={0}
+                            autoFocus
+                            onBlur={(e) => {
+                                const val = parseInt(e.target.value);
+                                onChange({ ...item, sleepDuration: isNaN(val) ? 1000 : val });
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.currentTarget.blur();
+                            }}
+                        />
+                        <span className="text-[10px] text-violet-500">ms</span>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -527,25 +728,22 @@ const LoopNode: React.FC<{
     item: PipelineItem;
     blocks: CommandBlock[];
     onChange: (item: PipelineItem) => void;
-    onDrop: (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void) => void;
+    onDrop: (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void, targetContainerId?: string) => void;
     selectedIds: Set<string>;
-    onSelect: (id: string, multi: boolean, siblings: PipelineItem[]) => void;
+    onSelect: (id: string, multi: boolean, range: boolean, siblings: PipelineItem[]) => void;
     selected?: boolean;
-}> = ({ item, blocks, onChange, onDrop, selectedIds, onSelect, selected }) => {
+    editingHintId: string | null;
+    onEditHint: (id: string | null) => void;
+}> = ({ item, blocks, onChange, onDrop, selectedIds, onSelect, selected, editingHintId, onEditHint }) => {
     const [isDragOver, setIsDragOver] = useState(false);
 
-    // This handler acts as a proxy. 
-    // If it receives a specific target (from a child Wire or Loop), it passes it up.
-    // If it receives no target (from its own Container drop), it defaults to itself.
-    const handleInternalDrop = (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void) => {
+    const handleInternalDrop = (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void, targetContainerId?: string) => {
         if (parentItems && updateParent) {
-            // Propagate the specific drop target up the chain
-            onDrop(e, index, parentItems, updateParent);
+            onDrop(e, index, parentItems, updateParent, targetContainerId);
         } else {
-            // Default to dropping into this loop
             onDrop(e, index, item.children || [], (newChildren) => {
                 onChange({ ...item, children: newChildren });
-            });
+            }, item.id);
         }
     };
 
@@ -553,8 +751,6 @@ const LoopNode: React.FC<{
         e.preventDefault();
         e.stopPropagation();
         setIsDragOver(false);
-
-        // Treat container drop as appending to the end of THIS loop
         handleInternalDrop(e, (item.children || []).length);
     };
 
@@ -565,6 +761,10 @@ const LoopNode: React.FC<{
                 ${selected ? 'border-orange-500 bg-orange-900/30 ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0B0F19]' : 'border-orange-500/40 bg-orange-950/20'}
                 ${isDragOver ? 'ring-4 ring-indigo-500/50 bg-indigo-900/30 scale-105' : ''}
             `}
+            onDoubleClick={(e) => {
+                e.stopPropagation();
+                onEditHint(item.id);
+            }}
             onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -577,7 +777,31 @@ const LoopNode: React.FC<{
             }}
             onDrop={handleContainerDrop}
         >
-            {/* Header */}
+            {/* Hint Display/Editor */}
+            {(item.hint || editingHintId === item.id) && (
+                <div className="absolute -top-4 left-4 z-50">
+                    {editingHintId === item.id ? (
+                        <input
+                            autoFocus
+                            className="bg-yellow-100 text-yellow-900 text-sm px-3 py-1 rounded shadow-lg outline-none border border-yellow-300 min-w-[120px]"
+                            defaultValue={item.hint || ''}
+                            onBlur={(e) => {
+                                onChange({ ...item, hint: e.target.value });
+                                onEditHint(null);
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.currentTarget.blur();
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    ) : (
+                        <div className="bg-yellow-100/90 text-yellow-900/90 text-xs font-bold px-3 py-1 rounded shadow border border-yellow-200/50 max-w-[180px] truncate">
+                            {item.hint}
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="w-full bg-orange-900/40 border-b border-orange-500/20 px-4 py-3 flex items-center justify-between rounded-t-xl gap-4">
                 <div className="flex items-center gap-2">
                     <Lucide.Repeat size={18} className="text-orange-500" />
@@ -595,11 +819,15 @@ const LoopNode: React.FC<{
                         }}
                         className="w-12 bg-transparent text-center outline-none text-orange-400 font-bold font-mono text-xl"
                         onClick={(e) => e.stopPropagation()}
+                        onBlur={(e) => {
+                            if (!item.loopCount || item.loopCount < 1) {
+                                onChange({ ...item, loopCount: 1 });
+                            }
+                        }}
                     />
                 </div>
             </div>
 
-            {/* Internal Flow */}
             <div className="w-full px-4 py-4 flex flex-col items-center justify-center min-h-[100px]">
                 {(item.children || []).length > 0 ? (
                     <GraphFlow
@@ -609,8 +837,11 @@ const LoopNode: React.FC<{
                         onDrop={handleInternalDrop}
                         selectedIds={selectedIds}
                         onSelect={onSelect}
+                        editingHintId={editingHintId}
+                        onEditHint={onEditHint}
                         direction="col"
                         isNested={true}
+                        containerId={item.id}
                     />
                 ) : (
                     <div className="w-full h-full min-h-[80px] rounded-xl border-2 border-dashed border-orange-500/30 bg-orange-500/5 text-orange-500/50 flex flex-col items-center justify-center pointer-events-none">
