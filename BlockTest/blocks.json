@@ -64,6 +64,13 @@
     ]
   },
   {
+    "id": "special_sleep",
+    "name": "Sleep",
+    "type": "special",
+    "description": "Wait for specified time",
+    "commands": []
+  },
+  {
     "id": "block_1766581869987",
     "name": "launch st app",
     "commands": [
@@ -101,6 +108,12 @@
     "commands": [
       "555"
     ],
+    "type": "custom"
+  },
+  {
+    "id": "block_1766604187177",
+    "name": "awdawdwawdawdawdadaw",
+    "commands": [],
     "type": "custom"
   }
 ]

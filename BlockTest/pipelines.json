@@ -9,9 +9,9 @@
         "blockId": "left_block"
       },
       {
-        "id": "item_1766602828200_rkdwuzar1",
+        "id": "item_1766604897212_mhfs33vhc",
         "type": "block",
-        "blockId": "connect_block"
+        "blockId": "enter_block"
       },
       {
         "id": "loop_1766603689724_kud4ubq5x",
@@ -37,80 +37,14 @@
         ]
       },
       {
-        "id": "item_1766601501901_wtkjl3mh5",
-        "type": "block",
-        "blockId": "up_block"
-      }
-    ]
-  },
-  {
-    "id": "pipeline_1766598376446",
-    "name": "tc1",
-    "items": [
-      {
-        "id": "item_1766603031374_j5wx7sh1y",
-        "type": "block",
-        "blockId": "enter_block"
-      },
-      {
-        "id": "item_1766602567468_apotg0cfs",
-        "type": "block",
-        "blockId": "special_sleep",
-        "sleepDuration": 1000
-      },
-      {
-        "id": "item_1766598473714_cwsf0d0wu",
-        "type": "block",
-        "blockId": "back_block"
-      },
-      {
-        "id": "loop_1766598477162_x80ado5qk",
-        "type": "loop",
-        "loopCount": 4,
-        "children": [
-          {
-            "id": "item_1766598605879_dk3gzbhlc",
-            "type": "block",
-            "blockId": "special_sleep",
-            "sleepDuration": 1000
-          },
-          {
-            "id": "item_1766598608530_auua57bij",
-            "type": "block",
-            "blockId": "connect_block"
-          }
-        ]
-      },
-      {
-        "id": "item_1766603034436_e2joz5g05",
-        "type": "block",
-        "blockId": "enter_block"
-      },
-      {
-        "id": "item_1766598624307_rorgdmzn4",
+        "id": "item_1766602828200_rkdwuzar1",
         "type": "block",
         "blockId": "connect_block"
       },
       {
-        "id": "item_1766598626775_77xqawn6r",
+        "id": "item_1766601501901_wtkjl3mh5",
         "type": "block",
-        "blockId": "special_sleep",
-        "sleepDuration": 3000
-      },
-      {
-        "id": "item_1766598966155_p2w28h5ct",
-        "type": "block",
-        "blockId": "block_1766581869987"
-      },
-      {
-        "id": "item_1766599080565_1jjjp4qoc",
-        "type": "block",
-        "blockId": "block_1766596155035"
-      },
-      {
-        "id": "item_1766599081842_cksi8gpsp",
-        "type": "block",
-        "blockId": "block_1766596160443"
+        "blockId": "up_block"
       }
     ]
   }

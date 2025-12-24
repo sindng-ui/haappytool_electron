@@ -603,7 +603,7 @@ const Wire: React.FC<{ onDrop: (e: React.DragEvent) => void, isLast?: boolean, v
     // The sizes here determine how "easy" it is to hit the gap.
     const containerClasses = vertical
         ? `w-20 ${isLast ? 'h-24' : 'h-16'} flex items-center justify-center relative cursor-crosshair`
-        : `${isLast ? 'w-24' : 'w-20'} h-16 flex items-center justify-center relative cursor-crosshair`;
+        : `${isLast ? 'w-16' : 'w-12'} h-16 flex items-center justify-center relative cursor-crosshair`;
 
     // Visible Line Styles
     const activeColor = 'bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.8)]';
@@ -661,7 +661,7 @@ const BlockNode: React.FC<{
 
     return (
         <div
-            className={`relative w-48 rounded-xl border backdrop-blur-md shadow-xl transition-all hover:scale-105 active:scale-95 cursor-default group h-[48px] ${selected ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0B0F19] bg-indigo-900/90 border-indigo-400' : isPredefined ? 'bg-slate-800/90 border-slate-600 shadow-slate-900/50' : isSpecial ? 'bg-violet-950/40 border-violet-500/30 shadow-violet-900/40' : 'bg-indigo-950/90 border-indigo-500/50 shadow-indigo-900/40'}`}
+            className={`relative w-56 rounded-xl border backdrop-blur-md shadow-xl transition-all hover:scale-105 active:scale-95 cursor-default group h-[48px] ${selected ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0B0F19] bg-indigo-900/90 border-indigo-400' : isPredefined ? 'bg-slate-800/90 border-slate-600 shadow-slate-900/50' : isSpecial ? 'bg-violet-950/40 border-violet-500/30 shadow-violet-900/40' : 'bg-indigo-950/90 border-indigo-500/50 shadow-indigo-900/40'}`}
             onDoubleClick={(e) => {
                 e.stopPropagation();
                 onEditHint(item.id);
