@@ -538,6 +538,100 @@ io.on('connection', (socket) => {
         }
         if (debugStream) { debugStream.end(); debugStream = null; }
     });
+
+    // --- Block Test Plugin Handlers ---
+
+    // 1. Run Host Command
+    socket.on('run_host_command', ({ command }) => {
+        // Safe-guard: basic split. User is expected to provide "cmd arg1 arg2"
+        if (!command || typeof command !== 'string') {
+            socket.emit('host_command_result', { success: false, output: 'Invalid command' });
+            return;
+        }
+
+        const parts = command.trim().split(/\s+/);
+        const cmd = parts[0];
+        const args = parts.slice(1);
+
+        logDebug(`Executing Host Command: ${cmd} ${args.join(' ')}`);
+
+        // Spawn command
+        const proc = spawn(cmd, args, { shell: true });
+        let stdout = '';
+        let stderr = '';
+
+        proc.stdout.on('data', (data) => stdout += data.toString());
+        proc.stderr.on('data', (data) => stderr += data.toString());
+
+        proc.on('error', (err) => {
+            socket.emit('host_command_result', {
+                command,
+                success: false,
+                output: `Error spawning command: ${err.message}`
+            });
+        });
+
+        proc.on('close', (code) => {
+            const finalOutput = (stdout + stderr).trim();
+            socket.emit('host_command_result', {
+                command,
+                success: code === 0,
+                output: finalOutput || (code === 0 ? 'Success (No output)' : `Exited with code ${code}`)
+            });
+        });
+    });
+
+    // 2. File Persistence (BlockTest Folder)
+    const BLOCK_TEST_DIR = path.join(process.cwd(), 'BlockTest');
+
+    // Ensure dir exists
+    if (!fs.existsSync(BLOCK_TEST_DIR)) {
+        try {
+            fs.mkdirSync(BLOCK_TEST_DIR, { recursive: true });
+        } catch (e) {
+            console.error("Failed to create BlockTest dir:", e);
+        }
+    }
+
+    socket.on('save_file', ({ filename, content }) => {
+        try {
+            if (!fs.existsSync(BLOCK_TEST_DIR)) {
+                fs.mkdirSync(BLOCK_TEST_DIR, { recursive: true });
+            }
+            const filePath = path.join(BLOCK_TEST_DIR, filename);
+            fs.writeFileSync(filePath, content, 'utf-8');
+            socket.emit('save_file_result', { filename, success: true });
+        } catch (e) {
+            socket.emit('save_file_result', { filename, success: false, error: e.message });
+        }
+    });
+
+    socket.on('load_file', ({ filename }) => {
+        try {
+            const filePath = path.join(BLOCK_TEST_DIR, filename);
+            if (fs.existsSync(filePath)) {
+                const content = fs.readFileSync(filePath, 'utf-8');
+                socket.emit('load_file_result', { filename, success: true, content });
+            } else {
+                socket.emit('load_file_result', { filename, success: false, error: 'File not found' });
+            }
+        } catch (e) {
+            socket.emit('load_file_result', { filename, success: false, error: e.message });
+        }
+    });
+
+    socket.on('list_files', () => {
+        try {
+            if (!fs.existsSync(BLOCK_TEST_DIR)) {
+                socket.emit('list_files_result', { files: [] });
+                return;
+            }
+            const files = fs.readdirSync(BLOCK_TEST_DIR);
+            socket.emit('list_files_result', { files });
+        } catch (e) {
+            socket.emit('list_files_result', { error: e.message });
+        }
+    });
 });
 // SPA Fallback for non-API routes
 app.get(/(.*)/, (req, res) => {

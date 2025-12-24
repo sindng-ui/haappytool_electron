@@ -60,3 +60,14 @@ export const ReverseEngineerPlugin: HappyPlugin = {
     component: ReverseEngineer,
     order: 6,
 };
+
+const BlockTest = React.lazy(() => import('../../components/BlockTest'));
+const { Blocks } = Lucide;
+
+export const BlockTestPlugin: HappyPlugin = {
+    id: ToolId.BLOCK_TEST,
+    name: 'Block Test',
+    icon: Blocks,
+    component: BlockTest,
+    order: 7,
+};

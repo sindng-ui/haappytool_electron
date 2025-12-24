@@ -1,3 +1,4 @@
+import { CommandBlock, Pipeline } from './components/BlockTest/types';
 
 export enum ToolId {
   LOG_EXTRACTOR = 'LOG_EXTRACTOR',
@@ -6,6 +7,7 @@ export enum ToolId {
   JSON_TOOLS = 'JSON_TOOLS',
   SMARTTHINGS_DEVICES = 'SMARTTHINGS_DEVICES',
   REVERSE_ENGINEER = 'REVERSE_ENGINEER',
+  BLOCK_TEST = 'BLOCK_TEST',
 }
 
 export interface LogHighlight {
@@ -43,6 +45,8 @@ export interface AppSettings {
   postGlobalVariables?: PostGlobalVariable[];
   lastEndpoint: string;
   lastMethod: string;
+  blocks?: CommandBlock[];
+  pipelines?: Pipeline[];
 }
 
 export interface RequestGroup {

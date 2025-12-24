@@ -48,7 +48,7 @@ const CommandRegistrar: React.FC<{
     // Register Export Settings
     registerCommand({
       id: 'export-settings',
-      title: 'Export Settings',
+      title: 'Export Settings (Json)',
       section: 'General',
       icon: <FileUp size={18} />,
       action: handleExport
@@ -57,7 +57,7 @@ const CommandRegistrar: React.FC<{
     // Register Import Settings
     registerCommand({
       id: 'import-settings',
-      title: 'Import Settings',
+      title: 'Import Settings (Json)',
       section: 'General',
       icon: <FileDown size={18} />,
       action: handleImport
@@ -189,7 +189,9 @@ const AppContent: React.FC = () => {
       savedRequestGroups,
       postGlobalVariables,
       lastEndpoint: lastApiUrl,
-      lastMethod
+      lastMethod,
+      blocks: JSON.parse(localStorage.getItem('happytool_blocks') || '[]'),
+      pipelines: JSON.parse(localStorage.getItem('happytool_pipelines') || '[]')
     };
     const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -235,6 +237,17 @@ const AppContent: React.FC = () => {
 
     if (settings.lastEndpoint) setLastApiUrl(settings.lastEndpoint);
     if (settings.lastMethod) setLastMethod(settings.lastMethod);
+
+    // Import BlockTest Data
+    if (settings.blocks) {
+      localStorage.setItem('happytool_blocks', JSON.stringify(settings.blocks));
+    }
+    if (settings.pipelines) {
+      localStorage.setItem('happytool_pipelines', JSON.stringify(settings.pipelines));
+    }
+
+    // Notify plugins to reload from localStorage
+    window.dispatchEvent(new Event('happytool:settings-imported'));
   };
 
   const handleImportClick = () => {

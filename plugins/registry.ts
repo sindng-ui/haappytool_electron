@@ -5,7 +5,8 @@ import {
     JsonToolsPlugin,
     TpkExtractorPlugin,
     SmartThingsDevicesPlugin,
-    ReverseEngineerPlugin
+    ReverseEngineerPlugin,
+    BlockTestPlugin
 } from './core/wrappers';
 
 // Registry array to hold all registered plugins
@@ -15,7 +16,8 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     JsonToolsPlugin,
     TpkExtractorPlugin,
     SmartThingsDevicesPlugin,
-    ReverseEngineerPlugin
+    ReverseEngineerPlugin,
+    BlockTestPlugin
 ];
 
 export const getPluginById = (id: string): HappyPlugin | undefined => {

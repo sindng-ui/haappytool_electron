@@ -1,0 +1,65 @@
+Starting Pipeline: New Test Pipeline
+[Connect] Executing...
+  $ sdb disconnect
+  > Success (No output)
+  $ sdb connect 192.168.250.250
+  > error: failed to connect to remote target '192.168.250.250'
+  $ sdb remount
+  > error: target not found
+-- Starting Loop (2 times) --
+Loop Iteration 1/2
+[Right] Executing...
+[Down] Executing...
+-- Starting Loop (2 times) --
+Loop Iteration 1/2
+[Connect] Executing...
+  $ sdb disconnect
+  > Success (No output)
+  $ sdb connect 192.168.250.250
+  > error: failed to connect to remote target '192.168.250.250'
+  $ sdb remount
+  > error: target not found
+[Left] Executing...
+Loop Iteration 2/2
+[Connect] Executing...
+  $ sdb disconnect
+  > Success (No output)
+  $ sdb connect 192.168.250.250
+  > error: failed to connect to remote target '192.168.250.250'
+  $ sdb remount
+  > error: target not found
+[Left] Executing...
+-- Loop Ended --
+Loop Iteration 2/2
+[Right] Executing...
+[Down] Executing...
+-- Starting Loop (2 times) --
+Loop Iteration 1/2
+[Connect] Executing...
+  $ sdb disconnect
+  > Success (No output)
+  $ sdb connect 192.168.250.250
+  > error: failed to connect to remote target '192.168.250.250'
+  $ sdb remount
+  > error: target not found
+[Left] Executing...
+Loop Iteration 2/2
+[Connect] Executing...
+  $ sdb disconnect
+  > Success (No output)
+  $ sdb connect 192.168.250.250
+  > error: failed to connect to remote target '192.168.250.250'
+  $ sdb remount
+  > error: target not found
+[Left] Executing...
+-- Loop Ended --
+-- Loop Ended --
+[Right] Executing...
+[Connect] Executing...
+  $ sdb disconnect
+  > Success (No output)
+  $ sdb connect 192.168.250.250
+  > error: failed to connect to remote target '192.168.250.250'
+  $ sdb remount
+  > error: target not found
+Pipeline Completed Successfully
