@@ -78,7 +78,7 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
     return (
         <div className={`flex flex-col h-full ${THEME.runner.container}`}>
             {/* Header */}
-            <div className={`p-4 flex justify-between items-center shadow-sm z-10 ${THEME.runner.header}`}>
+            <div className={`p-4 pr-36 flex justify-between items-center shadow-sm z-10 ${THEME.runner.header}`}>
                 <div className="flex items-center gap-4">
                     <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500">
                         <Lucide.ArrowLeft size={20} />

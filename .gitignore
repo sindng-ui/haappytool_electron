@@ -26,3 +26,8 @@ npm-debug.log*
 
 # Antigravity
 .antigravityrules
+
+# Block Test Data (Local)
+BlockTest/blocks.json
+BlockTest/pipelines.json
+BlockTest/test_config.json
