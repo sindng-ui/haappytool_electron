@@ -95,7 +95,7 @@ const BlockTest: React.FC = () => {
                 {/* Main Area */}
                 <div className="flex-1 flex flex-col min-w-0">
                     {/* Pipeline Selector Bar (Sub-Header) */}
-                    <div className={`${THEME.subHeader.container} p-2 flex items-center gap-2`}>
+                    <div className={`${THEME.subHeader.container} p-2 flex items-center gap-3`}>
                         <div className="flex items-center gap-2 px-2 text-slate-500">
                             <Lucide.Workflow size={18} />
                             <span className="font-bold text-sm">Pipelines</span>
@@ -103,37 +103,49 @@ const BlockTest: React.FC = () => {
 
                         <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
 
-                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
-                            {pipelines.map(p => (
-                                <div
-                                    key={p.id}
-                                    onClick={() => setSelectedPipelineId(p.id)}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer text-sm whitespace-nowrap border transition-all
-                                        ${selectedPipelineId === p.id
-                                            ? THEME.header.tab.active
-                                            : THEME.header.tab.inactive
-                                        }`}
-                                >
-                                    <span>{p.name}</span>
-                                    {selectedPipelineId === p.id && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); deletePipeline(p.id); setSelectedPipelineId(null); }}
-                                            className="p-0.5 hover:text-red-500 rounded-full"
-                                        >
-                                            <Lucide.X size={12} />
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
+                        {/* Dropdown Selector */}
+                        <div className="flex-1 max-w-sm relative">
+                            <select
+                                value={selectedPipelineId || ''}
+                                onChange={(e) => setSelectedPipelineId(e.target.value || null)}
+                                className={`w-full pl-3 pr-10 py-1.5 rounded-md text-sm border shadow-sm outline-none focus:ring-2 transition-all appearance-none cursor-pointer ${THEME.subHeader.dropdown}`}
+                            >
+                                <option value="" disabled>Select a pipeline...</option>
+                                {pipelines.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                <Lucide.ChevronDown size={14} />
+                            </div>
                         </div>
 
-                        <button
-                            onClick={handleCreatePipeline}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded text-sm transition-colors whitespace-nowrap ${THEME.header.newPipelineBtn}`}
-                        >
-                            <Lucide.Plus size={14} />
-                            <span>New Pipeline</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleCreatePipeline}
+                                className={`flex items-center gap-1 px-3 py-1.5 rounded text-sm transition-colors whitespace-nowrap ${THEME.header.newPipelineBtn}`}
+                            >
+                                <Lucide.Plus size={14} />
+                                <span>New</span>
+                            </button>
+
+                            {selectedPipelineId && (
+                                <button
+                                    onClick={() => {
+                                        if (selectedPipelineId) {
+                                            deletePipeline(selectedPipelineId);
+                                            setSelectedPipelineId(null);
+                                        }
+                                    }}
+                                    className={`p-1.5 rounded transition-colors ${THEME.subHeader.deleteBtn}`}
+                                    title="Delete Current Pipeline"
+                                >
+                                    <Lucide.Trash2 size={16} />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Editor or Empty State */}

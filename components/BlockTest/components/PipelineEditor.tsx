@@ -399,7 +399,7 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
             )}
 
             {/* [PIPELINE EDITOR HEADER BACKGROUND] - This controls the top bar in the editor */}
-            <div className={`p-4 flex justify-between items-center z-10 ${THEME.editor.header}`}>
+            <div className={`p-1.5 flex justify-between items-center z-10 ${THEME.editor.header}`}>
                 <div className="flex items-center gap-4">
                     <div className="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
                         <Lucide.Workflow size={20} className="text-indigo-400" />
@@ -412,7 +412,7 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                     />
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
                     {selectedIds.size > 0 && (
                         <button
                             onClick={handleGroup}

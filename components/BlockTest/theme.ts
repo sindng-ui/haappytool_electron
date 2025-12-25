@@ -13,6 +13,8 @@ export const THEME = {
     },
     subHeader: {
         container: "bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800",
+        dropdown: "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-200 focus:ring-indigo-500",
+        deleteBtn: "text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
     },
     sidebar: { // BlockManager
         container: "bg-slate-100 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800",

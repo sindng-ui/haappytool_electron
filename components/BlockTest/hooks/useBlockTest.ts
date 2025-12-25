@@ -12,8 +12,29 @@ import { io, Socket } from 'socket.io-client';
 // EXISTING PATTERN: `const socket = io('http://localhost:3002');` in components.
 
 export const useBlockTest = () => {
-    const [blocks, setBlocks] = useState<CommandBlock[]>([...PREDEFINED_BLOCKS, ...SPECIAL_BLOCKS]);
-    const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+    const [blocks, setBlocks] = useState<CommandBlock[]>(() => {
+        try {
+            const saved = localStorage.getItem('happytool_blocks');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error("Failed to load blocks from localStorage", e);
+        }
+        return [...PREDEFINED_BLOCKS, ...SPECIAL_BLOCKS];
+    });
+
+    const [pipelines, setPipelines] = useState<Pipeline[]>(() => {
+        try {
+            const saved = localStorage.getItem('happytool_pipelines');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error("Failed to load pipelines from localStorage", e);
+        }
+        return [];
+    });
     const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
     const [isRunning, setIsRunning] = useState(false);
     const [executionLogs, setExecutionLogs] = useState<string[]>([]);
