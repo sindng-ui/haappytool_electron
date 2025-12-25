@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { PipelineItem, CommandBlock, ExecutionStats } from '../types';
 import * as Lucide from 'lucide-react';
 import { THEME } from '../theme';
@@ -17,28 +17,25 @@ const PipelineGraphRenderer: React.FC<PipelineGraphRendererProps> = ({ items, bl
     const [isPanning, setIsPanning] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Auto-center on active item
-    useEffect(() => {
+    // Robust Auto-center on active item
+    useLayoutEffect(() => {
         if (!activeItemId || !containerRef.current) return;
 
-        // Small delay to ensure layout is ready (especially when switching views)
-        const timer = setTimeout(() => {
+        // No timeout needed with useLayoutEffect usually, but if animations are involved, small raf might be safer.
+        // Let's try direct calculation first.
+        requestAnimationFrame(() => {
             if (!containerRef.current) return;
-
-            // Find the node element
             const nodeElement = containerRef.current.querySelector(`[data-node-id="${activeItemId}"]`);
+
             if (nodeElement) {
                 const containerRect = containerRef.current.getBoundingClientRect();
                 const nodeRect = nodeElement.getBoundingClientRect();
 
-                // Calculate center of node relative to container viewport
                 const nodeCenterX = nodeRect.left + nodeRect.width / 2;
                 const nodeCenterY = nodeRect.top + nodeRect.height / 2;
-
                 const containerCenterX = containerRect.left + containerRect.width / 2;
                 const containerCenterY = containerRect.top + containerRect.height / 2;
 
-                // Difference needed to move node center to container center
                 const deltaX = containerCenterX - nodeCenterX;
                 const deltaY = containerCenterY - nodeCenterY;
 
@@ -47,9 +44,7 @@ const PipelineGraphRenderer: React.FC<PipelineGraphRendererProps> = ({ items, bl
                     y: prev.y + deltaY
                 }));
             }
-        }, 100);
-
-        return () => clearTimeout(timer);
+        });
     }, [activeItemId]);
 
     const handleWheel = (e: React.WheelEvent) => {
@@ -130,7 +125,7 @@ const GraphFlowReadOnly: React.FC<{
     return (
         <div className={`flex ${isRow ? 'flex-row items-start' : 'flex-col items-center'} cursor-default`}>
             {!isNested && (
-                <div className={`${isRow ? 'mr-2 mt-[calc(48px/2-28px)]' : 'mb-2'} relative z-10`}>
+                <div className={`${isRow ? 'mr-2 mt-[calc(48px/2-28px)]' : 'mb-2'} relative z-10`} data-node-id="start-node">
                     <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${THEME.editor.node.start} border-2 border-green-500/50`}>
                         <Lucide.Play size={24} className="text-green-400 ml-1" />
                     </div>
@@ -140,7 +135,8 @@ const GraphFlowReadOnly: React.FC<{
             {items.map((item, index) => (
                 <div key={item.id} className={`flex ${isRow ? 'flex-row h-full items-start' : 'flex-col w-full items-center'} justify-center`}>
                     <div className={`${isRow ? '-mt-2' : ''}`}>
-                        <WireReadOnly vertical={!isRow} active={!!stats[item.id]?.startTime} />
+                        {/* Wire from previous node to this node */}
+                        <WireReadOnly vertical={!isRow} active={!!stats[item.id]?.startTime} isRunning={isRunning && !!stats[item.id]?.startTime && !stats[item.id]?.endTime} />
                     </div>
 
                     <div className={`relative z-10 flex items-start justify-center node-appear-animation ${isRow ? 'px-1 h-full' : 'py-1 w-full'}`}>
@@ -188,38 +184,30 @@ const GraphFlowReadOnly: React.FC<{
 };
 
 
-const WireReadOnly: React.FC<{ isLast?: boolean, vertical?: boolean, active?: boolean }> = ({ isLast, vertical, active }) => {
+const WireReadOnly = React.memo(({ isLast, vertical, active, isRunning }: { isLast?: boolean, vertical?: boolean, active?: boolean, isRunning?: boolean }) => {
     const containerClasses = vertical
         ? `w-4 ${isLast ? 'h-12' : 'h-8'} flex items-center justify-center relative`
         : `${isLast ? 'w-12' : 'w-8'} h-16 flex items-center justify-center relative`;
-
-    // Active means the path has been traversed (data flowed through)
-    // For simplicity, we light it up if the *next* node has started or if this connection is leading to an active/completed node.
-
-    // Actually, simple logic: Gray by default.
-    // If 'active' prop is true, we color it.
 
     const colorClass = active
         ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]'
         : 'bg-slate-700/50';
 
+    // Add a pulsing glow if it's "running" (flowing)
+    const activeFlowClass = isRunning ? 'animate-pulse ring-2 ring-green-400/50' : '';
+
     return (
         <div className={containerClasses}>
             {vertical ? (
-                <div className={`h-full w-1 rounded-full transition-all duration-500 ${colorClass}`} />
+                <div className={`h-full w-1 rounded-full transition-all duration-500 ${colorClass} ${activeFlowClass}`} />
             ) : (
-                <div className={`w-full h-1 rounded-full transition-all duration-500 ${colorClass}`} />
+                <div className={`w-full h-1 rounded-full transition-all duration-500 ${colorClass} ${activeFlowClass}`} />
             )}
         </div>
     );
-};
+});
 
-const BlockNodeReadOnly: React.FC<{
-    item: PipelineItem;
-    blocks: CommandBlock[];
-    isActive: boolean;
-    stats?: ExecutionStats[string];
-}> = ({ item, blocks, isActive, stats }) => {
+const BlockNodeReadOnly = React.memo(({ item, blocks, isActive, stats }: { item: PipelineItem; blocks: CommandBlock[]; isActive: boolean; stats?: ExecutionStats[string]; }) => {
     const block = blocks.find(b => b.id === item.blockId);
     if (!block) return <div className="p-2 bg-red-900 text-white text-xs rounded">?</div>;
 
@@ -250,7 +238,7 @@ const BlockNodeReadOnly: React.FC<{
     }
 
     return (
-        <div className={`relative w-56 rounded-xl border transition-all duration-500 h-[48px] overflow-hidden
+        <div className={`relative w-56 rounded-xl border transition-all duration-500 h-[48px] overflow-hidden group
             ${THEME.editor.node.base} 
             ${isPredefined ? THEME.editor.node.predefined : isSpecial ? THEME.editor.node.special : THEME.editor.node.custom}
             ${borderClass} ${shadowClass} ${scaleClass} ${opacityClass}
@@ -261,6 +249,9 @@ const BlockNodeReadOnly: React.FC<{
             {isActive && (
                 <div className="absolute inset-0 bg-indigo-500/10 animate-pulse pointer-events-none" />
             )}
+
+            {/* Click to focus/log? Future interactive feature */}
+            <div className="absolute inset-0 cursor-pointer" title={block.name} />
 
             {/* Loading / Check icon absolute positioned */}
             <div className="absolute -top-2 -right-2 z-10">
@@ -284,7 +275,7 @@ const BlockNodeReadOnly: React.FC<{
                 )}
             </div>
 
-            <div className="p-3 flex items-center gap-3 h-full relative z-0">
+            <div className="p-3 flex items-center gap-3 h-full relative z-0 pointer-events-none">
                 <div className={`p-1.5 rounded-lg transition-colors duration-300 ${isPredefined ? 'bg-slate-700 text-slate-300' : isSpecial ? 'bg-violet-900/50 text-violet-300' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'}`}>
                     {isSpecial ? <Lucide.Moon size={16} /> : isPredefined ? <Lucide.Package size={16} /> : <Lucide.Terminal size={16} />}
                 </div>
@@ -298,16 +289,13 @@ const BlockNodeReadOnly: React.FC<{
             </div>
         </div>
     );
-};
+});
 
-const LoopNodeReadOnly: React.FC<{
-    item: PipelineItem;
-    blocks: CommandBlock[];
-    activeItemId: string | null;
-    stats: ExecutionStats;
-    isActive: boolean;
-    isRunning: boolean;
-}> = ({ item, blocks, activeItemId, stats, isActive, isRunning }) => {
+
+const LoopNodeReadOnly = React.memo(({ item, blocks, activeItemId, stats, isActive, isRunning }: { item: PipelineItem; blocks: CommandBlock[]; activeItemId: string | null; stats: ExecutionStats; isActive: boolean; isRunning: boolean; }) => {
+
+    // Collapsible State
+    const [isOpen, setIsOpen] = useState(true);
 
     // Check if any child is active
     const hasActiveChild = (children: PipelineItem[]): boolean => {
@@ -316,6 +304,13 @@ const LoopNodeReadOnly: React.FC<{
 
     const childIsActive = hasActiveChild(item.children || []);
 
+    // Auto-open if running child inside
+    useEffect(() => {
+        if (childIsActive && !isOpen) {
+            setIsOpen(true);
+        }
+    }, [childIsActive, isOpen]);
+
     return (
         <div className={`min-w-[200px] rounded-2xl border-2 backdrop-blur-sm relative flex flex-col transition-all duration-500
             ${THEME.editor.node.loop}
@@ -323,23 +318,39 @@ const LoopNodeReadOnly: React.FC<{
         `}
             data-node-id={item.id}
         >
-            <div className={`absolute -top-3 left-4 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-900 border border-orange-700 text-orange-200 z-10`}>
-                Loop {item.loopCount}x
+            <div className="absolute -top-3 left-4 flex z-10">
+                <div className={`px-2 py-0.5 rounded-l text-[10px] font-bold uppercase tracking-wider bg-orange-900 border border-orange-700 border-r-0 text-orange-200`}>
+                    Loop {item.loopCount}x
+                </div>
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="px-1.5 py-0.5 rounded-r bg-orange-800 border border-orange-700 text-orange-200 hover:bg-orange-700 transition-colors"
+                >
+                    {isOpen ? <Lucide.ChevronUp size={12} /> : <Lucide.ChevronDown size={12} />}
+                </button>
             </div>
 
-            <div className="p-4 pt-6">
-                <GraphFlowReadOnly
-                    items={item.children || []}
-                    blocks={blocks}
-                    activeItemId={activeItemId}
-                    stats={stats}
-                    isNested
-                    direction="col"
-                    isRunning={isRunning}
-                />
+            <div className={`transition-all duration-300 overflow-hidden ${isOpen ? 'p-4 pt-6 opacity-100' : 'h-0 opacity-0'}`}>
+                {isOpen && (
+                    <GraphFlowReadOnly
+                        items={item.children || []}
+                        blocks={blocks}
+                        activeItemId={activeItemId}
+                        stats={stats}
+                        isNested
+                        direction="col"
+                        isRunning={isRunning}
+                    />
+                )}
             </div>
+
+            {!isOpen && (
+                <div className="p-4 text-center text-xs text-slate-500 italic">
+                    {item.children?.length || 0} items hidden
+                </div>
+            )}
         </div>
     );
-}
+});
 
 export default PipelineGraphRenderer;

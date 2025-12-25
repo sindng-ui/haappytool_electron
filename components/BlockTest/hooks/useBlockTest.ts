@@ -259,6 +259,14 @@ export const useBlockTest = () => {
         log(`Starting Pipeline: ${pipeline.name}`);
 
         try {
+            // Initial Delay (Static View)
+            setActivePipelineItemId(null);
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Focus on start node briefly
+            setActivePipelineItemId('start-node');
+            await new Promise(resolve => setTimeout(resolve, 100)); // Quick tick to allow layout to capture 'start-node'
+
             await executeItems(pipeline.items, log);
             log("Pipeline Completed Successfully");
         } catch (e: any) {

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useMemo } from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import { Pipeline, PipelineItem, CommandBlock, ExecutionStats } from '../types';
 import * as Lucide from 'lucide-react';
 import { THEME } from '../theme';
@@ -19,14 +20,7 @@ interface PipelineRunnerProps {
 
 
 const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs, activeItemId, stats, completedCount, isRunning, onStop, onClose }) => {
-    const scrollRef = useRef<HTMLDivElement>(null);
     const listContainerRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [logs]);
 
     // Auto-scroll to active item in List View
     useEffect(() => {
@@ -58,9 +52,6 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
 
     const currentStep = completedCount !== undefined ? completedCount : 0;
     const progress = Math.min(100, (currentStep / (totalItems || 1)) * 100);
-
-    const startTime = stats[pipeline.items[0]?.id]?.startTime;
-    const runningDuration = startTime ? ((Date.now() - startTime) / 1000).toFixed(1) : '0.0';
 
     const [viewMode, setViewModeState] = React.useState<'list' | 'graph'>(() => {
         return (localStorage.getItem('blockTestViewMode') as 'list' | 'graph') || 'list';
@@ -188,15 +179,20 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
                     <div className="p-2 bg-slate-900 text-slate-400 text-xs uppercase font-bold border-b border-slate-800">
                         Execution Logs
                     </div>
-                    <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-1">
-                        {logs.map((log, idx) => {
-                            const isError = /error|fail|exception/i.test(log);
-                            return (
-                                <div key={idx} className={`break-all whitespace-pre-wrap ${isError ? 'text-red-500 font-bold' : 'text-slate-300'}`}>
-                                    {log}
-                                </div>
-                            );
-                        })}
+                    <div className="flex-1 p-2">
+                        <Virtuoso
+                            style={{ height: '100%' }}
+                            data={logs}
+                            followOutput={'auto'}
+                            itemContent={(index, log) => {
+                                const isError = /error|fail|exception/i.test(log);
+                                return (
+                                    <div className={`break-all whitespace-pre-wrap py-0.5 ${isError ? 'text-red-500 font-bold' : 'text-slate-300'}`}>
+                                        {log}
+                                    </div>
+                                );
+                            }}
+                        />
                     </div>
                 </div>
             </div>

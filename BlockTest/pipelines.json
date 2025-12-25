@@ -4,16 +4,16 @@
     "name": "tc1",
     "items": [
       {
-        "id": "item_1766663694409_bshoag08p",
-        "type": "block",
-        "blockId": "connect_block"
-      },
-      {
         "id": "item_1766663696649_ldy80lobg",
         "type": "block",
         "blockId": "special_sleep",
         "sleepDuration": 1000,
         "hint": "11"
+      },
+      {
+        "id": "item_1766663694409_bshoag08p",
+        "type": "block",
+        "blockId": "connect_block"
       },
       {
         "id": "item_1766663698277_az6bahgtl",
