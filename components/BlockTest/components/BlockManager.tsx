@@ -91,13 +91,13 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
     }, [isEditing]);
 
     return (
-        <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 w-80">
+        <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 w-72">
             {/* ... Header ... */}
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-sm">
                 <h2 className="font-bold text-slate-800 dark:text-slate-200">Blocks</h2>
                 <button
                     onClick={handleCreate}
-                    className="p-1.5 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-all shadow-sm hover:shadow-md active:scale-95"
+                    className="p-2.5 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-all shadow-sm hover:shadow-md active:scale-95"
                 >
                     <Lucide.Plus size={18} />
                 </button>
@@ -112,7 +112,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                         placeholder="Search blocks..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all shadow-sm"
                     />
                 </div>
             </div>
@@ -134,7 +134,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                     </div>
 
                     {isSpecialOpen && (
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                             {filteredBlocks.filter(b => b.type === 'special').map(block => (
                                 <div
                                     key={block.id}
@@ -172,7 +172,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                     </div>
 
                     {isPredefinedOpen && (
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                             {filteredBlocks.filter(b => b.type === 'predefined').map(block => (
                                 <div
                                     key={block.id}
@@ -181,7 +181,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                         e.dataTransfer.setData('application/json', JSON.stringify({ type: 'add_block', blockId: block.id }));
                                         e.dataTransfer.effectAllowed = 'copy';
                                     }}
-                                    className="group p-2.5 bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-grab hover:border-indigo-400 dark:hover:border-indigo-500 transition-all shadow-sm hover:shadow-md backdrop-blur-sm"
+                                    className="group p-1.5 bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-grab hover:border-indigo-400 dark:hover:border-indigo-500 transition-all shadow-sm hover:shadow-md backdrop-blur-sm"
                                 >
                                     <div className="flex justify-between items-start">
                                         <div>
@@ -215,7 +215,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                     </div>
 
                     {isCustomOpen && (
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                             {filteredBlocks.filter(b => b.type === 'custom').map(block => (
                                 <div
                                     key={block.id}
@@ -224,7 +224,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                         e.dataTransfer.setData('application/json', JSON.stringify({ type: 'add_block', blockId: block.id }));
                                         e.dataTransfer.effectAllowed = 'copy';
                                     }}
-                                    className="group p-2.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-500 transition-all relative cursor-grab shadow-sm hover:shadow-md"
+                                    className="group p-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-500 transition-all relative cursor-grab shadow-sm hover:shadow-md"
                                 >
                                     <div className="flex justify-between items-start">
                                         <div>
