@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CommandBlock } from '../types';
 import * as Lucide from 'lucide-react';
+import { THEME } from '../theme';
 
 interface BlockManagerProps {
     blocks: CommandBlock[];
@@ -91,10 +92,11 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
     }, [isEditing]);
 
     return (
-        <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 w-72">
+        <div className={`flex flex-col h-full w-72 ${THEME.sidebar.container}`}>
             {/* ... Header ... */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-sm">
-                <h2 className="font-bold text-slate-800 dark:text-slate-200">Blocks</h2>
+            {/* [LEFT SIDEBAR HEADER BACKGROUND] */}
+            <div className={`p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center backdrop-blur-sm ${THEME.sidebar.header}`}>
+                <h2 className={`font-bold ${THEME.sidebar.text}`}>Blocks</h2>
                 <button
                     onClick={handleCreate}
                     className="p-2.5 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-all shadow-sm hover:shadow-md active:scale-95"
@@ -104,7 +106,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
             </div>
 
             {/* Search Bar */}
-            <div className="px-4 py-3 border-b border-slate-200/50 dark:border-slate-800/50">
+            <div className={`px-4 py-3 ${THEME.sidebar.search.container}`}>
                 <div className="relative group">
                     <Lucide.Search className="absolute left-2.5 top-2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={14} />
                     <input
@@ -112,7 +114,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                         placeholder="Search blocks..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                        className={`w-full pl-9 pr-3 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all shadow-sm ${THEME.sidebar.search.input}`}
                     />
                 </div>
             </div>
@@ -121,14 +123,14 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
 
                 <div className="mb-6">
                     <div
-                        className="flex items-center gap-1 cursor-pointer text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-2 px-2 select-none transition-colors"
+                        className={`flex items-center gap-1 cursor-pointer mb-2 px-2 select-none transition-colors ${THEME.sidebar.category.header}`}
                         onClick={() => setSpecialOpen(!isSpecialOpen)}
                     >
                         <div className={`transition-transform duration-200 ${isSpecialOpen ? 'rotate-0' : '-rotate-90'}`}>
                             <Lucide.ChevronDown size={14} />
                         </div>
                         <span className="text-xs font-semibold uppercase tracking-wider">Special</span>
-                        <span className="text-[10px] text-slate-400 font-normal ml-auto bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded-full">
+                        <span className={`text-[10px] font-normal ml-auto px-1.5 py-0.5 rounded-full ${THEME.sidebar.category.count}`}>
                             {filteredBlocks.filter(b => b.type === 'special').length}
                         </span>
                     </div>
@@ -143,12 +145,12 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                         e.dataTransfer.setData('application/json', JSON.stringify({ type: 'add_block', blockId: block.id }));
                                         e.dataTransfer.effectAllowed = 'copy';
                                     }}
-                                    className="group p-2.5 bg-violet-50/50 dark:bg-violet-900/20 hover:bg-violet-50 dark:hover:bg-violet-900/40 rounded-lg border border-violet-100 dark:border-violet-800 cursor-grab hover:border-violet-400 dark:hover:border-violet-500 transition-all shadow-sm hover:shadow-md backdrop-blur-sm"
+                                    className={`group p-2.5 rounded-lg border cursor-grab transition-all shadow-sm hover:shadow-md backdrop-blur-sm ${THEME.sidebar.item.special}`}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex items-center gap-2">
                                             <Lucide.Moon size={14} className="text-violet-400" />
-                                            <span className="font-medium text-sm text-slate-700 dark:text-slate-200">{block.name}</span>
+                                            <span className={`font-medium text-sm ${THEME.sidebar.text}`}>{block.name}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -159,14 +161,14 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
 
                 <div>
                     <div
-                        className="flex items-center gap-1 cursor-pointer text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-2 px-2 select-none transition-colors"
+                        className={`flex items-center gap-1 cursor-pointer mb-2 px-2 select-none transition-colors ${THEME.sidebar.category.header}`}
                         onClick={() => setPredefinedOpen(!isPredefinedOpen)}
                     >
                         <div className={`transition-transform duration-200 ${isPredefinedOpen ? 'rotate-0' : '-rotate-90'}`}>
                             <Lucide.ChevronDown size={14} />
                         </div>
                         <span className="text-xs font-semibold uppercase tracking-wider">Predefined</span>
-                        <span className="text-[10px] text-slate-400 font-normal ml-auto bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded-full">
+                        <span className={`text-[10px] font-normal ml-auto px-1.5 py-0.5 rounded-full ${THEME.sidebar.category.count}`}>
                             {filteredBlocks.filter(b => b.type === 'predefined').length}
                         </span>
                     </div>
@@ -181,11 +183,11 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                         e.dataTransfer.setData('application/json', JSON.stringify({ type: 'add_block', blockId: block.id }));
                                         e.dataTransfer.effectAllowed = 'copy';
                                     }}
-                                    className="group p-1.5 bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-grab hover:border-indigo-400 dark:hover:border-indigo-500 transition-all shadow-sm hover:shadow-md backdrop-blur-sm"
+                                    className={`group p-1.5 rounded-lg border cursor-grab transition-all shadow-sm hover:shadow-md backdrop-blur-sm ${THEME.sidebar.item.predefined}`}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <span className="font-medium text-sm text-slate-700 dark:text-slate-200">{block.name}</span>
+                                            <span className={`font-medium text-sm ${THEME.sidebar.text}`}>{block.name}</span>
                                             <div className="text-xs text-slate-500 truncate mt-0.5">{block.commands.length} cmds</div>
                                         </div>
                                         <div className="hidden group-hover:flex gap-2">
@@ -202,14 +204,14 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
 
                 <div>
                     <div
-                        className="flex items-center gap-1 cursor-pointer text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-2 px-2 mt-6 select-none transition-colors"
+                        className={`flex items-center gap-1 cursor-pointer mb-2 px-2 mt-6 select-none transition-colors ${THEME.sidebar.category.header}`}
                         onClick={() => setCustomOpen(!isCustomOpen)}
                     >
                         <div className={`transition-transform duration-200 ${isCustomOpen ? 'rotate-0' : '-rotate-90'}`}>
                             <Lucide.ChevronDown size={14} />
                         </div>
                         <span className="text-xs font-semibold uppercase tracking-wider">Custom</span>
-                        <span className="text-[10px] text-slate-400 font-normal ml-auto bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded-full">
+                        <span className={`text-[10px] font-normal ml-auto px-1.5 py-0.5 rounded-full ${THEME.sidebar.category.count}`}>
                             {filteredBlocks.filter(b => b.type === 'custom').length}
                         </span>
                     </div>
@@ -224,11 +226,11 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                         e.dataTransfer.setData('application/json', JSON.stringify({ type: 'add_block', blockId: block.id }));
                                         e.dataTransfer.effectAllowed = 'copy';
                                     }}
-                                    className="group p-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-500 transition-all relative cursor-grab shadow-sm hover:shadow-md"
+                                    className={`group p-1.5 rounded-lg border transition-all relative cursor-grab shadow-sm hover:shadow-md ${THEME.sidebar.item.custom}`}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <span className="font-medium text-sm text-slate-800 dark:text-slate-200">{block.name}</span>
+                                            <span className={`font-medium text-sm ${THEME.sidebar.text}`}>{block.name}</span>
                                             <div className="text-xs text-slate-500 mt-0.5">{block.commands.length} cmds</div>
                                         </div>
                                         <div className="hidden group-hover:flex gap-1.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg pl-1">

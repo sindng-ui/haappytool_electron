@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Pipeline, PipelineItem, CommandBlock } from '../types';
 import * as Lucide from 'lucide-react';
+import { THEME } from '../theme';
 
 interface PipelineEditorProps {
     pipeline: Pipeline;
@@ -387,7 +388,7 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
     const handleMouseUp = () => setIsPanning(false);
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-950 text-slate-200 relative">
+        <div className={`flex-1 flex flex-col h-full relative ${THEME.editor.container}`}>
             {toast.visible && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4 pointer-events-none">
                     <div className="bg-red-500/90 backdrop-blur text-white px-4 py-2 rounded-lg shadow-xl border border-red-400 font-bold flex items-center gap-2">
@@ -397,7 +398,8 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                 </div>
             )}
 
-            <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900 shadow-md z-10">
+            {/* [PIPELINE EDITOR HEADER BACKGROUND] - This controls the top bar in the editor */}
+            <div className={`p-4 flex justify-between items-center z-10 ${THEME.editor.header}`}>
                 <div className="flex items-center gap-4">
                     <div className="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
                         <Lucide.Workflow size={20} className="text-indigo-400" />
@@ -421,7 +423,7 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                         </button>
                     )}
 
-                    <div className="flex items-center gap-1 bg-slate-800 rounded-lg px-2 py-1 border border-slate-700 font-mono text-xs text-slate-400">
+                    <div className={`flex items-center gap-1 rounded-lg px-2 py-1 border font-mono text-xs ${THEME.editor.controls}`}>
                         <span>{Math.round(scale * 100)}%</span>
                         <button onClick={() => { setPan({ x: 0, y: 0 }); setScale(1); }} className="ml-2 hover:text-white" title="Reset View">
                             <Lucide.Maximize size={12} />
@@ -444,8 +446,9 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                 </div>
             </div>
 
+            {/* [CANVAS BACKGROUND] - This controls the infinite canvas background */}
             <div
-                className={`flex-1 overflow-hidden relative bg-[#0B0F19] bg-[radial-gradient(#1f2937_1px,transparent_1px)] select-none ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+                className={`flex-1 overflow-hidden relative select-none ${THEME.editor.canvas.bg} ${THEME.editor.canvas.dots} ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
                 style={{ backgroundSize: `${20 * scale}px ${20 * scale}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => handleDrop(e, currentPipeline.items.length, undefined, undefined, 'root')}
@@ -501,7 +504,7 @@ const GraphFlow: React.FC<{
                     className={`${isRow ? 'mr-2 mt-[calc(48px/2-28px)]' : 'mb-2'} relative z-10 group`}
                     onMouseDown={(e) => e.stopPropagation()}
                 >
-                    <div className="w-14 h-14 rounded-full bg-slate-800 border-2 border-green-500/50 flex items-center justify-center shadow-[0_0_20px_rgba(34,197,94,0.3)] group-hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] transition-all">
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all group-hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] shadow-[0_0_20px_rgba(34,197,94,0.3)] ${THEME.editor.node.start}`}>
                         <Lucide.Cpu size={24} className="text-green-400" />
                     </div>
                     <div className={`absolute ${isRow ? 'top-full left-1/2 -translate-x-1/2 mt-2' : 'left-full top-1/2 -translate-y-1/2 ml-2'} text-[10px] font-bold text-green-500 tracking-wider uppercase bg-slate-900/80 px-2 py-0.5 rounded-full border border-green-900/50 backdrop-blur-sm whitespace-nowrap`}>Start</div>
@@ -586,7 +589,7 @@ const GraphFlow: React.FC<{
 
             {!isNested && (
                 <div className={`${isRow ? 'ml-2 mt-[calc(48px/2-24px)]' : 'mt-2'} relative z-10 opacity-50 grayscale`} onMouseDown={(e) => e.stopPropagation()}>
-                    <div className="w-12 h-12 rounded-full border-2 border-slate-700 bg-slate-900 flex items-center justify-center">
+                    <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center ${THEME.editor.node.end}`}>
                         <div className="w-4 h-4 rounded-full bg-slate-700"></div>
                     </div>
                     <div className={`absolute ${isRow ? 'top-full left-1/2 -translate-x-1/2 mt-2' : 'left-full top-1/2 -translate-y-1/2 ml-2'} text-[10px] font-bold text-slate-600 tracking-wider uppercase`}>End</div>
@@ -661,7 +664,7 @@ const BlockNode: React.FC<{
 
     return (
         <div
-            className={`relative w-56 rounded-xl border backdrop-blur-md shadow-xl transition-all hover:scale-105 active:scale-95 cursor-default group h-[48px] ${selected ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0B0F19] bg-indigo-900/90 border-indigo-400' : isPredefined ? 'bg-slate-800/90 border-slate-600 shadow-slate-900/50' : isSpecial ? 'bg-violet-950/40 border-violet-500/30 shadow-violet-900/40' : 'bg-indigo-950/90 border-indigo-500/50 shadow-indigo-900/40'}`}
+            className={`relative w-56 rounded-xl border transition-all hover:scale-105 active:scale-95 cursor-default group h-[48px] ${THEME.editor.node.base} ${selected ? THEME.editor.node.selected : isPredefined ? THEME.editor.node.predefined : isSpecial ? THEME.editor.node.special : THEME.editor.node.custom}`}
             onDoubleClick={(e) => {
                 e.stopPropagation();
                 onEditHint(item.id);
@@ -758,7 +761,7 @@ const LoopNode: React.FC<{
         <div
             className={`
                 min-w-[200px] rounded-2xl border-2 backdrop-blur-sm relative flex flex-col cursor-default transition-all
-                ${selected ? 'border-orange-500 bg-orange-900/30 ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0B0F19]' : 'border-orange-500/40 bg-orange-950/20'}
+                ${selected ? THEME.editor.node.loopSelected : THEME.editor.node.loop}
                 ${isDragOver ? 'ring-4 ring-indigo-500/50 bg-indigo-900/30 scale-105' : ''}
             `}
             onDoubleClick={(e) => {

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { Pipeline, PipelineItem, CommandBlock, ExecutionStats } from '../types';
 import * as Lucide from 'lucide-react';
+import { THEME } from '../theme';
 
 interface PipelineRunnerProps {
     pipeline: Pipeline;
@@ -61,9 +62,9 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950">
+        <div className={`flex flex-col h-full ${THEME.runner.container}`}>
             {/* Header */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 shadow-sm z-10">
+            <div className={`p-4 flex justify-between items-center shadow-sm z-10 ${THEME.runner.header}`}>
                 <div className="flex items-center gap-4">
                     <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500">
                         <Lucide.ArrowLeft size={20} />
@@ -116,7 +117,7 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
 
             <div className="flex-1 flex overflow-hidden">
                 {/* Visual Flow - Vertical */}
-                <div className="w-1/2 p-6 overflow-y-auto border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+                <div className={`w-1/2 p-6 overflow-y-auto ${THEME.runner.visual}`}>
                     <div className="max-w-2xl mx-auto border-l-2 border-indigo-100 dark:border-indigo-900/30 pl-6 py-4 space-y-4">
                         <RunnerItemList
                             items={pipeline.items}
@@ -128,7 +129,7 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
                 </div>
 
                 {/* Logs */}
-                <div className="w-1/2 flex flex-col bg-black text-green-400 font-mono text-xs">
+                <div className={`w-1/2 flex flex-col font-mono text-xs ${THEME.runner.logs}`}>
                     <div className="p-2 bg-slate-900 text-slate-400 text-xs uppercase font-bold border-b border-slate-800">
                         Execution Logs
                     </div>
@@ -201,10 +202,10 @@ const RunnerItemList: React.FC<{
                 return (
                     <div key={item.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-300 relative overflow-hidden
                         ${isActive
-                            ? 'bg-white dark:bg-slate-800 border-indigo-500 shadow-lg translate-x-1'
+                            ? THEME.runner.item.active
                             : isCompleted
-                                ? 'bg-slate-50 dark:bg-slate-900 border-green-200 dark:border-green-900/30'
-                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60'
+                                ? THEME.runner.item.completed
+                                : THEME.runner.item.pending
                         }`}
                     >
                         {isCompleted && itemStats?.status === 'success' && (
