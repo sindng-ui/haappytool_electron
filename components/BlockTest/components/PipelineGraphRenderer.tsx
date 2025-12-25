@@ -173,7 +173,7 @@ const GraphFlowReadOnly: React.FC<{
                         <WireReadOnly vertical={!isRow} active={!!stats[item.id]?.startTime} isRunning={isRunning && !!stats[item.id]?.startTime && !stats[item.id]?.endTime} />
                     </div>
 
-                    <div className={`relative z-10 flex items-start justify-center ${isRow ? 'px-1 h-full' : 'py-1 w-full'}`}>
+                    <div className={`relative z-10 flex items-start justify-center node-appear-animation ${isRow ? 'px-1 h-full' : 'py-1 w-full'}`}>
                         {item.type === 'block' ? (
                             <BlockNodeReadOnly
                                 item={item}
