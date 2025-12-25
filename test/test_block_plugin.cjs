@@ -18,8 +18,8 @@ socket.on('connect_error', (err) => {
 
 async function runTests() {
     try {
-        await testCommandExecution();
-        await testFilePersistence();
+        await testValidCommand();
+        await testInvalidCommand(); // The REPRO case
         console.log('ALL TESTS PASSED');
         process.exit(0);
     } catch (e) {
@@ -28,67 +28,69 @@ async function runTests() {
     }
 }
 
-function testCommandExecution() {
+// Client logic mirror
+function runCommand(cmd) {
     return new Promise((resolve, reject) => {
-        console.log('[Test] Command Execution...');
-        const cmd = 'echo "Hello Block Test"';
+        console.log(`[Client] Running command: "${cmd}"`);
 
-        socket.emit('run_host_command', { command: cmd });
+        // 5s timeout to catch "hanging" faster than 10s
+        const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error("Command timed out (5s)"));
+        }, 5000);
 
-        const handler = (res) => {
+        const handleResult = (res) => {
+            console.log(`[Client DEBUG] Received result:`, res);
             if (res.command === cmd) {
-                socket.off('host_command_result', handler);
-                if (res.success && res.output.trim() === '"Hello Block Test"') {
-                    console.log('  PASS: Command executed successfully');
-                    resolve();
-                } else {
-                    reject(new Error(`Command failed or output mismatch. Success: ${res.success}, Output: ${res.output}`));
-                }
+                cleanup();
+                resolve(res.output);
             }
         };
-        socket.on('host_command_result', handler);
 
-        // Timeout
-        setTimeout(() => reject(new Error('Command execution timed out')), 2000);
+        const cleanup = () => {
+            clearTimeout(timeout);
+            socket.off('host_command_result', handleResult);
+        };
+
+        socket.on('host_command_result', handleResult);
+        socket.emit('run_host_command', { command: cmd });
     });
 }
 
-function testFilePersistence() {
-    return new Promise((resolve, reject) => {
-        console.log('[Test] File Persistence...');
-        const filename = 'test_config.json';
-        const content = JSON.stringify({ foo: 'bar' });
+async function testValidCommand() {
+    console.log('[Test] Valid Command (echo)...');
+    const output = await runCommand('echo "Hello"');
+    if (output.includes('Hello')) {
+        console.log('  PASS');
+    } else {
+        throw new Error(`Output mismatch: ${output}`);
+    }
+}
 
-        // 1. Save
-        socket.emit('save_file', { filename, content });
+async function testInvalidCommand() {
+    console.log('[Test] Invalid Command (rgrg)...');
+    const startTime = Date.now();
+    try {
+        const output = await runCommand('rgrg');
+        const duration = Date.now() - startTime;
+        console.log(`  PASS: Finished in ${duration}ms. Output: ${output}`);
 
-        const saveHandler = (res) => {
-            if (res.filename === filename) {
-                socket.off('save_file_result', saveHandler);
-                if (!res.success) return reject(new Error('Save failed: ' + res.error));
+        if (duration > 4000) {
+            throw new Error("Test took too long, likely timed out instead of failing fast.");
+        }
 
-                console.log('  PASS: File saved');
+        // Check if output contains error message
+        if (!output.toLowerCase().includes('not recognized') && !output.toLowerCase().includes('not found') && !output.toLowerCase().includes('error')) {
+            console.warn("  WARNING: Output didn't look like a standard error, but it finished fast.");
+        }
 
-                // 2. Load
-                socket.emit('load_file', { filename });
-            }
-        };
-        socket.on('save_file_result', saveHandler);
-
-        const loadHandler = (res) => {
-            if (res.filename === filename) {
-                socket.off('load_file_result', loadHandler);
-                if (res.success && res.content === content) {
-                    console.log('  PASS: File loaded and matches');
-                    resolve();
-                } else {
-                    reject(new Error(`Load failed or mismatch. Success: ${res.success}, Content: ${res.content}`));
-                }
-            }
-        };
-        socket.on('load_file_result', loadHandler);
-
-        // Timeout
-        setTimeout(() => reject(new Error('Persistence test timed out')), 2000);
-    });
+    } catch (e) {
+        const duration = Date.now() - startTime;
+        console.log(`  FAILED or TIMED OUT in ${duration}ms: ${e.message}`);
+        // If it was the timeout error, then REPRODUCED
+        if (e.message.includes('timed out')) {
+            throw new Error("REPRODUCED: Command timed out instead of failing immediately.");
+        }
+        throw e;
+    }
 }

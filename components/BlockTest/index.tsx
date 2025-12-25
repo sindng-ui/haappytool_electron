@@ -31,7 +31,15 @@ const BlockTest: React.FC = () => {
         setIsRunnerOpen
     } = useBlockTest();
 
-    const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
+    const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(() => {
+        return localStorage.getItem('blockTestLastPipelineId') || null;
+    });
+
+    React.useEffect(() => {
+        if (selectedPipelineId) {
+            localStorage.setItem('blockTestLastPipelineId', selectedPipelineId);
+        }
+    }, [selectedPipelineId]);
 
     // The pipeline currently being edited
     const editingPipeline = pipelines.find(p => p.id === selectedPipelineId);

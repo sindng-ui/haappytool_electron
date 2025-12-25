@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useHappyTool } from '../../contexts/HappyToolContext'; // Assuming access to socket from here or context
+
 import { CommandBlock, Pipeline, TestResult, PipelineItem, ExecutionStats } from '../types';
 import { PREDEFINED_BLOCKS, SPECIAL_BLOCKS, SPECIAL_BLOCK_IDS } from '../constants';
 import { io, Socket } from 'socket.io-client';
@@ -191,18 +191,46 @@ export const useBlockTest = () => {
     }, []);
 
     // Execution Logic
-    const runCommand = (cmd: string): Promise<string> => {
-        return new Promise((resolve) => {
-            if (!socketRef.current) return resolve("Socket not connected");
+    const runCommand = (cmd: string, signal?: AbortSignal): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            if (!socketRef.current) return reject(new Error("Socket not connected"));
+
+            const requestId = Math.random().toString(36).substring(7);
+
+            const timeout = setTimeout(() => {
+                cleanup();
+                reject(new Error("Command timed out (10s)"));
+            }, 10000);
 
             const handleResult = (res: any) => {
-                if (res.command === cmd) {
-                    socketRef.current?.off('host_command_result', handleResult);
+                if (res.requestId === requestId) {
+                    cleanup();
                     resolve(res.output);
                 }
             };
+
+            const handleDebug = (res: any) => {
+                if (res.requestId === requestId) {
+                    console.log(`[Server Process Debug]: ${res.message}`);
+                }
+            };
+
+            const onAbort = () => {
+                cleanup();
+                reject(new Error("Pipeline Stopped"));
+            };
+
+            const cleanup = () => {
+                clearTimeout(timeout);
+                socketRef.current?.off('host_command_result', handleResult);
+                socketRef.current?.off('host_command_debug', handleDebug);
+                signal?.removeEventListener('abort', onAbort);
+            };
+
+            signal?.addEventListener('abort', onAbort);
             socketRef.current.on('host_command_result', handleResult);
-            socketRef.current.emit('run_host_command', { command: cmd });
+            socketRef.current.on('host_command_debug', handleDebug);
+            socketRef.current.emit('run_host_command', { command: cmd, requestId });
         });
     };
 
@@ -339,7 +367,8 @@ export const useBlockTest = () => {
                     for (const cmd of block.commands) {
                         if (abortController.current?.signal.aborted) throw new Error('Pipeline Stopped');
                         log(`  $ ${cmd}`);
-                        const output = await runCommand(cmd);
+                        // Pass signal to runCommand
+                        const output = await runCommand(cmd, abortController.current?.signal);
                         log(`  > ${output}`);
                         if (output.toLowerCase().includes('error')) {
                             hasError = true;
@@ -348,7 +377,8 @@ export const useBlockTest = () => {
                 } catch (e: any) {
                     if (e.message === 'Pipeline Stopped') throw e;
                     hasError = true;
-                    log(`  ! Exception: ${e}`);
+                    // If timeout or other error
+                    log(`  ! Error: ${e.message || e}`);
                 }
 
                 // End tracking stats

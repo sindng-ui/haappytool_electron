@@ -4,7 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const { Client } = require('ssh2');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 
 const path = require('path');
 
@@ -87,7 +87,7 @@ app.get('/test-step1', (req, res) => {
             <tbody>
                 <tr>
                     <td>1</td>
-                    <!-- The logic should find this URL -->
+                    // The logic should find this URL
                     <td><a href="${host}/test-step2">http://internal.repo/view/123</a></td> 
                     <td>Success</td>
                 </tr>
@@ -109,7 +109,7 @@ app.get('/test-step2/repos/product/armv7l/packages/armv7l/', (req, res) => {
         <h1>Index of /packages/armv7l</h1>
         <ul>
             <li><a href="../">Parent Directory</a></li>
-            <!-- The logic should find this .rpm file -->
+            // The logic should find this .rpm file
             <li><a href="test-package.rpm">mock-target-app.rpm</a></li> 
             <li><a href="other.txt">other.txt</a></li>
         </ul>
@@ -542,41 +542,32 @@ io.on('connection', (socket) => {
     // --- Block Test Plugin Handlers ---
 
     // 1. Run Host Command
-    socket.on('run_host_command', ({ command }) => {
-        // Safe-guard: basic split. User is expected to provide "cmd arg1 arg2"
+    socket.on('run_host_command', ({ command, requestId }) => {
         if (!command || typeof command !== 'string') {
-            socket.emit('host_command_result', { success: false, output: 'Invalid command' });
+            socket.emit('host_command_result', { requestId, success: false, output: 'Invalid command' });
             return;
         }
 
-        const parts = command.trim().split(/\s+/);
-        const cmd = parts[0];
-        const args = parts.slice(1);
+        const cmdString = command.trim();
+        console.log(`[DEBUG_RUN] Received command: ${cmdString}`);
+        console.log(`[DEBUG_RUN] Executing via exec...`);
 
-        logDebug(`Executing Host Command: ${cmd} ${args.join(' ')}`);
+        // Use exec for robust shell command execution
+        const execOpts = { maxBuffer: 1024 * 1024 * 5 }; // 5MB
 
-        // Spawn command
-        const proc = spawn(cmd, args, { shell: true });
-        let stdout = '';
-        let stderr = '';
+        exec(cmdString, execOpts, (error, stdout, stderr) => {
+            console.log(`[DEBUG_RUN] Exec completed. Error: ${error ? error.message : 'None'}`);
+            console.log(`[DEBUG_RUN] stdout: ${stdout.length} bytes, stderr: ${stderr.length} bytes`);
 
-        proc.stdout.on('data', (data) => stdout += data.toString());
-        proc.stderr.on('data', (data) => stderr += data.toString());
-
-        proc.on('error', (err) => {
-            socket.emit('host_command_result', {
-                command,
-                success: false,
-                output: `Error spawning command: ${err.message}`
-            });
-        });
-
-        proc.on('close', (code) => {
             const finalOutput = (stdout + stderr).trim();
+            const success = !error;
+
+            socket.emit('host_command_debug', { requestId, message: `Exec completed. Success: ${success}` });
             socket.emit('host_command_result', {
                 command,
-                success: code === 0,
-                output: finalOutput || (code === 0 ? 'Success (No output)' : `Exited with code ${code}`)
+                requestId,
+                success,
+                output: finalOutput || (success ? 'Success (No output)' : `Failed: ${error.message}`)
             });
         });
     });

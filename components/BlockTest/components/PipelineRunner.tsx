@@ -3,6 +3,8 @@ import { Pipeline, PipelineItem, CommandBlock, ExecutionStats } from '../types';
 import * as Lucide from 'lucide-react';
 import { THEME } from '../theme';
 
+import PipelineGraphRenderer from './PipelineGraphRenderer';
+
 interface PipelineRunnerProps {
     pipeline: Pipeline;
     blocks: CommandBlock[];
@@ -15,14 +17,26 @@ interface PipelineRunnerProps {
     onClose: () => void;
 }
 
+
 const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs, activeItemId, stats, completedCount, isRunning, onStop, onClose }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
+    const listContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [logs]);
+
+    // Auto-scroll to active item in List View
+    useEffect(() => {
+        if (activeItemId && listContainerRef.current) {
+            const activeEl = listContainerRef.current.querySelector(`[data-step-id="${activeItemId}"]`);
+            if (activeEl) {
+                activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }, [activeItemId]);
 
     // Calculate Progress
     const totalItems = useMemo(() => {
@@ -47,6 +61,15 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
 
     const startTime = stats[pipeline.items[0]?.id]?.startTime;
     const runningDuration = startTime ? ((Date.now() - startTime) / 1000).toFixed(1) : '0.0';
+
+    const [viewMode, setViewModeState] = React.useState<'list' | 'graph'>(() => {
+        return (localStorage.getItem('blockTestViewMode') as 'list' | 'graph') || 'list';
+    });
+
+    const setViewMode = (mode: 'list' | 'graph') => {
+        setViewModeState(mode);
+        localStorage.setItem('blockTestViewMode', mode);
+    };
 
     const handleSaveLogs = () => {
         const content = logs.join('\n');
@@ -93,7 +116,26 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
                         </div>
                     </div>
                 </div>
+
                 <div className="flex items-center gap-2">
+                    {/* View Toggle */}
+                    <div className="bg-slate-200 dark:bg-slate-800 p-1 rounded-lg flex items-center mr-2">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow text-indigo-500' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            title="List View"
+                        >
+                            <Lucide.List size={16} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('graph')}
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'graph' ? 'bg-white dark:bg-slate-600 shadow text-indigo-500' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            title="Graph View"
+                        >
+                            <Lucide.Network size={16} />
+                        </button>
+                    </div>
+
                     <button
                         onClick={handleSaveLogs}
                         className="px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg font-medium text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95"
@@ -116,16 +158,29 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
             </div>
 
             <div className="flex-1 flex overflow-hidden">
-                {/* Visual Flow - Vertical */}
-                <div className={`w-1/2 p-6 overflow-y-auto ${THEME.runner.visual}`}>
-                    <div className="max-w-2xl mx-auto border-l-2 border-indigo-100 dark:border-indigo-900/30 pl-6 py-4 space-y-4">
-                        <RunnerItemList
+                {/* Visual Flow - Toggle between Graph and List */}
+                <div className={`w-1/2 overflow-hidden relative ${THEME.runner.visual} flex flex-col`}>
+
+                    {viewMode === 'list' ? (
+                        <div ref={listContainerRef} className="absolute inset-0 overflow-y-auto p-6 scroll-smooth">
+                            <div className="max-w-2xl mx-auto border-l-2 border-indigo-100 dark:border-indigo-900/30 pl-6 py-4 space-y-4">
+                                <RunnerItemList
+                                    items={pipeline.items}
+                                    blocks={blocks}
+                                    activeItemId={activeItemId}
+                                    stats={stats}
+                                />
+                            </div>
+                        </div>
+                    ) : (
+                        <PipelineGraphRenderer
                             items={pipeline.items}
                             blocks={blocks}
                             activeItemId={activeItemId}
                             stats={stats}
+                            isRunning={isRunning}
                         />
-                    </div>
+                    )}
                 </div>
 
                 {/* Logs */}
@@ -134,11 +189,14 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
                         Execution Logs
                     </div>
                     <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-1">
-                        {logs.map((log, idx) => (
-                            <div key={idx} className="break-all whitespace-pre-wrap">
-                                {log}
-                            </div>
-                        ))}
+                        {logs.map((log, idx) => {
+                            const isError = /error|fail|exception/i.test(log);
+                            return (
+                                <div key={idx} className={`break-all whitespace-pre-wrap ${isError ? 'text-red-500 font-bold' : 'text-slate-300'}`}>
+                                    {log}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -169,7 +227,7 @@ const RunnerItemList: React.FC<{
 
                 if (item.type === 'loop') {
                     return (
-                        <div key={item.id} className={`rounded-lg border-2 overflow-hidden transition-all duration-300 transform 
+                        <div key={item.id} data-step-id={item.id} className={`rounded-lg border-2 overflow-hidden transition-all duration-300 transform 
                             ${isActive
                                 ? 'border-orange-500 shadow-orange-500/20 shadow-lg scale-[1.02]'
                                 : 'border-orange-200 dark:border-orange-900/40'
@@ -200,7 +258,7 @@ const RunnerItemList: React.FC<{
                 // Block
                 const block = blocks.find(b => b.id === item.blockId);
                 return (
-                    <div key={item.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-300 relative overflow-hidden
+                    <div key={item.id} data-step-id={item.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-300 relative overflow-hidden
                         ${isActive
                             ? THEME.runner.item.active
                             : isCompleted
