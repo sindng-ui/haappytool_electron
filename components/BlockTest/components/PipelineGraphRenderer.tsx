@@ -15,21 +15,34 @@ const PipelineGraphRenderer: React.FC<PipelineGraphRendererProps> = ({ items, bl
     const [scale, setScale] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
     const [isPanning, setIsPanning] = useState(false);
+    const [isAutoCentering, setIsAutoCentering] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Robust Auto-center on active item
     useLayoutEffect(() => {
         if (!activeItemId || !containerRef.current) return;
 
-        // No timeout needed with useLayoutEffect usually, but if animations are involved, small raf might be safer.
-        // Let's try direct calculation first.
-        requestAnimationFrame(() => {
+        setIsAutoCentering(true);
+        let attempts = 0;
+        const maxAttempts = 20;
+
+        const centerNode = () => {
             if (!containerRef.current) return;
             const nodeElement = containerRef.current.querySelector(`[data-node-id="${activeItemId}"]`);
 
             if (nodeElement) {
                 const containerRect = containerRef.current.getBoundingClientRect();
                 const nodeRect = nodeElement.getBoundingClientRect();
+
+                if (nodeRect.width === 0 || nodeRect.height === 0) {
+                    if (attempts < maxAttempts) {
+                        attempts++;
+                        requestAnimationFrame(centerNode);
+                    } else {
+                        setIsAutoCentering(false);
+                    }
+                    return;
+                }
 
                 const nodeCenterX = nodeRect.left + nodeRect.width / 2;
                 const nodeCenterY = nodeRect.top + nodeRect.height / 2;
@@ -39,12 +52,31 @@ const PipelineGraphRenderer: React.FC<PipelineGraphRendererProps> = ({ items, bl
                 const deltaX = containerCenterX - nodeCenterX;
                 const deltaY = containerCenterY - nodeCenterY;
 
+                if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) {
+                    setIsAutoCentering(false);
+                    return;
+                }
+
                 setPan(prev => ({
                     x: prev.x + deltaX,
                     y: prev.y + deltaY
                 }));
+
+                // Allow render to catch up before re-enabling transition
+                setTimeout(() => setIsAutoCentering(false), 50);
+
+            } else {
+                if (attempts < maxAttempts) {
+                    attempts++;
+                    requestAnimationFrame(centerNode);
+                } else {
+                    setIsAutoCentering(false);
+                }
             }
-        });
+        };
+
+        requestAnimationFrame(centerNode);
+
     }, [activeItemId]);
 
     const handleWheel = (e: React.WheelEvent) => {
@@ -75,6 +107,8 @@ const PipelineGraphRenderer: React.FC<PipelineGraphRendererProps> = ({ items, bl
 
     const handleMouseUp = () => setIsPanning(false);
 
+    const transitionClass = (isPanning || isAutoCentering) ? '' : 'transition-transform duration-300 ease-out';
+
     return (
         <div className={`overflow-hidden relative select-none w-full h-full ${THEME.editor.canvas.bg} ${THEME.editor.canvas.dots} ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
             style={{ backgroundSize: `${20 * scale}px ${20 * scale}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}
@@ -95,7 +129,7 @@ const PipelineGraphRenderer: React.FC<PipelineGraphRendererProps> = ({ items, bl
             </div>
 
             <div
-                className="w-full min-h-full flex justify-center pt-20 transition-transform duration-300 ease-out origin-top-left"
+                className={`w-full min-h-full flex justify-center pt-20 origin-top-left ${transitionClass}`}
                 style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}
             >
                 <GraphFlowReadOnly
@@ -139,7 +173,7 @@ const GraphFlowReadOnly: React.FC<{
                         <WireReadOnly vertical={!isRow} active={!!stats[item.id]?.startTime} isRunning={isRunning && !!stats[item.id]?.startTime && !stats[item.id]?.endTime} />
                     </div>
 
-                    <div className={`relative z-10 flex items-start justify-center node-appear-animation ${isRow ? 'px-1 h-full' : 'py-1 w-full'}`}>
+                    <div className={`relative z-10 flex items-start justify-center ${isRow ? 'px-1 h-full' : 'py-1 w-full'}`}>
                         {item.type === 'block' ? (
                             <BlockNodeReadOnly
                                 item={item}

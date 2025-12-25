@@ -1,2 +1,0 @@
-Starting Pipeline: New Test Pipeline
-Pipeline Completed Successfully

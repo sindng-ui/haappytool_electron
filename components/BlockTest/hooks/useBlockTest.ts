@@ -278,16 +278,8 @@ export const useBlockTest = () => {
         } finally {
             setIsRunning(false);
             setCurrentBlockId(null);
+            setActivePipelineItemId(null); // Clear active item so graph doesn't jump to it
             // activePipelineId remains set so view stays open
-
-            // Save Result
-            const resultFilename = `result_${pipeline.name}_${Date.now()}.txt`;
-            if (socketRef.current) {
-                socketRef.current.emit('save_file', {
-                    filename: resultFilename,
-                    content: logs.join('\n')
-                });
-            }
         }
     };
 
