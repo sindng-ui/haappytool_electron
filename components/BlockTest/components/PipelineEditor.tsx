@@ -697,7 +697,7 @@ const BlockNode: React.FC<{
 
             <div className="p-3 flex items-center gap-3 h-full">
                 <div className={`p-1.5 rounded-lg ${isPredefined ? 'bg-slate-700 text-slate-300' : isSpecial ? 'bg-violet-900/50 text-violet-300' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'}`}>
-                    {isSpecial ? <Lucide.Moon size={16} /> : <Lucide.Box size={16} />}
+                    {isSpecial ? <Lucide.Moon size={16} /> : isPredefined ? <Lucide.Package size={16} /> : <Lucide.Terminal size={16} />}
                 </div>
                 <div className="flex-1 min-w-0"><h4 className="font-bold text-sm text-slate-100 truncate">{block.name}</h4></div>
 

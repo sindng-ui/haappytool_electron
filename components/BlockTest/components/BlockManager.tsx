@@ -95,18 +95,18 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
         <div className={`flex flex-col h-full w-72 ${THEME.sidebar.container}`}>
             {/* ... Header ... */}
             {/* [LEFT SIDEBAR HEADER BACKGROUND] */}
-            <div className={`p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center backdrop-blur-sm ${THEME.sidebar.header}`}>
+            <div className={`p-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center backdrop-blur-sm ${THEME.sidebar.header}`}>
                 <h2 className={`font-bold ${THEME.sidebar.text}`}>Blocks</h2>
                 <button
                     onClick={handleCreate}
-                    className="p-2.5 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-all shadow-sm hover:shadow-md active:scale-95"
+                    className="p-1.5 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-all shadow-sm hover:shadow-md active:scale-95"
                 >
                     <Lucide.Plus size={18} />
                 </button>
             </div>
 
             {/* Search Bar */}
-            <div className={`px-4 py-3 ${THEME.sidebar.search.container}`}>
+            <div className={`px-4 py-2.5 ${THEME.sidebar.search.container}`}>
                 <div className="relative group">
                     <Lucide.Search className="absolute left-2.5 top-2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={14} />
                     <input
@@ -130,7 +130,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                             <Lucide.ChevronDown size={14} />
                         </div>
                         <span className="text-xs font-semibold uppercase tracking-wider">Special</span>
-                        <span className={`text-[10px] font-normal ml-auto px-1.5 py-0.5 rounded-full ${THEME.sidebar.category.count}`}>
+                        <span className={`text-[10px] font-normal ml-auto px-1.5 py-0.25 rounded-full ${THEME.sidebar.category.count}`}>
                             {filteredBlocks.filter(b => b.type === 'special').length}
                         </span>
                     </div>
@@ -148,9 +148,9 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                     className={`group p-2.5 rounded-lg border cursor-grab transition-all shadow-sm hover:shadow-md backdrop-blur-sm ${THEME.sidebar.item.special}`}
                                 >
                                     <div className="flex justify-between items-start">
-                                        <div className="flex items-center gap-2">
-                                            <Lucide.Moon size={14} className="text-violet-400" />
-                                            <span className={`font-medium text-sm ${THEME.sidebar.text}`}>{block.name}</span>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <Lucide.Moon size={14} className="text-violet-400 shrink-0" />
+                                            <span className={`font-medium text-sm truncate ${THEME.sidebar.text}`}>{block.name}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -183,14 +183,17 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                         e.dataTransfer.setData('application/json', JSON.stringify({ type: 'add_block', blockId: block.id }));
                                         e.dataTransfer.effectAllowed = 'copy';
                                     }}
-                                    className={`group p-1.5 rounded-lg border cursor-grab transition-all shadow-sm hover:shadow-md backdrop-blur-sm ${THEME.sidebar.item.predefined}`}
+                                    className={`group p-0.5 rounded-lg border cursor-grab transition-all shadow-sm hover:shadow-md backdrop-blur-sm ${THEME.sidebar.item.predefined}`}
                                 >
                                     <div className="flex justify-between items-start">
-                                        <div>
-                                            <span className={`font-medium text-sm ${THEME.sidebar.text}`}>{block.name}</span>
-                                            <div className="text-xs text-slate-500 truncate mt-0.5">{block.commands.length} cmds</div>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <Lucide.Package size={14} className="text-indigo-400 shrink-0" />
+                                            <div className="min-w-0">
+                                                <div className={`font-medium text-sm truncate ${THEME.sidebar.text}`}>{block.name}</div>
+                                                <div className="text-xs text-slate-500 truncate mt-0.5">{block.commands.length} cmds</div>
+                                            </div>
                                         </div>
-                                        <div className="hidden group-hover:flex gap-2">
+                                        <div className="hidden group-hover:flex gap-2 shrink-0 ml-2">
                                             <button onClick={() => handleEdit(block)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all">
                                                 <Lucide.Edit2 size={16} />
                                             </button>
@@ -226,14 +229,17 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                         e.dataTransfer.setData('application/json', JSON.stringify({ type: 'add_block', blockId: block.id }));
                                         e.dataTransfer.effectAllowed = 'copy';
                                     }}
-                                    className={`group p-1.5 rounded-lg border transition-all relative cursor-grab shadow-sm hover:shadow-md ${THEME.sidebar.item.custom}`}
+                                    className={`group p-0.5 rounded-lg border transition-all relative cursor-grab shadow-sm hover:shadow-md ${THEME.sidebar.item.custom}`}
                                 >
                                     <div className="flex justify-between items-start">
-                                        <div>
-                                            <span className={`font-medium text-sm ${THEME.sidebar.text}`}>{block.name}</span>
-                                            <div className="text-xs text-slate-500 mt-0.5">{block.commands.length} cmds</div>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <Lucide.Terminal size={14} className="text-emerald-500 shrink-0" />
+                                            <div className="min-w-0">
+                                                <div className={`font-medium text-sm truncate ${THEME.sidebar.text}`}>{block.name}</div>
+                                                <div className="text-xs text-slate-500 mt-0.5 truncate">{block.commands.length} cmds</div>
+                                            </div>
                                         </div>
-                                        <div className="hidden group-hover:flex gap-1.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg pl-1">
+                                        <div className="hidden group-hover:flex gap-1.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg pl-1 shrink-0 ml-2">
                                             <button onClick={() => handleEdit(block)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all">
                                                 <Lucide.Edit2 size={16} />
                                             </button>
