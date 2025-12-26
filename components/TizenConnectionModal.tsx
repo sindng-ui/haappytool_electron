@@ -6,9 +6,17 @@ interface TizenConnectionModalProps {
     isOpen: boolean;
     onClose: () => void;
     onStreamStart: (socket: Socket, deviceName: string) => void;
+    isConnected?: boolean;
+    onDisconnect?: () => void;
+    currentConnectionInfo?: string | null;
 }
 
-const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onClose, onStreamStart }) => {
+const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
+    isOpen, onClose, onStreamStart,
+    isConnected: isExternalConnected,
+    onDisconnect: onExternalDisconnect,
+    currentConnectionInfo
+}) => {
     const [mode, setMode] = useState<'ssh' | 'sdb' | 'test'>('sdb');
     const [socket, setSocket] = useState<Socket | null>(null);
 
@@ -84,6 +92,9 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
                 clearConnectionTimeout();
                 setStatus(data.message);
                 if (data.status === 'connected') {
+                    // Prevent duplicate stream start for SSH if already handled
+                    if (mode === 'ssh' && isHandedOver.current) return;
+
                     setIsConnected(true);
                     setMode('ssh');
                     isHandedOver.current = true;
@@ -230,6 +241,10 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
 
     if (!isOpen) return null;
 
+    // Use external props if available, otherwise local state
+    const effectiveIsConnected = isExternalConnected ?? isConnected;
+    const effectiveStatus = isExternalConnected ? 'Connected' : status;
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
             <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl shadow-2xl w-[500px] overflow-hidden">
@@ -242,32 +257,34 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
 
                 <div className="p-6">
                     {/* Mode Selection */}
-                    <div className="flex gap-4 mb-6">
-                        <button
-                            onClick={() => setMode('sdb')}
-                            className={`flex-1 py-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${mode === 'sdb' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:bg-slate-700'}`}
-                        >
-                            <Usb size={24} />
-                            <span className="font-bold">SDB (USB/Bridge)</span>
-                        </button>
-                        <button
-                            onClick={() => setMode('ssh')}
-                            className={`flex-1 py-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${mode === 'ssh' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:bg-slate-700'}`}
-                        >
-                            <Wifi size={24} />
-                            <span className="font-bold">SSH (Network)</span>
-                        </button>
-                        <button
-                            onClick={() => setMode('test')}
-                            className={`flex-1 py-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${mode === 'test' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:bg-slate-700'}`}
-                        >
-                            <RefreshCw size={24} />
-                            <span className="font-bold">Simulate</span>
-                        </button>
-                    </div>
+                    {!effectiveIsConnected && (
+                        <div className="flex gap-4 mb-6">
+                            <button
+                                onClick={() => setMode('sdb')}
+                                className={`flex-1 py-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${mode === 'sdb' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:bg-slate-700'}`}
+                            >
+                                <Usb size={24} />
+                                <span className="font-bold">SDB (USB/Bridge)</span>
+                            </button>
+                            <button
+                                onClick={() => setMode('ssh')}
+                                className={`flex-1 py-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${mode === 'ssh' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:bg-slate-700'}`}
+                            >
+                                <Wifi size={24} />
+                                <span className="font-bold">SSH (Network)</span>
+                            </button>
+                            <button
+                                onClick={() => setMode('test')}
+                                className={`flex-1 py-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${mode === 'test' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:bg-slate-700'}`}
+                            >
+                                <RefreshCw size={24} />
+                                <span className="font-bold">Simulate</span>
+                            </button>
+                        </div>
+                    )}
 
                     {/* SDB Form */}
-                    {mode === 'sdb' && (
+                    {mode === 'sdb' && !effectiveIsConnected && (
                         <div className="space-y-4">
                             <div className="flex justify-between items-end">
                                 <label className="text-xs font-bold text-slate-400 uppercase">Device</label>
@@ -289,7 +306,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
                     )}
 
                     {/* SSH Form */}
-                    {mode === 'ssh' && (
+                    {mode === 'ssh' && !effectiveIsConnected && (
                         <div className="space-y-4">
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="col-span-2">
@@ -315,7 +332,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
                     )}
 
                     {/* Test Simulation Form */}
-                    {mode === 'test' && (
+                    {mode === 'test' && !effectiveIsConnected && (
                         <div className="p-4 bg-slate-800/50 rounded-xl border border-dashed border-slate-700 text-center">
                             <h3 className="text-indigo-300 font-bold mb-2">Test Infinite Scroll</h3>
                             <p className="text-xs text-slate-400 mb-4">
@@ -324,29 +341,63 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
                         </div>
                     )}
 
-                    {/* Options (Debug) */}
-                    <div className="mt-4 flex items-center">
-                        <label className="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer select-none hover:text-slate-300">
-                            <input type="checkbox" checked={debugMode} onChange={e => setDebugMode(e.target.checked)} className="accent-indigo-500 w-4 h-4 rounded border-slate-700 bg-slate-800" />
-                            <span>Enable Debug Mode (Save logs to server)</span>
-                        </label>
-                    </div>
+                    {/* Options (Debug) - Hide if connected */}
+                    {!effectiveIsConnected && (
+                        <div className="mt-4 flex items-center">
+                            <label className="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer select-none hover:text-slate-300">
+                                <input type="checkbox" checked={debugMode} onChange={e => setDebugMode(e.target.checked)} className="accent-indigo-500 w-4 h-4 rounded border-slate-700 bg-slate-800" />
+                                <span>Enable Debug Mode (Save logs to server)</span>
+                            </label>
+                        </div>
+                    )}
 
                     {/* Status Area */}
-                    <div className="mt-4 bg-slate-950 rounded-lg p-3 min-h-[60px] flex items-start justify-center text-sm border border-slate-800">
-                        {error ? (
-                            <div className="text-red-400 flex items-start gap-2">
-                                <ShieldAlert size={16} className="mt-0.5 flex-shrink-0" />
-                                <span className="whitespace-pre-line text-left">{error}</span>
-                            </div>
-                        ) : status ? (
-                            <span className="text-indigo-400 flex items-center gap-2"><Terminal size={16} /> {status}</span>
-                        ) : (
-                            <span className="text-slate-600 italic">Ready to connect...</span>
-                        )}
-                    </div>
+                    {!effectiveIsConnected && (
+                        <div className="mt-4 bg-slate-950 rounded-lg p-3 min-h-[60px] flex items-start justify-center text-sm border border-slate-800">
+                            {error ? (
+                                <div className="text-red-400 flex items-start gap-2">
+                                    <ShieldAlert size={16} className="mt-0.5 flex-shrink-0" />
+                                    <span className="whitespace-pre-line text-left">{error}</span>
+                                </div>
+                            ) : effectiveStatus ? (
+                                <span className="text-indigo-400 flex items-center gap-2"><Terminal size={16} /> {effectiveStatus}</span>
+                            ) : (
+                                <span className="text-slate-600 italic">Ready to connect...</span>
+                            )}
+                        </div>
+                    )}
 
-                    {!isConnected ? (
+                    {effectiveIsConnected ? (
+                        <>
+                            <div className="bg-emerald-950/30 border border-emerald-500/30 p-4 rounded-xl mb-4 text-center">
+                                <h3 className="text-emerald-400 font-bold mb-1 flex items-center justify-center gap-2">
+                                    <Wifi size={20} />
+                                    Current Status: Connected
+                                </h3>
+                                <p className="text-sm text-slate-400 font-mono bg-slate-900/50 p-2 rounded mt-2 inline-block">
+                                    {currentConnectionInfo || (mode === 'ssh' ? `SSH: ${sshHost}` : `SDB: ${selectedDeviceId || 'Device'}`)}
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    if (onExternalDisconnect) {
+                                        onExternalDisconnect();
+                                        onClose(); // Close modal after disconnect
+                                    } else {
+                                        handleDisconnect();
+                                    }
+                                }}
+                                disabled={isConnecting}
+                                className={`w-full py-3 rounded-xl font-bold text-white shadow-lg shadow-red-900/50 transition-all ${isConnecting ? 'bg-slate-700 cursor-wait' : 'bg-red-600 hover:bg-red-500 hover:scale-[1.02]'}`}
+                            >
+                                {isConnecting ? 'Disconnecting...' : 'Disconnect Current Session'}
+                            </button>
+                            <p className="text-xs text-center text-slate-500 mt-4">
+                                To connect to a different device, please disconnect first.
+                            </p>
+                        </>
+                    ) : (
                         <button
                             onClick={handleConnect}
                             disabled={isConnecting}
@@ -354,16 +405,8 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({ isOpen, onC
                         >
                             {isConnecting ? 'Connecting...' : 'Connect & Start Stream'}
                         </button>
-                    ) : (
-                        <button
-                            onClick={handleDisconnect}
-                            disabled={isConnecting}
-                            className={`w-full mt-4 py-3 rounded-xl font-bold text-white shadow-lg shadow-red-900/50 transition-all ${isConnecting ? 'bg-slate-700 cursor-wait' : 'bg-red-600 hover:bg-red-500 hover:scale-[1.02]'}`}
-                        >
-                            {isConnecting ? 'Disconnecting...' : 'Disconnect'}
-                        </button>
                     )}
-                    {!socket && <p className="text-center text-xs text-slate-500 mt-2">Connecting to local log server...</p>}
+                    {!socket && !effectiveIsConnected && <p className="text-center text-xs text-slate-500 mt-2">Connecting to local log server...</p>}
                 </div>
             </div>
         </div >

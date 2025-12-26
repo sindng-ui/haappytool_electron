@@ -112,7 +112,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
         clearLeftBookmarks, clearRightBookmarks,
         jumpToHighlight, requestBookmarkedLines, jumpToGlobalLine,
-        tizenSocket, sendTizenCommand, handleClearLogs,
+        tizenSocket, sendTizenCommand, handleClearLogs, handleTizenDisconnect,
 
         // Segmentation
         leftSegmentIndex, setLeftSegmentIndex, leftTotalSegments, leftCurrentSegmentLines,
@@ -446,20 +446,19 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 isOpen={isTizenModalOpen}
                 onClose={() => setIsTizenModalOpen(false)}
                 onStreamStart={handleTizenStreamStart}
+                isConnected={!!tizenSocket}
+                onDisconnect={handleTizenDisconnect}
+                currentConnectionInfo={leftFileName}
             />
 
-            <TizenConnectionModal
-                isOpen={isTizenModalOpen}
-                onClose={() => setIsTizenModalOpen(false)}
-                onStreamStart={handleTizenStreamStart}
-            />
+
 
             {/* Raw Context View */}
             {rawContextOpen && rawContextTargetLine && (
                 <RawContextViewer
                     sourcePane={rawContextSourcePane}
-                    leftFileName={leftFileName}
-                    rightFileName={rightFileName}
+                    leftFileName={leftFileName || ''}
+                    rightFileName={rightFileName || ''}
                     targetLine={rawContextTargetLine}
                     onClose={() => setRawContextOpen(false)}
                     heightPercent={rawContextHeight}
@@ -486,7 +485,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                             <div className={`flex flex-col h-full min-w-0 transition-all relative ${isDualView ? 'w-1/2' : 'w-full'}`}>
                                 <LoadingOverlay
                                     isVisible={!!leftFileName && !leftWorkerReady && leftIndexingProgress < 100}
-                                    fileName={leftFileName}
+                                    fileName={leftFileName || ''}
                                     progress={leftIndexingProgress}
                                 />
                                 <LogViewerPane

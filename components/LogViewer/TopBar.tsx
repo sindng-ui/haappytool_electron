@@ -105,17 +105,17 @@ const TopBar: React.FC = () => {
             <div className="flex items-center gap-3 no-drag mr-36">
                 {/* File Init - Removed as per request */}
 
-                {tizenSocket ? (
-                    <button onClick={handleTizenDisconnect} className="flex items-center gap-2 px-3 py-1.5 bg-red-950/30 rounded-lg border border-red-500/30 hover:bg-red-900/50 transition-colors text-red-400 hover:text-red-300">
-                        <Lucide.Unplug size={14} />
-                        <span className="text-sm font-medium">Disconnect</span>
-                    </button>
-                ) : (
-                    <button onClick={onConnectTizen} className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700 transition-colors text-indigo-400 hover:text-indigo-300">
-                        <Lucide.Tv size={14} />
-                        <span className="text-sm font-medium">Connect</span>
-                    </button>
-                )}
+                <button
+                    onClick={onConnectTizen}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors ${tizenSocket
+                        ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400 hover:bg-emerald-900/50 hover:text-emerald-300'
+                        : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-slate-300'
+                        }`}
+                >
+                    <Lucide.Link size={14} />
+                    <span className="text-sm font-medium">Connection</span>
+                    {tizenSocket && <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-1"></div>}
+                </button>
 
                 <div className="w-px h-6 bg-slate-700 mx-1"></div>
 

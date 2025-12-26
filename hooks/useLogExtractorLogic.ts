@@ -688,7 +688,7 @@ export const useLogExtractorLogic = ({
 
         socket.on('sdb_status', handleLogicalDisconnect);
         socket.on('ssh_status', handleLogicalDisconnect);
-    }, []);
+    }, [rules, selectedRuleId]); // currentRule is derived from rules + selectedRuleId
 
     // Auto-scroll effect is now handled by LogViewerPane's smart followOutput prop.
     // We do NOT need to manually specific scrollTo calls here which override user scroll.
