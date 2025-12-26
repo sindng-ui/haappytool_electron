@@ -5,16 +5,20 @@
 ## 아키텍처 개요
 
 해피툴은 동적 플러그인 시스템을 사용합니다. 플러그인은 다음과 같은 특징을 가진 React 컴포넌트입니다:
-1.  `src/plugins/registry.ts`에 **등록**됩니다.
+1.  `plugins/registry.ts`에 **등록**됩니다.
 2.  표준화된 렌더링을 위해 `PluginContainer`에 의해 **래핑**됩니다.
 3.  `App.tsx`와의 하드 종속성을 피하기 위해 **캡슐화**됩니다.
 4.  `useHappyTool()`을 사용하여 전역 상태(로그 규칙, 저장된 요청 등)에 **Context 기반으로 접근**합니다.
 
+> [!NOTE]
+> 이 가이드의 모든 경로는 **프로젝트 루트**를 기준으로 합니다. `src` 디렉토리는 존재하지 않습니다.
+
+
 ## 단계별 플러그인 생성
 
 ### 1. 플러그인 컴포넌트 생성
-`src/components/[PluginName]` 디렉토리를 생성합니다.
-메인 컴포넌트 파일 `src/components/[PluginName]/index.tsx`를 생성합니다.
+`components/[PluginName]` 디렉토리를 생성합니다.
+메인 컴포넌트 파일 `components/[PluginName]/index.tsx`를 생성합니다.
 
 > [!IMPORTANT]
 > 전역 상태를 위해 props를 받지 마십시오. 대신 `useHappyTool` 훅을 사용하세요.
@@ -22,7 +26,7 @@
 **템플릿:**
 ```tsx
 import React from 'react';
-import { useHappyTool } from '../../contexts/HappyToolContext';
+import { useHappyTool } from '@/contexts/HappyToolContext';
 
 const MyPlugin: React.FC = () => {
     // 필요한 경우 전역 상태에 접근
@@ -40,13 +44,13 @@ export default MyPlugin;
 ```
 
 ### 2. 플러그인 래퍼(Wrapper) 정의
-`src/plugins/core/wrappers.ts`를 수정하여 플러그인 메타데이터를 정의합니다.
+`plugins/core/wrappers.ts`를 수정하여 플러그인 메타데이터를 정의합니다.
 
 **템플릿:**
 ```typescript
-import MyPluginComponent from '../../components/MyPlugin';
+import MyPluginComponent from '@/components/MyPlugin';
 import * as Lucide from 'lucide-react';
-import { ToolId } from '../../types'; // 먼저 types.ts에 ID를 추가하세요!
+import { ToolId } from '@/types'; // 먼저 types.ts에 ID를 추가하세요!
 
 export const MyPluginWrapper: HappyPlugin = {
     id: 'my-plugin-id', // 고유한 문자열 ID
@@ -58,7 +62,7 @@ export const MyPluginWrapper: HappyPlugin = {
 ```
 
 ### 3. 플러그인 등록
-`src/plugins/registry.ts`를 수정하여 래퍼를 `ALL_PLUGINS` 배열에 추가합니다.
+`plugins/registry.ts`를 수정하여 래퍼를 `ALL_PLUGINS` 배열에 추가합니다.
 
 ```typescript
 import { MyPluginWrapper } from './core/wrappers';
@@ -70,7 +74,7 @@ export const ALL_PLUGINS: HappyPlugin[] = [
 ```
 
 ### 4. 타입 추가 (선택 사항이지만 권장됨)
-플러그인이 새로운 ID를 필요로 한다면 `src/types.ts`의 `ToolId` 열거형(enum)을 업데이트하세요.
+플러그인이 새로운 ID를 필요로 한다면 `types.ts`의 `ToolId` 열거형(enum)을 업데이트하세요.
 
 ## 전역 상태 접근
 `HappyToolContext`는 다음을 제공합니다:

@@ -5,16 +5,20 @@ This guide is designed for developers (and their AI Agents) to create new plugin
 ## Architecture Overview
 
 HappyTool uses a dynamic plugin system. Plugins are React components that are:
-1.  **Registered** in `src/plugins/registry.ts`.
+1.  **Registered** in `plugins/registry.ts`.
 2.  **Wrapped** by `PluginContainer` for standardized rendering.
 3.  **Encapsulated** to avoid hard dependencies on `App.tsx`.
 4.  **Context-Aware** using `useHappyTool()` to access global state (Log Rules, Saved Requests, etc.).
 
+> [!NOTE]
+> All paths in this guide are relative to the **project root**. There is no `src` directory.
+
+
 ## Step-by-Step Plugin Creation
 
 ### 1. Create Plugin Component
-Create a new directory in `src/components/[PluginName]`.
-Create your main component file `src/components/[PluginName]/index.tsx`.
+Create a new directory in `components/[PluginName]`.
+Create your main component file `components/[PluginName]/index.tsx`.
 
 > [!IMPORTANT]
 > Do NOT accept props for global state. Use the `useHappyTool` hook.
@@ -22,7 +26,7 @@ Create your main component file `src/components/[PluginName]/index.tsx`.
 **Template:**
 ```tsx
 import React from 'react';
-import { useHappyTool } from '../../contexts/HappyToolContext';
+import { useHappyTool } from '@/contexts/HappyToolContext';
 
 const MyPlugin: React.FC = () => {
     // Access global state if needed
@@ -40,13 +44,13 @@ export default MyPlugin;
 ```
 
 ### 2. Define Plugin Wrapper
-Edit `src/plugins/core/wrappers.ts` to define your plugin metadata.
+Edit `plugins/core/wrappers.ts` to define your plugin metadata.
 
 **Template:**
 ```typescript
-import MyPluginComponent from '../../components/MyPlugin';
+import MyPluginComponent from '@/components/MyPlugin';
 import * as Lucide from 'lucide-react';
-import { ToolId } from '../../types'; // Add your ID to types.ts first!
+import { ToolId } from '@/types'; // Add your ID to types.ts first!
 
 export const MyPluginWrapper: HappyPlugin = {
     id: 'my-plugin-id', // Unique string ID
@@ -58,7 +62,7 @@ export const MyPluginWrapper: HappyPlugin = {
 ```
 
 ### 3. Register Plugin
-Edit `src/plugins/registry.ts` to add your wrapper to `ALL_PLUGINS`.
+Edit `plugins/registry.ts` to add your wrapper to `ALL_PLUGINS`.
 
 ```typescript
 import { MyPluginWrapper } from './core/wrappers';
@@ -70,7 +74,7 @@ export const ALL_PLUGINS: HappyPlugin[] = [
 ```
 
 ### 4. Add Types (Optional but Recommended)
-If your plugin needs a new ID, update `ToolId` enum in `src/types.ts`.
+If your plugin needs a new ID, update `ToolId` enum in `types.ts`.
 
 ## Global State Access
 The `HappyToolContext` provides:
