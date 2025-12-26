@@ -233,8 +233,10 @@ const RunnerItemList: React.FC<{
                             <div className="bg-orange-100 dark:bg-orange-900/60 p-2 flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
                                     <Lucide.Repeat size={14} className="text-orange-600 dark:text-orange-400" />
-                                    <span className="text-xs font-bold text-orange-800 dark:text-orange-200">
-                                        Loop {itemStats?.currentIteration ? `${itemStats.currentIteration}/${itemStats.totalIterations}` : `${item.loopCount}x`}
+                                    <span className="text-sm font-bold text-orange-800 dark:text-orange-200 bg-orange-200 dark:bg-orange-800 px-2 py-0.5 rounded">
+                                        {itemStats?.status === 'running'
+                                            ? `Running ${itemStats?.currentIteration || 1}/${itemStats?.totalIterations || item.loopCount}`
+                                            : `Loop ${item.loopCount}x`}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -280,10 +282,10 @@ const RunnerItemList: React.FC<{
                                 )}
                             </div>
                             <div>
-                                <span className="font-bold text-xs sm:text-sm block text-slate-800 dark:text-slate-200">{block?.name || 'Unknown'}</span>
-                                {item.blockId === 'special_sleep' && (
-                                    <span className="text-[10px] text-slate-500 font-mono">Duration: {item.sleepDuration || 1000}ms</span>
-                                )}
+                                <span className="font-bold text-xs sm:text-sm block text-slate-800 dark:text-slate-200">
+                                    {block?.name || 'Unknown'}
+                                    {item.blockId === 'special_sleep' && <span className="ml-2 text-violet-600 dark:text-violet-400">({item.sleepDuration || 1000}ms)</span>}
+                                </span>
                                 {isActive && !isCompleted && <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium animate-pulse">Running...</span>}
                             </div>
                         </div>

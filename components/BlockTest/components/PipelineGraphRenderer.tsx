@@ -314,8 +314,10 @@ const BlockNodeReadOnly = React.memo(({ item, blocks, isActive, stats }: { item:
                     {isSpecial ? <Lucide.Moon size={16} /> : isPredefined ? <Lucide.Package size={16} /> : <Lucide.Terminal size={16} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-sm text-slate-100 truncate">{block.name}</h4>
-                    {item.blockId === 'special_sleep' && <div className="text-[10px] text-violet-300 font-mono leading-none mt-0.5">{item.sleepDuration || 1000}ms</div>}
+                    <h4 className="font-bold text-sm text-slate-100 truncate">
+                        {block.name}
+                        {item.blockId === 'special_sleep' && <span className="ml-1 text-violet-300 font-normal">({item.sleepDuration || 1000}ms)</span>}
+                    </h4>
                     {isActive && <div className="text-[10px] text-indigo-300 font-mono leading-none mt-0.5">Running...</div>}
                     {!isActive && isCompleted && stats?.duration !== undefined && (
                         <div className="text-[10px] text-green-400 font-mono leading-none mt-0.5">{(stats.duration / 1000).toFixed(2)}s</div>
@@ -355,7 +357,9 @@ const LoopNodeReadOnly = React.memo(({ item, blocks, activeItemId, stats, isActi
         >
             <div className="absolute -top-3 left-4 flex z-10">
                 <div className={`px-2 py-0.5 rounded-l text-[10px] font-bold uppercase tracking-wider bg-orange-900 border border-orange-700 border-r-0 text-orange-200`}>
-                    Loop {stats[item.id]?.currentIteration ? `${stats[item.id].currentIteration}/${stats[item.id].totalIterations}` : `${item.loopCount}x`}
+                    {stats[item.id]?.status === 'running'
+                        ? `Running ${stats[item.id].currentIteration}/${stats[item.id].totalIterations || item.loopCount}`
+                        : `Loop ${item.loopCount}x`}
                 </div>
                 <button
                     onClick={() => setIsOpen(!isOpen)}
