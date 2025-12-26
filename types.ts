@@ -16,10 +16,17 @@ export interface LogHighlight {
   color: string; // Tailwind bg class e.g. 'bg-yellow-200'
 }
 
+export interface HappyGroup {
+  id: string;
+  tags: string[];
+  enabled: boolean;
+}
+
 export interface LogRule {
   id: string;
   name: string;
   includeGroups: string[][]; // Outer array = OR, Inner array = AND
+  happyGroups?: HappyGroup[]; // New unified structure for Happy Combos
   disabledGroups?: string[][]; // Inactive filters
   excludes: string[];
   highlights: LogHighlight[];

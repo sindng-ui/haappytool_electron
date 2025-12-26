@@ -478,6 +478,48 @@ export const useLogExtractorLogic = ({
 
     const currentConfig = rules.find(r => r.id === selectedRuleId);
 
+    // --- Happy Group Migration Logic ---
+    useEffect(() => {
+        if (!currentConfig) return;
+
+        // If happyGroups is missing but we have legacy groups, migrate them
+        if (!currentConfig.happyGroups && (currentConfig.includeGroups.length > 0 || (currentConfig.disabledGroups && currentConfig.disabledGroups.length > 0))) {
+            const newHappyGroups: any[] = []; // Use 'any' temporarily to match HappyGroup interface
+
+            // Note: We can't easily preserve the EXACT original interleaved order if they were split.
+            // But going forward, the order will be preserved.
+            // We append enabled groups then disabled groups.
+
+            currentConfig.includeGroups.forEach(g => {
+                if (g.length > 0 && g[0].trim()) {
+                    newHappyGroups.push({
+                        id: Math.random().toString(36).substring(7),
+                        tags: g,
+                        enabled: true
+                    });
+                }
+            });
+
+            if (currentConfig.disabledGroups) {
+                currentConfig.disabledGroups.forEach(g => {
+                    if (g.length > 0 && g[0].trim()) {
+                        newHappyGroups.push({
+                            id: Math.random().toString(36).substring(7),
+                            tags: g,
+                            enabled: false
+                        });
+                    }
+                });
+            }
+
+            // Perform the update
+            updateCurrentRule({ happyGroups: newHappyGroups });
+        } else if (!currentConfig.happyGroups) {
+            // If totally empty, initialize empty array
+            updateCurrentRule({ happyGroups: [] });
+        }
+    }, [currentConfig]);
+
     // Tizen Socket State
     const [tizenSocket, setTizenSocket] = useState<Socket | null>(null);
     const tizenBuffer = useRef<string[]>([]);
@@ -516,7 +558,12 @@ export const useLogExtractorLogic = ({
     // Auto-Apply Filter (Left)
     useEffect(() => {
         if (leftWorkerRef.current && currentConfig && (leftTotalLines > 0 || tizenSocket)) {
-            const refinedGroups = refineGroups(currentConfig.includeGroups);
+            // Use happyGroups if available, otherwise fallback to includeGroups (legacy)
+            const sourceGroups = currentConfig.happyGroups
+                ? currentConfig.happyGroups.filter(h => h.enabled).map(h => h.tags)
+                : currentConfig.includeGroups;
+
+            const refinedGroups = refineGroups(sourceGroups);
 
             // Optimization: Check if effective filter changed
             const effectiveIncludes = refinedGroups.map(g =>
@@ -573,7 +620,10 @@ export const useLogExtractorLogic = ({
         // Apply current filter immediately to the worker
         const config = rules.find(r => r.id === selectedRuleId);
         if (config) {
-            const refined = refineGroups(config.includeGroups);
+            const sourceGroups = config.happyGroups
+                ? config.happyGroups.filter(h => h.enabled).map(h => h.tags)
+                : config.includeGroups;
+            const refined = refineGroups(sourceGroups);
             leftWorkerRef.current?.postMessage({
                 type: 'FILTER_LOGS',
                 payload: { ...config, includeGroups: refined }
@@ -670,7 +720,10 @@ export const useLogExtractorLogic = ({
     // Auto-Apply Filter (Right)
     useEffect(() => {
         if (isDualView && rightWorkerRef.current && currentConfig && rightTotalLines > 0) {
-            const refinedGroups = refineGroups(currentConfig.includeGroups);
+            const sourceGroups = currentConfig.happyGroups
+                ? currentConfig.happyGroups.filter(h => h.enabled).map(h => h.tags)
+                : currentConfig.includeGroups;
+            const refinedGroups = refineGroups(sourceGroups);
 
             // Optimization: Check if effective filter changed
             // Optimization: Check if effective filter changed
@@ -1017,6 +1070,7 @@ export const useLogExtractorLogic = ({
             id: newId,
             name: 'New Analysis',
             includeGroups: [['']],
+            happyGroups: [], // Initialize empty
             excludes: [],
             highlights: [],
             happyCombosCaseSensitive: false,
@@ -1055,46 +1109,72 @@ export const useLogExtractorLogic = ({
 
     const handleToggleRoot = useCallback((root: string, enabled: boolean) => {
         if (!currentConfig) return;
-        const newIncludes = [...currentConfig.includeGroups];
-        const newDisabled = [...(currentConfig.disabledGroups || [])];
-        const allGroups = [...newIncludes.map(g => ({ g, active: true })), ...newDisabled.map(g => ({ g, active: false }))];
-        const targetGroups = allGroups.filter(item => (item.g[0] || '').trim() === root);
-        targetGroups.forEach(item => {
-            if (item.active) {
-                const idx = newIncludes.indexOf(item.g);
-                if (idx > -1) newIncludes.splice(idx, 1);
-            } else {
-                const idx = newDisabled.indexOf(item.g);
-                if (idx > -1) newDisabled.splice(idx, 1);
-            }
-            if (enabled) newIncludes.push(item.g);
-            else newDisabled.push(item.g);
-        });
-        updateCurrentRule({ includeGroups: newIncludes, disabledGroups: newDisabled });
+
+        if (currentConfig.happyGroups) {
+            // New Logic: Toggle enabled state but keep order
+            const newHappyGroups = currentConfig.happyGroups.map(group => {
+                const groupRoot = (group.tags[0] || '').trim();
+                if (groupRoot === root) {
+                    return { ...group, enabled };
+                }
+                return group;
+            });
+            updateCurrentRule({ happyGroups: newHappyGroups });
+        } else {
+            // Legacy Logic
+            const newIncludes = [...currentConfig.includeGroups];
+            const newDisabled = [...(currentConfig.disabledGroups || [])];
+            const allGroups = [...newIncludes.map(g => ({ g, active: true })), ...newDisabled.map(g => ({ g, active: false }))];
+            const targetGroups = allGroups.filter(item => (item.g[0] || '').trim() === root);
+            targetGroups.forEach(item => {
+                if (item.active) {
+                    const idx = newIncludes.indexOf(item.g);
+                    if (idx > -1) newIncludes.splice(idx, 1);
+                } else {
+                    const idx = newDisabled.indexOf(item.g);
+                    if (idx > -1) newDisabled.splice(idx, 1);
+                }
+                if (enabled) newIncludes.push(item.g);
+                else newDisabled.push(item.g);
+            });
+            updateCurrentRule({ includeGroups: newIncludes, disabledGroups: newDisabled });
+        }
     }, [currentConfig, updateCurrentRule]);
 
     const groupedRoots = useMemo(() => {
         if (!currentConfig) return [];
-        const groups = new Map<string, { group: string[], active: boolean, originalIdx: number }[]>();
-        currentConfig.includeGroups.forEach((group, idx) => {
-            const root = (group[0] || '').trim();
-            if (!root) return;
-            if (!groups.has(root)) groups.set(root, []);
-            groups.get(root)!.push({ group, active: true, originalIdx: idx });
-        });
-        if (currentConfig.disabledGroups) {
-            currentConfig.disabledGroups.forEach((group, idx) => {
+        const groups = new Map<string, { group: string[], active: boolean, originalIdx: number, id?: string }[]>();
+
+        if (currentConfig.happyGroups) {
+            currentConfig.happyGroups.forEach((hGroup, idx) => {
+                const root = (hGroup.tags[0] || '').trim();
+                if (!root) return;
+                if (!groups.has(root)) groups.set(root, []);
+                groups.get(root)!.push({ group: hGroup.tags, active: hGroup.enabled, originalIdx: idx, id: hGroup.id });
+            });
+        } else {
+            // Legacy Fallback
+            currentConfig.includeGroups.forEach((group, idx) => {
                 const root = (group[0] || '').trim();
                 if (!root) return;
                 if (!groups.has(root)) groups.set(root, []);
-                groups.get(root)!.push({ group, active: false, originalIdx: idx });
+                groups.get(root)!.push({ group, active: true, originalIdx: idx });
             });
+            if (currentConfig.disabledGroups) {
+                currentConfig.disabledGroups.forEach((group, idx) => {
+                    const root = (group[0] || '').trim();
+                    if (!root) return;
+                    if (!groups.has(root)) groups.set(root, []);
+                    groups.get(root)!.push({ group, active: false, originalIdx: idx });
+                });
+            }
         }
+
         return Array.from(groups.entries()).map(([root, items]) => {
             const isRootEnabled = items.some(i => i.active);
             return { root, isRootEnabled, items };
         });
-    }, [currentConfig?.includeGroups, currentConfig?.disabledGroups]);
+    }, [currentConfig?.includeGroups, currentConfig?.disabledGroups, currentConfig?.happyGroups]);
 
     const [collapsedRoots, setCollapsedRoots] = useState<Set<string>>(new Set());
 

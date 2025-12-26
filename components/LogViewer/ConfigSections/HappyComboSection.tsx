@@ -9,7 +9,7 @@ const { Zap, X, Folder, FolderOpen, Plus } = Lucide;
 interface HappyComboSectionProps {
     currentConfig: LogRule;
     updateCurrentRule: (updates: Partial<LogRule>) => void;
-    groupedRoots: { root: string; isRootEnabled: boolean; items: { group: string[]; active: boolean; originalIdx: number }[] }[];
+    groupedRoots: { root: string; isRootEnabled: boolean; items: { group: string[]; active: boolean; originalIdx: number, id?: string }[] }[];
     collapsedRoots: Set<string>;
     onToggleRootCollapse: (root: string) => void;
     handleToggleRoot: (root: string, enabled: boolean) => void;
@@ -116,7 +116,7 @@ const EditableTag = memo(({
             onClick={(e) => { e.stopPropagation(); onStartEdit(); }}
             className={`flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-95 ${isActive
                 ? 'bg-slate-800/80 text-emerald-300 border-slate-700/50 hover:border-emerald-500/50 hover:bg-slate-800 shadow-sm'
-                : 'bg-slate-900/50 text-slate-500 border-slate-800 line-through opacity-70'
+                : 'bg-slate-900/50 text-slate-500 border-slate-800 opacity-70'
                 }`}
         >
             <span>{value}</span>
@@ -173,19 +173,36 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
     }, [groupedRoots]);
 
     // Helper to update groups
-    const handleUpdateGroup = (originalIdx: number, newGroup: string[], isActive: boolean) => {
-        const sourceArray = isActive ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
-        const newGroups = [...sourceArray];
-        newGroups[originalIdx] = newGroup;
+    const handleUpdateGroup = (originalIdx: number, newGroup: string[], isActive: boolean, id?: string) => {
+        if (currentConfig.happyGroups) {
+            // New Logic
+            const newHappyGroups = [...currentConfig.happyGroups];
+            const targetIndex = id ? newHappyGroups.findIndex(g => g.id === id) : originalIdx;
 
-        if (isActive) updateCurrentRule({ includeGroups: newGroups });
-        else updateCurrentRule({ disabledGroups: newGroups });
+            if (targetIndex > -1) {
+                newHappyGroups[targetIndex] = { ...newHappyGroups[targetIndex], tags: newGroup };
+                updateCurrentRule({ happyGroups: newHappyGroups });
+            }
+        } else {
+            // Legacy Logic
+            const sourceArray = isActive ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
+            const newGroups = [...sourceArray];
+            newGroups[originalIdx] = newGroup;
+
+            if (isActive) updateCurrentRule({ includeGroups: newGroups });
+            else updateCurrentRule({ disabledGroups: newGroups });
+        }
     };
 
     const handleDeleteRoot = (root: string) => {
-        const newIncludes = currentConfig.includeGroups.filter(g => (g[0] || '').trim() !== root);
-        const newDisabled = (currentConfig.disabledGroups || []).filter(g => (g[0] || '').trim() !== root);
-        updateCurrentRule({ includeGroups: newIncludes, disabledGroups: newDisabled });
+        if (currentConfig.happyGroups) {
+            const newHappyGroups = currentConfig.happyGroups.filter(h => (h.tags[0] || '').trim() !== root);
+            updateCurrentRule({ happyGroups: newHappyGroups });
+        } else {
+            const newIncludes = currentConfig.includeGroups.filter(g => (g[0] || '').trim() !== root);
+            const newDisabled = (currentConfig.disabledGroups || []).filter(g => (g[0] || '').trim() !== root);
+            updateCurrentRule({ includeGroups: newIncludes, disabledGroups: newDisabled });
+        }
     };
 
     return (
@@ -227,9 +244,19 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                     onBlur={(e) => {
                                         const newVal = e.target.value.trim();
                                         if (newVal && newVal !== root) {
-                                            const newIncludes = currentConfig.includeGroups.map(g => (g[0] || '').trim() === root ? [newVal, ...g.slice(1)] : g);
-                                            const newDisabled = (currentConfig.disabledGroups || []).map(g => (g[0] || '').trim() === root ? [newVal, ...g.slice(1)] : g);
-                                            updateCurrentRule({ includeGroups: newIncludes, disabledGroups: newDisabled });
+                                            if (currentConfig.happyGroups) {
+                                                const newHappyGroups = currentConfig.happyGroups.map(h => {
+                                                    if ((h.tags[0] || '').trim() === root) {
+                                                        return { ...h, tags: [newVal, ...h.tags.slice(1)] };
+                                                    }
+                                                    return h;
+                                                });
+                                                updateCurrentRule({ happyGroups: newHappyGroups });
+                                            } else {
+                                                const newIncludes = currentConfig.includeGroups.map(g => (g[0] || '').trim() === root ? [newVal, ...g.slice(1)] : g);
+                                                const newDisabled = (currentConfig.disabledGroups || []).map(g => (g[0] || '').trim() === root ? [newVal, ...g.slice(1)] : g);
+                                                updateCurrentRule({ includeGroups: newIncludes, disabledGroups: newDisabled });
+                                            }
                                         }
                                         setEditingTarget(null);
                                     }}
@@ -253,7 +280,7 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                             ) : (
                                 <span
                                     onClick={() => setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root } as any)}
-                                    className={`font-bold text-sm cursor-pointer hover:text-indigo-300 transition-colors px-2 py-1 rounded hover:bg-white/5 ${isRootEnabled ? 'text-indigo-100' : 'text-slate-500 line-through'}`}
+                                    className={`font-bold text-sm cursor-pointer hover:text-indigo-300 transition-colors px-2 py-1 rounded hover:bg-white/5 ${isRootEnabled ? 'text-indigo-100' : 'text-slate-500'}`}
                                 >
                                     {root}
                                 </span>
@@ -298,13 +325,13 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                                 const newGroup = [...item.group];
                                                                 if (newVal.trim()) newGroup[tIdx + 1] = newVal.trim();
                                                                 else newGroup.splice(tIdx + 1, 1); // Delete if empty
-                                                                handleUpdateGroup(item.originalIdx, newGroup, item.active);
+                                                                handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
                                                                 setEditingTarget(null);
                                                             }}
                                                             onDelete={() => {
                                                                 const newGroup = [...item.group];
                                                                 newGroup.splice(tIdx + 1, 1);
-                                                                handleUpdateGroup(item.originalIdx, newGroup, item.active);
+                                                                handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
                                                             }}
                                                             onNavigate={(key) => {
                                                                 // Handle Input Focus (Next/Add Tag)
@@ -355,7 +382,12 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                                         }
                                                                     } else {
                                                                         // Create Branch
-                                                                        updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] });
+                                                                        if (currentConfig.happyGroups) {
+                                                                            const newId = Math.random().toString(36).substring(7);
+                                                                            updateCurrentRule({ happyGroups: [...currentConfig.happyGroups, { id: newId, tags: [root], enabled: true }] });
+                                                                        } else {
+                                                                            updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] });
+                                                                        }
                                                                         setTimeout(() => {
                                                                             const input = document.querySelector(`input[data-add-tag="${rootIdx}-${items.length}"]`) as HTMLInputElement;
                                                                             input?.focus();
@@ -376,7 +408,7 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                     onKeyDown={(e) => {
                                                         if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                                                             const newGroup = [...item.group, e.currentTarget.value.trim()];
-                                                            handleUpdateGroup(item.originalIdx, newGroup, item.active);
+                                                            handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
                                                             e.currentTarget.value = '';
                                                         } else if (e.key === 'Backspace' && !e.currentTarget.value) {
                                                             // Backspace empty input
@@ -386,10 +418,15 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                             } else if (items.length > 1) {
                                                                 // Delete Branch if empty and not the only one
                                                                 e.preventDefault();
-                                                                const sourceArray = item.active ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
-                                                                const newGroups = sourceArray.filter((_, i) => i !== item.originalIdx);
-                                                                if (item.active) updateCurrentRule({ includeGroups: newGroups });
-                                                                else updateCurrentRule({ disabledGroups: newGroups });
+                                                                if (currentConfig.happyGroups && item.id) {
+                                                                    const newHappy = currentConfig.happyGroups.filter(h => h.id !== item.id);
+                                                                    updateCurrentRule({ happyGroups: newHappy });
+                                                                } else {
+                                                                    const sourceArray = item.active ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
+                                                                    const newGroups = sourceArray.filter((_, i) => i !== item.originalIdx);
+                                                                    if (item.active) updateCurrentRule({ includeGroups: newGroups });
+                                                                    else updateCurrentRule({ disabledGroups: newGroups });
+                                                                }
 
                                                                 // Focus Previous
                                                                 if (itemIdx > 0) {
@@ -406,7 +443,12 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                                 if (nextInput) nextInput.focus();
                                                             } else {
                                                                 // Create Branch
-                                                                updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] });
+                                                                if (currentConfig.happyGroups) {
+                                                                    const newId = Math.random().toString(36).substring(7);
+                                                                    updateCurrentRule({ happyGroups: [...currentConfig.happyGroups, { id: newId, tags: [root], enabled: true }] });
+                                                                } else {
+                                                                    updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] });
+                                                                }
                                                                 setTimeout(() => {
                                                                     const input = document.querySelector(`input[data-add-tag="${rootIdx}-${items.length}"]`) as HTMLInputElement;
                                                                     input?.focus();
@@ -438,16 +480,21 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                 className="ml-auto opacity-0 group-hover/branch:opacity-100 transition-opacity text-slate-600 hover:text-red-400"
                                                 title="Remove Branch"
                                                 onClick={() => {
-                                                    const sourceArray = item.active ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
                                                     if (items.length === 1) {
                                                         // If last branch, reset to root only
                                                         const newGroup = [root];
-                                                        handleUpdateGroup(item.originalIdx, newGroup, item.active);
+                                                        handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
                                                     } else {
                                                         // Remove completely
-                                                        const newGroups = sourceArray.filter((_, i) => i !== item.originalIdx);
-                                                        if (item.active) updateCurrentRule({ includeGroups: newGroups });
-                                                        else updateCurrentRule({ disabledGroups: newGroups });
+                                                        if (currentConfig.happyGroups && item.id) {
+                                                            const newHappy = currentConfig.happyGroups.filter(h => h.id !== item.id);
+                                                            updateCurrentRule({ happyGroups: newHappy });
+                                                        } else {
+                                                            const sourceArray = item.active ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
+                                                            const newGroups = sourceArray.filter((_, i) => i !== item.originalIdx);
+                                                            if (item.active) updateCurrentRule({ includeGroups: newGroups });
+                                                            else updateCurrentRule({ disabledGroups: newGroups });
+                                                        }
                                                     }
                                                 }}
                                             />
@@ -459,7 +506,12 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                     <div className="absolute left-[11px] top-4 w-4 h-px bg-slate-800" />
                                     <button
                                         onClick={() => {
-                                            updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] });
+                                            if (currentConfig.happyGroups) {
+                                                const newId = Math.random().toString(36).substring(7);
+                                                updateCurrentRule({ happyGroups: [...currentConfig.happyGroups, { id: newId, tags: [root], enabled: true }] });
+                                            } else {
+                                                updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] });
+                                            }
                                             pendingBranchFocus.current = { rootIdx, branchIdx: items.length };
                                         }}
                                         className="text-[10px] font-bold text-indigo-400/70 hover:text-indigo-300 flex items-center gap-1 py-1 px-2 rounded hover:bg-indigo-500/10 transition-colors uppercase tracking-wider"
@@ -482,7 +534,13 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                     let counter = 1;
                     const existing = new Set(groupedRoots.map(g => g.root));
                     while (existing.has(newName)) { newName = `NewRoot (${counter++})`; }
-                    updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [newName]] });
+
+                    if (currentConfig.happyGroups) {
+                        const newId = Math.random().toString(36).substring(7);
+                        updateCurrentRule({ happyGroups: [...currentConfig.happyGroups, { id: newId, tags: [newName], enabled: true }] });
+                    } else {
+                        updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [newName]] });
+                    }
                     pendingRootFocus.current = newName;
                 }}
             >
