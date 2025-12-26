@@ -35,5 +35,7 @@ export interface ExecutionStats {
         endTime?: number;
         duration?: number;
         status?: 'success' | 'error' | 'running';
+        currentIteration?: number; // For loops
+        totalIterations?: number; // For loops
     }
 }

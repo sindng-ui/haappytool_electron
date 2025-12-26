@@ -18,6 +18,10 @@ function useUndoRedo<T>(initialState: T, onChange: (state: T) => void): [T, (new
     const [index, setIndex] = useState(0);
 
     const setState = useCallback((newState: T) => {
+        // Prevent duplicate history entries
+        const currentHead = history[index];
+        if (JSON.stringify(currentHead) === JSON.stringify(newState)) return;
+
         setHistory(prev => {
             const next = prev.slice(0, index + 1);
             next.push(newState);
@@ -29,7 +33,7 @@ function useUndoRedo<T>(initialState: T, onChange: (state: T) => void): [T, (new
             return newIndex > 49 ? 49 : newIndex; // Keep index within bounds if sliced
         });
         onChange(newState);
-    }, [index, onChange]);
+    }, [history, index, onChange]);
 
     const undo = useCallback(() => {
         if (index > 0) {
@@ -96,6 +100,28 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
                 e.preventDefault();
                 if (canRedo) redo();
+                return;
+            }
+
+            // Select All (Ctrl + A)
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+                e.preventDefault();
+                const allIds = new Set<string>();
+                const collectIds = (items: PipelineItem[]) => {
+                    items.forEach(item => {
+                        allIds.add(item.id);
+                        if (item.children) collectIds(item.children); // Recurse
+                    });
+                };
+                collectIds(currentPipeline.items);
+                setSelectedIds(allIds);
+                return;
+            }
+
+            // Group (Ctrl + G)
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+                e.preventDefault();
+                handleGroup();
                 return;
             }
 
@@ -197,6 +223,19 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
     const handleGroup = () => {
         if (selectedIds.size === 0) return;
 
+        // Helper to get all descendant IDs of a list of items
+        const getAllDescendantIds = (items: PipelineItem[]): Set<string> => {
+            const ids = new Set<string>();
+            const traverse = (list: PipelineItem[]) => {
+                for (const item of list) {
+                    ids.add(item.id);
+                    if (item.children) traverse(item.children);
+                }
+            };
+            traverse(items);
+            return ids;
+        };
+
         const groupInList = (items: PipelineItem[]): { items: PipelineItem[], success: boolean } => {
             const selectedIndices = items
                 .map((item, idx) => selectedIds.has(item.id) ? idx : -1)
@@ -206,20 +245,39 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
             if (selectedIndices.length > 0) {
                 const isContiguous = selectedIndices.every((val, i, arr) => i === 0 || val === arr[i - 1] + 1);
 
-                if (isContiguous && selectedIndices.length === selectedIds.size) {
+                if (isContiguous) {
+                    // Check if we have "captured" all selected items.
+                    // If selectedIds contains items that are NOT in (selectedItems U their descendants),
+                    // then we are missing something from the selection (e.g. valid disjoint selection elsewhere),
+                    // so we should NOT group here (or risk splitting the selection).
+                    // BUT, if the "others" are just descendants of what we are grouping, it's fine!
+
                     const firstIndex = selectedIndices[0];
                     const selectedItems = items.slice(firstIndex, firstIndex + selectedIndices.length);
+                    const capturedIds = getAllDescendantIds(selectedItems);
 
-                    const newLoop: PipelineItem = {
-                        id: `loop_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                        type: 'loop',
-                        loopCount: 2,
-                        children: selectedItems
-                    };
+                    // Check if there are any selectedIds that are NOT in capturedIds
+                    // We iterate over selectedIds because it's usually smaller or efficient enough.
+                    let hasExtraneousSelection = false;
+                    for (const id of selectedIds) {
+                        if (!capturedIds.has(id)) {
+                            hasExtraneousSelection = true;
+                            break;
+                        }
+                    }
 
-                    const newItems = [...items];
-                    newItems.splice(firstIndex, selectedIndices.length, newLoop);
-                    return { items: newItems, success: true };
+                    if (!hasExtraneousSelection) {
+                        const newLoop: PipelineItem = {
+                            id: `loop_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                            type: 'loop',
+                            loopCount: 2,
+                            children: selectedItems
+                        };
+
+                        const newItems = [...items];
+                        newItems.splice(firstIndex, selectedIndices.length, newLoop);
+                        return { items: newItems, success: true };
+                    }
                 }
             }
 
@@ -243,7 +301,8 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
             updateItems(result.items);
             setSelectedIds(new Set());
         } else {
-            console.warn("Could not group.");
+            // console.warn("Could not group.");
+            showToast("Could not group. Ensure selection is contiguous.");
         }
     };
 
@@ -710,7 +769,6 @@ const BlockNode: React.FC<{
                             defaultValue={item.sleepDuration || 1000}
                             step={1000}
                             min={0}
-                            autoFocus
                             onBlur={(e) => {
                                 const val = parseInt(e.target.value);
                                 onChange({ ...item, sleepDuration: isNaN(val) ? 1000 : val });

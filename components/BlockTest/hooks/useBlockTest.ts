@@ -66,12 +66,16 @@ export const useBlockTest = () => {
             try {
                 if (filename === 'blocks.json') {
                     const loaded: CommandBlock[] = JSON.parse(content);
-                    // Merge with predefined, ensuring predefined cannot be overwritten by file if conflict?
-                    // Actually, if we save everything, we just load everything.
-                    // But we want to ensure PREDEFINED are always present.
-                    // Let's filter out predefined from loaded and re-merge PREDEFINED.
+
+                    // Merge loaded blocks with predefined/special to ensure we have all required blocks,
+                    // but prefer the loaded version if it exists (to persist edits).
+                    const loadedMap = new Map(loaded.map(b => [b.id, b]));
+
+                    const mergedPredefined = PREDEFINED_BLOCKS.map(b => loadedMap.get(b.id) || b);
+                    const mergedSpecial = SPECIAL_BLOCKS.map(b => loadedMap.get(b.id) || b);
                     const custom = loaded.filter(b => b.type === 'custom');
-                    setBlocks([...PREDEFINED_BLOCKS, ...SPECIAL_BLOCKS, ...custom]);
+
+                    setBlocks([...mergedPredefined, ...mergedSpecial, ...custom]);
                 } else if (filename === 'pipelines.json') {
                     setPipelines(JSON.parse(content));
                 }
@@ -144,7 +148,7 @@ export const useBlockTest = () => {
     };
 
     const updateBlock = (updatedBlock: CommandBlock) => {
-        // if (PREDEFINED_BLOCKS.find(b => b.id === updatedBlock.id)) return; // Allow updates
+        // Allow updates for all types, including predefined
         const nextBlocks = blocks.map(b => b.id === updatedBlock.id ? updatedBlock : b);
         saveBlocks(nextBlocks);
     };
@@ -234,6 +238,17 @@ export const useBlockTest = () => {
         });
     };
 
+    const replaceVariables = (cmd: string, context: { loopIndex?: number, loopTotal?: number, timeStart: string }) => {
+        const now = new Date();
+        const timeCurrent = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
+        return cmd
+            .replace(/\$\(loop_total\)/g, String(context.loopTotal || 1))
+            .replace(/\$\(loop_index\)/g, String(context.loopIndex || 1))
+            .replace(/\$\(time_current\)/g, timeCurrent)
+            .replace(/\$\(time_start\)/g, context.timeStart);
+    };
+
     const executePipeline = async (pipeline: Pipeline) => {
         if (isRunning) return;
         setIsRunning(true);
@@ -267,7 +282,8 @@ export const useBlockTest = () => {
             setActivePipelineItemId('start-node');
             await new Promise(resolve => setTimeout(resolve, 100)); // Quick tick to allow layout to capture 'start-node'
 
-            await executeItems(pipeline.items, log);
+            const startTimeStr = new Date().toISOString().replace('T', ' ').split('.')[0];
+            await executeItems(pipeline.items, log, { timeStart: startTimeStr });
             log("Pipeline Completed Successfully");
         } catch (e: any) {
             if (e.message === 'Pipeline Stopped') {
@@ -283,7 +299,7 @@ export const useBlockTest = () => {
         }
     };
 
-    const executeItems = async (items: PipelineItem[], log: (msg: string) => void) => {
+    const executeItems = async (items: PipelineItem[], log: (msg: string) => void, context: { loopIndex?: number, loopTotal?: number, timeStart: string }) => {
         for (const item of items) {
             if (abortController.current?.signal.aborted) {
                 throw new Error('Pipeline Stopped');
@@ -296,20 +312,27 @@ export const useBlockTest = () => {
 
                 // Track Loop stats
                 const startTime = Date.now();
-                setExecutionStats(prev => ({ ...prev, [item.id]: { startTime, status: 'running' } }));
+                setExecutionStats(prev => ({ ...prev, [item.id]: { startTime, status: 'running', currentIteration: 0, totalIterations: count } }));
 
                 try {
                     for (let i = 0; i < count; i++) {
                         if (abortController.current?.signal.aborted) throw new Error('Pipeline Stopped');
                         log(`Loop Iteration ${i + 1}/${count}`);
-                        if (item.children) await executeItems(item.children, log);
+
+                        // Update loop progress
+                        setExecutionStats(prev => ({
+                            ...prev,
+                            [item.id]: { ...prev[item.id], currentIteration: i + 1 }
+                        }));
+
+                        if (item.children) await executeItems(item.children, log, { ...context, loopIndex: i + 1, loopTotal: count });
                     }
 
                     const endTime = Date.now();
                     const duration = endTime - startTime;
                     setExecutionStats(prev => ({
                         ...prev,
-                        [item.id]: { startTime, endTime, duration, status: 'success' }
+                        [item.id]: { startTime, endTime, duration, status: 'success', currentIteration: count, totalIterations: count }
                     }));
                 } catch (err) {
                     const endTime = Date.now();
@@ -319,7 +342,7 @@ export const useBlockTest = () => {
                     // Let's mark as Error for visual feedback if it was aborted mid-loop.
                     setExecutionStats(prev => ({
                         ...prev,
-                        [item.id]: { startTime, endTime, duration, status: 'error' }
+                        [item.id]: { ...prev[item.id], endTime, duration, status: 'error' }
                     }));
                     throw err;
                 }
@@ -364,9 +387,12 @@ export const useBlockTest = () => {
 
                 let hasError = false;
                 try {
-                    for (const cmd of block.commands) {
+                    for (const rawCmd of block.commands) {
                         if (abortController.current?.signal.aborted) throw new Error('Pipeline Stopped');
+
+                        const cmd = replaceVariables(rawCmd, context);
                         log(`  $ ${cmd}`);
+
                         // Pass signal to runCommand
                         const output = await runCommand(cmd, abortController.current?.signal);
                         log(`  > ${output}`);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { CommandBlock } from '../types';
 import * as Lucide from 'lucide-react';
 import { THEME } from '../theme';
@@ -41,6 +41,58 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
     // Form state
     const [name, setName] = useState('');
     const [commands, setCommands] = useState('');
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const SPECIAL_VARS = [
+        { label: '$(loop_total)', desc: 'Total loop count' },
+        { label: '$(loop_index)', desc: 'Current loop index (1-based)' },
+        { label: '$(time_current)', desc: 'Current local time (yyyy-mm-dd...)' },
+        { label: '$(time_start)', desc: 'Pipeline start time' },
+    ];
+
+    const handleCommandChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const val = e.target.value;
+        setCommands(val);
+
+        // Simple trigger: if last char typed is '$' or we are typing a variable
+        const selectionStart = e.target.selectionStart;
+        const textBeforeCursor = val.substring(0, selectionStart);
+
+        if (textBeforeCursor.endsWith('$')) {
+            setShowSuggestions(true);
+        } else if (textBeforeCursor.match(/\$\([a-z_]*$/)) {
+            setShowSuggestions(true);
+        } else {
+            setShowSuggestions(false);
+        }
+    };
+
+    const insertVariable = (variable: string) => {
+        if (!textareaRef.current) return;
+        const start = textareaRef.current.selectionStart;
+        const end = textareaRef.current.selectionEnd;
+        const val = textareaRef.current.value;
+
+        // Find where the variable starts (the '$')
+        let prefix = val.substring(0, start);
+        const match = prefix.match(/\$?(\([a-z_]*)?$/);
+        const replaceLength = match ? match[0].length : 0;
+
+        const newVal = val.substring(0, start - replaceLength) + variable + val.substring(end);
+
+        setCommands(newVal);
+        setShowSuggestions(false);
+
+        // Restore focus and cursor
+        setTimeout(() => {
+            if (textareaRef.current) {
+                const newCursorPos = start - replaceLength + variable.length;
+                textareaRef.current.focus();
+                textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+            }
+        }, 0);
+    };
 
     // ... (handleEdit, handleCreate, handleSave remain same, no need to replace if I target carefully)
     // Actually, I need to replace the render part mostly.
@@ -262,8 +314,8 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
             </div>
 
             {isEditing && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-lg w-96 shadow-xl border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in-95 duration-200">
+                <div className="fixed left-80 top-1/2 -translate-y-1/2 z-50 animate-in slide-in-from-left-4 fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-lg w-96 shadow-2xl border border-slate-200 dark:border-slate-700">
                         <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">
                             {editingBlock ? 'Edit Block' : 'New Block'}
                         </h3>
@@ -275,16 +327,37 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                     onChange={e => setName(e.target.value)}
                                     className="w-full text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                                     placeholder="Enter block name"
+                                    autoFocus
                                 />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Commands (one per line)</label>
-                                <textarea
-                                    value={commands}
-                                    onChange={e => setCommands(e.target.value)}
-                                    className="w-full h-32 text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    placeholder="sdb shell input keyevent 66&#10;adb shell input tap 100 100"
-                                />
+                                <div className="relative">
+                                    <textarea
+                                        ref={textareaRef}
+                                        value={commands}
+                                        onChange={handleCommandChange}
+                                        className="w-full h-32 text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        placeholder="sdb shell input keyevent 66&#10;adb shell input tap 100 100"
+                                    />
+                                    {showSuggestions && (
+                                        <div className="absolute left-2 bottom-full mb-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                                            <div className="text-[10px] uppercase font-bold text-slate-500 bg-slate-50 dark:bg-slate-900 px-2 py-1 border-b dark:border-slate-700">
+                                                Insert Variable
+                                            </div>
+                                            {SPECIAL_VARS.map(v => (
+                                                <button
+                                                    key={v.label}
+                                                    onClick={() => insertVariable(v.label)}
+                                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex flex-col gap-0.5 border-b border-slate-100 dark:border-slate-800 last:border-0"
+                                                >
+                                                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{v.label}</span>
+                                                    <span className="text-slate-500">{v.desc}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                                 <p className="text-xs text-slate-500 mt-1">Directly type adb/sdb commands.</p>
                             </div>
                         </div>

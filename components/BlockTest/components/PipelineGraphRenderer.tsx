@@ -315,6 +315,7 @@ const BlockNodeReadOnly = React.memo(({ item, blocks, isActive, stats }: { item:
                 </div>
                 <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-sm text-slate-100 truncate">{block.name}</h4>
+                    {item.blockId === 'special_sleep' && <div className="text-[10px] text-violet-300 font-mono leading-none mt-0.5">{item.sleepDuration || 1000}ms</div>}
                     {isActive && <div className="text-[10px] text-indigo-300 font-mono leading-none mt-0.5">Running...</div>}
                     {!isActive && isCompleted && stats?.duration !== undefined && (
                         <div className="text-[10px] text-green-400 font-mono leading-none mt-0.5">{(stats.duration / 1000).toFixed(2)}s</div>
@@ -354,7 +355,7 @@ const LoopNodeReadOnly = React.memo(({ item, blocks, activeItemId, stats, isActi
         >
             <div className="absolute -top-3 left-4 flex z-10">
                 <div className={`px-2 py-0.5 rounded-l text-[10px] font-bold uppercase tracking-wider bg-orange-900 border border-orange-700 border-r-0 text-orange-200`}>
-                    Loop {item.loopCount}x
+                    Loop {stats[item.id]?.currentIteration ? `${stats[item.id].currentIteration}/${stats[item.id].totalIterations}` : `${item.loopCount}x`}
                 </div>
                 <button
                     onClick={() => setIsOpen(!isOpen)}

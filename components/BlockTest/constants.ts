@@ -7,7 +7,6 @@ export const PREDEFINED_BLOCKS: CommandBlock[] = [
         type: 'predefined',
         description: 'Connect to device',
         commands: [
-            'sdb disconnect',
             'sdb connect 192.168.250.250',
             'sdb root on'
         ]
