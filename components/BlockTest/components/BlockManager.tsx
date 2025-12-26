@@ -42,6 +42,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
     const [name, setName] = useState('');
     const [commands, setCommands] = useState('');
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [suggestionIndex, setSuggestionIndex] = useState(0);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const SPECIAL_VARS = [
@@ -50,6 +51,21 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
         { label: '$(time_current)', desc: 'Current local time (yyyy-mm-dd...)' },
         { label: '$(time_start)', desc: 'Pipeline start time' },
     ];
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (!showSuggestions) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSuggestionIndex(prev => (prev + 1) % SPECIAL_VARS.length);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSuggestionIndex(prev => (prev - 1 + SPECIAL_VARS.length) % SPECIAL_VARS.length);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            insertVariable(SPECIAL_VARS[suggestionIndex].label);
+        }
+    };
 
     const handleCommandChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
@@ -61,6 +77,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
 
         if (textBeforeCursor.endsWith('$')) {
             setShowSuggestions(true);
+            setSuggestionIndex(0);
         } else if (textBeforeCursor.match(/\$\([a-z_]*$/)) {
             setShowSuggestions(true);
         } else {
@@ -83,6 +100,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
 
         setCommands(newVal);
         setShowSuggestions(false);
+        setSuggestionIndex(0);
 
         // Restore focus and cursor
         setTimeout(() => {
@@ -135,13 +153,20 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
     // Close on Escape
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (isEditing && e.key === 'Escape') {
-                setIsEditing(false);
+            if (e.key === 'Escape') {
+                if (showSuggestions) {
+                    setShowSuggestions(false);
+                    e.stopPropagation();
+                    return;
+                }
+                if (isEditing) {
+                    setIsEditing(false);
+                }
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isEditing]);
+    }, [isEditing, showSuggestions]);
 
     return (
         <div className={`flex flex-col h-full w-72 ${THEME.sidebar.container}`}>
@@ -337,6 +362,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                         ref={textareaRef}
                                         value={commands}
                                         onChange={handleCommandChange}
+                                        onKeyDown={handleKeyDown}
                                         className="w-full h-32 text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                         placeholder="sdb shell input keyevent 66&#10;adb shell input tap 100 100"
                                     />
@@ -345,11 +371,17 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                             <div className="text-[10px] uppercase font-bold text-slate-500 bg-slate-50 dark:bg-slate-900 px-2 py-1 border-b dark:border-slate-700">
                                                 Insert Variable
                                             </div>
-                                            {SPECIAL_VARS.map(v => (
+                                            {SPECIAL_VARS.map((v, idx) => (
                                                 <button
                                                     key={v.label}
                                                     onClick={() => insertVariable(v.label)}
-                                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex flex-col gap-0.5 border-b border-slate-100 dark:border-slate-800 last:border-0"
+                                                    onMouseMove={() => setSuggestionIndex(idx)}
+                                                    className={`w-full text-left px-3 py-1.5 text-xs flex flex-col gap-0.5 border-b border-slate-100 dark:border-slate-800 last:border-0 transition-colors
+                                                        ${idx === suggestionIndex
+                                                            ? 'bg-indigo-100 dark:bg-indigo-900/50'
+                                                            : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30'
+                                                        }
+                                                    `}
                                                 >
                                                     <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{v.label}</span>
                                                     <span className="text-slate-500">{v.desc}</span>

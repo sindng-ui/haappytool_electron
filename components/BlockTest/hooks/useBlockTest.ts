@@ -240,7 +240,7 @@ export const useBlockTest = () => {
 
     const replaceVariables = (cmd: string, context: { loopIndex?: number, loopTotal?: number, timeStart: string }) => {
         const now = new Date();
-        const timeCurrent = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        const timeCurrent = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
 
         return cmd
             .replace(/\$\(loop_total\)/g, String(context.loopTotal || 1))
@@ -282,7 +282,9 @@ export const useBlockTest = () => {
             setActivePipelineItemId('start-node');
             await new Promise(resolve => setTimeout(resolve, 100)); // Quick tick to allow layout to capture 'start-node'
 
-            const startTimeStr = new Date().toISOString().replace('T', ' ').split('.')[0];
+            const now = new Date();
+            const startTimeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
+
             await executeItems(pipeline.items, log, { timeStart: startTimeStr });
             log("Pipeline Completed Successfully");
         } catch (e: any) {
