@@ -71,3 +71,13 @@ export const BlockTestPlugin: HappyPlugin = {
     component: BlockTest,
     order: 3,
 };
+const EasyUML = React.lazy(() => import('../../components/EasyUML'));
+const { Activity } = Lucide;
+
+export const EasyUMLPlugin: HappyPlugin = {
+    id: ToolId.EASY_UML,
+    name: 'Easy UML',
+    icon: Activity,
+    component: EasyUML,
+    order: 8,
+};

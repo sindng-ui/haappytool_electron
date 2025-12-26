@@ -8,6 +8,7 @@ export enum ToolId {
   SMARTTHINGS_DEVICES = 'SMARTTHINGS_DEVICES',
   REVERSE_ENGINEER = 'REVERSE_ENGINEER',
   BLOCK_TEST = 'BLOCK_TEST',
+  EASY_UML = 'EASY_UML',
 }
 
 export interface LogHighlight {
