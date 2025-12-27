@@ -877,8 +877,14 @@ const EasyUML: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 select-none relative">
+            {/* Consistent System Header */}
+            <div className="h-9 shrink-0 title-drag pl-4 pr-36 flex items-center gap-3 border-b border-indigo-500/30 bg-slate-900">
+                <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Lucide.GitGraph size={14} className="icon-glow" /></div>
+                <span className="font-bold text-xs text-slate-200 no-drag">EasyUML Sequence Diagram</span>
+            </div>
+
             {/* Toolbar / Info */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 shadow-sm z-10">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 shadow-sm z-10 overflow-x-auto no-scrollbar">
                 <div className="flex gap-4 items-center">
                     <div className="flex items-center gap-2 min-w-[200px]">
                         {/* Diagram Switcher (Folder Icon) */}
@@ -970,11 +976,11 @@ const EasyUML: React.FC = () => {
                         <Lucide.ListOrdered className="w-4 h-4" />
                     </button>
 
-                    <p className="text-xs text-slate-500">
-                        {pendingConnectionStart
-                            ? "Select target Actor to complete connection (Esc to cancel)"
-                            : "Double-click Header to add Actor. Drag (+) to connect. Double-click Line for Self-Msg."}
-                    </p>
+                    {pendingConnectionStart && (
+                        <p className="text-xs text-slate-500 whitespace-nowrap">
+                            Select target Actor to complete connection (Esc to cancel)
+                        </p>
+                    )}
                     <button
                         onClick={(e) => {
                             // addToast('Auto-adding Actor', 'info'); // Removed by user request
@@ -1368,7 +1374,15 @@ const EasyUML: React.FC = () => {
 
                                         {/* Self Message Note Rendering */}
                                         {(m.note !== undefined && m.note !== null) && (
-                                            <foreignObject x={from.x + 80} y={m.y + 10} width={150} height={60}>
+                                            <foreignObject
+                                                x={from.x + 80 + ((m.label?.length || 0) * 7)}
+                                                y={m.y + 30}
+                                                width={150}
+                                                height={60}
+                                                className="overflow-visible"
+                                                onMouseDown={(e) => e.stopPropagation()}
+                                                onDoubleClick={(e) => e.stopPropagation()}
+                                            >
                                                 <div className="group relative w-full h-full">
                                                     {editingId === `note-${m.id}` ? (
                                                         <textarea
@@ -1388,6 +1402,7 @@ const EasyUML: React.FC = () => {
                                                         <div
                                                             className="w-full h-full bg-yellow-50 dark:bg-yellow-900/40 border border-yellow-200 dark:border-yellow-700/50 p-1 text-xs text-slate-600 dark:text-slate-300 overflow-hidden text-center flex items-center justify-center cursor-text hover:bg-yellow-100 dark:hover:bg-yellow-900/60 transition-colors relative"
                                                             onDoubleClick={(e) => { e.stopPropagation(); setEditingId(`note-${m.id}`); }}
+                                                            onMouseDown={(e) => e.stopPropagation()}
                                                         >
                                                             {m.note}
                                                             {/* Remove Note Button */}
@@ -1569,7 +1584,15 @@ const EasyUML: React.FC = () => {
 
                                     {/* Note Rendering - Moved BELOW message to avoid overlap */}
                                     {(m.note !== undefined && m.note !== null) && (
-                                        <foreignObject x={Math.min(from.x, to.x) + Math.abs(to.x - from.x) / 2 - 75} y={m.y + 20} width={150} height={60}>
+                                        <foreignObject
+                                            x={Math.max(from.x, to.x) + 40}
+                                            y={m.y}
+                                            width={150}
+                                            height={60}
+                                            className="overflow-visible"
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onDoubleClick={(e) => e.stopPropagation()}
+                                        >
                                             <div className="group relative w-full h-full">
                                                 {editingId === `note-${m.id}` ? (
                                                     <textarea
@@ -1589,6 +1612,7 @@ const EasyUML: React.FC = () => {
                                                     <div
                                                         className="w-full h-full bg-yellow-50 dark:bg-yellow-900/40 border border-yellow-200 dark:border-yellow-700/50 p-1 text-xs text-slate-600 dark:text-slate-300 overflow-hidden text-center flex items-center justify-center cursor-text hover:bg-yellow-100 dark:hover:bg-yellow-900/60 transition-colors relative"
                                                         onDoubleClick={(e) => { e.stopPropagation(); setEditingId(`note-${m.id}`); }}
+                                                        onMouseDown={(e) => e.stopPropagation()}
                                                     >
                                                         {m.note}
                                                         {/* Remove Note Button */}
