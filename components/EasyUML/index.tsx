@@ -39,6 +39,9 @@ interface Message {
 
     content?: string;
     height?: number; // For FRAGMENT
+    customWidth?: number; // For FRAGMENT resizing
+    customLeft?: number; // For FRAGMENT positioning
+    elseOffset?: number; // For FRAGMENT else line position
 }
 
 interface SavedDiagram {
@@ -253,12 +256,18 @@ const EasyUML: React.FC = () => {
 
     // Interaction State
     const [dragState, setDragState] = useState<{
-        type: 'LIFELINE' | 'MESSAGE_CREATE' | 'MESSAGE_MOVE';
+        type: 'LIFELINE' | 'MESSAGE_CREATE' | 'MESSAGE_MOVE' | 'MESSAGE_RESIZE';
         id?: string; // ID of moving item or 'from' lifeline ID for creation
+        resizeHandle?: 'left' | 'right' | 'bottom' | 'else' | 'bottom-left' | 'bottom-right';
         startX: number;
         startY: number;
         currentX: number;
         currentY: number;
+        initialWidth?: number;
+        initialHeight?: number;
+        initialLeft?: number;
+        initialElseOffset?: number;
+        initialOffsetY?: number;
     } | null>(null);
 
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -424,7 +433,8 @@ const EasyUML: React.FC = () => {
     };
 
     // 2. Start Dragging
-    const handleMouseDown = (e: React.MouseEvent, type: 'LIFELINE' | 'MESSAGE_CREATE' | 'MESSAGE_MOVE', id?: string) => {
+    // 2. Start Dragging
+    const handleMouseDown = (e: React.MouseEvent, type: 'LIFELINE' | 'MESSAGE_CREATE' | 'MESSAGE_MOVE' | 'MESSAGE_RESIZE', id?: string, resizeHandle?: 'left' | 'right' | 'bottom' | 'else' | 'bottom-left' | 'bottom-right') => {
         console.log(`[MouseDown] Type: ${type}, ID: ${id}`);
         e.stopPropagation();
 
@@ -442,16 +452,75 @@ const EasyUML: React.FC = () => {
         const startY = type === 'MESSAGE_CREATE' ? snapY(hoveredY) : y; // Start from snapped hover Y if creating
 
         // Save history for Moves (since they mutate state immediately in MouseMove)
-        if (type === 'LIFELINE' || type === 'MESSAGE_MOVE') {
+        if (type === 'LIFELINE' || type === 'MESSAGE_MOVE' || type === 'MESSAGE_RESIZE') {
             saveHistory();
         }
+
+        let initialWidth, initialHeight, initialLeft, initialElseOffset;
+        if (type === 'MESSAGE_RESIZE' && id) {
+            const m = messages.find(msg => msg.id === id);
+            if (m) {
+                // Determine Bounds for default
+                const minX = lifelines.length > 0 ? Math.min(...lifelines.map(l => l.x)) : 100;
+
+                // Smart Slot Creation Calculation if NEW (or reset)
+                let calculatedLeft = m.customLeft;
+                let calculatedWidth = m.customWidth;
+
+                // If dimensions are missing (newly created), calculate based on mouse X
+                if (calculatedLeft === undefined || calculatedWidth === undefined) {
+                    const mouseX = x; // use startX
+
+                    // Find slots
+                    const sortedLifelines = [...lifelines].sort((a, b) => a.x - b.x);
+                    if (sortedLifelines.length >= 2) {
+                        let targetSlot = { left: sortedLifelines[0].x, width: sortedLifelines[1].x - sortedLifelines[0].x }; // Default first slot
+
+                        for (let i = 0; i < sortedLifelines.length - 1; i++) {
+                            const l1 = sortedLifelines[i];
+                            const l2 = sortedLifelines[i + 1];
+                            if (mouseX >= l1.x && mouseX < l2.x) {
+                                targetSlot = { left: l1.x, width: l2.x - l1.x };
+                                break;
+                            }
+                        }
+
+                        if (mouseX >= sortedLifelines[sortedLifelines.length - 1].x) {
+                            // After last? Make it some default width attached to last
+                            targetSlot = { left: sortedLifelines[sortedLifelines.length - 1].x, width: 200 };
+                        } else if (mouseX < sortedLifelines[0].x) {
+                            targetSlot = { left: sortedLifelines[0].x - 200, width: 200 };
+                        }
+
+                        calculatedLeft = targetSlot.left;
+                        calculatedWidth = targetSlot.width;
+                    } else {
+                        // Fallback if < 2 lines
+                        calculatedLeft = Math.max(50, minX - 60);
+                        calculatedWidth = 500;
+                    }
+                }
+
+                initialLeft = calculatedLeft ?? Math.max(50, minX - 60);
+                initialWidth = calculatedWidth ?? 500;
+                initialHeight = m.height || 200;
+                initialElseOffset = m.elseOffset || (initialHeight / 2);
+            }
+        }
+
+        const initialOffsetY = (type === 'MESSAGE_MOVE' && id)
+            ? y - (messages.find(m => m.id === id)?.y || 0)
+            : 0;
 
         setDragState({
             type,
             id,
+            resizeHandle,
             startX: finalStartX,
             startY: startY,
             currentX: x,
+            initialWidth, initialHeight, initialLeft, initialElseOffset,
+            initialOffsetY, // Store offset
             currentY: startY // If creating, snap start Y immediately
         });
     };
@@ -518,13 +587,158 @@ const EasyUML: React.FC = () => {
             setLifelines(prev => prev.map(l => l.id === dragState.id ? { ...l, x: x } : l));
         }
         if (dragState.type === 'MESSAGE_MOVE' && dragState.id) {
+            // Apply Offset
+            const offsetY = dragState.initialOffsetY || 0;
+            const targetY = y - offsetY;
+
             // Constrain Y to snap
-            const snappedY = snapY(y);
+            const snappedY = snapY(targetY);
             // Ensure it's below header
             if (snappedY > HEADER_HEIGHT + 20) {
-                console.log(`[MessageMove] ID: ${dragState.id} -> Y: ${snappedY}`);
+                // console.log(`[MessageMove] ID: ${dragState.id} -> Y: ${snappedY}`);
                 setMessages(prev => prev.map(m => m.id === dragState.id ? { ...m, y: snappedY } : m));
             }
+        }
+
+        // Resizing
+        if (dragState.type === 'MESSAGE_RESIZE' && dragState.id) {
+            const dx = x - dragState.startX;
+            const dy = y - dragState.startY;
+
+            setMessages(prev => prev.map(m => {
+                if (m.id !== dragState.id) return m;
+
+                const updates: any = {};
+
+                if (dragState.resizeHandle === 'bottom') {
+                    updates.height = Math.max(40, (dragState.initialHeight || 60) + dy);
+                }
+                if (dragState.resizeHandle === 'right') {
+                    let newWidth = Math.max(100, (dragState.initialWidth || 400) + dx);
+
+                    // Magnetic Snap to Lifelines 
+                    const proposedRightX = (dragState.initialLeft || 0) + newWidth;
+                    const nearestLifeline = lifelines.reduce((nearest, current) => {
+                        return Math.abs(current.x - proposedRightX) < Math.abs(nearest.x - proposedRightX) ? current : nearest;
+                    }, lifelines[0]);
+
+                    if (nearestLifeline && Math.abs(nearestLifeline.x - proposedRightX) < 20) {
+                        newWidth = nearestLifeline.x - (dragState.initialLeft || 0);
+                    }
+
+                    updates.customWidth = newWidth;
+                }
+                if (dragState.resizeHandle === 'left') {
+                    let newLeft = (dragState.initialLeft || 0) + dx;
+                    let newWidth = Math.max(100, (dragState.initialWidth || 400) - dx);
+
+                    // Magnetic Snap to Lifelines
+                    const nearestLifeline = lifelines.reduce((nearest, current) => {
+                        return Math.abs(current.x - newLeft) < Math.abs(nearest.x - newLeft) ? current : nearest;
+                    }, lifelines[0]);
+
+                    if (nearestLifeline && Math.abs(nearestLifeline.x - newLeft) < 20) {
+                        const snapDx = nearestLifeline.x - (dragState.initialLeft || 0);
+                        newLeft = nearestLifeline.x;
+                        newWidth = Math.max(100, (dragState.initialWidth || 400) - snapDx);
+                    }
+
+                    updates.customWidth = newWidth;
+                    updates.customLeft = newLeft;
+                }
+                // Corner Resizing & Edge Snapping
+                if (dragState.resizeHandle === 'bottom-right' || dragState.resizeHandle === 'right') {
+                    // Right Edge Logic
+                    let newWidth = Math.max(50, (dragState.initialWidth || 500) + dx);
+
+                    // Magnetic Snap Right
+                    const proposedRightX = (dragState.initialLeft || 0) + newWidth;
+                    const nearestLifeline = lifelines.reduce((nearest, current) => {
+                        return Math.abs(current.x - proposedRightX) < Math.abs(nearest.x - proposedRightX) ? current : nearest;
+                    }, lifelines[0]);
+
+                    if (nearestLifeline && Math.abs(nearestLifeline.x - proposedRightX) < 20) {
+                        newWidth = nearestLifeline.x - (dragState.initialLeft || 0);
+                    }
+
+                    updates.customWidth = newWidth;
+                    if (dragState.resizeHandle === 'bottom-right') {
+                        updates.height = Math.max(40, (dragState.initialHeight || 200) + dy);
+                    }
+                }
+
+                if (dragState.resizeHandle === 'bottom-left' || dragState.resizeHandle === 'left') {
+                    // Left Edge Logic
+                    let newLeft = (dragState.initialLeft || 0) + dx;
+                    let newWidth = Math.max(50, (dragState.initialWidth || 500) - dx);
+
+                    // Magnetic Snap Left
+                    const nearestLifeline = lifelines.reduce((nearest, current) => {
+                        return Math.abs(current.x - newLeft) < Math.abs(nearest.x - newLeft) ? current : nearest;
+                    }, lifelines[0]);
+
+                    if (nearestLifeline && Math.abs(nearestLifeline.x - newLeft) < 20) {
+                        const snapDx = nearestLifeline.x - (dragState.initialLeft || 0);
+                        newLeft = nearestLifeline.x;
+                        newWidth = Math.max(50, (dragState.initialWidth || 500) - snapDx);
+                    }
+
+                    updates.customWidth = newWidth;
+                    updates.customLeft = newLeft;
+                    if (dragState.resizeHandle === 'bottom-left') {
+                        updates.height = Math.max(40, (dragState.initialHeight || 200) + dy);
+                    }
+                }
+
+                // SLOT JEMP logic for MOVE
+                if (dragState.type === 'MESSAGE_MOVE' && m.isFragment) {
+                    // If moving a fragment, we snap to strict slots based on center position
+                    const currentMidX = (dragState.initialLeft || 0) + (dragState.initialWidth || 200) / 2 + dx;
+
+                    // Find which slot this MidX falls into
+                    const sortedLifelines = [...lifelines].sort((a, b) => a.x - b.x);
+                    for (let i = 0; i < sortedLifelines.length - 1; i++) {
+                        const l1 = sortedLifelines[i];
+                        const l2 = sortedLifelines[i + 1];
+                        if (currentMidX >= l1.x && currentMidX < l2.x) {
+                            // MATCH! Snap to this slot
+                            updates.customLeft = l1.x;
+                            updates.customWidth = l2.x - l1.x;
+                            break;
+                        }
+                    }
+                } else if (dragState.type === 'MESSAGE_MOVE') {
+                    // Normal behavior for others
+                }
+
+                if (dragState.resizeHandle === 'bottom-left') {
+                    // Similar to left + bottom
+                    let newLeft = (dragState.initialLeft || 0) + dx;
+                    let newWidth = Math.max(100, (dragState.initialWidth || 400) - dx);
+
+                    // Magnetic Snap Left
+                    const nearestLifeline = lifelines.reduce((nearest, current) => {
+                        return Math.abs(current.x - newLeft) < Math.abs(nearest.x - newLeft) ? current : nearest;
+                    }, lifelines[0]);
+
+                    if (nearestLifeline && Math.abs(nearestLifeline.x - newLeft) < 20) {
+                        const snapDx = nearestLifeline.x - (dragState.initialLeft || 0);
+                        newLeft = nearestLifeline.x;
+                        newWidth = Math.max(100, (dragState.initialWidth || 400) - snapDx);
+                    }
+
+                    updates.customWidth = newWidth;
+                    updates.customLeft = newLeft;
+                    updates.height = Math.max(40, (dragState.initialHeight || 200) + dy);
+                }
+
+                if (dragState.resizeHandle === 'else') {
+                    const newOffset = Math.max(10, Math.min((m.height || 200) - 10, (dragState.initialElseOffset || 30) + dy));
+                    updates.elseOffset = newOffset;
+                }
+
+                return { ...m, ...updates };
+            }));
         }
     }, [dragState, lifelines, pendingConnectionStart, messages, hoveredLifelineId]); // Added 'messages' dependency
 
@@ -619,20 +833,44 @@ const EasyUML: React.FC = () => {
                 const availableWidth = Math.max(800, containerWidth);
                 baseSpacing = availableWidth / (lifelines.length + 1);
             }
+
+            // Calculate Scale Ratio for Prop. Resizing
+            const oldMetric = isUniform ? baseSpacing : currentAvg;
+            // 2. Apply Delta
+            const newSpacing = Math.max(50, baseSpacing + delta);
+            const ratio = oldMetric > 0 ? (newSpacing / oldMetric) : 1;
+
+            // 3. Re-distribute Lifelines
+            setLifelines(prev => prev.map((l, index) => ({
+                ...l,
+                x: newSpacing * (index + 1)
+            })));
+
+            // 4. Re-distribute Fragments (Proportional Scaling)
+            setMessages(prev => prev.map(m => {
+                if ((m.type === 'FRAGMENT' || m.type === 'DIVIDER') && m.customLeft !== undefined) {
+                    return {
+                        ...m,
+                        customLeft: m.customLeft * ratio,
+                        customWidth: m.customWidth ? m.customWidth * ratio : undefined
+                    };
+                }
+                return m;
+            }));
         } else {
             // Single item - use its x position as 'spacing' or default
             const containerWidth = canvasRef.current.clientWidth;
             baseSpacing = Math.max(800, containerWidth) / 2;
+
+            // 2. Apply Delta
+            const newSpacing = Math.max(50, baseSpacing + delta);
+
+            // 3. Re-distribute
+            setLifelines(prev => prev.map((l, index) => ({
+                ...l,
+                x: newSpacing * (index + 1)
+            })));
         }
-
-        // 2. Apply Delta
-        const newSpacing = Math.max(50, baseSpacing + delta);
-
-        // 3. Re-distribute
-        setLifelines(prev => prev.map((l, index) => ({
-            ...l,
-            x: newSpacing * (index + 1)
-        })));
 
         // addToast(`Spacing ${isUniform ? 'Adjusted' : 'Reset & Adjusted'}`, 'info'); // Removed by user request
     };
@@ -641,9 +879,12 @@ const EasyUML: React.FC = () => {
     const decreaseSpacing = () => changeSpacing(-40);
 
     // Add Special Items
+    // Add Special Items
     const addDescriptor = (type: 'DIVIDER' | 'NOTE_ACROSS' | 'FRAGMENT') => {
         setPendingPlacement({ type });
-        addToast(`Click on diagram to place ${type.replace('_', ' ')}`, 'info');
+        if (type !== 'DIVIDER') {
+            addToast(`Click on diagram to place ${type.replace('_', ' ')}`, 'info');
+        }
     };
 
     // Global Listeners (Mouse Up & Key Down)
@@ -656,8 +897,32 @@ const EasyUML: React.FC = () => {
                     setPendingConnectionStart(null);
                     addToast('Connection Cancelled', 'info');
                 }
-                if (dragState?.type === 'MESSAGE_CREATE') {
+                if (dragState?.type === 'MESSAGE_MOVE' || dragState?.type === 'MESSAGE_CREATE') {
                     setDragState(null);
+                }
+            }
+
+            // Delete Selected Item
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId && !editingId) {
+                // Prevent browser back navigation
+                if (e.key === 'Backspace' && e.target === document.body) {
+                    e.preventDefault();
+                }
+
+                // Check if it's a message
+                if (messages.find(m => m.id === selectedId)) {
+                    saveHistory();
+                    setMessages(prev => prev.filter(m => m.id !== selectedId));
+                    setSelectedId(null);
+                    addToast('Item Deleted', 'success');
+                }
+                // Check if it's a lifeline (Actor) - Optional, but good for consistency
+                else if (lifelines.find(l => l.id === selectedId)) {
+                    saveHistory();
+                    setLifelines(prev => prev.filter(l => l.id !== selectedId));
+                    setMessages(prev => prev.filter(m => m.fromId !== selectedId && m.toId !== selectedId));
+                    setSelectedId(null);
+                    addToast('Actor Deleted', 'success');
                 }
             }
         };
@@ -773,7 +1038,11 @@ const EasyUML: React.FC = () => {
             const lifelinesX = lifelines.map(l => l.x);
             const minLifelineX = lifelines.length > 0 ? Math.min(...lifelinesX) : 0;
             const maxLifelineX = lifelines.length > 0 ? Math.max(...lifelinesX) : 0;
-            const maxMessageY = messages.length > 0 ? Math.max(...messages.map(m => m.y)) : 0;
+
+            // Calculate lowest point (Messages, Dividers, Fragments)
+            const maxContentY = messages.length > 0
+                ? Math.max(...messages.map(m => m.y + (m.height || 0)))
+                : 0;
 
             // Margins
             const RIGHT_MARGIN = 300; // Increased buffer for right side
@@ -786,8 +1055,8 @@ const EasyUML: React.FC = () => {
             const targetContentEnd = maxLifelineX + RIGHT_MARGIN;
             const contentWidth = Math.max(1000, targetContentEnd - startContentX);
 
-            // 3. Vertical Height
-            const contentHeight = Math.max(canvasHeight, maxMessageY + BOTTOM_MARGIN);
+            // 3. Vertical Height (Crop to content, ignore canvas expansion)
+            const contentHeight = Math.max(800, maxContentY + BOTTOM_MARGIN);
 
             const isDark = document.documentElement.classList.contains('dark');
 
@@ -875,6 +1144,85 @@ const EasyUML: React.FC = () => {
         return boxes;
     }, [messages, lifelines, canvasHeight]);
 
+    // --- Drag and Drop Creation ---
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault(); // Allow drop
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        const type = e.dataTransfer.getData('type') as 'DIVIDER' | 'FRAGMENT' | null;
+
+        if (type && ['DIVIDER', 'FRAGMENT'].includes(type)) {
+            const rect = canvasRef.current?.getBoundingClientRect();
+            if (!rect) return;
+
+            const dropY = e.clientY - rect.top + (canvasRef.current?.scrollTop || 0);
+            // Calculate Drop X relative to canvas (using scrollLeft if needed)
+            const dropX = e.clientX - rect.left + (canvasRef.current?.scrollLeft || 0);
+
+            const snappedY = snapY(dropY);
+
+            let customLeft: number | undefined = undefined;
+            let customWidth: number | undefined = undefined;
+
+            // --- Magnetic Slot Snap Logic (Mouse-Center based) ---
+            if (type === 'FRAGMENT' && lifelines.length > 1) {
+                const sorted = [...lifelines].sort((a, b) => a.x - b.x);
+
+                // Find containing slot
+                let foundSlot = false;
+                for (let i = 0; i < sorted.length - 1; i++) {
+                    const l1 = sorted[i];
+                    const l2 = sorted[i + 1];
+                    if (dropX >= l1.x && dropX < l2.x) {
+                        const PADDING = 60;
+                        customLeft = l1.x - PADDING;
+                        customWidth = (l2.x - l1.x) + (PADDING * 2);
+                        foundSlot = true;
+                        break;
+                    }
+                }
+
+                // Fallback: Before first or After last
+                if (!foundSlot) {
+                    if (dropX < sorted[0].x) {
+                        // Before first: Try to attach right side to First
+                        customWidth = 200;
+                        customLeft = sorted[0].x - 200;
+                    } else {
+                        // After last: Attach left side to Last
+                        customLeft = sorted[sorted.length - 1].x;
+                        customWidth = 200;
+                    }
+                }
+
+            } else if (type === 'FRAGMENT') {
+                // No lifelines or just 1
+                customWidth = 300;
+                customLeft = dropX - 150;
+            }
+
+            const newMessage: Message = {
+                id: generateId(),
+                fromId: 'global',
+                toId: 'global',
+                y: snappedY,
+                label: type === 'DIVIDER' ? '== New Divider ==' : 'Alt Condition',
+                lineStyle: 'solid',
+                arrowStyle: 'none',
+                type: type,
+                height: type === 'FRAGMENT' ? 200 : undefined,
+                customWidth: customWidth,
+                customLeft: customLeft,
+                elseOffset: type === 'FRAGMENT' ? 100 : undefined
+            };
+
+            setMessages(prev => [...prev, newMessage]);
+            saveHistory();
+        }
+    };
+
     return (
         <div className="flex flex-col h-full w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 select-none relative">
             {/* Consistent System Header */}
@@ -928,17 +1276,24 @@ const EasyUML: React.FC = () => {
 
                     <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
 
-                    {/* NEW ITEMS TOOLBAR */}
+                    {/* NEW ITEMS TOOLBAR - DRAGGABLE */}
                     <div className="flex gap-1">
-                        <button onClick={() => addDescriptor('DIVIDER')} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500" title="Add Divider">
+                        <div
+                            draggable
+                            onDragStart={(e) => e.dataTransfer.setData('type', 'DIVIDER')}
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500 cursor-grab active:cursor-grabbing"
+                            title="Drag Divider to Canvas"
+                        >
                             <Lucide.MinusSquare className="w-5 h-5" />
-                        </button>
-                        <button onClick={() => addDescriptor('NOTE_ACROSS')} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500" title="Add Note Across">
-                            <Lucide.StickyNote className="w-5 h-5" />
-                        </button>
-                        <button onClick={() => addDescriptor('FRAGMENT')} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500" title="Add Fragment (Alt/Else)">
+                        </div>
+                        <div
+                            draggable
+                            onDragStart={(e) => e.dataTransfer.setData('type', 'FRAGMENT')}
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500 cursor-grab active:cursor-grabbing"
+                            title="Drag Fragment (Alt/Else) to Canvas"
+                        >
                             <Lucide.BoxSelect className="w-5 h-5" />
-                        </button>
+                        </div>
                     </div>
 
                     <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
@@ -1021,10 +1376,12 @@ const EasyUML: React.FC = () => {
             {/* Diagram Canvas */}
             <div
                 ref={canvasRef}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
                 className="flex-1 overflow-auto relative bg-slate-50 dark:bg-slate-900/50"
             >
                 <div
-                    className="relative min-w-full min-h-[200px] origin-top-left transition-all duration-75 ease-out bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px]"
+                    className="relative min-w-full min-h-[200px] origin-top-left transition-all duration-75 ease-out bg-white dark:bg-slate-900"
                     style={{
                         width: 'max-content', // Allow it to grow
                         height: Math.max(800, canvasHeight)
@@ -1040,9 +1397,10 @@ const EasyUML: React.FC = () => {
                                 toId: 'global',
                                 y: snapY(y),
                                 label: pendingPlacement.type === 'DIVIDER' ? '== New Divider ==' : (pendingPlacement.type === 'NOTE_ACROSS' ? 'Note Across' : 'Alt'),
+                                type: pendingPlacement.type, // Required for rendering loop
                                 descriptorType: pendingPlacement.type,
                                 isFragment: pendingPlacement.type === 'FRAGMENT',
-                                fragmentHeight: pendingPlacement.type === 'FRAGMENT' ? 100 : undefined,
+                                fragmentHeight: pendingPlacement.type === 'FRAGMENT' ? 200 : undefined,
                                 fragmentCondition: pendingPlacement.type === 'FRAGMENT' ? '[condition]' : undefined,
                                 lineStyle: 'solid',
                                 arrowStyle: 'none'
@@ -1154,93 +1512,239 @@ const EasyUML: React.FC = () => {
                             if (m.type && ['DIVIDER', 'NOTE_ACROSS', 'FRAGMENT'].includes(m.type)) {
                                 const minX = lifelines.length > 0 ? Math.min(...lifelines.map(l => l.x)) : 100;
                                 const maxX = lifelines.length > 0 ? Math.max(...lifelines.map(l => l.x)) : 500;
-                                const left = Math.max(50, minX - 60);
-                                const width = Math.max(400, (maxX - left) + 60);
+
+                                // Default Dimensions
+                                // const minX = lifelines.length > 0 ? Math.min(...lifelines.map(l => l.x)) : 100;
+                                // const maxX = lifelines.length > 0 ? Math.max(...lifelines.map(l => l.x)) : 500;
+
+                                // Default Dimensions (Global deprecated, now local)
+                                const defaultLeft = lifelines.length > 0 ? Math.min(...lifelines.map(l => l.x)) - 30 : 50;
+                                const defaultWidth = 200; // New default
+
+                                // Use Custom or Default
+                                const left = m.customLeft ?? defaultLeft;
+                                const width = m.customWidth ?? defaultWidth;
+
                                 const isHovered = hoveredMessageId === m.id;
                                 const isSelected = selectedId === m.id;
                                 const height = m.height || 60; // Default height for fragment
 
-                                return (
-                                    <g
-                                        key={m.id}
-                                        className={`cursor-move ${isSelected ? 'opacity-100' : 'opacity-90'}`}
-                                        onMouseDown={(e) => handleMouseDown(e, 'MESSAGE_MOVE', m.id)}
-                                        // Make sure we set hover for delete button visibility
-                                        onMouseEnter={() => setHoveredMessageId(m.id)}
-                                        onMouseLeave={() => setHoveredMessageId(null)}
-                                    >
-                                        {/* Hit Area for Movement */}
-                                        <rect x={left} y={m.y - 20} width={width} height={height} fill="transparent" className="cursor-move" />
+                                // DIVIDER
+                                if (m.type === 'DIVIDER') {
+                                    const hasCustom = m.customLeft !== undefined;
+                                    const x1 = hasCustom ? m.customLeft! : 0;
+                                    const width = hasCustom ? (m.customWidth || 1000) : '100%';
 
-                                        {/* DIVIDER */}
-                                        {m.type === 'DIVIDER' && (
-                                            <g className="pointer-events-none">
-                                                <line x1={0} y1={m.y} x2="100%" y2={m.y}
-                                                    className="stroke-slate-300 dark:stroke-slate-700 stroke-2" strokeDasharray="10,10"
-                                                />
-                                                {/* Label Box */}
-                                                <foreignObject x={left + (width / 2) - 100} y={m.y - 15} width={200} height={30}>
-                                                    <div className="flex justify-center">
-                                                        <span className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded text-xs font-bold text-slate-500 shadow-sm">
-                                                            {m.label}
-                                                        </span>
-                                                    </div>
-                                                </foreignObject>
-                                            </g>
-                                        )}
+                                    // If using percentage, x2 is 100%. If pixels, x2 is x1 + width
+                                    const x2 = hasCustom ? (x1 + (width as number)) : '100%';
 
-                                        {/* NOTE ACROSS */}
-                                        {m.type === 'NOTE_ACROSS' && (
-                                            <foreignObject x={left} y={m.y - 15} width={width} height={40} className="pointer-events-none">
-                                                <div className="bg-yellow-100 dark:bg-yellow-900/50 border border-yellow-300 dark:border-yellow-700 text-center p-2 rounded shadow-sm text-xs text-slate-700 dark:text-slate-300">
-                                                    {m.label}
+                                    // Dynamic Content Centering if no custom position
+                                    let labelX: number | string = x1;
+                                    let labelWidth: number | string = width;
+
+                                    if (!hasCustom && lifelines.length > 0) {
+                                        // Center between first and last actor
+                                        const minX = Math.min(...lifelines.map(l => l.x));
+                                        const maxX = Math.max(...lifelines.map(l => l.x));
+                                        const center = (minX + maxX) / 2;
+                                        labelX = center - 150; // Half of 300px width
+                                        labelWidth = 300;
+                                    } else if (!hasCustom) {
+                                        // Fallback usually not needed if actors exist
+                                        labelX = 0;
+                                        labelWidth = '100%';
+                                    }
+
+                                    return (
+                                        <g
+                                            className={`pointer-events-auto ${editingId === m.id ? 'cursor-default' : 'cursor-ns-resize'}`}
+                                            onMouseDown={(e) => {
+                                                if (editingId === m.id) return;
+                                                handleMouseDown(e, 'MESSAGE_MOVE', m.id);
+                                            }}
+                                            onMouseEnter={() => setHoveredMessageId(m.id)}
+                                            onMouseLeave={() => setHoveredMessageId(null)}
+                                        >
+                                            {/* Line */}
+                                            <line
+                                                x1={x1} y1={m.y}
+                                                x2={x2} y2={m.y}
+                                                className={`transition-colors ${selectedId === m.id ? 'stroke-indigo-400' : 'stroke-indigo-300 dark:stroke-indigo-400'}`}
+                                                strokeWidth="4"
+                                            // strokeDasharray="10,10" // Removed dash for visibility
+                                            />
+                                            {/* Centered Label - Draggable */}
+                                            <foreignObject x={labelX} y={m.y - 20} width={labelWidth} height={40} style={{ pointerEvents: 'none' }}>
+                                                <div className="flex justify-center w-full">
+                                                    <span
+                                                        className={`bg-white dark:bg-slate-900 border-2 border-indigo-300 dark:border-indigo-500 px-3 py-1 rounded text-xs font-bold text-indigo-600 dark:text-indigo-200 shadow-sm transition-all pointer-events-auto cursor-ns-resize hover:bg-slate-50 dark:hover:bg-slate-800 ${selectedId === m.id ? 'ring-2 ring-indigo-400' : ''}`}
+                                                        onDoubleClick={(e) => { e.stopPropagation(); setEditingId(m.id); }}
+                                                        onMouseDown={(e) => {
+                                                            if (editingId === m.id) return;
+                                                            handleMouseDown(e, 'MESSAGE_MOVE', m.id);
+                                                        }}
+                                                    >
+                                                        {editingId === m.id ? (
+                                                            <input
+                                                                autoFocus
+                                                                onFocus={(e) => e.target.select()}
+                                                                className="bg-transparent text-center outline-none min-w-[50px]"
+                                                                defaultValue={m.label}
+                                                                onBlur={(e) => { setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, label: e.target.value } : msg)); setEditingId(null); saveHistory(); }}
+                                                                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                                                onMouseDown={(e) => e.stopPropagation()} // Stop drag when editing
+                                                            />
+                                                        ) : m.label}
+                                                    </span>
                                                 </div>
                                             </foreignObject>
-                                        )}
+                                        </g>
+                                    );
+                                }
 
-                                        {/* FRAGMENT (ALT/ELSE) */}
-                                        {m.type === 'FRAGMENT' && (
-                                            <g className="pointer-events-none">
+                                {/* NOTE ACROSS */ }
+                                if (m.type === 'NOTE_ACROSS') {
+                                    return (
+                                        <g
+                                            className={`pointer-events-auto ${editingId === m.id ? 'cursor-default' : 'cursor-ns-resize'}`}
+                                            onMouseDown={(e) => {
+                                                if (editingId === m.id) return;
+                                                handleMouseDown(e, 'MESSAGE_MOVE', m.id);
+                                            }}
+                                            onMouseEnter={() => setHoveredMessageId(m.id)}
+                                            onMouseLeave={() => setHoveredMessageId(null)}
+                                        >
+                                            <foreignObject x={left} y={m.y - 15} width={width} height={40}>
+                                                <div
+                                                    className={`bg-yellow-100 dark:bg-yellow-900/50 border border-yellow-300 dark:border-yellow-700 text-center p-2 rounded shadow-sm text-xs text-slate-700 dark:text-slate-300 cursor-text transition-all ${selectedId === m.id ? 'ring-2 ring-indigo-400' : ''}`}
+                                                    onDoubleClick={(e) => { e.stopPropagation(); setEditingId(m.id); }}
+                                                    onMouseDown={(e) => { e.stopPropagation(); setSelectedId(m.id); }} // Click to select
+                                                >
+                                                    {editingId === m.id ? (
+                                                        <input
+                                                            autoFocus
+                                                            className="bg-transparent text-center outline-none w-full"
+                                                            defaultValue={m.label}
+                                                            onBlur={(e) => { setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, label: e.target.value } : msg)); setEditingId(null); saveHistory(); }}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                                        />
+                                                    ) : m.label}
+                                                </div>
+                                            </foreignObject>
+
+
+                                        </g>
+                                    );
+                                }
+
+                                {/* FRAGMENT (ALT/ELSE) */ }
+                                if (m.type === 'FRAGMENT') {
+                                    return (
+                                        <g
+                                            className={`pointer-events-auto ${editingId === m.id ? 'cursor-default' : 'cursor-ns-resize'}`}
+                                            onMouseDown={(e) => {
+                                                if (editingId === m.id) return;
+                                                handleMouseDown(e, 'MESSAGE_MOVE', m.id);
+                                            }}
+                                            onMouseEnter={() => setHoveredMessageId(m.id)}
+                                            onMouseLeave={() => setHoveredMessageId(null)}
+                                        >
+                                            <g>
                                                 <rect
                                                     x={left} y={m.y} width={width} height={height}
                                                     fill="transparent"
-                                                    className="stroke-slate-400 dark:stroke-slate-500"
-                                                    strokeWidth="2"
+                                                    className={`stroke-2 transition-colors ${selectedId === m.id ? 'stroke-indigo-500' : 'stroke-slate-400 dark:stroke-slate-500'}`}
                                                 />
-                                                {/* Header */}
                                                 <path d={`M ${left} ${m.y} L ${left + 70} ${m.y} L ${left + 80} ${m.y + 20} L ${left} ${m.y + 20} Z`}
                                                     className="fill-slate-100 dark:fill-slate-800 stroke-slate-400 dark:stroke-slate-500"
                                                     strokeWidth="1"
                                                 />
-                                                <text x={left + 5} y={m.y + 14} className="text-[11px] font-bold fill-slate-600 dark:fill-slate-300">alt</text>
+                                                <text
+                                                    x={left + 5} y={m.y + 14}
+                                                    className="text-[11px] font-bold fill-slate-600 dark:fill-slate-300 cursor-text"
+                                                    onDoubleClick={(e) => { e.stopPropagation(); setEditingId(m.id); }}
+                                                >
+                                                    {editingId === m.id ? '...' : (m.label || 'alt')}
+                                                </text>
+                                                {editingId === m.id && (
+                                                    <foreignObject x={left + 5} y={m.y} width={60} height={20}>
+                                                        <input
+                                                            autoFocus
+                                                            className="w-full h-full bg-white dark:bg-slate-900 text-[11px] font-bold outline-none border border-indigo-500"
+                                                            defaultValue={m.label}
+                                                            onBlur={(e) => { setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, label: e.target.value } : msg)); setEditingId(null); saveHistory(); }}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                        />
+                                                    </foreignObject>
+                                                )}
 
                                                 <text x={left + 10} y={m.y + 35} className="text-xs fill-slate-500 italic">[{m.content || 'condition'}]</text>
 
-                                                {/* Dotted Line for Else (Middle) */}
-                                                <line x1={left} y1={m.y + (height / 2)} x2={left + width} y2={m.y + (height / 2)}
-                                                    className="stroke-slate-400 dark:stroke-slate-600 stroke-1" strokeDasharray="5,5" />
+                                                {/* Else Divider */}
+                                                <g transform={`translate(0, ${m.elseOffset || (height / 2)})`}>
+                                                    <line x1={left} y1={m.y} x2={left + width} y2={m.y}
+                                                        className="stroke-slate-400 dark:stroke-slate-600 stroke-1" strokeDasharray="5,5" />
+                                                    <text x={left + 10} y={m.y + 15} className="text-xs fill-slate-500 italic">[else]</text>
 
-                                                <text x={left + 10} y={m.y + (height / 2) + 15} className="text-xs fill-slate-500 italic">[else]</text>
+                                                    {/* Else Drag Handle */}
+                                                    {isSelected && (
+                                                        <rect
+                                                            x={left} y={m.y - 5} width={width} height={10}
+                                                            fill="transparent"
+                                                            className="cursor-col-resize hover:fill-indigo-500/10 cursor-ns-resize"
+                                                            onMouseDown={(e) => handleMouseDown(e, 'MESSAGE_RESIZE', m.id, 'else')}
+                                                        />
+                                                    )}
+                                                </g>
                                             </g>
-                                        )}
 
-                                        {/* Delete Button (Visible on Hover/Select) */}
-                                        {(isHovered || isSelected) && (
-                                            <foreignObject x={left + width} y={m.y - 10} width={30} height={30}>
-                                                <button
-                                                    className="w-6 h-6 bg-white dark:bg-slate-800 text-slate-400 hover:text-red-500 rounded-full shadow border border-slate-200 dark:border-slate-700 flex items-center justify-center"
-                                                    onMouseDown={(e) => {
-                                                        e.stopPropagation();
-                                                        saveHistory();
-                                                        setMessages(prev => prev.filter(msg => msg.id !== m.id));
-                                                    }}
-                                                >
-                                                    <Lucide.Trash2 className="w-3 h-3" />
-                                                </button>
-                                            </foreignObject>
-                                        )}
-                                    </g>
-                                );
+
+                                            {/* Resize Handles (Only when selected) */}
+                                            {isSelected && (
+                                                <g>
+                                                    {/* Left Handle */}
+                                                    <rect
+                                                        x={left - 5} y={m.y} width={5} height={height}
+                                                        fill="transparent"
+                                                        className="cursor-ew-resize hover:fill-indigo-500/20"
+                                                        onMouseDown={(e) => handleMouseDown(e, 'MESSAGE_RESIZE', m.id, 'left')}
+                                                    />
+                                                    {/* Right Handle */}
+                                                    <rect
+                                                        x={left + width} y={m.y} width={5} height={height}
+                                                        fill="transparent"
+                                                        className="cursor-ew-resize hover:fill-indigo-500/20"
+                                                        onMouseDown={(e) => handleMouseDown(e, 'MESSAGE_RESIZE', m.id, 'right')}
+                                                    />
+                                                    {/* Bottom Handle */}
+                                                    <rect
+                                                        x={left} y={m.y + height} width={width} height={5}
+                                                        fill="transparent"
+                                                        className="cursor-ns-resize hover:fill-indigo-500/20"
+                                                        onMouseDown={(e) => handleMouseDown(e, 'MESSAGE_RESIZE', m.id, 'bottom')}
+                                                    />
+                                                    {/* Bottom-Right Handle (Corner) */}
+                                                    <rect
+                                                        x={left + width} y={m.y + height} width={8} height={8}
+                                                        fill="white" stroke="blue" strokeWidth={1}
+                                                        className="cursor-nwse-resize"
+                                                        onMouseDown={(e) => handleMouseDown(e, 'MESSAGE_RESIZE', m.id, 'bottom-right')}
+                                                    />
+                                                    {/* Bottom-Left Handle (Corner) */}
+                                                    <rect
+                                                        x={left - 8} y={m.y + height} width={8} height={8}
+                                                        fill="white" stroke="blue" strokeWidth={1}
+                                                        className="cursor-nesw-resize"
+                                                        onMouseDown={(e) => handleMouseDown(e, 'MESSAGE_RESIZE', m.id, 'bottom-left')}
+                                                    />
+                                                </g>
+                                            )}
+                                        </g>
+                                    );
+                                }
+
+
                             }
 
                             const from = lifelines.find(l => l.id === m.fromId);
@@ -1898,7 +2402,7 @@ const EasyUML: React.FC = () => {
                     )
                 }
             </div>
-        </div>
+        </div >
     );
 };
 
