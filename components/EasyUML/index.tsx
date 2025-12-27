@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useHappyTool } from '../../contexts/HappyToolContext';
 import { useToast } from '../../contexts/ToastContext';
 import * as Lucide from 'lucide-react';
+import * as htmlToImage from 'html-to-image';
 
 // --- Constants ---
 const SNAP_Y = 20; // Vertical snap grid
@@ -39,25 +40,34 @@ const EasyUML: React.FC = () => {
     const [defaultLineStyle, setDefaultLineStyle] = useState<Message['lineStyle']>('solid');
     const [defaultArrowStyle, setDefaultArrowStyle] = useState<Message['arrowStyle']>('filled');
 
+    // Canvas State
+    const [canvasHeight, setCanvasHeight] = useState<number>(1000);
+
+    // Export State
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [plantUMLCode, setPlantUMLCode] = useState('');
+
     // History State
     interface DiagramState {
         lifelines: Lifeline[];
         messages: Message[];
+        canvasHeight: number;
     }
     const [history, setHistory] = useState<DiagramState[]>([]);
     const [future, setFuture] = useState<DiagramState[]>([]);
 
     const saveHistory = () => {
-        setHistory(prev => [...prev.slice(-49), { lifelines, messages }]);
+        setHistory(prev => [...prev.slice(-49), { lifelines, messages, canvasHeight }]);
         setFuture([]);
     };
 
     const undo = () => {
         if (history.length === 0) return;
         const previous = history[history.length - 1];
-        setFuture(prev => [({ lifelines, messages }), ...prev]);
+        setFuture(prev => [({ lifelines, messages, canvasHeight }), ...prev]);
         setLifelines(previous.lifelines);
         setMessages(previous.messages);
+        setCanvasHeight(previous.canvasHeight);
         setHistory(prev => prev.slice(0, -1));
         setSelectedId(null);
     };
@@ -65,9 +75,10 @@ const EasyUML: React.FC = () => {
     const redo = () => {
         if (future.length === 0) return;
         const next = future[0];
-        setHistory(prev => [...prev, ({ lifelines, messages })]);
+        setHistory(prev => [...prev, ({ lifelines, messages, canvasHeight })]);
         setLifelines(next.lifelines);
         setMessages(next.messages);
+        setCanvasHeight(next.canvasHeight);
         setFuture(prev => prev.slice(1));
         setSelectedId(null);
     };
@@ -333,7 +344,9 @@ const EasyUML: React.FC = () => {
             // Simple proximity check
             const target = lifelines.find(l => Math.abs(l.x - dragState.currentX) < 40);
 
-            if (target && target.id !== dragState.id) {
+            if (target) {
+                // ALLOW SELF CONNECTIONS (target.id === dragState.id)
+
                 // Create Message with PERSISTENT styles
                 saveHistory();
                 const newMessage: Message = {
@@ -365,6 +378,27 @@ const EasyUML: React.FC = () => {
         }));
     };
 
+    // Bulk Spacing Adjustment
+    const changeSpacing = (factor: number) => {
+        if (lifelines.length < 2) return;
+        saveHistory();
+
+        // Find center
+        const minX = Math.min(...lifelines.map(l => l.x));
+        const maxX = Math.max(...lifelines.map(l => l.x));
+        const centerX = (minX + maxX) / 2;
+
+        setLifelines(prev => prev.map(l => {
+            const dist = l.x - centerX;
+            const newX = centerX + (dist * factor);
+            return { ...l, x: Math.max(0, newX) }; // Prevent negative X
+        }));
+        addToast(`Spacing ${factor > 1 ? 'Increased' : 'Decreased'}`, 'info');
+    };
+
+    const increaseSpacing = () => changeSpacing(1.1);
+    const decreaseSpacing = () => changeSpacing(0.9);
+
     // Global mouse up for safety
     useEffect(() => {
         const up = () => setDragState(null);
@@ -372,24 +406,158 @@ const EasyUML: React.FC = () => {
         return () => window.removeEventListener('mouseup', up);
     }, []);
 
+    const generatePlantUML = () => {
+        let code = '@startuml\n';
+
+        // 1. Define Participants (preserve order)
+        // Sort by x position effectively auto-handled by just listing them, 
+        // but explicit definition ensures correct type (actor vs database)
+        lifelines.forEach(l => {
+            let type = 'participant';
+            if (l.shape === 'actor') type = 'actor';
+            if (l.shape === 'database') type = 'database';
+            // Sanitize name: remove spaces or wrap in quotes
+            const safeName = l.name.includes(' ') ? `"${l.name}"` : l.name;
+            const alias = `L${l.id}`; // Use ID as alias to avoid name collisions
+            code += `${type} ${safeName} as ${alias}\n`;
+        });
+
+        code += '\n';
+
+        // 2. Define Messages (sorted by Y)
+        const sortedMessages = [...messages].sort((a, b) => a.y - b.y);
+
+        sortedMessages.forEach(m => {
+            const from = lifelines.find(l => l.id === m.fromId);
+            const to = lifelines.find(l => l.id === m.toId);
+            if (!from || !to) return;
+
+            const fromAlias = `L${from.id}`;
+            const toAlias = `L${to.id}`;
+
+            // Determine arrow type
+            let arrow = '->';
+            if (m.lineStyle === 'dashed') {
+                if (m.arrowStyle === 'open') arrow = '-->>';
+                else arrow = '-->';
+            } else {
+                if (m.arrowStyle === 'open') arrow = '->>';
+                else arrow = '->';
+            }
+
+            // Label
+            const label = m.label ? `: ${m.label}` : '';
+
+            code += `${fromAlias} ${arrow} ${toAlias}${label}\n`;
+        });
+
+        code += '@enduml';
+        return code;
+    };
+
+    const exportToImage = async () => {
+        if (!canvasRef.current) return;
+
+        try {
+            // Calculate Content Dimensions & Bounds
+            const lifelinesX = lifelines.map(l => l.x);
+            const minLifelineX = lifelines.length > 0 ? Math.min(...lifelinesX) : 0;
+            const maxLifelineX = lifelines.length > 0 ? Math.max(...lifelinesX) : 0;
+            const maxMessageY = messages.length > 0 ? Math.max(...messages.map(m => m.y)) : 0;
+
+            // Margins
+            const RIGHT_MARGIN = 300; // Increased buffer for right side
+            const BOTTOM_MARGIN = 100;
+
+            // 1. Calculate Shift (Left Crop)
+            const startContentX = Math.max(0, minLifelineX - 100);
+
+            // 2. Calculate Final Width
+            const targetContentEnd = maxLifelineX + RIGHT_MARGIN;
+            const contentWidth = Math.max(1000, targetContentEnd - startContentX);
+
+            // 3. Vertical Height
+            const contentHeight = Math.max(canvasHeight, maxMessageY + BOTTOM_MARGIN);
+
+            const isDark = document.documentElement.classList.contains('dark');
+
+            // Use scrollWidth to ensure clone is full size
+            const scrollWidth = canvasRef.current.scrollWidth;
+            const scrollHeight = canvasRef.current.scrollHeight;
+
+            const dataUrl = await htmlToImage.toPng(canvasRef.current, {
+                backgroundColor: isDark ? '#020617' : '#ffffff',
+                cacheBust: true,
+                width: contentWidth,
+                height: contentHeight,
+                style: {
+                    width: `${Math.max(scrollWidth, targetContentEnd + 200)}px`,
+                    height: `${Math.max(scrollHeight, contentHeight)}px`,
+                    transform: `translate(${-startContentX}px, 0)`,
+                    transformOrigin: 'top left',
+                    overflow: 'visible',
+                    backgroundImage: 'none'
+                },
+                filter: (node) => true
+            });
+
+            // Download
+            const link = document.createElement('a');
+            link.download = `easyuml-export-${generateId()}.png`;
+            link.href = dataUrl;
+            link.click();
+            addToast('Image Exported!', 'success');
+        } catch (error) {
+            console.error('Export failed:', error);
+            addToast('Export Failed', 'error');
+        }
+    };
+
     // --- Rendering ---
 
     return (
-        <div className="flex flex-col h-full w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 select-none">
+        <div className="flex flex-col h-full w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 select-none relative">
             {/* Toolbar / Info */}
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 shadow-sm z-10">
-                <div>
-                    <h1 className="text-xl font-bold flex items-center gap-2">
-                        <Lucide.Activity className="w-5 h-5 text-indigo-500" />
-                        Easy UML
-                    </h1>
+                <div className="flex gap-4 items-center">
+                    <div>
+                        <h2 className="text-lg font-bold flex items-center gap-2">
+                            <Lucide.GitGraph className="w-5 h-5 text-indigo-500" />
+                            EasyUML
+                        </h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Sequence Diagram Editor</p>
+                    </div>
+
+                    <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
+
+                    {/* Export PlantUML Button */}
+                    <button
+                        onClick={() => {
+                            const code = generatePlantUML();
+                            setPlantUMLCode(code);
+                            setShowExportModal(true);
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors text-sm font-medium border border-indigo-200 dark:border-indigo-800"
+                    >
+                        <Lucide.Code className="w-4 h-4" />
+                        Export PlantUML
+                    </button>
+
+                    {/* Export Image Button */}
+                    <button
+                        onClick={exportToImage}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors text-sm font-medium border border-emerald-200 dark:border-emerald-800"
+                    >
+                        <Lucide.Image className="w-4 h-4" />
+                        Export Image
+                    </button>
+                </div>
+                <div className="flex gap-2">
                     <p className="text-xs text-slate-500">
                         {pendingConnectionStart
                             ? "Select target Actor to complete connection (Esc to cancel)"
                             : "Double-click Header to add Actor. Drag (+) or Click (+) to connect. Toggle shapes."}
                     </p>
-                </div>
-                <div className="flex gap-2">
                     <button
                         onClick={(e) => {
                             addToast('Auto-adding Actor', 'info');
@@ -406,6 +574,27 @@ const EasyUML: React.FC = () => {
                     >
                         + Add Actor
                     </button>
+
+                    {/* Spacing Controls */}
+                    <div className="flex bg-slate-100 dark:bg-slate-800 rounded p-1 gap-1">
+                        <button
+                            onClick={decreaseSpacing}
+                            className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded shadow-sm text-slate-500 hover:text-indigo-500"
+                            title="Narrow Spacing"
+                        >
+                            <Lucide.ChevronsRightLeft className="w-4 h-4" /> {/* > < Means Contract/Narrow */}
+                        </button>
+                        <button
+                            onClick={increaseSpacing}
+                            className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded shadow-sm text-slate-500 hover:text-indigo-500"
+                            title="Widen Spacing"
+                        >
+                            <Lucide.ChevronsLeftRight className="w-4 h-4" /> {/* < > Means Expand/Widen */}
+                        </button>
+                    </div>
+
+                    <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+
                     <button onClick={() => { setLifelines([]); setMessages([]); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded">
                         <Lucide.RotateCcw className="w-4 h-4" />
                     </button>
@@ -425,7 +614,7 @@ const EasyUML: React.FC = () => {
                         // Find target (allowing some tolerance)
                         const target = lifelines.find(l => Math.abs(l.x - x) < 60);
 
-                        if (target && target.id !== pendingConnectionStart.id) {
+                        if (target) {
                             // Create Message
                             saveHistory();
                             const newMessage: Message = {
@@ -445,18 +634,32 @@ const EasyUML: React.FC = () => {
                         setPendingConnectionStart(null); // Reset state
                         return;
                     }
-                    setSelectedId(null);
                 }}
             >
-                <svg className="w-full h-full min-w-[1000px] min-h-[1000px] pointer-events-none">
+                <svg
+                    className="w-full min-w-[1000px] pointer-events-none"
+                    style={{ minHeight: canvasHeight }}
+                // Explicitly inject the current theme colors as CSS variables or just use them inline 
+                // But inline is safer for html-to-image
+                >
                     <defs>
                         {/* Filled Arrow */}
                         <marker id="arrow-filled" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" className="fill-slate-900 dark:fill-slate-200" />
+                            <polygon
+                                points="0 0, 10 3.5, 0 7"
+                                className="fill-slate-900 dark:fill-slate-200"
+                                style={{ fill: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
+                            />
                         </marker>
                         {/* Open Arrow */}
                         <marker id="arrow-open" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                            <polyline points="0 0, 10 3.5, 0 7" fill="none" className="stroke-slate-900 dark:stroke-slate-200" strokeWidth="1.5" />
+                            <polyline
+                                points="0 0, 10 3.5, 0 7"
+                                fill="none"
+                                className="stroke-slate-900 dark:stroke-slate-200"
+                                strokeWidth="1.5"
+                                style={{ stroke: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
+                            />
                         </marker>
                     </defs>
 
@@ -472,6 +675,11 @@ const EasyUML: React.FC = () => {
                                     ${selectedId === l.id ? 'stroke-indigo-400 dark:stroke-indigo-600' : 'stroke-slate-300 dark:stroke-slate-700'}
                                 `}
                                 strokeDasharray="5,5"
+                                style={{
+                                    stroke: selectedId === l.id
+                                        ? (document.documentElement.classList.contains('dark') ? '#4f46e5' : '#818cf8')
+                                        : (document.documentElement.classList.contains('dark') ? '#334155' : '#cbd5e1')
+                                }}
                             />
                             {/* Invisible Hit Area for Hover - MAXIMIZED for easier access - 180px width */}
                             <rect
@@ -495,6 +703,112 @@ const EasyUML: React.FC = () => {
                         const markerId = m.arrowStyle === 'none' ? undefined : (m.arrowStyle === 'open' ? 'url(#arrow-open)' : 'url(#arrow-filled)');
                         const dashArray = m.lineStyle === 'dashed' ? '5,5' : undefined;
 
+                        // SELF MESSAGE (LOOP)
+                        if (from.id === to.id) {
+                            return (
+                                <g
+                                    key={m.id}
+                                    className={`pointer-events-auto ${editingId === m.id ? 'cursor-default' : 'cursor-ns-resize'}`}
+                                    onMouseDown={(e) => {
+                                        if (editingId === m.id) return;
+                                        handleMouseDown(e, 'MESSAGE_MOVE', m.id);
+                                    }}
+                                    onMouseEnter={() => setHoveredMessageId(m.id)}
+                                    onMouseLeave={() => setHoveredMessageId(null)}
+                                >
+                                    {/* Interaction Loop Area (Implicit width via path stroke) */}
+                                    <path
+                                        d={`M ${from.x} ${m.y} L ${from.x + 40} ${m.y} L ${from.x + 40} ${m.y + 40} L ${from.x} ${m.y + 40}`}
+                                        stroke="transparent"
+                                        strokeWidth="20"
+                                        fill="none"
+                                    />
+
+                                    {/* Visible Loop */}
+                                    <path
+                                        d={`M ${from.x} ${m.y} L ${from.x + 40} ${m.y} L ${from.x + 40} ${m.y + 40} L ${from.x} ${m.y + 40}`}
+                                        className={`
+                                            stroke-2 transition-all fill-none
+                                            ${selectedId === m.id ? 'stroke-indigo-500 dark:stroke-indigo-400 stroke-[3px]' : 'stroke-slate-900 dark:stroke-slate-200'}
+                                        `}
+                                        strokeDasharray={dashArray}
+                                        markerEnd={markerId}
+                                        style={{
+                                            stroke: selectedId === m.id
+                                                ? (document.documentElement.classList.contains('dark') ? '#818cf8' : '#6366f1')
+                                                : (document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a')
+                                        }}
+                                    />
+
+                                    {/* Controls (Above Loop) */}
+                                    {(isHovered || editingId === m.id || selectedId === m.id) && (
+                                        <foreignObject x={from.x + 40} y={m.y - 10} width={70} height={20}>
+                                            <div className="flex justify-center gap-1">
+                                                {/* Line Style Toggle */}
+                                                <button
+                                                    className="w-5 h-5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-full flex items-center justify-center hover:border-indigo-500 shadow-sm"
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation();
+                                                        const nextLineStyle = m.lineStyle === 'solid' ? 'dashed' : 'solid';
+                                                        setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, lineStyle: nextLineStyle } : msg));
+                                                    }}
+                                                >
+                                                    {m.lineStyle === 'solid' ? <Lucide.Minus className="w-3 h-3" /> : <Lucide.MoreHorizontal className="w-3 h-3" />}
+                                                </button>
+
+                                                {/* Arrow Style Toggle */}
+                                                <button
+                                                    className="w-5 h-5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-full flex items-center justify-center hover:border-indigo-500 shadow-sm"
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation();
+                                                        const nextStyle = m.arrowStyle === 'filled' ? 'open' : (m.arrowStyle === 'open' ? 'none' : 'filled');
+                                                        setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, arrowStyle: nextStyle } : msg));
+                                                    }}
+                                                >
+                                                    {m.arrowStyle === 'filled' ? <Lucide.ChevronRight className="w-3 h-3" /> : (m.arrowStyle === 'open' ? <Lucide.ChevronRight className="w-3 h-3 text-slate-400" /> : <Lucide.X className="w-3 h-3" />)}
+                                                </button>
+                                            </div>
+                                        </foreignObject>
+                                    )}
+
+                                    {/* Label (Inside Loop) */}
+                                    <foreignObject x={from.x + 10} y={m.y + 5} width={150} height={30}>
+                                        <div className="flex justify-start items-center h-full" onMouseDown={(e) => e.stopPropagation()}>
+                                            {editingId === m.id ? (
+                                                <input
+                                                    autoFocus
+                                                    className="bg-white dark:bg-slate-800 border rounded px-1 text-xs outline-none shadow-lg min-w-[50px]"
+                                                    defaultValue={m.label}
+                                                    style={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
+                                                    onBlur={(e) => {
+                                                        setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, label: e.target.value } : msg));
+                                                        setEditingId(null);
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        e.stopPropagation();
+                                                        if (e.key === 'Enter' || e.key === 'Escape') {
+                                                            e.currentTarget.blur();
+                                                            setEditingId(null);
+                                                        }
+                                                    }}
+                                                />
+                                            ) : (
+                                                <span
+                                                    className="font-bold text-xs select-none truncate px-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-text"
+                                                    title={m.label}
+                                                    style={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
+                                                    onDoubleClick={(e) => { e.stopPropagation(); setEditingId(m.id); }}
+                                                >
+                                                    {m.label}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </foreignObject>
+                                </g>
+                            );
+                        }
+
+                        // STANDARD MESSAGE (A -> B)
                         return (
                             <g
                                 key={m.id}
@@ -518,11 +832,16 @@ const EasyUML: React.FC = () => {
                                     `}
                                     strokeDasharray={dashArray}
                                     markerEnd={markerId}
+                                    style={{
+                                        stroke: selectedId === m.id
+                                            ? (document.documentElement.classList.contains('dark') ? '#818cf8' : '#6366f1')
+                                            : (document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a')
+                                    }}
                                 />
 
                                 {/* Controls (Only visible on hover/edit or SELECTED) */}
                                 {(isHovered || editingId === m.id || selectedId === m.id) && (
-                                    <foreignObject x={Math.min(from.x, to.x)} y={m.y - 45} width={Math.abs(to.x - from.x)} height={20}>
+                                    <foreignObject x={Math.min(from.x, to.x)} y={m.y - 55} width={Math.abs(to.x - from.x)} height={30}>
                                         <div className="flex justify-center gap-1">
                                             {/* Line Style Toggle */}
                                             <button
@@ -556,13 +875,14 @@ const EasyUML: React.FC = () => {
                                 )}
 
                                 {/* Label Bubble */}
-                                <foreignObject x={Math.min(from.x, to.x)} y={m.y - 25} width={Math.abs(to.x - from.x)} height={20}>
-                                    <div className="flex justify-center" onMouseDown={(e) => e.stopPropagation()}>
+                                <foreignObject x={Math.min(from.x, to.x)} y={m.y - 35} width={Math.abs(to.x - from.x)} height={40}>
+                                    <div className="flex justify-center items-center h-full" onMouseDown={(e) => e.stopPropagation()}>
                                         {editingId === m.id ? (
                                             <input
                                                 autoFocus
                                                 className="bg-white dark:bg-slate-800 border rounded px-1 text-xs outline-none shadow-lg min-w-[50px] text-center"
                                                 defaultValue={m.label}
+                                                style={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
                                                 onBlur={(e) => {
                                                     setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, label: e.target.value } : msg));
                                                     setEditingId(null);
@@ -587,6 +907,7 @@ const EasyUML: React.FC = () => {
                                         ) : (
                                             <span
                                                 className="bg-white/80 dark:bg-slate-900/80 px-1 text-xs font-mono rounded cursor-text hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors border border-transparent hover:border-indigo-200"
+                                                style={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
                                                 onDoubleClick={(e) => { e.stopPropagation(); setEditingId(m.id); }}
                                             >
                                                 {m.label}
@@ -605,9 +926,9 @@ const EasyUML: React.FC = () => {
                             <circle r="18" fill="indigo" className="fill-indigo-500 opacity-80 shadow-sm" />
                             <text textAnchor="middle" dy="8" fill="white" fontSize="24" fontWeight="bold">+</text>
 
-                            {/* Interactive Area Trigger - MAXIMIZED RADIUS 80px */}
+                            {/* Interactive Area Trigger - MAXIMIZED RADIUS 40px */}
                             <circle
-                                r="80"
+                                r="40"
                                 fill="transparent"
                                 onMouseDown={(e) => handleMouseDown(e, 'MESSAGE_CREATE', hoveredLifelineId)}
                             />
@@ -711,7 +1032,65 @@ const EasyUML: React.FC = () => {
                     ))}
                 </div>
             </div>
-        </div >
+
+            {/* Expand Canvas Button */}
+            <div className="fixed bottom-6 right-6 z-30">
+                <button
+                    className="p-3 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 hover:scale-105 transition-all text-xs font-bold flex flex-col items-center gap-1"
+                    onClick={() => {
+                        saveHistory();
+                        setCanvasHeight(prev => prev + 500);
+                        // No Toast
+                    }}
+                    title="Expand Canvas Height"
+                >
+                    <Lucide.ChevronsDown className="w-5 h-5" />
+                </button>
+            </div>
+
+            {/* Export Modal */}
+            {showExportModal && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-[600px] flex flex-col max-h-[80vh] border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-200">
+                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 rounded-t-lg">
+                            <h3 className="font-bold flex items-center gap-2">
+                                <Lucide.Code className="w-4 h-4 text-indigo-500" />
+                                Export PlantUML
+                            </h3>
+                            <button onClick={() => setShowExportModal(false)} className="hover:bg-slate-200 dark:hover:bg-slate-800 p-1 rounded">
+                                <Lucide.X className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="p-0 flex-1 relative">
+                            <textarea
+                                className="w-full h-[400px] bg-slate-50 dark:bg-slate-950 p-4 font-mono text-sm resize-none outline-none text-slate-700 dark:text-slate-300"
+                                value={plantUMLCode}
+                                readOnly
+                            />
+                        </div>
+                        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-950 rounded-b-lg">
+                            <button
+                                onClick={() => setShowExportModal(false)}
+                                className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(plantUMLCode);
+                                    addToast('Copied to clipboard!', 'success');
+                                    setShowExportModal(false);
+                                }}
+                                className="px-4 py-2 text-sm bg-indigo-500 hover:bg-indigo-600 text-white rounded font-medium shadow-sm transition-colors flex items-center gap-2"
+                            >
+                                <Lucide.Copy className="w-4 h-4" />
+                                Copy Code
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 
