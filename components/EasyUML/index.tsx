@@ -504,7 +504,7 @@ const EasyUML: React.FC = () => {
                 initialLeft = calculatedLeft ?? Math.max(50, minX - 60);
                 initialWidth = calculatedWidth ?? 500;
                 initialHeight = m.height || 200;
-                initialElseOffset = m.elseOffset || (initialHeight / 2);
+                initialElseOffset = (m.elseOffset !== undefined) ? m.elseOffset : (initialHeight / 2);
             }
         }
 
@@ -537,7 +537,7 @@ const EasyUML: React.FC = () => {
         // Fix: Hovered Lifeline Logic in Parent to prevent "Hover Loss" on undo/re-render
         // If we are NOT dragging anything, check what we are under
         if (!dragState) {
-            const hoveredL = lifelines.find(l => Math.abs(l.x - x) < 60);
+            const hoveredL = lifelines.find(l => Math.abs(l.x - x) < 25);
             if (hoveredL) {
                 if (hoveredLifelineId !== hoveredL.id) setHoveredLifelineId(hoveredL.id);
             } else {
@@ -610,83 +610,97 @@ const EasyUML: React.FC = () => {
 
                 const updates: any = {};
 
+                const PADDING = 60;
+
                 if (dragState.resizeHandle === 'bottom') {
                     updates.height = Math.max(40, (dragState.initialHeight || 60) + dy);
                 }
+
                 if (dragState.resizeHandle === 'right') {
-                    let newWidth = Math.max(100, (dragState.initialWidth || 400) + dx);
+                    // Proposed Right Edge based on mouse
+                    const initialRight = (dragState.initialLeft || 0) + (dragState.initialWidth || 400); // Using initialWidth ensures stability
+                    const mouseDx = x - dragState.startX;
+                    const proposedRightX = initialRight + mouseDx;
 
-                    // Magnetic Snap to Lifelines 
-                    const proposedRightX = (dragState.initialLeft || 0) + newWidth;
-                    const nearestLifeline = lifelines.reduce((nearest, current) => {
-                        return Math.abs(current.x - proposedRightX) < Math.abs(nearest.x - proposedRightX) ? current : nearest;
-                    }, lifelines[0]);
+                    // Valid Loop: Lifeline X + PADDING
+                    // We want to snap to the NEAREST valid slot boundary.
+                    // Boundaries are L.x + 60.
+                    const targets = lifelines.map(l => l.x + PADDING);
 
-                    if (nearestLifeline && Math.abs(nearestLifeline.x - proposedRightX) < 20) {
-                        newWidth = nearestLifeline.x - (dragState.initialLeft || 0);
-                    }
+                    // Find nearest target
+                    const nearestTarget = targets.reduce((prev, curr) => {
+                        return Math.abs(curr - proposedRightX) < Math.abs(prev - proposedRightX) ? curr : prev;
+                    }, targets[0]);
+
+                    // Calculate new Width
+                    const newWidth = Math.max(100, nearestTarget - (dragState.initialLeft || 0));
 
                     updates.customWidth = newWidth;
                 }
+
                 if (dragState.resizeHandle === 'left') {
-                    let newLeft = (dragState.initialLeft || 0) + dx;
-                    let newWidth = Math.max(100, (dragState.initialWidth || 400) - dx);
+                    // Proposed Left Edge
+                    const initialLeft = dragState.initialLeft || 0;
+                    const mouseDx = x - dragState.startX;
+                    const proposedLeftX = initialLeft + mouseDx;
 
-                    // Magnetic Snap to Lifelines
-                    const nearestLifeline = lifelines.reduce((nearest, current) => {
-                        return Math.abs(current.x - newLeft) < Math.abs(nearest.x - newLeft) ? current : nearest;
-                    }, lifelines[0]);
+                    // Valid Loop: Lifeline X - PADDING
+                    const targets = lifelines.map(l => l.x - PADDING);
 
-                    if (nearestLifeline && Math.abs(nearestLifeline.x - newLeft) < 20) {
-                        const snapDx = nearestLifeline.x - (dragState.initialLeft || 0);
-                        newLeft = nearestLifeline.x;
-                        newWidth = Math.max(100, (dragState.initialWidth || 400) - snapDx);
+                    // Find nearest target
+                    const nearestTarget = targets.reduce((prev, curr) => {
+                        return Math.abs(curr - proposedLeftX) < Math.abs(prev - proposedLeftX) ? curr : prev;
+                    }, targets[0]);
+
+                    const currentRight = initialLeft + (dragState.initialWidth || 400);
+                    const newLeft = nearestTarget;
+                    const newWidth = Math.max(100, currentRight - newLeft);
+
+                    if (currentRight - newLeft >= 100) { // Only apply if valid width
+                        updates.customLeft = newLeft;
+                        updates.customWidth = newWidth;
                     }
-
-                    updates.customWidth = newWidth;
-                    updates.customLeft = newLeft;
                 }
                 // Corner Resizing & Edge Snapping
-                if (dragState.resizeHandle === 'bottom-right' || dragState.resizeHandle === 'right') {
-                    // Right Edge Logic
-                    let newWidth = Math.max(50, (dragState.initialWidth || 500) + dx);
+                if (dragState.resizeHandle === 'bottom-right') {
+                    // 1. Height Logic
+                    updates.height = Math.max(40, (dragState.initialHeight || 200) + dy);
 
-                    // Magnetic Snap Right
-                    const proposedRightX = (dragState.initialLeft || 0) + newWidth;
-                    const nearestLifeline = lifelines.reduce((nearest, current) => {
-                        return Math.abs(current.x - proposedRightX) < Math.abs(nearest.x - proposedRightX) ? current : nearest;
-                    }, lifelines[0]);
+                    // 2. Width Logic (Same as 'right')
+                    const initialRight = (dragState.initialLeft || 0) + (dragState.initialWidth || 400);
+                    const mouseDx = x - dragState.startX;
+                    const proposedRightX = initialRight + mouseDx;
 
-                    if (nearestLifeline && Math.abs(nearestLifeline.x - proposedRightX) < 20) {
-                        newWidth = nearestLifeline.x - (dragState.initialLeft || 0);
-                    }
+                    const targets = lifelines.map(l => l.x + PADDING);
+                    const nearestTarget = targets.reduce((prev, curr) => {
+                        return Math.abs(curr - proposedRightX) < Math.abs(prev - proposedRightX) ? curr : prev;
+                    }, targets[0]);
 
+                    const newWidth = Math.max(100, nearestTarget - (dragState.initialLeft || 0));
                     updates.customWidth = newWidth;
-                    if (dragState.resizeHandle === 'bottom-right') {
-                        updates.height = Math.max(40, (dragState.initialHeight || 200) + dy);
-                    }
                 }
 
-                if (dragState.resizeHandle === 'bottom-left' || dragState.resizeHandle === 'left') {
-                    // Left Edge Logic
-                    let newLeft = (dragState.initialLeft || 0) + dx;
-                    let newWidth = Math.max(50, (dragState.initialWidth || 500) - dx);
+                if (dragState.resizeHandle === 'bottom-left') {
+                    // 1. Height Logic
+                    updates.height = Math.max(40, (dragState.initialHeight || 200) + dy);
 
-                    // Magnetic Snap Left
-                    const nearestLifeline = lifelines.reduce((nearest, current) => {
-                        return Math.abs(current.x - newLeft) < Math.abs(nearest.x - newLeft) ? current : nearest;
-                    }, lifelines[0]);
+                    // 2. Left Logic (Same as 'left')
+                    const initialLeft = dragState.initialLeft || 0;
+                    const mouseDx = x - dragState.startX;
+                    const proposedLeftX = initialLeft + mouseDx;
 
-                    if (nearestLifeline && Math.abs(nearestLifeline.x - newLeft) < 20) {
-                        const snapDx = nearestLifeline.x - (dragState.initialLeft || 0);
-                        newLeft = nearestLifeline.x;
-                        newWidth = Math.max(50, (dragState.initialWidth || 500) - snapDx);
-                    }
+                    const targets = lifelines.map(l => l.x - PADDING);
+                    const nearestTarget = targets.reduce((prev, curr) => {
+                        return Math.abs(curr - proposedLeftX) < Math.abs(prev - proposedLeftX) ? curr : prev;
+                    }, targets[0]);
 
-                    updates.customWidth = newWidth;
-                    updates.customLeft = newLeft;
-                    if (dragState.resizeHandle === 'bottom-left') {
-                        updates.height = Math.max(40, (dragState.initialHeight || 200) + dy);
+                    const currentRight = initialLeft + (dragState.initialWidth || 400);
+                    const newLeft = nearestTarget;
+                    const newWidth = Math.max(100, currentRight - newLeft);
+
+                    if (currentRight - newLeft >= 100) {
+                        updates.customLeft = newLeft;
+                        updates.customWidth = newWidth;
                     }
                 }
 
@@ -732,8 +746,11 @@ const EasyUML: React.FC = () => {
                     updates.height = Math.max(40, (dragState.initialHeight || 200) + dy);
                 }
 
+                // Calculate Signed Delta for resizing
+                const deltaY = y - (dragState.startY || 0);
+
                 if (dragState.resizeHandle === 'else') {
-                    const newOffset = Math.max(10, Math.min((m.height || 200) - 10, (dragState.initialElseOffset || 30) + dy));
+                    const newOffset = Math.max(10, Math.min((m.height || 200) - 10, (dragState.initialElseOffset || 30) + deltaY));
                     updates.elseOffset = newOffset;
                 }
 
@@ -1465,11 +1482,11 @@ const EasyUML: React.FC = () => {
                                             : (document.documentElement.classList.contains('dark') ? '#334155' : '#cbd5e1')
                                     }}
                                 />
-                                {/* Invisible Hit Area for Hover - MAXIMIZED for easier access - 180px width */}
+                                {/* Invisible Hit Area for Hover - Radius 50px (Width 100px) */}
                                 <rect
-                                    x={l.x - 100}
+                                    x={l.x - 50}
                                     y={HEADER_HEIGHT}
-                                    width="200"
+                                    width="100"
                                     height="100%"
                                     fill="transparent"
                                     className={`${pendingPlacement || pendingConnectionStart ? 'pointer-events-none' : 'cursor-crosshair'}`}
@@ -1641,28 +1658,38 @@ const EasyUML: React.FC = () => {
                                 if (m.type === 'FRAGMENT') {
                                     return (
                                         <g
-                                            className={`pointer-events-auto ${editingId === m.id ? 'cursor-default' : 'cursor-ns-resize'}`}
-                                            onMouseDown={(e) => {
-                                                if (editingId === m.id) return;
-                                                handleMouseDown(e, 'MESSAGE_MOVE', m.id);
-                                            }}
+                                            className={`pointer-events-auto ${editingId === m.id ? 'cursor-default' : ''}`}
                                             onMouseEnter={() => setHoveredMessageId(m.id)}
                                             onMouseLeave={() => setHoveredMessageId(null)}
                                         >
                                             <g>
+                                                {/* Main Box - No Move Handler Here */}
                                                 <rect
                                                     x={left} y={m.y} width={width} height={height}
                                                     fill="transparent"
                                                     className={`stroke-2 transition-colors ${selectedId === m.id ? 'stroke-indigo-500' : 'stroke-slate-400 dark:stroke-slate-500'}`}
+                                                    style={{ pointerEvents: 'none' }}
                                                 />
+
+                                                {/* Header Shape - THIS HANDLES MOVE */}
                                                 <path d={`M ${left} ${m.y} L ${left + 70} ${m.y} L ${left + 80} ${m.y + 20} L ${left} ${m.y + 20} Z`}
-                                                    className="fill-slate-100 dark:fill-slate-800 stroke-slate-400 dark:stroke-slate-500"
+                                                    className="fill-slate-100 dark:fill-slate-800 stroke-slate-400 dark:stroke-slate-500 cursor-move"
                                                     strokeWidth="1"
+                                                    onMouseDown={(e) => {
+                                                        if (editingId === m.id) return;
+                                                        e.stopPropagation(); // Select and Move
+                                                        handleMouseDown(e, 'MESSAGE_MOVE', m.id);
+                                                    }}
                                                 />
                                                 <text
                                                     x={left + 5} y={m.y + 14}
-                                                    className="text-[11px] font-bold fill-slate-600 dark:fill-slate-300 cursor-text"
+                                                    className="text-[11px] font-bold fill-slate-600 dark:fill-slate-300 cursor-move"
                                                     onDoubleClick={(e) => { e.stopPropagation(); setEditingId(m.id); }}
+                                                    onMouseDown={(e) => {
+                                                        if (editingId === m.id) return;
+                                                        e.stopPropagation();
+                                                        handleMouseDown(e, 'MESSAGE_MOVE', m.id);
+                                                    }}
                                                 >
                                                     {editingId === m.id ? '...' : (m.label || 'alt')}
                                                 </text>
@@ -1673,13 +1700,38 @@ const EasyUML: React.FC = () => {
                                                             className="w-full h-full bg-white dark:bg-slate-900 text-[11px] font-bold outline-none border border-indigo-500"
                                                             defaultValue={m.label}
                                                             onBlur={(e) => { setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, label: e.target.value } : msg)); setEditingId(null); saveHistory(); }}
-                                                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                                            onKeyDown={(e) => {
+                                                                e.stopPropagation(); // Prevent Deletion
+                                                                if (e.key === 'Enter') e.currentTarget.blur();
+                                                            }}
                                                             onMouseDown={(e) => e.stopPropagation()}
                                                         />
                                                     </foreignObject>
                                                 )}
 
-                                                <text x={left + 10} y={m.y + 35} className="text-xs fill-slate-500 italic">[{m.content || 'condition'}]</text>
+                                                {editingId === `${m.id}_content` ? (
+                                                    <foreignObject x={left + 10} y={m.y + 35} width={100} height={20}>
+                                                        <input
+                                                            autoFocus
+                                                            className="w-full h-full bg-white dark:bg-slate-900 text-sm font-bold outline-none border border-indigo-500 px-1"
+                                                            defaultValue={m.content || 'condition'}
+                                                            onBlur={(e) => { setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, content: e.target.value } : msg)); setEditingId(null); saveHistory(); }}
+                                                            onKeyDown={(e) => {
+                                                                e.stopPropagation(); // Prevent Deletion
+                                                                if (e.key === 'Enter') e.currentTarget.blur();
+                                                            }}
+                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                        />
+                                                    </foreignObject>
+                                                ) : (
+                                                    <text
+                                                        x={left + 10} y={m.y + 48}
+                                                        className="text-sm font-bold fill-slate-600 dark:fill-slate-300 cursor-text hover:fill-indigo-500"
+                                                        onDoubleClick={(e) => { e.stopPropagation(); setEditingId(`${m.id}_content`); }}
+                                                    >
+                                                        [{m.content || 'condition'}]
+                                                    </text>
+                                                )}
 
                                                 {/* Else Divider */}
                                                 <g transform={`translate(0, ${m.elseOffset || (height / 2)})`}>
@@ -1691,9 +1743,12 @@ const EasyUML: React.FC = () => {
                                                     {isSelected && (
                                                         <rect
                                                             x={left} y={m.y - 5} width={width} height={10}
-                                                            fill="transparent"
-                                                            className="cursor-col-resize hover:fill-indigo-500/10 cursor-ns-resize"
-                                                            onMouseDown={(e) => handleMouseDown(e, 'MESSAGE_RESIZE', m.id, 'else')}
+                                                            fill="white"
+                                                            className="cursor-col-resize cursor-ns-resize opacity-0 hover:opacity-100 fill-indigo-500/10"
+                                                            onMouseDown={(e) => {
+                                                                e.stopPropagation();
+                                                                handleMouseDown(e, 'MESSAGE_RESIZE', m.id, 'else');
+                                                            }}
                                                         />
                                                     )}
                                                 </g>
@@ -2194,9 +2249,9 @@ const EasyUML: React.FC = () => {
                                 <circle r="18" fill="indigo" className="fill-indigo-500 opacity-80 shadow-sm" />
                                 <text textAnchor="middle" dy="8" fill="white" fontSize="24" fontWeight="bold">+</text>
 
-                                {/* Interactive Area Trigger - MAXIMIZED RADIUS 40px */}
+                                {/* Interactive Area Trigger - RADIUS 20px (Halved) */}
                                 <circle
-                                    r="40"
+                                    r="20"
                                     fill="transparent"
                                     onMouseDown={(e) => {
                                         e.stopPropagation();
