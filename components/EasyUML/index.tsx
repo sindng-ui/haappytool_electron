@@ -25,6 +25,28 @@ interface Message {
     label: string;
     lineStyle: 'solid' | 'dashed';
     arrowStyle: 'filled' | 'open' | 'none';
+    note?: string;
+    noteColor?: string;
+    isActivate?: boolean;
+    isDeactivate?: boolean;
+    type?: 'MESSAGE' | 'DIVIDER' | 'NOTE_ACROSS' | 'FRAGMENT';
+
+    // Extensions for Special Items
+    descriptorType?: 'DIVIDER' | 'NOTE_ACROSS' | 'FRAGMENT';
+    isFragment?: boolean;
+    fragmentHeight?: number;
+    fragmentCondition?: string;
+
+    content?: string;
+    height?: number; // For FRAGMENT
+}
+
+interface SavedDiagram {
+    id: string;
+    name: string;
+    lifelines: Lifeline[];
+    messages: Message[];
+    lastModified: number;
 }
 
 const EasyUML: React.FC = () => {
@@ -46,6 +68,148 @@ const EasyUML: React.FC = () => {
     // Export State
     const [showExportModal, setShowExportModal] = useState(false);
     const [plantUMLCode, setPlantUMLCode] = useState('');
+
+    // --- Diagram Management State ---
+    const [diagrams, setDiagrams] = useState<SavedDiagram[]>([]);
+    const [activeDiagramId, setActiveDiagramId] = useState<string | null>(null);
+
+    // --- Initialization & Persistence ---
+    useEffect(() => {
+        // 1. Load from LocalStorage on mount
+        const savedData = localStorage.getItem('happytool_easyuml_diagrams');
+        const savedActiveId = localStorage.getItem('happytool_easyuml_active_id');
+
+        let initialDiagrams: SavedDiagram[] = [];
+
+        if (savedData) {
+            try {
+                initialDiagrams = JSON.parse(savedData);
+            } catch (e) {
+                console.error("Failed to parse diagrams", e);
+            }
+        }
+
+        if (initialDiagrams.length === 0) {
+            // Create Default if none exist
+            const defaultId = generateId();
+            initialDiagrams = [{
+                id: defaultId,
+                name: 'Untitled Diagram',
+                lifelines: [],
+                messages: [],
+                lastModified: Date.now()
+            }];
+            localStorage.setItem('happytool_easyuml_active_id', defaultId);
+        }
+
+        setDiagrams(initialDiagrams);
+
+        // Determine active ID
+        let targetId = savedActiveId;
+        if (!targetId || !initialDiagrams.find(d => d.id === targetId)) {
+            targetId = initialDiagrams[0].id;
+        }
+
+        setActiveDiagramId(targetId);
+
+        // Load content
+        const activeDiagram = initialDiagrams.find(d => d.id === targetId);
+        if (activeDiagram) {
+            setLifelines(activeDiagram.lifelines);
+            setMessages(activeDiagram.messages);
+        }
+    }, []);
+
+    // 2. Auto-Save Current State to Active Diagram & LocalStorage
+    useEffect(() => {
+        if (!activeDiagramId || diagrams.length === 0) return;
+
+        setDiagrams(prev => {
+            const index = prev.findIndex(d => d.id === activeDiagramId);
+            if (index === -1) return prev;
+
+            const updated = [...prev];
+            // Only update if changed to avoid unnecessary cycles (though simple ref check might be enough)
+            updated[index] = {
+                ...updated[index],
+                lifelines,
+                messages,
+                lastModified: Date.now()
+            };
+
+            // Persist to LocalStorage
+            localStorage.setItem('happytool_easyuml_diagrams', JSON.stringify(updated));
+            return updated;
+        });
+    }, [lifelines, messages, activeDiagramId]); // Sync whenever content changes
+
+    // 3. Persist Active ID
+    useEffect(() => {
+        if (activeDiagramId) {
+            localStorage.setItem('happytool_easyuml_active_id', activeDiagramId);
+        }
+    }, [activeDiagramId]);
+
+
+    // --- Diagram Actions ---
+    const createNewDiagram = () => {
+        const newId = generateId();
+        const newDiagram: SavedDiagram = {
+            id: newId,
+            name: `Untitled ${diagrams.length + 1}`,
+            lifelines: [],
+            messages: [],
+            lastModified: Date.now()
+        };
+
+        setDiagrams(prev => [...prev, newDiagram]);
+        setActiveDiagramId(newId);
+        setLifelines([]);
+        setMessages([]);
+        addToast('New Diagram Created', 'success');
+    };
+
+    const deleteDiagram = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (diagrams.length <= 1) {
+            addToast('Cannot delete the last diagram', 'error');
+            return;
+        }
+
+        const confirm = window.confirm('Are you sure you want to delete this diagram?');
+        if (!confirm) return;
+
+        const newDiagrams = diagrams.filter(d => d.id !== id);
+        setDiagrams(newDiagrams);
+        localStorage.setItem('happytool_easyuml_diagrams', JSON.stringify(newDiagrams)); // Immediate sync
+
+        // If we deleted the active one, switch to the first available
+        if (activeDiagramId === id) {
+            const next = newDiagrams[0];
+            setActiveDiagramId(next.id);
+            setLifelines(next.lifelines);
+            setMessages(next.messages);
+        }
+        addToast('Diagram Deleted', 'info');
+    };
+
+    const switchDiagram = (id: string) => {
+        const target = diagrams.find(d => d.id === id);
+        if (!target) return;
+
+        setActiveDiagramId(id);
+        setLifelines(target.lifelines);
+        setMessages(target.messages);
+    };
+
+    const renameDiagram = (id: string, newName: string) => {
+        setDiagrams(prev => {
+            const updated = prev.map(d => d.id === id ? { ...d, name: newName } : d);
+            localStorage.setItem('happytool_easyuml_diagrams', JSON.stringify(updated));
+            return updated;
+        });
+    };
+    const [showSequenceNumbers, setShowSequenceNumbers] = useState(false);
 
     // History State
     interface DiagramState {
@@ -102,6 +266,7 @@ const EasyUML: React.FC = () => {
 
     // Pending Connection State (Click-to-Connect)
     const [pendingConnectionStart, setPendingConnectionStart] = useState<{ id: string, startX: number, startY: number } | null>(null);
+    const [pendingPlacement, setPendingPlacement] = useState<{ type: 'DIVIDER' | 'NOTE_ACROSS' | 'FRAGMENT' } | null>(null);
 
     // --- Helpers ---
     const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -212,7 +377,10 @@ const EasyUML: React.FC = () => {
                 }
             }
 
-            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId && !editingId) {
+                // Ignore if an input/textarea has focus (double safety)
+                const activeTag = document.activeElement?.tagName.toLowerCase();
+                if (activeTag === 'input' || activeTag === 'textarea') return;
 
                 const isLifeline = lifelines.find(l => l.id === selectedId);
                 if (isLifeline) {
@@ -257,11 +425,20 @@ const EasyUML: React.FC = () => {
 
     // 2. Start Dragging
     const handleMouseDown = (e: React.MouseEvent, type: 'LIFELINE' | 'MESSAGE_CREATE' | 'MESSAGE_MOVE', id?: string) => {
+        console.log(`[MouseDown] Type: ${type}, ID: ${id}`);
         e.stopPropagation();
 
         if (id && type !== 'MESSAGE_CREATE') setSelectedId(id); // Select on interaction unless creating message
 
         const { x, y } = getCanvasCoords(e);
+        let finalStartX = x;
+
+        // Strict Snap for Message Creation
+        if (type === 'MESSAGE_CREATE' && id) {
+            const l = lifelines.find(line => line.id === id);
+            if (l) finalStartX = l.x;
+        }
+
         const startY = type === 'MESSAGE_CREATE' ? snapY(hoveredY) : y; // Start from snapped hover Y if creating
 
         // Save history for Moves (since they mutate state immediately in MouseMove)
@@ -272,7 +449,7 @@ const EasyUML: React.FC = () => {
         setDragState({
             type,
             id,
-            startX: x,
+            startX: finalStartX,
             startY: startY,
             currentX: x,
             currentY: startY // If creating, snap start Y immediately
@@ -286,23 +463,54 @@ const EasyUML: React.FC = () => {
         const { x, y } = getCanvasCoords(e);
 
         // Always track hover Y for floating handle
-        setHoveredY(y);
-        setCursorX(x);
+        setHoveredY(snapY(y));
 
-        // PROXIMITY-BASED HOVER DETECTION (More stable than onMouseLeave)
-        if (!dragState && !pendingConnectionStart) {
-            const HOVER_THRESHOLD = 90; // Half of 180px width
+        // Fix: Hovered Lifeline Logic in Parent to prevent "Hover Loss" on undo/re-render
+        // If we are NOT dragging anything, check what we are under
+        if (!dragState) {
+            const hoveredL = lifelines.find(l => Math.abs(l.x - x) < 60);
+            if (hoveredL) {
+                if (hoveredLifelineId !== hoveredL.id) setHoveredLifelineId(hoveredL.id);
+            } else {
+                if (hoveredLifelineId) setHoveredLifelineId(null);
+            }
+        }
+
+        if (!dragState) return;
+
+        // If dragging lifeline
+        if (dragState.type === 'LIFELINE' && dragState.id) {
+            const HOVER_THRESHOLD = 90;
             const closest = lifelines.find(l => Math.abs(l.x - x) < HOVER_THRESHOLD);
 
-            // Only update if changed or if Y position implies we are below header
             if (closest && y > HEADER_HEIGHT) {
-                setHoveredLifelineId(closest.id);
+                // Check if we are close to an existing message (Vertical Proximity)
+                // If so, suppress the "+" handle to allow selection of the message
+                const isNearMessage = messages.some(m => {
+                    // Check if message is attached to this lifeline
+                    if (m.fromId !== closest.id && m.toId !== closest.id) return false;
+                    // Check vertical distance
+                    return Math.abs(m.y - y) < 30; // 30px buffer around message line
+                });
+
+                // console.log(`[MouseMove] Closest: ${closest.name}, NearMsg: ${isNearMessage}, Y: ${y}`); // DEBUG LOG (Optional, maybe too spammy?)
+
+                if (isNearMessage) {
+                    setHoveredLifelineId(null);
+                } else {
+                    setHoveredLifelineId(closest.id);
+                }
             } else {
                 setHoveredLifelineId(null);
             }
         }
 
         if (!dragState) return;
+
+        // DRAG THRESHOLD: Prevent accidental moves when clicking to select
+        const dx = Math.abs(x - dragState.startX);
+        const dy = Math.abs(y - dragState.startY);
+        if (dx < 5 && dy < 5) return;
 
         setDragState(prev => prev ? ({ ...prev, currentX: x, currentY: y }) : null);
 
@@ -314,10 +522,11 @@ const EasyUML: React.FC = () => {
             const snappedY = snapY(y);
             // Ensure it's below header
             if (snappedY > HEADER_HEIGHT + 20) {
+                console.log(`[MessageMove] ID: ${dragState.id} -> Y: ${snappedY}`);
                 setMessages(prev => prev.map(m => m.id === dragState.id ? { ...m, y: snappedY } : m));
             }
         }
-    }, [dragState, lifelines, pendingConnectionStart]);
+    }, [dragState, lifelines, pendingConnectionStart, messages, hoveredLifelineId]); // Added 'messages' dependency
 
     // 4. End Drag
     const handleMouseUp = () => {
@@ -327,15 +536,10 @@ const EasyUML: React.FC = () => {
             const dx = Math.abs(dragState.currentX - dragState.startX);
             const dy = Math.abs(dragState.currentY - dragState.startY);
 
-            // If it was a CLICK (not a drag), start Pending Connection
+            // If it was a CLICK (not a drag), do NOT start Pending Connection.
+            // This allows the button to remain visible for Double-Click (Self-Message).
             if (dx < 5 && dy < 5) {
-                setPendingConnectionStart({
-                    id: dragState.id,
-                    startX: dragState.startX,
-                    startY: snapY(dragState.startY) // Snap immediately
-                });
                 setDragState(null);
-                addToast('Select target actor', 'info');
                 return;
             }
 
@@ -345,7 +549,12 @@ const EasyUML: React.FC = () => {
             const target = lifelines.find(l => Math.abs(l.x - dragState.currentX) < 40);
 
             if (target) {
-                // ALLOW SELF CONNECTIONS (target.id === dragState.id)
+                // PREVENT SINGLE CLICK SELF CONNECTIONS
+                // User wants double-click for self-messages
+                if (target.id === dragState.id) {
+                    setDragState(null);
+                    return;
+                }
 
                 // Create Message with PERSISTENT styles
                 saveHistory();
@@ -361,9 +570,9 @@ const EasyUML: React.FC = () => {
                 setMessages(prev => [...prev.filter(m => m.y !== newMessage.y), newMessage]);
                 setSelectedId(newMessage.id); // Select the new message
             }
-        }
 
-        setDragState(null);
+            setDragState(null);
+        };
     };
 
     // Cycle Shape
@@ -378,33 +587,88 @@ const EasyUML: React.FC = () => {
         }));
     };
 
-    // Bulk Spacing Adjustment
-    const changeSpacing = (factor: number) => {
-        if (lifelines.length < 2) return;
+    // Uniform Relayout & Spacing (User Request: "Fit to screen like Add Actor, then add/sub one unit")
+    const changeSpacing = (delta: number) => {
+        if (lifelines.length < 1 || !canvasRef.current) return;
         saveHistory();
 
-        // Find center
-        const minX = Math.min(...lifelines.map(l => l.x));
-        const maxX = Math.max(...lifelines.map(l => l.x));
-        const centerX = (minX + maxX) / 2;
+        // 1. Calculate Base Spacing
+        let baseSpacing = 200;
 
-        setLifelines(prev => prev.map(l => {
-            const dist = l.x - centerX;
-            const newX = centerX + (dist * factor);
-            return { ...l, x: Math.max(0, newX) }; // Prevent negative X
-        }));
-        addToast(`Spacing ${factor > 1 ? 'Increased' : 'Decreased'}`, 'info');
+        // Check if currently uniform (gaps are roughly same)
+        let isUniform = true;
+        let currentTotal = 0;
+
+        if (lifelines.length > 1) {
+            const firstGap = lifelines[1].x - lifelines[0].x;
+            for (let i = 0; i < lifelines.length - 1; i++) {
+                const gap = lifelines[i + 1].x - lifelines[i].x;
+                currentTotal += gap;
+                if (Math.abs(gap - firstGap) > 1) { // 1px tolerance
+                    isUniform = false;
+                }
+            }
+            const currentAvg = currentTotal / (lifelines.length - 1);
+
+            if (isUniform) {
+                // If already uniform, we ACCUMULATE from current state
+                baseSpacing = currentAvg;
+            } else {
+                // If messy, we RESET to Screen Fit
+                const containerWidth = canvasRef.current.clientWidth;
+                const availableWidth = Math.max(800, containerWidth);
+                baseSpacing = availableWidth / (lifelines.length + 1);
+            }
+        } else {
+            // Single item - use its x position as 'spacing' or default
+            const containerWidth = canvasRef.current.clientWidth;
+            baseSpacing = Math.max(800, containerWidth) / 2;
+        }
+
+        // 2. Apply Delta
+        const newSpacing = Math.max(50, baseSpacing + delta);
+
+        // 3. Re-distribute
+        setLifelines(prev => prev.map((l, index) => ({
+            ...l,
+            x: newSpacing * (index + 1)
+        })));
+
+        // addToast(`Spacing ${isUniform ? 'Adjusted' : 'Reset & Adjusted'}`, 'info'); // Removed by user request
     };
 
-    const increaseSpacing = () => changeSpacing(1.1);
-    const decreaseSpacing = () => changeSpacing(0.9);
+    const increaseSpacing = () => changeSpacing(40);
+    const decreaseSpacing = () => changeSpacing(-40);
 
-    // Global mouse up for safety
+    // Add Special Items
+    const addDescriptor = (type: 'DIVIDER' | 'NOTE_ACROSS' | 'FRAGMENT') => {
+        setPendingPlacement({ type });
+        addToast(`Click on diagram to place ${type.replace('_', ' ')}`, 'info');
+    };
+
+    // Global Listeners (Mouse Up & Key Down)
     useEffect(() => {
-        const up = () => setDragState(null);
-        window.addEventListener('mouseup', up);
-        return () => window.removeEventListener('mouseup', up);
-    }, []);
+        const handleMouseUpGlobal = () => setDragState(null);
+
+        const handleKeyDownGlobal = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                if (pendingConnectionStart) {
+                    setPendingConnectionStart(null);
+                    addToast('Connection Cancelled', 'info');
+                }
+                if (dragState?.type === 'MESSAGE_CREATE') {
+                    setDragState(null);
+                }
+            }
+        };
+
+        window.addEventListener('mouseup', handleMouseUpGlobal);
+        window.addEventListener('keydown', handleKeyDownGlobal);
+        return () => {
+            window.removeEventListener('mouseup', handleMouseUpGlobal);
+            window.removeEventListener('keydown', handleKeyDownGlobal);
+        };
+    }, [pendingConnectionStart, dragState]);
 
     const generatePlantUML = () => {
         let code = '@startuml\n';
@@ -425,9 +689,42 @@ const EasyUML: React.FC = () => {
         code += '\n';
 
         // 2. Define Messages (sorted by Y)
+        // 2. Define Messages (sorted by Y) - with End Event Queue for Fragments
         const sortedMessages = [...messages].sort((a, b) => a.y - b.y);
+        const endQueue: { y: number, text: string }[] = [];
 
         sortedMessages.forEach(m => {
+            // Check for ending blocks
+            while (endQueue.length > 0 && endQueue[0].y < m.y) {
+                const end = endQueue.shift();
+                if (end) code += `${end.text}\n`;
+            }
+            endQueue.sort((a, b) => a.y - b.y); // Keep queue sorted
+
+            // SPECIAL TYPES
+            if (m.type === 'DIVIDER') {
+                code += `== ${m.label || 'Divider'} ==\n`;
+                return;
+            }
+            if (m.type === 'NOTE_ACROSS') {
+                code += `note over ${lifelines.map(l => `L${l.id}`).join(', ')}\n${m.label}\nend note\n`;
+                return;
+            }
+            if (m.type === 'FRAGMENT') {
+                code += `alt ${m.label || 'Alt'}\n`;
+                if (m.content) code += `  ${m.content}\n`;
+                if (m.height) {
+                    // Schedule 'end' at m.y + m.height
+                    endQueue.push({ y: m.y + m.height, text: 'end' });
+                    endQueue.sort((a, b) => a.y - b.y);
+                    // Also handles 'else' if we split it? Currently standard fragment box.
+                } else {
+                    code += 'end\n';
+                }
+                return;
+            }
+
+            // STANDARD MESSAGE
             const from = lifelines.find(l => l.id === m.fromId);
             const to = lifelines.find(l => l.id === m.toId);
             if (!from || !to) return;
@@ -449,7 +746,20 @@ const EasyUML: React.FC = () => {
             const label = m.label ? `: ${m.label}` : '';
 
             code += `${fromAlias} ${arrow} ${toAlias}${label}\n`;
+
+            // EXTENSIONS
+            if (m.isActivate) code += `activate ${toAlias}\n`;
+            if (m.isDeactivate) code += `deactivate ${fromAlias}\n`;
+            if (m.note) {
+                code += `note right\n${m.note}\nend note\n`;
+            }
         });
+
+        // Flush remaining ends
+        while (endQueue.length > 0) {
+            const end = endQueue.shift();
+            if (end) code += `${end.text}\n`;
+        }
 
         code += '@enduml';
         return code;
@@ -485,6 +795,15 @@ const EasyUML: React.FC = () => {
             const scrollWidth = canvasRef.current.scrollWidth;
             const scrollHeight = canvasRef.current.scrollHeight;
 
+            // CLEAR SELECTION & HOVER to prevent UI controls from appearing in image
+            setSelectedId(null);
+            setEditingId(null);
+            setHoveredMessageId(null);
+            setHoveredLifelineId(null);
+
+            // Allow a brief render cycle for state updates to apply before capturing
+            await new Promise(resolve => setTimeout(resolve, 50));
+
             const dataUrl = await htmlToImage.toPng(canvasRef.current, {
                 backgroundColor: isDark ? '#020617' : '#ffffff',
                 cacheBust: true,
@@ -515,17 +834,105 @@ const EasyUML: React.FC = () => {
 
     // --- Rendering ---
 
+    // Calculate Activation Boxes
+    const activationBoxes = React.useMemo(() => {
+        const boxes: { id: string, lifelineId: string, x: number, y: number, height: number, depth: number }[] = [];
+        const activeStacks: Record<string, number[]> = {}; // lifelineId -> [startY]
+
+        // Sort messages by Y
+        const sorted = [...messages].sort((a, b) => a.y - b.y);
+
+        sorted.forEach(m => {
+            if (m.isActivate && m.toId !== 'global') {
+                if (!activeStacks[m.toId]) activeStacks[m.toId] = [];
+                activeStacks[m.toId].push(m.y);
+            }
+            if (m.isDeactivate && m.fromId !== 'global') {
+                if (activeStacks[m.fromId] && activeStacks[m.fromId].length > 0) {
+                    const startY = activeStacks[m.fromId].pop()!;
+                    const lifeline = lifelines.find(l => l.id === m.fromId);
+                    const depth = activeStacks[m.fromId].length;
+                    if (lifeline) {
+                        boxes.push({ id: `active-${m.fromId}-${startY}`, lifelineId: m.fromId, x: lifeline.x, y: startY, height: m.y - startY, depth });
+                    }
+                }
+            }
+        });
+
+        // Handle unclosed activations - Extend to bottom
+        const maxMessageY = messages.length > 0 ? Math.max(...messages.map(m => m.y)) : 0;
+        const bottomY = Math.max(canvasHeight, maxMessageY + 100);
+
+        Object.keys(activeStacks).forEach(lid => {
+            activeStacks[lid].forEach((startY, index) => {
+                const lifeline = lifelines.find(l => l.id === lid);
+                if (lifeline) {
+                    boxes.push({ id: `active-unclosed-${lid}-${startY}`, lifelineId: lid, x: lifeline.x, y: startY, height: bottomY - startY, depth: index });
+                }
+            });
+        });
+
+        return boxes;
+    }, [messages, lifelines, canvasHeight]);
+
     return (
         <div className="flex flex-col h-full w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 select-none relative">
             {/* Toolbar / Info */}
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 shadow-sm z-10">
                 <div className="flex gap-4 items-center">
-                    <div>
-                        <h2 className="text-lg font-bold flex items-center gap-2">
-                            <Lucide.GitGraph className="w-5 h-5 text-indigo-500" />
-                            EasyUML
-                        </h2>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Sequence Diagram Editor</p>
+                    <div className="flex items-center gap-2 min-w-[200px]">
+                        {/* Diagram Switcher (Folder Icon) */}
+                        <div className="relative group p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer text-slate-500 transition-colors" title="Switch Diagram">
+                            <Lucide.FolderOpen className="w-5 h-5 text-indigo-500" />
+                            {/* Native Select (Hidden but functional) */}
+                            <select
+                                value={activeDiagramId || ''}
+                                onChange={(e) => switchDiagram(e.target.value)}
+                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                            >
+                                {diagrams.map(d => <option key={d.id} value={d.id} className="dark:bg-slate-900">{d.name}</option>)}
+                            </select>
+                            <div className="absolute -bottom-1 -right-1 pointer-events-none bg-white dark:bg-slate-900 rounded-full">
+                                <Lucide.ChevronDown className="w-3 h-3 text-slate-400" />
+                            </div>
+                        </div>
+
+                        {/* Title Input (Main) */}
+                        <input
+                            value={diagrams.find(d => d.id === activeDiagramId)?.name || ''}
+                            onChange={(e) => activeDiagramId && renameDiagram(activeDiagramId, e.target.value)}
+                            className="font-bold text-lg bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 border border-transparent focus:border-indigo-300 rounded px-2 py-0.5 outline-none transition-all w-[200px] text-slate-700 dark:text-slate-200"
+                            placeholder="Diagram Name"
+                            title="Rename Diagram"
+                        />
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-700 pl-2 ml-1">
+                            <button onClick={createNewDiagram} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500 hover:text-indigo-500 transition-colors" title="Create New Diagram">
+                                <Lucide.PlusCircle className="w-4 h-4" />
+                            </button>
+
+                            {diagrams.length > 1 && (
+                                <button onClick={(e) => activeDiagramId && deleteDiagram(activeDiagramId, e)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-red-500 transition-colors" title="Delete Current Diagram">
+                                    <Lucide.Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
+
+                    {/* NEW ITEMS TOOLBAR */}
+                    <div className="flex gap-1">
+                        <button onClick={() => addDescriptor('DIVIDER')} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500" title="Add Divider">
+                            <Lucide.MinusSquare className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => addDescriptor('NOTE_ACROSS')} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500" title="Add Note Across">
+                            <Lucide.StickyNote className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => addDescriptor('FRAGMENT')} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500" title="Add Fragment (Alt/Else)">
+                            <Lucide.BoxSelect className="w-5 h-5" />
+                        </button>
                     </div>
 
                     <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
@@ -552,15 +959,25 @@ const EasyUML: React.FC = () => {
                         Export Image
                     </button>
                 </div>
-                <div className="flex gap-2">
+
+                <div className="flex gap-2 items-center">
+                    {/* Auto-Numbering Toggle */}
+                    <button
+                        onClick={() => setShowSequenceNumbers(!showSequenceNumbers)}
+                        className={`p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${showSequenceNumbers ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'}`}
+                        title="Toggle Auto-Numbering"
+                    >
+                        <Lucide.ListOrdered className="w-4 h-4" />
+                    </button>
+
                     <p className="text-xs text-slate-500">
                         {pendingConnectionStart
                             ? "Select target Actor to complete connection (Esc to cancel)"
-                            : "Double-click Header to add Actor. Drag (+) or Click (+) to connect. Toggle shapes."}
+                            : "Double-click Header to add Actor. Drag (+) to connect. Double-click Line for Self-Msg."}
                     </p>
                     <button
                         onClick={(e) => {
-                            addToast('Auto-adding Actor', 'info');
+                            // addToast('Auto-adding Actor', 'info'); // Removed by user request
                             saveHistory();
                             const newLifeline: Lifeline = {
                                 id: generateId(),
@@ -576,161 +993,484 @@ const EasyUML: React.FC = () => {
                     </button>
 
                     {/* Spacing Controls */}
-                    <div className="flex bg-slate-100 dark:bg-slate-800 rounded p-1 gap-1">
-                        <button
-                            onClick={decreaseSpacing}
-                            className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded shadow-sm text-slate-500 hover:text-indigo-500"
-                            title="Narrow Spacing"
-                        >
-                            <Lucide.ChevronsRightLeft className="w-4 h-4" /> {/* > < Means Contract/Narrow */}
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+                        <button onClick={decreaseSpacing} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-400" title="Decrease Spacing (Compact)">
+                            <Lucide.ChevronsRightLeft className="w-4 h-4" />
                         </button>
-                        <button
-                            onClick={increaseSpacing}
-                            className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded shadow-sm text-slate-500 hover:text-indigo-500"
-                            title="Widen Spacing"
-                        >
-                            <Lucide.ChevronsLeftRight className="w-4 h-4" /> {/* < > Means Expand/Widen */}
+                        <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+                        <button onClick={increaseSpacing} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-400" title="Increase Spacing (Spread)">
+                            <Lucide.ChevronsLeftRight className="w-4 h-4" />
                         </button>
                     </div>
 
                     <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
 
-                    <button onClick={() => { setLifelines([]); setMessages([]); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded">
+                    <button onClick={() => { saveHistory(); setLifelines([]); setMessages([]); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded">
                         <Lucide.RotateCcw className="w-4 h-4" />
                     </button>
                 </div>
             </div>
 
-            {/* Main Canvas */}
+
+            {/* Diagram Canvas */}
             <div
                 ref={canvasRef}
-                className={`flex-1 overflow-auto relative ${pendingConnectionStart ? 'cursor-alias' : 'cursor-crosshair'} bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px]`}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseDown={(e) => {
-                    // If connecting via click, creating the message on click
-                    if (pendingConnectionStart) {
-                        const { x, y } = getCanvasCoords(e);
-                        // Find target (allowing some tolerance)
-                        const target = lifelines.find(l => Math.abs(l.x - x) < 60);
-
-                        if (target) {
-                            // Create Message
+                className="flex-1 overflow-auto relative bg-slate-50 dark:bg-slate-900/50"
+            >
+                <div
+                    className="relative min-w-full min-h-[200px] origin-top-left transition-all duration-75 ease-out bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px]"
+                    style={{
+                        width: 'max-content', // Allow it to grow
+                        height: Math.max(800, canvasHeight)
+                    }}
+                    onMouseDown={(e) => {
+                        // 1. Pending Placement Logic
+                        if (pendingPlacement) {
+                            const { y } = getCanvasCoords(e);
                             saveHistory();
-                            const newMessage: Message = {
+                            const newMsg: Message = {
                                 id: generateId(),
-                                fromId: pendingConnectionStart.id,
-                                toId: target.id,
-                                y: snapY(pendingConnectionStart.startY),
-                                label: 'message()',
-                                lineStyle: defaultLineStyle,
-                                arrowStyle: defaultArrowStyle
+                                fromId: 'global',
+                                toId: 'global',
+                                y: snapY(y),
+                                label: pendingPlacement.type === 'DIVIDER' ? '== New Divider ==' : (pendingPlacement.type === 'NOTE_ACROSS' ? 'Note Across' : 'Alt'),
+                                descriptorType: pendingPlacement.type,
+                                isFragment: pendingPlacement.type === 'FRAGMENT',
+                                fragmentHeight: pendingPlacement.type === 'FRAGMENT' ? 100 : undefined,
+                                fragmentCondition: pendingPlacement.type === 'FRAGMENT' ? '[condition]' : undefined,
+                                lineStyle: 'solid',
+                                arrowStyle: 'none'
                             };
-                            setMessages(prev => [...prev.filter(m => m.y !== newMessage.y), newMessage]);
-                            setSelectedId(newMessage.id);
-                            addToast('Connected!', 'success');
+                            setMessages(prev => [...prev, newMsg].sort((a, b) => a.y - b.y));
+                            setPendingPlacement(null);
+                            addToast('Item Placed', 'success');
+                            return;
                         }
 
-                        setPendingConnectionStart(null); // Reset state
-                        return;
-                    }
-                }}
-            >
-                <svg
-                    className="w-full min-w-[1000px] pointer-events-none"
-                    style={{ minHeight: canvasHeight }}
-                // Explicitly inject the current theme colors as CSS variables or just use them inline 
-                // But inline is safer for html-to-image
+                        // Only clear selection if clicking on background
+                        if (e.target === e.currentTarget) {
+                            setSelectedId(null);
+                        }
+                    }}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
                 >
-                    <defs>
-                        {/* Filled Arrow */}
-                        <marker id="arrow-filled" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                            <polygon
-                                points="0 0, 10 3.5, 0 7"
-                                className="fill-slate-900 dark:fill-slate-200"
-                                style={{ fill: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
-                            />
-                        </marker>
-                        {/* Open Arrow */}
-                        <marker id="arrow-open" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                            <polyline
-                                points="0 0, 10 3.5, 0 7"
-                                fill="none"
-                                className="stroke-slate-900 dark:stroke-slate-200"
-                                strokeWidth="1.5"
-                                style={{ stroke: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
-                            />
-                        </marker>
-                    </defs>
+                    {/* Grid Background */}
+                    <svg
+                        className="w-full min-w-[1000px] pointer-events-none"
+                        style={{ minHeight: canvasHeight }}
+                    // Explicitly inject the current theme colors as CSS variables or just use them inline 
+                    // But inline is safer for html-to-image
+                    >
+                        <defs>
+                            {/* Filled Arrow */}
+                            <marker id="arrow-filled" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon
+                                    points="0 0, 10 3.5, 0 7"
+                                    className="fill-slate-900 dark:fill-slate-200"
+                                    style={{ fill: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
+                                />
+                            </marker>
+                            {/* Open Arrow */}
+                            <marker id="arrow-open" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polyline
+                                    points="0 0, 10 3.5, 0 7"
+                                    fill="none"
+                                    className="stroke-slate-900 dark:stroke-slate-200"
+                                    strokeWidth="1.5"
+                                    style={{ stroke: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
+                                />
+                            </marker>
+                        </defs>
 
-                    {/* Lifeline Lines & Hover Areas */}
-                    {lifelines.map(l => (
-                        <g key={l.id} className="pointer-events-auto">
-                            {/* Visual Line */}
-                            <line
-                                x1={l.x} y1={HEADER_HEIGHT}
-                                x2={l.x} y2="100%"
-                                className={`
+                        {/* Lifeline Lines & Hover Areas */}
+                        {lifelines.map(l => (
+                            <g key={l.id} className="pointer-events-auto">
+                                {/* Visual Line */}
+                                <line
+                                    x1={l.x} y1={HEADER_HEIGHT}
+                                    x2={l.x} y2="100%"
+                                    className={`
                                     stroke-2 transition-colors
                                     ${selectedId === l.id ? 'stroke-indigo-400 dark:stroke-indigo-600' : 'stroke-slate-300 dark:stroke-slate-700'}
                                 `}
-                                strokeDasharray="5,5"
-                                style={{
-                                    stroke: selectedId === l.id
-                                        ? (document.documentElement.classList.contains('dark') ? '#4f46e5' : '#818cf8')
-                                        : (document.documentElement.classList.contains('dark') ? '#334155' : '#cbd5e1')
-                                }}
-                            />
-                            {/* Invisible Hit Area for Hover - MAXIMIZED for easier access - 180px width */}
+                                    strokeDasharray="5,5"
+                                    style={{
+                                        stroke: selectedId === l.id
+                                            ? (document.documentElement.classList.contains('dark') ? '#4f46e5' : '#818cf8')
+                                            : (document.documentElement.classList.contains('dark') ? '#334155' : '#cbd5e1')
+                                    }}
+                                />
+                                {/* Invisible Hit Area for Hover - MAXIMIZED for easier access - 180px width */}
+                                <rect
+                                    x={l.x - 100}
+                                    y={HEADER_HEIGHT}
+                                    width="200"
+                                    height="100%"
+                                    fill="transparent"
+                                    className={`${pendingPlacement || pendingConnectionStart ? 'pointer-events-none' : 'cursor-crosshair'}`}
+                                    onDoubleClick={(e) => {
+                                        e.stopPropagation();
+                                        saveHistory();
+                                        const { y } = getCanvasCoords(e);
+                                        const newMessage: Message = {
+                                            id: generateId(),
+                                            fromId: l.id,
+                                            toId: l.id, // SELF MESSAGE
+                                            y: snapY(y),
+                                            label: 'message()',
+                                            lineStyle: defaultLineStyle,
+                                            arrowStyle: defaultArrowStyle
+                                        };
+                                        setMessages(prev => [...prev.filter(m => m.y !== newMessage.y), newMessage]);
+                                        setSelectedId(newMessage.id);
+                                        addToast('Self-Message Created', 'success');
+                                    }}
+                                />    </g>
+                        ))}
+
+                        {/* Activation Boxes */}
+                        {activationBoxes.map(box => (
                             <rect
-                                x={l.x - 90}
-                                y={HEADER_HEIGHT}
-                                width="180"
-                                height="100%"
-                                fill="transparent"
-                                className="cursor-crosshair"
+                                key={box.id}
+                                x={box.x - 5 + (box.depth * 5)} // Center (width 10, offset 5 left). Plus depth offset.
+                                y={box.y}
+                                width={10}
+                                height={box.height}
+                                className="fill-white dark:fill-gray-600 stroke-slate-900 dark:stroke-slate-200"
+                                strokeWidth="1"
                             />
-                        </g>
-                    ))}
+                        ))}
 
-                    {/* Messages */}
-                    {messages.map(m => {
-                        const from = lifelines.find(l => l.id === m.fromId);
-                        const to = lifelines.find(l => l.id === m.toId);
-                        if (!from || !to) return null;
+                        {/* Messages */}
+                        {messages.map((m, i) => {
+                            // --- SPECIAL ITEMS (DIVIDER, NOTE ACROSS, FRAGMENT) ---
+                            if (m.type && ['DIVIDER', 'NOTE_ACROSS', 'FRAGMENT'].includes(m.type)) {
+                                const minX = lifelines.length > 0 ? Math.min(...lifelines.map(l => l.x)) : 100;
+                                const maxX = lifelines.length > 0 ? Math.max(...lifelines.map(l => l.x)) : 500;
+                                const left = Math.max(50, minX - 60);
+                                const width = Math.max(400, (maxX - left) + 60);
+                                const isHovered = hoveredMessageId === m.id;
+                                const isSelected = selectedId === m.id;
+                                const height = m.height || 60; // Default height for fragment
 
-                        const isHovered = hoveredMessageId === m.id;
-                        const markerId = m.arrowStyle === 'none' ? undefined : (m.arrowStyle === 'open' ? 'url(#arrow-open)' : 'url(#arrow-filled)');
-                        const dashArray = m.lineStyle === 'dashed' ? '5,5' : undefined;
+                                return (
+                                    <g
+                                        key={m.id}
+                                        className={`cursor-move ${isSelected ? 'opacity-100' : 'opacity-90'}`}
+                                        onMouseDown={(e) => handleMouseDown(e, 'MESSAGE_MOVE', m.id)}
+                                        // Make sure we set hover for delete button visibility
+                                        onMouseEnter={() => setHoveredMessageId(m.id)}
+                                        onMouseLeave={() => setHoveredMessageId(null)}
+                                    >
+                                        {/* Hit Area for Movement */}
+                                        <rect x={left} y={m.y - 20} width={width} height={height} fill="transparent" className="cursor-move" />
 
-                        // SELF MESSAGE (LOOP)
-                        if (from.id === to.id) {
+                                        {/* DIVIDER */}
+                                        {m.type === 'DIVIDER' && (
+                                            <g className="pointer-events-none">
+                                                <line x1={0} y1={m.y} x2="100%" y2={m.y}
+                                                    className="stroke-slate-300 dark:stroke-slate-700 stroke-2" strokeDasharray="10,10"
+                                                />
+                                                {/* Label Box */}
+                                                <foreignObject x={left + (width / 2) - 100} y={m.y - 15} width={200} height={30}>
+                                                    <div className="flex justify-center">
+                                                        <span className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded text-xs font-bold text-slate-500 shadow-sm">
+                                                            {m.label}
+                                                        </span>
+                                                    </div>
+                                                </foreignObject>
+                                            </g>
+                                        )}
+
+                                        {/* NOTE ACROSS */}
+                                        {m.type === 'NOTE_ACROSS' && (
+                                            <foreignObject x={left} y={m.y - 15} width={width} height={40} className="pointer-events-none">
+                                                <div className="bg-yellow-100 dark:bg-yellow-900/50 border border-yellow-300 dark:border-yellow-700 text-center p-2 rounded shadow-sm text-xs text-slate-700 dark:text-slate-300">
+                                                    {m.label}
+                                                </div>
+                                            </foreignObject>
+                                        )}
+
+                                        {/* FRAGMENT (ALT/ELSE) */}
+                                        {m.type === 'FRAGMENT' && (
+                                            <g className="pointer-events-none">
+                                                <rect
+                                                    x={left} y={m.y} width={width} height={height}
+                                                    fill="transparent"
+                                                    className="stroke-slate-400 dark:stroke-slate-500"
+                                                    strokeWidth="2"
+                                                />
+                                                {/* Header */}
+                                                <path d={`M ${left} ${m.y} L ${left + 70} ${m.y} L ${left + 80} ${m.y + 20} L ${left} ${m.y + 20} Z`}
+                                                    className="fill-slate-100 dark:fill-slate-800 stroke-slate-400 dark:stroke-slate-500"
+                                                    strokeWidth="1"
+                                                />
+                                                <text x={left + 5} y={m.y + 14} className="text-[11px] font-bold fill-slate-600 dark:fill-slate-300">alt</text>
+
+                                                <text x={left + 10} y={m.y + 35} className="text-xs fill-slate-500 italic">[{m.content || 'condition'}]</text>
+
+                                                {/* Dotted Line for Else (Middle) */}
+                                                <line x1={left} y1={m.y + (height / 2)} x2={left + width} y2={m.y + (height / 2)}
+                                                    className="stroke-slate-400 dark:stroke-slate-600 stroke-1" strokeDasharray="5,5" />
+
+                                                <text x={left + 10} y={m.y + (height / 2) + 15} className="text-xs fill-slate-500 italic">[else]</text>
+                                            </g>
+                                        )}
+
+                                        {/* Delete Button (Visible on Hover/Select) */}
+                                        {(isHovered || isSelected) && (
+                                            <foreignObject x={left + width} y={m.y - 10} width={30} height={30}>
+                                                <button
+                                                    className="w-6 h-6 bg-white dark:bg-slate-800 text-slate-400 hover:text-red-500 rounded-full shadow border border-slate-200 dark:border-slate-700 flex items-center justify-center"
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation();
+                                                        saveHistory();
+                                                        setMessages(prev => prev.filter(msg => msg.id !== m.id));
+                                                    }}
+                                                >
+                                                    <Lucide.Trash2 className="w-3 h-3" />
+                                                </button>
+                                            </foreignObject>
+                                        )}
+                                    </g>
+                                );
+                            }
+
+                            const from = lifelines.find(l => l.id === m.fromId);
+                            const to = lifelines.find(l => l.id === m.toId);
+                            if (!from || !to) return null;
+
+                            const isHovered = hoveredMessageId === m.id;
+                            const markerId = m.arrowStyle === 'none' ? undefined : (m.arrowStyle === 'open' ? 'url(#arrow-open)' : 'url(#arrow-filled)');
+                            const dashArray = m.lineStyle === 'dashed' ? '5,5' : undefined;
+
+                            // SELF MESSAGE (LOOP)
+                            if (from.id === to.id) {
+                                return (
+                                    <g
+                                        key={m.id}
+                                        className={`pointer-events-auto ${editingId === m.id ? 'cursor-default' : 'cursor-ns-resize'}`}
+                                        onMouseDown={(e) => {
+                                            if (editingId === m.id) return;
+                                            handleMouseDown(e, 'MESSAGE_MOVE', m.id);
+                                        }}
+                                        onMouseEnter={() => setHoveredMessageId(m.id)}
+                                        onMouseLeave={() => setHoveredMessageId(null)}
+                                    >
+                                        {/* Interaction Loop Area (Increased Hit Area) */}
+                                        {/* Interaction Loop Area (Increased Hit Area) */}
+                                        <path
+                                            d={`M ${from.x} ${m.y} L ${from.x + 60} ${m.y} L ${from.x + 60} ${m.y + 60} L ${from.x} ${m.y + 60}`}
+                                            stroke="transparent"
+                                            strokeWidth="40"
+                                            fill="none"
+                                        />
+
+                                        {/* Visible Loop */}
+                                        <path
+                                            d={`M ${from.x} ${m.y} L ${from.x + 60} ${m.y} L ${from.x + 60} ${m.y + 60} L ${from.x} ${m.y + 60}`}
+                                            className={`
+                                            stroke-2 transition-all fill-none
+                                            ${selectedId === m.id ? 'stroke-indigo-500 dark:stroke-indigo-400 stroke-[3px]' : 'stroke-slate-900 dark:stroke-slate-200'}
+                                        `}
+                                            strokeDasharray={dashArray}
+                                            markerEnd={markerId}
+                                            style={{
+                                                stroke: selectedId === m.id
+                                                    ? (document.documentElement.classList.contains('dark') ? '#818cf8' : '#6366f1')
+                                                    : (document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a')
+                                            }}
+                                        />
+
+                                        {/* Auto-Numbering Badge (Loop) */}
+                                        {showSequenceNumbers && (
+                                            <g transform={`translate(${from.x - 15}, ${m.y + 10})`}>
+                                                <circle r="8" className="fill-slate-200 dark:fill-slate-700 stroke-slate-400 dark:stroke-slate-600" />
+                                                <text
+                                                    textAnchor="middle" dy="3"
+                                                    className="text-[10px] fill-slate-700 dark:fill-slate-300 font-mono font-bold"
+                                                    style={{ fontSize: '10px' }}
+                                                >
+                                                    {i + 1}
+                                                </text>
+                                            </g>
+                                        )}
+
+                                        {/* Controls (Above Loop) */}
+                                        {(isHovered || editingId === m.id || selectedId === m.id) && (
+                                            <foreignObject x={from.x + 60} y={m.y - 15} width={180} height={30}>
+                                                <div className="flex justify-center gap-1">
+                                                    {/* Line Style Toggle */}
+                                                    <button
+                                                        className="w-5 h-5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-full flex items-center justify-center hover:border-indigo-500 shadow-sm"
+                                                        onMouseDown={(e) => {
+                                                            e.stopPropagation();
+                                                            const nextLineStyle = m.lineStyle === 'solid' ? 'dashed' : 'solid';
+                                                            setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, lineStyle: nextLineStyle } : msg));
+                                                        }}
+                                                    >
+                                                        {m.lineStyle === 'solid' ? <Lucide.Minus className="w-3 h-3" /> : <Lucide.MoreHorizontal className="w-3 h-3" />}
+                                                    </button>
+
+                                                    {/* Arrow Style Toggle */}
+                                                    <button
+                                                        className="w-5 h-5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-full flex items-center justify-center hover:border-indigo-500 shadow-sm"
+                                                        onMouseDown={(e) => {
+                                                            e.stopPropagation();
+                                                            const nextStyle = m.arrowStyle === 'filled' ? 'open' : (m.arrowStyle === 'open' ? 'none' : 'filled');
+                                                            setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, arrowStyle: nextStyle } : msg));
+                                                        }}
+                                                    >
+                                                        {m.arrowStyle === 'filled' ? <Lucide.ChevronRight className="w-3 h-3" /> : (m.arrowStyle === 'open' ? <Lucide.ChevronRight className="w-3 h-3 text-slate-400" /> : <Lucide.X className="w-3 h-3" />)}
+                                                    </button>
+
+                                                    {/* Add Note Button */}
+                                                    <button
+                                                        className="w-5 h-5 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-full flex items-center justify-center hover:border-yellow-500 shadow-sm text-yellow-600 dark:text-yellow-400"
+                                                        title={m.note ? "Remove Note" : "Add Note"}
+                                                        onMouseDown={(e) => {
+                                                            e.stopPropagation();
+                                                            if (m.note) {
+                                                                setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, note: undefined } : msg));
+                                                            } else {
+                                                                setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, note: 'New Note', noteColor: 'yellow' } : msg));
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Lucide.StickyNote className="w-3 h-3" />
+                                                    </button>
+
+                                                    {/* Activate/Deactivate Toggles */}
+                                                    <button
+                                                        className={`w-5 h-5 border rounded-full flex items-center justify-center shadow-sm ${m.isActivate ? 'bg-indigo-100 dark:bg-indigo-900 border-indigo-500 text-indigo-600' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:border-indigo-500'}`}
+                                                        title={m.isActivate ? "Cancel Activation" : "Activate Target"}
+                                                        onMouseDown={(e) => {
+                                                            e.stopPropagation();
+                                                            setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, isActivate: !msg.isActivate } : msg));
+                                                        }}
+                                                    >
+                                                        <Lucide.ArrowDownToLine className="w-3 h-3" />
+                                                    </button>
+                                                    <button
+                                                        className={`w-5 h-5 border rounded-full flex items-center justify-center shadow-sm ${m.isDeactivate ? 'bg-indigo-100 dark:bg-indigo-900 border-indigo-500 text-indigo-600' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:border-indigo-500'}`}
+                                                        title={m.isDeactivate ? "Cancel Deactivation" : "Deactivate Source"}
+                                                        onMouseDown={(e) => {
+                                                            e.stopPropagation();
+                                                            setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, isDeactivate: !msg.isDeactivate } : msg));
+                                                        }}
+                                                    >
+                                                        <Lucide.ArrowUpFromLine className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            </foreignObject>
+                                        )}
+
+                                        {/* Self Message Note Rendering */}
+                                        {(m.note !== undefined && m.note !== null) && (
+                                            <foreignObject x={from.x + 80} y={m.y + 10} width={150} height={60}>
+                                                <div className="group relative w-full h-full">
+                                                    {editingId === `note-${m.id}` ? (
+                                                        <textarea
+                                                            autoFocus
+                                                            onFocus={(e) => e.target.select()}
+                                                            className="w-full h-full bg-yellow-100 dark:bg-yellow-900/80 text-xs p-1 border border-yellow-300 rounded shadow-sm resize-none outline-none text-slate-800 dark:text-slate-100 placeholder-yellow-700/50"
+                                                            value={m.note}
+                                                            onChange={(e) => setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, note: e.target.value } : msg))}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); setEditingId(null); saveHistory(); }
+                                                                if (e.key === 'Escape') { e.stopPropagation(); setEditingId(null); }
+                                                            }}
+                                                            onBlur={() => { setEditingId(null); saveHistory(); }}
+                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                        />
+                                                    ) : (
+                                                        <div
+                                                            className="w-full h-full bg-yellow-50 dark:bg-yellow-900/40 border border-yellow-200 dark:border-yellow-700/50 p-1 text-xs text-slate-600 dark:text-slate-300 overflow-hidden text-center flex items-center justify-center cursor-text hover:bg-yellow-100 dark:hover:bg-yellow-900/60 transition-colors relative"
+                                                            onDoubleClick={(e) => { e.stopPropagation(); setEditingId(`note-${m.id}`); }}
+                                                        >
+                                                            {m.note}
+                                                            {/* Remove Note Button */}
+                                                            <button
+                                                                className="absolute -top-2 -right-2 w-4 h-4 bg-red-100 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 shadow transition-opacity"
+                                                                onMouseDown={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, note: undefined } : msg));
+                                                                }}
+                                                            >
+                                                                <Lucide.X className="w-2.5 h-2.5" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </foreignObject>
+                                        )}
+
+                                        {/* Label (Inside Loop) - Better Placed */}
+                                        <foreignObject x={from.x + 10} y={m.y + 10} width={250} height={40}>
+                                            <div className="flex justify-start items-center h-full group">
+                                                {/* Delete Button REMOVED by user request */}
+                                                {editingId === m.id ? (
+                                                    <input
+                                                        onMouseDown={(e) => e.stopPropagation()} // Prevent drag when clicking input
+                                                        autoFocus
+                                                        onFocus={(e) => e.target.select()}
+                                                        className="bg-white dark:bg-slate-800 border rounded px-1 text-xs outline-none shadow-lg min-w-[50px]"
+                                                        defaultValue={m.label}
+                                                        style={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
+                                                        onBlur={(e) => {
+                                                            setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, label: e.target.value } : msg));
+                                                            setEditingId(null);
+                                                        }}
+                                                        onKeyDown={(e) => {
+                                                            e.stopPropagation();
+                                                            if (e.key === 'Enter' || e.key === 'Escape') {
+                                                                e.currentTarget.blur();
+                                                                setEditingId(null);
+                                                            }
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <span
+                                                        className="font-bold text-xs select-none truncate px-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-text"
+                                                        title={m.label}
+                                                        style={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
+                                                        onDoubleClick={(e) => { e.stopPropagation(); setEditingId(m.id); }}
+                                                    >
+                                                        {m.label}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </foreignObject>
+                                    </g>
+                                );
+                            }
+
+                            // STANDARD MESSAGE (A -> B)
                             return (
                                 <g
                                     key={m.id}
                                     className={`pointer-events-auto ${editingId === m.id ? 'cursor-default' : 'cursor-ns-resize'}`}
                                     onMouseDown={(e) => {
-                                        if (editingId === m.id) return;
+                                        if (editingId === m.id) return; // Disable drag if editing
                                         handleMouseDown(e, 'MESSAGE_MOVE', m.id);
                                     }}
-                                    onMouseEnter={() => setHoveredMessageId(m.id)}
+                                    onMouseEnter={() => {
+                                        console.log(`[MouseEnter] Msg: ${m.id}`);
+                                        setHoveredMessageId(m.id);
+                                    }}
                                     onMouseLeave={() => setHoveredMessageId(null)}
                                 >
-                                    {/* Interaction Loop Area (Implicit width via path stroke) */}
-                                    <path
-                                        d={`M ${from.x} ${m.y} L ${from.x + 40} ${m.y} L ${from.x + 40} ${m.y + 40} L ${from.x} ${m.y + 40}`}
-                                        stroke="transparent"
-                                        strokeWidth="20"
-                                        fill="none"
-                                    />
+                                    {/* Interaction Hit Area (Increased Hit Area) */}
+                                    <line x1={from.x} y1={m.y} x2={to.x} y2={m.y} stroke="transparent" strokeWidth="60" />
 
-                                    {/* Visible Loop */}
-                                    <path
-                                        d={`M ${from.x} ${m.y} L ${from.x + 40} ${m.y} L ${from.x + 40} ${m.y + 40} L ${from.x} ${m.y + 40}`}
+                                    {/* Visible Line */}
+                                    <line
+                                        x1={from.x} y1={m.y} x2={to.x} y2={m.y}
                                         className={`
-                                            stroke-2 transition-all fill-none
-                                            ${selectedId === m.id ? 'stroke-indigo-500 dark:stroke-indigo-400 stroke-[3px]' : 'stroke-slate-900 dark:stroke-slate-200'}
-                                        `}
+                                        stroke-2 transition-all
+                                        ${selectedId === m.id ? 'stroke-indigo-500 dark:stroke-indigo-400 stroke-[3px]' : 'stroke-slate-900 dark:stroke-slate-200'}
+                                    `}
                                         strokeDasharray={dashArray}
                                         markerEnd={markerId}
                                         style={{
@@ -740,17 +1480,33 @@ const EasyUML: React.FC = () => {
                                         }}
                                     />
 
-                                    {/* Controls (Above Loop) */}
+                                    {/* Auto-Numbering Badge (Standard) */}
+                                    {showSequenceNumbers && (
+                                        <g transform={`translate(${from.x + (to.x > from.x ? 15 : -15)}, ${m.y - 10})`}>
+                                            <circle r="8" className="fill-slate-200 dark:fill-slate-700 stroke-slate-400 dark:stroke-slate-600" />
+                                            <text
+                                                textAnchor="middle" dy="3"
+                                                className="text-[10px] fill-slate-700 dark:fill-slate-300 font-mono font-bold"
+                                                style={{ fontSize: '10px' }}
+                                            >
+                                                {i + 1}
+                                            </text>
+                                        </g>
+                                    )}
+
+                                    {/* Controls (Only visible on hover/edit or SELECTED) */}
                                     {(isHovered || editingId === m.id || selectedId === m.id) && (
-                                        <foreignObject x={from.x + 40} y={m.y - 10} width={70} height={20}>
+                                        <foreignObject x={Math.min(from.x, to.x)} y={m.y - 55} width={Math.abs(to.x - from.x)} height={30}>
                                             <div className="flex justify-center gap-1">
                                                 {/* Line Style Toggle */}
                                                 <button
                                                     className="w-5 h-5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-full flex items-center justify-center hover:border-indigo-500 shadow-sm"
+                                                    title="Toggle Line Style"
                                                     onMouseDown={(e) => {
                                                         e.stopPropagation();
                                                         const nextLineStyle = m.lineStyle === 'solid' ? 'dashed' : 'solid';
                                                         setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, lineStyle: nextLineStyle } : msg));
+                                                        setDefaultLineStyle(nextLineStyle); // Update default
                                                     }}
                                                 >
                                                     {m.lineStyle === 'solid' ? <Lucide.Minus className="w-3 h-3" /> : <Lucide.MoreHorizontal className="w-3 h-3" />}
@@ -759,25 +1515,111 @@ const EasyUML: React.FC = () => {
                                                 {/* Arrow Style Toggle */}
                                                 <button
                                                     className="w-5 h-5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-full flex items-center justify-center hover:border-indigo-500 shadow-sm"
+                                                    title="Toggle Arrow Style"
                                                     onMouseDown={(e) => {
                                                         e.stopPropagation();
                                                         const nextStyle = m.arrowStyle === 'filled' ? 'open' : (m.arrowStyle === 'open' ? 'none' : 'filled');
                                                         setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, arrowStyle: nextStyle } : msg));
+                                                        setDefaultArrowStyle(nextStyle); // Update default
                                                     }}
                                                 >
                                                     {m.arrowStyle === 'filled' ? <Lucide.ChevronRight className="w-3 h-3" /> : (m.arrowStyle === 'open' ? <Lucide.ChevronRight className="w-3 h-3 text-slate-400" /> : <Lucide.X className="w-3 h-3" />)}
+                                                </button>
+
+                                                {/* Add Note Button */}
+                                                <button
+                                                    className="w-5 h-5 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-full flex items-center justify-center hover:border-yellow-500 shadow-sm text-yellow-600 dark:text-yellow-400"
+                                                    title={m.note ? "Remove Note" : "Add Note"}
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation();
+                                                        if (m.note) {
+                                                            setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, note: undefined } : msg));
+                                                        } else {
+                                                            setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, note: 'New Note', noteColor: 'yellow' } : msg));
+                                                        }
+                                                    }}
+                                                >
+                                                    <Lucide.StickyNote className="w-3 h-3" />
+                                                </button>
+
+                                                {/* Activate/Deactivate Toggles */}
+                                                <button
+                                                    className={`w-5 h-5 border rounded-full flex items-center justify-center shadow-sm ${m.isActivate ? 'bg-indigo-100 dark:bg-indigo-900 border-indigo-500 text-indigo-600' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:border-indigo-500'}`}
+                                                    title={m.isActivate ? "Cancel Activation" : "Activate Target"}
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation();
+                                                        setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, isActivate: !msg.isActivate } : msg));
+                                                    }}
+                                                >
+                                                    <Lucide.ArrowDownToLine className="w-3 h-3" />
+                                                </button>
+                                                <button
+                                                    className={`w-5 h-5 border rounded-full flex items-center justify-center shadow-sm ${m.isDeactivate ? 'bg-indigo-100 dark:bg-indigo-900 border-indigo-500 text-indigo-600' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:border-indigo-500'}`}
+                                                    title={m.isDeactivate ? "Cancel Deactivation" : "Deactivate Source"}
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation();
+                                                        setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, isDeactivate: !msg.isDeactivate } : msg));
+                                                    }}
+                                                >
+                                                    <Lucide.ArrowUpFromLine className="w-3 h-3" />
                                                 </button>
                                             </div>
                                         </foreignObject>
                                     )}
 
-                                    {/* Label (Inside Loop) */}
-                                    <foreignObject x={from.x + 10} y={m.y + 5} width={150} height={30}>
-                                        <div className="flex justify-start items-center h-full" onMouseDown={(e) => e.stopPropagation()}>
+                                    {/* Note Rendering - Moved BELOW message to avoid overlap */}
+                                    {(m.note !== undefined && m.note !== null) && (
+                                        <foreignObject x={Math.min(from.x, to.x) + Math.abs(to.x - from.x) / 2 - 75} y={m.y + 20} width={150} height={60}>
+                                            <div className="group relative w-full h-full">
+                                                {editingId === `note-${m.id}` ? (
+                                                    <textarea
+                                                        autoFocus
+                                                        onFocus={(e) => e.target.select()}
+                                                        className="w-full h-full bg-yellow-100 dark:bg-yellow-900/80 text-xs p-1 border border-yellow-300 rounded shadow-sm resize-none outline-none text-slate-800 dark:text-slate-100 placeholder-yellow-700/50"
+                                                        value={m.note}
+                                                        onChange={(e) => setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, note: e.target.value } : msg))}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); setEditingId(null); saveHistory(); }
+                                                            if (e.key === 'Escape') { e.stopPropagation(); setEditingId(null); }
+                                                        }}
+                                                        onBlur={() => { setEditingId(null); saveHistory(); }}
+                                                        onMouseDown={(e) => e.stopPropagation()}
+                                                    />
+                                                ) : (
+                                                    <div
+                                                        className="w-full h-full bg-yellow-50 dark:bg-yellow-900/40 border border-yellow-200 dark:border-yellow-700/50 p-1 text-xs text-slate-600 dark:text-slate-300 overflow-hidden text-center flex items-center justify-center cursor-text hover:bg-yellow-100 dark:hover:bg-yellow-900/60 transition-colors relative"
+                                                        onDoubleClick={(e) => { e.stopPropagation(); setEditingId(`note-${m.id}`); }}
+                                                    >
+                                                        {m.note}
+                                                        {/* Remove Note Button */}
+                                                        <button
+                                                            className="absolute -top-2 -right-2 w-4 h-4 bg-red-100 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 shadow transition-opacity"
+                                                            onMouseDown={(e) => {
+                                                                e.stopPropagation();
+                                                                setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, note: undefined } : msg));
+                                                            }}
+                                                        >
+                                                            <Lucide.X className="w-2.5 h-2.5" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </foreignObject>
+                                    )}
+
+                                    {/* Note Rendering */}
+
+
+                                    {/* Label Bubble */}
+                                    <foreignObject x={Math.min(from.x, to.x)} y={m.y - 35} width={Math.abs(to.x - from.x)} height={40}>
+                                        <div className="flex justify-center items-center h-full group">
+                                            {/* Delete Button REMOVED by user request */}
                                             {editingId === m.id ? (
                                                 <input
+                                                    onMouseDown={(e) => e.stopPropagation()} // Prevent drag when clicking input
                                                     autoFocus
-                                                    className="bg-white dark:bg-slate-800 border rounded px-1 text-xs outline-none shadow-lg min-w-[50px]"
+                                                    onFocus={(e) => e.target.select()}
+                                                    className="bg-white dark:bg-slate-800 border rounded px-1 text-xs outline-none shadow-lg min-w-[50px] text-center"
                                                     defaultValue={m.label}
                                                     style={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
                                                     onBlur={(e) => {
@@ -785,17 +1627,25 @@ const EasyUML: React.FC = () => {
                                                         setEditingId(null);
                                                     }}
                                                     onKeyDown={(e) => {
+                                                        // Stop propagation to prevent global listeners
                                                         e.stopPropagation();
+
                                                         if (e.key === 'Enter' || e.key === 'Escape') {
                                                             e.currentTarget.blur();
                                                             setEditingId(null);
+                                                        }
+                                                        if (e.key === 'Tab') {
+                                                            e.preventDefault();
+                                                            // Save changes before moving
+                                                            const newValue = e.currentTarget.value;
+                                                            setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, label: newValue } : msg));
+                                                            handleTabNavigation(e.shiftKey);
                                                         }
                                                     }}
                                                 />
                                             ) : (
                                                 <span
-                                                    className="font-bold text-xs select-none truncate px-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-text"
-                                                    title={m.label}
+                                                    className="bg-white/80 dark:bg-slate-900/80 px-1 text-xs font-mono rounded cursor-text hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors border border-transparent hover:border-indigo-200"
                                                     style={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
                                                     onDoubleClick={(e) => { e.stopPropagation(); setEditingId(m.id); }}
                                                 >
@@ -806,290 +1656,224 @@ const EasyUML: React.FC = () => {
                                     </foreignObject>
                                 </g>
                             );
-                        }
+                        })}
 
-                        // STANDARD MESSAGE (A -> B)
-                        return (
-                            <g
-                                key={m.id}
-                                className={`pointer-events-auto ${editingId === m.id ? 'cursor-default' : 'cursor-ns-resize'}`}
-                                onMouseDown={(e) => {
-                                    if (editingId === m.id) return; // Disable drag if editing
-                                    handleMouseDown(e, 'MESSAGE_MOVE', m.id);
-                                }}
-                                onMouseEnter={() => setHoveredMessageId(m.id)}
-                                onMouseLeave={() => setHoveredMessageId(null)}
-                            >
-                                {/* Interaction Hit Area (invisible fat line) */}
-                                <line x1={from.x} y1={m.y} x2={to.x} y2={m.y} stroke="transparent" strokeWidth="30" />
+                        {/* Floating Handle (Only when hovering a lifeline and NOT dragging AND NOT pending connection AND NOT hovering a message) */}
+                        {/* Floating Handle (Only when hovering a lifeline and (NOT dragging OR dragging to create) AND NOT pending connection AND NOT hovering a message) */}
+                        {((!dragState || dragState.type === 'MESSAGE_CREATE') && !pendingConnectionStart && hoveredLifelineId && !hoveredMessageId) && (
+                            <g transform={`translate(${lifelines.find(l => l.id === hoveredLifelineId)?.x || 0}, ${snapY(hoveredY)})`} className="pointer-events-auto cursor-crosshair">
+                                {/* Visual Handle - Increased Size */}
+                                <circle r="18" fill="indigo" className="fill-indigo-500 opacity-80 shadow-sm" />
+                                <text textAnchor="middle" dy="8" fill="white" fontSize="24" fontWeight="bold">+</text>
 
-                                {/* Visible Line */}
-                                <line
-                                    x1={from.x} y1={m.y} x2={to.x} y2={m.y}
-                                    className={`
-                                        stroke-2 transition-all
-                                        ${selectedId === m.id ? 'stroke-indigo-500 dark:stroke-indigo-400 stroke-[3px]' : 'stroke-slate-900 dark:stroke-slate-200'}
-                                    `}
-                                    strokeDasharray={dashArray}
-                                    markerEnd={markerId}
-                                    style={{
-                                        stroke: selectedId === m.id
-                                            ? (document.documentElement.classList.contains('dark') ? '#818cf8' : '#6366f1')
-                                            : (document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a')
+                                {/* Interactive Area Trigger - MAXIMIZED RADIUS 40px */}
+                                <circle
+                                    r="40"
+                                    fill="transparent"
+                                    onMouseDown={(e) => {
+                                        e.stopPropagation();
+                                        handleMouseDown(e, 'MESSAGE_CREATE', hoveredLifelineId);
+                                    }}
+                                    onDoubleClick={(e) => {
+                                        e.stopPropagation();
+                                        saveHistory();
+                                        const { y } = getCanvasCoords(e);
+                                        const newMessage: Message = {
+                                            id: generateId(),
+                                            fromId: hoveredLifelineId,
+                                            toId: hoveredLifelineId, // SELF MESSAGE
+                                            y: snapY(y),
+                                            label: 'message()',
+                                            lineStyle: defaultLineStyle,
+                                            arrowStyle: defaultArrowStyle
+                                        };
+                                        setMessages(prev => [...prev.filter(m => m.y !== newMessage.y), newMessage]);
+                                        setSelectedId(newMessage.id);
+                                        addToast('Self-Message Created', 'success');
                                     }}
                                 />
-
-                                {/* Controls (Only visible on hover/edit or SELECTED) */}
-                                {(isHovered || editingId === m.id || selectedId === m.id) && (
-                                    <foreignObject x={Math.min(from.x, to.x)} y={m.y - 55} width={Math.abs(to.x - from.x)} height={30}>
-                                        <div className="flex justify-center gap-1">
-                                            {/* Line Style Toggle */}
-                                            <button
-                                                className="w-5 h-5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-full flex items-center justify-center hover:border-indigo-500 shadow-sm"
-                                                title="Toggle Line Style"
-                                                onMouseDown={(e) => {
-                                                    e.stopPropagation();
-                                                    const nextLineStyle = m.lineStyle === 'solid' ? 'dashed' : 'solid';
-                                                    setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, lineStyle: nextLineStyle } : msg));
-                                                    setDefaultLineStyle(nextLineStyle); // Update default
-                                                }}
-                                            >
-                                                {m.lineStyle === 'solid' ? <Lucide.Minus className="w-3 h-3" /> : <Lucide.MoreHorizontal className="w-3 h-3" />}
-                                            </button>
-
-                                            {/* Arrow Style Toggle */}
-                                            <button
-                                                className="w-5 h-5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-full flex items-center justify-center hover:border-indigo-500 shadow-sm"
-                                                title="Toggle Arrow Style"
-                                                onMouseDown={(e) => {
-                                                    e.stopPropagation();
-                                                    const nextStyle = m.arrowStyle === 'filled' ? 'open' : (m.arrowStyle === 'open' ? 'none' : 'filled');
-                                                    setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, arrowStyle: nextStyle } : msg));
-                                                    setDefaultArrowStyle(nextStyle); // Update default
-                                                }}
-                                            >
-                                                {m.arrowStyle === 'filled' ? <Lucide.ChevronRight className="w-3 h-3" /> : (m.arrowStyle === 'open' ? <Lucide.ChevronRight className="w-3 h-3 text-slate-400" /> : <Lucide.X className="w-3 h-3" />)}
-                                            </button>
-                                        </div>
-                                    </foreignObject>
-                                )}
-
-                                {/* Label Bubble */}
-                                <foreignObject x={Math.min(from.x, to.x)} y={m.y - 35} width={Math.abs(to.x - from.x)} height={40}>
-                                    <div className="flex justify-center items-center h-full" onMouseDown={(e) => e.stopPropagation()}>
-                                        {editingId === m.id ? (
-                                            <input
-                                                autoFocus
-                                                className="bg-white dark:bg-slate-800 border rounded px-1 text-xs outline-none shadow-lg min-w-[50px] text-center"
-                                                defaultValue={m.label}
-                                                style={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
-                                                onBlur={(e) => {
-                                                    setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, label: e.target.value } : msg));
-                                                    setEditingId(null);
-                                                }}
-                                                onKeyDown={(e) => {
-                                                    // Stop propagation to prevent global listeners
-                                                    e.stopPropagation();
-
-                                                    if (e.key === 'Enter' || e.key === 'Escape') {
-                                                        e.currentTarget.blur();
-                                                        setEditingId(null);
-                                                    }
-                                                    if (e.key === 'Tab') {
-                                                        e.preventDefault();
-                                                        // Save changes before moving
-                                                        const newValue = e.currentTarget.value;
-                                                        setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, label: newValue } : msg));
-                                                        handleTabNavigation(e.shiftKey);
-                                                    }
-                                                }}
-                                            />
-                                        ) : (
-                                            <span
-                                                className="bg-white/80 dark:bg-slate-900/80 px-1 text-xs font-mono rounded cursor-text hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors border border-transparent hover:border-indigo-200"
-                                                style={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' }}
-                                                onDoubleClick={(e) => { e.stopPropagation(); setEditingId(m.id); }}
-                                            >
-                                                {m.label}
-                                            </span>
-                                        )}
-                                    </div>
-                                </foreignObject>
                             </g>
-                        );
-                    })}
+                        )}
 
-                    {/* Floating Handle (Only when hovering a lifeline and NOT dragging AND NOT pending connection) */}
-                    {!dragState && !pendingConnectionStart && hoveredLifelineId && (
-                        <g transform={`translate(${lifelines.find(l => l.id === hoveredLifelineId)?.x || 0}, ${snapY(hoveredY)})`} className="pointer-events-auto cursor-crosshair">
-                            {/* Visual Handle - Increased Size */}
-                            <circle r="18" fill="indigo" className="fill-indigo-500 opacity-80 shadow-sm" />
-                            <text textAnchor="middle" dy="8" fill="white" fontSize="24" fontWeight="bold">+</text>
-
-                            {/* Interactive Area Trigger - MAXIMIZED RADIUS 40px */}
-                            <circle
-                                r="40"
-                                fill="transparent"
-                                onMouseDown={(e) => handleMouseDown(e, 'MESSAGE_CREATE', hoveredLifelineId)}
+                        {/* Ghost Line (Creating Message - DRAG or CLICK) */}
+                        {(dragState?.type === 'MESSAGE_CREATE' || pendingConnectionStart) && (
+                            <line
+                                x1={dragState?.startX ?? pendingConnectionStart?.startX}
+                                y1={dragState?.currentY ?? pendingConnectionStart?.startY}
+                                x2={dragState?.currentX ?? cursorX}
+                                y2={dragState?.currentY ?? pendingConnectionStart?.startY}
+                                className="stroke-indigo-500 stroke-2 stroke-dashed pointer-events-none"
+                                markerEnd="url(#arrow-filled)"
                             />
-                        </g>
-                    )}
+                        )}
+                    </svg>
 
-                    {/* Ghost Line (Creating Message - DRAG or CLICK) */}
-                    {(dragState?.type === 'MESSAGE_CREATE' || pendingConnectionStart) && (
-                        <line
-                            x1={dragState?.startX ?? pendingConnectionStart?.startX}
-                            y1={dragState?.currentY ?? pendingConnectionStart?.startY}
-                            x2={dragState?.currentX ?? cursorX}
-                            y2={dragState?.currentY ?? pendingConnectionStart?.startY}
-                            className="stroke-indigo-500 stroke-2 stroke-dashed"
-                            markerEnd="url(#arrow-filled)"
-                        />
-                    )}
-                </svg>
-
-                {/* DOM Layer for Lifeline Headers (Clickable) */}
-                <div
-                    className="absolute top-0 left-0 border-b border-indigo-500/20 bg-indigo-50/10 z-20 cursor-pointer hover:bg-indigo-50/30 transition-colors"
-                    style={{ width: '100%', minWidth: '1000px', height: HEADER_HEIGHT }}
-                    onDoubleClick={handleHeaderDoubleClick}
-                    title="Double Click here to add Actor"
-                >
-                    {lifelines.map(l => (
-                        <div
-                            key={l.id}
-                            className="absolute top-2 transform -translate-x-1/2 p-2 group cursor-grab active:cursor-grabbing flex flex-col items-center"
-                            style={{ left: l.x }}
-                            onMouseDown={(e) => {
-                                if (editingId === l.id) return; // Disable drag if editing
-                                handleMouseDown(e, 'LIFELINE', l.id);
-                            }}
-                            onDoubleClick={(e) => e.stopPropagation()} // Prevent bubble to header
-                        >
+                    {/* DOM Layer for Lifeline Headers (Clickable) */}
+                    <div
+                        className="absolute top-0 left-0 border-b border-indigo-500/20 bg-indigo-50/10 z-20 cursor-pointer hover:bg-indigo-50/30 transition-colors"
+                        style={{ width: '100%', minWidth: '1000px', height: HEADER_HEIGHT }}
+                        onDoubleClick={handleHeaderDoubleClick}
+                        title="Double Click here to add Actor"
+                    >
+                        {lifelines.map(l => (
                             <div
-                                className={`
+                                key={l.id}
+                                className="absolute top-2 transform -translate-x-1/2 p-2 group cursor-grab active:cursor-grabbing flex flex-col items-center"
+                                style={{ left: l.x }}
+                                onMouseDown={(e) => {
+                                    if (editingId === l.id) return; // Disable drag if editing
+                                    handleMouseDown(e, 'LIFELINE', l.id);
+                                }}
+                                onDoubleClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingId(l.id); // Enable renaming
+                                }}
+                            >
+                                <div
+                                    className={`
                                     bg-white dark:bg-slate-800 border-2 rounded-lg shadow-sm transition-all flex flex-col items-center justify-center gap-1 h-[70px] relative
                                     ${selectedId === l.id ? 'border-indigo-500 ring-2 ring-indigo-500/30' : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-500'}
                                 `}
-                                style={{ minWidth: 140, maxWidth: 240, width: 'max-content' }} // Dynamic width
-                            >
-                                {/* Shape Icon (Takes up standardized space) */}
-                                <div className="h-6 flex items-center justify-center">
-                                    {l.shape === 'actor' && <Lucide.User className="w-6 h-6 text-indigo-500" />}
-                                    {l.shape === 'database' && <Lucide.Database className="w-5 h-5 text-indigo-500" />}
-                                </div>
-                                {/* Default Box has empty 24px height spacer implicitly via flex/gap or just centers text if no icon */}
-
-                                {editingId === l.id ? (
-                                    <input
-                                        autoFocus
-                                        className="bg-transparent outline-none text-center w-full font-bold text-sm px-1"
-                                        defaultValue={l.name}
-                                        onBlur={(e) => {
-                                            setLifelines(prev => prev.map(user => user.id === l.id ? { ...user, name: e.target.value } : user));
-                                            setEditingId(null);
-                                        }}
-                                        onKeyDown={(e) => {
-                                            // Stop propagation to prevent global listeners (like Delete/Backspace) from firing
-                                            e.stopPropagation();
-
-                                            if (e.key === 'Enter' || e.key === 'Escape') {
-                                                e.currentTarget.blur();
-                                                setEditingId(null);
-                                            }
-                                            if (e.key === 'Tab') {
-                                                e.preventDefault();
-                                                // Save changes before moving
-                                                const newValue = e.currentTarget.value;
-                                                setLifelines(prev => prev.map(user => user.id === l.id ? { ...user, name: newValue } : user));
-                                                handleTabNavigation(e.shiftKey);
-                                            }
-                                        }}
-                                    />
-                                ) : (
-                                    <span
-                                        className="font-bold text-sm select-none truncate w-full text-center px-1"
-                                        title={l.name}
-                                        onDoubleClick={(e) => { e.stopPropagation(); setEditingId(l.id); }}
-                                    >
-                                        {l.name}
-                                    </span>
-                                )}
-
-                                {/* Shape Toggle Button (Moved to Top-Right, Larger) */}
-                                <button
-                                    className="absolute -top-3 -right-3 w-8 h-8 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-full flex items-center justify-center hover:border-indigo-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                    title="Change Shape"
-                                    onMouseDown={(e) => {
-                                        e.stopPropagation();
-                                        toggleShape(l.id);
-                                    }}
+                                    style={{ minWidth: 140, maxWidth: 240, width: 'max-content' }} // Dynamic width
                                 >
-                                    <Lucide.Shapes className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-                                </button>
+                                    {/* Shape Icon (Takes up standardized space) */}
+                                    <div className="h-6 flex items-center justify-center">
+                                        {l.shape === 'actor' && <Lucide.User className="w-6 h-6 text-indigo-500" />}
+                                        {l.shape === 'database' && <Lucide.Database className="w-5 h-5 text-indigo-500" />}
+                                    </div>
+
+                                    {/* Delete Button (Visible on Hover) */}
+                                    <button
+                                        className="absolute -top-2 -right-2 bg-white dark:bg-slate-700 text-slate-400 hover:text-red-500 rounded-full p-0.5 shadow-sm border border-slate-200 dark:border-slate-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            saveHistory();
+                                            setLifelines(prev => prev.filter(line => line.id !== l.id));
+                                            setMessages(prev => prev.filter(m => m.fromId !== l.id && m.toId !== l.id));
+                                        }}
+                                        title="Delete Actor"
+                                    >
+                                        <Lucide.X className="w-3 h-3" />
+                                    </button>
+                                    {/* Default Box has empty 24px height spacer implicitly via flex/gap or just centers text if no icon */}
+
+                                    {editingId === l.id ? (
+                                        <input
+                                            autoFocus
+                                            onFocus={(e) => e.target.select()}
+                                            className="bg-transparent outline-none text-center w-full font-bold text-sm px-1"
+                                            defaultValue={l.name}
+                                            onBlur={(e) => {
+                                                setLifelines(prev => prev.map(user => user.id === l.id ? { ...user, name: e.target.value } : user));
+                                                setEditingId(null);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                // Stop propagation to prevent global listeners (like Delete/Backspace) from firing
+                                                e.stopPropagation();
+
+                                                if (e.key === 'Enter' || e.key === 'Escape') {
+                                                    e.currentTarget.blur();
+                                                    setEditingId(null);
+                                                }
+                                                if (e.key === 'Tab') {
+                                                    e.preventDefault();
+                                                    // Save changes before moving
+                                                    const newValue = e.currentTarget.value;
+                                                    setLifelines(prev => prev.map(user => user.id === l.id ? { ...user, name: newValue } : user));
+                                                    handleTabNavigation(e.shiftKey);
+                                                }
+                                            }}
+                                        />
+                                    ) : (
+                                        <span
+                                            className="font-bold text-sm select-none truncate w-full text-center px-1"
+                                            title={l.name}
+                                            onDoubleClick={(e) => { e.stopPropagation(); setEditingId(l.id); }}
+                                        >
+                                            {l.name}
+                                        </span>
+                                    )}
+
+                                    {/* Delete Button REMOVED by user request */}
+                                    {/* Shape Toggle Button (Moved to Top-Right, Larger) */}
+                                    <button
+                                        className="absolute -top-3 -right-3 w-8 h-8 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-full flex items-center justify-center hover:border-indigo-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                        title="Change Shape"
+                                        onMouseDown={(e) => {
+                                            e.stopPropagation();
+                                            toggleShape(l.id);
+                                        }}
+                                    >
+                                        <Lucide.Shapes className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Expand Canvas Button */}
-            <div className="fixed bottom-6 right-6 z-30">
-                <button
-                    className="p-3 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 hover:scale-105 transition-all text-xs font-bold flex flex-col items-center gap-1"
-                    onClick={() => {
-                        saveHistory();
-                        setCanvasHeight(prev => prev + 500);
-                        // No Toast
-                    }}
-                    title="Expand Canvas Height"
-                >
-                    <Lucide.ChevronsDown className="w-5 h-5" />
-                </button>
-            </div>
-
-            {/* Export Modal */}
-            {showExportModal && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-[600px] flex flex-col max-h-[80vh] border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-200">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 rounded-t-lg">
-                            <h3 className="font-bold flex items-center gap-2">
-                                <Lucide.Code className="w-4 h-4 text-indigo-500" />
-                                Export PlantUML
-                            </h3>
-                            <button onClick={() => setShowExportModal(false)} className="hover:bg-slate-200 dark:hover:bg-slate-800 p-1 rounded">
-                                <Lucide.X className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <div className="p-0 flex-1 relative">
-                            <textarea
-                                className="w-full h-[400px] bg-slate-50 dark:bg-slate-950 p-4 font-mono text-sm resize-none outline-none text-slate-700 dark:text-slate-300"
-                                value={plantUMLCode}
-                                readOnly
-                            />
-                        </div>
-                        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-950 rounded-b-lg">
-                            <button
-                                onClick={() => setShowExportModal(false)}
-                                className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
-                            >
-                                Close
-                            </button>
-                            <button
-                                onClick={() => {
-                                    navigator.clipboard.writeText(plantUMLCode);
-                                    addToast('Copied to clipboard!', 'success');
-                                    setShowExportModal(false);
-                                }}
-                                className="px-4 py-2 text-sm bg-indigo-500 hover:bg-indigo-600 text-white rounded font-medium shadow-sm transition-colors flex items-center gap-2"
-                            >
-                                <Lucide.Copy className="w-4 h-4" />
-                                Copy Code
-                            </button>
-                        </div>
+                        ))}
                     </div>
                 </div>
-            )}
+
+
+
+                {/* Expand Canvas Button */}
+                <div className="fixed bottom-6 right-6 z-30">
+                    <button
+                        className="p-3 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 hover:scale-105 transition-all text-xs font-bold flex flex-col items-center gap-1"
+                        onClick={() => {
+                            saveHistory();
+                            setCanvasHeight(prev => prev + 500);
+                            // No Toast
+                        }}
+                        title="Expand Canvas Height"
+                    >
+                        <Lucide.ChevronsDown className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Export Modal */}
+                {
+                    showExportModal && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                            <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-[600px] flex flex-col max-h-[80vh] border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-200">
+                                <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 rounded-t-lg">
+                                    <h3 className="font-bold flex items-center gap-2">
+                                        <Lucide.Code className="w-4 h-4 text-indigo-500" />
+                                        Export PlantUML
+                                    </h3>
+                                    <button onClick={() => setShowExportModal(false)} className="hover:bg-slate-200 dark:hover:bg-slate-800 p-1 rounded">
+                                        <Lucide.X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                <div className="p-0 flex-1 relative">
+                                    <textarea
+                                        className="w-full h-[400px] bg-slate-50 dark:bg-slate-950 p-4 font-mono text-sm resize-none outline-none text-slate-700 dark:text-slate-300"
+                                        value={plantUMLCode}
+                                        readOnly
+                                    />
+                                </div>
+                                <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-950 rounded-b-lg">
+                                    <button
+                                        onClick={() => setShowExportModal(false)}
+                                        className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+                                    >
+                                        Close
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(plantUMLCode);
+                                            addToast('Copied to clipboard!', 'success');
+                                            setShowExportModal(false);
+                                        }}
+                                        className="px-4 py-2 text-sm bg-indigo-500 hover:bg-indigo-600 text-white rounded font-medium shadow-sm transition-colors flex items-center gap-2"
+                                    >
+                                        <Lucide.Copy className="w-4 h-4" />
+                                        Copy Code
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+            </div>
         </div>
     );
 };
