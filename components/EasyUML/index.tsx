@@ -439,17 +439,57 @@ const EasyUML: React.FC = () => {
 
 
     // 1. Add Lifeline (Double Click Header)
+    // 1. Add Lifeline (Double Click Header)
     const handleHeaderDoubleClick = (e: React.MouseEvent) => {
         addToast('Creating New Actor...', 'info');
-        // Ignore click coords, use auto-layout
         saveHistory();
+
         const newLifeline: Lifeline = {
             id: generateId(),
             name: 'New Actor',
             x: 0,
             shape: 'box'
         };
-        setLifelines(prev => autoLayoutLifelines([...prev, newLifeline]));
+
+        const nextLifelines = autoLayoutLifelines([...lifelines, newLifeline]);
+
+        // Adjust Fragments to stick to their anchors
+        const nextMessages = messages.map(m => {
+            if ((m.type === 'FRAGMENT' || m.type === 'DIVIDER') && m.customLeft !== undefined && m.customWidth !== undefined) {
+                // Find start anchor
+                const startAnchor = lifelines.reduce((prev, curr) => {
+                    return Math.abs(curr.x - m.customLeft!) < Math.abs(prev.x - m.customLeft!) ? curr : prev;
+                }, lifelines[0]);
+
+                // Find end anchor
+                const endPos = m.customLeft + m.customWidth;
+                const endAnchor = lifelines.reduce((prev, curr) => {
+                    return Math.abs(curr.x - endPos) < Math.abs(prev.x - endPos) ? curr : prev;
+                }, lifelines[0]);
+
+                if (startAnchor && endAnchor) {
+                    const paramsStartOffset = m.customLeft - startAnchor.x;
+                    const paramsEndOffset = endPos - endAnchor.x;
+
+                    const newStartAnchor = nextLifelines.find(l => l.id === startAnchor.id);
+                    const newEndAnchor = nextLifelines.find(l => l.id === endAnchor.id);
+
+                    if (newStartAnchor && newEndAnchor) {
+                        const newLeft = newStartAnchor.x + paramsStartOffset;
+                        const newRight = newEndAnchor.x + paramsEndOffset;
+                        return {
+                            ...m,
+                            customLeft: newLeft,
+                            customWidth: Math.max(50, newRight - newLeft)
+                        };
+                    }
+                }
+            }
+            return m;
+        });
+
+        setLifelines(nextLifelines);
+        setMessages(nextMessages);
     };
 
     // 2. Start Dragging
