@@ -1110,42 +1110,80 @@ const EasyUML: React.FC = () => {
             // Allow a brief render cycle for state updates to apply before capturing
             await new Promise(resolve => setTimeout(resolve, 50));
 
-            const dataUrl = await htmlToImage.toPng(canvasRef.current, {
-                pixelRatio: 2, // 2x Resolution
-                backgroundColor: isDark ? '#020617' : '#ffffff',
-                cacheBust: true,
-                width: contentWidth,
-                height: contentHeight,
-                style: {
-                    width: `${Math.max(scrollWidth, targetContentEnd + 200)}px`,
-                    height: `${Math.max(scrollHeight, contentHeight)}px`,
-                    transform: `translate(${-startContentX}px, 0)`,
-                    transformOrigin: 'top left',
-                    overflow: 'visible',
-                    backgroundImage: 'none'
-                },
-                filter: (node: any) => true,
-                onClone: (clonedNode: HTMLElement) => {
-                    const isDarkMode = document.documentElement.classList.contains('dark');
-                    if (isDarkMode && clonedNode instanceof HTMLElement) {
-                        clonedNode.classList.add('dark');
-                        // Recursively add dark class to ensure deep selectors match
-                        const descendants = clonedNode.getElementsByTagName('*');
-                        for (let i = 0; i < descendants.length; i++) {
-                            descendants[i].classList.add('dark');
-                        }
-                        // Force critical style inheritance
-                        clonedNode.style.colorScheme = 'dark';
-                        clonedNode.style.color = '#e2e8f0';
-                    }
-                }
-            } as any);
+            // 1. Temporarily hide ignored elements in REAL DOM to bypass library limitations (Clean Export)
+            const ignoredElements = document.querySelectorAll('.export-ignore');
 
-            // Download
-            const link = document.createElement('a');
-            link.download = `easyuml-export-${generateId()}.png`;
-            link.href = dataUrl;
-            link.click();
+            const originalDisplays: string[] = [];
+            ignoredElements.forEach(el => {
+                if (el instanceof HTMLElement) {
+                    originalDisplays.push(el.style.display);
+                    el.style.display = 'none';
+                }
+            });
+
+
+
+            try {
+                const dataUrl = await htmlToImage.toPng(canvasRef.current, {
+                    pixelRatio: 2, // 2x Resolution
+                    backgroundColor: isDark ? '#020617' : '#ffffff',
+                    cacheBust: true,
+                    width: contentWidth,
+                    height: contentHeight,
+                    style: {
+                        width: `${Math.max(scrollWidth, targetContentEnd + 200)}px`,
+                        height: `${Math.max(scrollHeight, contentHeight)}px`,
+                        transform: `translate(${-startContentX}px, 0)`,
+                        transformOrigin: 'top left',
+                        overflow: 'visible',
+                        backgroundImage: 'none'
+                    },
+                    filter: (node: any) => {
+                        // Check class
+                        if (node.classList && node.classList.contains('export-ignore')) return false;
+                        // Check attribute (more robust)
+                        if (node.hasAttribute && node.hasAttribute('data-export-ignore')) return false;
+                        return true;
+                    },
+                    onClone: (clonedNode: HTMLElement) => {
+                        if (clonedNode instanceof HTMLElement) {
+                            // 1. CSS Injection (Strongest Guarantee)
+                            const style = document.createElement('style');
+                            style.innerHTML = '.export-ignore { display: none !important; opacity: 0 !important; visibility: hidden !important; }';
+                            clonedNode.appendChild(style);
+
+                            // 2. Manual Removal
+                            const ignored = clonedNode.querySelectorAll('.export-ignore');
+                            ignored.forEach(el => el.remove());
+
+                            // 3. Dark Mode Handling
+                            const isDarkMode = document.documentElement.classList.contains('dark');
+                            if (isDarkMode) {
+                                clonedNode.classList.add('dark');
+                                const descendants = clonedNode.getElementsByTagName('*');
+                                for (let i = 0; i < descendants.length; i++) {
+                                    descendants[i].classList.add('dark');
+                                }
+                                clonedNode.style.colorScheme = 'dark';
+                                clonedNode.style.color = '#e2e8f0';
+                            }
+                        }
+                    }
+                } as any);
+
+                // Download
+                const link = document.createElement('a');
+                link.download = `sequence-diagram-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+                link.href = dataUrl;
+                link.click();
+            } finally {
+                // 2. Restore elements
+                ignoredElements.forEach((el, i) => {
+                    if (el instanceof HTMLElement) {
+                        el.style.display = originalDisplays[i];
+                    }
+                });
+            }
             addToast('Image Exported!', 'success');
         } catch (error) {
             console.error('Export failed:', error);
@@ -1912,7 +1950,8 @@ const EasyUML: React.FC = () => {
                                             style={{
                                                 stroke: selectedId === m.id
                                                     ? (document.documentElement.classList.contains('dark') ? '#818cf8' : '#6366f1')
-                                                    : (document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a')
+                                                    : (document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a'),
+                                                fill: 'none' // Explicitly prevent fill in export
                                             }}
                                         />
 
@@ -2006,7 +2045,8 @@ const EasyUML: React.FC = () => {
                                                 y={m.y + 30}
                                                 width={150}
                                                 height={60}
-                                                className="overflow-visible"
+                                                style={{ height: '60px' }}
+                                                className="overflow-visible uml-note-container"
                                                 onMouseDown={(e) => e.stopPropagation()}
                                                 onDoubleClick={(e) => e.stopPropagation()}
                                             >
@@ -2028,13 +2068,23 @@ const EasyUML: React.FC = () => {
                                                     ) : (
                                                         <div
                                                             className="w-full h-full bg-yellow-50 dark:bg-yellow-900/40 border border-yellow-200 dark:border-yellow-700/50 p-1 text-xs text-slate-600 dark:text-slate-300 overflow-hidden text-center flex items-center justify-center cursor-text hover:bg-yellow-100 dark:hover:bg-yellow-900/60 transition-colors relative"
+                                                            style={{
+                                                                backgroundColor: document.documentElement.classList.contains('dark') ? 'rgba(113, 63, 18, 0.4)' : '#fefce8', // yellow-900/40 : yellow-50
+                                                                borderColor: document.documentElement.classList.contains('dark') ? 'rgba(161, 98, 7, 0.5)' : '#fef08a', // yellow-700/50 : yellow-200
+                                                                color: document.documentElement.classList.contains('dark') ? '#fde047' : '#4b5563', // yellow-300 : gray-600
+                                                                borderWidth: '1px', borderStyle: 'solid',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+                                                                fontSize: '12px', lineHeight: '16px',
+                                                                height: '60px', minHeight: '60px'
+                                                            }}
                                                             onDoubleClick={(e) => { e.stopPropagation(); setEditingId(`note-${m.id}`); }}
                                                             onMouseDown={(e) => e.stopPropagation()}
                                                         >
                                                             {m.note}
                                                             {/* Remove Note Button */}
                                                             <button
-                                                                className="absolute -top-2 -right-2 w-4 h-4 bg-red-100 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 shadow transition-opacity"
+                                                                data-export-ignore="true"
+                                                                className="export-ignore absolute -top-2 -right-2 w-4 h-4 bg-red-100 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 shadow transition-opacity"
                                                                 onMouseDown={(e) => {
                                                                     e.stopPropagation();
                                                                     setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, note: undefined } : msg));
@@ -2216,7 +2266,8 @@ const EasyUML: React.FC = () => {
                                             y={m.y}
                                             width={150}
                                             height={60}
-                                            className="overflow-visible"
+                                            style={{ height: '60px' }}
+                                            className="overflow-visible uml-note-container"
                                             onMouseDown={(e) => e.stopPropagation()}
                                             onDoubleClick={(e) => e.stopPropagation()}
                                         >
@@ -2238,13 +2289,23 @@ const EasyUML: React.FC = () => {
                                                 ) : (
                                                     <div
                                                         className="w-full h-full bg-yellow-50 dark:bg-yellow-900/40 border border-yellow-200 dark:border-yellow-700/50 p-1 text-xs text-slate-600 dark:text-slate-300 overflow-hidden text-center flex items-center justify-center cursor-text hover:bg-yellow-100 dark:hover:bg-yellow-900/60 transition-colors relative"
+                                                        style={{
+                                                            backgroundColor: document.documentElement.classList.contains('dark') ? 'rgba(113, 63, 18, 0.4)' : '#fefce8', // yellow-900/40 : yellow-50
+                                                            borderColor: document.documentElement.classList.contains('dark') ? 'rgba(161, 98, 7, 0.5)' : '#fef08a', // yellow-700/50 : yellow-200
+                                                            color: document.documentElement.classList.contains('dark') ? '#fde047' : '#4b5563', // yellow-300 : gray-600
+                                                            borderWidth: '1px', borderStyle: 'solid',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+                                                            fontSize: '12px', lineHeight: '16px',
+                                                            height: '60px', minHeight: '60px'
+                                                        }}
                                                         onDoubleClick={(e) => { e.stopPropagation(); setEditingId(`note-${m.id}`); }}
                                                         onMouseDown={(e) => e.stopPropagation()}
                                                     >
                                                         {m.note}
                                                         {/* Remove Note Button */}
                                                         <button
-                                                            className="absolute -top-2 -right-2 w-4 h-4 bg-red-100 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 shadow transition-opacity"
+                                                            data-export-ignore="true"
+                                                            className="export-ignore absolute -top-2 -right-2 w-4 h-4 bg-red-100 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 shadow transition-opacity"
                                                             onMouseDown={(e) => {
                                                                 e.stopPropagation();
                                                                 setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, note: undefined } : msg));
