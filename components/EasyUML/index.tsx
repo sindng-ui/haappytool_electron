@@ -120,6 +120,16 @@ const EasyUML: React.FC = () => {
         if (activeDiagram) {
             setLifelines(activeDiagram.lifelines);
             setMessages(activeDiagram.messages);
+
+            // Auto-Resize Canvas Height based on content
+            const maxY = activeDiagram.messages.reduce((max, m) => {
+                let bottom = m.y;
+                if (m.isFragment && m.height) {
+                    bottom += m.height;
+                }
+                return Math.max(max, bottom);
+            }, 0);
+            setCanvasHeight(Math.max(1000, maxY + 200)); // Default 1000 or content + buffer
         }
     }, []);
 
@@ -203,6 +213,16 @@ const EasyUML: React.FC = () => {
         setActiveDiagramId(id);
         setLifelines(target.lifelines);
         setMessages(target.messages);
+
+        // Auto-Resize Canvas Height
+        const maxY = target.messages.reduce((max, m) => {
+            let bottom = m.y;
+            if (m.isFragment && m.height) {
+                bottom += m.height;
+            }
+            return Math.max(max, bottom);
+        }, 0);
+        setCanvasHeight(Math.max(1000, maxY + 200));
     };
 
     const renameDiagram = (id: string, newName: string) => {
@@ -993,8 +1013,8 @@ const EasyUML: React.FC = () => {
                 return;
             }
             if (m.type === 'FRAGMENT') {
-                code += `alt ${m.label || 'Alt'}\n`;
-                if (m.content) code += `  ${m.content}\n`;
+                const condition = m.content ? ` [${m.content}]` : '';
+                code += `alt ${m.label || 'Alt'}${condition}\n`;
                 if (m.height) {
                     // Schedule 'end' at m.y + m.height
                     endQueue.push({ y: m.y + m.height, text: 'end' });
@@ -1091,6 +1111,7 @@ const EasyUML: React.FC = () => {
             await new Promise(resolve => setTimeout(resolve, 50));
 
             const dataUrl = await htmlToImage.toPng(canvasRef.current, {
+                pixelRatio: 2, // 2x Resolution
                 backgroundColor: isDark ? '#020617' : '#ffffff',
                 cacheBust: true,
                 width: contentWidth,
@@ -1103,8 +1124,22 @@ const EasyUML: React.FC = () => {
                     overflow: 'visible',
                     backgroundImage: 'none'
                 },
-                filter: (node) => true
-            });
+                filter: (node: any) => true,
+                onClone: (clonedNode: HTMLElement) => {
+                    const isDarkMode = document.documentElement.classList.contains('dark');
+                    if (isDarkMode && clonedNode instanceof HTMLElement) {
+                        clonedNode.classList.add('dark');
+                        // Recursively add dark class to ensure deep selectors match
+                        const descendants = clonedNode.getElementsByTagName('*');
+                        for (let i = 0; i < descendants.length; i++) {
+                            descendants[i].classList.add('dark');
+                        }
+                        // Force critical style inheritance
+                        clonedNode.style.colorScheme = 'dark';
+                        clonedNode.style.color = '#e2e8f0';
+                    }
+                }
+            } as any);
 
             // Download
             const link = document.createElement('a');
@@ -1518,7 +1553,10 @@ const EasyUML: React.FC = () => {
                                 y={box.y}
                                 width={10}
                                 height={box.height}
-                                className="fill-white dark:fill-gray-600 stroke-slate-900 dark:stroke-slate-200"
+                                style={{
+                                    fill: document.documentElement.classList.contains('dark') ? '#4b5563' : '#ffffff', // gray-600 : white
+                                    stroke: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a' // slate-200 : slate-900
+                                }}
                                 strokeWidth="1"
                             />
                         ))}
@@ -1586,15 +1624,26 @@ const EasyUML: React.FC = () => {
                                             <line
                                                 x1={x1} y1={m.y}
                                                 x2={x2} y2={m.y}
-                                                className={`transition-colors ${selectedId === m.id ? 'stroke-indigo-400' : 'stroke-indigo-300 dark:stroke-indigo-400'}`}
+                                                className={`transition-colors ${selectedId === m.id ? 'stroke-indigo-400' : ''}`}
+                                                style={{
+                                                    stroke: selectedId === m.id ? undefined : (document.documentElement.classList.contains('dark') ? '#818cf8' : '#a5b4fc') // indigo-400 : indigo-300
+                                                }}
                                                 strokeWidth="4"
                                             // strokeDasharray="10,10" // Removed dash for visibility
                                             />
                                             {/* Centered Label - Draggable */}
                                             <foreignObject x={labelX} y={m.y - 20} width={labelWidth} height={40} style={{ pointerEvents: 'none' }}>
-                                                <div className="flex justify-center w-full">
+                                                <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
                                                     <span
-                                                        className={`bg-white dark:bg-slate-900 border-2 border-indigo-300 dark:border-indigo-500 px-3 py-1 rounded text-xs font-bold text-indigo-600 dark:text-indigo-200 shadow-sm transition-all pointer-events-auto cursor-ns-resize hover:bg-slate-50 dark:hover:bg-slate-800 ${selectedId === m.id ? 'ring-2 ring-indigo-400' : ''}`}
+                                                        className={`px-3 py-1 rounded text-xs font-bold shadow-sm transition-all pointer-events-auto cursor-ns-resize hover:bg-slate-50 dark:hover:bg-slate-800 ${selectedId === m.id ? 'ring-2 ring-indigo-400' : ''}`}
+                                                        style={{
+                                                            color: document.documentElement.classList.contains('dark') ? '#c7d2fe' : '#4f46e5', // indigo-200 : indigo-600
+                                                            backgroundColor: document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff', // slate-900 : white
+                                                            borderWidth: '2px',
+                                                            borderStyle: 'solid',
+                                                            borderColor: document.documentElement.classList.contains('dark') ? '#6366f1' : '#a5b4fc', // indigo-500 : indigo-300
+                                                            display: 'inline-block' // Ensure transforms/layout work correctly
+                                                        }}
                                                         onDoubleClick={(e) => { e.stopPropagation(); setEditingId(m.id); }}
                                                         onMouseDown={(e) => {
                                                             if (editingId === m.id) return;
@@ -1667,13 +1716,20 @@ const EasyUML: React.FC = () => {
                                                 <rect
                                                     x={left} y={m.y} width={width} height={height}
                                                     fill="transparent"
-                                                    className={`stroke-2 transition-colors ${selectedId === m.id ? 'stroke-indigo-500' : 'stroke-slate-400 dark:stroke-slate-500'}`}
-                                                    style={{ pointerEvents: 'none' }}
+                                                    className={`stroke-2 transition-colors ${selectedId === m.id ? 'stroke-indigo-500' : ''}`}
+                                                    style={{
+                                                        pointerEvents: 'none',
+                                                        stroke: selectedId === m.id ? undefined : (document.documentElement.classList.contains('dark') ? '#cbd5e1' : '#94a3b8') // slate-300 : slate-400
+                                                    }}
                                                 />
 
                                                 {/* Header Shape - THIS HANDLES MOVE */}
                                                 <path d={`M ${left} ${m.y} L ${left + 70} ${m.y} L ${left + 80} ${m.y + 20} L ${left} ${m.y + 20} Z`}
-                                                    className="fill-slate-100 dark:fill-slate-800 stroke-slate-400 dark:stroke-slate-500 cursor-move"
+                                                    className="cursor-move"
+                                                    style={{
+                                                        fill: document.documentElement.classList.contains('dark') ? '#1e293b' : '#f1f5f9', // slate-800 : slate-100
+                                                        stroke: document.documentElement.classList.contains('dark') ? '#64748b' : '#94a3b8' // slate-500 : slate-400
+                                                    }}
                                                     strokeWidth="1"
                                                     onMouseDown={(e) => {
                                                         if (editingId === m.id) return;
@@ -1683,7 +1739,10 @@ const EasyUML: React.FC = () => {
                                                 />
                                                 <text
                                                     x={left + 5} y={m.y + 14}
-                                                    className="text-[11px] font-bold fill-slate-600 dark:fill-slate-300 cursor-move"
+                                                    className="text-[11px] font-bold cursor-move"
+                                                    style={{
+                                                        fill: document.documentElement.classList.contains('dark') ? '#cbd5e1' : '#475569' // slate-300 : slate-600
+                                                    }}
                                                     onDoubleClick={(e) => { e.stopPropagation(); setEditingId(m.id); }}
                                                     onMouseDown={(e) => {
                                                         if (editingId === m.id) return;
@@ -1726,7 +1785,10 @@ const EasyUML: React.FC = () => {
                                                 ) : (
                                                     <text
                                                         x={left + 10} y={m.y + 48}
-                                                        className="text-sm font-bold fill-slate-600 dark:fill-slate-300 cursor-text hover:fill-indigo-500"
+                                                        className="text-sm font-bold cursor-text hover:fill-indigo-500"
+                                                        style={{
+                                                            fill: document.documentElement.classList.contains('dark') ? '#cbd5e1' : '#475569' // slate-300 : slate-600
+                                                        }}
                                                         onDoubleClick={(e) => { e.stopPropagation(); setEditingId(`${m.id}_content`); }}
                                                     >
                                                         [{m.content || 'condition'}]
@@ -1736,8 +1798,14 @@ const EasyUML: React.FC = () => {
                                                 {/* Else Divider */}
                                                 <g transform={`translate(0, ${m.elseOffset || (height / 2)})`}>
                                                     <line x1={left} y1={m.y} x2={left + width} y2={m.y}
-                                                        className="stroke-slate-400 dark:stroke-slate-600 stroke-1" strokeDasharray="5,5" />
-                                                    <text x={left + 10} y={m.y + 15} className="text-xs fill-slate-500 italic">[else]</text>
+                                                        className="stroke-1" strokeDasharray="5,5"
+                                                        style={{
+                                                            stroke: document.documentElement.classList.contains('dark') ? '#475569' : '#94a3b8' // slate-600 : slate-400
+                                                        }}
+                                                    />
+                                                    <text x={left + 10} y={m.y + 15} className="text-xs italic" style={{
+                                                        fill: document.documentElement.classList.contains('dark') ? '#94a3b8' : '#64748b' // slate-400 : slate-500
+                                                    }}>[else]</text>
 
                                                     {/* Else Drag Handle */}
                                                     {isSelected && (
@@ -2195,7 +2263,13 @@ const EasyUML: React.FC = () => {
 
                                     {/* Label Bubble */}
                                     <foreignObject x={Math.min(from.x, to.x)} y={m.y - 35} width={Math.abs(to.x - from.x)} height={40}>
-                                        <div className="flex justify-center items-center h-full group">
+                                        <div className="group" style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            display: 'flex',
+                                            justifyContent: 'center',
+                                            alignItems: 'center'
+                                        }}>
                                             {/* Delete Button REMOVED by user request */}
                                             {editingId === m.id ? (
                                                 <input
