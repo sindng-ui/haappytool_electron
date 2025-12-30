@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { X, Moon, Sun, Keyboard, Info, Type, RotateCcw, BookOpen } from 'lucide-react';
+import { X, Moon, Sun, Keyboard, Info, Type, RotateCcw, BookOpen, Puzzle } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useToast } from '../contexts/ToastContext';
+import { ALL_PLUGINS } from '../plugins/registry';
 
 interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
     currentStartLineIndex: number; // Placeholder for info if needed
+    enabledPlugins: string[];
+    setEnabledPlugins: (plugins: string[]) => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, enabledPlugins, setEnabledPlugins }) => {
     const { addToast } = useToast();
-    const [activeTab, setActiveTab] = useState<'general' | 'shortcuts' | 'about' | 'guide'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'shortcuts' | 'about' | 'guide' | 'plugins'>('general');
     const [theme, setTheme] = useState<'dark' | 'light'>(() => {
         return localStorage.getItem('theme') as 'dark' | 'light' || 'dark';
     });
@@ -41,6 +44,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         window.electronAPI?.setZoomFactor && window.electronAPI.setZoomFactor(newZoom);
     };
 
+    const togglePlugin = (pluginId: string) => {
+        if (enabledPlugins.includes(pluginId)) {
+            setEnabledPlugins(enabledPlugins.filter(id => id !== pluginId));
+        } else {
+            setEnabledPlugins([...enabledPlugins, pluginId]);
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -67,22 +78,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             <Type size={16} /> General
                         </button>
                         <button
+                            onClick={() => setActiveTab('plugins')}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all outline-none ${activeTab === 'plugins' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
+                        >
+                            <Puzzle size={16} /> Plugins
+                        </button>
+                        <button
                             onClick={() => setActiveTab('shortcuts')}
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all outline-none ${activeTab === 'shortcuts' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
                         >
                             <Keyboard size={16} /> Shortcuts
                         </button>
                         <button
-                            onClick={() => setActiveTab('about')}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all outline-none ${activeTab === 'about' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
-                        >
-                            <Info size={16} /> About
-                        </button>
-                        <button
                             onClick={() => setActiveTab('guide')}
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all outline-none ${activeTab === 'guide' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
                         >
                             <BookOpen size={16} /> User Guide
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('about')}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all outline-none ${activeTab === 'about' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
+                        >
+                            <Info size={16} /> About
                         </button>
                     </div>
 
@@ -134,6 +151,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         <button onClick={() => handleZoomChange(1.0)} className="text-xs text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors ml-2" title="Reset Zoom"><RotateCcw size={12} /> Reset</button>
                                     </div>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 ml-1">Use Ctrl + Shift + +/- to zoom quickly.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Plugins Tab */}
+                        {activeTab === 'plugins' && (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform">
+                                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-700 dark:text-slate-300"><Puzzle size={18} /> Manage Plugins</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                                    Enable or disable plugins to customize your sidebar. Disabled plugins will be moved to the "Lab" section.
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {ALL_PLUGINS.map(plugin => {
+                                        const isEnabled = enabledPlugins.includes(plugin.id);
+                                        const Icon = plugin.icon;
+                                        return (
+                                            <div key={plugin.id}
+                                                className={`flex items-center justify-between p-4 rounded-xl border transition-all ${isEnabled
+                                                    ? 'bg-white dark:bg-slate-800/60 border-indigo-500/30'
+                                                    : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-70'
+                                                    }`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isEnabled ? 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'}`}>
+                                                        <Icon size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <div className={`font-semibold ${isEnabled ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-500'}`}>{plugin.name}</div>
+                                                        <div className="text-[10px] text-slate-400 font-mono">{plugin.id}</div>
+                                                    </div>
+                                                </div>
+                                                <div onClick={() => togglePlugin(plugin.id)} className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${isEnabled ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                                                    <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform ${isEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}

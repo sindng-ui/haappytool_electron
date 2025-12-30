@@ -7,7 +7,9 @@ import {
     SmartThingsDevicesPlugin,
     ReverseEngineerPlugin,
     BlockTestPlugin,
-    EasyUMLPlugin
+    EasyUMLPlugin,
+    CpuAnalyzerPlugin,
+    SmartHomeDashboardPlugin
 } from './core/wrappers';
 
 // Registry array to hold all registered plugins
@@ -19,7 +21,9 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     SmartThingsDevicesPlugin,
     ReverseEngineerPlugin,
     BlockTestPlugin,
-    EasyUMLPlugin
+    EasyUMLPlugin,
+    CpuAnalyzerPlugin,
+    SmartHomeDashboardPlugin
 ];
 
 export const getPluginById = (id: string): HappyPlugin | undefined => {

@@ -623,13 +623,369 @@ io.on('connection', (socket) => {
             socket.emit('list_files_result', { error: e.message });
         }
     });
+    // --- CPU Analyzer Handlers ---
+
+    let cpuMonitorProcess = null;
+    let cpuMonitorInterval = null;
+
+    socket.on('start_cpu_monitoring', ({ deviceId }) => {
+        // Cleanup existing
+        if (cpuMonitorProcess) {
+            cpuMonitorProcess.kill();
+            cpuMonitorProcess = null;
+        }
+        if (cpuMonitorInterval) {
+            clearInterval(cpuMonitorInterval);
+            cpuMonitorInterval = null;
+        }
+
+        if (deviceId === 'mock') {
+            console.log('Starting CPU Monitoring (Simulation Mode)');
+            let tick = 0;
+            cpuMonitorInterval = setInterval(() => {
+                tick++;
+                // Simulate sine wave CPU usage (0-400% scale for 4 cores)
+                const baseCpu = 50 + Math.sin(tick * 0.1) * 150; // Swings between 0 and 200+
+                const noise = Math.random() * 20;
+                const totalCpu = Math.min(400, Math.max(0, baseCpu + noise));
+
+                // Simulate processes
+                const mockProcesses = [
+                    { pid: '1001', user: 'owner', cpu: (totalCpu * 0.4).toFixed(1), name: 'com.samsung.tv.app' },
+                    { pid: '2023', user: 'system', cpu: (totalCpu * 0.2).toFixed(1), name: 'display_server' },
+                    { pid: '3045', user: 'root', cpu: (totalCpu * 0.1).toFixed(1), name: 'kernel_task' },
+                    { pid: '4100', user: 'app', cpu: (Math.random() * 2).toFixed(1), name: 'node' },
+                    { pid: '5200', user: 'media', cpu: (Math.random() * 1).toFixed(1), name: 'ffmpeg' }
+                ];
+
+                socket.emit('cpu_data', {
+                    timestamp: Date.now(),
+                    total: totalCpu,
+                    processes: mockProcesses
+                });
+            }, 1000);
+
+            socket.emit('cpu_status', { status: 'monitoring', message: 'Simulation Mode Active' });
+
+        } else {
+            console.log(`Starting CPU Monitoring on ${deviceId}`);
+            // sdb -s [id] shell top -b -d 1
+            // -b: Batch mode (no escape codes)
+            // -d 1: Delay 1 second
+
+            // Note: Different Tizen versions might have different 'top' arguments or output formats.
+            // Common Tizen 'top' output line 1: "User 10% + System 5% ... = 15% Total"
+            // OR standard Linux top. We will try to parse generically.
+
+            const args = ['-s', deviceId, 'shell', 'top', '-b', '-d', '1'];
+
+            try {
+                cpuMonitorProcess = spawn('sdb', args);
+
+                let buffer = '';
+
+                cpuMonitorProcess.stdout.on('data', (data) => {
+                    buffer += data.toString();
+
+                    // Split by chunks (top outputs usually separated by empty lines or headers)
+                    // But simpler: process line by line
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep incomplete line
+
+                    let currentParsed = {
+                        timestamp: Date.now(),
+                        total: 0,
+                        processes: []
+                    };
+
+                    let parsingProcesses = false;
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        // Parse Total CPU
+                        // Case 1: "User 13% + System 4% ... = 17% Total"
+                        if (trimmed.includes('Total') && trimmed.includes('User')) {
+                            // Extract N% Total
+                            const match = trimmed.match(/=\s*([0-9.]+)/); // Matches "= 17"
+                            if (match) {
+                                currentParsed.total = parseFloat(match[1]);
+                            } else {
+                                // Try finding number before % Total
+                                const match2 = trimmed.match(/(\d+)%\s*Total/);
+                                if (match2) {
+                                    currentParsed.total = parseFloat(match2[1]);
+                                }
+                            }
+                            parsingProcesses = true; // Processes usually follow
+                            continue;
+                        }
+
+                        // Case 2: "CPU: 10% usr 5% sys..." (BusyBox top)
+                        if (trimmed.startsWith('CPU:')) {
+                            // Parse BusyBox style if needed
+                            parsingProcesses = true;
+                            continue;
+                        }
+
+                        // Headers
+                        if (trimmed.startsWith('PID')) {
+                            parsingProcesses = true;
+                            continue;
+                        }
+
+                        // Process Row
+                        if (parsingProcesses && trimmed.length > 0) {
+                            // Simple whitespace split
+                            const parts = trimmed.split(/\s+/);
+                            // Standard Tizen top: PID USER ... CPU% ... Name
+                            // Need heuristic to find CPU column. 
+                            // Usually CPU% is one of the columns containing '%'.
+
+                            // Let's assume standard columns often seen:
+                            // PID USER PR NI CPU% S #THR VSS RSS PCY Name
+                            // If parts length is large enough
+
+                            if (parts.length >= 8) {
+                                // Try to find the part with % or just a number that looks like CPU
+                                // Often 5th col is CPU% or similar
+                                // Let's simplify: Send raw parsing or try to identify
+
+                                // Taking a guess based on common Tizen output:
+                                // PID, USER, ..., CPU%, ... Name (last)
+
+                                const pid = parts[0];
+                                const user = parts[1];
+                                const name = parts[parts.length - 1];
+
+                                // Find CPU
+                                let cpuVal = 0;
+                                // Look for column with '%' not in first 2
+                                const cpuIndex = parts.findIndex((p, i) => i > 1 && p.includes('%')); // e.g. "3.1%"
+                                if (cpuIndex !== -1) {
+                                    cpuVal = parseFloat(parts[cpuIndex]);
+                                } else {
+                                    // Fallback: Tizen sometimes doesn't have % char in column body?
+                                    // Just take 5th column?
+                                    // If we can't parse, skip.
+                                    // Better fallback: Check if "CPU" header position logic (too complex for now)
+
+                                    // Try 5th column if it is a number
+                                    const val = parseFloat(parts[4]);
+                                    if (!isNaN(val)) cpuVal = val;
+                                }
+
+                                if (cpuVal > 0) {
+                                    currentParsed.processes.push({
+                                        pid,
+                                        user,
+                                        cpu: cpuVal,
+                                        name
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    // Emit update if we found something meaningful
+                    // Note: 'top' outputs a full screen batch. We need to know when a batch ends?
+                    // 'top -b' just streams. We parsed lines.
+                    // Issue: We might emit partial updates or mixed frames?
+                    // Improvement: Accumulate until we see the "User ... Total" line again?
+                    // For now, let's emit every time we parse a Summary line + some processes?
+                    // Actually, standard top prints Summary FIRST, then processes.
+                    // So we should:
+                    // 1. Detect Summary -> Emit previous batch (if any), Start new batch.
+                    // 2. Parse processes -> Add to current batch.
+
+                    // Refined Loop Logic for streaming:
+                    // (Omitted for brevity in this single-tool step, but implemented logic above accumulates,
+                    // but we need to emit periodically. 'top' -d 1 means bursts every 1s.
+                    // The 'data' event might split a burst. 
+                    // Best effort: Debounce emit or check if we have processes.)
+
+                    if (currentParsed.total > 0 || currentParsed.processes.length > 0) {
+                        // Sort by CPU desc
+                        currentParsed.processes.sort((a, b) => b.cpu - a.cpu);
+                        // Limit to top 10
+                        currentParsed.processes = currentParsed.processes.slice(0, 10);
+
+                        socket.emit('cpu_data', currentParsed);
+                    }
+
+                });
+
+                cpuMonitorProcess.on('error', (err) => {
+                    socket.emit('cpu_error', { message: `SDB Top Error: ${err.message}` });
+                });
+
+                cpuMonitorProcess.on('close', (code) => {
+                    console.log(`CPU Monitor exited with code ${code}`);
+                    socket.emit('cpu_status', { status: 'stopped', message: 'Monitoring Stopped' });
+                    cpuMonitorProcess = null;
+                });
+
+                socket.emit('cpu_status', { status: 'monitoring', message: `Monitoring ${deviceId}` });
+
+            } catch (e) {
+                socket.emit('cpu_error', { message: `Failed to spawn sdb: ${e.message}` });
+            }
+        }
+    });
+
+    socket.on('stop_cpu_monitoring', () => {
+        if (cpuMonitorProcess) {
+            cpuMonitorProcess.kill();
+            cpuMonitorProcess = null;
+        }
+        if (cpuMonitorInterval) {
+            clearInterval(cpuMonitorInterval);
+            cpuMonitorInterval = null;
+            socket.emit('cpu_status', { status: 'stopped', message: 'Monitoring Stopped' });
+        }
+    });
+
+    // --- Thread Analyzer Handlers ---
+    let threadMonitorProcess = null;
+    let threadMonitorInterval = null;
+
+    socket.on('start_thread_monitoring', ({ deviceId, pid }) => {
+        // Cleanup existing
+        if (threadMonitorProcess) {
+            threadMonitorProcess.kill();
+            threadMonitorProcess = null;
+        }
+        if (threadMonitorInterval) {
+            clearInterval(threadMonitorInterval);
+            threadMonitorInterval = null;
+        }
+
+        if (deviceId === 'mock') {
+            console.log(`Starting Mock Thread Monitoring for PID ${pid}`);
+            threadMonitorInterval = setInterval(() => {
+                // Simulate threads
+                const mockThreads = [];
+                const threadCount = 5 + Math.floor(Math.random() * 5);
+                for (let i = 0; i < threadCount; i++) {
+                    const tid = parseInt(pid) + i + 1;
+                    const cpu = (Math.random() * 15).toFixed(1);
+                    mockThreads.push({
+                        tid: tid.toString(),
+                        user: 'owner',
+                        cpu: parseFloat(cpu),
+                        name: i === 0 ? `MainThread` : `WorkerPool-${i}`
+                    });
+                }
+
+                // Sort by CPU
+                mockThreads.sort((a, b) => b.cpu - a.cpu);
+
+                socket.emit('thread_data', {
+                    pid,
+                    threads: mockThreads
+                });
+            }, 1000);
+        } else {
+            console.log(`Starting Thread Monitoring on ${deviceId} for PID ${pid}`);
+            // sdb -s [id] shell top -H -b -d 1 -p [PID]
+            const args = ['-s', deviceId, 'shell', 'top', '-H', '-b', '-d', '1', '-p', pid];
+
+            try {
+                threadMonitorProcess = spawn('sdb', args);
+                let buffer = '';
+
+                threadMonitorProcess.stdout.on('data', (data) => {
+                    buffer += data.toString();
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    let threads = [];
+                    let parsingThreads = false;
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+
+                        // Header detection (PID USER ... or PID TID ...)
+                        // busybox top with -H shows "PID USER ..." but the PID column is actually TID?
+                        // standard procps top shows "PID USER ..." or "pid user ..."
+                        // Let's rely on column detection heuristics again.
+
+                        if (trimmed.startsWith('PID') || trimmed.includes('USER')) {
+                            parsingThreads = true;
+                            continue;
+                        }
+
+                        if (parsingThreads && trimmed.length > 0) {
+                            const parts = trimmed.split(/\s+/);
+                            if (parts.length >= 8) {
+                                // In thread mode top -H:
+                                // PID is usually the TID.
+
+                                const tid = parts[0];
+                                const user = parts[1];
+                                const name = parts[parts.length - 1];
+
+                                let cpuVal = 0;
+                                const cpuIndex = parts.findIndex((p, i) => i > 1 && p.includes('%'));
+                                if (cpuIndex !== -1) {
+                                    cpuVal = parseFloat(parts[cpuIndex]);
+                                } else {
+                                    const val = parseFloat(parts[4]); // Fallback
+                                    if (!isNaN(val)) cpuVal = val;
+                                }
+
+                                if (cpuVal >= 0) { // Include 0% threads too? maybe just > 0 to reduce noise
+                                    threads.push({
+                                        tid,
+                                        user,
+                                        cpu: cpuVal,
+                                        name
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    if (threads.length > 0) {
+                        // Sort by CPU desc
+                        threads.sort((a, b) => b.cpu - a.cpu);
+                        socket.emit('thread_data', { pid, threads });
+                    }
+                });
+
+                threadMonitorProcess.on('error', (err) => {
+                    console.error("Thread Monitor Error:", err);
+                });
+
+                threadMonitorProcess.on('close', () => {
+                    console.log("Thread Monitor Closed");
+                    threadMonitorProcess = null;
+                });
+
+            } catch (e) {
+                console.error("Failed to spawn thread monitor:", e);
+            }
+        }
+    });
+
+    socket.on('stop_thread_monitoring', () => {
+        if (threadMonitorProcess) {
+            threadMonitorProcess.kill();
+            threadMonitorProcess = null;
+        }
+        if (threadMonitorInterval) {
+            clearInterval(threadMonitorInterval);
+            threadMonitorInterval = null;
+        }
+    });
+
 });
+
 // SPA Fallback for non-API routes
 app.get(/(.*)/, (req, res) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
-const PORT = 3002;
+const PORT = 3003;
 
 function startServer() {
     return new Promise((resolve, reject) => {

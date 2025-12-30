@@ -4,6 +4,8 @@ import * as Lucide from 'lucide-react';
 import isoMapBg from '../../iso-map.png';
 
 const { Smartphone, MapPin, Box, Wifi, AlertCircle, Loader2, Thermometer, Droplets, Wind, Sun, Cloud, Gauge, Play, Plus, Minus, RotateCcw, RotateCw } = Lucide;
+import DeviceTile from '../SmartHomeDashboard/DeviceTile';
+import '../SmartHomeDashboard/styles.css';
 
 interface Device {
     deviceId: string;
@@ -1283,99 +1285,60 @@ const SmartThingsDevicesPane: React.FC = () => {
                 )}
 
                 {groupedData && viewMode === 'CARD' && (
-                    <div className="space-y-6 animate-in fade-in duration-500">
+                    <div className="sh-container animate-in fade-in duration-500 bg-transparent">
                         {Object.values(groupedData).map((location) => (
-                            <div key={location.locationId} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-                                <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 border-b border-slate-200 dark:border-slate-800 relative overflow-hidden">
-                                    {/* Weather Background Gradient Hint */}
-                                    <div className={`absolute inset-0 opacity-10 ${location.weather?.condition?.toLowerCase().includes('sun') ? 'bg-gradient-to-br from-orange-400 to-yellow-300' :
-                                        location.weather?.condition?.toLowerCase().includes('cloud') ? 'bg-gradient-to-br from-slate-400 to-slate-200' :
-                                            location.weather?.condition?.toLowerCase().includes('rain') ? 'bg-gradient-to-br from-blue-600 to-cyan-400' :
-                                                'bg-gradient-to-br from-indigo-500 to-purple-500'
-                                        }`}></div>
-
-                                    <div className="relative z-10 flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <MapPin className="w-5 h-5 text-indigo-500 drop-shadow-sm" />
-                                            <div>
-                                                <div className="font-bold text-base text-slate-800 dark:text-slate-100">{location.name}</div>
-                                                <div className="text-[10px] text-slate-400 font-mono leading-none">{location.locationId}</div>
-                                            </div>
-                                        </div>
-
-                                        {/* Weather & AQI Widget */}
-                                        {(location.weather || location.airQuality) && (
-                                            <div className="flex items-center gap-4 bg-white/60 dark:bg-black/20 backdrop-blur-md rounded-lg px-3 py-1.5 border border-white/20 shadow-sm">
-                                                {location.weather && (
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex flex-col items-end">
-                                                            <div className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-200 text-lg leading-none">
-                                                                {location.weather.temperature !== undefined ? Math.round(location.weather.temperature) : '--'}
-                                                                <span className="text-xs font-normal align-top opacity-70">°{location.weather.temperatureUnit}</span>
-                                                            </div>
-                                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 capitalize flex items-center gap-1">
-                                                                {location.weather.condition || 'Unknown'}
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-orange-500 dark:text-yellow-400">
-                                                            {/* Simple Icon Logic */}
-                                                            {location.weather.condition?.toLowerCase().includes('cloud') ? <Cloud size={20} /> :
-                                                                location.weather.condition?.toLowerCase().includes('rain') ? <Loader2 size={20} /> : // Using Loader as filler, assume Rain icon if imported, but safely Sun
-                                                                    <Sun size={20} />}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {location.weather && location.airQuality && (
-                                                    <div className="w-px h-6 bg-slate-300 dark:bg-slate-700 mx-1"></div>
-                                                )}
-
-                                                {location.airQuality && (
-                                                    <div className="flex flex-col items-start min-w-[60px]">
-                                                        <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                                            <Gauge size={10} /> AQI
-                                                        </div>
-                                                        <div className="flex items-baseline gap-1">
-                                                            <span className={`text-sm font-bold ${!location.airQuality.rating ? 'text-slate-500' :
-                                                                location.airQuality.rating.match(/good|best|좋음/i) ? 'text-emerald-500' :
-                                                                    location.airQuality.rating.match(/moderate|보통/i) ? 'text-yellow-500' :
-                                                                        'text-red-500'
-                                                                }`}>
-                                                                {location.airQuality.rating || 'N/A'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
+                            <div key={location.locationId} className="mb-8">
+                                <div className="sh-header px-4">
+                                    <div className="flex items-center gap-2">
+                                        <span>{location.name}</span>
                                     </div>
+                                    {(location.weather || location.airQuality) && (
+                                        <div className="flex items-center gap-2 text-sm font-normal">
+                                            {location.weather && (
+                                                <>
+                                                    <Sun size={18} />
+                                                    <span>{Math.round(location.weather.temperature || 0)} °{location.weather.temperatureUnit}</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="p-4 space-y-4">
+
+                                <div className="space-y-6 px-4">
                                     {Object.values(location.rooms).map((room: any) => (
-                                        <div key={room.roomId} className="pl-4 border-l-2 border-indigo-100 dark:border-slate-700">
-                                            <div className="mb-2 flex items-center gap-2">
-                                                <Box className="w-3 h-3 text-slate-400" />
-                                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                                                    {room.name || 'Unassigned'}
-                                                </span>
-                                            </div>
-                                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
-                                                {room.devices.map((device: Device) => (
-                                                    <div key={device.deviceId} className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-lg p-3 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors group cursor-default">
-                                                        <div className="flex items-start justify-between mb-1">
-                                                            <span className="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate pr-2 group-hover:text-indigo-500 transition-colors" title={device.name}>
-                                                                {device.label || device.name}
-                                                            </span>
-                                                            <div className={`w-2 h-2 rounded-full ${device.components ? 'bg-green-400' : 'bg-slate-300'}`}></div>
-                                                        </div>
-                                                        <div className="text-[10px] font-mono text-slate-400 break-all">
-                                                            ID: {device.deviceId}
-                                                        </div>
-                                                        <div className="text-[10px] text-slate-500 mt-1 truncate">
-                                                            Name: {device.name}
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                        <div key={room.roomId}>
+                                            <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">{room.name || 'Unassigned'}</h3>
+                                            <div className="sh-grid">
+                                                {room.devices.map((device: Device) => {
+                                                    // Adapter to convert SmartThings Device to Smart Home Device format
+                                                    // State inference is tricky without full capabilities, defaulting to 'off' or 'on' based on name or random for demo
+                                                    const mappedDevice: any = {
+                                                        id: device.deviceId,
+                                                        name: room.name || 'Unassigned',
+                                                        subLabel: device.label || device.name,
+                                                        state: 'off', // Default
+                                                        type: 'light', // Default
+                                                        isFavorite: false,
+                                                        location: room.name || 'Unassigned'
+                                                    };
+
+                                                    // Simple heuristic for type
+                                                    const n = (device.label || device.name).toLowerCase();
+                                                    if (n.includes('tv')) mappedDevice.type = 'tv';
+                                                    else if (n.includes('refri') || n.includes('fridge')) mappedDevice.type = 'refrigerator';
+                                                    else if (n.includes('dish')) mappedDevice.type = 'dishwasher';
+
+                                                    // Visual state heuristic (randomly active for demo purposes or checking components)
+                                                    // In real app, we'd check components[0].status
+                                                    if (device.components && device.components.length > 0) {
+                                                        // Mock: if ID is even, it's on
+                                                        // mappedDevice.state = 'on';
+                                                    }
+
+                                                    return (
+                                                        <DeviceTile key={device.deviceId} device={mappedDevice} />
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     ))}

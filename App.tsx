@@ -102,6 +102,17 @@ const AppContent: React.FC = () => {
     ALL_PLUGINS.sort((a, b) => (a.order || 99) - (b.order || 99)).map(p => p.id)
   );
 
+  // Plugin Management State
+  const defaultEnabledPlugins = [
+    ToolId.LOG_EXTRACTOR,
+    ToolId.BLOCK_TEST,
+    ToolId.JSON_TOOLS,
+    ToolId.POST_TOOL,
+    ToolId.TPK_EXTRACTOR
+  ];
+
+  const [enabledPlugins, setEnabledPlugins] = useState<string[]>(defaultEnabledPlugins);
+
   // Load settings on mount
   useEffect(() => {
     const saved = localStorage.getItem('devtool_suite_settings');
@@ -155,6 +166,9 @@ const AppContent: React.FC = () => {
           setPostGlobalVariables(parsed.postGlobalVariables);
         }
         if (parsed.lastEndpoint) setLastApiUrl(parsed.lastEndpoint);
+        if (parsed.enabledPlugins) {
+          setEnabledPlugins(parsed.enabledPlugins);
+        }
       } catch (e) {
         console.error("Failed to load settings", e);
         // Fallback to default on error
@@ -177,10 +191,11 @@ const AppContent: React.FC = () => {
       savedRequestGroups,
       postGlobalVariables,
       lastEndpoint: lastApiUrl,
-      lastMethod
+      lastMethod,
+      enabledPlugins
     };
     localStorage.setItem('devtool_suite_settings', JSON.stringify(settings));
-  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, postGlobalVariables]);
+  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, postGlobalVariables, enabledPlugins]);
 
   const handleExportSettings = () => {
     const settings: AppSettings = {
@@ -190,6 +205,7 @@ const AppContent: React.FC = () => {
       postGlobalVariables,
       lastEndpoint: lastApiUrl,
       lastMethod,
+      enabledPlugins,
       blocks: JSON.parse(localStorage.getItem('happytool_blocks') || '[]'),
       pipelines: JSON.parse(localStorage.getItem('happytool_pipelines') || '[]')
     };
@@ -237,6 +253,7 @@ const AppContent: React.FC = () => {
 
     if (settings.lastEndpoint) setLastApiUrl(settings.lastEndpoint);
     if (settings.lastMethod) setLastMethod(settings.lastMethod);
+    if (settings.enabledPlugins) setEnabledPlugins(settings.enabledPlugins);
 
     // Import BlockTest Data
     if (settings.blocks) {
@@ -322,6 +339,7 @@ const AppContent: React.FC = () => {
             onReorderPlugins={setToolOrder}
             onOpenSettings={() => setIsSettingsOpen(true)}
             plugins={ALL_PLUGINS}
+            enabledPlugins={enabledPlugins}
           />
 
           <main className="flex-1 overflow-hidden relative bg-slate-50 dark:bg-slate-950 min-h-0 transition-colors duration-300">
@@ -338,7 +356,13 @@ const AppContent: React.FC = () => {
                 ))}
               </>
             )}
-            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} currentStartLineIndex={0} />
+            <SettingsModal
+              isOpen={isSettingsOpen}
+              onClose={() => setIsSettingsOpen(false)}
+              currentStartLineIndex={0}
+              enabledPlugins={enabledPlugins}
+              setEnabledPlugins={setEnabledPlugins}
+            />
             <CommandPalette />
           </main>
         </div>

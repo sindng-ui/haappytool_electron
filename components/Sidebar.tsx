@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
 import { HappyPlugin } from '../plugins/types';
 
-const { GripVertical, Settings, Activity } = Lucide;
+const { GripVertical, Settings, Activity, FlaskConical, ChevronRight, ChevronDown } = Lucide;
 
 interface SidebarProps {
   activePluginId: string;
@@ -11,11 +11,20 @@ interface SidebarProps {
   onReorderPlugins: (order: string[]) => void;
   onOpenSettings: () => void;
   plugins: HappyPlugin[];
+  enabledPlugins: string[];
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, pluginOrder, onReorderPlugins, onOpenSettings, plugins }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, pluginOrder, onReorderPlugins, onOpenSettings, plugins, enabledPlugins }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [isLabExpanded, setIsLabExpanded] = useState(false);
+
+  const activePlugins = pluginOrder
+    .filter(id => enabledPlugins.includes(id))
+    .map(id => plugins.find(p => p.id === id))
+    .filter((p): p is HappyPlugin => !!p);
+
+  const labPlugins = plugins.filter(p => !enabledPlugins.includes(p.id));
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedItem(id);
@@ -29,6 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
     e.preventDefault();
     if (!draggedItem || draggedItem === targetId) return;
 
+    // Only allow reordering within active plugins for now sidebar logic simplicity
     const currentIndex = pluginOrder.indexOf(draggedItem);
     const targetIndex = pluginOrder.indexOf(targetId);
 
@@ -44,6 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
     // Collapse ONLY if focus moves outside the Sidebar
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsExpanded(false);
+      setIsLabExpanded(false); // Optionally collapse lab too
     }
   };
 
@@ -85,22 +96,20 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
         </div>
 
         <div className="flex-1 px-3 py-2 space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar">
-          {pluginOrder.map((pluginId) => {
-            const plugin = plugins.find(p => p.id === pluginId);
-            if (!plugin) return null;
+          {activePlugins.map((plugin) => {
             const Icon = plugin.icon;
-            const isActive = activePluginId === pluginId;
-            const isDragging = draggedItem === pluginId;
+            const isActive = activePluginId === plugin.id;
+            const isDragging = draggedItem === plugin.id;
 
             return (
               <button
-                key={pluginId}
+                key={plugin.id}
                 draggable="true"
-                onDragStart={(e) => handleDragStart(e, pluginId)}
+                onDragStart={(e) => handleDragStart(e, plugin.id)}
                 onDragEnd={handleDragEnd}
                 onDragOver={handleDragOver}
-                onDragEnter={(e) => handleDragEnter(e, pluginId)}
-                onClick={() => onSelectPlugin(pluginId)}
+                onDragEnter={(e) => handleDragEnter(e, plugin.id)}
+                onClick={() => onSelectPlugin(plugin.id)}
                 className={`w-full flex items-center h-12 px-3 rounded-xl transition-all duration-200 group relative cursor-pointer outline-none border border-transparent ${isActive
                   ? 'bg-gradient-to-r from-indigo-600/90 to-indigo-500/90 backdrop-blur-md text-white shadow-lg shadow-indigo-500/25 border-indigo-400/20 scale-[1.02]'
                   : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 active:scale-95 hover:shadow-lg hover:shadow-indigo-500/10'
@@ -128,6 +137,68 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
               </button>
             );
           })}
+
+          {/* Lab Section */}
+          {labPlugins.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-white/5">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isExpanded) {
+                    setIsExpanded(true);
+                    setIsLabExpanded(true);
+                  } else {
+                    setIsLabExpanded(!isLabExpanded);
+                  }
+                }}
+                className={`w-full flex items-center h-10 px-3 rounded-xl transition-all duration-200 group relative cursor-pointer outline-none ${isLabExpanded ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+              >
+                <div className="min-w-[40px] flex items-center justify-center">
+                  <FlaskConical className={`w-5 h-5 transition-transform duration-200 ${isLabExpanded ? 'text-indigo-400' : 'group-hover:text-indigo-300'}`} />
+                </div>
+                <span className={`ml-3 font-medium text-[13px] uppercase tracking-wider whitespace-nowrap transition-all duration-300 flex-1 text-left ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'}`}>
+                  Lab
+                </span>
+                {isExpanded && (
+                  <div className="border border-white/5 rounded p-0.5 bg-white/5">
+                    {isLabExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                  </div>
+                )}
+                {!isExpanded && (
+                  <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900/90 backdrop-blur border border-slate-700 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-[100] shadow-xl">
+                    Lab Features
+                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900/90 rotate-45 border-l border-b border-slate-700"></div>
+                  </div>
+                )}
+              </button>
+
+              {/* Lab Items */}
+              {isExpanded && isLabExpanded && (
+                <div className="mt-2 space-y-1 pl-2 animate-in slide-in-from-top-2 duration-200">
+                  {labPlugins.map(plugin => {
+                    const Icon = plugin.icon;
+                    const isActive = activePluginId === plugin.id;
+                    return (
+                      <button
+                        key={plugin.id}
+                        onClick={() => onSelectPlugin(plugin.id)}
+                        className={`w-full flex items-center h-10 px-3 rounded-lg transition-all duration-200 group relative cursor-pointer outline-none border border-transparent ${isActive
+                          ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                          : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'
+                          }`}
+                      >
+                        <div className="min-w-[30px] flex items-center justify-center">
+                          <Icon size={16} />
+                        </div>
+                        <span className="ml-2 text-sm truncate">{plugin.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="px-3 pb-4 w-full mt-auto space-y-3">

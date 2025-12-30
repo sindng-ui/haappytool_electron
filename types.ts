@@ -9,6 +9,8 @@ export enum ToolId {
   REVERSE_ENGINEER = 'REVERSE_ENGINEER',
   BLOCK_TEST = 'BLOCK_TEST',
   EASY_UML = 'EASY_UML',
+  CPU_ANALYZER = 'CPU_ANALYZER',
+  SMART_HOME_DASHBOARD = 'SMART_HOME_DASHBOARD',
 }
 
 export interface LogHighlight {
@@ -53,6 +55,7 @@ export interface AppSettings {
   postGlobalVariables?: PostGlobalVariable[];
   lastEndpoint: string;
   lastMethod: string;
+  enabledPlugins?: string[];
   blocks?: CommandBlock[];
   pipelines?: Pipeline[];
 }

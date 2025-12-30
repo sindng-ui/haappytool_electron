@@ -81,3 +81,25 @@ export const EasyUMLPlugin: HappyPlugin = {
     component: EasyUML,
     order: 8,
 };
+
+const CpuAnalyzer = React.lazy(() => import('../../components/CpuAnalyzer/CpuAnalyzer'));
+const { Cpu } = Lucide;
+
+export const CpuAnalyzerPlugin: HappyPlugin = {
+    id: ToolId.CPU_ANALYZER,
+    name: 'CPU Analyzer',
+    icon: Cpu,
+    component: CpuAnalyzer,
+    order: 9,
+};
+
+const SmartHomeDashboard = React.lazy(() => import('../../components/SmartHomeDashboard/SmartHomeDashboard'));
+const { LayoutDashboard } = Lucide;
+
+export const SmartHomeDashboardPlugin: HappyPlugin = {
+    id: ToolId.SMART_HOME_DASHBOARD,
+    name: 'Smart Home',
+    icon: LayoutDashboard,
+    component: SmartHomeDashboard,
+    order: 10,
+};

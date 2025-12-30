@@ -1,0 +1,128 @@
+/* Smart Home Dashboard Styles */
+:root {
+    --sh-bg-color: #002f6c;
+    /* Deep Blue Background */
+    --sh-tile-bg: #1e88e5;
+    /* Bright Blue Tile */
+    --sh-tile-bg-off: #0d47a1;
+    /* Dark Blue Tile (Off state - approximation) */
+    --sh-tile-bg-offline: #1565c0;
+    /* Offline/Dimmed Tile */
+    --sh-text-primary: #ffffff;
+    --sh-text-secondary: #e0e0e0;
+}
+
+.sh-container {
+    background-color: #0b1539;
+    /* Dark blue background from screenshot */
+    color: var(--sh-text-primary);
+    font-family: 'Segoe UI', sans-serif;
+    /* Standard Windows font for clean look */
+    height: 100%;
+    overflow-y: auto;
+}
+
+/* Grid Layout */
+.sh-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    /* 4 columns based on screenshot */
+    gap: 16px;
+    padding: 0 0 20px 0;
+}
+
+/* Device Tile */
+.sh-tile {
+    background-color: #0a4da6;
+    /* Default Blue */
+    border-radius: 16px;
+    /* Rounded corners */
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 220px;
+    /* Fixed height for uniformity */
+    transition: transform 0.1s ease, background-color 0.2s;
+    cursor: pointer;
+    position: relative;
+    border: none;
+    text-align: left;
+}
+
+.sh-tile:hover {
+    transform: scale(1.02);
+}
+
+.sh-tile.active {
+    background-color: #ffffff;
+    /* White background for active selected item in screenshot */
+    color: #000000;
+}
+
+.sh-tile.active .sh-tile-sublabel {
+    color: #666;
+}
+
+.sh-tile.off {
+    background-color: #142b6f;
+    /* Darker blue for off/inactive */
+}
+
+.sh-tile.offline {
+    background-color: #142b6f;
+    opacity: 0.7;
+}
+
+/* Typography in Tile */
+.sh-tile-location {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.sh-tile-label {
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.sh-tile-status {
+    font-size: 13px;
+    margin-top: auto;
+    opacity: 0.8;
+}
+
+.sh-icon {
+    margin-bottom: 12px;
+}
+
+/* Status Bar */
+.sh-status-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 30px;
+}
+
+.sh-status-item {
+    background-color: #2e4a9e;
+    /* Lighter status pill bg */
+    border-radius: 20px;
+    /* Pill shape */
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+    /* Prevent overflow */
+}
+
+/* Header */
+.sh-header {
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
