@@ -25,12 +25,22 @@ export interface CpuDataPoint {
     processes: ProcessData[];
 }
 
+export interface MemoryDataPoint {
+    timestamp: number;
+    pss: number;
+    gemrss: number;
+    swap: number;
+    gpu: number;
+}
+
 export const useCpuData = (deviceId: string) => {
     const [status, setStatus] = useState<string>('disconnected');
     const [data, setData] = useState<CpuDataPoint[]>([]);
+    const [memoryData, setMemoryData] = useState<MemoryDataPoint[]>([]);
     const [processList, setProcessList] = useState<ProcessData[]>([]);
     const [threads, setThreads] = useState<ThreadData[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [memoryStatus, setMemoryStatus] = useState<string>('idle');
     const socketRef = useRef<Socket | null>(null);
 
     useEffect(() => {
@@ -59,7 +69,7 @@ export const useCpuData = (deviceId: string) => {
         });
 
         socket.on('cpu_data', (newData: CpuDataPoint) => {
-            console.log('Received cpu_data:', newData);
+            // console.log('Received cpu_data:', newData); // Too verbose
             setData(prev => {
                 const updated = [...prev, newData];
                 if (updated.length > 60) updated.shift(); // Keep last 60 seconds
@@ -68,6 +78,26 @@ export const useCpuData = (deviceId: string) => {
             setProcessList(newData.processes);
         });
 
+        // Memory Events
+        socket.on('memory_data', (newData: MemoryDataPoint) => {
+            console.log('Received memory_data:', newData);
+            setMemoryData(prev => {
+                const updated = [...prev, newData];
+                if (updated.length > 60) updated.shift();
+                return updated;
+            });
+        });
+
+        socket.on('memory_status', (msg) => {
+            console.log('Received memory_status:', msg);
+            setMemoryStatus(msg.message);
+        });
+
+        socket.on('memory_error', (msg) => {
+            setError(msg.message);
+        });
+
+
         socket.on('thread_data', (msg: { pid: string, threads: ThreadData[] }) => {
             console.log('Received thread_data:', msg);
             setThreads(msg.threads);
@@ -75,9 +105,6 @@ export const useCpuData = (deviceId: string) => {
 
         socket.on('call_stack_data', (msg: { pid: string, tid: string, stack: string }) => {
             console.log('Received stack for TID ' + msg.tid);
-            // Verify it matches expected request if needed, or just broadcast
-            // For simplicity, we might need a way to pass this back. 
-            // Ideally we use a callback or global state, but let's add it to the state.
             setThreads(prev => prev.map(t =>
                 t.tid === msg.tid ? { ...t, stack: msg.stack } : t
             ));
@@ -105,6 +132,19 @@ export const useCpuData = (deviceId: string) => {
         }
     };
 
+    const startMemoryMonitoring = (appName: string, interval: number) => {
+        if (socketRef.current) {
+            setMemoryData([]);
+            socketRef.current.emit('start_memory_monitoring', { deviceId, appName, interval });
+        }
+    };
+
+    const stopMemoryMonitoring = () => {
+        if (socketRef.current) {
+            socketRef.current.emit('stop_memory_monitoring');
+        }
+    };
+
     const startThreadMonitoring = (pid: string) => {
         if (socketRef.current) {
             setThreads([]); // Clear old threads
@@ -128,11 +168,15 @@ export const useCpuData = (deviceId: string) => {
     return {
         status,
         data,
+        memoryData,
+        memoryStatus,
         processList,
         threads,
         error,
         startMonitoring,
         stopMonitoring,
+        startMemoryMonitoring,
+        stopMemoryMonitoring,
         startThreadMonitoring,
         stopThreadMonitoring,
         getCallStack

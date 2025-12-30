@@ -978,6 +978,165 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- Memory Analyzer Handlers ---
+    let memoryMonitorProcess = null;
+    let memoryMonitorInterval = null;
+
+    socket.on('start_memory_monitoring', ({ deviceId, appName, interval }) => {
+        // Cleanup existing
+        if (memoryMonitorProcess) {
+            memoryMonitorProcess.kill();
+            memoryMonitorProcess = null;
+        }
+        if (memoryMonitorInterval) {
+            clearInterval(memoryMonitorInterval);
+            memoryMonitorInterval = null;
+        }
+
+        const pollInterval = parseInt(interval || '1', 10) * 1000;
+        const safeAppName = (appName || '').trim();
+
+        if (!safeAppName && deviceId !== 'mock') {
+            socket.emit('memory_error', { message: 'App Name is required' });
+            return;
+        }
+
+        if (deviceId === 'mock') {
+            console.log(`Starting Mock Memory Monitoring for ${safeAppName || 'mock-app'}`);
+            let tick = 0;
+            memoryMonitorInterval = setInterval(() => {
+                tick++;
+                // Simulate fluctuating memory usage
+                const baseMem = 50000 + Math.sin(tick * 0.1) * 10000; // 50MB base
+                const noise = Math.random() * 5000;
+
+                socket.emit('memory_data', {
+                    timestamp: Date.now(),
+                    pss: Math.floor(baseMem + noise),
+                    gemrss: Math.floor(baseMem * 1.2 + noise),
+                    swap: Math.floor(Math.random() * 1000),
+                    gpu: Math.floor(baseMem * 0.5 + noise)
+                });
+            }, Math.max(100, pollInterval)); // Min 100ms for mock
+
+            socket.emit('memory_status', { status: 'monitoring', message: `Mock Monitoring ${safeAppName || 'mock-app'}` });
+
+        } else {
+            console.log(`Starting Memory Monitoring on ${deviceId} for ${safeAppName}`);
+
+            // Step 1: Find PID
+            // Tizen 'ps' usually outputs: PID USER VSZ STAT COMMAND or similar.
+            // Using 'ps -ef' might be safer if available, or just 'ps'.
+            // simple grep approach
+            const grepCmd = `sdb -s ${deviceId} shell "ps -ef | grep ${safeAppName}"`;
+
+            exec(grepCmd, (error, stdout, stderr) => {
+                if (error) {
+                    // Try simpler 'ps' if -ef fails?
+                    console.log('ps -ef failed, trying simple ps');
+                    // fallback logic could go here, but let's report error first
+                    socket.emit('memory_error', { message: `Failed to find PID: ${error.message}` });
+                    return;
+                }
+
+                const lines = stdout.toString().split('\n');
+                let targetPid = null;
+
+                // logic to find exact PID (simplified: take first match that isn't grep itself)
+                for (const line of lines) {
+                    if (line.includes(safeAppName) && !line.includes('grep')) {
+                        const parts = line.trim().split(/\s+/);
+                        // Busybox ps: PID USER ...
+                        // Tizen ps: UID PID ...
+                        // Heuristic: 2nd col usually PID if 1st is User/UID
+                        if (parts.length > 1) {
+                            // If 2nd part is numeric, assume it is PID
+                            if (!isNaN(parseInt(parts[1]))) {
+                                targetPid = parts[1];
+                            } else if (!isNaN(parseInt(parts[0]))) {
+                                targetPid = parts[0];
+                            }
+                            if (targetPid) break;
+                        }
+                    }
+                }
+
+                if (!targetPid) {
+                    socket.emit('memory_error', { message: `PID not found for ${safeAppName}` });
+                    return;
+                }
+
+                console.log(`Found PID ${targetPid} for ${safeAppName}. Starting vd_memps...`);
+
+                // Step 2: Start vd_memps
+                // Command: sdb -s [id] shell vd_memps -p [PID] -t [interval]
+                const cmdArgs = ['-s', deviceId, 'shell', 'vd_memps', '-p', targetPid, '-t', interval || '1'];
+
+                try {
+                    memoryMonitorProcess = spawn('sdb', cmdArgs);
+
+                    memoryMonitorProcess.stdout.on('data', (data) => {
+                        const text = data.toString();
+                        // Parse output
+                        // The user said: "PSS, GEMRSS, GPU, SWAP 4가지 단어가 들어가는 line에서"
+                        // We will regex for these values.
+
+                        // Helper to extract value
+                        const parseValue = (key) => {
+                            // Regex to find "Key: Value" or "Key Value" or "Key=Value"
+                            // Assume integer values
+                            const regex = new RegExp(`${key}[^0-9]*([0-9]+)`, 'i');
+                            const match = text.match(regex);
+                            return match ? parseInt(match[1]) : 0;
+                        };
+
+                        // Check if line looks valid
+                        if (text.includes('PSS') || text.includes('GEMRSS')) {
+                            const pss = parseValue('PSS');
+                            const gemrss = parseValue('GEMRSS');
+                            const swap = parseValue('SWAP');
+                            const gpu = parseValue('GPU');
+
+                            socket.emit('memory_data', {
+                                timestamp: Date.now(),
+                                pss,
+                                gemrss,
+                                swap,
+                                gpu
+                            });
+                        }
+                    });
+
+                    memoryMonitorProcess.stderr.on('data', (data) => {
+                        console.log(`vd_memps stderr: ${data}`);
+                    });
+
+                    memoryMonitorProcess.on('close', () => {
+                        socket.emit('memory_status', { status: 'stopped', message: 'Memory Monitoring Stopped' });
+                        memoryMonitorProcess = null;
+                    });
+
+                    socket.emit('memory_status', { status: 'monitoring', message: `Monitoring ${safeAppName} (PID:${targetPid})` });
+
+                } catch (e) {
+                    socket.emit('memory_error', { message: `Failed to spawn vd_memps: ${e.message}` });
+                }
+            });
+        }
+    });
+
+    socket.on('stop_memory_monitoring', () => {
+        if (memoryMonitorProcess) {
+            memoryMonitorProcess.kill();
+            memoryMonitorProcess = null;
+        }
+        if (memoryMonitorInterval) {
+            clearInterval(memoryMonitorInterval);
+            memoryMonitorInterval = null;
+        }
+        socket.emit('memory_status', { status: 'stopped', message: 'Stopped' });
+    });
+
 });
 
 // SPA Fallback for non-API routes
