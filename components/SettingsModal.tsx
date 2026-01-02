@@ -240,8 +240,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                 </div>
                                 <div className="p-8 bg-white dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-white/5 text-sm leading-relaxed max-w-sm mx-auto shadow-xl backdrop-blur-sm">
                                     <p className="text-slate-600 dark:text-slate-300 font-medium">
-                                        The ultimate log analysis tool for Tizen developers.
-                                        Designed for speed and clarity.
+                                        The ultimate integrated development tool.
+                                        Designed for speed, clarity, and productivity.
                                     </p>
                                     <div className="mt-6 pt-6 border-t border-slate-200 dark:border-white/5 text-xs text-slate-400 dark:text-slate-500">
                                         © 2025 Samsung Electronics Co., Ltd. <br />All rights reserved.
