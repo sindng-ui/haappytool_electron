@@ -305,7 +305,7 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
                 addLog(`Error: ${errorMsg}`);
                 // Basic diagnostic
                 try {
-                    await fetch('http://127.0.0.1:3002', { mode: 'no-cors' });
+                    await fetch('http://127.0.0.1:3003', { mode: 'no-cors' });
                     addLog(`Diagnostic: Local Server reachable.`);
                 } catch {
                     addLog(`Diagnostic: Local Server unreachable.`);

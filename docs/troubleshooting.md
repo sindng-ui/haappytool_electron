@@ -11,11 +11,11 @@
 
 #### 1. Port Configuration (Zombie Process Avoidance)
 Port `3001` is often occupied by zombie processes or previous instances of the log server, causing confusing connection failures or CORS blocks.
-**Fix**: Change the default port to **3002** (or another free port).
+**Fix**: Change the default port to **3003** (or another free port).
 
-- **Backend**: `server/index.js` -> `const PORT = 3002;` and `cors: { origin: "*" }`.
-- **Frontend**: `components/TizenConnectionModal.tsx` -> `io('http://localhost:3002')`.
-- **Electron**: `electron/main.js` -> `mainWindow.loadURL('http://localhost:3002')` (for production/server mode).
+- **Backend**: `server/index.js` -> `const PORT = 3003;` and `cors: { origin: "*" }`.
+- **Frontend**: `components/TizenConnectionModal.tsx` -> `io('http://localhost:3003')`.
+- **Electron**: `electron/main.js` -> `mainWindow.loadURL('http://localhost:3003')` (for production/server mode).
 
 #### 2. Log Visibility (Filter Bypass)
 Simulated logs (e.g., `[TEST_LOG_...]`) might be filtered out if strict "Include/Exclude" rules are active in the `LogProcessor`.

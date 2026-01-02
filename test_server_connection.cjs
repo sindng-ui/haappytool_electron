@@ -1,8 +1,8 @@
 const { io } = require('socket.io-client');
 
-const socket = io('http://localhost:3002');
+const socket = io('http://localhost:3003');
 
-console.log('Attempting to connect to http://localhost:3002...');
+console.log('Attempting to connect to http://localhost:3003...');
 
 socket.on('connect', () => {
     console.log('✅ Connected to server with ID:', socket.id);

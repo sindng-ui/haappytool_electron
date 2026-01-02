@@ -47,7 +47,7 @@ export const useBlockTest = () => {
     const fullLogsRef = useRef<string[]>([]);
 
     useEffect(() => {
-        socketRef.current = io('http://localhost:3002');
+        socketRef.current = io('http://localhost:3003');
 
         const socket = socketRef.current;
 
