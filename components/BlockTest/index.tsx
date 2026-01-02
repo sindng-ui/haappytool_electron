@@ -143,8 +143,19 @@ const BlockTest: React.FC = () => {
                                 <button
                                     onClick={() => {
                                         if (selectedPipelineId) {
+                                            const currentIndex = pipelines.findIndex(p => p.id === selectedPipelineId);
+                                            let nextId: string | null = null;
+
+                                            if (pipelines.length > 1) {
+                                                if (currentIndex < pipelines.length - 1) {
+                                                    nextId = pipelines[currentIndex + 1].id;
+                                                } else {
+                                                    nextId = pipelines[currentIndex - 1].id;
+                                                }
+                                            }
+
                                             deletePipeline(selectedPipelineId);
-                                            setSelectedPipelineId(null);
+                                            setSelectedPipelineId(nextId);
                                         }
                                     }}
                                     className={`p-1.5 rounded transition-colors ${THEME.subHeader.deleteBtn}`}
