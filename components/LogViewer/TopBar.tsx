@@ -4,7 +4,7 @@ import { useLogContext } from './LogContext';
 import { useToast } from '../../contexts/ToastContext';
 
 
-const { Plus, Trash2, Save, Upload, FileDown, Maximize, Columns, Sparkles } = Lucide;
+const { Plus, Trash2, Maximize, Columns, Sparkles } = Lucide;
 
 const TopBar: React.FC = () => {
     const { addToast } = useToast();
@@ -83,7 +83,7 @@ const TopBar: React.FC = () => {
             <div className="flex items-center gap-6 no-drag">
                 <div className="flex items-center space-x-4">
                     <div className="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20"><Sparkles size={18} className="text-indigo-400" /></div>
-                    <select className="border-none bg-transparent font-bold text-slate-200 text-lg focus:outline-none cursor-pointer hover:text-indigo-400 transition-colors [&>option]:bg-slate-900" value={selectedRuleId || ''} onChange={(e) => onSelectRule(e.target.value)}>
+                    <select className="border-none bg-transparent font-bold text-slate-200 text-lg focus:outline-none cursor-pointer hover:text-indigo-400 transition-colors [&>option]:bg-slate-900 w-64 truncate" value={selectedRuleId || ''} onChange={(e) => onSelectRule(e.target.value)}>
                         {rules.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </select>
                 </div>
@@ -93,9 +93,6 @@ const TopBar: React.FC = () => {
                     {selectedRuleId && (
                         <>
                             <button onClick={onDeleteRule} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-colors"><Trash2 size={18} /></button>
-                            <div className="w-px h-4 bg-slate-700 mx-1"></div>
-                            <button onClick={onExportSettings} className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-full transition-colors" title="Export Settings"><Save size={18} /></button>
-                            <button onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-full transition-colors" title="Import Settings"><Upload size={18} /></button>
                         </>
                     )}
                 </div>
