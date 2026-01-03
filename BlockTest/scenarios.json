@@ -1,0 +1,23 @@
+[
+  {
+    "id": "scenario_1767444505189",
+    "name": "test scenario 1",
+    "steps": [
+      {
+        "id": "step_1767444566196_skd3m",
+        "pipelineId": "pipeline_1767413304934",
+        "enabled": true
+      },
+      {
+        "id": "step_1767444568071_fzopw",
+        "pipelineId": "pipeline_1767442221832",
+        "enabled": true
+      }
+    ]
+  },
+  {
+    "id": "scenario_1767445601686",
+    "name": "scenario 2",
+    "steps": []
+  }
+]

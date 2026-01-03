@@ -12,7 +12,7 @@ export interface CommandBlock {
 
 export interface PipelineItem {
     id: string;
-    type: 'block' | 'loop';
+    type: 'block' | 'loop' | 'conditional';
     blockId?: string; // If type is block
     sleepDuration?: number; // If block is Sleep type
     // Image Match Specific
@@ -27,6 +27,14 @@ export interface PipelineItem {
 
     loopCount?: number; // If type is loop
     children?: PipelineItem[]; // If type is loop
+
+    // Condition properties
+    condition?: {
+        type: 'last_step_success' | 'variable_match';
+        variableName?: string;
+        variableValue?: string;
+    };
+    elseChildren?: PipelineItem[]; // For 'false' branch of condition
     hint?: string; // User annotation
 }
 
@@ -53,4 +61,17 @@ export interface ExecutionStats {
         totalIterations?: number; // For loops
         resolvedLabel?: string; // e.g. "log_2024-01-01.txt"
     }
+}
+
+export interface ScenarioStep {
+    id: string;
+    pipelineId: string;
+    enabled: boolean;
+}
+
+export interface Scenario {
+    id: string;
+    name: string;
+    description?: string;
+    steps: ScenarioStep[];
 }

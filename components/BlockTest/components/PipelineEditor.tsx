@@ -112,6 +112,7 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                     items.forEach(item => {
                         allIds.add(item.id);
                         if (item.children) collectIds(item.children); // Recurse
+                        if (item.elseChildren) collectIds(item.elseChildren); // Recurse Else
                     });
                 };
                 collectIds(currentPipeline.items);
@@ -139,10 +140,11 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                         return items
                             .filter(item => !selectedIds.has(item.id))
                             .map(item => {
-                                if (item.children) {
+                                if (item.children || item.elseChildren) {
                                     return {
                                         ...item,
-                                        children: deleteFromList(item.children)
+                                        children: item.children ? deleteFromList(item.children) : undefined,
+                                        elseChildren: item.elseChildren ? deleteFromList(item.elseChildren) : undefined
                                     };
                                 }
                                 return item;
@@ -231,6 +233,7 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                 for (const item of list) {
                     ids.add(item.id);
                     if (item.children) traverse(item.children);
+                    if (item.elseChildren) traverse(item.elseChildren);
                 }
             };
             traverse(items);
@@ -284,14 +287,22 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
 
             let grouped = false;
             const nextItems = items.map(item => {
-                if (item.type === 'loop' && item.children) {
+                let newItem = { ...item };
+                if (item.children) {
                     const res = groupInList(item.children);
                     if (res.success) {
                         grouped = true;
-                        return { ...item, children: res.items };
+                        newItem.children = res.items;
                     }
                 }
-                return item;
+                if (item.elseChildren) {
+                    const res = groupInList(item.elseChildren);
+                    if (res.success) {
+                        grouped = true;
+                        newItem.elseChildren = res.items;
+                    }
+                }
+                return newItem;
             });
 
             return { items: nextItems, success: grouped };
@@ -326,7 +337,11 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                     for (let i = 0; i < items.length; i++) {
                         if (items[i].id === itemId) return { item: items[i], containerId, index: i, list: items };
                         if (items[i].children) {
-                            const found = findItemInfo(items[i].children!, items[i].id);
+                            const found = findItemInfo(items[i].children!, items[i].id); // children container ID is parent ID
+                            if (found) return found;
+                        }
+                        if (items[i].elseChildren) {
+                            const found = findItemInfo(items[i].elseChildren!, items[i].id + '_else'); // else container ID
                             if (found) return found;
                         }
                     }
@@ -354,6 +369,7 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                         return items.filter(item => {
                             if (item.id === itemId) return false;
                             if (item.children) item.children = removeFromTree(item.children);
+                            if (item.elseChildren) item.elseChildren = removeFromTree(item.elseChildren);
                             return true;
                         });
                     };
@@ -367,12 +383,22 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                             return true;
                         }
                         for (const item of items) {
+                            // Recursive Check
+                            if (item.children) {
+                                if (insertIntoTree(item.children, cId)) return true;
+                            }
+                            if (item.elseChildren) {
+                                if (insertIntoTree(item.elseChildren, cId)) return true;
+                            }
+
+                            // Check if THIS item is the container
                             if (item.id === cId && item.children) {
                                 item.children.splice(targetIndex, 0, itemToMove);
                                 return true;
                             }
-                            if (item.children) {
-                                if (insertIntoTree(item.children, cId)) return true;
+                            if ((item.id + '_else') === cId && item.elseChildren) {
+                                item.elseChildren.splice(targetIndex, 0, itemToMove);
+                                return true;
                             }
                         }
                         return false;
@@ -392,15 +418,25 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
 
             let newItem: PipelineItem | null = null;
             if (payload.type === 'add_block') {
-                const blockDef = blocks.find(b => b.id === payload.blockId);
-                newItem = {
-                    id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    type: 'block',
-                    blockId: payload.blockId,
-                    logCommand: blockDef?.logCommand,
-                    logFileName: blockDef?.logFileName,
-                    stopCommand: blockDef?.stopCommand
-                };
+                if (payload.blockId === 'special_condition') {
+                    newItem = {
+                        id: `cond_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        type: 'conditional',
+                        condition: { type: 'last_step_success' },
+                        children: [],
+                        elseChildren: []
+                    };
+                } else {
+                    const blockDef = blocks.find(b => b.id === payload.blockId);
+                    newItem = {
+                        id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        type: 'block',
+                        blockId: payload.blockId,
+                        logCommand: blockDef?.logCommand,
+                        logFileName: blockDef?.logFileName,
+                        stopCommand: blockDef?.stopCommand
+                    };
+                }
             }
 
             if (newItem) {
@@ -614,7 +650,7 @@ const GraphFlow: React.FC<{
                                     onUploadTemplate={onUploadTemplate}
                                 />
                             </div>
-                        ) : (
+                        ) : item.type === 'loop' ? (
                             <div
                                 onMouseDown={(e) => {
                                     e.stopPropagation();
@@ -628,6 +664,36 @@ const GraphFlow: React.FC<{
                                 }}
                             >
                                 <LoopNode
+                                    item={item}
+                                    blocks={blocks}
+                                    onChange={(newItem) => {
+                                        const next = [...items];
+                                        next[index] = newItem;
+                                        onChange(next);
+                                    }}
+                                    onDrop={onDrop}
+                                    selectedIds={selectedIds}
+                                    onSelect={onSelect}
+                                    selected={selectedIds.has(item.id)}
+                                    editingHintId={editingHintId}
+                                    onEditHint={onEditHint}
+                                    onUploadTemplate={onUploadTemplate}
+                                />
+                            </div>
+                        ) : (
+                            <div
+                                onMouseDown={(e) => {
+                                    e.stopPropagation();
+                                    onSelect(item.id, e.ctrlKey || e.metaKey, e.shiftKey, items);
+                                }}
+                                draggable
+                                onDragStart={(e) => {
+                                    e.stopPropagation();
+                                    e.dataTransfer.setData('application/json', JSON.stringify({ type: 'move_item', itemId: item.id }));
+                                    e.dataTransfer.effectAllowed = 'move';
+                                }}
+                            >
+                                <ConditionalNode
                                     item={item}
                                     blocks={blocks}
                                     onChange={(newItem) => {
@@ -1035,6 +1101,174 @@ const LoopNode: React.FC<{
                         <span className="text-xs font-bold uppercase tracking-widest">Drop Nodes</span>
                     </div>
                 )}
+            </div>
+        </div>
+    );
+};
+
+const ConditionalNode: React.FC<{
+    item: PipelineItem;
+    blocks: CommandBlock[];
+    onChange: (item: PipelineItem) => void;
+    onDrop: (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void, targetContainerId?: string) => void;
+    selectedIds: Set<string>;
+    onSelect: (id: string, multi: boolean, range: boolean, siblings: PipelineItem[]) => void;
+    selected?: boolean;
+    editingHintId: string | null;
+    onEditHint: (id: string | null) => void;
+    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string }>;
+}> = ({ item, blocks, onChange, onDrop, selectedIds, onSelect, selected, editingHintId, onEditHint, onUploadTemplate }) => {
+    // Drop Handler for "Then" branch (children)
+    const handleThenDrop = (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void, targetContainerId?: string) => {
+        if (parentItems && updateParent) {
+            onDrop(e, index, parentItems, updateParent, targetContainerId);
+        } else {
+            onDrop(e, index, item.children || [], (newChildren) => {
+                onChange({ ...item, children: newChildren });
+            }, item.id);
+        }
+    };
+
+    // Drop Handler for "Else" branch (elseChildren)
+    const handleElseDrop = (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void, targetContainerId?: string) => {
+        if (parentItems && updateParent) {
+            onDrop(e, index, parentItems, updateParent, targetContainerId);
+        } else {
+            onDrop(e, index, item.elseChildren || [], (newChildren) => {
+                onChange({ ...item, elseChildren: newChildren });
+            }, item.id + '_else');
+        }
+    };
+
+    const handleThenContainerDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleThenDrop(e, (item.children || []).length);
+    };
+
+    const handleElseContainerDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleElseDrop(e, (item.elseChildren || []).length);
+    };
+
+    return (
+        <div
+            className={`
+                min-w-[300px] rounded-2xl border-2 backdrop-blur-sm relative flex flex-col cursor-default transition-all
+                ${selected ? 'border-sky-400 bg-sky-900/30' : 'border-sky-500/30 bg-sky-900/20'}
+            `}
+            onDoubleClick={(e) => {
+                e.stopPropagation();
+                onEditHint(item.id);
+            }}
+        // Need prevent default on container to handle nested drops? No, specific containers handle it.
+        >
+            {/* Hint */}
+            {(item.hint || editingHintId === item.id) && (
+                <div className="absolute -top-4 left-4 z-50">
+                    {editingHintId === item.id ? (
+                        <input
+                            autoFocus
+                            className="bg-yellow-100 text-yellow-900 text-sm px-3 py-1 rounded shadow-lg outline-none border border-yellow-300 min-w-[120px]"
+                            defaultValue={item.hint || ''}
+                            onBlur={(e) => {
+                                onChange({ ...item, hint: e.target.value });
+                                onEditHint(null);
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.currentTarget.blur();
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    ) : (
+                        <div className="bg-yellow-100/90 text-yellow-900/90 text-xs font-bold px-3 py-1 rounded shadow border border-yellow-200/50 max-w-[180px] truncate">
+                            {item.hint}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Header / Condition Logic */}
+            <div className="w-full bg-sky-900/40 border-b border-sky-500/20 px-4 py-3 flex items-center justify-between rounded-t-xl gap-4">
+                <div className="flex items-center gap-2">
+                    <Lucide.Split size={18} className="text-sky-400" />
+                    <span className="font-bold text-sky-200">CONDITION</span>
+                </div>
+                <div className="flex-1 flex gap-2 justify-end">
+                    <select
+                        className="bg-black/40 text-sky-200 text-xs rounded border border-sky-500/30 px-2 py-1 outline-none"
+                        value={item.condition?.type || 'last_step_success'}
+                        onChange={(e) => onChange({ ...item, condition: { ...item.condition, type: e.target.value as any } })}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <option value="last_step_success">Last Step Success</option>
+                        {/* Future: <option value="variable_match">Variable Match</option> */}
+                    </select>
+                </div>
+            </div>
+
+            {/* Branches: Side by Side */}
+            <div className="flex divide-x divide-sky-500/20">
+                {/* THEN Branch */}
+                <div
+                    className="flex-1 px-2 py-4 flex flex-col items-center relative min-h-[100px]"
+                    onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={handleThenContainerDrop}
+                >
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-green-500/20 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded border border-green-500/30">THEN</div>
+
+                    {(item.children || []).length > 0 ? (
+                        <GraphFlow
+                            items={item.children || []}
+                            blocks={blocks}
+                            onChange={(newChildren) => onChange({ ...item, children: newChildren })}
+                            onDrop={handleThenDrop}
+                            selectedIds={selectedIds}
+                            onSelect={onSelect}
+                            editingHintId={editingHintId}
+                            onEditHint={onEditHint}
+                            direction="col"
+                            isNested={true}
+                            containerId={item.id}
+                            onUploadTemplate={onUploadTemplate}
+                        />
+                    ) : (
+                        <div className="w-full flex-1 min-h-[60px] rounded-lg border-2 border-dashed border-green-500/30 bg-green-500/5 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="text-[10px] text-green-500/50 font-bold">Drop here</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* ELSE Branch */}
+                <div
+                    className="flex-1 px-2 py-4 flex flex-col items-center relative min-h-[100px]"
+                    onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={handleElseContainerDrop}
+                >
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded border border-red-500/30">ELSE</div>
+
+                    {(item.elseChildren || []).length > 0 ? (
+                        <GraphFlow
+                            items={item.elseChildren || []}
+                            blocks={blocks}
+                            onChange={(newChildren) => onChange({ ...item, elseChildren: newChildren })}
+                            onDrop={handleElseDrop}
+                            selectedIds={selectedIds}
+                            onSelect={onSelect}
+                            editingHintId={editingHintId}
+                            onEditHint={onEditHint}
+                            direction="col"
+                            isNested={true}
+                            containerId={item.id + '_else'}
+                            onUploadTemplate={onUploadTemplate}
+                        />
+                    ) : (
+                        <div className="w-full flex-1 min-h-[60px] rounded-lg border-2 border-dashed border-red-500/30 bg-red-500/5 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="text-[10px] text-red-500/50 font-bold">Drop here</span>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

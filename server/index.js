@@ -32,6 +32,8 @@ app.use(cors());
 app.use(express.static(path.join(__dirname, '../dist')));
 // Serve uploaded templates
 app.use('/templates', express.static(path.join(__dirname, '../public/templates')));
+// Serve BlockTest files (reports, etc.)
+app.use('/blocktest', express.static(path.join(process.cwd(), 'BlockTest')));
 
 // --- TEST ROUTES ---
 app.get('/test-rpm', (req, res) => {
@@ -601,10 +603,15 @@ io.on('connection', (socket) => {
         });
     });
 
+
+
     // 2. File Persistence (BlockTest Folder)
     const BLOCK_TEST_DIR = path.join(process.cwd(), 'BlockTest');
+    console.log("SERVER_STARTUP: process.cwd() =", process.cwd());
+    console.log("SERVER_STARTUP: BLOCK_TEST_DIR =", BLOCK_TEST_DIR);
 
-    // Ensure dir exists
+
+    // Ensure BlockTest dir exists on startup
     if (!fs.existsSync(BLOCK_TEST_DIR)) {
         try {
             fs.mkdirSync(BLOCK_TEST_DIR, { recursive: true });
@@ -613,26 +620,65 @@ io.on('connection', (socket) => {
         }
     }
 
+    // Consolidated File Handlers
     socket.on('save_file', ({ filename, content }) => {
+        if (!filename || !content) {
+            socket.emit('save_file_result', { filename, success: false, error: 'Missing filename or content' });
+            return;
+        }
+
         try {
-            if (!fs.existsSync(BLOCK_TEST_DIR)) {
-                fs.mkdirSync(BLOCK_TEST_DIR, { recursive: true });
+            // Force save within BLOCK_TEST_DIR for simplicity and safety
+            // but allow subdirectories like 'reports/'
+            const safePath = path.join(BLOCK_TEST_DIR, filename);
+
+            // Security check to prevent .. traversal out of BlockTest (basic)
+            if (!safePath.startsWith(BLOCK_TEST_DIR)) {
+                socket.emit('save_file_result', { filename, success: false, error: 'Invalid path' });
+                return;
             }
-            const filePath = path.join(BLOCK_TEST_DIR, filename);
-            fs.writeFileSync(filePath, content, 'utf-8');
-            socket.emit('save_file_result', { filename, success: true });
+
+            console.log(`[FILE] Saving ${filename} to ${safePath}`);
+            console.log(`[FILE] CWD: ${process.cwd()}`);
+            console.log(`[FILE] BLOCK_TEST_DIR: ${BLOCK_TEST_DIR}`);
+
+            // Ensure directory exists
+            const dir = path.dirname(safePath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+
+            fs.writeFile(safePath, content, (err) => {
+                if (err) {
+                    console.error(`[FILE] Save Error: ${err.message}`);
+                    socket.emit('save_file_result', { filename, success: false, error: err.message });
+                } else {
+                    console.log(`[FILE] Saved successfully.`);
+                    socket.emit('save_file_result', { filename, success: true });
+                }
+            });
         } catch (e) {
+            console.error(`[FILE] Save Exception: ${e.message}`);
             socket.emit('save_file_result', { filename, success: false, error: e.message });
         }
     });
 
     socket.on('load_file', ({ filename }) => {
+        if (!filename) return;
         try {
-            const filePath = path.join(BLOCK_TEST_DIR, filename);
-            if (fs.existsSync(filePath)) {
-                const content = fs.readFileSync(filePath, 'utf-8');
-                socket.emit('load_file_result', { filename, success: true, content });
+            const safePath = path.join(BLOCK_TEST_DIR, filename);
+            console.log(`[FILE] Loading ${filename} from ${safePath}`);
+
+            if (fs.existsSync(safePath)) {
+                fs.readFile(safePath, 'utf8', (err, data) => {
+                    if (err) {
+                        socket.emit('load_file_result', { filename, success: false, error: err.message });
+                    } else {
+                        socket.emit('load_file_result', { filename, success: true, content: data });
+                    }
+                });
             } else {
+                // File not found is common for new installs, just return success:false
                 socket.emit('load_file_result', { filename, success: false, error: 'File not found' });
             }
         } catch (e) {

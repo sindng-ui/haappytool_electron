@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-import { CommandBlock, Pipeline, TestResult, PipelineItem, ExecutionStats } from '../types';
+import { CommandBlock, Pipeline, TestResult, PipelineItem, ExecutionStats, Scenario } from '../types';
 import { PREDEFINED_BLOCKS, SPECIAL_BLOCKS, SPECIAL_BLOCK_IDS } from '../constants';
+import { generateHtmlReport } from '../../../utils/reportGenerator';
 import { io, Socket } from 'socket.io-client';
 
 // We need a way to access the socket. usually passed via context or imported.
@@ -35,17 +36,47 @@ export const useBlockTest = () => {
         }
         return [];
     });
+
+    const [scenarios, setScenarios] = useState<Scenario[]>(() => {
+        try {
+            const saved = localStorage.getItem('happytool_scenarios');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error("Failed to load scenarios from localStorage", e);
+        }
+        return [];
+    });
     const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
     const [isRunning, setIsRunning] = useState(false);
     const [executionLogs, setExecutionLogs] = useState<string[]>([]);
     const [currentBlockId, setCurrentBlockId] = useState<string | null>(null);
     const [activePipelineItemId, setActivePipelineItemId] = useState<string | null>(null);
-    const [executionStats, setExecutionStats] = useState<ExecutionStats>({});
+    const [executionStats, setExecutionStatsState] = useState<ExecutionStats>({});
+    // Ref for synchronous access during async execution
+    const executionStatsRef = useRef<ExecutionStats>({});
+
+    const setExecutionStats = (update: React.SetStateAction<ExecutionStats>) => {
+        setExecutionStatsState(prev => {
+            const next = typeof update === 'function' ? update(prev) : update;
+            executionStatsRef.current = next;
+            return next;
+        });
+    };
+
+    // Scenario Execution State
+    const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
+    const [scenarioStats, setScenarioStats] = useState<Record<string, { status: 'pending' | 'running' | 'success' | 'failed', error?: string }>>({});
+
+    // Report State
+    const [lastReportUrl, setLastReportUrl] = useState<string | null>(null);
 
     // Socket ref
     const socketRef = useRef<Socket | null>(null);
     const fullLogsRef = useRef<string[]>([]);
     const activeLogIds = useRef<Set<string>>(new Set());
+    const lastItemSuccessRef = useRef<boolean>(true);
 
     useEffect(() => {
         socketRef.current = io('http://localhost:3003');
@@ -57,6 +88,7 @@ export const useBlockTest = () => {
             // Load initial data
             socket.emit('load_file', { filename: 'blocks.json' });
             socket.emit('load_file', { filename: 'pipelines.json' });
+            socket.emit('load_file', { filename: 'scenarios.json' });
         });
 
         socket.on('load_file_result', ({ filename, success, content, error }: any) => {
@@ -79,6 +111,8 @@ export const useBlockTest = () => {
                     setBlocks([...mergedPredefined, ...mergedSpecial, ...custom]);
                 } else if (filename === 'pipelines.json') {
                     setPipelines(JSON.parse(content));
+                } else if (filename === 'scenarios.json') {
+                    setScenarios(JSON.parse(content));
                 }
             } catch (e) {
                 console.error(`Error parsing ${filename}`, e);
@@ -115,6 +149,16 @@ export const useBlockTest = () => {
                     console.error("Failed to import pipelines", e);
                 }
             }
+            const s = localStorage.getItem('happytool_scenarios');
+            if (s) {
+                try {
+                    const parsed = JSON.parse(s);
+                    setScenarios(parsed);
+                    socketRef.current?.emit('save_file', { filename: 'scenarios.json', content: s });
+                } catch (e) {
+                    console.error("Failed to import scenarios", e);
+                }
+            }
         };
         window.addEventListener('happytool:settings-imported', handleImport);
         return () => window.removeEventListener('happytool:settings-imported', handleImport);
@@ -140,6 +184,17 @@ export const useBlockTest = () => {
             socketRef.current.emit('save_file', {
                 filename: 'pipelines.json',
                 content: JSON.stringify(validPipelines, null, 2)
+            });
+        }
+    }, []);
+
+    const saveScenarios = useCallback((newScenarios: Scenario[]) => {
+        setScenarios(newScenarios);
+        localStorage.setItem('happytool_scenarios', JSON.stringify(newScenarios));
+        if (socketRef.current) {
+            socketRef.current.emit('save_file', {
+                filename: 'scenarios.json',
+                content: JSON.stringify(newScenarios, null, 2)
             });
         }
     }, []);
@@ -173,6 +228,19 @@ export const useBlockTest = () => {
 
     const deletePipeline = (id: string) => {
         savePipelines(pipelines.filter(p => p.id !== id));
+    };
+
+    const addScenario = (scenario: Scenario) => {
+        saveScenarios([...scenarios, scenario]);
+    };
+
+    const updateScenario = (scenario: Scenario) => {
+        if (!scenario || !scenario.id) return;
+        saveScenarios(scenarios.map(s => s.id === scenario.id ? scenario : s));
+    };
+
+    const deleteScenario = (id: string) => {
+        saveScenarios(scenarios.filter(s => s.id !== id));
     };
 
     const [completedStepCount, setCompletedStepCount] = useState(0);
@@ -272,6 +340,28 @@ export const useBlockTest = () => {
             .replace(/\$\(time_start\)/g, context.timeStart);
     };
 
+    const saveReport = (pipelineName: string, stats: any, logs: string[], startTimeStr?: string, isFailure: boolean = false) => {
+        const reportHtml = generateHtmlReport(pipelineName, stats, logs);
+        const timestamp = startTimeStr || new Date().toISOString().replace(/[:.]/g, '-');
+        const safeName = pipelineName.replace(/[^a-z0-9]/gi, '_');
+        let reportFilename = `report_${safeName}_${timestamp}.html`;
+
+        if (isFailure) {
+            reportFilename = `report_FAIL_${safeName}_${timestamp}.html`;
+        }
+
+        const fullPath = `reports/${reportFilename}`;
+
+        if (socketRef.current) {
+            socketRef.current.emit('save_file', {
+                filename: fullPath,
+                content: reportHtml
+            });
+            // Update UI
+            setLastReportUrl(`http://localhost:3003/blocktest/${fullPath}`);
+        }
+    };
+
     const executePipeline = async (pipeline: Pipeline) => {
         if (isRunning) return;
         setIsRunning(true);
@@ -280,7 +370,9 @@ export const useBlockTest = () => {
         setExecutionLogs([]);
         fullLogsRef.current = []; // Clear full logs
         setExecutionStats({});
+        executionStatsRef.current = {}; // Ensure ref is cleared
         setCompletedStepCount(0);
+        lastItemSuccessRef.current = true;
 
         abortController.current = new AbortController();
 
@@ -310,17 +402,120 @@ export const useBlockTest = () => {
 
             await executeItems(pipeline.items, log, { timeStart: startTimeStr });
             log("Pipeline Completed Successfully");
+
+            // Generate Report
+            saveReport(pipeline.name, executionStatsRef.current, fullLogsRef.current, startTimeStr);
+
+
         } catch (e: any) {
             if (e.message === 'Pipeline Stopped') {
                 log("!! Pipeline Stopped by User !!");
             } else {
                 log(`Pipeline Failed: ${e.message}`);
             }
+            // Generate Report even on failure
+            saveReport(pipeline.name, executionStatsRef.current, fullLogsRef.current, undefined, true);
+
+
         } finally {
             setIsRunning(false);
             setCurrentBlockId(null);
             setActivePipelineItemId(null); // Clear active item so graph doesn't jump to it
             // activePipelineId remains set so view stays open
+        }
+    };
+
+    const executeScenario = async (scenario: Scenario) => {
+        if (isRunning) return;
+        setIsRunning(true);
+        setIsRunnerOpen(true);
+        setActiveScenarioId(scenario.id);
+        setActivePipelineId(null); // Will set per step
+        setExecutionLogs([]);
+        fullLogsRef.current = [];
+        setExecutionStats({}); // Clear detailed stats
+        executionStatsRef.current = {};
+        setCompletedStepCount(0); // Also need to clear this if used anywhere logically
+
+        // Initialize Scenario Stats
+        const initialStats: Record<string, { status: 'pending' | 'running' | 'success' | 'failed', error?: string }> = {};
+        scenario.steps.forEach(s => initialStats[s.id] = { status: 'pending' });
+        setScenarioStats(initialStats);
+
+        abortController.current = new AbortController();
+
+        const log = (msg: string) => {
+            fullLogsRef.current.push(msg);
+            setExecutionLogs(prev => {
+                const next = [...prev, msg];
+                if (next.length > 5000) return next.slice(next.length - 5000);
+                return next;
+            });
+        };
+
+        log(`Starting Scenario: ${scenario.name}`);
+        const startTimeStr = new Date().toISOString().split('T')[0]; // Simple date for now or use formatted
+
+        try {
+            for (const step of scenario.steps) {
+                if (!step.enabled) continue;
+                if (abortController.current?.signal.aborted) break;
+
+                const pipeline = pipelines.find(p => p.id === step.pipelineId);
+                if (!pipeline) {
+                    log(`Error: Pipeline ${step.pipelineId} not found`);
+                    setScenarioStats(prev => ({ ...prev, [step.id]: { status: 'failed', error: 'Pipeline not found' } }));
+                    continue;
+                }
+
+                log(`>> Starting Step: ${pipeline.name}`);
+                setActivePipelineId(pipeline.id); // Update UI to show this pipeline
+                setScenarioStats(prev => ({ ...prev, [step.id]: { status: 'running' } }));
+
+                // Clear pipeline-specific stats for visualization
+                setExecutionStats({});
+                executionStatsRef.current = {};
+                setCompletedStepCount(0);
+
+                // Wait a bit for UI
+                await new Promise(r => setTimeout(r, 500));
+
+                const now = new Date();
+                const stepStartTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
+
+                try {
+                    await executeItems(pipeline.items, log, { timeStart: stepStartTime });
+                    setScenarioStats(prev => ({ ...prev, [step.id]: { status: 'success' } }));
+
+                    log(`>> Step Completed: ${pipeline.name}`);
+
+                    // Generate Report for this step
+                    // Use Ref to get the stats accumulated during executeItems
+                    saveReport(pipeline.name, executionStatsRef.current, fullLogsRef.current, stepStartTime);
+
+
+                } catch (e: any) {
+                    setScenarioStats(prev => ({ ...prev, [step.id]: { status: 'failed', error: e.message } }));
+
+                    log(`>> Step Failed: ${pipeline.name} - ${e.message}`);
+                    saveReport(pipeline.name, executionStatsRef.current, fullLogsRef.current, undefined, true);
+                    throw e; // Stop scenario on failure
+
+                }
+
+                // Pause between steps?
+                await new Promise(r => setTimeout(r, 1000));
+            }
+            log("Scenario Completed Successfully");
+        } catch (e: any) {
+            if (e.message === 'Pipeline Stopped') {
+                log("!! Scenario Stopped by User !!");
+            } else {
+                log(`Scenario Failed: ${e.message}`);
+            }
+        } finally {
+            setIsRunning(false);
+            // Don't clear activeScenarioId immediately so user can see result
         }
     };
 
@@ -331,6 +526,33 @@ export const useBlockTest = () => {
             }
 
             setActivePipelineItemId(item.id);
+
+            // --- CONDITIONAL ---
+            if (item.type === 'conditional') {
+                log(`[Conditional] Checking condition...`);
+                // Determine condition result
+                let conditionMet = false;
+                if (item.condition?.type === 'last_step_success' || !item.condition?.type) {
+                    conditionMet = lastItemSuccessRef.current;
+                    log(`  > Last Step Success? ${conditionMet ? 'YES' : 'NO'}`);
+                }
+                // Future: else if (item.condition?.type === 'variable_match') ...
+
+                if (conditionMet) {
+                    log(`  > TRUE Branch`);
+                    if (item.children && item.children.length > 0) {
+                        await executeItems(item.children, log, context);
+                    }
+                } else {
+                    log(`  > FALSE Branch`);
+                    if (item.elseChildren && item.elseChildren.length > 0) {
+                        await executeItems(item.elseChildren, log, context);
+                    }
+                }
+                continue;
+            }
+
+            // --- LOOP ---
             if (item.type === 'loop') {
                 const count = item.loopCount || 1;
                 log(`-- Starting Loop (${count} times) --`);
@@ -359,21 +581,22 @@ export const useBlockTest = () => {
                         ...prev,
                         [item.id]: { startTime, endTime, duration, status: 'success', currentIteration: count, totalIterations: count }
                     }));
+                    lastItemSuccessRef.current = true; // Loop completed successfully
                 } catch (err) {
                     const endTime = Date.now();
                     const duration = endTime - startTime;
-                    // If stopped, maybe mark as error or just partial? User said "Error" if error.
-                    // Stopped is technically not an error in logic, but execution stopped.
-                    // Let's mark as Error for visual feedback if it was aborted mid-loop.
                     setExecutionStats(prev => ({
                         ...prev,
                         [item.id]: { ...prev[item.id], endTime, duration, status: 'error' }
                     }));
+                    lastItemSuccessRef.current = false;
                     throw err;
                 }
 
                 log(`-- Loop Ended --`);
-            } else if (item.type === 'block' && item.blockId) {
+            }
+            // --- BLOCK ---
+            else if (item.type === 'block' && item.blockId) {
                 // Sleep Handling
                 if (item.blockId === SPECIAL_BLOCK_IDS.SLEEP) {
                     const duration = item.sleepDuration || 1000;
@@ -395,32 +618,18 @@ export const useBlockTest = () => {
                         }
                     }));
                     setCompletedStepCount(prev => prev + 1);
+                    lastItemSuccessRef.current = true;
                     continue;
                 } else if (item.blockId === SPECIAL_BLOCK_IDS.LOG_START) {
                     // Replace variables in filename
-                    // Replace variables in filename
                     let filename = item.logFileName || 'log_$(time_current).txt';
-                    // Use helper to replace all supported variables (loop_index, loop_total, time_current, time_start)
                     filename = replaceVariables(filename, context);
 
                     log(`[Block] Starting Background Log: ${item.logCommand} -> ${filename}`);
-                    // if inside loop, replace loop_index needed?
-                    // Currently we don't have easy context access here unless we pass it down.
-                    // For now supporting time_current. 
-                    // Prompt requested: "$(time_current).$(loop_index)".
-                    // Loop index is harder as it's stateful in the recursive logic.
-                    // Let's implement variable replacement in `processItem` arguments if possible, or context.
-                    // Actually, `processItem` is recursive.
-                    // Let's assume we use what we have. If context needed, we must pass it.
-                    // I'll add `context: { loopIndices: Record<string, number> }` to processItem.
-
-                    // Emitting event
-                    // We need to store logId to stop it later.
-                    // But where? Global ref map?
-                    // We can use a ref in the hook: `activeLogIds`
 
                     if (!socketRef.current) {
                         log(`[Block] Log Start Failed: Socket not connected`);
+                        lastItemSuccessRef.current = false;
                         continue;
                     }
 
@@ -441,49 +650,44 @@ export const useBlockTest = () => {
                             if (data.success) {
                                 log(`[Block] Log Started ID: ${data.logId}`);
                                 activeLogIds.current.add(data.logId!);
+                                lastItemSuccessRef.current = true;
                                 resolve();
                             } else {
                                 log(`[Block] Log Start Failed: ${data.error}`);
+                                lastItemSuccessRef.current = false;
                                 resolve();
                             }
                             socketRef.current?.off('start_background_log_result', handler);
                         };
                         socketRef.current?.on('start_background_log_result', handler);
-                        // Add a timeout for the result in case the server doesn't respond
                         setTimeout(() => {
                             socketRef.current?.off('start_background_log_result', handler);
                             resolve();
-                        }, 5000); // 5 seconds timeout
+                        }, 5000);
                     });
                     setCompletedStepCount(prev => prev + 1);
                     continue;
 
                 } else if (item.blockId === SPECIAL_BLOCK_IDS.LOG_STOP) {
                     log(`[Block] Stopping Background Logs...`);
-                    // Stop ALL? Or specific?
-                    // Prompt doesn't specify linking. "Log Stop" suggests stopping the active one.
-                    // We'll stop all active ones for now for simplicity, or last one?
-                    // "Log stop command editable" implies we might want to run a command.
 
                     const logIds = Array.from(activeLogIds.current);
                     if (logIds.length === 0) {
                         log(`[Block] No active logs to stop.`);
                         setCompletedStepCount(prev => prev + 1);
+                        lastItemSuccessRef.current = true;
                         continue;
                     }
 
                     if (!socketRef.current) {
                         log(`[Block] Log Stop Failed: Socket not connected`);
                         setCompletedStepCount(prev => prev + 1);
+                        lastItemSuccessRef.current = false;
                         continue;
                     }
 
                     const promises = logIds.map(id => new Promise<void>(resolve => {
                         socketRef.current?.emit('stop_background_log', { logId: id, stopCommand: item.stopCommand });
-                        // We assume it succeeds or we don't wait forever
-                        // But we want to confirm?
-                        // Let's just fire and forget or wait for one result?
-                        // Easier to wait for result to clean up list.
                         const handler = (data: { success: boolean, logId?: string }) => {
                             if (data.logId === id) {
                                 log(`[Block] Log Stopped ID: ${data.logId}`);
@@ -493,7 +697,6 @@ export const useBlockTest = () => {
                             }
                         };
                         socketRef.current?.on('stop_background_log_result', handler);
-                        // Timeout fallback in case server doesn't reply
                         setTimeout(() => {
                             socketRef.current?.off('stop_background_log_result', handler);
                             resolve();
@@ -504,6 +707,7 @@ export const useBlockTest = () => {
                         log(`[Block] All logs stopped.`);
                     });
                     setCompletedStepCount(prev => prev + 1);
+                    lastItemSuccessRef.current = true;
                     continue;
 
                 } else if (item.blockId === SPECIAL_BLOCK_IDS.WAIT_FOR_IMAGE) {
@@ -512,13 +716,11 @@ export const useBlockTest = () => {
 
                     if (!templatePath) {
                         log(`[Wait Image] Error: No template image specified`);
-                        // Fail or continue? Fail.
                         setExecutionStats(prev => ({
                             ...prev,
                             [item.id]: { startTime: Date.now(), endTime: Date.now(), duration: 0, status: 'error' }
                         }));
-                        // Wait, we need to handle "continue on error" option later. For now, stop or just log?
-                        // Current logic handles continue if catch block doesn't throw.
+                        lastItemSuccessRef.current = false;
                         continue;
                     }
 
@@ -538,14 +740,14 @@ export const useBlockTest = () => {
                                 ...prev,
                                 [item.id]: { startTime, endTime, duration, status: 'success' }
                             }));
+                            lastItemSuccessRef.current = true;
                         } else {
                             log(`[Wait Image] Failed: ${result.message || 'Timeout'}`);
                             setExecutionStats(prev => ({
                                 ...prev,
                                 [item.id]: { startTime, endTime, duration, status: 'error' }
                             }));
-                            // Depending on rigorousness, maybe throw to stop pipeline?
-                            // User request: "Judging point". Usually if judgment fails, test fails.
+                            lastItemSuccessRef.current = false;
                             throw new Error(`Wait for Image Failed: ${result.message}`);
                         }
                     } catch (e: any) {
@@ -554,7 +756,8 @@ export const useBlockTest = () => {
                             ...prev,
                             [item.id]: { startTime, endTime, duration: endTime - startTime, status: 'error' }
                         }));
-                        throw e; // Propagate up
+                        lastItemSuccessRef.current = false;
+                        throw e;
                     }
 
                     setCompletedStepCount(prev => prev + 1);
@@ -569,7 +772,6 @@ export const useBlockTest = () => {
                 setCurrentBlockId(block.id);
                 log(`[${block.name}] Executing...`);
 
-                // Start tracking stats
                 const startTime = Date.now();
                 setExecutionStats(prev => ({ ...prev, [item.id]: { startTime, status: 'running' } }));
 
@@ -581,7 +783,6 @@ export const useBlockTest = () => {
                         const cmd = replaceVariables(rawCmd, context);
                         log(`  $ ${cmd}`);
 
-                        // Pass signal to runCommand
                         const output = await runCommand(cmd, abortController.current?.signal);
                         log(`  > ${output}`);
                         if (output.toLowerCase().includes('error')) {
@@ -591,11 +792,9 @@ export const useBlockTest = () => {
                 } catch (e: any) {
                     if (e.message === 'Pipeline Stopped') throw e;
                     hasError = true;
-                    // If timeout or other error
                     log(`  ! Error: ${e.message || e}`);
                 }
 
-                // End tracking stats
                 const endTime = Date.now();
                 const duration = endTime - startTime;
                 setExecutionStats(prev => ({
@@ -603,8 +802,8 @@ export const useBlockTest = () => {
                     [item.id]: { startTime, endTime, duration, status: hasError ? 'error' : 'success' }
                 }));
 
-                // Increment step count
                 setCompletedStepCount(prev => prev + 1);
+                lastItemSuccessRef.current = !hasError;
 
                 if (hasError) {
                     // Continuing despite error
@@ -635,7 +834,14 @@ export const useBlockTest = () => {
         addPipeline,
         updatePipeline,
         deletePipeline,
+        scenarios,
+        addScenario,
+        updateScenario,
+        deleteScenario,
         executePipeline,
+        executeScenario,
+        activeScenarioId,
+        scenarioStats,
         stopPipeline,
         closePipelineRunner,
         downloadLogs,
@@ -660,6 +866,7 @@ export const useBlockTest = () => {
         executionStats,
         completedStepCount, // Export this
         isRunnerOpen,
-        setIsRunnerOpen
+        setIsRunnerOpen,
+        lastReportUrl // Export
     };
 };

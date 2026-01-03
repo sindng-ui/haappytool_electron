@@ -73,7 +73,8 @@ export const SPECIAL_BLOCK_IDS = {
     SLEEP: 'special_sleep',
     WAIT_FOR_IMAGE: 'special_wait_image',
     LOG_START: 'special_log_start',
-    LOG_STOP: 'special_log_stop'
+    LOG_STOP: 'special_log_stop',
+    CONDITION: 'special_condition'
 };
 
 export const SPECIAL_BLOCKS: CommandBlock[] = [
@@ -103,6 +104,13 @@ export const SPECIAL_BLOCKS: CommandBlock[] = [
         name: 'Log Stop',
         type: 'special',
         description: 'Stop background logging',
+        commands: []
+    },
+    {
+        id: SPECIAL_BLOCK_IDS.CONDITION,
+        name: 'Condition',
+        type: 'special',
+        description: 'Branch based on previous result',
         commands: []
     }
 ];

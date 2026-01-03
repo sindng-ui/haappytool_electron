@@ -16,10 +16,10 @@ interface PipelineRunnerProps {
     isRunning: boolean;
     onStop: () => void;
     onClose: () => void;
+    embedded?: boolean;
 }
 
-
-const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs, activeItemId, stats, completedCount, isRunning, onStop, onClose }) => {
+const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs, activeItemId, stats, completedCount, isRunning, onStop, onClose, embedded }) => {
     const listContainerRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll to active item in List View
@@ -80,11 +80,13 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
             {/* Header */}
             <div className={`p-4 pr-36 flex justify-between items-center shadow-sm z-10 ${THEME.runner.header}`}>
                 <div className="flex items-center gap-4">
-                    <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500">
-                        <Lucide.ArrowLeft size={20} />
-                    </button>
+                    {!embedded && (
+                        <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500">
+                            <Lucide.ArrowLeft size={20} />
+                        </button>
+                    )}
                     <div>
-                        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{pipeline.name}</h2>
+                        {!embedded && <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{pipeline.name}</h2>}
                         <div className="flex items-center gap-4 text-xs text-slate-500 mt-1">
                             {isRunning ? (
                                 <div className="flex items-center gap-2">
