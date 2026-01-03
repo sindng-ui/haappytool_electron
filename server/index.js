@@ -772,6 +772,87 @@ io.on('connection', (socket) => {
         checkMatch();
     });
 
+    // --- Log Start/Stop Background Handlers ---
+    const activeLogs = new Map(); // Store active child processes { logId: ChildProcess }
+
+    socket.on('start_background_log', ({ command, filename }) => {
+        const logId = `log_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        console.log(`[BackgroundLog] Starting: ${command} -> ${filename} (ID: ${logId})`);
+
+        try {
+            // Ensure BlockTest dir exists for logs (or use process.cwd() if filename implies relative)
+            // The prompt said "created file name with format...". Assume relative to BlockTest dir or app root?
+            // Let's settle on using the same BLOCK_TEST_DIR for consistency if implied, but prompt said "file name".
+            // If filename has no path separators, put in BLOCK_TEST_DIR.
+
+            let filePath = filename;
+            if (!path.isAbsolute(filename)) {
+                if (!fs.existsSync(BLOCK_TEST_DIR)) fs.mkdirSync(BLOCK_TEST_DIR, { recursive: true });
+                filePath = path.join(BLOCK_TEST_DIR, filename);
+            }
+
+            const fileStream = fs.createWriteStream(filePath, { flags: 'a' });
+
+            // Spawn command
+            // We need to handle shell commands properly.
+            // sdb dlog -v threadtime might need shell=true or split args.
+            // Using spawn with shell option is safest for "command" strings.
+            const child = spawn(command, { shell: true });
+
+            child.stdout.on('data', (data) => {
+                fileStream.write(data);
+            });
+
+            child.stderr.on('data', (data) => {
+                fileStream.write(data);
+            });
+
+            child.on('close', (code) => {
+                console.log(`[BackgroundLog] ${logId} exited with code ${code}`);
+                fileStream.end();
+                activeLogs.delete(logId);
+                socket.emit('background_log_status', { logId, status: 'stopped', code });
+            });
+
+            child.on('error', (err) => {
+                console.error(`[BackgroundLog] ${logId} error: ${err.message}`);
+                fileStream.end();
+                activeLogs.delete(logId);
+                socket.emit('background_log_error', { logId, error: err.message });
+            });
+
+            activeLogs.set(logId, child);
+            socket.emit('start_background_log_result', { success: true, logId, filePath });
+
+        } catch (e) {
+            console.error(`[BackgroundLog] Failed to start: ${e.message}`);
+            socket.emit('start_background_log_result', { success: false, error: e.message });
+        }
+    });
+
+    socket.on('stop_background_log', ({ logId, stopCommand }) => {
+        console.log(`[BackgroundLog] Stopping: ${logId} (Cmd: ${stopCommand || 'KILL'})`);
+
+        // 1. If stopCommand provided, execute it (e.g. sdb shell killall dlog)
+        if (stopCommand) {
+            const stopProc = spawn(stopCommand, { shell: true });
+            stopProc.on('close', (code) => {
+                console.log(`[BackgroundLog] Stop command exited with ${code}`);
+            });
+        }
+
+        // 2. Kill the node process holding the stream
+        const child = activeLogs.get(logId);
+        if (child) {
+            child.kill(); // SIGTERM
+            activeLogs.delete(logId);
+            socket.emit('stop_background_log_result', { success: true, logId });
+        } else {
+            // Maybe it already died or stopCommand managed it?
+            socket.emit('stop_background_log_result', { success: true, logId, message: 'Process already stopped or not found' });
+        }
+    });
+
     // --- Screen Matcher Handlers ---
     socket.on('capture_screen', async ({ deviceId }) => {
         console.log(`[ScreenMatcher] Capturing screen for ${deviceId || 'default'}...`);

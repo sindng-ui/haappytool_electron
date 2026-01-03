@@ -317,6 +317,8 @@ const BlockNodeReadOnly = React.memo(({ item, blocks, isActive, stats }: { item:
                     <h4 className="font-bold text-sm text-slate-100 truncate">
                         {block.name}
                         {item.blockId === 'special_sleep' && <span className="ml-1 text-violet-300 font-normal">({item.sleepDuration || 1000}ms)</span>}
+                        {item.blockId === 'special_log_start' && <span className="ml-1 text-emerald-300 font-normal text-xs font-mono">({stats?.resolvedLabel || item.logFileName})</span>}
+                        {item.blockId === 'special_log_stop' && item.stopCommand && <span className="ml-1 text-red-300 font-normal text-xs font-mono">({item.stopCommand})</span>}
                     </h4>
                     {isActive && <div className="text-[10px] text-indigo-300 font-mono leading-none mt-0.5">Running...</div>}
                     {!isActive && isCompleted && stats?.duration !== undefined && (

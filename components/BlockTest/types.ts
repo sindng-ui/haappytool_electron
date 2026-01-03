@@ -4,6 +4,10 @@ export interface CommandBlock {
     description?: string;
     commands: string[]; // List of commands to execute
     type: 'custom' | 'predefined' | 'special';
+    // Log Start/Stop Defaults
+    logCommand?: string;
+    logFileName?: string;
+    stopCommand?: string;
 }
 
 export interface PipelineItem {
@@ -15,6 +19,11 @@ export interface PipelineItem {
     imageTemplatePath?: string; // Path (Server absolute)
     imageTemplateUrl?: string; // URL (Client relative)
     matchTimeout?: number; // ms
+
+    // Log Start/Stop Specific
+    logCommand?: string; // Command to start logging (e.g. sdb dlog)
+    logFileName?: string; // Filename pattern
+    stopCommand?: string; // Command to execute when stopping (optional)
 
     loopCount?: number; // If type is loop
     children?: PipelineItem[]; // If type is loop
@@ -42,5 +51,6 @@ export interface ExecutionStats {
         status?: 'success' | 'error' | 'running';
         currentIteration?: number; // For loops
         totalIterations?: number; // For loops
+        resolvedLabel?: string; // e.g. "log_2024-01-01.txt"
     }
 }

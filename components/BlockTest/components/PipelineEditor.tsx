@@ -392,10 +392,14 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
 
             let newItem: PipelineItem | null = null;
             if (payload.type === 'add_block') {
+                const blockDef = blocks.find(b => b.id === payload.blockId);
                 newItem = {
                     id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                     type: 'block',
-                    blockId: payload.blockId
+                    blockId: payload.blockId,
+                    logCommand: blockDef?.logCommand,
+                    logFileName: blockDef?.logFileName,
+                    stopCommand: blockDef?.stopCommand
                 };
             }
 
@@ -762,7 +766,12 @@ const BlockNode: React.FC<{
 
             <div className="p-3 flex items-center gap-3 h-full">
                 <div className={`p-1.5 rounded-lg ${isPredefined ? 'bg-slate-700 text-slate-300' : isSpecial ? 'bg-violet-900/50 text-violet-300' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'}`}>
-                    {isSpecial ? (block.id === 'special_wait_image' ? <Lucide.Image size={16} /> : <Lucide.Moon size={16} />) : isPredefined ? <Lucide.Package size={16} /> : <Lucide.Terminal size={16} />}
+                    {isSpecial ? (
+                        block.id === 'special_wait_image' ? <Lucide.Image size={16} /> :
+                            block.id === 'special_log_start' ? <Lucide.FileText size={16} /> :
+                                block.id === 'special_log_stop' ? <Lucide.Square size={16} /> :
+                                    <Lucide.Moon size={16} />
+                    ) : isPredefined ? <Lucide.Package size={16} /> : <Lucide.Terminal size={16} />}
                 </div>
                 <div className="flex-1 min-w-0"><h4 className="font-bold text-sm text-slate-100 truncate">{block.name}</h4></div>
 
@@ -784,6 +793,38 @@ const BlockNode: React.FC<{
                             }}
                         />
                         <span className="text-[10px] text-violet-500">ms</span>
+                    </div>
+                )}
+
+                {/* Log Start Inputs */}
+                {isSpecial && block.id === 'special_log_start' && (
+                    <div className="ml-auto w-[200px]" onClick={e => e.stopPropagation()} title={`Command: ${item.logCommand}`}>
+                        <div className="relative group/input">
+                            <Lucide.FileText size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-indigo-400 transition-colors" />
+                            <input
+                                type="text"
+                                className="w-full bg-slate-900/50 hover:bg-slate-900/80 text-emerald-100 text-[11px] font-mono pl-7 pr-2 py-1 rounded border border-indigo-500/20 hover:border-indigo-500/40 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none placeholder:text-slate-600 transition-all"
+                                placeholder="File (e.g. log_$(time).txt)"
+                                value={item.logFileName || ''}
+                                onChange={(e) => onChange({ ...item, logFileName: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Log Stop Inputs */}
+                {isSpecial && block.id === 'special_log_stop' && (
+                    <div className="ml-auto w-[180px]" onClick={e => e.stopPropagation()}>
+                        <div className="relative group/input">
+                            <Lucide.Ban size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-red-400 transition-colors" />
+                            <input
+                                type="text"
+                                className="w-full bg-slate-900/50 hover:bg-slate-900/80 text-red-100 text-[11px] font-mono pl-7 pr-2 py-1 rounded border border-red-500/20 hover:border-red-500/40 focus:border-red-500 focus:ring-1 focus:ring-red-500/20 outline-none placeholder:text-slate-600 transition-all"
+                                placeholder="Stop Cmd (Optional)"
+                                value={item.stopCommand || ''}
+                                onChange={(e) => onChange({ ...item, stopCommand: e.target.value })}
+                            />
+                        </div>
                     </div>
                 )}
 

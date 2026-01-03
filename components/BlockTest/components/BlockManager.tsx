@@ -38,12 +38,18 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
         }
     }, [searchTerm, blocks]);
 
-    // Form state
+    // Suggestion State
+    const [activeField, setActiveField] = useState<string | null>(null);
     const [name, setName] = useState('');
     const [commands, setCommands] = useState('');
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [suggestionIndex, setSuggestionIndex] = useState(0);
+
+    // Refs for all inputs
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const logCommandRef = useRef<HTMLInputElement>(null);
+    const logFileNameRef = useRef<HTMLInputElement>(null);
+    const stopCommandRef = useRef<HTMLInputElement>(null);
 
     const SPECIAL_VARS = [
         { label: '$(loop_total)', desc: 'Total loop count' },
@@ -67,12 +73,21 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
         }
     };
 
-    const handleCommandChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const handleInputChange = (
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+        field: 'commands' | 'logCommand' | 'logFileName' | 'stopCommand',
+        setter: (val: string) => void
+    ) => {
         const val = e.target.value;
-        setCommands(val);
+        setter(val);
+        if (field !== 'commands' && editingBlock) {
+            setEditingBlock({ ...editingBlock, [field]: val });
+        }
+
+        setActiveField(field);
 
         // Simple trigger: if last char typed is '$' or we are typing a variable
-        const selectionStart = e.target.selectionStart;
+        const selectionStart = e.target.selectionStart || val.length;
         const textBeforeCursor = val.substring(0, selectionStart);
 
         if (textBeforeCursor.endsWith('$')) {
@@ -86,10 +101,18 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
     };
 
     const insertVariable = (variable: string) => {
-        if (!textareaRef.current) return;
-        const start = textareaRef.current.selectionStart;
-        const end = textareaRef.current.selectionEnd;
-        const val = textareaRef.current.value;
+        let inputRef: HTMLInputElement | HTMLTextAreaElement | null = null;
+
+        if (activeField === 'commands') inputRef = textareaRef.current;
+        else if (activeField === 'logCommand') inputRef = logCommandRef.current;
+        else if (activeField === 'logFileName') inputRef = logFileNameRef.current;
+        else if (activeField === 'stopCommand') inputRef = stopCommandRef.current;
+
+        if (!inputRef) return;
+
+        const start = inputRef.selectionStart || 0;
+        const end = inputRef.selectionEnd || 0;
+        const val = inputRef.value;
 
         // Find where the variable starts (the '$')
         let prefix = val.substring(0, start);
@@ -98,16 +121,21 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
 
         const newVal = val.substring(0, start - replaceLength) + variable + val.substring(end);
 
-        setCommands(newVal);
+        // Update State
+        if (activeField === 'commands') setCommands(newVal);
+        else if (editingBlock && activeField) {
+            setEditingBlock({ ...editingBlock, [activeField]: newVal });
+        }
+
         setShowSuggestions(false);
         setSuggestionIndex(0);
 
         // Restore focus and cursor
         setTimeout(() => {
-            if (textareaRef.current) {
+            if (inputRef) {
                 const newCursorPos = start - replaceLength + variable.length;
-                textareaRef.current.focus();
-                textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+                inputRef.focus();
+                inputRef.setSelectionRange(newCursorPos, newCursorPos);
             }
         }, 0);
     };
@@ -233,6 +261,14 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                             )}
                                             <span className={`font-medium text-sm truncate ${THEME.sidebar.text}`}>{block.name}</span>
                                         </div>
+                                        {/* Edit Button for Log Blocks */}
+                                        {(block.id === 'special_log_start' || block.id === 'special_log_stop') && (
+                                            <div className="hidden group-hover:flex gap-2 shrink-0 ml-2">
+                                                <button onClick={() => handleEdit(block)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all">
+                                                    <Lucide.Edit2 size={16} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -340,81 +376,181 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                         </div>
                     )}
                 </div>
-            </div>
 
-            {isEditing && (
-                <div className="fixed left-80 top-1/2 -translate-y-1/2 z-50 animate-in slide-in-from-left-4 fade-in duration-200">
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-lg w-96 shadow-2xl border border-slate-200 dark:border-slate-700">
-                        <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">
-                            {editingBlock ? 'Edit Block' : 'New Block'}
-                        </h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Name</label>
-                                <input
-                                    value={name}
-                                    onChange={e => setName(e.target.value)}
-                                    className="w-full text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    placeholder="Enter block name"
-                                    autoFocus
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Commands (one per line)</label>
-                                <div className="relative">
-                                    <textarea
-                                        ref={textareaRef}
-                                        value={commands}
-                                        onChange={handleCommandChange}
-                                        onKeyDown={handleKeyDown}
-                                        className="w-full h-32 text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                        placeholder="sdb shell input keyevent 66&#10;adb shell input tap 100 100"
+
+                {isEditing && (
+                    <div className="fixed left-80 top-1/2 -translate-y-1/2 z-50 animate-in slide-in-from-left-4 fade-in duration-200">
+                        <div className="bg-white dark:bg-slate-900 p-6 rounded-lg w-96 shadow-2xl border border-slate-200 dark:border-slate-700">
+                            <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">
+                                {editingBlock ? 'Edit Block' : 'New Block'}
+                            </h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Name</label>
+                                    <input
+                                        value={name}
+                                        onChange={e => setName(e.target.value)}
+                                        className="w-full text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        placeholder="Enter block name"
+                                        autoFocus
                                     />
-                                    {showSuggestions && (
-                                        <div className="absolute left-2 bottom-full mb-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
-                                            <div className="text-[10px] uppercase font-bold text-slate-500 bg-slate-50 dark:bg-slate-900 px-2 py-1 border-b dark:border-slate-700">
-                                                Insert Variable
-                                            </div>
-                                            {SPECIAL_VARS.map((v, idx) => (
-                                                <button
-                                                    key={v.label}
-                                                    onClick={() => insertVariable(v.label)}
-                                                    onMouseMove={() => setSuggestionIndex(idx)}
-                                                    className={`w-full text-left px-3 py-1.5 text-xs flex flex-col gap-0.5 border-b border-slate-100 dark:border-slate-800 last:border-0 transition-colors
-                                                        ${idx === suggestionIndex
-                                                            ? 'bg-indigo-100 dark:bg-indigo-900/50'
-                                                            : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30'
-                                                        }
-                                                    `}
-                                                >
-                                                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{v.label}</span>
-                                                    <span className="text-slate-500">{v.desc}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
                                 </div>
-                                <p className="text-xs text-slate-500 mt-1">Directly type adb/sdb commands.</p>
+                                <div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                            {editingBlock?.id === 'special_log_start' || editingBlock?.id === 'special_log_stop' ? 'Details' : 'Commands (one per line)'}
+                                        </label>
+
+                                        {editingBlock?.id === 'special_log_start' ? (
+                                            <div className="space-y-3">
+                                                <div className="relative">
+                                                    <div className="text-xs text-slate-500 mb-1">Command</div>
+                                                    <input
+                                                        ref={logCommandRef}
+                                                        value={editingBlock.logCommand || ''}
+                                                        onChange={e => handleInputChange(e, 'logCommand', (v) => setEditingBlock({ ...editingBlock, logCommand: v }))}
+                                                        onKeyDown={handleKeyDown}
+                                                        onFocus={() => setActiveField('logCommand')}
+                                                        className="w-full text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-2 focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm"
+                                                        placeholder="e.g. sdb dlog"
+                                                    />
+                                                    {showSuggestions && activeField === 'logCommand' && (
+                                                        <div className="absolute left-0 top-full mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                                                            {SPECIAL_VARS.map((v, idx) => (
+                                                                <button
+                                                                    key={v.label}
+                                                                    onClick={() => insertVariable(v.label)}
+                                                                    onMouseMove={() => setSuggestionIndex(idx)}
+                                                                    className={`w-full text-left px-3 py-1.5 text-xs flex flex-col gap-0.5 border-b border-slate-100 dark:border-slate-800 last:border-0 transition-colors
+                                                                    ${idx === suggestionIndex ? 'bg-indigo-100 dark:bg-indigo-900/50' : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30'}
+                                                                `}
+                                                                >
+                                                                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{v.label}</span>
+                                                                    <span className="text-slate-500">{v.desc}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="relative">
+                                                    <div className="text-xs text-slate-500 mb-1">Filename</div>
+                                                    <input
+                                                        ref={logFileNameRef}
+                                                        value={editingBlock.logFileName || ''}
+                                                        onChange={e => handleInputChange(e, 'logFileName', (v) => setEditingBlock({ ...editingBlock, logFileName: v }))}
+                                                        onKeyDown={handleKeyDown}
+                                                        onFocus={() => setActiveField('logFileName')}
+                                                        className="w-full text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-2 focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm"
+                                                        placeholder="e.g. log_$(time_current).txt"
+                                                    />
+                                                    {showSuggestions && activeField === 'logFileName' && (
+                                                        <div className="absolute left-0 top-full mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                                                            {SPECIAL_VARS.map((v, idx) => (
+                                                                <button
+                                                                    key={v.label}
+                                                                    onClick={() => insertVariable(v.label)}
+                                                                    onMouseMove={() => setSuggestionIndex(idx)}
+                                                                    className={`w-full text-left px-3 py-1.5 text-xs flex flex-col gap-0.5 border-b border-slate-100 dark:border-slate-800 last:border-0 transition-colors
+                                                                    ${idx === suggestionIndex ? 'bg-indigo-100 dark:bg-indigo-900/50' : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30'}
+                                                                `}
+                                                                >
+                                                                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{v.label}</span>
+                                                                    <span className="text-slate-500">{v.desc}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : editingBlock?.id === 'special_log_stop' ? (
+                                            <div className="relative">
+                                                <div className="text-xs text-slate-500 mb-1">Stop Command (Optional)</div>
+                                                <input
+                                                    ref={stopCommandRef}
+                                                    value={editingBlock.stopCommand || ''}
+                                                    onChange={e => handleInputChange(e, 'stopCommand', (v) => setEditingBlock({ ...editingBlock, stopCommand: v }))}
+                                                    onKeyDown={handleKeyDown}
+                                                    onFocus={() => setActiveField('stopCommand')}
+                                                    className="w-full text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-2 focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm"
+                                                    placeholder="e.g. sdb shell killall dlog"
+                                                />
+                                                {showSuggestions && activeField === 'stopCommand' && (
+                                                    <div className="absolute left-0 top-full mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                                                        {SPECIAL_VARS.map((v, idx) => (
+                                                            <button
+                                                                key={v.label}
+                                                                onClick={() => insertVariable(v.label)}
+                                                                onMouseMove={() => setSuggestionIndex(idx)}
+                                                                className={`w-full text-left px-3 py-1.5 text-xs flex flex-col gap-0.5 border-b border-slate-100 dark:border-slate-800 last:border-0 transition-colors
+                                                                ${idx === suggestionIndex ? 'bg-indigo-100 dark:bg-indigo-900/50' : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30'}
+                                                            `}
+                                                            >
+                                                                <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{v.label}</span>
+                                                                <span className="text-slate-500">{v.desc}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <textarea
+                                                    ref={textareaRef}
+                                                    value={commands}
+                                                    onChange={e => handleInputChange(e, 'commands', setCommands)}
+                                                    onKeyDown={handleKeyDown}
+                                                    onFocus={() => setActiveField('commands')}
+                                                    className="w-full h-32 text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-2 font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    placeholder="sdb shell input keyevent 66&#10;adb shell input tap 100 100"
+                                                />
+                                                {showSuggestions && activeField === 'commands' && (
+                                                    <div className="absolute left-2 bottom-full mb-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                                                        <div className="text-[10px] uppercase font-bold text-slate-500 bg-slate-50 dark:bg-slate-900 px-2 py-1 border-b dark:border-slate-700">
+                                                            Insert Variable
+                                                        </div>
+                                                        {SPECIAL_VARS.map((v, idx) => (
+                                                            <button
+                                                                key={v.label}
+                                                                onClick={() => insertVariable(v.label)}
+                                                                onMouseMove={() => setSuggestionIndex(idx)}
+                                                                className={`w-full text-left px-3 py-1.5 text-xs flex flex-col gap-0.5 border-b border-slate-100 dark:border-slate-800 last:border-0 transition-colors
+                                                            ${idx === suggestionIndex
+                                                                        ? 'bg-indigo-100 dark:bg-indigo-900/50'
+                                                                        : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30'
+                                                                    }
+                                                        `}
+                                                            >
+                                                                <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{v.label}</span>
+                                                                <span className="text-slate-500">{v.desc}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <p className="text-xs text-slate-500 mt-1">Directly type adb/sdb commands.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-2 mt-6">
+                                    <button
+                                        onClick={() => setIsEditing(false)}
+                                        className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleSave}
+                                        disabled={!name}
+                                        className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 disabled:opacity-50"
+                                    >
+                                        Save
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-2 mt-6">
-                            <button
-                                onClick={() => setIsEditing(false)}
-                                className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                disabled={!name}
-                                className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 disabled:opacity-50"
-                            >
-                                Save
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 };

@@ -285,6 +285,8 @@ const RunnerItemList: React.FC<{
                                 <span className="font-bold text-xs sm:text-sm block text-slate-800 dark:text-slate-200">
                                     {block?.name || 'Unknown'}
                                     {item.blockId === 'special_sleep' && <span className="ml-2 text-violet-600 dark:text-violet-400">({item.sleepDuration || 1000}ms)</span>}
+                                    {item.blockId === 'special_log_start' && <span className="ml-2 text-emerald-600 dark:text-emerald-400 font-mono text-xs">({itemStats?.resolvedLabel || item.logFileName})</span>}
+                                    {item.blockId === 'special_log_stop' && item.stopCommand && <span className="ml-2 text-red-600 dark:text-red-400 font-mono text-xs">({item.stopCommand})</span>}
                                 </span>
                                 {isActive && !isCompleted && <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium animate-pulse">Running...</span>}
                             </div>

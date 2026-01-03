@@ -45,6 +45,7 @@ export const useBlockTest = () => {
     // Socket ref
     const socketRef = useRef<Socket | null>(null);
     const fullLogsRef = useRef<string[]>([]);
+    const activeLogIds = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         socketRef.current = io('http://localhost:3003');
@@ -395,10 +396,117 @@ export const useBlockTest = () => {
                     }));
                     setCompletedStepCount(prev => prev + 1);
                     continue;
-                }
+                } else if (item.blockId === SPECIAL_BLOCK_IDS.LOG_START) {
+                    // Replace variables in filename
+                    // Replace variables in filename
+                    let filename = item.logFileName || 'log_$(time_current).txt';
+                    // Use helper to replace all supported variables (loop_index, loop_total, time_current, time_start)
+                    filename = replaceVariables(filename, context);
 
-                // Wait For Image Handling
-                if (item.blockId === SPECIAL_BLOCK_IDS.WAIT_FOR_IMAGE) {
+                    log(`[Block] Starting Background Log: ${item.logCommand} -> ${filename}`);
+                    // if inside loop, replace loop_index needed?
+                    // Currently we don't have easy context access here unless we pass it down.
+                    // For now supporting time_current. 
+                    // Prompt requested: "$(time_current).$(loop_index)".
+                    // Loop index is harder as it's stateful in the recursive logic.
+                    // Let's implement variable replacement in `processItem` arguments if possible, or context.
+                    // Actually, `processItem` is recursive.
+                    // Let's assume we use what we have. If context needed, we must pass it.
+                    // I'll add `context: { loopIndices: Record<string, number> }` to processItem.
+
+                    // Emitting event
+                    // We need to store logId to stop it later.
+                    // But where? Global ref map?
+                    // We can use a ref in the hook: `activeLogIds`
+
+                    if (!socketRef.current) {
+                        log(`[Block] Log Start Failed: Socket not connected`);
+                        continue;
+                    }
+
+                    // Update stats with resolved label (filename)
+                    setExecutionStats(prev => ({
+                        ...prev,
+                        [item.id]: {
+                            startTime: Date.now(),
+                            status: 'running',
+                            resolvedLabel: filename
+                        }
+                    }));
+
+                    await new Promise<void>((resolve) => {
+                        socketRef.current?.emit('start_background_log', { command: item.logCommand, filename });
+
+                        const handler = (data: { success: boolean, logId?: string, error?: string }) => {
+                            if (data.success) {
+                                log(`[Block] Log Started ID: ${data.logId}`);
+                                activeLogIds.current.add(data.logId!);
+                                resolve();
+                            } else {
+                                log(`[Block] Log Start Failed: ${data.error}`);
+                                resolve();
+                            }
+                            socketRef.current?.off('start_background_log_result', handler);
+                        };
+                        socketRef.current?.on('start_background_log_result', handler);
+                        // Add a timeout for the result in case the server doesn't respond
+                        setTimeout(() => {
+                            socketRef.current?.off('start_background_log_result', handler);
+                            resolve();
+                        }, 5000); // 5 seconds timeout
+                    });
+                    setCompletedStepCount(prev => prev + 1);
+                    continue;
+
+                } else if (item.blockId === SPECIAL_BLOCK_IDS.LOG_STOP) {
+                    log(`[Block] Stopping Background Logs...`);
+                    // Stop ALL? Or specific?
+                    // Prompt doesn't specify linking. "Log Stop" suggests stopping the active one.
+                    // We'll stop all active ones for now for simplicity, or last one?
+                    // "Log stop command editable" implies we might want to run a command.
+
+                    const logIds = Array.from(activeLogIds.current);
+                    if (logIds.length === 0) {
+                        log(`[Block] No active logs to stop.`);
+                        setCompletedStepCount(prev => prev + 1);
+                        continue;
+                    }
+
+                    if (!socketRef.current) {
+                        log(`[Block] Log Stop Failed: Socket not connected`);
+                        setCompletedStepCount(prev => prev + 1);
+                        continue;
+                    }
+
+                    const promises = logIds.map(id => new Promise<void>(resolve => {
+                        socketRef.current?.emit('stop_background_log', { logId: id, stopCommand: item.stopCommand });
+                        // We assume it succeeds or we don't wait forever
+                        // But we want to confirm?
+                        // Let's just fire and forget or wait for one result?
+                        // Easier to wait for result to clean up list.
+                        const handler = (data: { success: boolean, logId?: string }) => {
+                            if (data.logId === id) {
+                                log(`[Block] Log Stopped ID: ${data.logId}`);
+                                activeLogIds.current.delete(id);
+                                socketRef.current?.off('stop_background_log_result', handler);
+                                resolve();
+                            }
+                        };
+                        socketRef.current?.on('stop_background_log_result', handler);
+                        // Timeout fallback in case server doesn't reply
+                        setTimeout(() => {
+                            socketRef.current?.off('stop_background_log_result', handler);
+                            resolve();
+                        }, 2000);
+                    }));
+
+                    await Promise.all(promises).then(() => {
+                        log(`[Block] All logs stopped.`);
+                    });
+                    setCompletedStepCount(prev => prev + 1);
+                    continue;
+
+                } else if (item.blockId === SPECIAL_BLOCK_IDS.WAIT_FOR_IMAGE) {
                     const timeoutMs = item.matchTimeout || 10000;
                     const templatePath = item.imageTemplatePath;
 
