@@ -238,6 +238,28 @@ export const useBlockTest = () => {
         });
     };
 
+    const runWaitForImage = (templatePath: string, timeoutMs: number): Promise<{ success: boolean, message?: string, confidence?: number }> => {
+        return new Promise((resolve, reject) => {
+            if (!socketRef.current) return reject(new Error("Socket not connected"));
+
+            // One-off listener might be tricky if multiple running, but for blocking pipeline it's fine.
+            // Better to use a requestId if server supported it for this event, but currently server doesn't echo it for match.
+            // Assumption: Sequential execution.
+
+            const handleResult = (res: any) => {
+                cleanup();
+                resolve(res);
+            };
+
+            const cleanup = () => {
+                socketRef.current?.off('wait_for_image_result', handleResult);
+            };
+
+            socketRef.current.on('wait_for_image_result', handleResult);
+            socketRef.current.emit('wait_for_image_match', { templatePath, timeoutMs });
+        });
+    };
+
     const replaceVariables = (cmd: string, context: { loopIndex?: number, loopTotal?: number, timeStart: string }) => {
         const now = new Date();
         const timeCurrent = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
@@ -375,6 +397,62 @@ export const useBlockTest = () => {
                     continue;
                 }
 
+                // Wait For Image Handling
+                if (item.blockId === SPECIAL_BLOCK_IDS.WAIT_FOR_IMAGE) {
+                    const timeoutMs = item.matchTimeout || 10000;
+                    const templatePath = item.imageTemplatePath;
+
+                    if (!templatePath) {
+                        log(`[Wait Image] Error: No template image specified`);
+                        // Fail or continue? Fail.
+                        setExecutionStats(prev => ({
+                            ...prev,
+                            [item.id]: { startTime: Date.now(), endTime: Date.now(), duration: 0, status: 'error' }
+                        }));
+                        // Wait, we need to handle "continue on error" option later. For now, stop or just log?
+                        // Current logic handles continue if catch block doesn't throw.
+                        continue;
+                    }
+
+                    log(`[Wait Image] Waiting for image match (max ${timeoutMs / 1000}s)...`);
+                    const startTime = Date.now();
+                    setExecutionStats(prev => ({ ...prev, [item.id]: { startTime, status: 'running' } }));
+
+                    try {
+                        const result = await runWaitForImage(templatePath, timeoutMs);
+
+                        const endTime = Date.now();
+                        const duration = endTime - startTime;
+
+                        if (result.success) {
+                            log(`[Wait Image] Match Found! Confidence: ${result.confidence?.toFixed(2)}`);
+                            setExecutionStats(prev => ({
+                                ...prev,
+                                [item.id]: { startTime, endTime, duration, status: 'success' }
+                            }));
+                        } else {
+                            log(`[Wait Image] Failed: ${result.message || 'Timeout'}`);
+                            setExecutionStats(prev => ({
+                                ...prev,
+                                [item.id]: { startTime, endTime, duration, status: 'error' }
+                            }));
+                            // Depending on rigorousness, maybe throw to stop pipeline?
+                            // User request: "Judging point". Usually if judgment fails, test fails.
+                            throw new Error(`Wait for Image Failed: ${result.message}`);
+                        }
+                    } catch (e: any) {
+                        const endTime = Date.now();
+                        setExecutionStats(prev => ({
+                            ...prev,
+                            [item.id]: { startTime, endTime, duration: endTime - startTime, status: 'error' }
+                        }));
+                        throw e; // Propagate up
+                    }
+
+                    setCompletedStepCount(prev => prev + 1);
+                    continue;
+                }
+
                 const block = blocks.find(b => b.id === item.blockId);
                 if (!block) {
                     log(`Error: Block ${item.blockId} not found`);
@@ -453,6 +531,19 @@ export const useBlockTest = () => {
         stopPipeline,
         closePipelineRunner,
         downloadLogs,
+        uploadTemplate: (name: string, data: string) => {
+            return new Promise<{ success: boolean, path: string, url?: string }>((resolve) => {
+                if (!socketRef.current) return resolve({ success: false, path: '' });
+
+                const handler = (res: any) => {
+                    console.log("DEBUG: [useBlockTest] Upload Result:", res);
+                    socketRef.current?.off('save_uploaded_template_result', handler);
+                    resolve(res);
+                };
+                socketRef.current.on('save_uploaded_template_result', handler);
+                socketRef.current.emit('save_uploaded_template', { name, data });
+            });
+        },
         isRunning,
         executionLogs,
         currentBlockId,

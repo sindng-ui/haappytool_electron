@@ -28,7 +28,8 @@ const BlockTest: React.FC = () => {
         executionStats,
         completedStepCount,
         isRunnerOpen,
-        setIsRunnerOpen
+        setIsRunnerOpen,
+        uploadTemplate
     } = useBlockTest();
 
     const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(() => {
@@ -177,6 +178,7 @@ const BlockTest: React.FC = () => {
                             onRun={handleRun}
                             hasResults={!!runningPipeline}
                             onViewResults={() => setIsRunnerOpen(true)}
+                            onUploadTemplate={uploadTemplate}
                         />
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center text-slate-400">

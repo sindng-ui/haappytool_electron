@@ -11,6 +11,8 @@ export enum ToolId {
   EASY_UML = 'EASY_UML',
   CPU_ANALYZER = 'CPU_ANALYZER',
   SMART_HOME_DASHBOARD = 'SMART_HOME_DASHBOARD',
+  SCREEN_MATCHER = 'SCREEN_MATCHER',
+
 }
 
 export interface LogHighlight {

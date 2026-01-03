@@ -11,6 +11,11 @@ export interface PipelineItem {
     type: 'block' | 'loop';
     blockId?: string; // If type is block
     sleepDuration?: number; // If block is Sleep type
+    // Image Match Specific
+    imageTemplatePath?: string; // Path (Server absolute)
+    imageTemplateUrl?: string; // URL (Client relative)
+    matchTimeout?: number; // ms
+
     loopCount?: number; // If type is loop
     children?: PipelineItem[]; // If type is loop
     hint?: string; // User annotation

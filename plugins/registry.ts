@@ -9,7 +9,8 @@ import {
     BlockTestPlugin,
     EasyUMLPlugin,
     CpuAnalyzerPlugin,
-    SmartHomeDashboardPlugin
+    SmartHomeDashboardPlugin,
+    ScreenMatcherPlugin
 } from './core/wrappers';
 
 // Registry array to hold all registered plugins
@@ -23,7 +24,8 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     BlockTestPlugin,
     EasyUMLPlugin,
     CpuAnalyzerPlugin,
-    SmartHomeDashboardPlugin
+    SmartHomeDashboardPlugin,
+    ScreenMatcherPlugin
 ];
 
 export const getPluginById = (id: string): HappyPlugin | undefined => {

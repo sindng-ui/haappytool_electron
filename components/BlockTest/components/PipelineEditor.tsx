@@ -10,6 +10,7 @@ interface PipelineEditorProps {
     onRun: () => void;
     hasResults?: boolean;
     onViewResults?: () => void;
+    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string }>;
 }
 
 // Simple Undo/Redo Hook
@@ -52,7 +53,7 @@ function useUndoRedo<T>(initialState: T, onChange: (state: T) => void): [T, (new
     return [history[index] || initialState, setState, undo, redo, index > 0, index < history.length - 1];
 }
 
-const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onChange, onRun, hasResults, onViewResults }) => {
+const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onChange, onRun, hasResults, onViewResults, onUploadTemplate }) => {
     const [scale, setScale] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
     const [isPanning, setIsPanning] = useState(false);
@@ -533,6 +534,7 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                             onEditHint={setEditingHintId}
                             direction="row"
                             containerId="root"
+                            onUploadTemplate={onUploadTemplate}
                         />
                     </div>
                 </div>
@@ -553,7 +555,8 @@ const GraphFlow: React.FC<{
     direction?: 'row' | 'col';
     isNested?: boolean;
     containerId?: string;
-}> = ({ items, blocks, onChange, onDrop, selectedIds, onSelect, editingHintId, onEditHint, direction = 'row', isNested = false, containerId = 'root' }) => {
+    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string }>;
+}> = ({ items, blocks, onChange, onDrop, selectedIds, onSelect, editingHintId, onEditHint, onUploadTemplate, direction = 'row', isNested = false, containerId = 'root' }) => {
     const isRow = direction === 'row';
 
     return (
@@ -604,6 +607,7 @@ const GraphFlow: React.FC<{
                                     }}
                                     editingHintId={editingHintId}
                                     onEditHint={onEditHint}
+                                    onUploadTemplate={onUploadTemplate}
                                 />
                             </div>
                         ) : (
@@ -633,6 +637,7 @@ const GraphFlow: React.FC<{
                                     selected={selectedIds.has(item.id)}
                                     editingHintId={editingHintId}
                                     onEditHint={onEditHint}
+                                    onUploadTemplate={onUploadTemplate}
                                 />
                             </div>
                         )}
@@ -715,7 +720,8 @@ const BlockNode: React.FC<{
     onChange: (item: PipelineItem) => void;
     editingHintId: string | null;
     onEditHint: (id: string | null) => void;
-}> = ({ item, blocks, selected, onChange, editingHintId, onEditHint }) => {
+    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string }>;
+}> = ({ item, blocks, selected, onChange, editingHintId, onEditHint, onUploadTemplate }) => {
     const block = blocks.find(b => b.id === item.blockId);
     if (!block) return <div className="p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-xl backdrop-blur-md">Unknown</div>;
     const isPredefined = block.type === 'predefined';
@@ -756,7 +762,7 @@ const BlockNode: React.FC<{
 
             <div className="p-3 flex items-center gap-3 h-full">
                 <div className={`p-1.5 rounded-lg ${isPredefined ? 'bg-slate-700 text-slate-300' : isSpecial ? 'bg-violet-900/50 text-violet-300' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'}`}>
-                    {isSpecial ? <Lucide.Moon size={16} /> : isPredefined ? <Lucide.Package size={16} /> : <Lucide.Terminal size={16} />}
+                    {isSpecial ? (block.id === 'special_wait_image' ? <Lucide.Scan size={16} /> : <Lucide.Moon size={16} />) : isPredefined ? <Lucide.Package size={16} /> : <Lucide.Terminal size={16} />}
                 </div>
                 <div className="flex-1 min-w-0"><h4 className="font-bold text-sm text-slate-100 truncate">{block.name}</h4></div>
 
@@ -780,6 +786,82 @@ const BlockNode: React.FC<{
                         <span className="text-[10px] text-violet-500">ms</span>
                     </div>
                 )}
+
+                {isSpecial && block.id === 'special_wait_image' && (
+                    <div className="ml-auto flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                        <label className="flex items-center gap-1 bg-black/40 rounded px-2 py-0.5 border border-violet-500/30 transition-colors hover:border-violet-400 cursor-pointer relative group/img">
+                            {item.imageTemplateUrl ? (
+                                <div className="relative">
+                                    <img
+                                        src={`http://localhost:3003${item.imageTemplateUrl}`}
+                                        alt="tmpl"
+                                        className="w-16 h-8 object-cover rounded border border-emerald-500/50"
+                                    />
+                                    {/* Hover Zoom */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 hidden group-hover/img:block z-[60] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-1 pointer-events-none">
+                                        <img src={`http://localhost:3003${item.imageTemplateUrl}`} alt="preview" className="w-full rounded" />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-1">
+                                    <Lucide.Image size={10} className="text-slate-400" />
+                                    <span className="text-[10px] text-violet-200">Set</span>
+                                </div>
+                            )}
+
+                            <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        const reader = new FileReader();
+                                        reader.onload = async (ev) => {
+                                            const data = ev.target?.result as string;
+                                            try {
+                                                console.log("DEBUG: [BlockNode] File selected:", file.name, "Data length:", data.length);
+                                                const res = await onUploadTemplate(file.name, data);
+                                                console.log("DEBUG: [BlockNode] Upload response:", res);
+
+                                                if (res.success) {
+                                                    const newItem = { ...item, imageTemplatePath: res.path, imageTemplateUrl: res.url };
+                                                    console.log("DEBUG: [BlockNode] Updating item state:", newItem);
+                                                    onChange(newItem);
+                                                } else {
+                                                    console.error("DEBUG: [BlockNode] Upload failed:", res);
+                                                    alert("Upload failed");
+                                                }
+                                            } catch (err) {
+                                                console.error("DEBUG: [BlockNode] Exception:", err);
+                                            }
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }}
+                            />
+                        </label>
+
+                        <div className="flex items-center gap-1 bg-black/40 rounded px-2 py-0.5 border border-violet-500/30 transition-colors hover:border-violet-400">
+                            <input
+                                type="number"
+                                className="w-10 bg-transparent text-right outline-none text-xs text-violet-200 font-mono focus:text-white"
+                                placeholder="ms"
+                                defaultValue={item.matchTimeout || 10000}
+                                step={1000}
+                                min={0}
+                                onBlur={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    onChange({ ...item, matchTimeout: isNaN(val) ? 10000 : val });
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') e.currentTarget.blur();
+                                }}
+                            />
+                            <span className="text-[10px] text-violet-500">ms</span>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -795,7 +877,8 @@ const LoopNode: React.FC<{
     selected?: boolean;
     editingHintId: string | null;
     onEditHint: (id: string | null) => void;
-}> = ({ item, blocks, onChange, onDrop, selectedIds, onSelect, selected, editingHintId, onEditHint }) => {
+    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string }>;
+}> = ({ item, blocks, onChange, onDrop, selectedIds, onSelect, selected, editingHintId, onEditHint, onUploadTemplate }) => {
     const [isDragOver, setIsDragOver] = useState(false);
 
     const handleInternalDrop = (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void, targetContainerId?: string) => {
@@ -903,6 +986,7 @@ const LoopNode: React.FC<{
                         direction="col"
                         isNested={true}
                         containerId={item.id}
+                        onUploadTemplate={onUploadTemplate}
                     />
                 ) : (
                     <div className="w-full h-full min-h-[80px] rounded-xl border-2 border-dashed border-orange-500/30 bg-orange-500/5 text-orange-500/50 flex flex-col items-center justify-center pointer-events-none">

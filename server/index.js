@@ -7,12 +7,31 @@ const { Client } = require('ssh2');
 const { spawn, exec } = require('child_process');
 
 const path = require('path');
+const jimp = require('jimp');
+// Lazy load OpenCV
+let cv = null;
+try {
+    const cvModule = require('opencv-wasm');
+    if (cvModule && typeof cvModule.then === 'function') {
+        cvModule.then(c => {
+            cv = c;
+            console.log('OpenCV (WASM) Loaded');
+        });
+    } else {
+        // Handling if it returns structure directly (unlikely for this package but safely handling)
+        cv = cvModule;
+    }
+} catch (e) {
+    console.error('Failed to load opencv-wasm:', e);
+}
 
 const app = express();
 app.use(cors());
 
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../dist')));
+// Serve uploaded templates
+app.use('/templates', express.static(path.join(__dirname, '../public/templates')));
 
 // --- TEST ROUTES ---
 app.get('/test-rpm', (req, res) => {
@@ -129,12 +148,22 @@ app.get('/test-step2/repos/product/armv7l/packages/armv7l/test-package.rpm', (re
 });
 // -------------------
 
+// --- Global Error Handlers ---
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('UNHANDLED REJECTION:', reason);
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "*", // Allow all origins for local tool flexibility
+        origin: "*", // Allow all origins for dev
         methods: ["GET", "POST"]
-    }
+    },
+    maxHttpBufferSize: 1e8 // 100 MB
 });
 
 const fs = require('fs');
@@ -623,6 +652,260 @@ io.on('connection', (socket) => {
             socket.emit('list_files_result', { error: e.message });
         }
     });
+
+    socket.on('save_uploaded_template', ({ name, data }) => {
+        console.log(`[Server] Received save_uploaded_template: ${name}, Data Length: ${data ? data.length : 0}`);
+        try {
+            const templatesDir = path.join(__dirname, '../public/templates');
+            if (!fs.existsSync(templatesDir)) fs.mkdirSync(templatesDir, { recursive: true });
+
+            console.log(`[Server] processing base64 data...`);
+            // Data is "data:image/png;base64,..."
+            const base64Data = data.replace(/^data:image\/\w+;base64,/, "");
+            const buffer = Buffer.from(base64Data, 'base64');
+            const safeName = name.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+            const filePath = path.join(templatesDir, `${Date.now()}_${safeName}`);
+
+            console.log(`[Server] Writing file to ${filePath}...`);
+            fs.writeFileSync(filePath, buffer);
+            console.log(`[Server] File written successfully.`);
+            socket.emit('save_uploaded_template_result', { success: true, path: filePath, url: `/templates/${path.basename(filePath)}` });
+        } catch (e) {
+            console.error("Save Template Error", e);
+            socket.emit('save_uploaded_template_result', { success: false, message: e.message });
+        }
+    });
+
+
+    socket.on('wait_for_image_match', async ({ templatePath, timeoutMs = 10000, deviceId }) => {
+        console.log(`[ScreenMatcher] Waiting for image match... Timeout: ${timeoutMs}ms`);
+        if (!cv) {
+            socket.emit('wait_for_image_result', { success: false, message: 'OpenCV not loaded' });
+            return;
+        }
+
+        const startTime = Date.now();
+        const interval = 1000; // Check every 1s
+
+        let isMatched = false;
+
+        const checkMatch = async () => {
+            if (Date.now() - startTime > timeoutMs) {
+                socket.emit('wait_for_image_result', { success: false, message: 'Timeout' });
+                return;
+            }
+
+            try {
+                // 1. Capture (Reuse logic simplified)
+                const tempRemotePath = '/tmp/screen_wait_capture.png';
+                const localPath = path.join(__dirname, '../public/captures', `wait_capture_${Date.now()}.png`);
+
+                // Ensure dir
+                const capturesDir = path.join(__dirname, '../public/captures');
+                if (!fs.existsSync(capturesDir)) fs.mkdirSync(capturesDir, { recursive: true });
+
+                const captureCmd = `/usr/bin/enlightenment_info -dump_screen ${tempRemotePath}`;
+                const sdbArgs = deviceId ? ['-s', deviceId, 'shell', captureCmd] : ['shell', captureCmd];
+
+                // Synchronous-like spawn wrapper for cleaner loop? using promise
+                await new Promise((resolve, reject) => {
+                    const child = spawn('sdb', sdbArgs);
+                    child.on('close', resolve);
+                    child.on('error', reject);
+                });
+
+                // Pull
+                const pullArgs = deviceId ? ['-s', deviceId, 'pull', tempRemotePath, localPath] : ['pull', tempRemotePath, localPath];
+                await new Promise((resolve, reject) => {
+                    const child = spawn('sdb', pullArgs);
+                    child.on('close', resolve);
+                    child.on('error', reject);
+                });
+
+                if (fs.existsSync(localPath)) {
+                    // 2. Match
+                    const screenImg = await jimp.read(localPath);
+                    // For template, we assume it's an absolute path on server.
+                    // If the user uploaded it, it should be in public/captures or similar.
+                    // If templatePath is invalid, this throws.
+                    const templImg = await jimp.read(templatePath);
+
+                    const src = cv.matFromImageData(screenImg.bitmap);
+                    const templ = cv.matFromImageData(templImg.bitmap);
+                    const srcGray = new cv.Mat();
+                    const templGray = new cv.Mat();
+                    cv.cvtColor(src, srcGray, cv.COLOR_RGBA2GRAY, 0);
+                    cv.cvtColor(templ, templGray, cv.COLOR_RGBA2GRAY, 0);
+
+                    const dst = new cv.Mat();
+                    const mask = new cv.Mat();
+                    cv.matchTemplate(srcGray, templGray, dst, cv.TM_CCOEFF_NORMED, mask);
+                    const result = cv.minMaxLoc(dst, mask);
+
+                    const confidence = result.maxVal;
+
+                    // Cleanup
+                    src.delete(); templ.delete(); srcGray.delete(); templGray.delete(); dst.delete(); mask.delete();
+
+                    // Delete temp capture
+                    fs.unlinkSync(localPath);
+
+                    if (confidence > 0.8) {
+                        isMatched = true;
+                        socket.emit('wait_for_image_result', { success: true, confidence });
+                        return;
+                    }
+                }
+
+                // Retry
+                if (!isMatched) {
+                    setTimeout(checkMatch, interval);
+                }
+
+            } catch (e) {
+                console.error("Wait Match Error:", e);
+                // Keep trying until timeout?
+                setTimeout(checkMatch, interval);
+            }
+        };
+
+        checkMatch();
+    });
+
+    // --- Screen Matcher Handlers ---
+    socket.on('capture_screen', async ({ deviceId }) => {
+        console.log(`[ScreenMatcher] Capturing screen for ${deviceId || 'default'}...`);
+        const tempRemotePath = '/tmp/screen_capture.png';
+        const timestamp = Date.now();
+        const localFileName = `screen_${timestamp}.png`;
+        const localPath = path.join(__dirname, '../public/captures', localFileName);
+        // Ensure captures dir exists
+        const capturesDir = path.join(__dirname, '../public/captures');
+        if (!fs.existsSync(capturesDir)) {
+            fs.mkdirSync(capturesDir, { recursive: true });
+        }
+
+        // Command strategy: try common capture commands
+        // 1. enlightenment_info -dump_screen (Common on TV)
+        // 2. xwd -root -out ... (X11 based) -> requires conversion, maybe SKIP for now if simple dump works
+        // 3. scrot (unlikely but possible)
+        // Let's try enlightenment_info first as it is standard for Tizen TV.
+
+        // Note: sdb shell returns immediately, we need to wait / check result.
+        // We use 'sdb -s [id] shell [cmd]'
+
+        const captureCmd = `/usr/bin/enlightenment_info -dump_screen ${tempRemotePath}`;
+        const sdbArgs = deviceId ? ['-s', deviceId, 'shell', captureCmd] : ['shell', captureCmd];
+
+        const captureProcess = spawn('sdb', sdbArgs);
+
+        captureProcess.on('close', (code) => {
+            if (code !== 0) {
+                // Try fallback logic if needed, but for now report error
+                // socket.emit('capture_result', { success: false, message: 'Capture command failed' });
+                // But sdb shell might return 0 even if command not found inside. 
+                // We proceed to pull. If pull fails, then capture failed.
+            }
+
+            // Step 2: Pull
+            // sdb -s [id] pull [remote] [local]
+            const pullArgs = deviceId ? ['-s', deviceId, 'pull', tempRemotePath, localPath] : ['pull', tempRemotePath, localPath];
+            const pullProcess = spawn('sdb', pullArgs);
+
+            pullProcess.on('close', (pullCode) => {
+                if (pullCode === 0 && fs.existsSync(localPath)) {
+                    // Success
+                    // We return a relative URL for the frontend to load
+                    const publicUrl = `/captures/${localFileName}`;
+                    socket.emit('capture_result', { success: true, path: publicUrl, absolutePath: localPath });
+
+                    // Cleanup remote (optional, good practice)
+                    const rmArgs = deviceId ? ['-s', deviceId, 'shell', 'rm', tempRemotePath] : ['shell', 'rm', tempRemotePath];
+                    spawn('sdb', rmArgs);
+                } else {
+                    socket.emit('capture_result', { success: false, message: 'Failed to pull screen capture. Command might have failed.' });
+                }
+            });
+        });
+    });
+
+    socket.on('match_image', async ({ screenPath, templatePath }) => {
+        console.log(`[ScreenMatcher] Matching template...`);
+        if (!cv) {
+            socket.emit('match_result', { success: false, message: 'OpenCV not loaded yet' });
+            return;
+        }
+
+        try {
+            // screenPath and templatePath might be URLs or relative paths.
+            // We expect absolute paths or paths we can resolve.
+            // If they are passed as '/captures/...' (local URL), resolve to disk.
+
+            const resolvePath = (p) => {
+                if (p.startsWith('http')) return p; // jimp can load url?
+                if (p.startsWith('/captures')) return path.join(__dirname, '../public', p);
+                if (p.startsWith('data:')) return p; // Base64
+                // Assume absolute if windows path
+                if (p.includes(':') || p.startsWith('/')) return p;
+                return p;
+            };
+
+            const realScreenPath = resolvePath(screenPath);
+            // templatePath might be a Data URL if pasted, or a path if uploaded/saved.
+            // If the user drops a file, we might have saved it or sent as base64. 
+            // Let's assume frontend sends base64 for template or uploads it first.
+            // For now, let's assume it sends base64 for template or a path if we implement upload.
+
+            // Let's rely on standard jimp.read() which handles paths and buffers.
+
+            const screenImg = await jimp.read(realScreenPath);
+            const templImg = await jimp.read(templatePath); // templatePath can be data:image/png;base64,...
+
+            // Convert to Mat
+            // Jimp image has bitmap.data which is RGBA buffer.
+            const src = cv.matFromImageData(screenImg.bitmap);
+            const templ = cv.matFromImageData(templImg.bitmap);
+
+            // Pre-process? Convert to grayscale usually speeds up and is robust enough
+            const srcGray = new cv.Mat();
+            const templGray = new cv.Mat();
+            cv.cvtColor(src, srcGray, cv.COLOR_RGBA2GRAY, 0);
+            cv.cvtColor(templ, templGray, cv.COLOR_RGBA2GRAY, 0);
+
+            // Match
+            const dst = new cv.Mat();
+            const mask = new cv.Mat();
+            cv.matchTemplate(srcGray, templGray, dst, cv.TM_CCOEFF_NORMED, mask);
+
+            // Get Result
+            const result = cv.minMaxLoc(dst, mask);
+            const maxPoint = result.maxLoc;
+            const confidence = result.maxVal; // 0.0 to 1.0
+
+            // Clean up
+            src.delete(); templ.delete();
+            srcGray.delete(); templGray.delete();
+            dst.delete(); mask.delete();
+
+            if (confidence > 0.8) { // Threshold
+                socket.emit('match_result', {
+                    success: true,
+                    x: maxPoint.x,
+                    y: maxPoint.y,
+                    width: templImg.bitmap.width,
+                    height: templImg.bitmap.height,
+                    confidence
+                });
+            } else {
+                socket.emit('match_result', { success: false, message: 'No match found', confidence });
+            }
+
+        } catch (e) {
+            console.error('[ScreenMatcher] Error:', e);
+            socket.emit('match_result', { success: false, message: e.message });
+        }
+    });
+
     // --- CPU Analyzer Handlers ---
 
     let cpuMonitorProcess = null;

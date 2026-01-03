@@ -70,7 +70,8 @@ export const PREDEFINED_BLOCKS: CommandBlock[] = [
 ];
 
 export const SPECIAL_BLOCK_IDS = {
-    SLEEP: 'special_sleep'
+    SLEEP: 'special_sleep',
+    WAIT_FOR_IMAGE: 'special_wait_image'
 };
 
 export const SPECIAL_BLOCKS: CommandBlock[] = [
@@ -79,6 +80,13 @@ export const SPECIAL_BLOCKS: CommandBlock[] = [
         name: 'Sleep',
         type: 'special',
         description: 'Wait for specified time',
+        commands: []
+    },
+    {
+        id: SPECIAL_BLOCK_IDS.WAIT_FOR_IMAGE,
+        name: 'Wait Image',
+        type: 'special',
+        description: 'Wait until image appears on screen',
         commands: []
     }
 ];

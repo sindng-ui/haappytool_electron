@@ -103,3 +103,14 @@ export const SmartHomeDashboardPlugin: HappyPlugin = {
     component: SmartHomeDashboard,
     order: 10,
 };
+
+const ScreenMatcher = React.lazy(() => import('../../components/ScreenMatcher/ScreenMatcher'));
+const { Scan } = Lucide;
+
+export const ScreenMatcherPlugin: HappyPlugin = {
+    id: ToolId.SCREEN_MATCHER,
+    name: 'Screen Matcher',
+    icon: Scan,
+    component: ScreenMatcher,
+    order: 11,
+};
