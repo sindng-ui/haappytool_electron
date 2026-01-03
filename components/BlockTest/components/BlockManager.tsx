@@ -226,7 +226,11 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex items-center gap-2 min-w-0">
-                                            <Lucide.Moon size={14} className="text-violet-400 shrink-0" />
+                                            {block.id === 'special_wait_image' ? (
+                                                <Lucide.Image size={14} className="text-violet-400 shrink-0" />
+                                            ) : (
+                                                <Lucide.Moon size={14} className="text-violet-400 shrink-0" />
+                                            )}
                                             <span className={`font-medium text-sm truncate ${THEME.sidebar.text}`}>{block.name}</span>
                                         </div>
                                     </div>
