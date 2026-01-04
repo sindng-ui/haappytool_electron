@@ -146,8 +146,8 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
     const handleEdit = (block: CommandBlock) => {
         // if (block.type === 'predefined') return; // Allow editing predefined
         setEditingBlock(block);
-        setName(block.name);
-        setCommands(block.commands.join('\n'));
+        setName(block.name || '');
+        setCommands((block.commands || []).join('\n'));
         setIsEditing(true);
     };
 
@@ -266,7 +266,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                         {/* Edit Button for Log Blocks */}
                                         {(block.id === 'special_log_start' || block.id === 'special_log_stop') && (
                                             <div className="hidden group-hover:flex gap-2 shrink-0 ml-2">
-                                                <button onClick={() => handleEdit(block)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all">
+                                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEdit(block); }} onMouseDown={(e) => e.stopPropagation()} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all">
                                                     <Lucide.Edit2 size={16} />
                                                 </button>
                                             </div>
@@ -313,7 +313,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                             </div>
                                         </div>
                                         <div className="hidden group-hover:flex gap-2 shrink-0 ml-2">
-                                            <button onClick={() => handleEdit(block)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all">
+                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEdit(block); }} onMouseDown={(e) => e.stopPropagation()} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all">
                                                 <Lucide.Edit2 size={16} />
                                             </button>
                                         </div>
@@ -359,7 +359,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                             </div>
                                         </div>
                                         <div className="hidden group-hover:flex gap-1.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg pl-1 shrink-0 ml-2">
-                                            <button onClick={() => handleEdit(block)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all">
+                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEdit(block); }} onMouseDown={(e) => e.stopPropagation()} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all">
                                                 <Lucide.Edit2 size={16} />
                                             </button>
                                             <button onClick={() => onDeleteBlock(block.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-all">
@@ -381,8 +381,8 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
 
 
                 {isEditing && (
-                    <div className="fixed left-80 top-1/2 -translate-y-1/2 z-50 animate-in slide-in-from-left-4 fade-in duration-200">
-                        <div className="bg-white dark:bg-slate-900 p-6 rounded-lg w-96 shadow-2xl border border-slate-200 dark:border-slate-700">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-white dark:bg-slate-900 p-6 rounded-lg w-96 shadow-2xl border border-slate-200 dark:border-slate-700 scale-100 animate-in zoom-in-95 duration-200">
                             <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">
                                 {editingBlock ? 'Edit Block' : 'New Block'}
                             </h3>
