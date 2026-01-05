@@ -181,6 +181,15 @@ const GraphFlowReadOnly: React.FC<{
                                 isActive={item.id === activeItemId && isRunning}
                                 stats={stats[item.id]}
                             />
+                        ) : item.type === 'conditional' ? (
+                            <ConditionalNodeReadOnly
+                                item={item}
+                                blocks={blocks}
+                                activeItemId={activeItemId}
+                                stats={stats}
+                                isActive={item.id === activeItemId && isRunning}
+                                isRunning={isRunning}
+                            />
                         ) : (
                             <LoopNodeReadOnly
                                 item={item}
@@ -395,3 +404,95 @@ const LoopNodeReadOnly = React.memo(({ item, blocks, activeItemId, stats, isActi
 });
 
 export default PipelineGraphRenderer;
+
+const ConditionalNodeReadOnly = React.memo(({ item, blocks, activeItemId, stats, isActive, isRunning }: { item: PipelineItem; blocks: CommandBlock[]; activeItemId: string | null; stats: ExecutionStats; isActive: boolean; isRunning: boolean; }) => {
+
+    // Check if children are active
+    const hasActiveChild = (children: PipelineItem[]): boolean => {
+        return children.some(c => (c.id === activeItemId && isRunning) || (c.children && hasActiveChild(c.children)) || (c.elseChildren && hasActiveChild(c.elseChildren)));
+    };
+
+    const trueActive = hasActiveChild(item.children || []);
+    const falseActive = hasActiveChild(item.elseChildren || []);
+
+    const result = stats[item.id]?.result;
+    const isCompleted = !!stats[item.id]?.endTime;
+    const isRunningSelf = stats[item.id]?.status === 'running';
+
+    // Styles matching PipelineEditor.tsx ConditionalNode
+    const containerClasses = `
+        min-w-[300px] rounded-2xl border-2 backdrop-blur-sm relative flex flex-col transition-all duration-300
+        ${isActive ? 'border-sky-400 bg-sky-900/40 shadow-[0_0_30px_rgba(56,189,248,0.3)] scale-105' : 'border-sky-500/30 bg-sky-900/20'}
+        ${isCompleted && !isActive ? 'opacity-90' : 'opacity-100'}
+    `;
+
+    return (
+        <div className={containerClasses} data-node-id={item.id}>
+            {/* Header / Condition Logic */}
+            <div className={`w-full bg-sky-900/40 border-b border-sky-500/20 px-4 py-3 flex items-center justify-between rounded-t-xl gap-4
+                ${isActive ? 'bg-sky-500/10' : ''}
+            `}>
+                <div className="flex items-center gap-2">
+                    <Lucide.Split size={18} className="text-sky-400" />
+                    <span className="font-bold text-sky-200">CONDITION</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-sky-300/70 font-mono">
+                        {item.condition?.type === 'last_step_success' ? 'Last Success?' : 'Custom'}
+                    </span>
+                    {isCompleted && (
+                        <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${result ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-orange-500/20 text-orange-400 border-orange-500/30'}`}>
+                            {result ? 'TRUE' : 'FALSE'}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Branches: Side by Side */}
+            <div className="flex divide-x divide-sky-500/20">
+                {/* THEN Branch */}
+                <div className={`flex-1 px-2 py-6 flex flex-col items-center relative min-h-[100px] transition-colors duration-500 
+                    ${isCompleted && result ? 'bg-green-500/5' : ''}
+                    ${isCompleted && !result ? 'opacity-50 grayscale-[0.5]' : ''}
+                `}>
+                    <div className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-bold px-2 py-0.5 rounded border shadow-sm z-10
+                        ${trueActive || (isCompleted && result) ? 'bg-green-500 text-white border-green-400 shadow-green-500/50' : 'bg-green-900/50 text-green-700/50 border-green-900/50'}
+                    `}>TRUE</div>
+
+                    <GraphFlowReadOnly
+                        items={item.children || []}
+                        blocks={blocks}
+                        activeItemId={activeItemId}
+                        stats={stats}
+                        direction="col"
+                        isNested
+                        isRunning={isRunning}
+                    />
+                </div>
+
+                {/* ELSE Branch */}
+                <div className={`flex-1 px-2 py-6 flex flex-col items-center relative min-h-[100px] transition-colors duration-500
+                    ${isCompleted && !result ? 'bg-orange-500/5' : ''}
+                    ${isCompleted && result ? 'opacity-50 grayscale-[0.5]' : ''}
+                `}>
+                    <div className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-bold px-2 py-0.5 rounded border shadow-sm z-10
+                         ${falseActive || (isCompleted && !result) ? 'bg-orange-500 text-white border-orange-400 shadow-orange-500/50' : 'bg-orange-900/50 text-orange-700/50 border-orange-900/50'}
+                    `}>FALSE</div>
+
+                    <GraphFlowReadOnly
+                        items={item.elseChildren || []}
+                        blocks={blocks}
+                        activeItemId={activeItemId}
+                        stats={stats}
+                        direction="col"
+                        isNested
+                        isRunning={isRunning}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+});
+
+
+

@@ -60,6 +60,7 @@ export interface ExecutionStats {
         currentIteration?: number; // For loops
         totalIterations?: number; // For loops
         resolvedLabel?: string; // e.g. "log_2024-01-01.txt"
+        result?: boolean; // For conditional blocks
     }
 }
 

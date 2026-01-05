@@ -937,10 +937,11 @@ const BlockNode: React.FC<{
                                                     onChange(newItem);
                                                 } else {
                                                     console.error("DEBUG: [BlockNode] Upload failed:", res);
-                                                    alert("Upload failed");
+                                                    alert(`Upload failed: ${res.message || 'Unknown error'}`);
                                                 }
-                                            } catch (err) {
+                                            } catch (err: any) {
                                                 console.error("DEBUG: [BlockNode] Exception:", err);
+                                                alert(`Upload Exception: ${err.message}`);
                                             }
                                         };
                                         reader.readAsDataURL(file);

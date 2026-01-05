@@ -257,6 +257,49 @@ const RunnerItemList: React.FC<{
                     )
                 }
 
+                if (item.type === 'conditional') {
+                    const result = itemStats?.result; // We added this to stats
+                    return (
+                        <div key={item.id} data-step-id={item.id} className={`rounded-lg border-2 overflow-hidden transition-all duration-300 transform 
+                            ${isActive
+                                ? 'border-violet-500 shadow-violet-500/20 shadow-lg scale-[1.02]'
+                                : 'border-violet-200 dark:border-violet-900/40'
+                            } ${isCompleted ? 'opacity-90' : ''}
+                            `}
+                        >
+                            <div className="bg-violet-100 dark:bg-violet-900/60 p-2 flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                    <div className="rotate-45 p-1 bg-violet-200 dark:bg-violet-800 rounded-sm">
+                                        <Lucide.GitFork size={14} className="-rotate-45 text-violet-600 dark:text-violet-400" />
+                                    </div>
+                                    <span className="text-sm font-bold text-violet-800 dark:text-violet-200">
+                                        Condition: {item.condition?.type === 'last_step_success' ? 'Last Step Success?' : 'Custom'}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {isCompleted && (
+                                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${result ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300'}`}>
+                                            {result ? 'TRUE' : 'FALSE'}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Children Container - Only show relevant path or both if not run? For list, maybe stack them? */}
+                            <div className="flex flex-col border-t border-violet-200 dark:border-violet-800">
+                                <div className={`p-3 pl-4 border-l-4 border-green-400 bg-green-50/50 dark:bg-green-900/10 ${!result && isCompleted ? 'opacity-40 grayscale' : ''}`}>
+                                    <div className="text-[10px] font-bold text-green-600 mb-2 uppercase">True Path</div>
+                                    <RunnerItemList items={item.children || []} blocks={blocks} activeItemId={activeItemId} stats={stats} />
+                                </div>
+                                <div className={`p-3 pl-4 border-l-4 border-orange-400 bg-orange-50/50 dark:bg-orange-900/10 ${result && isCompleted ? 'opacity-40 grayscale' : ''}`}>
+                                    <div className="text-[10px] font-bold text-orange-600 mb-2 uppercase">False Path</div>
+                                    <RunnerItemList items={item.elseChildren || []} blocks={blocks} activeItemId={activeItemId} stats={stats} />
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+
                 // Block
                 const block = blocks.find(b => b.id === item.blockId);
                 return (

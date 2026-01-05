@@ -530,6 +530,9 @@ export const useBlockTest = () => {
             // --- CONDITIONAL ---
             if (item.type === 'conditional') {
                 log(`[Conditional] Checking condition...`);
+                const startTime = Date.now();
+                setExecutionStats(prev => ({ ...prev, [item.id]: { startTime, status: 'running' } }));
+
                 // Determine condition result
                 let conditionMet = false;
                 if (item.condition?.type === 'last_step_success' || !item.condition?.type) {
@@ -537,6 +540,18 @@ export const useBlockTest = () => {
                     log(`  > Last Step Success? ${conditionMet ? 'YES' : 'NO'}`);
                 }
                 // Future: else if (item.condition?.type === 'variable_match') ...
+
+                const endTime = Date.now();
+                setExecutionStats(prev => ({
+                    ...prev,
+                    [item.id]: {
+                        startTime,
+                        endTime,
+                        duration: endTime - startTime,
+                        status: 'success',
+                        result: conditionMet // Store result for UI
+                    }
+                }));
 
                 if (conditionMet) {
                     log(`  > TRUE Branch`);
@@ -549,6 +564,7 @@ export const useBlockTest = () => {
                         await executeItems(item.elseChildren, log, context);
                     }
                 }
+                lastItemSuccessRef.current = true; // Conditional itself succeeded
                 continue;
             }
 
@@ -748,7 +764,7 @@ export const useBlockTest = () => {
                                 [item.id]: { startTime, endTime, duration, status: 'error' }
                             }));
                             lastItemSuccessRef.current = false;
-                            throw new Error(`Wait for Image Failed: ${result.message}`);
+                            // Don't throw, just let it continue with lastItemSuccess=false
                         }
                     } catch (e: any) {
                         const endTime = Date.now();
@@ -757,7 +773,7 @@ export const useBlockTest = () => {
                             [item.id]: { startTime, endTime, duration: endTime - startTime, status: 'error' }
                         }));
                         lastItemSuccessRef.current = false;
-                        throw e;
+                        log(`[Wait Image] Exception: ${e.message}`);
                     }
 
                     setCompletedStepCount(prev => prev + 1);
