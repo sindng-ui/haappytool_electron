@@ -16,12 +16,56 @@ let streamLines: string[] = [];
 let filteredIndices: Int32Array | null = null; // Line numbers (0-based) that match
 let currentRule: LogRule | null = null;
 
+// Bookmarks (0-based Original Index)
+let originalBookmarks: Set<number> = new Set();
+
 // --- Constants ---
 const CHUNK_SIZE = 10 * 1024 * 1024;
 
 // --- Helper: Response ---
 const respond = (response: LogWorkerResponse) => {
     ctx.postMessage(response);
+};
+
+// --- Helper: Binary Search ---
+function binarySearch(arr: Int32Array, val: number): number {
+    let low = 0;
+    let high = arr.length - 1;
+
+    while (low <= high) {
+        const mid = (low + high) >>> 1;
+        const midVal = arr[mid];
+
+        if (midVal === val) {
+            return mid;
+        } else if (midVal < val) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return -1;
+}
+
+// --- Helper: Get Visual Bookmarks ---
+const getVisualBookmarks = (): number[] => {
+    if (!filteredIndices) return [];
+
+    const visualBookmarks: number[] = [];
+
+    // Optimization: filteredIndices is always sorted.
+    // Instead of iterating all N visible lines (can be millions),
+    // we iterate K bookmarks (usually small) and binary search them in filteredIndices.
+    // complexity: O(K * log N) where K << N usually.
+
+    originalBookmarks.forEach(originalIdx => {
+        const vIdx = binarySearch(filteredIndices!, originalIdx);
+        if (vIdx !== -1) {
+            visualBookmarks.push(vIdx);
+        }
+    });
+
+    return visualBookmarks;
 };
 
 // --- Helper: Match Logic ---
@@ -669,6 +713,34 @@ const getFullText = async (requestId: string) => {
     }
 };
 
+// --- Handler: Toggle Bookmark ---
+const toggleBookmark = (visualIndex: number) => {
+    if (!filteredIndices) {
+        console.warn('[Worker] Toggle Bookmark: No filtered indices available');
+        return;
+    }
+    if (visualIndex < 0 || visualIndex >= filteredIndices.length) {
+        console.warn(`[Worker] Toggle Bookmark: Index out of bounds (visual=${visualIndex}, max=${filteredIndices.length})`);
+        return;
+    }
+
+    const originalIndex = filteredIndices[visualIndex];
+    console.log(`[Worker] Toggling Bookmark: Visual=${visualIndex} -> Original=${originalIndex}`);
+
+    if (originalBookmarks.has(originalIndex)) {
+        originalBookmarks.delete(originalIndex);
+        console.log(`[Worker] Bookmark REMOVED (Total: ${originalBookmarks.size})`);
+    } else {
+        originalBookmarks.add(originalIndex);
+        console.log(`[Worker] Bookmark ADDED (Total: ${originalBookmarks.size})`);
+    }
+
+    // Return updated visual bookmarks list so frontend can sync
+    const vBookmarks = getVisualBookmarks();
+    console.log(`[Worker] Sending Updated Visual Bookmarks: count=${vBookmarks.length}`);
+    respond({ type: 'BOOKMARKS_UPDATED', payload: { visualBookmarks: vBookmarks }, requestId: '' });
+};
+
 // --- Message Listener ---
 ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
     const { type, payload, requestId } = evt.data;
@@ -684,6 +756,9 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             break;
         case 'FILTER_LOGS':
             applyFilter(payload as LogRule);
+            break;
+        case 'TOGGLE_BOOKMARK':
+            toggleBookmark(payload.visualIndex);
             break;
         case 'GET_LINES':
             getLines(payload.startLine, payload.count, requestId || '');

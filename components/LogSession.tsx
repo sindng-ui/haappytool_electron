@@ -309,11 +309,19 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
 
                             if (e.code === 'Space') {
-                                if (!isActive) return;
+                                console.log('[LogSession] Space Key Pressed', { isActive, target: (e.target as HTMLElement).tagName });
+
+                                if (!isActive) {
+                                    console.log('[LogSession] Ignored: Not Active');
+                                    return;
+                                }
 
                                 // Ignore if typing in an input
                                 const target = e.target as HTMLElement;
-                                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+                                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+                                    console.log('[LogSession] Ignored: Input Focus');
+                                    return;
+                                }
 
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -329,9 +337,13 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 const st = stateRef.current;
                                 const currentIndex = targetPane === 'right' ? st.selectedLineIndexRight : st.selectedLineIndexLeft;
 
+                                console.log(`[LogSession] Attempting Toggle: Pane=${targetPane}, Index=${currentIndex}`);
+
                                 if (currentIndex !== -1) {
                                     if (targetPane === 'right') toggleRightBookmark(currentIndex);
                                     else toggleLeftBookmark(currentIndex);
+                                } else {
+                                    console.warn('[LogSession] No line selected to bookmark');
                                 }
                                 return;
                             }

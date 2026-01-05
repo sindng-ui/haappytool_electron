@@ -29,7 +29,10 @@ export const LogLine = React.memo(({ index, style, data, isActive, hasBookmark, 
                         : 'hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
                 }`}
             onClick={() => onClick && onClick(index)}
-            onDoubleClick={() => onDoubleClick && onDoubleClick(index)}
+            onDoubleClick={(e) => {
+                e.stopPropagation(); // Prevent bubbling
+                onDoubleClick && onDoubleClick(index);
+            }}
         >
             {/* Sticky Bookmark Column */}
             <div className="sticky left-0 z-10 w-[20px] h-full shrink-0 flex items-center justify-center border-r border-slate-200 dark:border-white/5">

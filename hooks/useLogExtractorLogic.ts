@@ -149,25 +149,17 @@ export const useLogExtractorLogic = ({
     const [rightBookmarks, setRightBookmarks] = useState<Set<number>>(new Set());
 
     const toggleLeftBookmark = useCallback((lineIndex: number) => {
-        setLeftBookmarks(prev => {
-            const next = new Set(prev);
-            if (next.has(lineIndex)) next.delete(lineIndex);
-            else next.add(lineIndex);
-            return next;
-        });
+        // Delegate to worker
+        leftWorkerRef.current?.postMessage({ type: 'TOGGLE_BOOKMARK', payload: { visualIndex: lineIndex } });
     }, []);
 
     const toggleRightBookmark = useCallback((lineIndex: number) => {
-        setRightBookmarks(prev => {
-            const next = new Set(prev);
-            if (next.has(lineIndex)) next.delete(lineIndex);
-            else next.add(lineIndex);
-            return next;
-        });
+        // Delegate to worker
+        rightWorkerRef.current?.postMessage({ type: 'TOGGLE_BOOKMARK', payload: { visualIndex: lineIndex } });
     }, []);
 
-    const clearLeftBookmarks = useCallback(() => setLeftBookmarks(new Set()), []);
-    const clearRightBookmarks = useCallback(() => setRightBookmarks(new Set()), []);
+    const clearLeftBookmarks = useCallback(() => { /* TODO: Implement clear bookmarks in worker if needed, or just clear visually? for now, maybe we need worker support. */ }, []);
+    const clearRightBookmarks = useCallback(() => { /* TODO */ }, []); // Clearing bookmarks usually implies clearing ALL. Worker needs CLEAR_BOOKMARKS message. For now, leave empty or TODO.
     const [isTizenModalOpen, setIsTizenModalOpen] = useState(false);
 
     const [rawContextOpen, setRawContextOpen] = useState(false);
@@ -310,7 +302,15 @@ export const useLogExtractorLogic = ({
                     break;
                 case 'FILTER_COMPLETE':
                     setLeftFilteredCount(payload.matchCount);
+                    if (payload.visualBookmarks) {
+                        setLeftBookmarks(new Set(payload.visualBookmarks));
+                    }
                     setLeftWorkerReady(true);
+                    break;
+                case 'BOOKMARKS_UPDATED':
+                    if (payload.visualBookmarks) {
+                        setLeftBookmarks(new Set(payload.visualBookmarks));
+                    }
                     break;
                 case 'ERROR':
                     console.error('Left Worker Error:', payload.error);
@@ -368,8 +368,16 @@ export const useLogExtractorLogic = ({
                     break;
                 case 'FILTER_COMPLETE':
                     setRightFilteredCount(payload.matchCount);
+                    if (payload.visualBookmarks) {
+                        setRightBookmarks(new Set(payload.visualBookmarks));
+                    }
                     setRightWorkerReady(true);
                     setSelectedLineIndexRight(-1);
+                    break;
+                case 'BOOKMARKS_UPDATED':
+                    if (payload.visualBookmarks) {
+                        setRightBookmarks(new Set(payload.visualBookmarks));
+                    }
                     break;
             }
         };
@@ -1204,14 +1212,34 @@ export const useLogExtractorLogic = ({
         const relativeIndex = index % MAX_SEGMENT_SIZE;
         console.log(`[Double Click Debug] Relative Index: ${relativeIndex}, Current Segment: ${currentSegmentIndex}`);
 
-        const lines = await requestLines(relativeIndex, 1);
-        if (lines && lines.length > 0) {
-            console.log(`[Double Click Debug] Worker Returned Original Line Num: ${lines[0].lineNum}`);
-            setRawContextTargetLine({ ...lines[0], formattedLineIndex: index + 1 } as any);
-            setRawContextSourcePane(paneId);
-            setRawContextOpen(true);
-        } else {
-            console.warn(`[Double Click Debug] Worker returned NO lines for index ${relativeIndex}`);
+        try {
+            const lines = await requestLines(relativeIndex, 1);
+            if (lines && lines.length > 0) {
+                console.log(`[Double Click Debug] Worker Returned Original Line Num: ${lines[0].lineNum}`);
+                setRawContextTargetLine({ ...lines[0], formattedLineIndex: index + 1 } as any);
+                setRawContextSourcePane(paneId);
+                setRawContextOpen(true);
+            } else {
+                console.warn(`[Double Click Debug] Worker returned NO lines for index ${relativeIndex}`);
+                // Retry once with a small delay in case of race condition in stream mode
+                setTimeout(async () => {
+                    try {
+                        const retryLines = await requestLines(relativeIndex, 1);
+                        if (retryLines && retryLines.length > 0) {
+                            setRawContextTargetLine({ ...retryLines[0], formattedLineIndex: index + 1 } as any);
+                            setRawContextSourcePane(paneId);
+                            setRawContextOpen(true);
+                        } else {
+                            showToast('Failed to load raw line details (empty response)', 'error');
+                        }
+                    } catch (retryErr) {
+                        console.error('Retry failed', retryErr);
+                    }
+                }, 100);
+            }
+        } catch (error) {
+            console.error('[Double Click] Error requesting lines:', error);
+            showToast('Failed to open raw view', 'error');
         }
     }, [requestLeftLines, requestRightLines, leftSegmentIndex, rightSegmentIndex]);
 
