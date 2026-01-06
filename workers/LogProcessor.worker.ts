@@ -134,6 +134,7 @@ const buildFileIndex = async (file: File) => {
     isStreamMode = false;
     currentFile = file;
     streamLines = []; // Clear stream data
+    originalBookmarks.clear(); // Clear bookmarks for new file
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 0 } });
 
@@ -194,7 +195,9 @@ const buildFileIndex = async (file: File) => {
     for (let i = 0; i < lineCount; i++) all[i] = i;
     filteredIndices = all;
 
-    respond({ type: 'FILTER_COMPLETE', payload: { matchCount: all.length } });
+    filteredIndices = all;
+
+    respond({ type: 'FILTER_COMPLETE', payload: { matchCount: all.length, totalLines: lineCount, visualBookmarks: getVisualBookmarks() } });
 };
 
 // --- Handler: Stream Init ---
@@ -203,6 +206,7 @@ const initStream = () => {
     currentFile = null;
     lineOffsets = null;
     streamLines = [];
+    originalBookmarks.clear();
     streamBuffer = '';
     filteredIndices = new Int32Array(0);
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready', mode: 'stream' } });
@@ -254,7 +258,7 @@ const processChunk = (chunk: string) => {
         filteredIndices = new Int32Array(newMatches);
     }
 
-    respond({ type: 'FILTER_COMPLETE', payload: { matchCount: filteredIndices.length } });
+    respond({ type: 'FILTER_COMPLETE', payload: { matchCount: filteredIndices.length, totalLines: streamLines.length, visualBookmarks: getVisualBookmarks() } });
 };
 
 
@@ -270,7 +274,7 @@ const applyFilter = async (rule: LogRule) => {
             if (checkIsMatch(line, rule)) matches.push(i);
         });
         filteredIndices = new Int32Array(matches);
-        respond({ type: 'FILTER_COMPLETE', payload: { matchCount: matches.length } });
+        respond({ type: 'FILTER_COMPLETE', payload: { matchCount: matches.length, totalLines: streamLines.length, visualBookmarks: getVisualBookmarks() } });
         respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
         return;
     }
@@ -287,7 +291,7 @@ const applyFilter = async (rule: LogRule) => {
         const all = new Int32Array(lineOffsets.length);
         for (let i = 0; i < lineOffsets.length; i++) all[i] = i;
         filteredIndices = all;
-        respond({ type: 'FILTER_COMPLETE', payload: { matchCount: all.length } });
+        respond({ type: 'FILTER_COMPLETE', payload: { matchCount: all.length, totalLines: lineOffsets.length, visualBookmarks: getVisualBookmarks() } });
         respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
         return;
     }
@@ -332,7 +336,7 @@ const applyFilter = async (rule: LogRule) => {
 
     filteredIndices = new Int32Array(matches);
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
-    respond({ type: 'FILTER_COMPLETE', payload: { matchCount: matches.length } });
+    respond({ type: 'FILTER_COMPLETE', payload: { matchCount: matches.length, totalLines: lineOffsets.length, visualBookmarks: getVisualBookmarks() } });
 };
 
 // --- Handler: Get Lines ---

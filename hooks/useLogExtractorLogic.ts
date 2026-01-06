@@ -302,6 +302,7 @@ export const useLogExtractorLogic = ({
                     break;
                 case 'FILTER_COMPLETE':
                     setLeftFilteredCount(payload.matchCount);
+                    if (typeof payload.totalLines === 'number') setLeftTotalLines(payload.totalLines);
                     if (payload.visualBookmarks) {
                         setLeftBookmarks(new Set(payload.visualBookmarks));
                     }
@@ -368,6 +369,7 @@ export const useLogExtractorLogic = ({
                     break;
                 case 'FILTER_COMPLETE':
                     setRightFilteredCount(payload.matchCount);
+                    if (typeof payload.totalLines === 'number') setRightTotalLines(payload.totalLines);
                     if (payload.visualBookmarks) {
                         setRightBookmarks(new Set(payload.visualBookmarks));
                     }
