@@ -8,6 +8,10 @@ const { spawn, exec } = require('child_process');
 
 const path = require('path');
 const jimp = require('jimp');
+
+// Global BlockTest Dir (Configurable via startServer)
+let globalBlockTestDir = path.join(process.cwd(), 'BlockTest');
+
 // Lazy load OpenCV
 let cv = null;
 try {
@@ -33,7 +37,8 @@ app.use(express.static(path.join(__dirname, '../dist')));
 // Serve uploaded templates
 app.use('/templates', express.static(path.join(__dirname, '../public/templates')));
 // Serve BlockTest files (reports, etc.)
-app.use('/blocktest', express.static(path.join(process.cwd(), 'BlockTest')));
+// Serve BlockTest files (reports, etc.) -> Moved to startServer to allow dynamic path
+// app.use('/blocktest', ...);
 
 // --- TEST ROUTES ---
 app.get('/test-rpm', (req, res) => {
@@ -606,8 +611,7 @@ io.on('connection', (socket) => {
 
 
     // 2. File Persistence (BlockTest Folder)
-    const BLOCK_TEST_DIR = path.join(process.cwd(), 'BlockTest');
-    console.log("SERVER_STARTUP: process.cwd() =", process.cwd());
+    const BLOCK_TEST_DIR = globalBlockTestDir;
     console.log("SERVER_STARTUP: BLOCK_TEST_DIR =", BLOCK_TEST_DIR);
 
 
@@ -702,7 +706,8 @@ io.on('connection', (socket) => {
     socket.on('save_uploaded_template', ({ name, data }) => {
         console.log(`[Server] Received save_uploaded_template: ${name}, Data Length: ${data ? data.length : 0}`);
         try {
-            const templatesDir = path.join(__dirname, '../public/templates');
+            // Save to BlockTest/templates (Writable)
+            const templatesDir = path.join(globalBlockTestDir, 'templates');
             if (!fs.existsSync(templatesDir)) fs.mkdirSync(templatesDir, { recursive: true });
 
             console.log(`[Server] processing base64 data...`);
@@ -715,7 +720,9 @@ io.on('connection', (socket) => {
             console.log(`[Server] Writing file to ${filePath}...`);
             fs.writeFileSync(filePath, buffer);
             console.log(`[Server] File written successfully.`);
-            socket.emit('save_uploaded_template_result', { success: true, path: filePath, url: `/templates/${path.basename(filePath)}` });
+
+            // URL is now served via /blocktest/templates/...
+            socket.emit('save_uploaded_template_result', { success: true, path: filePath, url: `/blocktest/templates/${path.basename(filePath)}` });
         } catch (e) {
             console.error("Save Template Error", e);
             socket.emit('save_uploaded_template_result', { success: false, message: e.message });
@@ -1556,7 +1563,22 @@ app.get(/(.*)/, (req, res) => {
 
 const PORT = 3003;
 
-function startServer() {
+function startServer(userDataPath) {
+    if (userDataPath) {
+        globalBlockTestDir = path.join(userDataPath, 'BlockTest');
+        console.log(`[Server] Updated BlockTest Dir to: ${globalBlockTestDir}`);
+    }
+
+    // Serve BlockTest files dynamically based on configured path
+    app.use('/blocktest', express.static(globalBlockTestDir));
+
+    // Ensure it exists
+    if (!fs.existsSync(globalBlockTestDir)) {
+        try {
+            fs.mkdirSync(globalBlockTestDir, { recursive: true });
+        } catch (e) { console.error("Failed to create BlockTest dir:", e); }
+    }
+
     return new Promise((resolve, reject) => {
         server.listen(PORT, '127.0.0.1', () => {
             console.log(`Log Server running on port ${PORT} (Local Only)`);

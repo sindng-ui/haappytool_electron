@@ -192,7 +192,7 @@ app.whenReady().then(async () => {
 
     console.log('Starting internal server...');
     try {
-        await startServer();
+        await startServer(app.getPath('userData'));
         console.log('Internal server started!');
     } catch (e) {
         console.error('Failed to start internal server:', e);
