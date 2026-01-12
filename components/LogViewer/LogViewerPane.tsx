@@ -6,6 +6,14 @@ import { LogLine } from './LogLine';
 
 const { Upload, X, Zap, Split, Copy, Download, Bookmark, ArrowDown } = Lucide;
 
+declare global {
+    interface Window {
+        electronAPI?: {
+            copyToClipboard: (text: string) => Promise<void>;
+        };
+    }
+}
+
 const ROW_HEIGHT = 24;
 const OVERSCAN = 120; // Reduced to 120 for better performance
 
@@ -90,7 +98,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 
     // Auto-scroll (Sticky Bottom) State
     const [atBottom, setAtBottom] = useState(false);
-    const showScrollToBottom = !atBottom && totalMatches > 0;
+    const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
+    const showScrollToBottom = (!atBottom || isAutoScrollPaused) && totalMatches > 0;
 
     // Cache for lines
     const [cachedLines, setCachedLines] = useState<Map<number, { lineNum: number, content: string }>>(new Map());
@@ -393,6 +402,20 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         }
 
         if (!e.ctrlKey) {
+            // Auto-scroll Toggle
+            if (e.shiftKey && (e.key === 's' || e.key === 'S')) {
+                e.preventDefault();
+                setIsAutoScrollPaused(prev => {
+                    const newState = !prev;
+                    // If resuming (pausing -> unpaused), jump to bottom immediately
+                    if (!newState) {
+                        virtuosoRef.current?.scrollToIndex({ index: totalMatches - 1, align: 'end', behavior: 'auto' });
+                    }
+                    return newState;
+                });
+                return;
+            }
+
             const relativeActive = activeLineIndex - absoluteOffset;
             const isFocusedOnPage = relativeActive >= 0 && relativeActive < totalMatches;
 
@@ -602,7 +625,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             // If user is at bottom, followOutput="auto" (stick)
                             // If user scrolls up, followOutput=false (stop sticking)
                             // Disable auto-scroll in Raw Mode to prevent jumping
-                            followOutput={(!isRawMode && atBottom) ? 'auto' : false}
+                            followOutput={(!isRawMode && atBottom && !isAutoScrollPaused) ? 'auto' : false}
 
                             atBottomStateChange={(isAtBottom) => {
                                 // Virtuoso tells us when user enters/leaves bottom zone
@@ -635,6 +658,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                     if (onScrollToBottomRequest) {
                                         onScrollToBottomRequest();
                                     } else {
+                                        setIsAutoScrollPaused(false); // Enable auto-scroll (stick)
                                         virtuosoRef.current?.scrollToIndex({ index: totalMatches - 1, align: 'end', behavior: 'auto' });
                                     }
                                 }}
