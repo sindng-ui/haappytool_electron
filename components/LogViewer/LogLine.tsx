@@ -7,28 +7,33 @@ interface LogLineProps {
     style: React.CSSProperties;
     data?: { lineNum: number, content: string };
     isActive: boolean;
+    isSelected?: boolean; // Multi-select support
     hasBookmark: boolean;
     isRawMode?: boolean;
     highlights?: LogHighlight[];
     highlightCaseSensitive?: boolean;
-    onClick?: (index: number) => void;
+    onClick?: (index: number, event: React.MouseEvent) => void;
     onDoubleClick?: (index: number) => void;
+    onMouseDown?: (index: number, event: React.MouseEvent) => void;
+    onMouseEnter?: (index: number, event: React.MouseEvent) => void;
 }
 
-export const LogLine = React.memo(({ index, style, data, isActive, hasBookmark, isRawMode = false, highlights, highlightCaseSensitive = false, onClick, onDoubleClick }: LogLineProps) => {
+export const LogLine = React.memo(({ index, style, data, isActive, isSelected, hasBookmark, isRawMode = false, highlights, highlightCaseSensitive = false, onClick, onDoubleClick, onMouseDown, onMouseEnter }: LogLineProps) => {
     const isLoading = !data;
 
     return (
         <div
             style={style}
             className={`group flex items-center text-xs font-mono whitespace-pre cursor-pointer select-text transition-colors duration-75
-                ${isActive
+                ${(isActive || isSelected)
                     ? 'bg-indigo-500/10 dark:bg-indigo-500/20 font-medium'
                     : hasBookmark
                         ? 'bg-yellow-50/50 dark:bg-yellow-500/10 hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
                         : 'hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
                 }`}
-            onClick={() => onClick && onClick(index)}
+            onClick={(e) => onClick && onClick(index, e)}
+            onMouseDown={(e) => onMouseDown && onMouseDown(index, e)}
+            onMouseEnter={(e) => onMouseEnter && onMouseEnter(index, e)}
             onDoubleClick={(e) => {
                 e.stopPropagation(); // Prevent bubbling
                 onDoubleClick && onDoubleClick(index);

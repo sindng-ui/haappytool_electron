@@ -103,16 +103,17 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         rawViewerRef,
         currentConfig,
 
-        leftViewerRef, leftWorkerReady, leftFilteredCount, requestLeftLines, setSelectedLineIndexLeft,
-        handleLineDoubleClickAction, selectedLineIndexLeft, handleLeftFileChange, handleLeftReset, leftIndexingProgress,
+        leftViewerRef, leftWorkerReady, leftFilteredCount, requestLeftLines, setActiveLineIndexLeft,
+        handleLineDoubleClickAction, activeLineIndexLeft, selectedIndicesLeft, setSelectedIndicesLeft, handleLeftFileChange, handleLeftReset, leftIndexingProgress,
 
-        rightViewerRef, rightWorkerReady, rightFilteredCount, requestRightLines, setSelectedLineIndexRight,
-        selectedLineIndexRight, handleRightFileChange, handleRightReset, rightIndexingProgress,
+        rightViewerRef, rightWorkerReady, rightFilteredCount, requestRightLines, setActiveLineIndexRight,
+        activeLineIndexRight, selectedIndicesRight, setSelectedIndicesRight, handleRightFileChange, handleRightReset, rightIndexingProgress,
         handleCopyLogs, handleSaveLogs,
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
         clearLeftBookmarks, clearRightBookmarks,
         jumpToHighlight, requestBookmarkedLines, jumpToGlobalLine,
         tizenSocket, sendTizenCommand, handleClearLogs, handleTizenDisconnect,
+        handleLineClick,
 
         // Segmentation
         leftSegmentIndex, setLeftSegmentIndex, leftTotalSegments, leftCurrentSegmentLines,
@@ -125,9 +126,9 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const requestRightBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'right'), [requestBookmarkedLines]);
 
     // Track latest state for global shortcuts
-    const stateRef = React.useRef({ selectedLineIndexLeft, selectedLineIndexRight, leftBookmarks, rightBookmarks });
+    const stateRef = React.useRef({ activeLineIndexLeft, activeLineIndexRight, selectedIndicesLeft, selectedIndicesRight, leftBookmarks, rightBookmarks });
     React.useEffect(() => {
-        stateRef.current = { selectedLineIndexLeft, selectedLineIndexRight, leftBookmarks, rightBookmarks };
+        stateRef.current = { activeLineIndexLeft, activeLineIndexRight, selectedIndicesLeft, selectedIndicesRight, leftBookmarks, rightBookmarks };
     });
 
     // Update Tab Title based on file name
@@ -143,7 +144,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
     const handleFocusPaneRequest = (direction: 'left' | 'right', visualY?: number) => {
         const targetRef = direction === 'left' ? leftViewerRef : rightViewerRef;
-        const targetSetter = direction === 'left' ? setSelectedLineIndexLeft : setSelectedLineIndexRight;
+        const targetSetter = direction === 'left' ? setActiveLineIndexLeft : setActiveLineIndexRight;
+        const targetSelectionSetter = direction === 'left' ? setSelectedIndicesLeft : setSelectedIndicesRight;
         const targetCount = direction === 'left' ? leftFilteredCount : rightFilteredCount;
         const targetOffset = direction === 'left' ? leftSegmentIndex * MAX_SEGMENT_SIZE : rightSegmentIndex * MAX_SEGMENT_SIZE;
 
@@ -157,6 +159,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
             const clampedIndex = Math.max(0, Math.min(targetGlobalIndex, targetCount - 1));
             targetSetter(clampedIndex);
+            targetSelectionSetter(new Set([clampedIndex]));
         }
     };
 
@@ -169,7 +172,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     }, [isDualView]);
 
     // Memoized handlers for Left Pane
-    const onLineClickLeft = React.useCallback((index: number) => setSelectedLineIndexLeft(index), [setSelectedLineIndexLeft]);
+    const onLineClickLeft = React.useCallback((index: number, isShift?: boolean, isCtrl?: boolean) => handleLineClick('left', index, !!isShift, !!isCtrl), [handleLineClick]);
     const onLineDoubleClickLeft = React.useCallback((index: number) => handleLineDoubleClickAction(index, 'left'), [handleLineDoubleClickAction]);
     const onBrowseLeft = React.useCallback(() => leftFileInputRef.current?.click(), []);
     const onCopyLeft = React.useCallback(() => handleCopyLogs('left'), [handleCopyLogs]);
@@ -179,7 +182,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const onShowBookmarksLeft = React.useCallback(() => setLeftBookmarksOpen(true), []);
 
     // Memoized handlers for Right Pane
-    const onLineClickRight = React.useCallback((index: number) => setSelectedLineIndexRight(index), [setSelectedLineIndexRight]);
+    const onLineClickRight = React.useCallback((index: number, isShift?: boolean, isCtrl?: boolean) => handleLineClick('right', index, !!isShift, !!isCtrl), [handleLineClick]);
     const onLineDoubleClickRight = React.useCallback((index: number) => handleLineDoubleClickAction(index, 'right'), [handleLineDoubleClickAction]);
     const onBrowseRight = React.useCallback(() => rightFileInputRef.current?.click(), []);
     const onCopyRight = React.useCallback(() => handleCopyLogs('right'), [handleCopyLogs]);
@@ -189,14 +192,16 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const onShowBookmarksRight = React.useCallback(() => setRightBookmarksOpen(true), []);
 
     const onBookmarkJumpLeft = React.useCallback((index: number) => {
-        setSelectedLineIndexLeft(index);
+        setActiveLineIndexLeft(index);
+        setSelectedIndicesLeft(new Set([index]));
         leftViewerRef.current?.scrollToIndex(index);
-    }, [setSelectedLineIndexLeft]);
+    }, [setActiveLineIndexLeft, setSelectedIndicesLeft]);
 
     const onBookmarkJumpRight = React.useCallback((index: number) => {
-        setSelectedLineIndexRight(index);
+        setActiveLineIndexRight(index);
+        setSelectedIndicesRight(new Set([index]));
         rightViewerRef.current?.scrollToIndex(index);
-    }, [setSelectedLineIndexRight]);
+    }, [setActiveLineIndexRight, setSelectedIndicesRight]);
 
     // Page Navigation Handlers
     const handlePageNavRequestLeft = React.useCallback((direction: 'next' | 'prev') => {
@@ -281,7 +286,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 const isPrev = e.key === 'F3'; // F3 (and Shift+F3) = Prev, F4 (and Shift+F4) = Next
                                 const st = stateRef.current;
                                 const bookmarks = targetPane === 'right' ? st.rightBookmarks : st.leftBookmarks;
-                                const currentLine = targetPane === 'right' ? st.selectedLineIndexRight : st.selectedLineIndexLeft;
+                                const currentLine = targetPane === 'right' ? st.activeLineIndexRight : st.activeLineIndexLeft;
 
                                 const sorted = Array.from(bookmarks).sort((a, b) => a - b);
                                 if (sorted.length === 0) return;
@@ -335,7 +340,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 }
 
                                 const st = stateRef.current;
-                                const currentIndex = targetPane === 'right' ? st.selectedLineIndexRight : st.selectedLineIndexLeft;
+                                const currentIndex = targetPane === 'right' ? st.activeLineIndexRight : st.activeLineIndexLeft;
 
                                 console.log(`[LogSession] Attempting Toggle: Pane=${targetPane}, Index=${currentIndex}`);
 
@@ -512,7 +517,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     highlightCaseSensitive={currentConfig?.colorHighlightsCaseSensitive}
                                     onLineClick={onLineClickLeft}
                                     onLineDoubleClick={onLineDoubleClickLeft}
-                                    activeLineIndex={selectedLineIndexLeft}
+                                    activeLineIndex={activeLineIndexLeft}
+                                    selectedIndices={selectedIndicesLeft}
                                     onDrop={handleLeftFileChange}
                                     onBrowse={onBrowseLeft}
                                     paneId="left"
@@ -584,7 +590,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             hotkeyScope="alt"
                                             onLineClick={onLineClickRight}
                                             onLineDoubleClick={onLineDoubleClickRight}
-                                            activeLineIndex={selectedLineIndexRight}
+                                            activeLineIndex={activeLineIndexRight}
+                                            selectedIndices={selectedIndicesRight}
                                             onDrop={handleRightFileChange}
                                             onBrowse={onBrowseRight}
                                             paneId="right"

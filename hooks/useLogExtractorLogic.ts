@@ -142,8 +142,11 @@ export const useLogExtractorLogic = ({
     const [rightFileName, setRightFileName] = useState<string>('');
     const rightPendingRequests = useRef<Map<string, (data: any) => void>>(new Map());
 
-    const [selectedLineIndexLeft, setSelectedLineIndexLeft] = useState<number>(-1);
-    const [selectedLineIndexRight, setSelectedLineIndexRight] = useState<number>(-1);
+    const [selectedIndicesLeft, setSelectedIndicesLeft] = useState<Set<number>>(new Set());
+    const [selectedIndicesRight, setSelectedIndicesRight] = useState<Set<number>>(new Set());
+    const [activeLineIndexLeft, setActiveLineIndexLeft] = useState<number>(-1); // Anchor/Focus
+    const [activeLineIndexRight, setActiveLineIndexRight] = useState<number>(-1); // Anchor/Focus
+
 
     const [leftBookmarks, setLeftBookmarks] = useState<Set<number>>(new Set());
     const [rightBookmarks, setRightBookmarks] = useState<Set<number>>(new Set());
@@ -217,7 +220,10 @@ export const useLogExtractorLogic = ({
             console.log(`[useLog] Final targetPath:`, targetPath);
 
             if (savedScrollTop > 0) pendingScrollTop.current = savedScrollTop;
-            if (savedSelectedLine >= 0) setSelectedLineIndexLeft(savedSelectedLine);
+            if (savedSelectedLine >= 0) {
+                setActiveLineIndexLeft(savedSelectedLine);
+                setSelectedIndicesLeft(new Set([savedSelectedLine]));
+            }
 
             if (targetPath) {
                 loadFile(targetPath);
@@ -374,7 +380,8 @@ export const useLogExtractorLogic = ({
                         setRightBookmarks(new Set(payload.visualBookmarks));
                     }
                     setRightWorkerReady(true);
-                    setSelectedLineIndexRight(-1);
+                    setActiveLineIndexRight(-1);
+                    setSelectedIndicesRight(new Set());
                     break;
                 case 'BOOKMARKS_UPDATED':
                     if (payload.visualBookmarks) {
@@ -414,7 +421,7 @@ export const useLogExtractorLogic = ({
             if (e.key === 'PageUp' || e.key === 'PageDown') {
                 e.preventDefault();
                 const direction = e.key === 'PageUp' ? -1 : 1;
-                const targetRef = isDualView && selectedLineIndexRight !== -1 ? rightViewerRef : leftViewerRef;
+                const targetRef = isDualView && activeLineIndexRight !== -1 ? rightViewerRef : leftViewerRef;
                 targetRef.current?.scrollByPage(direction);
                 return;
             }
@@ -422,11 +429,14 @@ export const useLogExtractorLogic = ({
             // Focus Switch (Ctrl + Arrow Left/Right)
             if (e.ctrlKey && isDualView) {
                 if (e.key === 'ArrowLeft') {
-                    // Logic to focus left pane logic if needed, visually handled by selectedLineIndex
-                    setSelectedLineIndexRight(-1); // Deselect right
+                    // Switch focus to Left
+                    setActiveLineIndexRight(-1);
+                    setSelectedIndicesRight(new Set());
                     // Ideally we should set focus to left container, but here we just manage selection state mostly
                 } else if (e.key === 'ArrowRight') {
-                    setSelectedLineIndexLeft(-1); // Deselect left
+                    // Switch focus to Right
+                    setActiveLineIndexLeft(-1);
+                    setSelectedIndicesLeft(new Set());
                 }
             }
 
@@ -484,7 +494,7 @@ export const useLogExtractorLogic = ({
 
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [isDualView, rawContextOpen, selectedLineIndexRight, selectedLineIndexLeft]);
+    }, [isDualView, rawContextOpen, activeLineIndexRight, activeLineIndexLeft]);
 
     const currentConfig = rules.find(r => r.id === selectedRuleId);
 
@@ -599,7 +609,10 @@ export const useLogExtractorLogic = ({
                 payload: { ...currentConfig, includeGroups: refinedGroups }
             });
             // Don't reset selection during stream to avoid jumps, unless necessary?
-            if (!tizenSocket) setSelectedLineIndexLeft(-1);
+            if (!tizenSocket) {
+                setActiveLineIndexLeft(-1);
+                setSelectedIndicesLeft(new Set());
+            }
         }
     }, [currentConfig, leftTotalLines, tizenSocket]);
 
@@ -621,7 +634,9 @@ export const useLogExtractorLogic = ({
         setLeftIndexingProgress(0);
         setLeftTotalLines(0);
         setLeftFilteredCount(0);
-        setSelectedLineIndexLeft(-1);
+        setLeftFilteredCount(0);
+        setActiveLineIndexLeft(-1);
+        setSelectedIndicesLeft(new Set());
         shouldAutoScroll.current = true; // Default to auto-scroll on start
         lastFilterHashLeft.current = '';
 
@@ -766,7 +781,9 @@ export const useLogExtractorLogic = ({
         if (leftWorkerRef.current) {
             setLeftTotalLines(0);
             setLeftFilteredCount(0);
-            setSelectedLineIndexLeft(-1);
+            setLeftFilteredCount(0);
+            setActiveLineIndexLeft(-1);
+            setSelectedIndicesLeft(new Set());
             setLeftBookmarks(new Set()); // Clear bookmarks
             leftWorkerRef.current.postMessage({ type: 'INIT_STREAM' });
 
@@ -797,6 +814,77 @@ export const useLogExtractorLogic = ({
         };
     }, [tizenSocket]);
 
+    // Selection Helpers
+    const handleLineClick = useCallback((pane: 'left' | 'right', index: number, isShift: boolean, isCtrl: boolean) => {
+        const setActive = pane === 'left' ? setActiveLineIndexLeft : setActiveLineIndexRight;
+        const setSelection = pane === 'left' ? setSelectedIndicesLeft : setSelectedIndicesRight;
+        const currentActive = pane === 'left' ? activeLineIndexLeft : activeLineIndexRight;
+        // console.log(`[useLog] Click: pane=${pane}, idx=${index}, shift=${isShift}, ctrl=${isCtrl}, currActive=${currentActive}`);
+
+        if (isShift && currentActive !== -1) {
+            // Range Selection
+            const start = Math.min(currentActive, index);
+            const end = Math.max(currentActive, index);
+            const range = new Set<number>();
+            for (let i = start; i <= end; i++) range.add(i);
+            setSelection(range);
+            // NOTE: We do NOT update Active Index on Shift+Click usually, 
+            // but we DO want to ensure if we drag back, the anchor remains.
+            // So we leave active as is.
+        } else if (isCtrl) {
+            // Toggle Selection (Add/Remove)
+            // Note: Set state update needs previous state access.
+            setSelection(prev => {
+                const next = new Set(prev);
+                if (next.has(index)) next.delete(index);
+                else next.add(index);
+                return next;
+            });
+            setActive(index); // Update anchor to latest click
+        } else {
+            // Single Selection
+            setSelection(new Set([index]));
+            setActive(index);
+        }
+    }, [activeLineIndexLeft, activeLineIndexRight]);
+
+    // Handle Shift+C (Global Selection Extension)
+    useEffect(() => {
+        const handleShiftC = (e: KeyboardEvent) => {
+            if (e.shiftKey && (e.key === 'c' || e.key === 'C')) {
+                // Determine active pane
+                // If Dual View, decide based on which one has active selection or focus
+                // Default to left if single view.
+                const targetPane = (isDualView && activeLineIndexRight !== -1) ? 'right' : 'left';
+
+                const currentSelection = targetPane === 'left' ? selectedIndicesLeft : selectedIndicesRight;
+                const setSelection = targetPane === 'left' ? setSelectedIndicesLeft : setSelectedIndicesRight;
+                const totalLines = targetPane === 'left' ? leftTotalLines : rightTotalLines;
+
+                if (currentSelection.size > 0) {
+                    const sorted = Array.from(currentSelection).sort((a, b) => a - b);
+                    const last = sorted[sorted.length - 1];
+                    const next = last + 1;
+
+                    if (next < totalLines) {
+                        setSelection(prev => {
+                            const nextSet = new Set(prev);
+                            nextSet.add(next);
+                            return nextSet;
+                        });
+                        // Also scroll into view
+                        const viewer = targetPane === 'left' ? leftViewerRef.current : rightViewerRef.current;
+                        viewer?.scrollToIndex(next, { align: 'center' }); // align center or end?
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleShiftC);
+        return () => window.removeEventListener('keydown', handleShiftC);
+    }, [isDualView, activeLineIndexRight, activeLineIndexLeft, selectedIndicesLeft, selectedIndicesRight, leftTotalLines, rightTotalLines]);
+
+
     const handleLeftFileChange = useCallback((file: File) => {
         if (!leftWorkerRef.current) return;
 
@@ -817,7 +905,9 @@ export const useLogExtractorLogic = ({
         setLeftIndexingProgress(0);
         setLeftTotalLines(0);
         setLeftFilteredCount(0);
-        setSelectedLineIndexLeft(-1);
+        // Reset selection
+        setActiveLineIndexLeft(-1);
+        setSelectedIndicesLeft(new Set());
         setLeftBookmarks(new Set()); // Clear bookmarks
         lastFilterHashLeft.current = '';
         leftWorkerRef.current.postMessage({ type: 'INIT_FILE', payload: file });
@@ -938,7 +1028,8 @@ export const useLogExtractorLogic = ({
         setLeftWorkerReady(false);
         setLeftTotalLines(0);
         setLeftFilteredCount(0);
-        setSelectedLineIndexLeft(-1);
+        setActiveLineIndexLeft(-1);
+        setSelectedIndicesLeft(new Set());
         setLeftBookmarks(new Set()); // Clear bookmarks
         lastFilterHashLeft.current = '';
     }, []);
@@ -948,7 +1039,8 @@ export const useLogExtractorLogic = ({
         setRightWorkerReady(false);
         setRightTotalLines(0);
         setRightFilteredCount(0);
-        setSelectedLineIndexRight(-1);
+        setActiveLineIndexRight(-1);
+        setSelectedIndicesRight(new Set());
         setRightBookmarks(new Set()); // Clear bookmarks
         lastFilterHashRight.current = '';
     }, []);
@@ -960,32 +1052,45 @@ export const useLogExtractorLogic = ({
             const scrollTop = leftViewerRef.current?.getScrollTop() || 0;
             const state = {
                 filePath: leftFilePath,
-                selectedLine: selectedLineIndexLeft,
+                selectedLine: activeLineIndexLeft,
                 scrollTop
             };
             setStoredValue(`tabState_${tabId}`, JSON.stringify(state));
         }, 1000); // 1s interval
         return () => clearInterval(timer);
-    }, [tabId, leftFilePath, selectedLineIndexLeft]);
+    }, [tabId, leftFilePath, activeLineIndexLeft]);
 
     const handleCopyLogs = useCallback(async (paneId: 'left' | 'right') => {
         const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
+        const selectedIndices = paneId === 'left' ? selectedIndicesLeft : selectedIndicesRight;
         const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
+        const requestSpecificLines = paneId === 'left'
+            ? (indices: number[]) => requestBookmarkedLines(indices, 'left')
+            : (indices: number[]) => requestBookmarkedLines(indices, 'right');
+
         if (count <= 0) {
             showToast('No logs to copy.', 'info');
             return;
         }
 
-        // Show loading toast immediately
-        showToast('Copying logs to clipboard...', 'info');
+        const isSelectionCopy = selectedIndices.size > 0;
+        showToast(isSelectionCopy ? 'Copying selected lines...' : 'Copying all logs...', 'info');
 
         try {
             console.time('copy-fetch');
-            const content = await requestFullText();
+            let content = '';
+
+            if (isSelectionCopy) {
+                const indices = Array.from(selectedIndices).sort((a, b) => a - b);
+                const lines = await requestSpecificLines(indices);
+                content = lines.map(l => l.content).join('\n');
+            } else {
+                content = await requestFullText();
+            }
             console.timeEnd('copy-fetch');
 
             if (!content) {
-                showToast('Failed to retrieve log content. Log might be empty.', 'error');
+                showToast('Failed to retrieve log content.', 'error');
                 return;
             }
 
@@ -994,10 +1099,8 @@ export const useLogExtractorLogic = ({
 
             if (window.electronAPI?.copyToClipboard) {
                 await window.electronAPI.copyToClipboard(content);
-                showToast(`Copied ${count.toLocaleString()} lines to clipboard!`, 'success');
             } else if (navigator.clipboard && navigator.clipboard.writeText) {
                 await navigator.clipboard.writeText(content);
-                showToast(`Copied ${count.toLocaleString()} lines to clipboard!`, 'success');
             } else {
                 // Fallback
                 const textArea = document.createElement("textarea");
@@ -1009,18 +1112,21 @@ export const useLogExtractorLogic = ({
                 textArea.select();
                 try {
                     document.execCommand('copy');
-                    showToast(`Copied ${count.toLocaleString()} lines to clipboard!`, 'success');
                 } catch (e) {
                     console.error('Fallback copy failed', e);
                     showToast('Failed to copy logs (Fallback error).', 'error');
+                    document.body.removeChild(textArea);
+                    return;
                 }
                 document.body.removeChild(textArea);
             }
+            showToast(`Copied ${isSelectionCopy ? selectedIndices.size.toLocaleString() : count.toLocaleString()} lines!`, 'success');
+
         } catch (e) {
             console.error('[Copy] Failed', e);
-            showToast('Failed to copy logs. Content might be too large.', 'error');
+            showToast('Failed to copy logs.', 'error');
         }
-    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, showToast]);
+    }, [leftFilteredCount, rightFilteredCount, selectedIndicesLeft, selectedIndicesRight, requestLeftFullText, requestRightFullText, requestBookmarkedLines, showToast]);
 
     const handleSaveLogs = useCallback(async (paneId: 'left' | 'right') => {
         const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
@@ -1314,7 +1420,8 @@ export const useLogExtractorLogic = ({
             } else {
                 leftViewerRef.current?.scrollToIndex(rel, { align });
             }
-            setSelectedLineIndexLeft(globalIndex);
+            setActiveLineIndexLeft(globalIndex);
+            setSelectedIndicesLeft(new Set([globalIndex]));
         } else {
             if (seg !== rightSegmentIndex) {
                 setRightSegmentIndex(seg);
@@ -1322,14 +1429,15 @@ export const useLogExtractorLogic = ({
             } else {
                 rightViewerRef.current?.scrollToIndex(rel, { align });
             }
-            setSelectedLineIndexRight(globalIndex);
+            setActiveLineIndexRight(globalIndex);
+            setSelectedIndicesRight(new Set([globalIndex]));
         }
     }, [leftSegmentIndex, rightSegmentIndex]);
 
     const findText = useCallback(async (text: string, direction: 'next' | 'prev', paneId: 'left' | 'right', startOffset?: number, isWrapRetry = false, silent = false) => {
         const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
         const viewer = paneId === 'left' ? leftViewerRef.current : rightViewerRef.current;
-        const currentLineIdx = paneId === 'left' ? selectedLineIndexLeft : selectedLineIndexRight;
+        const currentLineIdx = paneId === 'left' ? activeLineIndexLeft : activeLineIndexRight;
         const totalCount = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
         const requestMap = paneId === 'left' ? leftPendingRequests : rightPendingRequests;
         if (!worker) return;
@@ -1365,7 +1473,7 @@ export const useLogExtractorLogic = ({
                 if (!silent) showToast(`"${text}" not found`, 'info');
             }
         }
-    }, [selectedLineIndexLeft, selectedLineIndexRight, leftFilteredCount, rightFilteredCount, showToast]);
+    }, [activeLineIndexLeft, activeLineIndexRight, leftFilteredCount, rightFilteredCount, showToast]);
 
     const jumpToHighlight = useCallback(async (highlightIndex: number, paneId: 'left' | 'right') => {
         if (!currentConfig || !currentConfig.highlights || !currentConfig.highlights[highlightIndex]) return;
@@ -1416,10 +1524,12 @@ export const useLogExtractorLogic = ({
         handleTizenStreamStart, handleTizenDisconnect, tizenSocket,
         handleLineDoubleClickAction,
         leftFileName, leftWorkerReady, leftIndexingProgress, leftTotalLines, leftFilteredCount,
-        selectedLineIndexLeft, setSelectedLineIndexLeft,
+        activeLineIndexLeft, setActiveLineIndexLeft,
+        selectedIndicesLeft, setSelectedIndicesLeft,
         handleLeftFileChange, handleLeftReset, requestLeftLines, requestLeftRawLines,
         rightFileName, rightWorkerReady, rightIndexingProgress, rightTotalLines, rightFilteredCount,
-        selectedLineIndexRight, setSelectedLineIndexRight,
+        activeLineIndexRight, setActiveLineIndexRight,
+        selectedIndicesRight, setSelectedIndicesRight,
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
         clearLeftBookmarks, clearRightBookmarks,
         handleRightFileChange, handleRightReset, requestRightLines, requestRightRawLines,
@@ -1429,6 +1539,7 @@ export const useLogExtractorLogic = ({
         hasEverConnected,
         handleClearLogs,
         jumpToGlobalLine, // Exported for LogSession usage
+        handleLineClick, // Export helper for selection
         // Segmentation
         leftSegmentIndex, setLeftSegmentIndex, leftTotalSegments, leftCurrentSegmentLines,
         rightSegmentIndex, setRightSegmentIndex, rightTotalSegments, rightCurrentSegmentLines,

@@ -9,7 +9,17 @@ const { Upload, X, Zap, Split, Copy, Download, Bookmark, ArrowDown } = Lucide;
 declare global {
     interface Window {
         electronAPI?: {
+            readFile: (path: string) => Promise<string>;
+            streamReadFile: (path: string) => Promise<{ status: string }>;
+            onFileChunk: (callback: (chunk: string) => void) => () => void;
+            onFileStreamComplete: (callback: () => void) => () => void;
+            onFileStreamError: (callback: (err: string) => void) => () => void;
+            setZoomFactor: (factor: number) => void;
+            getZoomFactor: () => number;
             copyToClipboard: (text: string) => Promise<void>;
+            saveFile: (content: string) => Promise<{ status: string, filePath?: string }>;
+            openExternal: (url: string) => Promise<{ status: string, error?: string }>;
+            getAppPath: () => Promise<string>;
         };
     }
 }
@@ -28,7 +38,8 @@ interface LogViewerPaneProps {
     highlights?: LogHighlight[];
     highlightCaseSensitive?: boolean;
     activeLineIndex?: number;
-    onLineClick?: (index: number) => void;
+    selectedIndices?: Set<number>;
+    onLineClick?: (index: number, isShift?: boolean, isCtrl?: boolean) => void;
     onLineDoubleClick?: (index: number) => void;
     onDrop?: (file: File) => void;
     onBrowse?: () => void;
@@ -73,6 +84,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     highlights,
     highlightCaseSensitive = false,
     activeLineIndex = -1,
+    selectedIndices,
     onLineClick,
     onLineDoubleClick,
     onDrop,
@@ -98,6 +110,37 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 
     // Auto-scroll (Sticky Bottom) State
     const [atBottom, setAtBottom] = useState(false);
+
+    // Drag Selection State
+    const isDraggingSelection = useRef(false);
+
+    useEffect(() => {
+        const handleGlobalMouseUp = () => {
+            isDraggingSelection.current = false;
+        };
+        window.addEventListener('mouseup', handleGlobalMouseUp);
+        return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+    }, []);
+
+    const handleLineMouseDown = useCallback((index: number, e: React.MouseEvent) => {
+        if (e.button !== 0) return; // Only left click
+        isDraggingSelection.current = true;
+
+        // Trigger selection immediately on down
+        // Ensure we pass correct modifiers. 
+        // If user drags without shift, we treat it as starting a NEW selection (unless Ctrl is held).
+        // Then dragging extends it (like Shift).
+        onLineClick && onLineClick(index, e.shiftKey, (e.ctrlKey || e.metaKey));
+    }, [onLineClick]);
+
+    const handleLineMouseEnter = useCallback((index: number, e: React.MouseEvent) => {
+        if (isDraggingSelection.current && onLineClick) {
+            // Dragging always implies range selection (Shift=true) from the active anchor
+            // We preserve Ctrl state to allow adding ranges (if logic supports it, though usually standard drag replaces or extends)
+            // For now, let's assume dragging is extending the current "active" anchor.
+            onLineClick(index, true, (e.ctrlKey || e.metaKey));
+        }
+    }, [onLineClick]);
     const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
     const showScrollToBottom = (!atBottom || isAutoScrollPaused) && totalMatches > 0;
 
@@ -361,6 +404,12 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         }
 
         if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+            if (onCopy) {
+                e.preventDefault(); // Prevent default only if we handle it
+                onCopy();
+                return;
+            }
+            // Fallback for when onCopy is not provided (shouldn't happen in main app but good for component isolation)
             if (activeLineIndex !== undefined && activeLineIndex >= 0) {
                 const line = cachedLines.get(activeLineIndex);
                 if (line && window.electronAPI?.copyToClipboard) {
@@ -471,6 +520,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         const data = cachedLinesRef.current.get(index);
         const globalIndex = index + absoluteOffset;
         const isActive = globalIndex === activeLineIndex;
+        const isSelected = selectedIndices ? selectedIndices.has(globalIndex) : isActive;
+
         // Bookmarks and other props still need to match, but they update less frequently than data
         return (
             <LogLine
@@ -478,15 +529,19 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 style={{ height: ROW_HEIGHT, width: '100%' }}
                 data={data}
                 isActive={isActive}
+                isSelected={isSelected}
                 hasBookmark={bookmarks.has(globalIndex)}
                 isRawMode={isRawMode}
                 highlights={highlights}
                 highlightCaseSensitive={highlightCaseSensitive}
-                onClick={() => onLineClick && onLineClick(globalIndex)}
+                onMouseDown={(idx, e) => handleLineMouseDown(globalIndex, e)}
+                onMouseEnter={(idx, e) => handleLineMouseEnter(globalIndex, e)}
+                // We handle selection on MouseDown now to support drag-select
+                onClick={undefined}
                 onDoubleClick={() => onLineDoubleClick && onLineDoubleClick(globalIndex)}
             />
         );
-    }, [activeLineIndex, bookmarks, isRawMode, highlights, highlightCaseSensitive, onLineClick, onLineDoubleClick, cachedLines, absoluteOffset]);
+    }, [activeLineIndex, bookmarks, isRawMode, highlights, highlightCaseSensitive, onLineDoubleClick, cachedLines, absoluteOffset, selectedIndices, handleLineMouseDown, handleLineMouseEnter]);
 
     // Non-passive wheel listener to allow preventDefault for Shift+Scroll
     useEffect(() => {
