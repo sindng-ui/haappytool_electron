@@ -25,11 +25,13 @@ export const HighlightSection: React.FC<HighlightSectionProps> = ({ currentConfi
     // New Item State
     const [newHighlightWord, setNewHighlightWord] = useState('');
     const [newHighlightColor, setNewHighlightColor] = useState('');
+    const [newLineEffect, setNewLineEffect] = useState(false);
 
     // Inline Edit State
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editKeyword, setEditKeyword] = useState('');
     const [editColor, setEditColor] = useState('');
+    const [editLineEffect, setEditLineEffect] = useState(false);
 
     // Refs
     const newHighlightInputRef = useRef<HTMLInputElement>(null);
@@ -43,19 +45,22 @@ export const HighlightSection: React.FC<HighlightSectionProps> = ({ currentConfi
         const h = {
             id: Math.random().toString(36).substring(7),
             keyword: newHighlightWord.trim(),
-            color: newHighlightColor || HIGHLIGHT_COLORS[0].value
+            color: newHighlightColor || HIGHLIGHT_COLORS[0].value,
+            lineEffect: newLineEffect
         };
         updateCurrentRule({ highlights: [...(currentConfig.highlights || []), h] });
         setNewHighlightWord('');
+        setNewLineEffect(false);
         // Keep focus on create input for rapid entry
         newHighlightInputRef.current?.focus();
     };
 
     // inline editing start
-    const startEditing = (h: { id: string, keyword: string, color: string }) => {
+    const startEditing = (h: { id: string, keyword: string, color: string, lineEffect?: boolean }) => {
         setEditingId(h.id);
         setEditKeyword(h.keyword);
         setEditColor(h.color);
+        setEditLineEffect(h.lineEffect || false);
         // Focus will be handled by autoFocus on the rendered input, 
         // or we can use a timeout to focus ref if needed. 
         // React's autoFocus usually works for conditional rendering.
@@ -70,7 +75,7 @@ export const HighlightSection: React.FC<HighlightSectionProps> = ({ currentConfi
 
         const updated = (currentConfig.highlights || []).map(h =>
             h.id === editingId
-                ? { ...h, keyword: editKeyword.trim(), color: editColor || h.color }
+                ? { ...h, keyword: editKeyword.trim(), color: editColor || h.color, lineEffect: editLineEffect }
                 : h
         );
         updateCurrentRule({ highlights: updated });
@@ -139,10 +144,10 @@ export const HighlightSection: React.FC<HighlightSectionProps> = ({ currentConfi
                         User wants "edit in place". 
                         To avoid confusion, maybe dim the create input when in edit mode?
                     */}
-                    <div className={`relative transition-opacity ${editingId ? 'opacity-50 pointer-events-none grayscale' : 'opacity-100'}`}>
+                    <div className={`relative transition-opacity flex gap-2 items-center ${editingId ? 'opacity-50 pointer-events-none grayscale' : 'opacity-100'}`}>
                         <input
                             ref={newHighlightInputRef}
-                            className={`w-full bg-slate-900/50 text-sm text-slate-200 placeholder-slate-500 focus:bg-slate-800 focus:outline-none py-2 px-3 rounded-xl border border-slate-700/50 focus:border-pink-500/50 transition-colors`}
+                            className={`flex-1 bg-slate-900/50 text-sm text-slate-200 placeholder-slate-500 focus:bg-slate-800 focus:outline-none py-2 px-3 rounded-xl border border-slate-700/50 focus:border-pink-500/50 transition-colors`}
                             placeholder={editingId ? "Finish editing first..." : "Type word to highlight..."}
                             value={newHighlightWord}
                             onChange={(e) => setNewHighlightWord(e.target.value)}
@@ -151,6 +156,16 @@ export const HighlightSection: React.FC<HighlightSectionProps> = ({ currentConfi
                             }}
                             disabled={!!editingId}
                         />
+                        <label className="flex items-center gap-1 cursor-pointer select-none text-xs text-slate-400 hover:text-indigo-400 font-bold uppercase tracking-wider bg-black/20 px-2 py-2 rounded-lg border border-transparent hover:border-indigo-500/30 transition-all">
+                            <input
+                                type="checkbox"
+                                checked={newLineEffect}
+                                onChange={(e) => setNewLineEffect(e.target.checked)}
+                                className="accent-indigo-500 rounded-sm w-3 h-3"
+                                disabled={!!editingId}
+                            />
+                            <span>Line</span>
+                        </label>
                     </div>
                 </div>
 
@@ -162,7 +177,7 @@ export const HighlightSection: React.FC<HighlightSectionProps> = ({ currentConfi
                         // INLINE EDITOR
                         if (isEditing) {
                             return (
-                                <div key={h.id} className="relative group">
+                                <div key={h.id} className="relative group flex items-center gap-1">
                                     <input
                                         ref={editInputRef}
                                         autoFocus
@@ -184,6 +199,14 @@ export const HighlightSection: React.FC<HighlightSectionProps> = ({ currentConfi
                                         style={isHexColor(editColor) ? { backgroundColor: editColor } : undefined}
                                         className={`w-24 px-2 py-1 rounded-lg text-xs font-bold text-slate-900 border-2 border-indigo-500 shadow-xl focus:outline-none transition-all ${!isHexColor(editColor) ? editColor : ''}`}
                                     />
+                                    <label className="flex items-center justify-center cursor-pointer select-none text-xs text-slate-400 hover:text-indigo-400 font-bold bg-black/20 w-6 h-full rounded-md border border-transparent hover:border-indigo-500/30 transition-all" title="Toggle Line Mode">
+                                        <input
+                                            type="checkbox"
+                                            checked={editLineEffect}
+                                            onChange={(e) => setEditLineEffect(e.target.checked)}
+                                            className="w-3 h-3 accent-indigo-500"
+                                        />
+                                    </label>
                                     <div className="absolute -top-3 -right-2 bg-indigo-500 text-white text-[9px] px-1.5 py-0.5 rounded-full shadow-sm font-bold animate-bounce hidden group-focus-within:block">
                                         ENTER
                                     </div>

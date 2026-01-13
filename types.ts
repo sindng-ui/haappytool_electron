@@ -19,6 +19,7 @@ export interface LogHighlight {
   id: string;
   keyword: string;
   color: string; // Tailwind bg class e.g. 'bg-yellow-200'
+  lineEffect?: boolean;
 }
 
 export interface HappyGroup {

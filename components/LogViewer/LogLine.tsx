@@ -21,16 +21,34 @@ interface LogLineProps {
 export const LogLine = React.memo(({ index, style, data, isActive, isSelected, hasBookmark, isRawMode = false, highlights, highlightCaseSensitive = false, onClick, onDoubleClick, onMouseDown, onMouseEnter }: LogLineProps) => {
     const isLoading = !data;
 
+    const matchingHighlight = React.useMemo(() => {
+        if (!highlights || !data) return undefined;
+        return highlights.find(h =>
+            h.lineEffect && (highlightCaseSensitive
+                ? data.content.includes(h.keyword)
+                : data.content.toLowerCase().includes(h.keyword.toLowerCase()))
+        );
+    }, [highlights, data, highlightCaseSensitive]);
+
     return (
         <div
-            style={style}
             className={`group flex items-center text-xs font-mono whitespace-pre cursor-pointer select-text transition-colors duration-75
                 ${(isActive || isSelected)
                     ? 'bg-indigo-500/10 dark:bg-indigo-500/20 font-medium'
-                    : hasBookmark
-                        ? 'bg-yellow-50/50 dark:bg-yellow-500/10 hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
-                        : 'hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
+                    : matchingHighlight
+                        ? (/^#[0-9A-F]{6}$/i.test(matchingHighlight.color)
+                            ? ''
+                            : `${matchingHighlight.color} bg-opacity-30`) // Use bg-opacity utility
+                        : hasBookmark
+                            ? 'bg-yellow-50/50 dark:bg-yellow-500/10 hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
+                            : 'hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
                 }`}
+            style={{
+                ...style,
+                ...(matchingHighlight && /^#[0-9A-F]{6}$/i.test(matchingHighlight.color)
+                    ? { backgroundColor: `${matchingHighlight.color}80` } // 50% alpha hex
+                    : {})
+            }}
             onClick={(e) => onClick && onClick(index, e)}
             onMouseDown={(e) => onMouseDown && onMouseDown(index, e)}
             onMouseEnter={(e) => onMouseEnter && onMouseEnter(index, e)}
@@ -48,10 +66,17 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                 <div className={`absolute inset-0 transition-colors 
                     ${isActive
                         ? 'bg-indigo-500/10 dark:bg-indigo-500/20'
-                        : hasBookmark
-                            ? 'bg-yellow-50/50 dark:bg-yellow-500/10 group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'
-                            : 'group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'
+                        : matchingHighlight
+                            ? (/^#[0-9A-F]{6}$/i.test(matchingHighlight.color)
+                                ? ''
+                                : `${matchingHighlight.color} bg-opacity-30`)
+                            : hasBookmark
+                                ? 'bg-yellow-50/50 dark:bg-yellow-500/10 group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'
+                                : 'group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'
                     }`}
+                    style={matchingHighlight && /^#[0-9A-F]{6}$/i.test(matchingHighlight.color)
+                        ? { backgroundColor: `${matchingHighlight.color}33` } // 20% alpha hex
+                        : {}}
                 />
 
                 {/* Left Active Indicator */}
@@ -64,23 +89,36 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
 
             {/* Item Index # */}
             {!isRawMode && (
-                <div className="min-w-[70px] w-[70px] shrink-0 text-right pr-2 text-slate-400 dark:text-slate-600 select-none border-r border-slate-200 dark:border-white/5 mr-2 flex items-center justify-end font-mono text-[11px]">
+                <div className={`min-w-[70px] w-[70px] shrink-0 text-right pr-2 select-none border-r border-slate-200 dark:border-white/5 mr-2 flex items-center justify-end font-mono text-[11px]
+                    ${matchingHighlight ? 'text-slate-900/70 dark:text-slate-400 border-slate-900/10 dark:border-white/5' : 'text-slate-400 dark:text-slate-600'}`}>
                     #{index + 1}
                 </div>
             )}
 
             {/* Line Number */}
             <div className={`min-w-[90px] w-[90px] shrink-0 text-right pr-3 select-none flex justify-end gap-1 items-center font-mono text-[11px] 
-                ${hasBookmark ? 'text-yellow-600 dark:text-yellow-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}>
+                ${matchingHighlight
+                    ? 'text-slate-900 dark:text-slate-100 font-bold'
+                    : hasBookmark ? 'text-yellow-600 dark:text-yellow-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}>
                 {isLoading ? '' : data?.lineNum}
             </div>
 
             {/* Content */}
-            <div className={`min-w-0 flex-1 px-2 ${isActive ? 'text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}>
+            <div className={`min-w-0 flex-1 px-2 ${isActive
+                ? 'text-slate-900 dark:text-slate-100'
+                : matchingHighlight
+                    ? 'text-slate-900 dark:text-slate-100 font-medium' // High contrast text for both modes
+                    : 'text-slate-600 dark:text-slate-300'}`}>
                 {isLoading ? (
                     <div className="h-3 w-48 bg-slate-200 dark:bg-slate-800/50 rounded animate-pulse mt-1" />
                 ) : (
-                    isRawMode ? data?.content : <HighlightRenderer text={data?.content || ''} highlights={highlights} caseSensitive={highlightCaseSensitive} />
+                    isRawMode
+                        ? data?.content
+                        : <HighlightRenderer
+                            text={data?.content || ''}
+                            highlights={highlights?.filter(h => !h.lineEffect)}
+                            caseSensitive={highlightCaseSensitive}
+                        />
                 )}
             </div>
         </div>
