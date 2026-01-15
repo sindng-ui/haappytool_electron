@@ -44,17 +44,31 @@ const PostTool: React.FC = () => {
     });
     const isResizing = React.useRef(false);
 
+    // Response Resizing
+    const [responseHeight, setResponseHeight] = useState(300);
+    const [isResizingResponse, setIsResizingResponse] = useState(false);
+
     useEffect(() => {
         const handleGlobalMouseMove = (e: MouseEvent) => {
-            if (!isResizing.current) return;
-            const newWidth = Math.max(200, Math.min(600, e.clientX - 80)); // 80 is sidebar offset
-            setSidebarWidth(newWidth);
+            if (isResizing.current) {
+                const newWidth = Math.max(200, Math.min(600, e.clientX - 80)); // 80 is sidebar offset
+                setSidebarWidth(newWidth);
+                return;
+            }
+            if (isResizingResponse) {
+                const newHeight = Math.max(100, Math.min(window.innerHeight - 200, window.innerHeight - e.clientY));
+                setResponseHeight(newHeight);
+            }
         };
 
         const handleGlobalMouseUp = () => {
             if (isResizing.current) {
                 isResizing.current = false;
                 localStorage.setItem('postToolSidebarWidth', sidebarWidth.toString());
+                document.body.style.cursor = 'default';
+            }
+            if (isResizingResponse) {
+                setIsResizingResponse(false);
                 document.body.style.cursor = 'default';
             }
         };
@@ -65,11 +79,17 @@ const PostTool: React.FC = () => {
             window.removeEventListener('mousemove', handleGlobalMouseMove);
             window.removeEventListener('mouseup', handleGlobalMouseUp);
         };
-    }, [sidebarWidth]);
+    }, [sidebarWidth, isResizingResponse]);
 
     const handleResizeStart = () => {
         isResizing.current = true;
         document.body.style.cursor = 'col-resize';
+    };
+
+    const handleResponseResizeStart = (e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsResizingResponse(true);
+        document.body.style.cursor = 'row-resize';
     };
 
     const handleMouseMove = () => { };
@@ -89,9 +109,28 @@ const PostTool: React.FC = () => {
             name: 'New Request',
             method: 'GET',
             url: '',
-            headers: [{ key: '', value: '' }],
+            headers: [
+                { key: 'Authorization', value: 'Bearer ' },
+                { key: 'Accept', value: 'application/json' },
+                { key: '', value: '' }
+            ],
             body: '',
             groupId: groupId
+        };
+        onUpdateRequests([...savedRequests, newReq]);
+        setActiveRequestId(newId);
+        setCurrentRequest(newReq);
+        setResponse(null);
+    };
+
+    const handleDuplicateRequest = (e: React.MouseEvent, req: SavedRequest) => {
+        e.stopPropagation();
+        const newId = generateUUID();
+        const newReq: SavedRequest = {
+            ...req,
+            id: newId,
+            name: `${req.name} Copy`,
+            groupId: req.groupId // Keep same group
         };
         onUpdateRequests([...savedRequests, newReq]);
         setActiveRequestId(newId);
@@ -102,26 +141,21 @@ const PostTool: React.FC = () => {
     const handleDeleteRequest = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
         if (window.confirm('Are you sure you want to delete this request?')) {
-            const updated = savedRequests.filter(r => r.id !== id);
-            onUpdateRequests(updated);
+            const newRequests = savedRequests.filter(r => r.id !== id);
+            onUpdateRequests(newRequests);
             if (activeRequestId === id) {
-                if (updated.length > 0) setActiveRequestId(updated[0].id);
-                else {
-                    setActiveRequestId(null);
-                    setCurrentRequest({ id: 'temp', name: 'New Request', method: 'GET', url: '', headers: [{ key: '', value: '' }], body: '' });
-                }
+                setActiveRequestId(null);
+                setCurrentRequest({ id: 'temp', name: 'New Request', method: 'GET', url: '', headers: [{ key: '', value: '' }], body: '' });
+                setResponse(null);
             }
         }
     };
 
-    const replaceVariables = (text: string): string => {
-        if (!text) return text;
-        let result = text;
+    const replaceVariables = (str: string) => {
+        let result = str;
         globalVariables.forEach(v => {
             if (v.enabled) {
-                // Global replace of {{key}}
-                const regex = new RegExp(`{{${v.key}}}`, 'g');
-                result = result.replace(regex, v.value);
+                result = result.replace(new RegExp(`{{${v.key}}}`, 'g'), v.value);
             }
         });
         return result;
@@ -130,39 +164,44 @@ const PostTool: React.FC = () => {
     const handleSend = async () => {
         setLoading(true);
         setResponse(null);
-        const startTime = performance.now();
         try {
-            // Apply variable substitution
             const finalUrl = replaceVariables(currentRequest.url);
+            const finalHeaders = currentRequest.headers.reduce((acc, h) => {
+                if (h.key) acc[replaceVariables(h.key)] = replaceVariables(h.value);
+                return acc;
+            }, {} as any);
+            const finalBody = currentRequest.body ? replaceVariables(currentRequest.body) : undefined;
 
-            const headers: Record<string, string> = {};
-            currentRequest.headers.forEach(h => {
-                if (h.key.trim()) {
-                    headers[replaceVariables(h.key)] = replaceVariables(h.value);
-                }
+            const startTime = performance.now();
+            const res = await fetch(finalUrl, {
+                method: currentRequest.method,
+                headers: finalHeaders,
+                body: ['GET', 'HEAD'].includes(currentRequest.method) ? undefined : finalBody
             });
+            const endTime = performance.now();
 
-            const options: RequestInit = { method: currentRequest.method, headers };
-            if (['POST', 'PUT', 'PATCH'].includes(currentRequest.method) && currentRequest.body) {
-                options.body = replaceVariables(currentRequest.body);
+            let data;
+            const contentType = res.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                data = await res.json();
+            } else {
+                data = await res.text();
             }
 
-            const res = await fetch(finalUrl, options);
-            const endTime = performance.now();
-            const contentType = res.headers.get("content-type");
-            let data;
-            if (contentType && contentType.indexOf("application/json") !== -1) data = await res.json().catch(() => ({ error: 'Could not parse JSON' }));
-            else data = await res.text();
-
-            const resHeaders: Record<string, string> = {};
-            res.headers.forEach((val, key) => { resHeaders[key] = val; });
-
             setResponse({
-                status: res.status, statusText: res.statusText, headers: resHeaders, data, timeTaken: Math.round(endTime - startTime),
+                status: res.status,
+                statusText: res.statusText,
+                headers: Object.fromEntries(res.headers.entries()),
+                data,
+                timeTaken: endTime - startTime
             });
         } catch (error: any) {
             setResponse({
-                status: 0, statusText: 'Network Error', headers: {}, data: { message: error.message }, timeTaken: 0
+                status: 0,
+                statusText: 'Error',
+                headers: {},
+                data: error.message,
+                timeTaken: 0
             });
         } finally {
             setLoading(false);
@@ -186,42 +225,77 @@ const PostTool: React.FC = () => {
                 <span className="font-bold text-xs text-slate-200 no-drag">Post Tool</span>
             </div>
 
-            <div className="flex-1 flex min-h-0 relative" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-                <RequestSidebar
-                    width={sidebarWidth}
-                    onResizeStart={handleResizeStart}
-                    savedRequests={savedRequests}
-                    activeRequestId={activeRequestId}
-                    currentRequest={currentRequest}
-                    onSelectRequest={handleSelectRequest}
-                    onNewRequest={handleNewRequest}
-                    onDeleteRequest={handleDeleteRequest}
-                    onChangeCurrentRequest={setCurrentRequest}
-                    onUpdateRequests={onUpdateRequests}
-                    savedRequestGroups={savedRequestGroups}
-                    onUpdateGroups={onUpdateGroups}
-                    onOpenSettings={() => setIsEnvModalOpen(true)}
-                />
-                <div className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-900">
-                    <RequestEditor
+            <div className="flex w-full h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
+                <div className="flex-1 flex min-w-0 relative">
+                    <RequestSidebar
+                        width={sidebarWidth}
+                        onResizeStart={handleResizeStart}
+                        savedRequests={savedRequests}
+                        activeRequestId={activeRequestId}
                         currentRequest={currentRequest}
+                        onSelectRequest={handleSelectRequest}
+                        onNewRequest={handleNewRequest}
+                        onDeleteRequest={handleDeleteRequest}
+                        onDuplicateRequest={handleDuplicateRequest}
                         onChangeCurrentRequest={setCurrentRequest}
-                        onSend={handleSend}
-                        loading={loading}
-                        globalVariables={globalVariables}
+                        onUpdateRequests={onUpdateRequests}
+                        savedRequestGroups={savedRequestGroups}
+                        onUpdateGroups={onUpdateGroups}
+                        onOpenSettings={() => setIsEnvModalOpen(true)}
                     />
-                    <ResponseViewer response={response} />
-                </div>
-            </div>
 
-            {onUpdateGlobalVariables && (
-                <EnvironmentModal
-                    isOpen={isEnvModalOpen}
-                    onClose={() => setIsEnvModalOpen(false)}
-                    variables={globalVariables}
-                    onUpdateVariables={onUpdateGlobalVariables}
-                />
-            )}
+                    <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 z-0 relative">
+                        {/* Request Editor Area (Flex 1 to take remaining space) */}
+                        <div className="flex-1 flex flex-col min-h-0 relative">
+                            <RequestEditor
+                                currentRequest={currentRequest}
+                                onChangeCurrentRequest={setCurrentRequest}
+                                onSend={handleSend}
+                                loading={loading}
+                                globalVariables={globalVariables}
+                            />
+                        </div>
+
+                        {/* Resize Handle */}
+                        <div
+                            className={`h-1 hover:h-1.5 cursor-row-resize bg-slate-200 dark:bg-white/5 hover:bg-indigo-500/50 transition-all z-20 flex items-center justify-center shrink-0 ${isResizingResponse ? 'bg-indigo-500/50 h-1.5' : ''}`}
+                            onMouseDown={handleResponseResizeStart}
+                        >
+                            <div className="w-8 h-1 bg-slate-300 dark:bg-slate-600 rounded-full" />
+                        </div>
+
+                        {/* Response Panel */}
+                        <div style={{ height: responseHeight }} className="flex flex-col min-h-0 border-t border-slate-200 dark:border-white/5 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-10">
+                            <div className="h-10 border-b border-slate-200 dark:border-white/5 flex items-center px-4 bg-slate-50 dark:bg-slate-900 shrink-0">
+                                <span className="font-bold text-xs text-slate-500 uppercase tracking-wider">Response</span>
+                                <div className="ml-auto flex items-center gap-2">
+                                    {response && (
+                                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${response.status >= 200 && response.status < 300 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                            {response.status} {response.statusText}
+                                        </span>
+                                    )}
+                                    {response && (
+                                        <span className="text-xs text-slate-400 font-mono">
+                                            {response.timeTaken.toFixed(0)}ms
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <ResponseViewer response={response} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Environment Modal */}
+                {onUpdateGlobalVariables && (
+                    <EnvironmentModal
+                        isOpen={isEnvModalOpen}
+                        onClose={() => setIsEnvModalOpen(false)}
+                        variables={globalVariables}
+                        onUpdateVariables={onUpdateGlobalVariables}
+                    />
+                )}
+            </div>
         </div>
     );
 };

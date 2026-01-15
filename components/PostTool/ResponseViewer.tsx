@@ -1,181 +1,136 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as Lucide from 'lucide-react';
 import { PerfResponse } from '../../types';
+import JsonFormatter from '../JsonTools/JsonFormatter';
 
-const { Clock, Activity, Copy, FileDown, CheckCircle } = Lucide;
+const { Copy, Search, Check, FileJson, AlignLeft } = Lucide;
 
 interface ResponseViewerProps {
     response: PerfResponse | null;
 }
 
 const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
-    const [showToast, setShowToast] = useState(false);
-    const [formattedData, setFormattedData] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
-
-    // Worker Ref
-    const workerRef = React.useRef<Worker | null>(null);
+    const [viewMode, setViewMode] = useState<'pretty' | 'raw'>('pretty');
+    const [searchText, setSearchText] = useState('');
+    const [copied, setCopied] = useState(false);
+    const [parsedJson, setParsedJson] = useState<any>(null);
+    const [isJson, setIsJson] = useState(false);
 
     useEffect(() => {
-        workerRef.current = new Worker(new URL('../../workers/JsonParser.worker.ts', import.meta.url), { type: 'module' });
+        if (response) {
+            let json = null;
+            let seemsJson = false;
 
-        workerRef.current.onmessage = (e) => {
-            const { type, payload } = e.data;
-            if (type === 'SUCCESS') {
-                // Determine if payload is string or object (from format mode)
-                // Worker returns { data, formatted } for 'format' mode now
-                if (typeof payload === 'object' && payload.formatted) {
-                    setFormattedData(payload.formatted);
-                } else {
-                    setFormattedData(payload); // Fallback
-                }
-                setIsProcessing(false);
-            } else if (type === 'ERROR') {
-                setFormattedData(typeof response?.data === 'string' ? response.data : JSON.stringify(response?.data));
-                setIsProcessing(false);
+            if (typeof response.data === 'object') {
+                json = response.data;
+                seemsJson = true;
+            } else if (typeof response.data === 'string') {
+                try {
+                    const trimmed = response.data.trim();
+                    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                        json = JSON.parse(response.data);
+                        seemsJson = true;
+                    }
+                } catch { /* Not JSON */ }
             }
-        };
 
-        return () => {
-            workerRef.current?.terminate();
-        };
-    }, []);
-
-    useEffect(() => {
-        if (showToast) {
-            const timer = setTimeout(() => setShowToast(false), 2000);
-            return () => clearTimeout(timer);
-        }
-    }, [showToast]);
-
-    useEffect(() => {
-        if (!response) {
-            setFormattedData('');
-            return;
-        }
-
-        const rawData = response.data;
-        if (typeof rawData === 'string') {
-            try {
-                // Attempt to parse string as JSON to format it
-                const json = JSON.parse(rawData);
-                setIsProcessing(true);
-                workerRef.current?.postMessage({
-                    type: 'PARSE_AND_FORMAT',
-                    payload: { text: JSON.stringify(json), mode: 'format' },
-                    requestId: 'response_view'
-                });
-            } catch {
-                setFormattedData(rawData); // Plain string, just show
-            }
-        } else if (typeof rawData === 'object') {
-            setIsProcessing(true);
-            // It's already an object, but we want to format it pretty via worker to avoid blocking
-            workerRef.current?.postMessage({
-                type: 'PARSE_AND_FORMAT',
-                payload: { text: JSON.stringify(rawData), mode: 'format' },
-                requestId: 'response_view'
-            });
+            setParsedJson(json);
+            setIsJson(seemsJson);
+            setViewMode(seemsJson ? 'pretty' : 'raw');
         } else {
-            setFormattedData(String(rawData));
+            setParsedJson(null);
+            setIsJson(false);
         }
     }, [response]);
 
     const handleCopy = () => {
-        if (!formattedData) return;
-        navigator.clipboard.writeText(formattedData);
-        setShowToast(true);
+        if (!response) return;
+        const textToCopy = typeof response.data === 'object'
+            ? JSON.stringify(response.data, null, 2)
+            : String(response.data);
+
+        navigator.clipboard.writeText(textToCopy);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
-    const handleExport = async () => {
-        if (!formattedData) return;
-
-        const filename = `response_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
-
-        // Try Electron Save first
-        // @ts-ignore
-        if (window.electronAPI && window.electronAPI.saveTextFile) {
-            try {
-                // @ts-ignore
-                await window.electronAPI.saveTextFile(formattedData, filename);
-                return;
-            } catch (e) {
-                console.error("Electron save failed", e);
-            }
-        }
-
-        // Fallback
-        const blob = new Blob([formattedData], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
+    if (!response) {
+        return (
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                <Lucide.Send size={48} className="mb-4 opacity-50" />
+                <p className="text-sm font-medium">Send a request to see the response here</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="flex-1 flex flex-col min-h-0 bg-transparent relative">
-            <div className="px-4 py-2 border-b border-slate-200 dark:border-white/5 flex items-center justify-between bg-zinc-50 dark:bg-white/5 shrink-0 h-9">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Response</span>
-                {response && (
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 text-xs font-mono mr-2">
-                            <span className={`font-bold ${response.status >= 200 && response.status < 300 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
-                                {response.status} {response.statusText}
-                            </span>
-                            <span className="text-slate-300 dark:text-slate-600">|</span>
-                            <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                <Clock size={12} /> {response.timeTaken}ms
-                            </span>
-                        </div>
-                        <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
-                        <button
-                            onClick={handleCopy}
-                            className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-white/10 p-1 rounded transition-colors"
-                            title="Copy to Clipboard"
-                        >
-                            <Copy size={14} />
-                        </button>
-                        <button
-                            onClick={handleExport}
-                            className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-white/10 p-1 rounded transition-colors"
-                            title="Export to File"
-                        >
-                            <FileDown size={14} />
-                        </button>
-                    </div>
-                )}
+        <div className="flex-1 flex flex-col min-h-0 relative">
+            {/* Toolbar */}
+            <div className="h-9 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900 flex items-center px-2 gap-2 shrink-0">
+                <div className="bg-slate-200 dark:bg-slate-800 rounded-lg p-0.5 flex text-xs font-bold">
+                    <button
+                        onClick={() => setViewMode('pretty')}
+                        disabled={!isJson}
+                        className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition-all ${viewMode === 'pretty'
+                            ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-300'
+                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed'
+                            }`}
+                    >
+                        <FileJson size={14} /> Pretty
+                    </button>
+                    <button
+                        onClick={() => setViewMode('raw')}
+                        className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition-all ${viewMode === 'raw'
+                            ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-300'
+                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            }`}
+                    >
+                        <AlignLeft size={14} /> Raw
+                    </button>
+                </div>
+
+                <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
+
+                <div className="relative flex-1 max-w-sm">
+                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                        type="text"
+                        placeholder="Search response..."
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1 text-xs bg-white dark:bg-slate-800 border-none rounded-md focus:ring-1 focus:ring-indigo-500 placeholder-slate-400 text-slate-700 dark:text-slate-300 shadow-sm"
+                    />
+                </div>
+
+                <div className="ml-auto flex items-center gap-1">
+                    <button
+                        onClick={handleCopy}
+                        className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-slate-500 hover:text-indigo-500 transition-colors"
+                        title="Copy to Clipboard"
+                    >
+                        {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                    </button>
+                </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-4 custom-scrollbar relative bg-slate-50 dark:bg-[#0B1120]">
-                {response ? (
-                    isProcessing ? (
-                        <div className="absolute inset-0 flex items-center justify-center text-slate-500 gap-2">
-                            <Activity className="animate-spin text-indigo-500" size={24} />
-                            <span className="text-xs font-medium">Formatting...</span>
-                        </div>
-                    ) : (
-                        <pre className="font-mono text-xs text-slate-800 dark:text-emerald-400 whitespace-pre-wrap break-all leading-relaxed">
-                            {formattedData}
-                        </pre>
-                    )
+            {/* Content */}
+            <div className="flex-1 min-h-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-white/5 relative overflow-hidden">
+                {viewMode === 'pretty' && isJson ? (
+                    <div className="absolute inset-0 overflow-hidden">
+                        <JsonFormatter
+                            data={parsedJson}
+                            search={searchText}
+                            expandLevel={2}
+                            fontSize={12}
+                        />
+                    </div>
                 ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 gap-3 opacity-60">
-                        <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/5">
-                            <Activity size={32} />
-                        </div>
-                        <p className="text-sm font-medium">Ready to send request</p>
-                    </div>
+                    <textarea
+                        readOnly
+                        value={typeof response.data === 'object' ? JSON.stringify(response.data, null, 2) : String(response.data)}
+                        className="w-full h-full p-4 font-mono text-xs text-slate-800 dark:text-slate-300 resize-none focus:outline-none bg-transparent"
+                    />
                 )}
-            </div>
-
-            {/* Toast Notification */}
-            <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white px-4 py-2 rounded-full shadow-xl border border-slate-200 dark:border-slate-700 flex items-center gap-2 transition-all duration-300 pointer-events-none z-10 ${showToast ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}`}>
-                <CheckCircle size={16} className="text-emerald-500" />
-                <span className="text-xs font-bold">Copied to clipboard!</span>
             </div>
         </div>
     );

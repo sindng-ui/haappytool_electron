@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import * as Lucide from 'lucide-react';
 import { SavedRequest, RequestGroup } from '../../types';
 
-const { List, Plus, Trash2, Folder, FolderOpen, ChevronRight, ChevronDown, FolderPlus, MoreVertical } = Lucide;
+const { List, Plus, Trash2, Folder, FolderOpen, ChevronRight, ChevronDown, FolderPlus, Copy, MoreVertical } = Lucide;
 
 interface RequestSidebarProps {
     width: number;
@@ -13,6 +13,7 @@ interface RequestSidebarProps {
     onSelectRequest: (id: string) => void;
     onNewRequest: (groupId?: string) => void;
     onDeleteRequest: (e: React.MouseEvent, id: string) => void;
+    onDuplicateRequest: (e: React.MouseEvent, req: SavedRequest) => void;
     onChangeCurrentRequest: (req: SavedRequest) => void;
     onUpdateRequests: (requests: SavedRequest[]) => void;
     savedRequestGroups?: RequestGroup[];
@@ -23,7 +24,7 @@ interface RequestSidebarProps {
 const RequestSidebar: React.FC<RequestSidebarProps> = ({
     width, onResizeStart,
     savedRequests, activeRequestId, currentRequest,
-    onSelectRequest, onNewRequest, onDeleteRequest, onChangeCurrentRequest, onUpdateRequests,
+    onSelectRequest, onNewRequest, onDeleteRequest, onDuplicateRequest, onChangeCurrentRequest, onUpdateRequests,
     savedRequestGroups = [], onUpdateGroups, onOpenSettings
 }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -50,6 +51,25 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
             case 'PUT': return 'text-orange-400';
             default: return 'text-slate-400';
         }
+    };
+
+    // Deterministic Group Color
+    const getGroupColor = (id: string) => {
+        const colors = [
+            'border-pink-500/50 bg-pink-500/5',
+            'border-purple-500/50 bg-purple-500/5',
+            'border-indigo-500/50 bg-indigo-500/5',
+            'border-blue-500/50 bg-blue-500/5',
+            'border-cyan-500/50 bg-cyan-500/5',
+            'border-teal-500/50 bg-teal-500/5',
+            'border-emerald-500/50 bg-emerald-500/5',
+            'border-lime-500/50 bg-lime-500/5',
+            'border-amber-500/50 bg-amber-500/5',
+            'border-orange-500/50 bg-orange-500/5',
+        ];
+        let hash = 0;
+        for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+        return colors[Math.abs(hash) % colors.length];
     };
 
     const handleCreateGroup = () => {
@@ -222,12 +242,22 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                         <span className="text-sm font-medium truncate">{req.name || 'Untitled'}</span>
                     )}
                 </div>
-                <button
-                    onClick={(e) => onDeleteRequest(e, req.id)}
-                    className="opacity-0 group-hover/item:opacity-100 p-1 hover:text-red-500 dark:hover:text-red-400 transition-opacity pointer-events-auto"
-                >
-                    <Trash2 size={12} />
-                </button>
+                <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity pointer-events-auto">
+                    <button
+                        onClick={(e) => onDuplicateRequest(e, req)}
+                        className="p-1 hover:text-indigo-500 dark:hover:text-indigo-400 text-slate-400"
+                        title="Duplicate"
+                    >
+                        <Copy size={12} />
+                    </button>
+                    <button
+                        onClick={(e) => onDeleteRequest(e, req.id)}
+                        className="p-1 hover:text-red-500 dark:hover:text-red-400 text-slate-400"
+                        title="Delete"
+                    >
+                        <Trash2 size={12} />
+                    </button>
+                </div>
             </div>
         );
     };
@@ -267,6 +297,7 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                     e.preventDefault();
                     if (!draggedRequestId || dragOverId || !onUpdateRequests) return;
 
+                    // Similar checks for safety
                     const sourceIndex = savedRequests.findIndex(r => r.id === draggedRequestId);
                     if (sourceIndex === -1) return;
 
@@ -282,20 +313,27 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                 {savedRequestGroups.map(group => {
                     const groupRequests = savedRequests.filter(r => r.groupId === group.id);
                     const isGroupOver = dragOverId === group.id && dragOverPosition === 'center';
+                    const groupColorClass = getGroupColor(group.id);
 
                     return (
-                        <div key={group.id} className={`mb-1 border rounded-xl overflow-hidden transition-colors ${isGroupOver ? 'border-indigo-500/50 bg-indigo-500/10' : 'border-transparent bg-white/40 dark:bg-white/5'}`}>
+                        <div
+                            key={group.id}
+                            className={`mb-1 border rounded-xl overflow-hidden transition-all ${isGroupOver
+                                ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-500/10'
+                                : `${groupColorClass} bg-opacity-10 dark:bg-opacity-5` // Use colored bg/border
+                                }`}
+                        >
                             <div
-                                className={`flex items-center justify-between p-2 cursor-pointer hover:bg-white/20 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 group/header ${group.collapsed ? '' : 'border-b border-slate-200 dark:border-white/5'}`}
+                                className={`flex items-center justify-between p-2 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 group/header ${group.collapsed ? '' : 'border-b border-black/5 dark:border-white/5'}`}
                                 onClick={() => toggleGroup(group)}
                                 onDragOver={(e) => handleDragOverGroup(e, group.id)}
                                 onDrop={(e) => handleDrop(e, group.id, true)}
                             >
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <span className="text-slate-500">
+                                    <span className="text-slate-500 opacity-70">
                                         {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                                     </span>
-                                    <span className="text-slate-500 group-hover:text-amber-500/80 transition-colors">
+                                    <span className="text-slate-600 dark:text-slate-400">
                                         {group.collapsed ? <Folder size={14} /> : <FolderOpen size={14} />}
                                     </span>
 
@@ -315,7 +353,7 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') setEditingGroupId(null);
                                             }}
-                                            className="flex-1 bg-slate-100 dark:bg-slate-800 text-sm font-bold px-2 py-0.5 rounded border border-indigo-500/30 focus:outline-none focus:border-indigo-500 text-slate-900 dark:text-indigo-300"
+                                            className="flex-1 bg-white/50 dark:bg-black/20 text-sm font-bold px-2 py-0.5 rounded border border-indigo-500/30 focus:outline-none focus:border-indigo-500 text-slate-900 dark:text-slate-200"
                                         />
                                     ) : (
                                         <span className="text-sm font-bold truncate flex-1" onDoubleClick={(e) => { e.stopPropagation(); setEditingGroupId(group.id); }}>
@@ -344,7 +382,7 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
 
                             {!group.collapsed && (
                                 <div
-                                    className="p-1 space-y-0.5 bg-slate-50/30 dark:bg-black/20"
+                                    className="p-1 space-y-0.5"
                                     onDragOver={(e) => handleDragOverGroup(e, group.id)}
                                     onDrop={(e) => handleDrop(e, group.id, true)}
                                 >
