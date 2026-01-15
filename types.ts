@@ -44,6 +44,20 @@ export interface LogRule {
   showRawLogLines?: boolean;
 }
 
+export type LogLevel = 'V' | 'D' | 'I' | 'W' | 'E';
+
+export interface LogLevelStyle {
+  level: LogLevel;
+  color: string; // Hex color e.g. '#ff0000'
+  enabled: boolean;
+}
+
+export interface LogViewPreferences {
+  rowHeight: number;
+  fontSize: number;
+  levelStyles: LogLevelStyle[];
+}
+
 export interface PostGlobalVariable {
   id: string;
   key: string;
@@ -56,6 +70,7 @@ export interface AppSettings {
   savedRequests: SavedRequest[];
   savedRequestGroups?: RequestGroup[];
   postGlobalVariables?: PostGlobalVariable[];
+  logViewPreferences?: LogViewPreferences;
   lastEndpoint: string;
   lastMethod: string;
   enabledPlugins?: string[];

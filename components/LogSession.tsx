@@ -1,6 +1,6 @@
 import React from 'react';
 import * as Lucide from 'lucide-react';
-import LogViewerPane, { ROW_HEIGHT, LogViewerHandle } from './LogViewer/LogViewerPane';
+import LogViewerPane, { LogViewerHandle } from './LogViewer/LogViewerPane';
 import ConfigurationPanel from './LogViewer/ConfigurationPanel';
 import TizenConnectionModal from './TizenConnectionModal';
 import { useLogContext } from './LogViewer/LogContext';
@@ -120,7 +120,10 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         rightSegmentIndex, setRightSegmentIndex, rightTotalSegments, rightCurrentSegmentLines,
         isGoToLineModalOpen, setIsGoToLineModalOpen,
         searchInputRef,
+        logViewPreferences, // Added
     } = useLogContext();
+
+    const rowHeight = logViewPreferences?.rowHeight || 24; // Use preference or default
 
     const requestLeftBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'left'), [requestBookmarkedLines]);
     const requestRightBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'right'), [requestBookmarkedLines]);
@@ -154,7 +157,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         if (visualY !== undefined && targetRef.current && targetCount > 0) {
             const targetScrollTop = targetRef.current.getScrollTop();
             const targetAbsY = targetScrollTop + visualY;
-            const targetLocalIndex = Math.floor(targetAbsY / ROW_HEIGHT);
+            const targetLocalIndex = Math.floor(targetAbsY / rowHeight);
             const targetGlobalIndex = targetLocalIndex + targetOffset;
 
             const clampedIndex = Math.max(0, Math.min(targetGlobalIndex, targetCount - 1));
@@ -535,6 +538,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onShowBookmarks={onShowBookmarksLeft}
                                     onPageNavRequest={handlePageNavRequestLeft}
                                     onScrollToBottomRequest={handleScrollToBottomRequestLeft}
+                                    preferences={logViewPreferences}
                                 />
                                 {leftTotalSegments > 1 && (
                                     <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
@@ -608,6 +612,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onShowBookmarks={onShowBookmarksRight}
                                             onPageNavRequest={handlePageNavRequestRight}
                                             onScrollToBottomRequest={handleScrollToBottomRequestRight}
+                                            preferences={logViewPreferences}
                                         />
                                         {rightTotalSegments > 1 && (
                                             <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">

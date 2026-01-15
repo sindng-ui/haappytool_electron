@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import * as Lucide from 'lucide-react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
-import { LogHighlight } from '../../types';
+import { LogHighlight, LogViewPreferences } from '../../types';
 import { LogLine } from './LogLine';
 
 const { Upload, X, Zap, Split, Copy, Download, Bookmark, ArrowDown } = Lucide;
@@ -24,8 +24,9 @@ declare global {
     }
 }
 
-const ROW_HEIGHT = 24;
-const OVERSCAN = 120; // Reduced to 120 for better performance
+// Default fallback if preferences are missing
+const DEFAULT_ROW_HEIGHT = 24;
+const OVERSCAN_COUNT = 120;
 
 interface LogViewerPaneProps {
     workerReady: boolean;
@@ -57,6 +58,7 @@ interface LogViewerPaneProps {
     initialScrollIndex?: number;
     onPageNavRequest?: (direction: 'next' | 'prev') => void;
     onScrollToBottomRequest?: () => void;
+    preferences?: LogViewPreferences;
 }
 
 export interface LogViewerHandle {
@@ -102,8 +104,11 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     onPageNavRequest,
     onScrollToBottomRequest,
     absoluteOffset = 0,
-    initialScrollIndex
+    initialScrollIndex,
+    preferences
 }, ref) => {
+    const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
+
     const scrollTopRef = useRef<number>(0);
     const containerRef = useRef<HTMLDivElement>(null);
     const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -178,7 +183,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             // Assuming this handle is primarily used by LogSession for sync or control.
             // Current usage: LogSession calls scrollBy for sync. Use ignoreSync there.
             ignoreSyncRef.current = true;
-            virtuosoRef.current?.scrollBy({ top: count * ROW_HEIGHT });
+            virtuosoRef.current?.scrollBy({ top: count * rowHeight });
             setTimeout(() => { ignoreSyncRef.current = false; }, 100);
         },
         scrollByPage: (direction: number) => {
@@ -200,7 +205,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             setTimeout(() => { ignoreSyncRef.current = false; }, 100);
         },
         jumpToNextBookmark: () => {
-            const viewportTopIdx = Math.floor(scrollTopRef.current / ROW_HEIGHT);
+            const viewportTopIdx = Math.floor(scrollTopRef.current / rowHeight);
             const currentIdx = activeLineIndex >= 0 ? activeLineIndex : viewportTopIdx;
             const sorted: number[] = (Array.from(bookmarks) as number[]).sort((a, b) => a - b);
             const next = sorted.find((b: number) => b > currentIdx);
@@ -220,7 +225,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             }
         },
         jumpToPrevBookmark: () => {
-            const viewportTopIdx = Math.floor(scrollTopRef.current / ROW_HEIGHT);
+            const viewportTopIdx = Math.floor(scrollTopRef.current / rowHeight);
+
             const currentIdx = activeLineIndex >= 0 ? activeLineIndex : viewportTopIdx;
             const sorted: number[] = (Array.from(bookmarks) as number[]).sort((a, b) => b - a);
             const prev = sorted.find((b: number) => b < currentIdx);
@@ -430,22 +436,22 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         if (e.ctrlKey) {
             if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                virtuosoRef.current?.scrollBy({ top: -ROW_HEIGHT });
+                virtuosoRef.current?.scrollBy({ top: -rowHeight });
             }
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                virtuosoRef.current?.scrollBy({ top: ROW_HEIGHT });
+                virtuosoRef.current?.scrollBy({ top: rowHeight });
             }
             if (e.key === 'ArrowLeft' && onFocusPaneRequest) {
                 e.preventDefault();
                 const relativeActive = activeLineIndex - absoluteOffset;
-                const visualY = (relativeActive >= 0) ? (relativeActive * ROW_HEIGHT) - scrollTopRef.current : undefined;
+                const visualY = (relativeActive >= 0) ? (relativeActive * rowHeight) - scrollTopRef.current : undefined;
                 onFocusPaneRequest('left', visualY);
             }
             if (e.key === 'ArrowRight' && onFocusPaneRequest) {
                 e.preventDefault();
                 const relativeActive = activeLineIndex - absoluteOffset;
-                const visualY = (relativeActive >= 0) ? (relativeActive * ROW_HEIGHT) - scrollTopRef.current : undefined;
+                const visualY = (relativeActive >= 0) ? (relativeActive * rowHeight) - scrollTopRef.current : undefined;
                 onFocusPaneRequest('right', visualY);
             }
         }
@@ -495,7 +501,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 e.preventDefault();
                 const direction = e.code === 'PageUp' ? -1 : 1;
                 const pageHeight = containerRef.current?.clientHeight || 800;
-                const linesPerPage = Math.floor(pageHeight / ROW_HEIGHT);
+                const linesPerPage = Math.floor(pageHeight / rowHeight);
 
                 let targetRel = 0;
                 if (isFocusedOnPage) {
@@ -526,7 +532,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         return (
             <LogLine
                 index={index}
-                style={{ height: ROW_HEIGHT, width: '100%' }}
+                style={{ height: rowHeight, width: '100%' }}
                 data={data}
                 isActive={isActive}
                 isSelected={isSelected}
@@ -539,9 +545,10 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 // We handle selection on MouseDown now to support drag-select
                 onClick={undefined}
                 onDoubleClick={() => onLineDoubleClick && onLineDoubleClick(globalIndex)}
+                preferences={preferences}
             />
         );
-    }, [activeLineIndex, bookmarks, isRawMode, highlights, highlightCaseSensitive, onLineDoubleClick, cachedLines, absoluteOffset, selectedIndices, handleLineMouseDown, handleLineMouseEnter]);
+    }, [activeLineIndex, bookmarks, isRawMode, highlights, highlightCaseSensitive, onLineDoubleClick, cachedLines, absoluteOffset, selectedIndices, handleLineMouseDown, handleLineMouseEnter, preferences, rowHeight]);
 
     // Non-passive wheel listener to allow preventDefault for Shift+Scroll
     useEffect(() => {
@@ -671,7 +678,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                 }
                             }}
                             totalCount={totalMatches || 0}
-                            overscan={OVERSCAN * ROW_HEIGHT} // Pixel based overscan
+                            overscan={OVERSCAN_COUNT * rowHeight} // Pixel based overscan
                             itemContent={itemContent}
 
 
@@ -774,6 +781,6 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 LogViewerPane.displayName = 'LogViewerPane';
 
 export default LogViewerPane;
-export { ROW_HEIGHT, OVERSCAN };
+export { OVERSCAN_COUNT };
 
 

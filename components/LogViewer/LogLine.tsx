@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogHighlight } from '../../types';
+import { LogHighlight, LogViewPreferences } from '../../types';
 import { HighlightRenderer } from './HighlightRenderer';
 
 interface LogLineProps {
@@ -16,10 +16,38 @@ interface LogLineProps {
     onDoubleClick?: (index: number) => void;
     onMouseDown?: (index: number, event: React.MouseEvent) => void;
     onMouseEnter?: (index: number, event: React.MouseEvent) => void;
+    preferences?: LogViewPreferences;
 }
 
-export const LogLine = React.memo(({ index, style, data, isActive, isSelected, hasBookmark, isRawMode = false, highlights, highlightCaseSensitive = false, onClick, onDoubleClick, onMouseDown, onMouseEnter }: LogLineProps) => {
+export const LogLine = React.memo(({ index, style, data, isActive, isSelected, hasBookmark, isRawMode = false, highlights, highlightCaseSensitive = false, onClick, onDoubleClick, onMouseDown, onMouseEnter, preferences }: LogLineProps) => {
     const isLoading = !data;
+
+    // Determine Log Level Style
+    const customBgStyle = React.useMemo(() => {
+        if (!data || !preferences) return undefined;
+        // Simple heuristic: Check for V/D/I/W/E followed by / or space, or usually Logcat format "I/" "D/"
+        // Or just search for the level char.
+        // Let's check for " V ", " D ", " I ", " W ", " E " OR " V/", " D/", " I/", " W/", " E/"
+        // More robust: Check common positions? Or just contains.
+        // User request says "Log level별로".
+        // Typical Tizen/Android log: "MM-DD HH:MM:SS.ms ProcessID ThreadID Level/Tag: Message"
+        // e.g. "E/SomeTag: Error message"
+        // Let's scan for the level indicator.
+
+        // Optimization: only search first 100 chars?
+        const prefix = data.content.substring(0, 100);
+
+        for (const style of preferences.levelStyles) {
+            if (style.enabled) {
+                // Regex for " Level/" or " Level " or start of line "Level/"
+                const regex = new RegExp(`(^|\\s|/)${style.level}(/|\\s|:)`);
+                if (regex.test(prefix)) {
+                    return style.color;
+                }
+            }
+        }
+        return undefined;
+    }, [data, preferences]);
 
     const matchingHighlight = React.useMemo(() => {
         if (!highlights || !data) return undefined;
@@ -45,6 +73,15 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                 }`}
             style={{
                 ...style,
+                // Override height/lineHeight from preferences if provided
+                ...(preferences ? { height: preferences.rowHeight, lineHeight: `${preferences.rowHeight}px`, fontSize: preferences.fontSize } : {}),
+
+                // Background color priority: Active > Highlight > Custom Level > Bookmark > Hover
+                // Since Active is handled by class, we handle Custom Level via style if not active/highlight
+                ...(!(isActive || isSelected || matchingHighlight) && customBgStyle
+                    ? { backgroundColor: `${customBgStyle}33` } // ~20% opacity 
+                    : {}),
+
                 ...(matchingHighlight && /^#[0-9A-F]{6}$/i.test(matchingHighlight.color)
                     ? { backgroundColor: `${matchingHighlight.color}80` } // 50% alpha hex
                     : {})

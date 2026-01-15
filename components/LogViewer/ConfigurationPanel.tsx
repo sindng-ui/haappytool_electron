@@ -8,6 +8,8 @@ import { BlockListSection } from './ConfigSections/BlockListSection';
 import { HighlightSection } from './ConfigSections/HighlightSection';
 import { LogSettingsSection } from './ConfigSections/LogSettingsSection';
 
+import { ViewSettingsSection } from './ConfigSections/ViewSettingsSection';
+
 const { ChevronLeft, ChevronRight } = Lucide;
 
 const ConfigurationPanel: React.FC = () => {
@@ -16,7 +18,8 @@ const ConfigurationPanel: React.FC = () => {
         configPanelWidth, handleConfigResizeStart,
         currentConfig, updateCurrentRule,
         groupedRoots, collapsedRoots, setCollapsedRoots, handleToggleRoot,
-        sendTizenCommand
+        sendTizenCommand,
+        logViewPreferences, updateLogViewPreferences
     } = useLogContext();
 
     const onToggle = () => setIsPanelOpen(!isPanelOpen);
@@ -126,6 +129,13 @@ const ConfigurationPanel: React.FC = () => {
                             updateCurrentRule={updateCurrentRule}
                             handleStartLogging={handleStartLogging}
                             handleStopLogging={handleStopLogging}
+                        />
+                    </div>
+
+                    <div className="card-gradient p-4">
+                        <ViewSettingsSection
+                            preferences={logViewPreferences}
+                            onUpdate={updateLogViewPreferences}
                         />
                     </div>
 

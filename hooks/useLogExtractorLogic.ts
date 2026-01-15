@@ -1,9 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import { getStoredValue, setStoredValue } from '../utils/db';
-import { LogRule, AppSettings, LogWorkerResponse } from '../types';
+import { LogRule, AppSettings, LogWorkerResponse, LogViewPreferences } from '../types';
 import { LogViewerHandle } from '../components/LogViewer/LogViewerPane';
 import { Socket } from 'socket.io-client';
+
+const defaultLogViewPreferences: LogViewPreferences = {
+    rowHeight: 20,
+    fontSize: 11,
+    levelStyles: [
+        { level: 'V', color: '#888888', enabled: false },
+        { level: 'D', color: '#00FFFF', enabled: false }, // Cyan
+        { level: 'I', color: '#00FF00', enabled: false }, // Green
+        { level: 'W', color: '#FFA500', enabled: false }, // Orange
+        { level: 'E', color: '#FF0000', enabled: true }   // Red
+    ]
+};
 
 declare global {
     interface Window {
@@ -69,6 +81,31 @@ export const useLogExtractorLogic = ({
     const [selectedRuleId, setSelectedRuleId] = useState<string>(() => {
         return rules.length > 0 ? rules[0].id : '';
     });
+
+    const [logViewPreferences, setLogViewPreferences] = useState<LogViewPreferences>(defaultLogViewPreferences);
+
+    // Load preferences
+    useEffect(() => {
+        getStoredValue('logViewPreferences').then(saved => {
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    // Merge with defaults to ensure all fields exist
+                    setLogViewPreferences({ ...defaultLogViewPreferences, ...parsed });
+                } catch (e) {
+                    console.error('Failed to parse logViewPreferences', e);
+                }
+            }
+        });
+    }, []);
+
+    const updateLogViewPreferences = useCallback((updates: Partial<LogViewPreferences>) => {
+        setLogViewPreferences(prev => {
+            const next = { ...prev, ...updates };
+            setStoredValue('logViewPreferences', JSON.stringify(next));
+            return next;
+        });
+    }, []);
 
     // Load saved rule ID on mount
     const hasRestoredFromDb = useRef(false);
@@ -1544,6 +1581,7 @@ export const useLogExtractorLogic = ({
         leftSegmentIndex, setLeftSegmentIndex, leftTotalSegments, leftCurrentSegmentLines,
         rightSegmentIndex, setRightSegmentIndex, rightTotalSegments, rightCurrentSegmentLines,
         // Refs & State for Shortcuts
-        searchInputRef, isGoToLineModalOpen, setIsGoToLineModalOpen
+        searchInputRef, isGoToLineModalOpen, setIsGoToLineModalOpen,
+        logViewPreferences, updateLogViewPreferences
     };
 };
