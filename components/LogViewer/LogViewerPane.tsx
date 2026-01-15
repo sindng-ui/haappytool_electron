@@ -160,6 +160,16 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 
     const ignoreSyncRef = useRef(false);
 
+    // Force scroll to initial index if provided - fixes race conditions where data loads after mount
+    useEffect(() => {
+        if (initialScrollIndex !== undefined && totalMatches > 0 && virtuosoRef.current) {
+            // Use a timeout to ensure Virtualizer is ready and layout is stable
+            requestAnimationFrame(() => {
+                virtuosoRef.current?.scrollToIndex({ index: initialScrollIndex, align: 'center' });
+            });
+        }
+    }, [initialScrollIndex, totalMatches]);
+
     useImperativeHandle(ref, () => ({
         focus: () => {
             // Prevent scrolling when focusing
@@ -679,6 +689,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             }}
                             totalCount={totalMatches || 0}
                             overscan={OVERSCAN_COUNT * rowHeight} // Pixel based overscan
+                            {...(initialScrollIndex !== undefined ? { initialTopMostItemIndex: { index: initialScrollIndex, align: 'center' } } : {})}
                             itemContent={itemContent}
 
 

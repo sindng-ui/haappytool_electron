@@ -24,11 +24,12 @@ interface RawContextViewerProps {
     rightTotalLines: number;
     requestLeftRawLines: (start: number, count: number) => Promise<any>;
     requestRightRawLines: (start: number, count: number) => Promise<any>;
+    preferences?: any; // Avoiding circular import or strict type for now, or use LogViewPreferences if imported
 }
 
 const RawContextViewer: React.FC<RawContextViewerProps> = ({
     sourcePane, leftFileName, rightFileName, targetLine, onClose, heightPercent, onResizeStart,
-    leftTotalLines, rightTotalLines, requestLeftRawLines, requestRightRawLines
+    leftTotalLines, rightTotalLines, requestLeftRawLines, requestRightRawLines, preferences
 }) => {
     const rawViewerRef = React.useRef<LogViewerHandle>(null);
     const rawTotalLines = sourcePane === 'left' ? leftTotalLines : rightTotalLines;
@@ -66,7 +67,8 @@ const RawContextViewer: React.FC<RawContextViewerProps> = ({
                     placeholderText=""
                     isRawMode={true}
                     activeLineIndex={rawTargetLineIndex}
-                    initialScrollIndex={rawTargetLineIndex}
+                    initialScrollIndex={rawTargetLineIndex - rawSegmentOffset}
+                    preferences={preferences}
                 />
                 <div
                     className="h-1 bg-indigo-500/50 hover:bg-indigo-400 cursor-ns-resize flex items-center justify-center group"
@@ -487,6 +489,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     rightTotalLines={rightTotalLines}
                     requestLeftRawLines={requestLeftRawLines}
                     requestRightRawLines={requestRightRawLines}
+                    preferences={logViewPreferences}
                 />
             )}
 
