@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogViewPreferences, LogLevelStyle, LogLevel } from '../../types';
+import { LogViewPreferences, LogLevelStyle, LogLevel } from '../../../types';
 
 interface ViewSettingsSectionProps {
     preferences: LogViewPreferences;
@@ -34,6 +34,22 @@ export const ViewSettingsSection: React.FC<ViewSettingsSectionProps> = ({ prefer
     return (
         <div className="space-y-4">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">View Settings</h3>
+
+            {/* Font Control */}
+            <div className="flex items-center justify-between">
+                <label className="text-sm text-slate-300">Font Family</label>
+                <select
+                    value={preferences.fontFamily || 'Consolas, monospace'}
+                    onChange={(e) => onUpdate({ fontFamily: e.target.value })}
+                    className="bg-slate-700 text-slate-200 text-xs rounded border border-slate-600 focus:ring-1 focus:ring-indigo-500 focus:outline-none p-1 w-32"
+                >
+                    <option value="Consolas, monospace">Consolas</option>
+                    <option value="'Courier New', monospace">Courier New</option>
+                    <option value="'Lucida Console', monospace">Lucida Console</option>
+                    <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                    <option value="monospace">System Monospace</option>
+                </select>
+            </div>
 
             {/* Row Height Control */}
             <div className="flex items-center justify-between">

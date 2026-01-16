@@ -529,14 +529,17 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 
 
 
-    // Memoized itemContent to prevent Virtuoso thrashing
-    const itemContent = useCallback((index: number) => {
+    const itemContent = useCallback((index: number, _data: unknown, context: { preferences?: LogViewPreferences }) => {
         // Use Ref for data access to keep callback stable across data updates
         // But we depend on cachedLines state to force re-render when data arrives!
         const data = cachedLinesRef.current.get(index);
         const globalIndex = index + absoluteOffset;
         const isActive = globalIndex === activeLineIndex;
         const isSelected = selectedIndices ? selectedIndices.has(globalIndex) : isActive;
+
+        // Use preferences from context if available (standard Virtuoso pattern for external data)
+        // Fallback to prop if context is missing/malformed (though we pass it)
+        const effectivePreferences = context?.preferences || preferences;
 
         // Bookmarks and other props still need to match, but they update less frequently than data
         return (
@@ -555,7 +558,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 // We handle selection on MouseDown now to support drag-select
                 onClick={undefined}
                 onDoubleClick={() => onLineDoubleClick && onLineDoubleClick(globalIndex)}
-                preferences={preferences}
+                preferences={effectivePreferences}
             />
         );
     }, [activeLineIndex, bookmarks, isRawMode, highlights, highlightCaseSensitive, onLineDoubleClick, cachedLines, absoluteOffset, selectedIndices, handleLineMouseDown, handleLineMouseEnter, preferences, rowHeight]);
@@ -723,6 +726,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             }}
                             style={{ height: '100%' }}
                             className="custom-scrollbar"
+                            context={{ preferences }}
+                            key={preferences?.fontFamily || 'virtuoso-list'}
                         />
                         {showScrollToBottom && (
                             <button

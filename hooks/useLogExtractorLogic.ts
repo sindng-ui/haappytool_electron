@@ -8,6 +8,7 @@ import { Socket } from 'socket.io-client';
 const defaultLogViewPreferences: LogViewPreferences = {
     rowHeight: 20,
     fontSize: 11,
+    fontFamily: 'Consolas, monospace',
     levelStyles: [
         { level: 'V', color: '#888888', enabled: false },
         { level: 'D', color: '#00FFFF', enabled: false }, // Cyan
@@ -635,6 +636,8 @@ export const useLogExtractorLogic = ({
                 blockCase: !!currentConfig.blockListCaseSensitive
             });
 
+
+
             if (payloadHash === lastFilterHashLeft.current) {
                 return;
             }
@@ -663,7 +666,10 @@ export const useLogExtractorLogic = ({
         leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: combined });
     }, []);
 
-    const handleTizenStreamStart = useCallback((socket: Socket, deviceName: string) => {
+    const [connectionMode, setConnectionMode] = useState<'sdb' | 'ssh' | null>(null);
+    const [isLogging, setIsLogging] = useState(false);
+
+    const handleTizenStreamStart = useCallback((socket: Socket, deviceName: string, mode: 'sdb' | 'ssh' | 'test' = 'sdb') => {
         setHasEverConnected(true);
         setTizenSocket(socket); // Save socket for disconnect
         setLeftFileName(deviceName);
@@ -676,6 +682,10 @@ export const useLogExtractorLogic = ({
         setSelectedIndicesLeft(new Set());
         shouldAutoScroll.current = true; // Default to auto-scroll on start
         lastFilterHashLeft.current = '';
+
+        setConnectionMode(mode === 'test' ? null : mode as 'sdb' | 'ssh');
+        // Reset logging state on new connection
+        setIsLogging(false);
 
         leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM' });
 
@@ -694,7 +704,7 @@ export const useLogExtractorLogic = ({
 
         socket.on('log_data', (data: any) => {
             const chunk = typeof data === 'string' ? data : (data.chunk || data.log || JSON.stringify(data));
-            console.log('[useLogExtractorLogic] Received chunk:', chunk.substring(0, 50));
+            // console.log('[useLogExtractorLogic] Received chunk:', chunk.substring(0, 50));
             // Only show toast for the first chunk to avoid spam
             // if (!hasEverConnected) {
             //     showToast('Receiving data stream...', 'success');
@@ -739,12 +749,16 @@ export const useLogExtractorLogic = ({
         socket.on('disconnect', () => {
             setTizenSocket(null);
             isWaitingForSshAuth.current = false;
+            setConnectionMode(null);
+            setIsLogging(false);
         });
 
         // Handle logical disconnects (e.g. commands failed or finished)
         const handleLogicalDisconnect = (data: { status: string }) => {
             if (data.status === 'disconnected') {
                 setTizenSocket(null);
+                setConnectionMode(null);
+                setIsLogging(false);
             }
         };
 
@@ -773,11 +787,25 @@ export const useLogExtractorLogic = ({
                 tizenSocket.emit('ssh_auth_response', cmd.replace(/\n$/, ''));
                 isWaitingForSshAuth.current = false;
             } else {
-                tizenSocket.emit('sdb_write', cmd);
-                tizenSocket.emit('ssh_write', cmd);
+                // FIX: Only send to the active connection mode to avoid duplicates
+                if (connectionMode === 'sdb') {
+                    tizenSocket.emit('sdb_write', cmd);
+                } else if (connectionMode === 'ssh') {
+                    tizenSocket.emit('ssh_write', cmd);
+                } else if (!connectionMode) {
+                    // Fallback or Test mode? For safety, try both if null (though should be set)
+                    // actually if it's null it might be safe to try both or just ignore?
+                    // Let's assume SDB priority if unknown, or just both if really unsure (legacy behavior)
+                    // But we want to fix duplicates. So let's rely on state.
+                    // If connectionMode is null but socket exists, it might be test mode or undefined.
+                    // Test mode uses 'start_scroll_stream' usually, not sdb_write.
+                    // Let's safe guard:
+                    tizenSocket.emit('sdb_write', cmd);
+                    // tizenSocket.emit('ssh_write', cmd); // Disable SSH fallback to prevent dupe
+                }
             }
         }
-    }, [tizenSocket]);
+    }, [tizenSocket, connectionMode]);
 
     // Auto-Apply Filter (Right)
     useEffect(() => {
@@ -1582,6 +1610,9 @@ export const useLogExtractorLogic = ({
         rightSegmentIndex, setRightSegmentIndex, rightTotalSegments, rightCurrentSegmentLines,
         // Refs & State for Shortcuts
         searchInputRef, isGoToLineModalOpen, setIsGoToLineModalOpen,
-        logViewPreferences, updateLogViewPreferences
+        logViewPreferences,
+        updateLogViewPreferences,
+        isLogging, setIsLogging,
+        connectionMode
     };
 };

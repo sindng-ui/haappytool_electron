@@ -9,13 +9,14 @@ const { Terminal, Play, Square, X } = Lucide;
 interface LogSettingsSectionProps {
     currentConfig: LogRule;
     updateCurrentRule: (updates: Partial<LogRule>) => void;
-    handleStartLogging: () => void;
-    handleStopLogging: () => void;
+    isLogging: boolean;
+    onToggleLogging: () => void;
+    connectionMode: 'sdb' | 'ssh' | null;
 }
 
 const defaultLogCommand = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
 
-export const LogSettingsSection: React.FC<LogSettingsSectionProps> = ({ currentConfig, updateCurrentRule, handleStartLogging, handleStopLogging }) => {
+export const LogSettingsSection: React.FC<LogSettingsSectionProps> = ({ currentConfig, updateCurrentRule, isLogging, onToggleLogging, connectionMode }) => {
     const [localCommand, setLocalCommand] = useState(currentConfig.logCommand ?? defaultLogCommand);
 
     useEffect(() => {
@@ -38,18 +39,16 @@ export const LogSettingsSection: React.FC<LogSettingsSectionProps> = ({ currentC
             <div className="glass rounded-2xl p-5 border border-emerald-500/10 space-y-5">
                 <div className="flex gap-3">
                     <Button
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex-1 shadow-lg shadow-emerald-900/40 border border-emerald-500/50"
-                        icon={<Play size={16} />}
-                        onClick={handleStartLogging}
+                        className={`font-bold flex-1 shadow-lg transition-all border ${isLogging
+                                ? 'bg-slate-700/50 hover:bg-red-500/80 text-slate-300 hover:text-white border-slate-600 hover:border-red-400 hover:shadow-red-900/40'
+                                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40 border-emerald-500/50'
+                            }`}
+                        icon={isLogging ? <Square size={16} /> : <Play size={16} />}
+                        onClick={onToggleLogging}
+                        disabled={!connectionMode}
+                        title={!connectionMode ? "Connect to a Tizen device first" : ""}
                     >
-                        Start Logging
-                    </Button>
-                    <Button
-                        className="bg-slate-700/50 hover:bg-red-500/80 text-slate-300 hover:text-white font-bold flex-1 transition-all border border-slate-600 hover:border-red-400 hover:shadow-lg hover:shadow-red-900/40"
-                        icon={<Square size={16} />}
-                        onClick={handleStopLogging}
-                    >
-                        Stop Logging
+                        {isLogging ? "Stop Logging" : "Start Logging"}
                     </Button>
                 </div>
 

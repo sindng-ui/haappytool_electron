@@ -55,6 +55,7 @@ export interface LogLevelStyle {
 export interface LogViewPreferences {
   rowHeight: number;
   fontSize: number;
+  fontFamily?: string;
   levelStyles: LogLevelStyle[];
 }
 

@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs/promises'); // For async/await helper if needed
 const originalFs = require('fs'); // For streams
-const { startServer } = require('../server/index.js');
+const { startServer } = require('../server/index.cjs');
 
 let mainWindow;
 

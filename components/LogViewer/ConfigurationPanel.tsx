@@ -19,7 +19,8 @@ const ConfigurationPanel: React.FC = () => {
         currentConfig, updateCurrentRule,
         groupedRoots, collapsedRoots, setCollapsedRoots, handleToggleRoot,
         sendTizenCommand,
-        logViewPreferences, updateLogViewPreferences
+        logViewPreferences, updateLogViewPreferences,
+        isLogging, setIsLogging, connectionMode
     } = useLogContext();
 
     const onToggle = () => setIsPanelOpen(!isPanelOpen);
@@ -34,29 +35,32 @@ const ConfigurationPanel: React.FC = () => {
     };
     const defaultLogCommand = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
 
-    const handleStartLogging = () => {
-        if (!currentConfig) return;
+    const handleToggleLogging = () => {
+        if (isLogging) {
+            // Stop Logging
+            // 1. Send Ctrl+C
+            sendTizenCommand('\x03');
 
-        // 1. Kill existing dlogutil
-        sendTizenCommand('pkill dlogutil\n');
-
-        // 2. Refresh tags and build command
-        const cmdTemplate = currentConfig.logCommand ?? defaultLogCommand;
-        const tags = (currentConfig.logTags || []).join(' ');
-        const finalCmd = cmdTemplate.replace(/\$\(TAGS\)/g, tags);
-
-        // Execute
-        sendTizenCommand(finalCmd + '\n');
-    };
-
-    const handleStopLogging = () => {
-        // 1. Send Ctrl+C
-        sendTizenCommand('\x03');
-
-        // 2. Kill dlogutil explicitly after a short delay
-        setTimeout(() => {
+            // 2. Kill dlogutil explicitly after a short delay
+            setTimeout(() => {
+                sendTizenCommand('pkill dlogutil\n');
+            }, 300);
+            setIsLogging(false);
+        } else {
+            // Start Logging
+            if (!currentConfig) return;
+            // 1. Kill existing dlogutil
             sendTizenCommand('pkill dlogutil\n');
-        }, 300);
+
+            // 2. Refresh tags and build command
+            const cmdTemplate = currentConfig.logCommand ?? defaultLogCommand;
+            const tags = (currentConfig.logTags || []).join(' ');
+            const finalCmd = cmdTemplate.replace(/\$\(TAGS\)/g, tags);
+
+            // Execute
+            sendTizenCommand(finalCmd + '\n');
+            setIsLogging(true);
+        }
     };
 
     if (!currentConfig) {
@@ -127,8 +131,9 @@ const ConfigurationPanel: React.FC = () => {
                         <LogSettingsSection
                             currentConfig={currentConfig}
                             updateCurrentRule={updateCurrentRule}
-                            handleStartLogging={handleStartLogging}
-                            handleStopLogging={handleStopLogging}
+                            isLogging={isLogging}
+                            onToggleLogging={handleToggleLogging}
+                            connectionMode={connectionMode}
                         />
                     </div>
 

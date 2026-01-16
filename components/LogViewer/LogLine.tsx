@@ -60,7 +60,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
 
     return (
         <div
-            className={`group flex items-center text-xs font-mono whitespace-pre cursor-pointer select-text transition-colors duration-75
+            className={`group flex items-center text-xs whitespace-pre cursor-pointer select-text transition-colors duration-75
                 ${(isActive || isSelected)
                     ? 'bg-indigo-500/10 dark:bg-indigo-500/20 font-medium'
                     : matchingHighlight
@@ -74,7 +74,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
             style={{
                 ...style,
                 // Override height/lineHeight from preferences if provided
-                ...(preferences ? { height: preferences.rowHeight, lineHeight: `${preferences.rowHeight}px`, fontSize: preferences.fontSize } : {}),
+                ...(preferences ? { height: preferences.rowHeight, lineHeight: `${preferences.rowHeight}px`, fontSize: preferences.fontSize, fontFamily: preferences.fontFamily } : {}),
 
                 // Background color priority: Active > Highlight > Custom Level > Bookmark > Hover
                 // Since Active is handled by class, we handle Custom Level via style if not active/highlight

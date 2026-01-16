@@ -5,7 +5,7 @@ import { io, Socket } from 'socket.io-client';
 interface TizenConnectionModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onStreamStart: (socket: Socket, deviceName: string) => void;
+    onStreamStart: (socket: any, deviceName: string, mode: 'sdb' | 'ssh' | 'test', saveToFile: boolean) => void;
     isConnected?: boolean;
     onDisconnect?: () => void;
     currentConnectionInfo?: string | null;
@@ -38,6 +38,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
     const [selectedDeviceId, setSelectedDeviceId] = useState('');
     const [isScanning, setIsScanning] = useState(false);
     const [debugMode, setDebugMode] = useState(false);
+    const [saveToFile, setSaveToFile] = useState(false);
 
     // Connection Status
     const [status, setStatus] = useState<string>('');
@@ -98,7 +99,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                     setIsConnected(true);
                     setMode('ssh');
                     isHandedOver.current = true;
-                    onStreamStart(newSocket!, `SSH:${sshHost}`);
+                    onStreamStart(newSocket!, `SSH:${sshHost}`, 'ssh', saveToFile);
                     onClose();
                 } else if (data.status === 'disconnected') {
                     setIsConnected(false);
@@ -119,7 +120,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                     setIsConnected(true);
                     setMode('sdb');
                     isHandedOver.current = true;
-                    onStreamStart(newSocket!, `SDB:${selectedDeviceId || 'Default'}`);
+                    onStreamStart(newSocket!, `SDB:${selectedDeviceId || 'Default'}`, 'sdb', saveToFile);
                     onClose();
                 } else if (data.status === 'disconnected') {
                     setIsConnected(false);
@@ -201,7 +202,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
             socket.emit('start_scroll_stream');
             setIsConnected(true);
             isHandedOver.current = true;
-            onStreamStart(socket, 'TEST:Simulated Stream');
+            onStreamStart(socket, 'TEST:Simulated Stream', 'test', false); // Test mode doesn't save to file yet
             onClose();
             return;
         }
@@ -217,7 +218,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
             // Immediate Handover for SSH to support interactive prompts in main view
             setIsConnected(true);
             isHandedOver.current = true;
-            onStreamStart(socket, `SSH:${sshHost}`);
+            onStreamStart(socket, `SSH:${sshHost}`, 'ssh', saveToFile);
             onClose();
         } else {
             socket.emit('connect_sdb', { deviceId: selectedDeviceId, debug: debugMode });
@@ -343,10 +344,15 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
 
                     {/* Options (Debug) - Hide if connected */}
                     {!effectiveIsConnected && (
-                        <div className="mt-4 flex items-center">
+                        <div className="mt-4 flex flex-col gap-2">
                             <label className="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer select-none hover:text-slate-300">
                                 <input type="checkbox" checked={debugMode} onChange={e => setDebugMode(e.target.checked)} className="accent-indigo-500 w-4 h-4 rounded border-slate-700 bg-slate-800" />
                                 <span>Enable Debug Mode (Save logs to server)</span>
+                            </label>
+                            {/* New checkbox for saveToFile */}
+                            <label className="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer select-none hover:text-slate-300">
+                                <input type="checkbox" checked={saveToFile} onChange={e => setSaveToFile(e.target.checked)} className="accent-indigo-500 w-4 h-4 rounded border-slate-700 bg-slate-800" />
+                                <span>Automatically save logs to file (TIMESTAMP.txt)</span>
                             </label>
                         </div>
                     )}
