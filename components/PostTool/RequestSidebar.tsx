@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as Lucide from 'lucide-react';
-import { SavedRequest, RequestGroup } from '../../types';
+import { SavedRequest, RequestGroup, RequestHistoryItem } from '../../types';
 
-const { List, Plus, Trash2, Folder, FolderOpen, ChevronRight, ChevronDown, FolderPlus, Copy, MoreVertical } = Lucide;
+const { List, Plus, Trash2, Folder, FolderOpen, ChevronRight, ChevronDown, FolderPlus, Copy, MoreVertical, History } = Lucide;
 
 interface RequestSidebarProps {
     width: number;
@@ -19,14 +19,18 @@ interface RequestSidebarProps {
     savedRequestGroups?: RequestGroup[];
     onUpdateGroups?: (groups: RequestGroup[]) => void;
     onOpenSettings?: () => void;
+    requestHistory?: RequestHistoryItem[];
+    onSelectHistory?: (item: RequestHistoryItem) => void;
 }
 
 const RequestSidebar: React.FC<RequestSidebarProps> = ({
     width, onResizeStart,
     savedRequests, activeRequestId, currentRequest,
     onSelectRequest, onNewRequest, onDeleteRequest, onDuplicateRequest, onChangeCurrentRequest, onUpdateRequests,
-    savedRequestGroups = [], onUpdateGroups, onOpenSettings
+    savedRequestGroups = [], onUpdateGroups, onOpenSettings,
+    requestHistory = [], onSelectHistory
 }) => {
+    const [sidebarTab, setSidebarTab] = useState<'COLLECTIONS' | 'HISTORY'>('COLLECTIONS');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
     const prevCountRef = useRef(savedRequests.length);
@@ -270,139 +274,190 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                 onMouseDown={onResizeStart}
             />
 
-            {/* Header */}
-            <div className="p-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between shrink-0 h-11 dashed-header title-drag pl-4 bg-white/30 dark:bg-white/5 backdrop-blur-sm">
-                <span className="font-bold text-sm text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                    <List size={14} className="text-slate-500 dark:text-slate-400" /> Collections
-                </span>
-                <div className="flex items-center gap-1 no-drag">
-                    <button onClick={onOpenSettings} className="p-1.5 hover:bg-white/20 dark:hover:bg-white/10 rounded-lg text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" title="Environment Settings">
-                        <Lucide.Settings size={16} />
+            {/* Header Tabs */}
+            <div className="flex flex-col bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-white/5 shrink-0">
+                <div className="flex items-center bg-slate-200 dark:bg-slate-800/50">
+                    <button
+                        onClick={() => setSidebarTab('COLLECTIONS')}
+                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${sidebarTab === 'COLLECTIONS' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-slate-100 dark:bg-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    >
+                        Collections
                     </button>
-                    <button onClick={handleCreateGroup} className="p-1.5 hover:bg-white/20 dark:hover:bg-white/10 rounded-lg text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" title="New Group">
-                        <FolderPlus size={16} />
-                    </button>
-                    <button onClick={() => onNewRequest()} className="p-1.5 hover:bg-white/20 dark:hover:bg-white/10 rounded-lg text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" title="New Request">
-                        <Plus size={16} />
+                    <button
+                        onClick={() => setSidebarTab('HISTORY')}
+                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${sidebarTab === 'HISTORY' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-slate-100 dark:bg-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    >
+                        History
                     </button>
                 </div>
+                {/* Actions Toolbar - Only for Collections */}
+                {sidebarTab === 'COLLECTIONS' && (
+                    <div className="flex items-center justify-between px-4 py-2">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <List size={12} /> Saved
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <button onClick={onOpenSettings} className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-colors" title="Environment Settings">
+                                <Lucide.Settings size={14} />
+                            </button>
+                            <button onClick={handleCreateGroup} className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-colors" title="New Group">
+                                <FolderPlus size={14} />
+                            </button>
+                            <button onClick={() => onNewRequest()} className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-colors" title="New Request">
+                                <Plus size={14} />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* List */}
-            <div
-                className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                    // Drop on background -> Move to Root
-                    e.preventDefault();
-                    if (!draggedRequestId || dragOverId || !onUpdateRequests) return;
+            {/* Collections List */}
+            {sidebarTab === 'COLLECTIONS' && (
+                <div
+                    className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                        // Drop on background -> Move to Root
+                        e.preventDefault();
+                        if (!draggedRequestId || dragOverId || !onUpdateRequests) return;
 
-                    // Similar checks for safety
-                    const sourceIndex = savedRequests.findIndex(r => r.id === draggedRequestId);
-                    if (sourceIndex === -1) return;
+                        // Similar checks for safety
+                        const sourceIndex = savedRequests.findIndex(r => r.id === draggedRequestId);
+                        if (sourceIndex === -1) return;
 
-                    const newRequests = [...savedRequests];
-                    const [movedItem] = newRequests.splice(sourceIndex, 1);
-                    movedItem.groupId = undefined; // Root
-                    newRequests.push(movedItem);
-                    onUpdateRequests(newRequests);
-                    handleDragEnd();
-                }}
-            >
-                {/* Groups */}
-                {savedRequestGroups.map(group => {
-                    const groupRequests = savedRequests.filter(r => r.groupId === group.id);
-                    const isGroupOver = dragOverId === group.id && dragOverPosition === 'center';
-                    const groupColorClass = getGroupColor(group.id);
+                        const newRequests = [...savedRequests];
+                        const [movedItem] = newRequests.splice(sourceIndex, 1);
+                        movedItem.groupId = undefined; // Root
+                        newRequests.push(movedItem);
+                        onUpdateRequests(newRequests);
+                        handleDragEnd();
+                    }}
+                >
+                    {/* Groups */}
+                    {savedRequestGroups.map(group => {
+                        const groupRequests = savedRequests.filter(r => r.groupId === group.id);
+                        const isGroupOver = dragOverId === group.id && dragOverPosition === 'center';
+                        const groupColorClass = getGroupColor(group.id);
 
-                    return (
-                        <div
-                            key={group.id}
-                            className={`mb-1 border rounded-xl overflow-hidden transition-all ${isGroupOver
-                                ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-500/10'
-                                : `${groupColorClass} bg-opacity-10 dark:bg-opacity-5` // Use colored bg/border
-                                }`}
-                        >
+                        return (
                             <div
-                                className={`flex items-center justify-between p-2 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 group/header ${group.collapsed ? '' : 'border-b border-black/5 dark:border-white/5'}`}
-                                onClick={() => toggleGroup(group)}
-                                onDragOver={(e) => handleDragOverGroup(e, group.id)}
-                                onDrop={(e) => handleDrop(e, group.id, true)}
+                                key={group.id}
+                                className={`mb-1 border rounded-xl overflow-hidden transition-all ${isGroupOver
+                                    ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-500/10'
+                                    : `${groupColorClass} bg-opacity-10 dark:bg-opacity-5` // Use colored bg/border
+                                    }`}
                             >
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <span className="text-slate-500 opacity-70">
-                                        {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                                    </span>
-                                    <span className="text-slate-600 dark:text-slate-400">
-                                        {group.collapsed ? <Folder size={14} /> : <FolderOpen size={14} />}
-                                    </span>
-
-                                    {editingGroupId === group.id ? (
-                                        <input
-                                            autoFocus
-                                            type="text"
-                                            value={group.name}
-                                            onChange={(e) => {
-                                                if (onUpdateGroups) {
-                                                    const updated = savedRequestGroups.map(g => g.id === group.id ? { ...g, name: e.target.value } : g);
-                                                    onUpdateGroups(updated);
-                                                }
-                                            }}
-                                            onClick={(e) => e.stopPropagation()}
-                                            onBlur={() => setEditingGroupId(null)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') setEditingGroupId(null);
-                                            }}
-                                            className="flex-1 bg-white/50 dark:bg-black/20 text-sm font-bold px-2 py-0.5 rounded border border-indigo-500/30 focus:outline-none focus:border-indigo-500 text-slate-900 dark:text-slate-200"
-                                        />
-                                    ) : (
-                                        <span className="text-sm font-bold truncate flex-1" onDoubleClick={(e) => { e.stopPropagation(); setEditingGroupId(group.id); }}>
-                                            {group.name}
-                                        </span>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center opacity-0 group-hover/header:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onNewRequest(group.id); }}
-                                        className="p-1 hover:text-indigo-500 dark:hover:text-indigo-400 text-slate-400 dark:text-slate-500 mr-1"
-                                        title="Add Request"
-                                    >
-                                        <Plus size={12} />
-                                    </button>
-                                    <button
-                                        onClick={(e) => handleDeleteGroup(e, group)}
-                                        className="p-1 hover:text-red-500 dark:hover:text-red-400 text-slate-400 dark:text-slate-500"
-                                        title="Delete Group"
-                                    >
-                                        <Trash2 size={12} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {!group.collapsed && (
                                 <div
-                                    className="p-1 space-y-0.5"
+                                    className={`flex items-center justify-between p-2 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 group/header ${group.collapsed ? '' : 'border-b border-black/5 dark:border-white/5'}`}
+                                    onClick={() => toggleGroup(group)}
                                     onDragOver={(e) => handleDragOverGroup(e, group.id)}
                                     onDrop={(e) => handleDrop(e, group.id, true)}
                                 >
-                                    {groupRequests.map(renderRequestItem)}
-                                    {groupRequests.length === 0 && (
-                                        <div className="pl-8 py-2 text-xs text-slate-400 dark:text-slate-600 italic">Empty group</div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <span className="text-slate-500 opacity-70">
+                                            {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                                        </span>
+                                        <span className="text-slate-600 dark:text-slate-400">
+                                            {group.collapsed ? <Folder size={14} /> : <FolderOpen size={14} />}
+                                        </span>
 
-                {/* Unassigned Requests */}
-                <div className="space-y-0.5 pt-1">
-                    {savedRequests
-                        .filter(r => !r.groupId || !savedRequestGroups.find(g => g.id === r.groupId))
-                        .map(renderRequestItem)}
+                                        {editingGroupId === group.id ? (
+                                            <input
+                                                autoFocus
+                                                type="text"
+                                                value={group.name}
+                                                onChange={(e) => {
+                                                    if (onUpdateGroups) {
+                                                        const updated = savedRequestGroups.map(g => g.id === group.id ? { ...g, name: e.target.value } : g);
+                                                        onUpdateGroups(updated);
+                                                    }
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                                onBlur={() => setEditingGroupId(null)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') setEditingGroupId(null);
+                                                }}
+                                                className="flex-1 bg-white/50 dark:bg-black/20 text-sm font-bold px-2 py-0.5 rounded border border-indigo-500/30 focus:outline-none focus:border-indigo-500 text-slate-900 dark:text-slate-200"
+                                            />
+                                        ) : (
+                                            <span className="text-sm font-bold truncate flex-1" onDoubleClick={(e) => { e.stopPropagation(); setEditingGroupId(group.id); }}>
+                                                {group.name}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center opacity-0 group-hover/header:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onNewRequest(group.id); }}
+                                            className="p-1 hover:text-indigo-500 dark:hover:text-indigo-400 text-slate-400 dark:text-slate-500 mr-1"
+                                            title="Add Request"
+                                        >
+                                            <Plus size={12} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => handleDeleteGroup(e, group)}
+                                            className="p-1 hover:text-red-500 dark:hover:text-red-400 text-slate-400 dark:text-slate-500"
+                                            title="Delete Group"
+                                        >
+                                            <Trash2 size={12} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {!group.collapsed && (
+                                    <div
+                                        className="p-1 space-y-0.5"
+                                        onDragOver={(e) => handleDragOverGroup(e, group.id)}
+                                        onDrop={(e) => handleDrop(e, group.id, true)}
+                                    >
+                                        {groupRequests.map(renderRequestItem)}
+                                        {groupRequests.length === 0 && (
+                                            <div className="pl-8 py-2 text-xs text-slate-400 dark:text-slate-600 italic">Empty group</div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {/* Unassigned Requests */}
+                    <div className="space-y-0.5 pt-1">
+                        {savedRequests
+                            .filter(r => !r.groupId || !savedRequestGroups.find(g => g.id === r.groupId))
+                            .map(renderRequestItem)}
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {/* History List */}
+            {sidebarTab === 'HISTORY' && (
+                <div className="flex-1 overflow-y-auto p-0 custom-scrollbar">
+                    {requestHistory.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-48 text-slate-400">
+                            <History size={24} className="mb-2 opacity-50" />
+                            <span className="text-xs">No history yet</span>
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-slate-200 dark:divide-white/5">
+                            {requestHistory.map((item, i) => (
+                                <div
+                                    key={i}
+                                    onClick={() => onSelectHistory && onSelectHistory(item)}
+                                    className="p-3 hover:bg-slate-200/50 dark:hover:bg-white/5 cursor-pointer transition-colors group"
+                                >
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className={`text-[10px] font-bold ${getMethodColor(item.method)}`}>{item.method}</span>
+                                        <span className="text-[10px] text-slate-400">{new Date(item.executedAt).toLocaleTimeString()}</span>
+                                    </div>
+                                    <div className="text-xs text-slate-700 dark:text-slate-300 truncate font-mono opacity-80 group-hover:opacity-100">
+                                        {item.url}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

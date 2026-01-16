@@ -99,6 +99,13 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         }
     };
 
+    const [activeTab, setActiveTab] = useState<'BODY' | 'HEADERS'>('BODY');
+
+    // ... existing hooks ...
+
+    // Derived Headers List
+    const headersList = response ? Object.entries(response.headers) : [];
+
     if (!response) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 bg-slate-50 dark:bg-slate-900/50">
@@ -110,106 +117,141 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
 
     return (
         <div className="flex-1 flex flex-col min-h-0 relative">
-            {/* Toolbar */}
-            <div className="h-9 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900 flex items-center px-2 gap-2 shrink-0">
-                <div className="bg-slate-200 dark:bg-slate-800 rounded-lg p-0.5 flex text-xs font-bold">
-                    <button
-                        onClick={() => setViewMode('pretty')}
-                        disabled={!isJson}
-                        className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition-all ${viewMode === 'pretty'
-                            ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-300'
-                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed'
-                            }`}
-                    >
-                        <FileJson size={14} /> Pretty
-                    </button>
-                    <button
-                        onClick={() => setViewMode('raw')}
-                        className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition-all ${viewMode === 'raw'
-                            ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-300'
-                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                            }`}
-                    >
-                        <AlignLeft size={14} /> Raw
-                    </button>
-                    <button
-                        onClick={() => setViewMode('preview')}
-                        className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition-all ${viewMode === 'preview'
-                            ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-300'
-                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                            }`}
-                    >
-                        <Eye size={14} /> Preview
-                    </button>
-                </div>
-
-                <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
-
-                <div className="relative flex-1 max-w-sm flex items-center gap-1">
-                    <div className="relative flex-1">
-                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder={viewMode === 'pretty' ? "Search JSON..." : "Search text..."}
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' && viewMode === 'raw') handleRawSearch('next'); }}
-                            disabled={viewMode === 'preview'}
-                            className="w-full pl-8 pr-3 py-1 text-xs bg-white dark:bg-slate-800 border-none rounded-md focus:ring-1 focus:ring-indigo-500 placeholder-slate-400 text-slate-700 dark:text-slate-300 shadow-sm disabled:opacity-50"
-                        />
-                    </div>
-                </div>
-
-                {viewMode === 'raw' && searchText && (
-                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded px-1 h-6 gap-1 border border-slate-200 dark:border-slate-700">
-                        <button onClick={() => handleRawSearch('prev')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowUp size={12} /></button>
-                        <button onClick={() => handleRawSearch('next')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowDown size={12} /></button>
-                    </div>
-                )}
-
-                <div className="ml-auto flex items-center gap-1">
-                    <button
-                        onClick={handleCopy}
-                        className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-slate-500 hover:text-indigo-500 transition-colors"
-                        title="Copy to Clipboard"
-                    >
-                        {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
-                    </button>
-                </div>
+            {/* Main Tabs */}
+            <div className="flex border-b border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-slate-900 px-4 gap-6 text-xs font-bold text-slate-500 dark:text-slate-500 shrink-0">
+                <button
+                    onClick={() => setActiveTab('BODY')}
+                    className={`py-2 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'BODY' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent hover:text-slate-700 dark:hover:text-slate-300'}`}
+                >
+                    Body
+                </button>
+                <button
+                    onClick={() => setActiveTab('HEADERS')}
+                    className={`py-2 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'HEADERS' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent hover:text-slate-700 dark:hover:text-slate-300'}`}
+                >
+                    Headers <span className="bg-slate-200 dark:bg-slate-800 px-1.5 rounded-full text-[10px] text-slate-600 dark:text-slate-400">{headersList.length}</span>
+                </button>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 min-h-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-white/5 relative overflow-hidden">
-                {viewMode === 'pretty' && isJson ? (
-                    <div className="absolute inset-0 overflow-hidden">
-                        <JsonFormatter
-                            data={parsedJson}
-                            search={searchText}
-                            expandLevel={2}
-                            fontSize={12}
-                        />
-                    </div>
-                ) : viewMode === 'preview' ? (
-                    isJson ? (
-                        <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
-                            <JsonTableViewer data={parsedJson} isRoot={true} />
+            {activeTab === 'BODY' ? (
+                <>
+                    {/* Toolbar (Only for Body) */}
+                    <div className="h-9 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900 flex items-center px-2 gap-2 shrink-0">
+                        <div className="bg-slate-200 dark:bg-slate-800 rounded-lg p-0.5 flex text-xs font-bold">
+                            <button
+                                onClick={() => setViewMode('pretty')}
+                                disabled={!isJson}
+                                className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition-all ${viewMode === 'pretty'
+                                    ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-300'
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed'
+                                    }`}
+                            >
+                                <FileJson size={14} /> Pretty
+                            </button>
+                            <button
+                                onClick={() => setViewMode('raw')}
+                                className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition-all ${viewMode === 'raw'
+                                    ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-300'
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                    }`}
+                            >
+                                <AlignLeft size={14} /> Raw
+                            </button>
+                            <button
+                                onClick={() => setViewMode('preview')}
+                                className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition-all ${viewMode === 'preview'
+                                    ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-300'
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                    }`}
+                            >
+                                <Eye size={14} /> Preview
+                            </button>
                         </div>
-                    ) : (
-                        <iframe
-                            srcDoc={typeof response.data === 'string' ? response.data : JSON.stringify(response.data)}
-                            className="w-full h-full border-none bg-white"
-                            sandbox="allow-scripts"
-                        />
-                    )
-                ) : (
-                    <textarea
-                        ref={textareaRef}
-                        readOnly
-                        defaultValue={getRawContent()}
-                        className="w-full h-full p-4 font-mono text-xs text-slate-800 dark:text-slate-300 resize-none focus:outline-none bg-transparent"
-                    />
-                )}
-            </div>
+
+                        <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
+
+                        <div className="relative flex-1 max-w-sm flex items-center gap-1">
+                            <div className="relative flex-1">
+                                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                    type="text"
+                                    placeholder={viewMode === 'pretty' ? "Search JSON..." : "Search text..."}
+                                    value={searchText}
+                                    onChange={(e) => setSearchText(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && viewMode === 'raw') handleRawSearch('next'); }}
+                                    disabled={viewMode === 'preview'}
+                                    className="w-full pl-8 pr-3 py-1 text-xs bg-white dark:bg-slate-800 border-none rounded-md focus:ring-1 focus:ring-indigo-500 placeholder-slate-400 text-slate-700 dark:text-slate-300 shadow-sm disabled:opacity-50"
+                                />
+                            </div>
+                        </div>
+
+                        {viewMode === 'raw' && searchText && (
+                            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded px-1 h-6 gap-1 border border-slate-200 dark:border-slate-700">
+                                <button onClick={() => handleRawSearch('prev')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowUp size={12} /></button>
+                                <button onClick={() => handleRawSearch('next')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowDown size={12} /></button>
+                            </div>
+                        )}
+
+                        <div className="ml-auto flex items-center gap-1">
+                            <button
+                                onClick={handleCopy}
+                                className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-slate-500 hover:text-indigo-500 transition-colors"
+                                title="Copy to Clipboard"
+                            >
+                                {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-h-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-white/5 relative overflow-hidden">
+                        {viewMode === 'pretty' && isJson ? (
+                            <div className="absolute inset-0 overflow-hidden">
+                                <JsonFormatter
+                                    data={parsedJson}
+                                    search={searchText}
+                                    expandLevel={2}
+                                    fontSize={12}
+                                />
+                            </div>
+                        ) : viewMode === 'preview' ? (
+                            isJson ? (
+                                <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
+                                    <JsonTableViewer data={parsedJson} isRoot={true} />
+                                </div>
+                            ) : (
+                                <iframe
+                                    srcDoc={typeof response.data === 'string' ? response.data : JSON.stringify(response.data)}
+                                    className="w-full h-full border-none bg-white"
+                                    sandbox="allow-scripts"
+                                />
+                            )
+                        ) : (
+                            <textarea
+                                ref={textareaRef}
+                                readOnly
+                                defaultValue={getRawContent()}
+                                className="w-full h-full p-4 font-mono text-xs text-slate-800 dark:text-slate-300 resize-none focus:outline-none bg-transparent"
+                            />
+                        )}
+                    </div>
+                </>
+            ) : (
+                <div className="flex-1 overflow-auto bg-white dark:bg-slate-900 p-0 relative">
+                    <div className="w-full text-xs text-left">
+                        {headersList.map(([key, value], i) => (
+                            <div key={i} className="flex border-b border-slate-200 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5">
+                                <div className="w-1/3 min-w-[150px] p-2 font-bold text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-white/5 shrink-0 select-text truncate" title={key}>
+                                    {key}
+                                </div>
+                                <div className="flex-1 p-2 font-mono text-slate-800 dark:text-slate-200 select-text break-all">
+                                    {value}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

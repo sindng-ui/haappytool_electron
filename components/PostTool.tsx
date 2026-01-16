@@ -26,7 +26,9 @@ const PostTool: React.FC = () => {
         savedRequestGroups,
         setSavedRequestGroups: onUpdateGroups,
         postGlobalVariables: globalVariables,
-        setPostGlobalVariables: onUpdateGlobalVariables
+        setPostGlobalVariables: onUpdateGlobalVariables,
+        requestHistory,
+        setRequestHistory
     } = useHappyTool();
     const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -183,6 +185,15 @@ const PostTool: React.FC = () => {
             }, {} as any);
             const finalBody = currentRequest.body ? replaceVariables(currentRequest.body) : undefined;
 
+            // Add to History
+            if (setRequestHistory) {
+                const historyItem: any = { // Cast to avoid TS issues until import fixed if needed, but RequestHistoryItem is in types
+                    ...currentRequest,
+                    executedAt: Date.now()
+                };
+                setRequestHistory(prev => [historyItem, ...prev].slice(0, 50));
+            }
+
             const startTime = performance.now();
             const res = await fetch(finalUrl, {
                 method: currentRequest.method,
@@ -253,6 +264,12 @@ const PostTool: React.FC = () => {
                         savedRequestGroups={savedRequestGroups}
                         onUpdateGroups={onUpdateGroups}
                         onOpenSettings={() => setIsEnvModalOpen(true)}
+                        requestHistory={requestHistory}
+                        onSelectHistory={(item) => {
+                            setActiveRequestId(null);
+                            setCurrentRequest({ ...item, id: generateUUID() }); // Clone as new
+                            setResponse(null);
+                        }}
                     />
 
                     <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 z-0 relative">

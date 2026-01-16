@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
-import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable } from './types';
+import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem } from './types';
+
 import { mergeById } from './utils/settingsHelper';
 import { SettingsModal } from './components/SettingsModal';
 import { ALL_PLUGINS } from './plugins/registry';
@@ -93,6 +94,7 @@ const AppContent: React.FC = () => {
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   const [savedRequests, setSavedRequests] = useState<SavedRequest[]>([]);
   const [savedRequestGroups, setSavedRequestGroups] = useState<RequestGroup[]>([]);
+  const [requestHistory, setRequestHistory] = useState<RequestHistoryItem[]>([]);
   const [postGlobalVariables, setPostGlobalVariables] = useState<PostGlobalVariable[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const importInputRef = React.useRef<HTMLInputElement>(null);
@@ -162,6 +164,9 @@ const AppContent: React.FC = () => {
         if (parsed.savedRequestGroups && Array.isArray(parsed.savedRequestGroups)) {
           setSavedRequestGroups(parsed.savedRequestGroups);
         }
+        if (parsed.requestHistory && Array.isArray(parsed.requestHistory)) {
+          setRequestHistory(parsed.requestHistory);
+        }
         if (parsed.postGlobalVariables && Array.isArray(parsed.postGlobalVariables)) {
           setPostGlobalVariables(parsed.postGlobalVariables);
         }
@@ -189,13 +194,14 @@ const AppContent: React.FC = () => {
       logRules,
       savedRequests,
       savedRequestGroups,
+      requestHistory,
       postGlobalVariables,
       lastEndpoint: lastApiUrl,
       lastMethod,
       enabledPlugins
     };
     localStorage.setItem('devtool_suite_settings', JSON.stringify(settings));
-  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, postGlobalVariables, enabledPlugins]);
+  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, postGlobalVariables, enabledPlugins]);
 
   const handleExportSettings = () => {
     const settings: AppSettings = {
@@ -245,6 +251,13 @@ const AppContent: React.FC = () => {
     if (settings.savedRequestGroups) {
       const groups = settings.savedRequestGroups;
       setSavedRequestGroups(current => mergeById(current, groups));
+    }
+
+    if (settings.requestHistory) {
+      // For history, maybe we merge or overwrite? Let's just prepend new history or merge by ID if they had one? 
+      // History items usually have unique IDs generated execution time?
+      // For now, let's just REPLACE history or Append? MergeById is safer.
+      setRequestHistory(current => mergeById(current, settings.requestHistory!));
     }
 
     if (settings.postGlobalVariables) {
@@ -299,6 +312,8 @@ const AppContent: React.FC = () => {
     setSavedRequests,
     savedRequestGroups,
     setSavedRequestGroups,
+    requestHistory,
+    setRequestHistory,
     postGlobalVariables,
     setPostGlobalVariables,
     handleExportSettings,
@@ -309,8 +324,10 @@ const AppContent: React.FC = () => {
     savedRequestGroups,
     postGlobalVariables,
     lastApiUrl,
-    lastMethod
+    lastMethod,
+    requestHistory
   ]);
+
 
   return (
     <HappyToolProvider value={contextValue}>

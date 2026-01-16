@@ -14,10 +14,70 @@ interface RequestEditorProps {
 }
 
 const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeCurrentRequest, onSend, loading, globalVariables }) => {
-    const [activeTab, setActiveTab] = useState<'PARAMS' | 'HEADERS' | 'BODY'>('HEADERS');
-    const [showCurlModal, setShowCurlModal] = useState(false);
+    const [activeTab, setActiveTab] = useState<'PARAMS' | 'AUTH' | 'HEADERS' | 'BODY'>('PARAMS');
+    const [showCodeModal, setShowCodeModal] = useState(false);
+    const [codeLanguage, setCodeLanguage] = useState<'CURL' | 'FETCH' | 'PYTHON' | 'NODE'>('CURL');
 
+    // ... refs ...
     const activeInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+    // ... autocomplete ...
+
+    // Helper to replace vars
+    const replace = (str: string) => {
+        let res = str;
+        globalVariables.forEach(v => {
+            if (v.enabled) res = res.replace(new RegExp(`{{${v.key}}}`, 'g'), v.value);
+        });
+        return res;
+    };
+
+    const generateCode = (lang: typeof codeLanguage) => {
+        const method = currentRequest.method;
+        const url = replace(currentRequest.url);
+        const headers = currentRequest.headers.filter(h => h.key && h.value).reduce((acc, h) => {
+            acc[replace(h.key)] = replace(h.value);
+            return acc;
+        }, {} as Record<string, string>);
+        const body = currentRequest.body && ['POST', 'PUT', 'PATCH'].includes(method) ? replace(currentRequest.body) : '';
+
+        switch (lang) {
+            case 'CURL': {
+                let cmd = `curl -X ${method} '${url}'`;
+                Object.entries(headers).forEach(([k, v]) => {
+                    cmd += ` \\\n  -H '${k}: ${v}'`;
+                });
+                if (body) {
+                    cmd += ` \\\n  -d '${body.replace(/'/g, "'\\''")}'`;
+                }
+                return cmd;
+            }
+            case 'FETCH': {
+                const options: any = { method };
+                if (Object.keys(headers).length) options.headers = headers;
+                if (body) options.body = body; // Simplified, assumes JSON/Text mostly
+                return `fetch('${url}', ${JSON.stringify(options, null, 2)});`;
+            }
+            case 'PYTHON': {
+                let code = `import requests\n\nurl = "${url}"\n`;
+                if (Object.keys(headers).length) {
+                    code += `headers = ${JSON.stringify(headers, null, 4)}\n`;
+                }
+                if (body) {
+                    code += `data = ${JSON.stringify(body)}\n`; // Primitive dump
+                }
+                code += `response = requests.${method.toLowerCase()}(url${Object.keys(headers).length ? ', headers=headers' : ''}${body ? ', data=data' : ''})\n`;
+                code += `print(response.text)`;
+                return code;
+            }
+            case 'NODE': {
+                return `const axios = require('axios');\n\nconst options = {\n  method: '${method}',\n  url: '${url}',\n  headers: ${JSON.stringify(headers, null, 2)}${body ? `,\n  data: ${JSON.stringify(body)}` : ''}\n};\n\naxios.request(options).then(function (response) {\n  console.log(response.data);\n}).catch(function (error) {\n  console.error(error);\n});`;
+            }
+            default: return '';
+        }
+    };
+
+    // ... updateParam ...
 
     // Autocomplete State
     const [autocompleteState, setAutocompleteState] = useState<{
@@ -148,24 +208,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
         }
     };
 
-    const generateCurl = () => {
-        const replace = (str: string) => {
-            let res = str;
-            globalVariables.forEach(v => {
-                if (v.enabled) res = res.replace(new RegExp(`{{${v.key}}}`, 'g'), v.value);
-            });
-            return res;
-        };
 
-        let cmd = `curl -X ${currentRequest.method} '${replace(currentRequest.url)}'`;
-        currentRequest.headers.forEach(h => {
-            if (h.key) cmd += ` \\\n  -H '${replace(h.key)}: ${replace(h.value)}'`;
-        });
-        if (currentRequest.body && ['POST', 'PUT', 'PATCH'].includes(currentRequest.method)) {
-            cmd += ` \\\n  -d '${replace(currentRequest.body).replace(/'/g, "'\\''")}'`;
-        }
-        return cmd;
-    };
 
     const updateParam = (index: number, field: 'key' | 'value', value: string) => {
         try {
@@ -217,6 +260,27 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
         } catch (e) { console.error(e); }
     };
 
+    const updateAuth = (auth: SavedRequest['auth']) => {
+        if (!auth) return;
+
+        // Filter out existing Authorization header and any empty rows to clean up
+        let newHeaders = currentRequest.headers.filter(h =>
+            h.key.trim().toLowerCase() !== 'authorization' && (h.key || h.value)
+        );
+
+        if (auth.type === 'bearer' && auth.bearerToken) {
+            newHeaders.push({ key: 'Authorization', value: `Bearer ${auth.bearerToken}` });
+        } else if (auth.type === 'basic' && (auth.basicUsername || auth.basicPassword)) {
+            const token = btoa(`${auth.basicUsername || ''}:${auth.basicPassword || ''}`);
+            newHeaders.push({ key: 'Authorization', value: `Basic ${token}` });
+        }
+
+        // Always ensure one empty row at the end for new entry
+        newHeaders.push({ key: '', value: '' });
+
+        onChangeCurrentRequest({ ...currentRequest, auth, headers: newHeaders });
+    };
+
     // Derived Params for Render
     const getParams = () => {
         try {
@@ -246,12 +310,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                     className="font-bold text-sm text-slate-700 dark:text-slate-200 bg-transparent border-b-2 border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-indigo-500 focus:outline-none px-2 py-1 no-drag min-w-0 flex-1 max-w-md transition-colors"
                 />
                 <button
-                    onClick={() => setShowCurlModal(true)}
+                    onClick={() => setShowCodeModal(true)}
                     className="no-drag ml-auto mr-4 flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-white/10 rounded-md text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all text-xs font-bold shadow-sm"
-                    title="View cURL Command"
+                    title="Generate Code Snippet"
                 >
                     <Terminal size={13} />
-                    <span>cURL</span>
+                    <span>Code</span>
                 </button>
             </div>
 
@@ -305,6 +369,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                     Params
                 </button>
                 <button
+                    onClick={() => setActiveTab('AUTH')}
+                    className={`py-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'AUTH' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent hover:text-slate-700 dark:hover:text-slate-300'}`}
+                >
+                    Auth {currentRequest.auth && currentRequest.auth.type !== 'none' && <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full shadow-[0_0_4px_rgba(99,102,241,0.5)]"></div>}
+                </button>
+                <button
                     onClick={() => setActiveTab('HEADERS')}
                     className={`py-3 border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'HEADERS' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent hover:text-slate-700 dark:hover:text-slate-300'}`}
                 >
@@ -349,6 +419,69 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                                 )}
                             </div>
                         ))}
+                    </div>
+                )}
+                {activeTab === 'AUTH' && (
+                    <div className="p-4 flex flex-col gap-4 max-w-lg">
+                        <div className="flex flex-col gap-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Type</label>
+                            <select
+                                value={currentRequest.auth?.type || 'none'}
+                                onChange={(e) => updateAuth({ ...currentRequest.auth, type: e.target.value as any })}
+                                className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 shadow-sm"
+                            >
+                                <option value="none">No Auth</option>
+                                <option value="bearer">Bearer Token</option>
+                                <option value="basic">Basic Auth</option>
+                            </select>
+                        </div>
+
+                        {currentRequest.auth?.type === 'bearer' && (
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Token</label>
+                                <HighlightedInput
+                                    placeholder="e.g. eyJhbGci..."
+                                    value={currentRequest.auth.bearerToken || ''}
+                                    variables={globalVariables}
+                                    onChange={(e) => checkAutocomplete(e, (v) => updateAuth({ ...currentRequest.auth, bearerToken: v } as any))}
+                                    className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono shadow-sm focus:outline-none focus:border-indigo-500 w-full"
+                                    containerClassName="w-full"
+                                    textClassName="text-slate-800 dark:text-slate-200"
+                                />
+                            </div>
+                        )}
+
+                        {currentRequest.auth?.type === 'basic' && (
+                            <div className="flex gap-4">
+                                <div className="flex-1 flex flex-col gap-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Username</label>
+                                    <HighlightedInput
+                                        placeholder="Username"
+                                        value={currentRequest.auth.basicUsername || ''}
+                                        variables={globalVariables}
+                                        onChange={(e) => checkAutocomplete(e, (v) => updateAuth({ ...currentRequest.auth, basicUsername: v } as any))}
+                                        className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm shadow-sm focus:outline-none focus:border-indigo-500 w-full"
+                                        containerClassName="w-full"
+                                        textClassName="text-slate-800 dark:text-slate-200"
+                                    />
+                                </div>
+                                <div className="flex-1 flex flex-col gap-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label>
+                                    <HighlightedInput
+                                        placeholder="Password"
+                                        value={currentRequest.auth.basicPassword || ''}
+                                        variables={globalVariables}
+                                        onChange={(e) => checkAutocomplete(e, (v) => updateAuth({ ...currentRequest.auth, basicPassword: v } as any))}
+                                        className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm shadow-sm focus:outline-none focus:border-indigo-500 w-full"
+                                        containerClassName="w-full"
+                                        textClassName="text-slate-800 dark:text-slate-200"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        <div className="text-xs text-slate-400 dark:text-slate-500 italic mt-2">
+                            This will automatically generate and update the <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded text-slate-600 dark:text-slate-300">Authorization</code> header.
+                        </div>
                     </div>
                 )}
                 {activeTab === 'HEADERS' && (
@@ -428,27 +561,49 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                 </div>
             )}
 
-            {/* cURL Modal */}
-            {showCurlModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowCurlModal(false)}>
-                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl border border-slate-200 dark:border-white/10 m-4 overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
-                            <h3 className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                                <Terminal size={16} /> cURL Command
-                            </h3>
-                            <button onClick={() => setShowCurlModal(false)}><X size={18} className="text-slate-400 hover:text-slate-600" /></button>
+            {/* Code Snippet Modal */}
+            {showCodeModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowCodeModal(false)}>
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl border border-slate-200 dark:border-white/10 m-4 overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 shrink-0">
+                            <div className="flex items-center gap-4">
+                                <h3 className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                                    <Terminal size={16} /> Code Snippet
+                                </h3>
+                                <select
+                                    value={codeLanguage}
+                                    onChange={(e) => setCodeLanguage(e.target.value as any)}
+                                    className="text-xs bg-white dark:bg-slate-800 border-none rounded py-1 pl-2 pr-8 font-medium focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                                >
+                                    <option value="CURL">cURL</option>
+                                    <option value="FETCH">JavaScript (Fetch)</option>
+                                    <option value="PYTHON">Python (Requests)</option>
+                                    <option value="NODE">Node.js (Axios)</option>
+                                </select>
+                            </div>
+                            <button onClick={() => setShowCodeModal(false)}><X size={18} className="text-slate-400 hover:text-slate-600" /></button>
                         </div>
-                        <div className="p-4 bg-slate-900 overflow-auto max-h-[60vh] custom-scrollbar">
-                            <pre className="font-mono text-xs text-emerald-400 whitespace-pre-wrap break-all selection:bg-indigo-500/30">
-                                {generateCurl()}
+                        <div className="p-0 bg-slate-900 overflow-auto flex-1 custom-scrollbar relative group">
+                            <pre className="font-mono text-xs text-emerald-400 whitespace-pre-wrap break-all p-4 selection:bg-indigo-500/30">
+                                {generateCode(codeLanguage)}
                             </pre>
-                        </div>
-                        <div className="p-4 border-t border-slate-200 dark:border-white/5 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900/50">
                             <button
-                                onClick={() => { navigator.clipboard.writeText(generateCurl()); setShowCurlModal(false); }}
+                                onClick={() => {
+                                    navigator.clipboard.writeText(generateCode(codeLanguage));
+                                    // Optional: show toast
+                                }}
+                                className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Copy"
+                            >
+                                <Copy size={14} />
+                            </button>
+                        </div>
+                        <div className="p-4 border-t border-slate-200 dark:border-white/5 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900/50 shrink-0">
+                            <button
+                                onClick={() => { navigator.clipboard.writeText(generateCode(codeLanguage)); setShowCodeModal(false); }}
                                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-xs flex items-center gap-2 transition-colors"
                             >
-                                <Copy size={14} /> Copy to Clipboard
+                                <Copy size={14} /> Copy & Close
                             </button>
                         </div>
                     </div>

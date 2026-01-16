@@ -66,10 +66,15 @@ export interface PostGlobalVariable {
   enabled: boolean;
 }
 
+export interface RequestHistoryItem extends SavedRequest {
+  executedAt: number;
+}
+
 export interface AppSettings {
   logRules: LogRule[];
   savedRequests: SavedRequest[];
   savedRequestGroups?: RequestGroup[];
+  requestHistory?: RequestHistoryItem[];
   postGlobalVariables?: PostGlobalVariable[];
   logViewPreferences?: LogViewPreferences;
   lastEndpoint: string;
@@ -93,6 +98,12 @@ export interface SavedRequest {
   headers: { key: string; value: string }[];
   body: string;
   groupId?: string;
+  auth?: {
+    type: 'none' | 'bearer' | 'basic';
+    bearerToken?: string;
+    basicUsername?: string;
+    basicPassword?: string;
+  };
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
