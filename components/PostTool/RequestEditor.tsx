@@ -149,12 +149,20 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
     };
 
     const generateCurl = () => {
-        let cmd = `curl -X ${currentRequest.method} '${currentRequest.url}'`;
+        const replace = (str: string) => {
+            let res = str;
+            globalVariables.forEach(v => {
+                if (v.enabled) res = res.replace(new RegExp(`{{${v.key}}}`, 'g'), v.value);
+            });
+            return res;
+        };
+
+        let cmd = `curl -X ${currentRequest.method} '${replace(currentRequest.url)}'`;
         currentRequest.headers.forEach(h => {
-            if (h.key) cmd += ` \\\n  -H '${h.key}: ${h.value}'`;
+            if (h.key) cmd += ` \\\n  -H '${replace(h.key)}: ${replace(h.value)}'`;
         });
         if (currentRequest.body && ['POST', 'PUT', 'PATCH'].includes(currentRequest.method)) {
-            cmd += ` \\\n  -d '${currentRequest.body.replace(/'/g, "'\\''")}'`;
+            cmd += ` \\\n  -d '${replace(currentRequest.body).replace(/'/g, "'\\''")}'`;
         }
         return cmd;
     };
@@ -239,10 +247,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                 />
                 <button
                     onClick={() => setShowCurlModal(true)}
-                    className="no-drag ml-auto mr-4 p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded text-slate-500 hover:text-indigo-500 transition-colors"
-                    title="View cURL"
+                    className="no-drag ml-auto mr-4 flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-white/10 rounded-md text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all text-xs font-bold shadow-sm"
+                    title="View cURL Command"
                 >
-                    <Terminal size={16} />
+                    <Terminal size={13} />
+                    <span>cURL</span>
                 </button>
             </div>
 

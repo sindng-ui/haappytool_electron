@@ -113,6 +113,17 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     const containerRef = useRef<HTMLDivElement>(null);
     const virtuosoRef = useRef<VirtuosoHandle>(null);
 
+    // Pre-compile Regex for Level Styles to improve scrolling performance
+    const levelMatchers = useMemo(() => {
+        if (!preferences?.levelStyles) return [];
+        return preferences.levelStyles
+            .filter(style => style.enabled)
+            .map(style => ({
+                regex: new RegExp(`(^|\\s|/)${style.level}(/|\\s|:)`),
+                color: style.color
+            }));
+    }, [preferences?.levelStyles]);
+
     // Auto-scroll (Sticky Bottom) State
     const [atBottom, setAtBottom] = useState(false);
 
@@ -538,10 +549,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         const isSelected = selectedIndices ? selectedIndices.has(globalIndex) : isActive;
 
         // Use preferences from context if available (standard Virtuoso pattern for external data)
-        // Fallback to prop if context is missing/malformed (though we pass it)
         const effectivePreferences = context?.preferences || preferences;
 
-        // Bookmarks and other props still need to match, but they update less frequently than data
         return (
             <LogLine
                 index={index}
@@ -555,13 +564,13 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 highlightCaseSensitive={highlightCaseSensitive}
                 onMouseDown={(idx, e) => handleLineMouseDown(globalIndex, e)}
                 onMouseEnter={(idx, e) => handleLineMouseEnter(globalIndex, e)}
-                // We handle selection on MouseDown now to support drag-select
                 onClick={undefined}
                 onDoubleClick={() => onLineDoubleClick && onLineDoubleClick(globalIndex)}
                 preferences={effectivePreferences}
+                levelMatchers={levelMatchers}
             />
         );
-    }, [activeLineIndex, bookmarks, isRawMode, highlights, highlightCaseSensitive, onLineDoubleClick, cachedLines, absoluteOffset, selectedIndices, handleLineMouseDown, handleLineMouseEnter, preferences, rowHeight]);
+    }, [activeLineIndex, bookmarks, isRawMode, highlights, highlightCaseSensitive, onLineDoubleClick, cachedLines, absoluteOffset, selectedIndices, handleLineMouseDown, handleLineMouseEnter, preferences, rowHeight, levelMatchers]);
 
     // Non-passive wheel listener to allow preventDefault for Shift+Scroll
     useEffect(() => {

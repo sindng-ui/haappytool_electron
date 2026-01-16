@@ -215,7 +215,14 @@ const createFlattenedData = (data: any, expandedPaths: Set<string>): FlattenedNo
 };
 
 
-const JsonFormatter: React.FC = () => {
+interface JsonFormatterProps {
+    data?: any;
+    search?: string;
+    expandLevel?: number; // Not used yet but requested
+    fontSize?: number; // Not used yet
+}
+
+const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search }) => {
     const [input, setInput] = useState('');
     const [parsedData, setParsedData] = useState<any>(null);
     const [formattedString, setFormattedString] = useState('');
@@ -223,6 +230,8 @@ const JsonFormatter: React.FC = () => {
     const [valid, setValid] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // Determines if we are in "Viewer Mode" (controlled via props) or "Tool Mode" (standalone)
+    const isViewerMode = data !== undefined;
 
     // Toast
     const { addToast } = useToast();
@@ -240,6 +249,33 @@ const JsonFormatter: React.FC = () => {
     const [searchResults, setSearchResults] = useState<string[]>([]);
     const [currentResultIndex, setCurrentResultIndex] = useState(-1);
     const [isSearching, setIsSearching] = useState(false);
+
+    // Sync Search Prop
+    useEffect(() => {
+        if (search !== undefined) {
+            setSearchQuery(search);
+        }
+    }, [search]);
+
+    // Trigger search when query changes (debounce handled by user typing speed usually, or we can debounce here)
+    useEffect(() => {
+        if (isViewerMode && searchQuery && parsedData) {
+            // Check if we have formatted string to search in? 
+            // In ViewerMode, we might not have formattedString unless we generate it. 
+            // SearchWorker expects text. 
+            // Let's generate string for search if missing.
+            const textToSearch = JSON.stringify(parsedData);
+            // This is simple JSON.stringify. formattedString usually is pertty. 
+            // Worker searches using simple string matching or regex? 
+            // Let's check `handleSearch`. It sends `text` and `query`. 
+
+            // We need to trigger search. 
+            handleSearch(textToSearch);
+        } else if (!searchQuery) {
+            setSearchResults([]);
+            setCurrentResultIndex(-1);
+        }
+    }, [searchQuery, parsedData, isViewerMode]);
 
     useEffect(() => {
         workerRef.current = new Worker(new URL('../../workers/JsonParser.worker.ts', import.meta.url), { type: 'module' });
@@ -262,8 +298,6 @@ const JsonFormatter: React.FC = () => {
 
                     // Initial Expand: Level 1
                     const initialPaths = new Set<string>();
-                    // We don't auto-expand everything for performance on huge files
-                    // But we can expand top level
                     setExpandedPaths(initialPaths);
 
                     // Trigger calc
@@ -299,6 +333,22 @@ const JsonFormatter: React.FC = () => {
         };
     }, []);
 
+    // Handle Data Prop Change (Viewer Mode)
+    useEffect(() => {
+        if (data !== undefined) {
+            setParsedData(data);
+            setValid(true);
+            setError(null);
+
+            // Generate flattened items immediately
+            const initialPaths = new Set<string>();
+            setExpandedPaths(initialPaths);
+            const items = createFlattenedData(data, initialPaths);
+            setFlattenedItems(items);
+        }
+    }, [data]);
+
+
     const toggleExpand = (pathStr: string) => {
         const newSet = new Set(expandedPaths);
         if (newSet.has(pathStr)) {
@@ -308,9 +358,6 @@ const JsonFormatter: React.FC = () => {
         }
         setExpandedPaths(newSet);
 
-        // Re-calculate flattened items
-        // Wrapping in requestAnimationFrame or similar might be needed for huge datasets to not block click
-        // But usually fast enough.
         if (parsedData) {
             setFlattenedItems(createFlattenedData(parsedData, newSet));
         }
@@ -319,10 +366,6 @@ const JsonFormatter: React.FC = () => {
     // Batch Expand/Collapse
     const expandAll = () => {
         if (!parsedData) return;
-        // WARNING: expanding ALL on huge JSON will crash the browser even with virtualization 
-        // if the flat list becomes millions of items. 
-        // We should limit depth or just expand top levels.
-        // For safe implementation, let's expand up to 3 levels deep?
         const newSet = new Set<string>();
         const traverseAdd = (node: any, path: string[], depth: number) => {
             if (depth > 5) return; // Safety Limit
@@ -345,7 +388,6 @@ const JsonFormatter: React.FC = () => {
         if (parsedData) setFlattenedItems(createFlattenedData(parsedData, new Set()));
     };
 
-    // ... (Keep existing copyToClipboard, handleFormat, handleMinify ... )
     const copyToClipboard = (text: string) => {
         if (window.electronAPI?.copyToClipboard) {
             window.electronAPI.copyToClipboard(text);
@@ -388,21 +430,18 @@ const JsonFormatter: React.FC = () => {
         setSearchQuery('');
     };
 
-    const handleSearch = () => {
-        if (!searchQuery || !formattedString) return; // Search in what we have. formattedString is generic text, but worker parses input or we pass input? 
-        // We pass 'input' (original text) if it matches 'formattedString', but safe to pass 'input' if valid.
-        // Actually, 'input' might be minified. 'formattedString' is pretty.
-        // The worker parses it anyway. Let's pass 'input'.
+    const handleSearch = (overrideText?: string) => {
+        const text = overrideText || formattedString || input;
+        if (!searchQuery || !text) return;
 
         setIsSearching(true);
         searchWorkerRef.current?.postMessage({
             type: 'SEARCH_JSON',
-            payload: { text: input, query: searchQuery, caseSensitive: false }
+            payload: { text: text, query: searchQuery, caseSensitive: false }
         });
     };
 
     const jumpToResult = (pathStr: string) => {
-        // 1. Ensure all parents are expanded
         const parts = pathStr.split('.');
         if (parts.length === 0) return;
 
@@ -410,7 +449,6 @@ const JsonFormatter: React.FC = () => {
         let currentPath = '';
         let changed = false;
 
-        // Add all partial paths to expanded set
         for (let i = 0; i < parts.length - 1; i++) {
             currentPath = i === 0 ? parts[0] : `${currentPath}.${parts[i]}`;
             if (!newSet.has(currentPath)) {
@@ -419,31 +457,22 @@ const JsonFormatter: React.FC = () => {
             }
         }
 
-        // Always update expanded paths if changed, to ensure item is rendered
         if (changed) {
             setExpandedPaths(newSet);
-            // We need to wait for flattenedItems to update?
-            // createFlattenedData is synchronous.
             const newItems = createFlattenedData(parsedData, newSet);
             setFlattenedItems(newItems);
 
-            // Now find index
-            const index = newItems.findIndex(item => item.id === pathStr);
-            if (index !== -1 && virtuosoRef.current) {
-                virtuosoRef.current.scrollToIndex({ index, align: 'center' });
-            }
+            // Defer scroll to allow render
+            setTimeout(() => {
+                const index = newItems.findIndex(item => item.id === pathStr);
+                if (index !== -1 && virtuosoRef.current) {
+                    virtuosoRef.current.scrollToIndex({ index, align: 'center' });
+                }
+            }, 50);
         } else {
-            // Already expanded, just scroll
             const index = flattenedItems.findIndex(item => item.id === pathStr);
             if (index !== -1 && virtuosoRef.current) {
                 virtuosoRef.current.scrollToIndex({ index, align: 'center' });
-            } else {
-                // Not found in current flattened list? Maybe logic error or it's hidden?
-                // Re-calc to be safe
-                const newItems = createFlattenedData(parsedData, newSet);
-                setFlattenedItems(newItems);
-                const idx = newItems.findIndex(item => item.id === pathStr);
-                if (idx !== -1 && virtuosoRef.current) virtuosoRef.current.scrollToIndex({ index: idx, align: 'center' });
             }
         }
     };
@@ -462,16 +491,12 @@ const JsonFormatter: React.FC = () => {
         jumpToResult(searchResults[prev]);
     };
 
-
-
-    // Updating Row definition to handle highlighting
     const RowWithHighlight = (index: number) => {
         const item = flattenedItems[index];
         if (!item) return null;
         const { key, value, level, isExpanded, hasChildren, id } = item;
 
         const isMatch = currentResultIndex >= 0 && searchResults[currentResultIndex] === id;
-
         const isArray = Array.isArray(value);
         const indent = level * 20;
 
@@ -479,7 +504,6 @@ const JsonFormatter: React.FC = () => {
             <div className={`font-mono text-sm leading-6 flex items-center pr-2 whitespace-nowrap h-7 transition-colors ${isMatch ? 'bg-indigo-500/30' : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}>
                 <div style={{ width: indent, flexShrink: 0 }}></div>
 
-                {/* Expander */}
                 <span
                     className="w-5 h-5 flex items-center justify-center cursor-pointer text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 mr-1 shrink-0 select-none transition-colors"
                     onClick={() => hasChildren && toggleExpand(id)}
@@ -491,7 +515,6 @@ const JsonFormatter: React.FC = () => {
                     )}
                 </span>
 
-                {/* Content */}
                 <div className="flex items-center gap-1.5">
                     <span className={isMatch ? "text-indigo-600 dark:text-indigo-300 font-bold" : "text-indigo-600 dark:text-indigo-400 font-bold"}>"{key}":</span>
 
@@ -506,7 +529,6 @@ const JsonFormatter: React.FC = () => {
                             {!isExpanded && <span className="text-slate-500 dark:text-slate-400 font-bold">{isArray ? ']' : '}'}</span>}
                         </>
                     ) : (
-                        // Primitive
                         <span className="break-all text-ellipsis overflow-hidden">
                             {value === null ? <span className="text-red-500 dark:text-red-400 font-bold">null</span> :
                                 typeof value === 'string' ? <span className="text-emerald-600 dark:text-emerald-400">"{value}"</span> :
@@ -524,87 +546,90 @@ const JsonFormatter: React.FC = () => {
 
     return (
         <div className="flex h-full gap-6">
-            <div className="flex-1 flex flex-col gap-2">
-                <div className="flex justify-between items-center text-slate-500 font-medium px-2 shrink-0">
-                    <span className="text-xs font-bold uppercase tracking-wider">Raw Input</span>
-                    <button onClick={clearFormatter} className="p-1 hover:text-red-500 dark:hover:text-red-400 transition-colors" title="Clear">
-                        <Trash2 size={14} />
-                    </button>
-                </div>
-                <div className="relative flex-1 flex flex-col min-h-0">
-                    <textarea
-                        className={`flex-1 bg-white dark:bg-slate-900 rounded-2xl border p-4 font-mono text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 resize-none shadow-sm custom-scrollbar transition-all ${error ? 'border-red-500/50 focus:ring-red-500/50' : 'border-slate-200 dark:border-white/10 focus:ring-indigo-500/50'}`}
-                        placeholder="Paste JSON here (Large files supported)..."
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        spellCheck={false}
-                        disabled={isProcessing}
-                    />
-                    {isProcessing && (
-                        <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 rounded-2xl flex items-center justify-center">
-                            <Lucide.Loader2 className="animate-spin text-indigo-500" size={32} />
-                        </div>
-                    )}
-                </div>
-                <div className="flex gap-3 mt-2 shrink-0">
-                    <button onClick={handleFormat} disabled={isProcessing} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-500/30 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 border-2 border-transparent">
-                        <AlignLeft size={16} /> Beautify (Virtual Tree)
-                    </button>
-                    <button onClick={handleMinify} disabled={isProcessing} className="px-6 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-slate-600 dark:text-slate-300 py-3 rounded-xl font-bold text-sm border border-slate-200 dark:border-slate-700 transition-colors flex items-center gap-2 shadow-sm" title="Copy Minified">
-                        <Minimize2 size={16} /> Minify (Copy)
-                    </button>
-                </div>
-            </div>
-
-            <div className="flex-1 flex flex-col gap-2 relative min-h-0">
-                <div className="flex justify-between items-center text-slate-500 font-medium px-2 shrink-0">
-                    <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                        {valid ? <span className="text-emerald-600 dark:text-emerald-500 flex items-center gap-1"><CheckCircle size={12} /> Valid JSON ({flattenedItems.length} nodes)</span> :
-                            error ? <span className="text-red-500 flex items-center gap-1"><AlertCircle size={12} /> Invalid JSON</span> :
-                                'Tree Output'}
-                    </span>
-                    <div className="flex items-center gap-2">
-                        {valid && (
-                            <div className="flex items-center bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 mr-2 h-7 shadow-sm">
-                                <Search size={14} className="text-slate-400 ml-2" />
-                                <input
-                                    className="bg-transparent border-none text-xs text-slate-700 dark:text-slate-300 w-32 px-2 focus:outline-none placeholder-slate-400"
-                                    placeholder="Search key/val..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-                                />
-                                {searchResults.length > 0 && (
-                                    <div className="flex items-center border-l border-slate-200 dark:border-slate-800 px-1">
-                                        <span className="text-[10px] text-slate-400 mr-1 font-mono">{currentResultIndex + 1}/{searchResults.length}</span>
-                                        <button onClick={prevResult} className="p-0.5 hover:text-indigo-400 text-slate-400"><ArrowUp size={12} /></button>
-                                        <button onClick={nextResult} className="p-0.5 hover:text-indigo-400 text-slate-400"><ArrowDown size={12} /></button>
-                                    </div>
-                                )}
+            {!isViewerMode && (
+                <div className="flex-1 flex flex-col gap-2">
+                    {/* ... Input Column (Only in Tool Mode) ... */}
+                    <div className="flex justify-between items-center text-slate-500 font-medium px-2 shrink-0">
+                        <span className="text-xs font-bold uppercase tracking-wider">Raw Input</span>
+                        <button onClick={clearFormatter} className="p-1 hover:text-red-500 dark:hover:text-red-400 transition-colors" title="Clear">
+                            <Trash2 size={14} />
+                        </button>
+                    </div>
+                    <div className="relative flex-1 flex flex-col min-h-0">
+                        <textarea
+                            className={`flex-1 bg-white dark:bg-slate-900 rounded-2xl border p-4 font-mono text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 resize-none shadow-sm custom-scrollbar transition-all ${error ? 'border-red-500/50 focus:ring-red-500/50' : 'border-slate-200 dark:border-white/10 focus:ring-indigo-500/50'}`}
+                            placeholder="Paste JSON here (Large files supported)..."
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            spellCheck={false}
+                            disabled={isProcessing}
+                        />
+                        {isProcessing && (
+                            <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 rounded-2xl flex items-center justify-center">
+                                <Lucide.Loader2 className="animate-spin text-indigo-500" size={32} />
                             </div>
                         )}
-
-                        {valid && (
-                            <>
-                                <button onClick={expandAll} className="text-xs bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 px-2 py-1 rounded text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors mr-2 shadow-sm">
-                                    Expand All
-                                </button>
-                                <button onClick={collapseAll} className="text-xs bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 px-2 py-1 rounded text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors mr-2 shadow-sm">
-                                    Collapse All
-                                </button>
-                            </>
-                        )}
-                        <button
-                            onClick={() => formattedString && copyToClipboard(formattedString)}
-                            disabled={!valid}
-                            className="p-1 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors disabled:opacity-30"
-                            title="Copy Result"
-                        >
-                            <Copy size={14} />
+                    </div>
+                    <div className="flex gap-3 mt-2 shrink-0">
+                        <button onClick={handleFormat} disabled={isProcessing} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-500/30 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 border-2 border-transparent">
+                            <AlignLeft size={16} /> Beautify (Virtual Tree)
                         </button>
                     </div>
                 </div>
-                <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/5 p-2 font-mono text-sm relative shadow-sm overflow-hidden">
+            )}
+
+            <div className="flex-1 flex flex-col gap-2 relative min-h-0">
+                {!isViewerMode && (
+                    <div className="flex justify-between items-center text-slate-500 font-medium px-2 shrink-0">
+                        <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                            {valid ? <span className="text-emerald-600 dark:text-emerald-500 flex items-center gap-1"><CheckCircle size={12} /> Valid JSON ({flattenedItems.length} nodes)</span> :
+                                error ? <span className="text-red-500 flex items-center gap-1"><AlertCircle size={12} /> Invalid JSON</span> :
+                                    'Tree Output'}
+                        </span>
+                        <div className="flex items-center gap-2">
+                            {valid && (
+                                <div className="flex items-center bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 mr-2 h-7 shadow-sm">
+                                    <Search size={14} className="text-slate-400 ml-2" />
+                                    <input
+                                        className="bg-transparent border-none text-xs text-slate-700 dark:text-slate-300 w-32 px-2 focus:outline-none placeholder-slate-400"
+                                        placeholder="Search key/val..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+                                    />
+                                    {searchResults.length > 0 && (
+                                        <div className="flex items-center border-l border-slate-200 dark:border-slate-800 px-1">
+                                            <span className="text-[10px] text-slate-400 mr-1 font-mono">{currentResultIndex + 1}/{searchResults.length}</span>
+                                            <button onClick={prevResult} className="p-0.5 hover:text-indigo-400 text-slate-400"><ArrowUp size={12} /></button>
+                                            <button onClick={nextResult} className="p-0.5 hover:text-indigo-400 text-slate-400"><ArrowDown size={12} /></button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {/* ... Controls for Tool Mode ... */}
+                        </div>
+                    </div>
+                )}
+
+                {/* Simplified Controls for Viewer Mode (if needed, or assume parent handles search UI) */}
+                {isViewerMode && (
+                    <div className="flex justify-end gap-2 mb-1">
+                        <div className="flex items-center gap-2">
+                            {searchResults.length > 0 && (
+                                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded px-2 h-6 text-xs gap-1 border border-slate-200 dark:border-slate-700">
+                                    <span className="text-slate-500">{currentResultIndex + 1}/{searchResults.length}</span>
+                                    <button onClick={prevResult}><ArrowUp size={12} /></button>
+                                    <button onClick={nextResult}><ArrowDown size={12} /></button>
+                                </div>
+                            )}
+                            <button onClick={expandAll} className="text-[10px] font-bold uppercase text-slate-400 hover:text-indigo-500 transition-colors">Expand All</button>
+                            <button onClick={collapseAll} className="text-[10px] font-bold uppercase text-slate-400 hover:text-indigo-500 transition-colors">Collapse All</button>
+                        </div>
+                    </div>
+                )}
+
+
+                <div className={`flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/5 p-2 font-mono text-sm relative shadow-sm overflow-hidden ${isViewerMode ? 'border-none rounded-none bg-transparent' : ''}`}>
                     {error ? (
                         <div className="text-red-500 dark:text-red-400 p-4 overflow-auto h-full">
                             <strong>Error parsing JSON:</strong><br />
@@ -621,14 +646,10 @@ const JsonFormatter: React.FC = () => {
                         </div>
                     ) : (
                         <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
-                            <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/5 mb-4">
-                                <FileJson size={32} className="opacity-50" />
-                            </div>
-                            <p className="font-medium opacity-70">Ready to format</p>
+                            {/* Empty State */}
+                            <p>No Data</p>
                         </div>
                     )}
-
-
                 </div>
             </div>
         </div>

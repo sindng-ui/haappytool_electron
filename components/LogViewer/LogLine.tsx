@@ -17,25 +17,27 @@ interface LogLineProps {
     onMouseDown?: (index: number, event: React.MouseEvent) => void;
     onMouseEnter?: (index: number, event: React.MouseEvent) => void;
     preferences?: LogViewPreferences;
+    levelMatchers?: { regex: RegExp; color: string }[];
 }
 
-export const LogLine = React.memo(({ index, style, data, isActive, isSelected, hasBookmark, isRawMode = false, highlights, highlightCaseSensitive = false, onClick, onDoubleClick, onMouseDown, onMouseEnter, preferences }: LogLineProps) => {
+export const LogLine = React.memo(({ index, style, data, isActive, isSelected, hasBookmark, isRawMode = false, highlights, highlightCaseSensitive = false, onClick, onDoubleClick, onMouseDown, onMouseEnter, preferences, levelMatchers }: LogLineProps) => {
     const isLoading = !data;
 
     // Determine Log Level Style
     const customBgStyle = React.useMemo(() => {
-        if (!data || !preferences) return undefined;
-        // Simple heuristic: Check for V/D/I/W/E followed by / or space, or usually Logcat format "I/" "D/"
-        // Or just search for the level char.
-        // Let's check for " V ", " D ", " I ", " W ", " E " OR " V/", " D/", " I/", " W/", " E/"
-        // More robust: Check common positions? Or just contains.
-        // User request says "Log level별로".
-        // Typical Tizen/Android log: "MM-DD HH:MM:SS.ms ProcessID ThreadID Level/Tag: Message"
-        // e.g. "E/SomeTag: Error message"
-        // Let's scan for the level indicator.
+        if (!data) return undefined;
 
-        // Optimization: only search first 100 chars?
+        // Optimization: only search first 100 chars
         const prefix = data.content.substring(0, 100);
+
+        if (levelMatchers) {
+            for (const matcher of levelMatchers) {
+                if (matcher.regex.test(prefix)) return matcher.color;
+            }
+            return undefined;
+        }
+
+        if (!preferences) return undefined;
 
         for (const style of preferences.levelStyles) {
             if (style.enabled) {
@@ -47,7 +49,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
             }
         }
         return undefined;
-    }, [data, preferences]);
+    }, [data, preferences, levelMatchers]);
 
     const matchingHighlight = React.useMemo(() => {
         if (!highlights || !data) return undefined;

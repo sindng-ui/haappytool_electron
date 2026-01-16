@@ -45,8 +45,17 @@ const PostTool: React.FC = () => {
     const isResizing = React.useRef(false);
 
     // Response Resizing
-    const [responseHeight, setResponseHeight] = useState(300);
+    const [responseHeight, setResponseHeight] = useState(() => {
+        const saved = localStorage.getItem('postToolResponseHeight');
+        return saved ? parseInt(saved, 10) : 300;
+    });
+    const responseHeightRef = React.useRef(responseHeight);
     const [isResizingResponse, setIsResizingResponse] = useState(false);
+
+    // Sync ref
+    useEffect(() => {
+        responseHeightRef.current = responseHeight;
+    }, [responseHeight]);
 
     useEffect(() => {
         const handleGlobalMouseMove = (e: MouseEvent) => {
@@ -69,6 +78,8 @@ const PostTool: React.FC = () => {
             }
             if (isResizingResponse) {
                 setIsResizingResponse(false);
+                // Use ref to get latest height without re-binding effect
+                localStorage.setItem('postToolResponseHeight', responseHeightRef.current.toString());
                 document.body.style.cursor = 'default';
             }
         };
@@ -79,7 +90,7 @@ const PostTool: React.FC = () => {
             window.removeEventListener('mousemove', handleGlobalMouseMove);
             window.removeEventListener('mouseup', handleGlobalMouseUp);
         };
-    }, [sidebarWidth, isResizingResponse]);
+    }, [sidebarWidth, isResizingResponse]); // No dependency on responseHeight needed now for saving
 
     const handleResizeStart = () => {
         isResizing.current = true;

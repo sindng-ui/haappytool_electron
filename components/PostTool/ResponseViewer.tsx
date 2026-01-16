@@ -2,46 +2,63 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as Lucide from 'lucide-react';
 import { PerfResponse } from '../../types';
 import JsonFormatter from '../JsonTools/JsonFormatter';
+import JsonTableViewer from './JsonTableViewer';
 
-const { Copy, Search, Check, FileJson, AlignLeft } = Lucide;
+const { Copy, Search, Check, FileJson, AlignLeft, Eye, ArrowUp, ArrowDown } = Lucide;
 
 interface ResponseViewerProps {
     response: PerfResponse | null;
 }
 
 const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
-    const [viewMode, setViewMode] = useState<'pretty' | 'raw'>('pretty');
+    const [viewMode, setViewMode] = useState<'pretty' | 'raw' | 'preview'>('raw');
     const [searchText, setSearchText] = useState('');
     const [copied, setCopied] = useState(false);
     const [parsedJson, setParsedJson] = useState<any>(null);
     const [isJson, setIsJson] = useState(false);
 
+    // Raw Search
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
     useEffect(() => {
         if (response) {
-            let json = null;
             let seemsJson = false;
-
+            // Shallow check for JSON to enable buttons without parsing
             if (typeof response.data === 'object') {
-                json = response.data;
                 seemsJson = true;
             } else if (typeof response.data === 'string') {
-                try {
-                    const trimmed = response.data.trim();
-                    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
-                        json = JSON.parse(response.data);
-                        seemsJson = true;
-                    }
-                } catch { /* Not JSON */ }
+                const trimmed = response.data.trim();
+                if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                    seemsJson = true;
+                }
             }
 
-            setParsedJson(json);
+            // Reset state on new response
+            setParsedJson(null);
             setIsJson(seemsJson);
-            setViewMode(seemsJson ? 'pretty' : 'raw');
+            setViewMode('raw');
+            setSearchText('');
         } else {
             setParsedJson(null);
             setIsJson(false);
         }
     }, [response]);
+
+    // Lazy Parse Effect
+    useEffect(() => {
+        if (viewMode !== 'raw' && !parsedJson && response) {
+            if (typeof response.data === 'object') {
+                setParsedJson(response.data);
+            } else if (typeof response.data === 'string' && isJson) {
+                try {
+                    const parsed = JSON.parse(response.data);
+                    setParsedJson(parsed);
+                } catch (e) {
+                    console.error("Failed to lazy parse JSON", e);
+                }
+            }
+        }
+    }, [viewMode, response, isJson, parsedJson]);
 
     const handleCopy = () => {
         if (!response) return;
@@ -52,6 +69,34 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         navigator.clipboard.writeText(textToCopy);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const getRawContent = () => {
+        if (!response) return '';
+        return typeof response.data === 'object' ? JSON.stringify(response.data, null, 2) : String(response.data);
+    };
+
+    const handleRawSearch = (direction: 'next' | 'prev') => {
+        if (!textareaRef.current || !searchText) return;
+        const content = textareaRef.current.value.toLowerCase();
+        const query = searchText.toLowerCase();
+        const currentPos = textareaRef.current.selectionStart;
+
+        let index = -1;
+        if (direction === 'next') {
+            index = content.indexOf(query, currentPos + 1);
+            if (index === -1) index = content.indexOf(query, 0); // Wrap
+        } else {
+            index = content.lastIndexOf(query, currentPos - 1);
+            if (index === -1) index = content.lastIndexOf(query); // Wrap
+        }
+
+        if (index !== -1) {
+            textareaRef.current.focus();
+            textareaRef.current.setSelectionRange(index, index + query.length);
+            // Attempt to scroll: Native behavior might fail if not focused. 
+            // Simple hack to ensure visibility: blur then focus? No, focus is enough usually.
+        }
     };
 
     if (!response) {
@@ -87,20 +132,40 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                     >
                         <AlignLeft size={14} /> Raw
                     </button>
+                    <button
+                        onClick={() => setViewMode('preview')}
+                        className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition-all ${viewMode === 'preview'
+                            ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-300'
+                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            }`}
+                    >
+                        <Eye size={14} /> Preview
+                    </button>
                 </div>
 
                 <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
 
-                <div className="relative flex-1 max-w-sm">
-                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Search response..."
-                        value={searchText}
-                        onChange={(e) => setSearchText(e.target.value)}
-                        className="w-full pl-8 pr-3 py-1 text-xs bg-white dark:bg-slate-800 border-none rounded-md focus:ring-1 focus:ring-indigo-500 placeholder-slate-400 text-slate-700 dark:text-slate-300 shadow-sm"
-                    />
+                <div className="relative flex-1 max-w-sm flex items-center gap-1">
+                    <div className="relative flex-1">
+                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder={viewMode === 'pretty' ? "Search JSON..." : "Search text..."}
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && viewMode === 'raw') handleRawSearch('next'); }}
+                            disabled={viewMode === 'preview'}
+                            className="w-full pl-8 pr-3 py-1 text-xs bg-white dark:bg-slate-800 border-none rounded-md focus:ring-1 focus:ring-indigo-500 placeholder-slate-400 text-slate-700 dark:text-slate-300 shadow-sm disabled:opacity-50"
+                        />
+                    </div>
                 </div>
+
+                {viewMode === 'raw' && searchText && (
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded px-1 h-6 gap-1 border border-slate-200 dark:border-slate-700">
+                        <button onClick={() => handleRawSearch('prev')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowUp size={12} /></button>
+                        <button onClick={() => handleRawSearch('next')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowDown size={12} /></button>
+                    </div>
+                )}
 
                 <div className="ml-auto flex items-center gap-1">
                     <button
@@ -124,10 +189,23 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                             fontSize={12}
                         />
                     </div>
+                ) : viewMode === 'preview' ? (
+                    isJson ? (
+                        <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
+                            <JsonTableViewer data={parsedJson} isRoot={true} />
+                        </div>
+                    ) : (
+                        <iframe
+                            srcDoc={typeof response.data === 'string' ? response.data : JSON.stringify(response.data)}
+                            className="w-full h-full border-none bg-white"
+                            sandbox="allow-scripts"
+                        />
+                    )
                 ) : (
                     <textarea
+                        ref={textareaRef}
                         readOnly
-                        value={typeof response.data === 'object' ? JSON.stringify(response.data, null, 2) : String(response.data)}
+                        defaultValue={getRawContent()}
                         className="w-full h-full p-4 font-mono text-xs text-slate-800 dark:text-slate-300 resize-none focus:outline-none bg-transparent"
                     />
                 )}
