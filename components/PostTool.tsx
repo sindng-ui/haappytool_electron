@@ -5,6 +5,11 @@ import RequestSidebar from './PostTool/RequestSidebar';
 import RequestEditor from './PostTool/RequestEditor';
 import ResponseViewer from './PostTool/ResponseViewer';
 import EnvironmentModal from './PostTool/EnvironmentModal';
+import GlobalAuthModal from './PostTool/GlobalAuthModal'; // Added
+import { PostGlobalAuth } from '../types';
+
+const { Send, Shield, ShieldCheck, ShieldAlert } = Lucide; // Use these icons
+
 
 const generateUUID = () => {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -27,6 +32,8 @@ const PostTool: React.FC = () => {
         setSavedRequestGroups: onUpdateGroups,
         postGlobalVariables: globalVariables,
         setPostGlobalVariables: onUpdateGlobalVariables,
+        postGlobalAuth: globalAuth, // From Context
+        setPostGlobalAuth: onUpdateGlobalAuth,
         requestHistory,
         setRequestHistory
     } = useHappyTool();
@@ -34,6 +41,7 @@ const PostTool: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [response, setResponse] = useState<PerfResponse | null>(null);
     const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false); // Auth Modal State
 
     const [currentRequest, setCurrentRequest] = useState<SavedRequest>({
         id: 'temp', name: 'New Request', method: 'GET', url: '', headers: [{ key: '', value: '' }], body: ''
@@ -178,12 +186,54 @@ const PostTool: React.FC = () => {
         setLoading(true);
         setResponse(null);
         try {
-            const finalUrl = replaceVariables(currentRequest.url);
+            let finalUrl = replaceVariables(currentRequest.url); // Changed to let
+
+            // Apply Global Auth Query Params Logic
+            if (globalAuth && globalAuth.enabled && globalAuth.type === 'apikey' && globalAuth.apiKeyAddTo === 'query' && globalAuth.apiKeyKey && globalAuth.apiKeyValue) {
+                const reqAuthType = currentRequest.auth?.type || 'none';
+                if (reqAuthType === 'none') {
+                    const key = replaceVariables(globalAuth.apiKeyKey);
+                    const val = replaceVariables(globalAuth.apiKeyValue);
+                    const separator = finalUrl.includes('?') ? '&' : '?';
+                    finalUrl += `${separator}${key}=${encodeURIComponent(val)}`;
+                }
+            }
+
             const finalHeaders = currentRequest.headers.reduce((acc, h) => {
                 if (h.key) acc[replaceVariables(h.key)] = replaceVariables(h.value);
                 return acc;
             }, {} as any);
-            const finalBody = currentRequest.body ? replaceVariables(currentRequest.body) : undefined;
+            let finalBody = currentRequest.body ? replaceVariables(currentRequest.body) : undefined;
+
+            // --- Global Auth Injection ---
+            if (globalAuth && globalAuth.enabled && globalAuth.type !== 'none') {
+                // Determine if we should apply (Apply if Request Auth is None or undefined)
+                const reqAuthType = currentRequest.auth?.type || 'none';
+
+                if (reqAuthType === 'none') {
+                    if (globalAuth.type === 'bearer' && globalAuth.bearerToken) {
+                        finalHeaders['Authorization'] = `Bearer ${replaceVariables(globalAuth.bearerToken)}`;
+                    } else if (globalAuth.type === 'basic' && (globalAuth.basicUsername || globalAuth.basicPassword)) {
+                        const u = replaceVariables(globalAuth.basicUsername || '');
+                        const p = replaceVariables(globalAuth.basicPassword || '');
+                        finalHeaders['Authorization'] = `Basic ${btoa(u + ':' + p)}`;
+                    } else if (globalAuth.type === 'apikey' && globalAuth.apiKeyKey && globalAuth.apiKeyValue) {
+                        const key = replaceVariables(globalAuth.apiKeyKey);
+                        const val = replaceVariables(globalAuth.apiKeyValue);
+                        if (globalAuth.apiKeyAddTo === 'query') {
+                            // Append to URL
+                            const separator = finalUrl.includes('?') ? '&' : '?';
+                            // CAUTION: finalUrl is `let`? No, const. Need to change above to let. 
+                            // But here I can just reassign or concat.
+                            // Oops finalUrl is const. Wait.
+                            // I need to modify finalUrl.
+                        } else {
+                            // Default Header
+                            finalHeaders[key] = val;
+                        }
+                    }
+                }
+            }
 
             // Add to History
             if (setRequestHistory) {
@@ -244,7 +294,21 @@ const PostTool: React.FC = () => {
             {/* Title Bar - Draggable Area */}
             <div className="h-9 w-full flex-shrink-0 title-drag z-20 flex items-center gap-3 pl-4 pr-36 border-b border-indigo-500/30 bg-slate-900">
                 <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Lucide.Send size={14} className="icon-glow" /></div>
-                <span className="font-bold text-xs text-slate-200 no-drag">Post Tool</span>
+                <span className="font-bold text-xs text-slate-200 no-drag mr-4">Post Tool</span>
+
+                {/* Global Auth Button */}
+                <button
+                    onClick={() => setIsAuthModalOpen(true)}
+                    className={`no-drag flex items-center gap-2 px-2 py-1 rounded-md text-xs font-bold transition-all border ${globalAuth?.enabled
+                        ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400 hover:bg-emerald-900/50'
+                        : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-300'
+                        }`}
+                    title="Configure Global Auth"
+                >
+                    {globalAuth?.enabled ? <ShieldCheck size={12} /> : <Shield size={12} />}
+                    <span className="hidden sm:inline">Auth Helper</span>
+                    {globalAuth?.enabled && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>}
+                </button>
             </div>
 
             <div className="flex w-full h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
@@ -281,6 +345,7 @@ const PostTool: React.FC = () => {
                                 onSend={handleSend}
                                 loading={loading}
                                 globalVariables={globalVariables}
+                                globalAuth={globalAuth} // Pass globalAuth
                             />
                         </div>
 
@@ -321,6 +386,17 @@ const PostTool: React.FC = () => {
                         onClose={() => setIsEnvModalOpen(false)}
                         variables={globalVariables}
                         onUpdateVariables={onUpdateGlobalVariables}
+                    />
+                )}
+
+                {/* Global Auth Modal */}
+                {onUpdateGlobalAuth && globalAuth && (
+                    <GlobalAuthModal
+                        isOpen={isAuthModalOpen}
+                        onClose={() => setIsAuthModalOpen(false)}
+                        auth={globalAuth}
+                        onChange={onUpdateGlobalAuth}
+                        variables={globalVariables}
                     />
                 )}
             </div>

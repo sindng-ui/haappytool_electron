@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
-import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem } from './types';
+import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem, PostGlobalAuth } from './types';
 
 import { mergeById } from './utils/settingsHelper';
 import { SettingsModal } from './components/SettingsModal';
@@ -96,6 +96,7 @@ const AppContent: React.FC = () => {
   const [savedRequestGroups, setSavedRequestGroups] = useState<RequestGroup[]>([]);
   const [requestHistory, setRequestHistory] = useState<RequestHistoryItem[]>([]);
   const [postGlobalVariables, setPostGlobalVariables] = useState<PostGlobalVariable[]>([]);
+  const [postGlobalAuth, setPostGlobalAuth] = useState<PostGlobalAuth>({ enabled: true, type: 'none' });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const importInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -170,6 +171,9 @@ const AppContent: React.FC = () => {
         if (parsed.postGlobalVariables && Array.isArray(parsed.postGlobalVariables)) {
           setPostGlobalVariables(parsed.postGlobalVariables);
         }
+        if (parsed.postGlobalAuth) {
+          setPostGlobalAuth(parsed.postGlobalAuth);
+        }
         if (parsed.lastEndpoint) setLastApiUrl(parsed.lastEndpoint);
         if (parsed.enabledPlugins) {
           setEnabledPlugins(parsed.enabledPlugins);
@@ -196,12 +200,13 @@ const AppContent: React.FC = () => {
       savedRequestGroups,
       requestHistory,
       postGlobalVariables,
+      postGlobalAuth,
       lastEndpoint: lastApiUrl,
       lastMethod,
       enabledPlugins
     };
     localStorage.setItem('devtool_suite_settings', JSON.stringify(settings));
-  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, postGlobalVariables, enabledPlugins]);
+  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, postGlobalVariables, postGlobalAuth, enabledPlugins]);
 
   const handleExportSettings = () => {
     const settings: AppSettings = {
@@ -209,6 +214,7 @@ const AppContent: React.FC = () => {
       savedRequests,
       savedRequestGroups,
       postGlobalVariables,
+      postGlobalAuth,
       lastEndpoint: lastApiUrl,
       lastMethod,
       enabledPlugins,
@@ -264,6 +270,10 @@ const AppContent: React.FC = () => {
       setPostGlobalVariables(current => mergeById(current, settings.postGlobalVariables!));
     }
 
+    if (settings.postGlobalAuth) {
+      setPostGlobalAuth(settings.postGlobalAuth);
+    }
+
     if (settings.lastEndpoint) setLastApiUrl(settings.lastEndpoint);
     if (settings.lastMethod) setLastMethod(settings.lastMethod);
     if (settings.enabledPlugins) setEnabledPlugins(settings.enabledPlugins);
@@ -316,6 +326,8 @@ const AppContent: React.FC = () => {
     setRequestHistory,
     postGlobalVariables,
     setPostGlobalVariables,
+    postGlobalAuth,
+    setPostGlobalAuth,
     handleExportSettings,
     handleImportSettings
   }), [
@@ -323,6 +335,7 @@ const AppContent: React.FC = () => {
     savedRequests,
     savedRequestGroups,
     postGlobalVariables,
+    postGlobalAuth,
     lastApiUrl,
     lastMethod,
     requestHistory

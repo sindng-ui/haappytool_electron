@@ -15,6 +15,8 @@ export interface HappyToolContextType {
     setRequestHistory: React.Dispatch<React.SetStateAction<RequestHistoryItem[]>>;
     postGlobalVariables: PostGlobalVariable[];
     setPostGlobalVariables: React.Dispatch<React.SetStateAction<PostGlobalVariable[]>>;
+    postGlobalAuth: PostGlobalAuth;
+    setPostGlobalAuth: React.Dispatch<React.SetStateAction<PostGlobalAuth>>;
 
     // Global Actions
     handleExportSettings: () => void;

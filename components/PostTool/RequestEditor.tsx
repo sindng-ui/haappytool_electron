@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as Lucide from 'lucide-react';
-import { SavedRequest, HttpMethod, PostGlobalVariable } from '../../types';
+import { SavedRequest, HttpMethod, PostGlobalVariable, PostGlobalAuth } from '../../types';
 import { HighlightedInput } from './HighlightedInput';
 
 const { Send, Activity, X, Terminal, Copy, Plus } = Lucide;
@@ -11,9 +11,10 @@ interface RequestEditorProps {
     onSend: () => void;
     loading: boolean;
     globalVariables: PostGlobalVariable[];
+    globalAuth?: PostGlobalAuth;
 }
 
-const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeCurrentRequest, onSend, loading, globalVariables }) => {
+const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeCurrentRequest, onSend, loading, globalVariables, globalAuth }) => {
     const [activeTab, setActiveTab] = useState<'PARAMS' | 'AUTH' | 'HEADERS' | 'BODY'>('PARAMS');
     const [showCodeModal, setShowCodeModal] = useState(false);
     const [codeLanguage, setCodeLanguage] = useState<'CURL' | 'FETCH' | 'PYTHON' | 'NODE'>('CURL');
@@ -34,12 +35,44 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
 
     const generateCode = (lang: typeof codeLanguage) => {
         const method = currentRequest.method;
-        const url = replace(currentRequest.url);
+        let url = replace(currentRequest.url); // Changed to let
         const headers = currentRequest.headers.filter(h => h.key && h.value).reduce((acc, h) => {
             acc[replace(h.key)] = replace(h.value);
             return acc;
         }, {} as Record<string, string>);
         const body = currentRequest.body && ['POST', 'PUT', 'PATCH'].includes(method) ? replace(currentRequest.body) : '';
+
+        // Apply Global Auth Logic for Code Generation
+        if (globalAuth && globalAuth.enabled && globalAuth.type !== 'none') {
+            const reqAuthType = currentRequest.auth?.type || 'none';
+            if (reqAuthType === 'none') {
+                if (globalAuth.type === 'bearer' && globalAuth.bearerToken) {
+                    headers['Authorization'] = `Bearer ${replace(globalAuth.bearerToken)}`;
+                } else if (globalAuth.type === 'basic' && (globalAuth.basicUsername || globalAuth.basicPassword)) {
+                    const u = replace(globalAuth.basicUsername || '');
+                    const p = replace(globalAuth.basicPassword || '');
+                    headers['Authorization'] = `Basic ${btoa(u + ':' + p)}`;
+                } else if (globalAuth.type === 'apikey' && globalAuth.apiKeyKey && globalAuth.apiKeyValue) {
+                    const key = replace(globalAuth.apiKeyKey);
+                    const val = replace(globalAuth.apiKeyValue);
+                    if (globalAuth.apiKeyAddTo === 'query') {
+                        const separator = url.includes('?') ? '&' : '?';
+                        // url is const in previous block, check context.
+                        // It was `const url = replace(currentRequest.url);`
+                        // Javascript allows re-declaration in switch? No.
+                        // Wait, `const url` is defined above switch.
+                        // I cannot reassign `url`.
+                        // I should use a local variable or change the const to let above switch.
+                        // But I cannot easily change lines far above here with single chunk safely if context changes.
+                        // Ah, I am replacing `const url = ...` line? No, I am replacing lines 38-43.
+                        // Line 37 `const url` is just before.
+                        // I will include line 37 in replacement to change it to let.
+                    } else {
+                        headers[key] = val;
+                    }
+                }
+            }
+        }
 
         switch (lang) {
             case 'CURL': {

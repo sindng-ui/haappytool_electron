@@ -66,6 +66,17 @@ export interface PostGlobalVariable {
   enabled: boolean;
 }
 
+export interface PostGlobalAuth {
+  enabled: boolean;
+  type: 'none' | 'bearer' | 'basic' | 'apikey';
+  bearerToken?: string;
+  basicUsername?: string;
+  basicPassword?: string;
+  apiKeyKey?: string;
+  apiKeyValue?: string;
+  apiKeyAddTo?: 'header' | 'query';
+}
+
 export interface RequestHistoryItem extends SavedRequest {
   executedAt: number;
 }
@@ -76,6 +87,7 @@ export interface AppSettings {
   savedRequestGroups?: RequestGroup[];
   requestHistory?: RequestHistoryItem[];
   postGlobalVariables?: PostGlobalVariable[];
+  postGlobalAuth?: PostGlobalAuth;
   logViewPreferences?: LogViewPreferences;
   lastEndpoint: string;
   lastMethod: string;
