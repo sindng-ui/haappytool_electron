@@ -540,6 +540,15 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 
 
 
+    // Memoize split highlights to prevent LogLine/HighlightRenderer re-renders/regex-rebuilds
+    const { textHighlights, lineHighlights } = useMemo(() => {
+        if (!highlights) return { textHighlights: [], lineHighlights: [] };
+        return {
+            textHighlights: highlights.filter(h => !h.lineEffect),
+            lineHighlights: highlights.filter(h => h.lineEffect)
+        };
+    }, [highlights]);
+
     const itemContent = useCallback((index: number, _data: unknown, context: { preferences?: LogViewPreferences }) => {
         // Use Ref for data access to keep callback stable across data updates
         // But we depend on cachedLines state to force re-render when data arrives!
@@ -560,7 +569,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 isSelected={isSelected}
                 hasBookmark={bookmarks.has(globalIndex)}
                 isRawMode={isRawMode}
-                highlights={highlights}
+                textHighlights={textHighlights}
+                lineHighlights={lineHighlights}
                 highlightCaseSensitive={highlightCaseSensitive}
                 onMouseDown={(idx, e) => handleLineMouseDown(globalIndex, e)}
                 onMouseEnter={(idx, e) => handleLineMouseEnter(globalIndex, e)}
@@ -570,7 +580,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 levelMatchers={levelMatchers}
             />
         );
-    }, [activeLineIndex, bookmarks, isRawMode, highlights, highlightCaseSensitive, onLineDoubleClick, cachedLines, absoluteOffset, selectedIndices, handleLineMouseDown, handleLineMouseEnter, preferences, rowHeight, levelMatchers]);
+    }, [activeLineIndex, bookmarks, isRawMode, textHighlights, lineHighlights, highlightCaseSensitive, onLineDoubleClick, cachedLines, absoluteOffset, selectedIndices, handleLineMouseDown, handleLineMouseEnter, preferences, rowHeight, levelMatchers]);
 
     // Non-passive wheel listener to allow preventDefault for Shift+Scroll
     useEffect(() => {

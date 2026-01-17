@@ -10,7 +10,8 @@ interface LogLineProps {
     isSelected?: boolean; // Multi-select support
     hasBookmark: boolean;
     isRawMode?: boolean;
-    highlights?: LogHighlight[];
+    textHighlights?: LogHighlight[];
+    lineHighlights?: LogHighlight[];
     highlightCaseSensitive?: boolean;
     onClick?: (index: number, event: React.MouseEvent) => void;
     onDoubleClick?: (index: number) => void;
@@ -20,7 +21,7 @@ interface LogLineProps {
     levelMatchers?: { regex: RegExp; color: string }[];
 }
 
-export const LogLine = React.memo(({ index, style, data, isActive, isSelected, hasBookmark, isRawMode = false, highlights, highlightCaseSensitive = false, onClick, onDoubleClick, onMouseDown, onMouseEnter, preferences, levelMatchers }: LogLineProps) => {
+export const LogLine = React.memo(({ index, style, data, isActive, isSelected, hasBookmark, isRawMode = false, textHighlights, lineHighlights, highlightCaseSensitive = false, onClick, onDoubleClick, onMouseDown, onMouseEnter, preferences, levelMatchers }: LogLineProps) => {
     const isLoading = !data;
 
     // Determine Log Level Style
@@ -52,13 +53,13 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
     }, [data, preferences, levelMatchers]);
 
     const matchingHighlight = React.useMemo(() => {
-        if (!highlights || !data) return undefined;
-        return highlights.find(h =>
-            h.lineEffect && (highlightCaseSensitive
-                ? data.content.includes(h.keyword)
-                : data.content.toLowerCase().includes(h.keyword.toLowerCase()))
+        if (!lineHighlights || !data) return undefined;
+        return lineHighlights.find(h =>
+        (highlightCaseSensitive
+            ? data.content.includes(h.keyword)
+            : data.content.toLowerCase().includes(h.keyword.toLowerCase()))
         );
-    }, [highlights, data, highlightCaseSensitive]);
+    }, [lineHighlights, data, highlightCaseSensitive]);
 
     return (
         <div
@@ -155,7 +156,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                         ? data?.content
                         : <HighlightRenderer
                             text={data?.content || ''}
-                            highlights={highlights?.filter(h => !h.lineEffect)}
+                            highlights={textHighlights}
                             caseSensitive={highlightCaseSensitive}
                         />
                 )}
