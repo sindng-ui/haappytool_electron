@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as Lucide from 'lucide-react';
-import { PerfResponse, SavedRequest, RequestGroup, PostGlobalVariable } from '../types';
+import { PerfResponse, SavedRequest, RequestGroup, PostGlobalVariable, EnvironmentProfile } from '../types';
 import RequestSidebar from './PostTool/RequestSidebar';
 import RequestEditor from './PostTool/RequestEditor';
 import ResponseViewer from './PostTool/ResponseViewer';
@@ -8,7 +8,7 @@ import EnvironmentModal from './PostTool/EnvironmentModal';
 import GlobalAuthModal from './PostTool/GlobalAuthModal'; // Added
 import { PostGlobalAuth } from '../types';
 
-const { Send, Shield, ShieldCheck, ShieldAlert } = Lucide; // Use these icons
+const { Send, Shield, ShieldCheck, ShieldAlert, ChevronDown, Check } = Lucide; // Use these icons
 
 
 const generateUUID = () => {
@@ -30,9 +30,13 @@ const PostTool: React.FC = () => {
         setSavedRequests: onUpdateRequests,
         savedRequestGroups,
         setSavedRequestGroups: onUpdateGroups,
-        postGlobalVariables: globalVariables,
-        setPostGlobalVariables: onUpdateGlobalVariables,
-        postGlobalAuth: globalAuth, // From Context
+        postGlobalVariables: globalVariables, // Active variables
+        setPostGlobalVariables: onUpdateGlobalVariables, // Update active
+        envProfiles, // All profiles
+        setEnvProfiles,
+        activeEnvId,
+        setActiveEnvId,
+        postGlobalAuth: globalAuth,
         setPostGlobalAuth: onUpdateGlobalAuth,
         requestHistory,
         setRequestHistory
@@ -41,7 +45,8 @@ const PostTool: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [response, setResponse] = useState<PerfResponse | null>(null);
     const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
-    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false); // Auth Modal State
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+    const [showEnvDropdown, setShowEnvDropdown] = useState(false); // Dropdown state
 
     const [currentRequest, setCurrentRequest] = useState<SavedRequest>({
         id: 'temp', name: 'New Request', method: 'GET', url: '', headers: [{ key: '', value: '' }], body: ''
@@ -172,14 +177,39 @@ const PostTool: React.FC = () => {
         }
     };
 
+    // Variable Replacement Logic
     const replaceVariables = (str: string) => {
-        let result = str;
+        let res = str;
+
+        // 1. UUID & Timestamp (Special Vars)
+        res = res.replace(/{{uuid}}/g, generateUUID());
+        res = res.replace(/{{timestamp}}/g, Date.now().toString());
+
+        // 2. Cross-Profile Reference: {{ProfileName.Key}}
+        // We iterate all profiles to find matches
+        if (envProfiles) {
+            envProfiles.forEach(profile => {
+                profile.variables.forEach(v => {
+                    if (v.enabled) {
+                        // Case-insensitive match for Profile Name? No, strict is better for now.
+                        // But commonly vars are distinct.
+                        // Let's support {{ProfileName.Key}}
+                        const pattern = `{{${profile.name}.${v.key}}}`;
+                        // Simple replaceAll equivalent
+                        res = res.split(pattern).join(v.value);
+                    }
+                });
+            });
+        }
+
+        // 3. Active Profile Variables: {{Key}} (Legacy/Default)
+        // This takes precedence if collision? No, active profile is usually implicit.
+        // If I write {{Token}}, it looks in Active Profile.
         globalVariables.forEach(v => {
-            if (v.enabled) {
-                result = result.replace(new RegExp(`{{${v.key}}}`, 'g'), v.value);
-            }
+            if (v.enabled) res = res.replace(new RegExp(`{{${v.key}}}`, 'g'), v.value);
         });
-        return result;
+
+        return res;
     };
 
     const handleSend = async () => {
@@ -299,6 +329,65 @@ const PostTool: React.FC = () => {
                 <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Lucide.Send size={14} className="icon-glow" /></div>
                 <span className="font-bold text-xs text-slate-200 no-drag mr-4">Post Tool</span>
 
+                {/* Environment Modal */}
+                {onUpdateGlobalVariables && (
+                    <EnvironmentModal
+                        isOpen={isEnvModalOpen}
+                        onClose={() => setIsEnvModalOpen(false)}
+                        variables={globalVariables}
+                        onUpdateVariables={onUpdateGlobalVariables}
+                    />
+                )}
+
+                {/* Environment Switcher */}
+                <div className="relative no-drag">
+                    <button
+                        onClick={() => setShowEnvDropdown(!showEnvDropdown)}
+                        className="flex items-center gap-2 px-2 py-1 rounded-md text-xs font-bold bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-all min-w-[120px] justify-between"
+                        title="Switch Active Environment"
+                    >
+                        <span className="truncate max-w-[100px]">
+                            {envProfiles?.find(p => p.id === activeEnvId)?.name || 'Default'}
+                        </span>
+                        <ChevronDown size={12} className={`transition-transform ${showEnvDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {showEnvDropdown && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setShowEnvDropdown(false)}></div>
+                            <div className="absolute top-full left-0 mt-1 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 py-1 flex flex-col">
+                                <div className="px-2 py-1 text-[10px] font-bold text-slate-500 uppercase">Select Environment</div>
+                                {envProfiles?.map(profile => (
+                                    <button
+                                        key={profile.id}
+                                        onClick={() => {
+                                            setActiveEnvId && setActiveEnvId(profile.id);
+                                            setShowEnvDropdown(false);
+                                        }}
+                                        className={`px-3 py-2 text-xs font-medium text-left flex items-center justify-between hover:bg-slate-700 ${activeEnvId === profile.id ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-300'}`}
+                                    >
+                                        <span className="truncate">{profile.name}</span>
+                                        {activeEnvId === profile.id && <Check size={12} />}
+                                    </button>
+                                ))}
+                                <div className="h-px bg-slate-700 my-1"></div>
+                                <button
+                                    onClick={() => {
+                                        setIsEnvModalOpen(true);
+                                        setShowEnvDropdown(false);
+                                    }}
+                                    className="px-3 py-2 text-xs font-bold text-slate-400 hover:text-indigo-400 hover:bg-slate-700 text-left transition-colors"
+                                >
+                                    Manage Environments...
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                <div className="h-4 w-px bg-slate-700 mx-2 no-drag"></div>
+
                 {/* Global Auth Button */}
                 <button
                     onClick={() => setIsAuthModalOpen(true)}
@@ -349,6 +438,8 @@ const PostTool: React.FC = () => {
                                 loading={loading}
                                 globalVariables={globalVariables}
                                 globalAuth={globalAuth} // Pass globalAuth
+                                envProfiles={envProfiles} // Pass all profiles
+                                activeEnvId={activeEnvId}
                             />
                         </div>
 
@@ -381,16 +472,6 @@ const PostTool: React.FC = () => {
                         </div>
                     </div>
                 </div>
-
-                {/* Environment Modal */}
-                {onUpdateGlobalVariables && (
-                    <EnvironmentModal
-                        isOpen={isEnvModalOpen}
-                        onClose={() => setIsEnvModalOpen(false)}
-                        variables={globalVariables}
-                        onUpdateVariables={onUpdateGlobalVariables}
-                    />
-                )}
 
                 {/* Global Auth Modal */}
                 {onUpdateGlobalAuth && globalAuth && (

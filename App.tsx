@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
-import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem, PostGlobalAuth } from './types';
+import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem, PostGlobalAuth, EnvironmentProfile } from './types';
 
 import { mergeById } from './utils/settingsHelper';
 import { SettingsModal } from './components/SettingsModal';
@@ -95,7 +95,16 @@ const AppContent: React.FC = () => {
   const [savedRequests, setSavedRequests] = useState<SavedRequest[]>([]);
   const [savedRequestGroups, setSavedRequestGroups] = useState<RequestGroup[]>([]);
   const [requestHistory, setRequestHistory] = useState<RequestHistoryItem[]>([]);
-  const [postGlobalVariables, setPostGlobalVariables] = useState<PostGlobalVariable[]>([]);
+
+  // Environment Profiles State
+  const [envProfiles, setEnvProfiles] = useState<EnvironmentProfile[]>([]);
+  const [activeEnvId, setActiveEnvId] = useState<string>('default');
+
+  // Derived state for legacy compatibility
+  // We don't use a simple useState for variables anymore, we derive it from profiles
+  // HOWEVER, context expects [vars, setVars]. 
+  // So we'll use a wrapper. But wait, `setPostGlobalVariables` is passed to context.
+
   const [postGlobalAuth, setPostGlobalAuth] = useState<PostGlobalAuth>({ enabled: true, type: 'none' });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const importInputRef = React.useRef<HTMLInputElement>(null);
@@ -165,12 +174,24 @@ const AppContent: React.FC = () => {
         if (parsed.savedRequestGroups && Array.isArray(parsed.savedRequestGroups)) {
           setSavedRequestGroups(parsed.savedRequestGroups);
         }
-        if (parsed.requestHistory && Array.isArray(parsed.requestHistory)) {
-          setRequestHistory(parsed.requestHistory);
+        if (parsed.requestHistory) setRequestHistory(parsed.requestHistory);
+
+        // Profiles Migration / Loading
+        if (parsed.envProfiles && parsed.envProfiles.length > 0) {
+          setEnvProfiles(parsed.envProfiles);
+          setActiveEnvId(parsed.activeEnvId || parsed.envProfiles[0].id);
+        } else {
+          // Migration: Create Default Profile from existing variables
+          const initialVars = (parsed.postGlobalVariables && Array.isArray(parsed.postGlobalVariables)) ? parsed.postGlobalVariables : [];
+          const defaultProfile: EnvironmentProfile = {
+            id: 'default',
+            name: 'Default Environment',
+            variables: initialVars
+          };
+          setEnvProfiles([defaultProfile]);
+          setActiveEnvId('default');
         }
-        if (parsed.postGlobalVariables && Array.isArray(parsed.postGlobalVariables)) {
-          setPostGlobalVariables(parsed.postGlobalVariables);
-        }
+
         if (parsed.postGlobalAuth) {
           setPostGlobalAuth(parsed.postGlobalAuth);
         }
@@ -199,21 +220,26 @@ const AppContent: React.FC = () => {
       savedRequests,
       savedRequestGroups,
       requestHistory,
-      postGlobalVariables,
+      envProfiles,
+      activeEnvId,
+      // postGlobalVariables is now just a snapshot of the active profile for legacy reasons if needed, 
+      // but we store the profiles structure as primary.
+      // We can still write it for safety if checking diffs? No need.
       postGlobalAuth,
       lastEndpoint: lastApiUrl,
       lastMethod,
       enabledPlugins
     };
     localStorage.setItem('devtool_suite_settings', JSON.stringify(settings));
-  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, postGlobalVariables, postGlobalAuth, enabledPlugins]);
+  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins]);
 
   const handleExportSettings = () => {
     const settings: AppSettings = {
       logRules,
       savedRequests,
       savedRequestGroups,
-      postGlobalVariables,
+      envProfiles,
+      activeEnvId,
       postGlobalAuth,
       lastEndpoint: lastApiUrl,
       lastMethod,
@@ -266,8 +292,21 @@ const AppContent: React.FC = () => {
       setRequestHistory(current => mergeById(current, settings.requestHistory!));
     }
 
-    if (settings.postGlobalVariables) {
-      setPostGlobalVariables(current => mergeById(current, settings.postGlobalVariables!));
+    if (settings.envProfiles) {
+      setEnvProfiles(settings.envProfiles);
+      if (settings.activeEnvId) setActiveEnvId(settings.activeEnvId);
+    } else if (settings.postGlobalVariables) {
+      // Fallback import for legacy settings that only have postGlobalVariables
+      const newVars = settings.postGlobalVariables;
+      setEnvProfiles(prev => {
+        const active = prev.find(p => p.id === activeEnvId);
+        if (active) {
+          // Merge into the active profile's variables
+          return prev.map(p => p.id === activeEnvId ? { ...p, variables: mergeById(p.variables, newVars) } : p);
+        }
+        // If no active profile found (e.g., first import), create a default one
+        return [{ id: 'default', name: 'Default', variables: newVars }];
+      });
     }
 
     if (settings.postGlobalAuth) {
@@ -324,8 +363,27 @@ const AppContent: React.FC = () => {
     setSavedRequestGroups,
     requestHistory,
     setRequestHistory,
-    postGlobalVariables,
-    setPostGlobalVariables,
+    // Emulate old interface by deriving from active profile
+    postGlobalVariables: envProfiles.find(p => p.id === activeEnvId)?.variables || [],
+    setPostGlobalVariables: (action) => {
+      setEnvProfiles(currentProfiles => {
+        const activeIdx = currentProfiles.findIndex(p => p.id === activeEnvId);
+        if (activeIdx === -1) return currentProfiles;
+
+        const activeProfile = currentProfiles[activeIdx];
+        const newVars = typeof action === 'function'
+          ? (action as (prev: PostGlobalVariable[]) => PostGlobalVariable[])(activeProfile.variables)
+          : action;
+
+        const newProfiles = [...currentProfiles];
+        newProfiles[activeIdx] = { ...activeProfile, variables: newVars };
+        return newProfiles;
+      });
+    },
+    envProfiles,
+    setEnvProfiles,
+    activeEnvId,
+    setActiveEnvId,
     postGlobalAuth,
     setPostGlobalAuth,
     handleExportSettings,
@@ -334,7 +392,9 @@ const AppContent: React.FC = () => {
     logRules,
     savedRequests,
     savedRequestGroups,
-    postGlobalVariables,
+    requestHistory,
+    envProfiles,
+    activeEnvId,
     postGlobalAuth,
     lastApiUrl,
     lastMethod,

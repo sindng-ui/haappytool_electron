@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react';
-import { LogRule, SavedRequest, RequestGroup, PostGlobalVariable, AppSettings, RequestHistoryItem } from '../types';
+import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem, PostGlobalAuth, EnvironmentProfile } from '../types';
 
 export interface HappyToolContextType {
     // Log Extractor State
@@ -15,6 +15,12 @@ export interface HappyToolContextType {
     setRequestHistory: React.Dispatch<React.SetStateAction<RequestHistoryItem[]>>;
     postGlobalVariables: PostGlobalVariable[];
     setPostGlobalVariables: React.Dispatch<React.SetStateAction<PostGlobalVariable[]>>;
+
+    envProfiles: EnvironmentProfile[];
+    setEnvProfiles: React.Dispatch<React.SetStateAction<EnvironmentProfile[]>>;
+    activeEnvId: string;
+    setActiveEnvId: React.Dispatch<React.SetStateAction<string>>;
+
     postGlobalAuth: PostGlobalAuth;
     setPostGlobalAuth: React.Dispatch<React.SetStateAction<PostGlobalAuth>>;
 

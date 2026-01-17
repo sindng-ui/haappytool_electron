@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as Lucide from 'lucide-react';
-import { SavedRequest, HttpMethod, PostGlobalVariable, PostGlobalAuth } from '../../types';
+import { SavedRequest, HttpMethod, PostGlobalVariable, PostGlobalAuth, EnvironmentProfile } from '../../types';
 import { HighlightedInput } from './HighlightedInput';
 
 const { Send, Activity, X, Terminal, Copy, Plus } = Lucide;
@@ -12,9 +12,11 @@ interface RequestEditorProps {
     loading: boolean;
     globalVariables: PostGlobalVariable[];
     globalAuth?: PostGlobalAuth;
+    envProfiles?: EnvironmentProfile[];
+    activeEnvId?: string;
 }
 
-const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeCurrentRequest, onSend, loading, globalVariables, globalAuth }) => {
+const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeCurrentRequest, onSend, loading, globalVariables, globalAuth, envProfiles, activeEnvId }) => {
     const [activeTab, setActiveTab] = useState<'PARAMS' | 'AUTH' | 'HEADERS' | 'BODY'>('PARAMS');
     const [showCodeModal, setShowCodeModal] = useState(false);
     const [codeLanguage, setCodeLanguage] = useState<'CURL' | 'FETCH' | 'PYTHON' | 'NODE'>('CURL');
@@ -27,6 +29,20 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
     // Helper to replace vars
     const replace = (str: string) => {
         let res = str;
+
+        // 1. Cross-Profile Reference
+        if (envProfiles) {
+            envProfiles.forEach(profile => {
+                profile.variables.forEach(v => {
+                    if (v.enabled) {
+                        const pattern = `{{${profile.name}.${v.key}}}`;
+                        res = res.split(pattern).join(v.value);
+                    }
+                });
+            });
+        }
+
+        // 2. Active Profile
         globalVariables.forEach(v => {
             if (v.enabled) res = res.replace(new RegExp(`{{${v.key}}}`, 'g'), v.value);
         });
@@ -114,9 +130,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
 
     // Autocomplete State
     const [autocompleteState, setAutocompleteState] = useState<{
-        list: PostGlobalVariable[],
+        list: (PostGlobalVariable & { label: string, note?: string })[],
         position: { top: number, left: number },
-        apply: (v: PostGlobalVariable) => void,
+        apply: (v: PostGlobalVariable & { label: string }) => void,
         selectedIndex: number
     } | null>(null);
 
@@ -145,7 +161,27 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
         if (lastOpen !== -1) {
             const query = textBeforeCursor.slice(lastOpen + 2);
             if (!query.includes('}}') && !query.includes('\n')) {
-                const filtered = globalVariables.filter(v => v.enabled && v.key.toLowerCase().startsWith(query.toLowerCase()));
+                // Filter Active Profile Vars
+                const activeMatches = globalVariables
+                    .filter(v => v.enabled && v.key.toLowerCase().startsWith(query.toLowerCase()))
+                    .map(v => ({ ...v, label: v.key, note: 'Active' }));
+
+                // Filter Other Profiles (Namespaced)
+                const otherMatches: (PostGlobalVariable & { label: string, note: string })[] = [];
+                if (envProfiles) {
+                    envProfiles.forEach(p => {
+                        // Skip active profile if needed, or include for explicit reference
+                        p.variables.forEach(v => {
+                            const namespacedKey = `${p.name}.${v.key}`;
+                            if (v.enabled && namespacedKey.toLowerCase().startsWith(query.toLowerCase())) {
+                                otherMatches.push({ ...v, label: namespacedKey, note: p.name });
+                            }
+                        });
+                    });
+                }
+
+                // Prioritize active matches
+                const filtered = [...activeMatches, ...otherMatches];
 
                 if (filtered.length > 0) {
                     const rect = e.target.getBoundingClientRect();
@@ -158,7 +194,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                         apply: (item) => {
                             const hasClosing = val.slice(cursor).startsWith('}}');
                             const suffix = hasClosing ? val.slice(cursor + 2) : val.slice(cursor);
-                            const newValue = textBeforeCursor.slice(0, lastOpen) + `{{${item.key}}}` + suffix;
+
+                            // Item label is the full key (e.g. "PROD.token" or "token")
+                            const newValue = textBeforeCursor.slice(0, lastOpen) + `{{${item.label}}}` + suffix;
 
                             updateFn(newValue);
                             setAutocompleteState(null);
@@ -262,18 +300,18 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
 
             // Preserves base URL (everything before ?)
             const baseUrl = currentRequest.url.split('?')[0];
-            const queryString = newSearchParams.toString();
+            let queryString = newSearchParams.toString();
+
+            // CRITICAL FIX: URLSearchParams encodes {{ and }} as %7B%7B and %7D%7D.
+            // We must revert this to allow variable replacement logic to work.
+            queryString = queryString
+                .replace(/%7B%7B/g, '{{')
+                .replace(/%7D%7D/g, '}}');
 
             onChangeCurrentRequest({ ...currentRequest, url: queryString ? `${baseUrl}?${queryString}` : baseUrl });
 
         } catch (e) {
-            // Fallback for malformed URLs: just append ?key=value manually? 
-            // Or better, ignore updates until URL is valid-ish.
-            // But user might be typing a variable {{host}}.
-            // If URL is just {{host}}/path, new URL() might fail if {{host}} isn't a valid protocol.
-
-            // Simple string manipulation fallback
-            // This is complex. Let's assume standardized URL format or basic split.
+            // Fallback logic could go here
             console.error("URL Parse Error", e);
         }
     };
@@ -288,7 +326,13 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
             params.forEach(([k, v]) => newSearchParams.append(k, v));
 
             const baseUrl = currentRequest.url.split('?')[0];
-            const queryString = newSearchParams.toString();
+            let queryString = newSearchParams.toString();
+
+            // Fix encoding here too
+            queryString = queryString
+                .replace(/%7B%7B/g, '{{')
+                .replace(/%7D%7D/g, '}}');
+
             onChangeCurrentRequest({ ...currentRequest, url: queryString ? `${baseUrl}?${queryString}` : baseUrl });
         } catch (e) { console.error(e); }
     };
@@ -432,6 +476,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                                     value={p.key}
                                     variables={globalVariables}
                                     onChange={(e) => checkAutocomplete(e, (v) => updateParam(i, 'key', v))}
+                                    onKeyDown={(e) => handleKeyDown(e, i, 'key')}
                                     className="bg-transparent p-2 text-xs font-mono placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:bg-indigo-50/50 dark:focus:bg-indigo-500/10 border-r border-slate-200 dark:border-white/5"
                                     containerClassName="flex-1"
                                     textClassName="text-slate-700 dark:text-slate-300"
@@ -441,6 +486,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                                     value={p.value}
                                     variables={globalVariables}
                                     onChange={(e) => checkAutocomplete(e, (v) => updateParam(i, 'value', v))}
+                                    onKeyDown={(e) => handleKeyDown(e, i, 'value')}
                                     className="bg-transparent p-2 text-xs font-mono placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:bg-indigo-50/50 dark:focus:bg-indigo-500/10"
                                     containerClassName="flex-1"
                                     textClassName="text-indigo-600 dark:text-indigo-300"
@@ -477,6 +523,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                                     value={currentRequest.auth.bearerToken || ''}
                                     variables={globalVariables}
                                     onChange={(e) => checkAutocomplete(e, (v) => updateAuth({ ...currentRequest.auth, bearerToken: v } as any))}
+                                    onKeyDown={handleKeyDown}
                                     className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono shadow-sm focus:outline-none focus:border-indigo-500 w-full"
                                     containerClassName="w-full"
                                     textClassName="text-slate-800 dark:text-slate-200"
@@ -493,6 +540,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                                         value={currentRequest.auth.basicUsername || ''}
                                         variables={globalVariables}
                                         onChange={(e) => checkAutocomplete(e, (v) => updateAuth({ ...currentRequest.auth, basicUsername: v } as any))}
+                                        onKeyDown={handleKeyDown}
                                         className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm shadow-sm focus:outline-none focus:border-indigo-500 w-full"
                                         containerClassName="w-full"
                                         textClassName="text-slate-800 dark:text-slate-200"
@@ -505,6 +553,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                                         value={currentRequest.auth.basicPassword || ''}
                                         variables={globalVariables}
                                         onChange={(e) => checkAutocomplete(e, (v) => updateAuth({ ...currentRequest.auth, basicPassword: v } as any))}
+                                        onKeyDown={handleKeyDown}
                                         className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm shadow-sm focus:outline-none focus:border-indigo-500 w-full"
                                         containerClassName="w-full"
                                         textClassName="text-slate-800 dark:text-slate-200"
@@ -587,8 +636,10 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                                 : 'hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'
                                 }`}
                         >
-                            <span className="font-bold">{`{{${v.key}}}`}</span>
-                            <span className="text-slate-400 dark:text-slate-600 text-[10px] truncate max-w-[100px] group-hover:text-slate-500">{v.value}</span>
+                            <span className="font-bold">{`{{${v.label}}}`}</span>
+                            <span className="text-slate-400 dark:text-slate-600 text-[10px] truncate max-w-[100px] group-hover:text-slate-500">
+                                {v.note === 'Active' ? v.value : `${v.note} • ${v.value}`}
+                            </span>
                         </button>
                     ))}
                 </div>

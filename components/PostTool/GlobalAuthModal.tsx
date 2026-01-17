@@ -22,6 +22,88 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
         setLocalAuth({ ...auth });
     }, [auth]);
 
+    // Autocomplete State
+    const activeInputRef = React.useRef<HTMLInputElement | null>(null);
+    const [autocompleteState, setAutocompleteState] = useState<{
+        list: (PostGlobalVariable & { label: string, note?: string })[],
+        position: { top: number, left: number },
+        apply: (v: PostGlobalVariable & { label: string }) => void,
+        selectedIndex: number
+    } | null>(null);
+
+    // Close suggestions on click outside
+    useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            if (autocompleteState && activeInputRef.current && !activeInputRef.current.contains(e.target as Node)) {
+                setAutocompleteState(null);
+            }
+        };
+        window.addEventListener('click', handleClick);
+        return () => window.removeEventListener('click', handleClick);
+    }, [autocompleteState]);
+
+    const checkAutocomplete = (
+        e: React.ChangeEvent<HTMLInputElement>,
+        updateFn: (val: string) => void
+    ) => {
+        const val = e.target.value;
+        const cursor = e.target.selectionStart || 0;
+        updateFn(val);
+
+        const textBeforeCursor = val.slice(0, cursor);
+        const lastOpen = textBeforeCursor.lastIndexOf('{{');
+
+        if (lastOpen !== -1) {
+            const query = textBeforeCursor.slice(lastOpen + 2);
+            if (!query.includes('}}') && !query.includes('\n')) {
+                // Filter Variables (Using simple active variables mostly, assuming Global Auth uses active)
+                // TODO: Cross-profile support? For now just use passed `variables`.
+                const filtered = variables
+                    .filter(v => v.enabled && v.key.toLowerCase().startsWith(query.toLowerCase()))
+                    .map(v => ({ ...v, label: v.key, note: 'Active' }));
+
+                if (filtered.length > 0) {
+                    const rect = e.target.getBoundingClientRect();
+                    activeInputRef.current = e.target;
+
+                    setAutocompleteState({
+                        list: filtered,
+                        position: { top: rect.bottom + 5, left: rect.left },
+                        selectedIndex: 0,
+                        apply: (item) => {
+                            const hasClosing = val.slice(cursor).startsWith('}}');
+                            const suffix = hasClosing ? val.slice(cursor + 2) : val.slice(cursor);
+                            const newValue = textBeforeCursor.slice(0, lastOpen) + `{{${item.label}}}` + suffix;
+
+                            updateFn(newValue);
+                            setAutocompleteState(null);
+                            (e.target as HTMLElement).focus();
+                        }
+                    });
+                    return;
+                }
+            }
+        }
+        setAutocompleteState(null);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (autocompleteState) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setAutocompleteState(prev => prev ? { ...prev, selectedIndex: (prev.selectedIndex + 1) % prev.list.length } : null);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setAutocompleteState(prev => prev ? { ...prev, selectedIndex: (prev.selectedIndex - 1 + prev.list.length) % prev.list.length } : null);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                autocompleteState.apply(autocompleteState.list[autocompleteState.selectedIndex]);
+            } else if (e.key === 'Escape') {
+                setAutocompleteState(null);
+            }
+        }
+    };
+
     const handleSave = () => {
         onChange(localAuth);
         onClose();
@@ -100,7 +182,8 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Token</label>
                                     <HighlightedInput
                                         value={localAuth.bearerToken || ''}
-                                        onChange={(e) => updateField('bearerToken', e.target.value)}
+                                        onChange={(e) => checkAutocomplete(e, (v) => updateField('bearerToken', v))}
+                                        onKeyDown={handleKeyDown}
                                         variables={variables}
                                         placeholder="Bearer Token (e.g. {{token}})"
                                         className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono shadow-sm focus:outline-none focus:border-indigo-500 w-full"
@@ -116,7 +199,8 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Username</label>
                                         <HighlightedInput
                                             value={localAuth.basicUsername || ''}
-                                            onChange={(e) => updateField('basicUsername', e.target.value)}
+                                            onChange={(e) => checkAutocomplete(e, (v) => updateField('basicUsername', v))}
+                                            onKeyDown={handleKeyDown}
                                             variables={variables}
                                             placeholder="Username"
                                             className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm shadow-sm focus:outline-none focus:border-indigo-500 w-full"
@@ -128,7 +212,8 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label>
                                         <HighlightedInput
                                             value={localAuth.basicPassword || ''}
-                                            onChange={(e) => updateField('basicPassword', e.target.value)}
+                                            onChange={(e) => checkAutocomplete(e, (v) => updateField('basicPassword', v))}
+                                            onKeyDown={handleKeyDown}
                                             variables={variables}
                                             placeholder="Password"
                                             className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm shadow-sm focus:outline-none focus:border-indigo-500 w-full"
@@ -145,7 +230,8 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Key</label>
                                         <HighlightedInput
                                             value={localAuth.apiKeyKey || ''}
-                                            onChange={(e) => updateField('apiKeyKey', e.target.value)}
+                                            onChange={(e) => checkAutocomplete(e, (v) => updateField('apiKeyKey', v))}
+                                            onKeyDown={handleKeyDown}
                                             variables={variables}
                                             placeholder="Key (e.g. x-api-key)"
                                             className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono shadow-sm focus:outline-none focus:border-indigo-500 w-full"
@@ -157,7 +243,8 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Value</label>
                                         <HighlightedInput
                                             value={localAuth.apiKeyValue || ''}
-                                            onChange={(e) => updateField('apiKeyValue', e.target.value)}
+                                            onChange={(e) => checkAutocomplete(e, (v) => updateField('apiKeyValue', v))}
+                                            onKeyDown={handleKeyDown}
                                             variables={variables}
                                             placeholder="Value"
                                             className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono shadow-sm focus:outline-none focus:border-indigo-500 w-full"
@@ -206,6 +293,34 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
                     </button>
                 </div>
             </div>
+
+            {/* Autocomplete Dropdown (Portal or Absolute over content? Portal is safer for modal z-index) */}
+            {autocompleteState && (
+                <div
+                    className="fixed z-[100] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden min-w-[200px] flex flex-col animate-in fade-in zoom-in-95 duration-100"
+                    style={{ top: autocompleteState.position.top, left: autocompleteState.position.left }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="bg-slate-50 dark:bg-slate-900/50 px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Variables
+                    </div>
+                    {autocompleteState.list.map((v, idx) => (
+                        <button
+                            key={v.id}
+                            onClick={() => autocompleteState.apply(v)}
+                            className={`text-left px-3 py-1.5 text-xs font-mono flex items-center justify-between gap-4 group ${idx === autocompleteState.selectedIndex
+                                ? 'bg-indigo-100 dark:bg-indigo-500/30 text-indigo-700 dark:text-indigo-200'
+                                : 'hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'
+                                }`}
+                        >
+                            <span className="font-bold">{`{{${v.label}}}`}</span>
+                            <span className="text-slate-400 dark:text-slate-600 text-[10px] truncate max-w-[100px] group-hover:text-slate-500">
+                                {v.note === 'Active' ? v.value : `${v.note} • ${v.value}`}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

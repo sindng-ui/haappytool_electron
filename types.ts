@@ -66,6 +66,12 @@ export interface PostGlobalVariable {
   enabled: boolean;
 }
 
+export interface EnvironmentProfile {
+  id: string;
+  name: string;
+  variables: PostGlobalVariable[];
+}
+
 export interface PostGlobalAuth {
   enabled: boolean;
   type: 'none' | 'bearer' | 'basic' | 'apikey';
@@ -86,7 +92,9 @@ export interface AppSettings {
   savedRequests: SavedRequest[];
   savedRequestGroups?: RequestGroup[];
   requestHistory?: RequestHistoryItem[];
-  postGlobalVariables?: PostGlobalVariable[];
+  postGlobalVariables?: PostGlobalVariable[]; // specific to the active profile mostly, or legacy dump
+  envProfiles?: EnvironmentProfile[];
+  activeEnvId?: string;
   postGlobalAuth?: PostGlobalAuth;
   logViewPreferences?: LogViewPreferences;
   lastEndpoint: string;
