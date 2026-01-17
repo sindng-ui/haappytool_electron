@@ -95,15 +95,15 @@ self.onmessage = async (e: MessageEvent) => {
             }
 
             const results: string[] = []; // List of path strings "root.child.key"
+            const seen = new Set<string>();
             const q = caseSensitive ? query : query.toLowerCase();
 
             // DFS Traversal
             const stack: { node: any, path: string[] }[] = [{ node: data, path: [] }];
 
             // Limit execution time or results to prevent freeze if huge?
-            // Workers run in background so freeze is okay-ish, but let's be safe.
             let count = 0;
-            const MAX_RESULTS = 2000;
+            const MAX_RESULTS = 20000; // Increased limit
 
             while (stack.length > 0) {
                 const { node, path } = stack.pop()!;
@@ -114,7 +114,7 @@ self.onmessage = async (e: MessageEvent) => {
 
                 if (isObj) {
                     const keys = Object.keys(node);
-                    // Push in reverse order to preserve natural order when popping (if we care)
+                    // Push in reverse order to preserve natural order when popping
                     for (let i = keys.length - 1; i >= 0; i--) {
                         const key = keys[i];
                         const val = node[key];
@@ -122,8 +122,12 @@ self.onmessage = async (e: MessageEvent) => {
                         // Check Key
                         const keyCheck = caseSensitive ? key : key.toLowerCase();
                         if (keyCheck.includes(q)) {
-                            results.push([...path, key].join('.'));
-                            count++;
+                            const p = [...path, key].join('.');
+                            if (!seen.has(p)) {
+                                results.push(p);
+                                seen.add(p);
+                                count++;
+                            }
                         }
 
                         // Push children to stack
@@ -134,8 +138,12 @@ self.onmessage = async (e: MessageEvent) => {
                     const valStr = String(node);
                     const valCheck = caseSensitive ? valStr : valStr.toLowerCase();
                     if (valCheck.includes(q)) {
-                        results.push(path.join('.'));
-                        count++;
+                        const p = path.join('.');
+                        if (!seen.has(p)) {
+                            results.push(p);
+                            seen.add(p);
+                            count++;
+                        }
                     }
                 }
             }
