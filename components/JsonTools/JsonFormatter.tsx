@@ -222,6 +222,65 @@ interface JsonFormatterProps {
     fontSize?: number; // Not used yet
 }
 
+// --- Flattened Row Component ---
+
+interface JsonFormatterRowProps {
+    index: number;
+    item: FlattenedNode;
+    isMatch: boolean;
+    toggleExpand: (id: string) => void;
+}
+
+const JsonFormatterRow = React.memo(({ index, item, isMatch, toggleExpand }: JsonFormatterRowProps) => {
+    const { key, value, level, isExpanded, hasChildren, id } = item;
+    const isArray = Array.isArray(value);
+    const indent = level * 20;
+
+    return (
+        <div className={`font-mono text-sm leading-6 flex items-center pr-2 whitespace-nowrap h-7 transition-colors ${isMatch ? 'bg-indigo-500/30' : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}>
+            <div style={{ width: indent, flexShrink: 0 }}></div>
+
+            <span
+                className="w-5 h-5 flex items-center justify-center cursor-pointer text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 mr-1 shrink-0 select-none transition-colors"
+                onClick={() => hasChildren && toggleExpand(id)}
+            >
+                {hasChildren ? (
+                    isExpanded ? <MinusSquare size={13} /> : <PlusSquare size={13} />
+                ) : (
+                    <span className="w-3"></span>
+                )}
+            </span>
+
+            <div className="flex items-center gap-1.5">
+                <span className={isMatch ? "text-indigo-600 dark:text-indigo-300 font-bold" : "text-indigo-600 dark:text-indigo-400 font-bold"}>"{key}":</span>
+
+                {hasChildren ? (
+                    <>
+                        <span className="text-slate-500 dark:text-slate-400 font-bold">{isArray ? '[' : '{'}</span>
+                        {!isExpanded && (
+                            <span className="text-slate-500 italic text-xs mx-1 cursor-pointer select-none bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" onClick={() => toggleExpand(id)}>
+                                {isArray ? `${value.length} items` : `${Object.keys(value).length} keys`}
+                            </span>
+                        )}
+                        {!isExpanded && <span className="text-slate-500 dark:text-slate-400 font-bold">{isArray ? ']' : '}'}</span>}
+                    </>
+                ) : (
+                    <span className="break-all text-ellipsis overflow-hidden">
+                        {value === null ? <span className="text-red-500 dark:text-red-400 font-bold">null</span> :
+                            typeof value === 'string' ? <span className="text-emerald-600 dark:text-emerald-400">"{value}"</span> :
+                                typeof value === 'number' ? <span className="text-blue-600 dark:text-blue-400 font-medium">{value}</span> :
+                                    typeof value === 'boolean' ? <span className="text-orange-600 dark:text-orange-400 font-bold">{String(value)}</span> :
+                                        <span className="text-slate-500 dark:text-slate-300">{String(value)}</span>
+                        }
+                    </span>
+                )}
+                <span className="text-slate-400 dark:text-slate-500">,</span>
+            </div>
+        </div>
+    );
+});
+JsonFormatterRow.displayName = 'JsonFormatterRow';
+
 const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search }) => {
     const [input, setInput] = useState('');
     const [parsedData, setParsedData] = useState<any>(null);
@@ -491,58 +550,9 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search }) => {
         jumpToResult(searchResults[prev]);
     };
 
-    const RowWithHighlight = (index: number) => {
-        const item = flattenedItems[index];
-        if (!item) return null;
-        const { key, value, level, isExpanded, hasChildren, id } = item;
+    // Row Renderer logic is now extracted to JsonFormatterRow component
+    // We pass the component to Virtuoso's itemContent prop
 
-        const isMatch = currentResultIndex >= 0 && searchResults[currentResultIndex] === id;
-        const isArray = Array.isArray(value);
-        const indent = level * 20;
-
-        return (
-            <div className={`font-mono text-sm leading-6 flex items-center pr-2 whitespace-nowrap h-7 transition-colors ${isMatch ? 'bg-indigo-500/30' : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}>
-                <div style={{ width: indent, flexShrink: 0 }}></div>
-
-                <span
-                    className="w-5 h-5 flex items-center justify-center cursor-pointer text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 mr-1 shrink-0 select-none transition-colors"
-                    onClick={() => hasChildren && toggleExpand(id)}
-                >
-                    {hasChildren ? (
-                        isExpanded ? <MinusSquare size={13} /> : <PlusSquare size={13} />
-                    ) : (
-                        <span className="w-3"></span>
-                    )}
-                </span>
-
-                <div className="flex items-center gap-1.5">
-                    <span className={isMatch ? "text-indigo-600 dark:text-indigo-300 font-bold" : "text-indigo-600 dark:text-indigo-400 font-bold"}>"{key}":</span>
-
-                    {hasChildren ? (
-                        <>
-                            <span className="text-slate-500 dark:text-slate-400 font-bold">{isArray ? '[' : '{'}</span>
-                            {!isExpanded && (
-                                <span className="text-slate-500 italic text-xs mx-1 cursor-pointer select-none bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" onClick={() => toggleExpand(id)}>
-                                    {isArray ? `${value.length} items` : `${Object.keys(value).length} keys`}
-                                </span>
-                            )}
-                            {!isExpanded && <span className="text-slate-500 dark:text-slate-400 font-bold">{isArray ? ']' : '}'}</span>}
-                        </>
-                    ) : (
-                        <span className="break-all text-ellipsis overflow-hidden">
-                            {value === null ? <span className="text-red-500 dark:text-red-400 font-bold">null</span> :
-                                typeof value === 'string' ? <span className="text-emerald-600 dark:text-emerald-400">"{value}"</span> :
-                                    typeof value === 'number' ? <span className="text-blue-600 dark:text-blue-400 font-medium">{value}</span> :
-                                        typeof value === 'boolean' ? <span className="text-orange-600 dark:text-orange-400 font-bold">{String(value)}</span> :
-                                            <span className="text-slate-500 dark:text-slate-300">{String(value)}</span>
-                            }
-                        </span>
-                    )}
-                    <span className="text-slate-400 dark:text-slate-500">,</span>
-                </div>
-            </div>
-        );
-    };
 
     return (
         <div className="flex h-full gap-6">
@@ -641,7 +651,19 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search }) => {
                                 ref={virtuosoRef}
                                 style={{ height: '100%', width: '100%' }}
                                 totalCount={flattenedItems.length}
-                                itemContent={RowWithHighlight}
+                                itemContent={(index) => {
+                                    const item = flattenedItems[index];
+                                    if (!item) return null;
+                                    const isMatch = currentResultIndex >= 0 && searchResults[currentResultIndex] === item.id;
+                                    return (
+                                        <JsonFormatterRow
+                                            index={index}
+                                            item={item}
+                                            isMatch={isMatch}
+                                            toggleExpand={toggleExpand}
+                                        />
+                                    );
+                                }}
                             />
                         </div>
                     ) : (

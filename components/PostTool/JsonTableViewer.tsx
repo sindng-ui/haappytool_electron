@@ -87,4 +87,4 @@ const JsonTableViewer: React.FC<JsonTableProps> = ({ data, name, isRoot = false,
     );
 };
 
-export default JsonTableViewer;
+export default React.memo(JsonTableViewer);

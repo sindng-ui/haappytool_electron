@@ -240,14 +240,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                 <div className="flex-1 overflow-auto bg-white dark:bg-slate-900 p-0 relative">
                     <div className="w-full text-xs text-left">
                         {headersList.map(([key, value], i) => (
-                            <div key={i} className="flex border-b border-slate-200 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5">
-                                <div className="w-1/3 min-w-[150px] p-2 font-bold text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-white/5 shrink-0 select-text truncate" title={key}>
-                                    {key}
-                                </div>
-                                <div className="flex-1 p-2 font-mono text-slate-800 dark:text-slate-200 select-text break-all">
-                                    {value}
-                                </div>
-                            </div>
+                            <HeaderRow key={i} name={key} value={value} />
                         ))}
                     </div>
                 </div>
@@ -255,5 +248,21 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         </div>
     );
 };
+
+interface HeaderRowProps {
+    name: string;
+    value: string;
+}
+
+const HeaderRow = React.memo(({ name, value }: HeaderRowProps) => (
+    <div className="flex border-b border-slate-200 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5">
+        <div className="w-1/3 min-w-[150px] p-2 font-bold text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-white/5 shrink-0 select-text truncate" title={name}>
+            {name}
+        </div>
+        <div className="flex-1 p-2 font-mono text-slate-800 dark:text-slate-200 select-text break-all">
+            {value}
+        </div>
+    </div>
+));
 
 export default ResponseViewer;

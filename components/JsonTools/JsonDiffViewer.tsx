@@ -108,11 +108,16 @@ const JsonDiffViewer: React.FC = () => {
 
     const maxLines = diffResult ? Math.max(diffResult.leftLines.length, diffResult.rightLines.length) : 0;
 
-    const Row = (index: number) => {
-        if (!diffResult) return null;
-        const lineLeft = diffResult.leftLines[index] || '';
-        const lineRight = diffResult.rightLines[index] || '';
-        const isDiff = lineLeft !== lineRight;
+    // --- Diff Row Component ---
+
+    interface JsonDiffRowProps {
+        index: number;
+        leftLine?: string;
+        rightLine?: string;
+    }
+
+    const JsonDiffRow = React.memo(({ index, leftLine, rightLine }: JsonDiffRowProps) => {
+        const isDiff = leftLine !== rightLine;
 
         return (
             <div className="flex font-mono text-xs w-full">
@@ -120,7 +125,7 @@ const JsonDiffViewer: React.FC = () => {
                 <div className={`flex-1 flex px-2 border-r border-slate-200 dark:border-white/5 transition-colors py-0.5 ${isDiff ? 'bg-red-500/10 dark:bg-red-500/20' : 'hover:bg-indigo-50/50 dark:hover:bg-white/5'}`}>
                     <span className={`w-8 select-none text-right mr-4 shrink-0 ${isDiff ? 'text-red-500 dark:text-red-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}>{index + 1}</span>
                     <span className={`whitespace-pre-wrap break-all ${isDiff ? 'text-red-600 dark:text-red-300' : 'text-slate-600 dark:text-slate-400'}`}>
-                        {lineLeft || <span className="opacity-30 italic">empty</span>}
+                        {leftLine || <span className="opacity-30 italic">empty</span>}
                     </span>
                 </div>
 
@@ -128,12 +133,13 @@ const JsonDiffViewer: React.FC = () => {
                 <div className={`flex-1 flex px-2 pl-4 transition-colors py-0.5 ${isDiff ? 'bg-emerald-500/10 dark:bg-emerald-500/20' : 'hover:bg-indigo-50/50 dark:hover:bg-white/5'}`}>
                     <span className={`w-8 select-none text-right mr-4 shrink-0 ${isDiff ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}>{index + 1}</span>
                     <span className={`whitespace-pre-wrap break-all ${isDiff ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400'}`}>
-                        {lineRight || <span className="opacity-30 italic">empty</span>}
+                        {rightLine || <span className="opacity-30 italic">empty</span>}
                     </span>
                 </div>
             </div>
         );
-    };
+    });
+    JsonDiffRow.displayName = 'JsonDiffRow';
 
     return (
         <div className="flex flex-col h-full gap-4">
@@ -192,7 +198,16 @@ const JsonDiffViewer: React.FC = () => {
                                 ref={virtuosoRef}
                                 style={{ height: '100%', width: '100%' }}
                                 totalCount={maxLines}
-                                itemContent={Row}
+                                itemContent={(index) => {
+                                    if (!diffResult) return null;
+                                    return (
+                                        <JsonDiffRow
+                                            index={index}
+                                            leftLine={diffResult.leftLines[index]}
+                                            rightLine={diffResult.rightLines[index]}
+                                        />
+                                    );
+                                }}
                             />
                         ) : (
                             <div className="h-full flex items-center justify-center text-slate-400 dark:text-slate-600 flex-col gap-3">
