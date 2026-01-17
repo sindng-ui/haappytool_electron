@@ -99,6 +99,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const {
         leftFileName, isDualView, rightFileName,
         setIsTizenModalOpen, isTizenModalOpen, handleTizenStreamStart,
+        isTizenQuickConnect, setIsTizenQuickConnect, // Added for Quick Connect
         rawContextOpen, rawContextTargetLine, rawContextHeight, rawContextSourcePane,
         setRawContextOpen, handleRawContextResizeStart,
         leftTotalLines, rightTotalLines, requestLeftRawLines, requestRightRawLines,
@@ -471,6 +472,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 isConnected={!!tizenSocket}
                 onDisconnect={handleTizenDisconnect}
                 currentConnectionInfo={leftFileName}
+                isQuickConnect={isTizenQuickConnect} // Pass Quick Connect prop
             />
 
 

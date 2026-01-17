@@ -9,15 +9,18 @@ interface TizenConnectionModalProps {
     isConnected?: boolean;
     onDisconnect?: () => void;
     currentConnectionInfo?: string | null;
+    isQuickConnect?: boolean; // New prop
 }
 
 const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
     isOpen, onClose, onStreamStart,
     isConnected: isExternalConnected,
     onDisconnect: onExternalDisconnect,
-    currentConnectionInfo
+    currentConnectionInfo,
+    isQuickConnect
 }) => {
-    const [mode, setMode] = useState<'ssh' | 'sdb' | 'test'>('sdb');
+    // Persist last used mode
+    const [mode, setMode] = useState<'ssh' | 'sdb' | 'test'>(() => (localStorage.getItem('lastConnectionMode') as any) || 'sdb');
     const [socket, setSocket] = useState<Socket | null>(null);
 
     // SSH State
@@ -32,11 +35,12 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
     useEffect(() => { localStorage.setItem('sshPort', sshPort); }, [sshPort]);
     useEffect(() => { localStorage.setItem('sshUser', sshUser); }, [sshUser]);
     useEffect(() => { localStorage.setItem('sshPassword', sshPassword); }, [sshPassword]);
-
     // SDB State
     const [sdbDevices, setSdbDevices] = useState<{ id: string, type: string }[]>([]);
-    const [selectedDeviceId, setSelectedDeviceId] = useState('');
+    const [selectedDeviceId, setSelectedDeviceId] = useState(() => localStorage.getItem('lastSdbDeviceId') || '');
     const [isScanning, setIsScanning] = useState(false);
+
+    useEffect(() => { localStorage.setItem('lastSdbDeviceId', selectedDeviceId); }, [selectedDeviceId]);
     const [debugMode, setDebugMode] = useState(false);
     const [saveToFile, setSaveToFile] = useState(false);
 
@@ -76,6 +80,32 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
             newSocket.on('connect', () => {
                 setStatus('Connected to Local Log Server');
                 setError('');
+
+                // Quick Connect Logic
+                if (isQuickConnect && !isHandedOver.current) {
+                    setStatus('Initiating Quick Connect...');
+                    // Add small delay to ensure socket is ready and listeners active
+                    setTimeout(() => {
+                        console.log('[QuickConnect] Mode:', mode);
+                        if (mode === 'ssh') {
+                            newSocket?.emit('connect_ssh', {
+                                host: sshHost,
+                                port: parseInt(sshPort),
+                                username: sshUser,
+                                password: sshPassword,
+                                debug: debugMode,
+                                saveToFile: saveToFile
+                            });
+                        } else if (mode === 'sdb') {
+                            // For SDB, we need to check if device is available? Or just try?
+                            // Try connecting to last used device or auto-detect
+                            newSocket?.emit('connect_sdb', { deviceId: selectedDeviceId, debug: debugMode, saveToFile: saveToFile });
+                        } else {
+                            // If mock or unknown, just open normally
+                            onClose(); // Failed/Cancelled
+                        }
+                    }, 500);
+                }
             });
 
             newSocket.on('connect_error', () => {
@@ -198,6 +228,9 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
         setIsConnecting(true);
         startTimeout();
 
+        // Persist mode
+        localStorage.setItem('lastConnectionMode', mode);
+
         if (mode === 'test') {
             socket.emit('start_scroll_stream');
             setIsConnected(true);
@@ -213,7 +246,8 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                 port: parseInt(sshPort),
                 username: sshUser,
                 password: sshPassword,
-                debug: debugMode
+                debug: debugMode,
+                saveToFile: saveToFile
             });
             // Immediate Handover for SSH to support interactive prompts in main view
             setIsConnected(true);
@@ -221,7 +255,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
             onStreamStart(socket, `SSH:${sshHost}`, 'ssh', saveToFile);
             onClose();
         } else {
-            socket.emit('connect_sdb', { deviceId: selectedDeviceId, debug: debugMode });
+            socket.emit('connect_sdb', { deviceId: selectedDeviceId, debug: debugMode, saveToFile: saveToFile });
         }
     };
 

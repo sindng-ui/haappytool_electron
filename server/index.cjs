@@ -338,6 +338,9 @@ io.on('connection', (socket) => {
 
         // ...
 
+        // Defined args for sdb log stream (e.g. dlog -v threadtime)
+        const args = ['-s', deviceId || 'default', 'shell', 'dlog', '-v', 'threadtime'];
+
         try {
             sdbProcess = spawn('sdb', args);
 

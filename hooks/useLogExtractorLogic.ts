@@ -202,6 +202,7 @@ export const useLogExtractorLogic = ({
     const clearLeftBookmarks = useCallback(() => { /* TODO: Implement clear bookmarks in worker if needed, or just clear visually? for now, maybe we need worker support. */ }, []);
     const clearRightBookmarks = useCallback(() => { /* TODO */ }, []); // Clearing bookmarks usually implies clearing ALL. Worker needs CLEAR_BOOKMARKS message. For now, leave empty or TODO.
     const [isTizenModalOpen, setIsTizenModalOpen] = useState(false);
+    const [isTizenQuickConnect, setIsTizenQuickConnect] = useState(false);
 
     const [rawContextOpen, setRawContextOpen] = useState(false);
     const [rawContextTargetLine, setRawContextTargetLine] = useState<{ lineNum: number, content: string } | null>(null);
@@ -1582,6 +1583,7 @@ export const useLogExtractorLogic = ({
         rawContextHeight, handleRawContextResizeStart,
         rawContextTargetLine, rawContextSourcePane,
         isTizenModalOpen, setIsTizenModalOpen,
+        isTizenQuickConnect, setIsTizenQuickConnect,
         fileInputRef, logFileInputRef,
         leftViewerRef, rightViewerRef, rawViewerRef,
 

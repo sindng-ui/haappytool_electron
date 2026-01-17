@@ -19,8 +19,15 @@ const TopBar: React.FC = () => {
         requestLeftLines, requestRightLines,
         leftFilteredCount, rightFilteredCount,
         tizenSocket, handleTizenDisconnect, findText,
-        searchInputRef
+        searchInputRef,
+        isTizenQuickConnect, setIsTizenQuickConnect // Added
     } = useLogContext();
+
+    // Quick Connect Handler
+    const onQuickConnect = () => {
+        setIsTizenQuickConnect(true);
+        setIsTizenModalOpen(true);
+    };
 
     const onSelectRule = setSelectedRuleId;
     const onCreateRule = handleCreateRule;
@@ -113,6 +120,17 @@ const TopBar: React.FC = () => {
                     <span className="text-sm font-medium">Connection</span>
                     {tizenSocket && <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-1"></div>}
                 </button>
+
+                {/* Quick Connect (Bolt) */}
+                {!tizenSocket && (
+                    <button
+                        onClick={onQuickConnect}
+                        className="p-1.5 rounded-lg bg-slate-800 border-slate-700 text-yellow-400 hover:bg-slate-700 hover:text-yellow-300 border transition-all shadow-sm"
+                        title="Quick Connect (Last Used)"
+                    >
+                        <Lucide.Zap size={14} fill="currentColor" />
+                    </button>
+                )}
 
                 <div className="w-px h-6 bg-slate-700 mx-1"></div>
 
