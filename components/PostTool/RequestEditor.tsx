@@ -42,34 +42,34 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
         }, {} as Record<string, string>);
         const body = currentRequest.body && ['POST', 'PUT', 'PATCH'].includes(method) ? replace(currentRequest.body) : '';
 
-        // Apply Global Auth Logic for Code Generation
-        if (globalAuth && globalAuth.enabled && globalAuth.type !== 'none') {
-            const reqAuthType = currentRequest.auth?.type || 'none';
-            if (reqAuthType === 'none') {
-                if (globalAuth.type === 'bearer' && globalAuth.bearerToken) {
-                    headers['Authorization'] = `Bearer ${replace(globalAuth.bearerToken)}`;
-                } else if (globalAuth.type === 'basic' && (globalAuth.basicUsername || globalAuth.basicPassword)) {
-                    const u = replace(globalAuth.basicUsername || '');
-                    const p = replace(globalAuth.basicPassword || '');
-                    headers['Authorization'] = `Basic ${btoa(u + ':' + p)}`;
-                } else if (globalAuth.type === 'apikey' && globalAuth.apiKeyKey && globalAuth.apiKeyValue) {
-                    const key = replace(globalAuth.apiKeyKey);
-                    const val = replace(globalAuth.apiKeyValue);
-                    if (globalAuth.apiKeyAddTo === 'query') {
-                        const separator = url.includes('?') ? '&' : '?';
-                        // url is const in previous block, check context.
-                        // It was `const url = replace(currentRequest.url);`
-                        // Javascript allows re-declaration in switch? No.
-                        // Wait, `const url` is defined above switch.
-                        // I cannot reassign `url`.
-                        // I should use a local variable or change the const to let above switch.
-                        // But I cannot easily change lines far above here with single chunk safely if context changes.
-                        // Ah, I am replacing `const url = ...` line? No, I am replacing lines 38-43.
-                        // Line 37 `const url` is just before.
-                        // I will include line 37 in replacement to change it to let.
-                    } else {
-                        headers[key] = val;
-                    }
+        // Apply Request Auth Logic (Priority)
+        const reqAuth = currentRequest.auth;
+        if (reqAuth && reqAuth.type !== 'none') {
+            if (reqAuth.type === 'bearer' && reqAuth.bearerToken) {
+                headers['Authorization'] = `Bearer ${replace(reqAuth.bearerToken)}`;
+            } else if (reqAuth.type === 'basic' && (reqAuth.basicUsername || reqAuth.basicPassword)) {
+                const u = replace(reqAuth.basicUsername || '');
+                const p = replace(reqAuth.basicPassword || '');
+                headers['Authorization'] = `Basic ${btoa(u + ':' + p)}`;
+            }
+        }
+
+        // Apply Global Auth Logic for Code Generation (Fallback)
+        if ((!reqAuth || reqAuth.type === 'none') && globalAuth && globalAuth.enabled && globalAuth.type !== 'none') {
+            if (globalAuth.type === 'bearer' && globalAuth.bearerToken) {
+                headers['Authorization'] = `Bearer ${replace(globalAuth.bearerToken)}`;
+            } else if (globalAuth.type === 'basic' && (globalAuth.basicUsername || globalAuth.basicPassword)) {
+                const u = replace(globalAuth.basicUsername || '');
+                const p = replace(globalAuth.basicPassword || '');
+                headers['Authorization'] = `Basic ${btoa(u + ':' + p)}`;
+            } else if (globalAuth.type === 'apikey' && globalAuth.apiKeyKey && globalAuth.apiKeyValue) {
+                const key = replace(globalAuth.apiKeyKey);
+                const val = replace(globalAuth.apiKeyValue);
+                if (globalAuth.apiKeyAddTo === 'query') {
+                    const separator = url.includes('?') ? '&' : '?';
+                    url += `${separator}${key}=${encodeURIComponent(val)}`;
+                } else {
+                    headers[key] = val;
                 }
             }
         }

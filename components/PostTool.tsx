@@ -205,32 +205,35 @@ const PostTool: React.FC = () => {
             }, {} as any);
             let finalBody = currentRequest.body ? replaceVariables(currentRequest.body) : undefined;
 
-            // --- Global Auth Injection ---
-            if (globalAuth && globalAuth.enabled && globalAuth.type !== 'none') {
-                // Determine if we should apply (Apply if Request Auth is None or undefined)
-                const reqAuthType = currentRequest.auth?.type || 'none';
+            // --- Request Auth Injection ---
+            const reqAuth = currentRequest.auth;
+            if (reqAuth && reqAuth.type !== 'none') {
+                if (reqAuth.type === 'bearer' && reqAuth.bearerToken) {
+                    finalHeaders['Authorization'] = `Bearer ${replaceVariables(reqAuth.bearerToken)}`;
+                } else if (reqAuth.type === 'basic' && (reqAuth.basicUsername || reqAuth.basicPassword)) {
+                    const u = replaceVariables(reqAuth.basicUsername || '');
+                    const p = replaceVariables(reqAuth.basicPassword || '');
+                    finalHeaders['Authorization'] = `Basic ${btoa(u + ':' + p)}`;
+                }
+            }
 
-                if (reqAuthType === 'none') {
-                    if (globalAuth.type === 'bearer' && globalAuth.bearerToken) {
-                        finalHeaders['Authorization'] = `Bearer ${replaceVariables(globalAuth.bearerToken)}`;
-                    } else if (globalAuth.type === 'basic' && (globalAuth.basicUsername || globalAuth.basicPassword)) {
-                        const u = replaceVariables(globalAuth.basicUsername || '');
-                        const p = replaceVariables(globalAuth.basicPassword || '');
-                        finalHeaders['Authorization'] = `Basic ${btoa(u + ':' + p)}`;
-                    } else if (globalAuth.type === 'apikey' && globalAuth.apiKeyKey && globalAuth.apiKeyValue) {
-                        const key = replaceVariables(globalAuth.apiKeyKey);
-                        const val = replaceVariables(globalAuth.apiKeyValue);
-                        if (globalAuth.apiKeyAddTo === 'query') {
-                            // Append to URL
-                            const separator = finalUrl.includes('?') ? '&' : '?';
-                            // CAUTION: finalUrl is `let`? No, const. Need to change above to let. 
-                            // But here I can just reassign or concat.
-                            // Oops finalUrl is const. Wait.
-                            // I need to modify finalUrl.
-                        } else {
-                            // Default Header
-                            finalHeaders[key] = val;
-                        }
+            // --- Global Auth Injection ---
+            // Only apply if Request Auth is None
+            if ((!reqAuth || reqAuth.type === 'none') && globalAuth && globalAuth.enabled && globalAuth.type !== 'none') {
+                // ... existing global auth logic ...
+                if (globalAuth.type === 'bearer' && globalAuth.bearerToken) {
+                    finalHeaders['Authorization'] = `Bearer ${replaceVariables(globalAuth.bearerToken)}`;
+                } else if (globalAuth.type === 'basic' && (globalAuth.basicUsername || globalAuth.basicPassword)) {
+                    const u = replaceVariables(globalAuth.basicUsername || '');
+                    const p = replaceVariables(globalAuth.basicPassword || '');
+                    finalHeaders['Authorization'] = `Basic ${btoa(u + ':' + p)}`;
+                } else if (globalAuth.type === 'apikey' && globalAuth.apiKeyKey && globalAuth.apiKeyValue) {
+                    const key = replaceVariables(globalAuth.apiKeyKey);
+                    const val = replaceVariables(globalAuth.apiKeyValue);
+                    if (globalAuth.apiKeyAddTo === 'query') {
+                        // Already handled above
+                    } else {
+                        finalHeaders[key] = val;
                     }
                 }
             }
