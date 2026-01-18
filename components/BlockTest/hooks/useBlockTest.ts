@@ -79,7 +79,7 @@ export const useBlockTest = () => {
     const lastItemSuccessRef = useRef<boolean>(true);
 
     useEffect(() => {
-        socketRef.current = io('http://localhost:3003');
+        socketRef.current = io('http://127.0.0.1:3003');
 
         const socket = socketRef.current;
 
@@ -358,7 +358,7 @@ export const useBlockTest = () => {
                 content: reportHtml
             });
             // Update UI
-            setLastReportUrl(`http://localhost:3003/blocktest/${fullPath}`);
+            setLastReportUrl(`http://127.0.0.1:3003/blocktest/${fullPath}`);
         }
     };
 

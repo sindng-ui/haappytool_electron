@@ -114,3 +114,14 @@ export const ScreenMatcherPlugin: HappyPlugin = {
     component: ScreenMatcher,
     order: 11,
 };
+
+const AiAssistant = React.lazy(() => import('../../components/AiAssistant'));
+const { Bot } = Lucide;
+
+export const AiAssistantPlugin: HappyPlugin = {
+    id: ToolId.AI_ASSISTANT,
+    name: 'AI Assistant',
+    icon: Bot,
+    component: AiAssistant,
+    order: 12,
+};

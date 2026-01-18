@@ -14,8 +14,8 @@ Port `3001` is often occupied by zombie processes or previous instances of the l
 **Fix**: Change the default port to **3003** (or another free port).
 
 - **Backend**: `server/index.js` -> `const PORT = 3003;` and `cors: { origin: "*" }`.
-- **Frontend**: `components/TizenConnectionModal.tsx` -> `io('http://localhost:3003')`.
-- **Electron**: `electron/main.js` -> `mainWindow.loadURL('http://localhost:3003')` (for production/server mode).
+- **Frontend**: `components/TizenConnectionModal.tsx` -> `io('http://127.0.0.1:3003')`.
+- **Electron**: `electron/main.js` -> `mainWindow.loadURL('http://127.0.0.1:3003')` (for production/server mode).
 
 #### 2. Log Visibility (Filter Bypass)
 Simulated logs (e.g., `[TEST_LOG_...]`) might be filtered out if strict "Include/Exclude" rules are active in the `LogProcessor`.

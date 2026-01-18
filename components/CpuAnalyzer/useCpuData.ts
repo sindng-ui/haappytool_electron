@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const URL = 'http://localhost:3003';
+const URL = 'http://127.0.0.1:3003';
 
 export interface ProcessData {
     pid: string;

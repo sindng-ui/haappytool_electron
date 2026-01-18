@@ -10,7 +10,7 @@ interface PipelineEditorProps {
     onRun: () => void;
     hasResults?: boolean;
     onViewResults?: () => void;
-    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string }>;
+    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string, message?: string }>;
 }
 
 // Simple Undo/Redo Hook
@@ -595,7 +595,7 @@ const GraphFlow: React.FC<{
     direction?: 'row' | 'col';
     isNested?: boolean;
     containerId?: string;
-    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string }>;
+    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string, message?: string }>;
 }> = ({ items, blocks, onChange, onDrop, selectedIds, onSelect, editingHintId, onEditHint, onUploadTemplate, direction = 'row', isNested = false, containerId = 'root' }) => {
     const isRow = direction === 'row';
 
@@ -790,7 +790,7 @@ const BlockNode: React.FC<{
     onChange: (item: PipelineItem) => void;
     editingHintId: string | null;
     onEditHint: (id: string | null) => void;
-    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string }>;
+    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string, message?: string }>;
 }> = ({ item, blocks, selected, onChange, editingHintId, onEditHint, onUploadTemplate }) => {
     const block = blocks.find(b => b.id === item.blockId);
     if (!block) return <div className="p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-xl backdrop-blur-md">Unknown</div>;
@@ -900,13 +900,13 @@ const BlockNode: React.FC<{
                             {item.imageTemplateUrl ? (
                                 <div className="relative">
                                     <img
-                                        src={`http://localhost:3003${item.imageTemplateUrl}`}
+                                        src={`http://127.0.0.1:3003${item.imageTemplateUrl}`}
                                         alt="tmpl"
                                         className="w-16 h-8 object-cover rounded border border-emerald-500/50"
                                     />
                                     {/* Hover Zoom */}
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 hidden group-hover/img:block z-[60] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-1 pointer-events-none">
-                                        <img src={`http://localhost:3003${item.imageTemplateUrl}`} alt="preview" className="w-full rounded" />
+                                        <img src={`http://127.0.0.1:3003${item.imageTemplateUrl}`} alt="preview" className="w-full rounded" />
                                     </div>
                                 </div>
                             ) : (
@@ -985,7 +985,7 @@ const LoopNode: React.FC<{
     selected?: boolean;
     editingHintId: string | null;
     onEditHint: (id: string | null) => void;
-    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string }>;
+    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string, message?: string }>;
 }> = ({ item, blocks, onChange, onDrop, selectedIds, onSelect, selected, editingHintId, onEditHint, onUploadTemplate }) => {
     const [isDragOver, setIsDragOver] = useState(false);
 
@@ -1117,7 +1117,7 @@ const ConditionalNode: React.FC<{
     selected?: boolean;
     editingHintId: string | null;
     onEditHint: (id: string | null) => void;
-    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string }>;
+    onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string, message?: string }>;
 }> = ({ item, blocks, onChange, onDrop, selectedIds, onSelect, selected, editingHintId, onEditHint, onUploadTemplate }) => {
     // Drop Handler for "Then" branch (children)
     const handleThenDrop = (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void, targetContainerId?: string) => {

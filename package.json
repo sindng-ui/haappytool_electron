@@ -1,15 +1,15 @@
 {
   "name": "happytool",
   "private": true,
-  "version": "0.9.6.9",
+  "version": "0.9.7",
   "type": "module",
   "homepage": "./",
   "main": "electron/main.js",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -k \"vite\" \"node server/index.cjs\"",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
+    "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:3000 && electron .\"",
     "electron:build": "vite build && electron-builder",
     "test": "vitest"
   },

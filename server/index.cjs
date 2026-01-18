@@ -1417,6 +1417,20 @@ function startServer(userDataPath) {
         }).on('error', (err) => {
             if (err.code === 'EADDRINUSE') {
                 console.log(`Port ${PORT} already in use, assuming server is running.`);
+                // Do not resolve/reject promptly if we want to keep this process 'alive' in concurrently
+                // actually, if we resolve, the script finishes and exits?
+                // No, node process exits if event loop is empty.
+                // If server is NOT listening here, we need to keep event loop alive?
+
+                // Better approach: If port is use, just log and keep running (don't exit)
+                // But if we don't start a server, what keeps this script alive?
+                // We can set an interval or just resolve.
+
+                // Actually, the issue is that if `startServer` resolves, the `node server/index.cjs` script (which calls it) 
+                // reaches end of file and might exit if there are no active handles.
+
+                // Let's create a dummy interval to keep the process alive if port is in use.
+                setInterval(() => { }, 1000000);
                 resolve(server);
             } else {
                 reject(err);

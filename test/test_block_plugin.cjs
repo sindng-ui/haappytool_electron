@@ -2,7 +2,7 @@ const io = require('socket.io-client');
 const assert = require('assert');
 
 // Connect to local server
-const socket = io('http://localhost:3003');
+const socket = io('http://127.0.0.1:3003');
 
 console.log('Connecting to server...');
 

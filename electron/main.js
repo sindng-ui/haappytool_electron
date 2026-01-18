@@ -51,9 +51,9 @@ async function createWindow() {
     const isDev = process.env.NODE_ENV === 'development';
 
     if (isDev) {
-        mainWindow.loadURL('http://localhost:5173');
+        mainWindow.loadURL('http://127.0.0.1:3000');
     } else {
-        mainWindow.loadURL('http://localhost:3003');
+        mainWindow.loadURL('http://127.0.0.1:3003');
     }
 
     // Save state on close

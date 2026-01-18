@@ -23,7 +23,7 @@ const ScreenMatcher: React.FC = () => {
     const [isMatching, setIsMatching] = useState(false);
 
     useEffect(() => {
-        const newSocket = io('http://localhost:3003');
+        const newSocket = io('http://127.0.0.1:3003');
 
         newSocket.on('connect', () => {
             console.log('[ScreenMatcher] Connected to server');
@@ -33,7 +33,7 @@ const ScreenMatcher: React.FC = () => {
             setIsCapturing(false);
             if (data.success && data.path) {
                 // Append timestamp to force reload image if path is same
-                setScreenUrl(`http://localhost:3003${data.path}?t=${Date.now()}`);
+                setScreenUrl(`http://127.0.0.1:3003${data.path}?t=${Date.now()}`);
                 setScreenAbsPath(data.absolutePath || null);
                 setStatus('Screen captured');
                 setMatchResult(null); // Reset previous match
@@ -142,8 +142,8 @@ const ScreenMatcher: React.FC = () => {
                             onClick={handleMatch}
                             disabled={isMatching || !screenUrl || !templateUrl}
                             className={`w-full py-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-all ${isMatching || !screenUrl || !templateUrl
-                                    ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed text-slate-500'
-                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                                ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed text-slate-500'
+                                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
                                 }`}
                         >
                             <Play size={18} />

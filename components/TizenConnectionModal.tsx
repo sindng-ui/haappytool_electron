@@ -75,7 +75,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
 
         if (isOpen) {
             isHandedOver.current = false;
-            newSocket = io('http://localhost:3003');
+            newSocket = io('http://127.0.0.1:3003');
 
             newSocket.on('connect', () => {
                 setStatus('Connected to Local Log Server');

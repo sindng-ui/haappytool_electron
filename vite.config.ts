@@ -8,6 +8,13 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '127.0.0.1',
+      proxy: {
+        '/lm-studio': {
+          target: 'http://localhost:1234/v1',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/lm-studio/, ''),
+        },
+      },
     },
     base: './',
     plugins: [react()],
