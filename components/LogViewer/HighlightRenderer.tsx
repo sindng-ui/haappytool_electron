@@ -28,9 +28,12 @@ export const HighlightRenderer = React.memo(({ text, highlights, caseSensitive =
                 if (!part) return null; // Handle empty parts from split
                 const highlight = highlights?.find(h => caseSensitive ? h.keyword === part : h.keyword.toLowerCase() === part.toLowerCase());
                 if (highlight) {
-                    const isHex = highlight.color.startsWith('#');
-                    const style = isHex ? { backgroundColor: highlight.color } : undefined;
-                    const className = `text-slate-900 rounded-sm px-0.5 font-bold ${!isHex ? highlight.color : ''}`;
+                    // Check if it's a valid CSS color (Hex, RGB, HSL, or named color) 
+                    // Robust check: Starts with #, rgb, hsl OR is a named color (letters only)
+                    const isCssColor = /^(#|rgb|hsl)/i.test(highlight.color.trim()) || (/^[a-z]+$/i.test(highlight.color.trim()) && !highlight.color.startsWith('bg-') && !highlight.color.startsWith('text-'));
+
+                    const style = isCssColor ? { backgroundColor: highlight.color, color: '#0f172a', textShadow: '0 0 1px rgba(255,255,255,0.5)' } : undefined;
+                    const className = `rounded-sm px-0.5 font-bold ${!isCssColor ? highlight.color + ' text-slate-900' : ''}`;
                     return <span key={i} className={className} style={style}>{part}</span>;
                 }
                 return part;

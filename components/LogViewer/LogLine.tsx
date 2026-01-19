@@ -61,13 +61,15 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
         );
     }, [lineHighlights, data, highlightCaseSensitive]);
 
+    const isCssColor = (color: string) => /^(#|rgb|hsl)/i.test(color.trim()) || (/^[a-z]+$/i.test(color.trim()) && !color.startsWith('bg-') && !color.startsWith('text-'));
+
     return (
         <div
             className={`group flex items-center text-xs whitespace-pre cursor-pointer select-text transition-colors duration-75
                 ${(isActive || isSelected)
                     ? 'bg-indigo-500/10 dark:bg-indigo-500/20 font-medium'
                     : matchingHighlight
-                        ? (/^#[0-9A-F]{6}$/i.test(matchingHighlight.color)
+                        ? (isCssColor(matchingHighlight.color)
                             ? ''
                             : `${matchingHighlight.color} bg-opacity-30`) // Use bg-opacity utility
                         : hasBookmark
@@ -85,8 +87,8 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                     ? { backgroundColor: `${customBgStyle}33` } // ~20% opacity 
                     : {}),
 
-                ...(matchingHighlight && /^#[0-9A-F]{6}$/i.test(matchingHighlight.color)
-                    ? { backgroundColor: `${matchingHighlight.color}80` } // 50% alpha hex
+                ...(matchingHighlight && isCssColor(matchingHighlight.color)
+                    ? { backgroundColor: matchingHighlight.color.startsWith('#') ? `${matchingHighlight.color}80` : matchingHighlight.color.replace(')', ', 0.5)').replace('rgb', 'rgba').replace('hsl', 'hsla') } // Attempt to add alpha
                     : {})
             }}
             onClick={(e) => onClick && onClick(index, e)}
@@ -107,15 +109,15 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                     ${isActive
                         ? 'bg-indigo-500/10 dark:bg-indigo-500/20'
                         : matchingHighlight
-                            ? (/^#[0-9A-F]{6}$/i.test(matchingHighlight.color)
+                            ? (isCssColor(matchingHighlight.color)
                                 ? ''
                                 : `${matchingHighlight.color} bg-opacity-30`)
                             : hasBookmark
                                 ? 'bg-yellow-50/50 dark:bg-yellow-500/10 group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'
                                 : 'group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'
                     }`}
-                    style={matchingHighlight && /^#[0-9A-F]{6}$/i.test(matchingHighlight.color)
-                        ? { backgroundColor: `${matchingHighlight.color}33` } // 20% alpha hex
+                    style={matchingHighlight && isCssColor(matchingHighlight.color)
+                        ? { backgroundColor: matchingHighlight.color.startsWith('#') ? `${matchingHighlight.color}33` : matchingHighlight.color.replace(')', ', 0.2)').replace('rgb', 'rgba').replace('hsl', 'hsla') }
                         : {}}
                 />
 

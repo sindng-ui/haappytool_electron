@@ -187,6 +187,81 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const onHighlightJumpLeft = React.useCallback((idx: number) => jumpToHighlight(idx, 'left'), [jumpToHighlight]);
     const onShowBookmarksLeft = React.useCallback(() => setLeftBookmarksOpen(true), []);
 
+    // Helper to generate consistent colors from strings
+    const stringToColor = (str: string): string => {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+
+        // Use consistent Highlighting Colors (avoiding too dark or too light)
+        // We use HSL logic but convert to HEX to avoid CSS parsing issues in some environments/tooling
+        const h = Math.abs(hash % 360);
+        const s = 70 + (Math.abs(hash) % 30); // 70-100%
+        const l = 50 + (Math.abs(hash) % 10); // 50-60% (Keep it in middle range for text contrast)
+
+        // HSL to RGB conversion
+        const c = (1 - Math.abs(2 * l / 100 - 1)) * (s / 100);
+        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        const m = l / 100 - c / 2;
+        let r_ = 0, g_ = 0, b_ = 0;
+
+        if (0 <= h && h < 60) { r_ = c; g_ = x; b_ = 0; }
+        else if (60 <= h && h < 120) { r_ = x; g_ = c; b_ = 0; }
+        else if (120 <= h && h < 180) { r_ = 0; g_ = c; b_ = x; }
+        else if (180 <= h && h < 240) { r_ = 0; g_ = x; b_ = c; }
+        else if (240 <= h && h < 300) { r_ = x; g_ = 0; b_ = c; }
+        else if (300 <= h && h < 360) { r_ = c; g_ = 0; b_ = x; }
+
+        const r = Math.round((r_ + m) * 255).toString(16).padStart(2, '0');
+        const g = Math.round((g_ + m) * 255).toString(16).padStart(2, '0');
+        const b = Math.round((b_ + m) * 255).toString(16).padStart(2, '0');
+
+        return `#${r}${g}${b}`;
+    };
+
+    // Prepare Effective Highlights (Explicit + Auto-generated Highlighting for Happy Combos)
+    const effectiveHighlights = React.useMemo(() => {
+        const baseHighlights = currentConfig?.highlights || [];
+        // Only classify highlights with ACTUAL color as "existing/colliding"
+        // This allows Happy Combo to override a "blank" highlight entry if one exists
+        const validExistingKeywords = new Set(baseHighlights.filter(h => h.color && h.color.trim().length > 0).map(h => h.keyword));
+        const autoHighlights: any[] = [];
+
+        // Collect terms from Happy Groups
+        const termsToHighlight = new Set<string>();
+
+        if (currentConfig?.happyGroups) {
+            currentConfig.happyGroups.forEach(group => {
+                if (group.enabled) {
+                    group.tags.forEach(tag => termsToHighlight.add(tag));
+                }
+            });
+        }
+
+        // Legacy Support
+        if (currentConfig?.includeGroups) {
+            currentConfig.includeGroups.forEach(group => {
+                group.forEach(tag => termsToHighlight.add(tag));
+            });
+        }
+
+        termsToHighlight.forEach(term => {
+            if (term && !validExistingKeywords.has(term)) {
+                const color = stringToColor(term);
+                autoHighlights.push({
+                    id: `auto-${term}`,
+                    keyword: term,
+                    color: color,
+                    lineEffect: false
+                });
+            }
+        });
+
+        // Put Auto Highlights FIRST so they match before any potentially empty/invalid base highlights
+        return [...autoHighlights, ...baseHighlights];
+    }, [currentConfig?.highlights, currentConfig?.happyGroups, currentConfig?.includeGroups]);
+
     // Memoized handlers for Right Pane
     const onLineClickRight = React.useCallback((index: number, isShift?: boolean, isCtrl?: boolean) => handleLineClick('right', index, !!isShift, !!isCtrl), [handleLineClick]);
     const onLineDoubleClickRight = React.useCallback((index: number) => handleLineDoubleClickAction(index, 'right'), [handleLineDoubleClickAction]);
@@ -521,7 +596,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onScrollRequest={requestLeftLines}
                                     absoluteOffset={leftSegmentIndex * MAX_SEGMENT_SIZE}
                                     placeholderText={leftFileName || (isDualView ? "Drag log file here" : "Drop a log file to start")}
-                                    highlights={currentConfig?.highlights}
+                                    highlights={effectiveHighlights}
                                     highlightCaseSensitive={currentConfig?.colorHighlightsCaseSensitive}
                                     onLineClick={onLineClickLeft}
                                     onLineDoubleClick={onLineDoubleClickLeft}
@@ -594,7 +669,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onScrollRequest={requestRightLines}
                                             absoluteOffset={rightSegmentIndex * MAX_SEGMENT_SIZE}
                                             placeholderText={rightFileName || "Drag log file here"}
-                                            highlights={currentConfig?.highlights}
+                                            highlights={effectiveHighlights}
                                             highlightCaseSensitive={currentConfig?.colorHighlightsCaseSensitive}
                                             hotkeyScope="alt"
                                             onLineClick={onLineClickRight}
