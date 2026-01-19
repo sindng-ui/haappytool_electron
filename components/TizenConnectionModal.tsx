@@ -27,18 +27,6 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
 
     // ... (lines 26-98 unchanged)
 
-} else if (mode === 'sdb') {
-    // For SDB, we need to check if device is available? Or just try?
-    // Try connecting to last used device or auto-detect
-    newSocket?.emit('connect_sdb', {
-        deviceId: selectedDeviceId,
-        debug: debugMode,
-        saveToFile: saveToFile,
-        command: logCommand
-    });
-} else {
-    // If mock or unknown, just open normally
-
     // SSH State
     const [sshHost, setSshHost] = useState(() => localStorage.getItem('sshHost') || '');
     const [sshPort, setSshPort] = useState(() => localStorage.getItem('sshPort') || '22');
@@ -115,7 +103,12 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                         } else if (mode === 'sdb') {
                             // For SDB, we need to check if device is available? Or just try?
                             // Try connecting to last used device or auto-detect
-                            newSocket?.emit('connect_sdb', { deviceId: selectedDeviceId, debug: debugMode, saveToFile: saveToFile });
+                            newSocket?.emit('connect_sdb', {
+                                deviceId: selectedDeviceId,
+                                debug: debugMode,
+                                saveToFile: saveToFile,
+                                command: logCommand
+                            });
                         } else {
                             // If mock or unknown, just open normally
                             onClose(); // Failed/Cancelled
@@ -312,8 +305,17 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                 </div>
 
                 <div className="p-6">
-                    {/* Mode Selection */}
-                    {!effectiveIsConnected && (
+                    {/* Quick Connect Overlay */}
+                    {isQuickConnect && (
+                        <div className="flex flex-col items-center justify-center py-10 space-y-4">
+                            <RefreshCw size={48} className="text-indigo-500 animate-spin" />
+                            <div className="text-lg font-bold text-slate-200">Connecting...</div>
+                            <div className="text-sm text-slate-400">{status}</div>
+                        </div>
+                    )}
+
+                    {/* Mode Selection - Hide if Quick Connect */}
+                    {!effectiveIsConnected && !isQuickConnect && (
                         <div className="flex gap-4 mb-6">
                             <button
                                 onClick={() => setMode('sdb')}
@@ -340,7 +342,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                     )}
 
                     {/* SDB Form */}
-                    {mode === 'sdb' && !effectiveIsConnected && (
+                    {mode === 'sdb' && !effectiveIsConnected && !isQuickConnect && (
                         <div className="space-y-4">
                             <div className="flex justify-between items-end">
                                 <label className="text-xs font-bold text-slate-400 uppercase">Device</label>
@@ -362,7 +364,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                     )}
 
                     {/* SSH Form */}
-                    {mode === 'ssh' && !effectiveIsConnected && (
+                    {mode === 'ssh' && !effectiveIsConnected && !isQuickConnect && (
                         <div className="space-y-4">
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="col-span-2">
@@ -388,7 +390,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                     )}
 
                     {/* Test Simulation Form */}
-                    {mode === 'test' && !effectiveIsConnected && (
+                    {mode === 'test' && !effectiveIsConnected && !isQuickConnect && (
                         <div className="p-4 bg-slate-800/50 rounded-xl border border-dashed border-slate-700 text-center">
                             <h3 className="text-indigo-300 font-bold mb-2">Test Infinite Scroll</h3>
                             <p className="text-xs text-slate-400 mb-4">
