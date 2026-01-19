@@ -46,14 +46,18 @@ const JsonTableViewer: React.FC<JsonTableProps> = ({ data, name, isRoot = false,
 
     const Content = (
         <div className="border border-slate-200 dark:border-slate-700 rounded overflow-hidden bg-white dark:bg-slate-900/50">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse table-fixed">
+                <colgroup>
+                    <col className="w-auto" />
+                    <col className="w-full" />
+                </colgroup>
                 <tbody>
                     {keys.map((key) => (
                         <tr key={key} className="border-b last:border-0 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                            <td className="w-1/3 p-2 text-xs font-semibold text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800 align-top select-text">
+                            <td className="whitespace-nowrap py-1 px-2 text-xs font-semibold text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800 align-top select-text">
                                 {key}
                             </td>
-                            <td className="p-2 text-xs align-top select-text">
+                            <td className="py-1 px-2 text-xs align-top select-text break-all">
                                 <JsonTableViewer data={data[key]} name={key} depth={depth + 1} />
                             </td>
                         </tr>
@@ -64,7 +68,7 @@ const JsonTableViewer: React.FC<JsonTableProps> = ({ data, name, isRoot = false,
     );
 
     if (isRoot) {
-        return <div className="p-4">{Content}</div>;
+        return <div className="p-2">{Content}</div>;
     }
 
     return (

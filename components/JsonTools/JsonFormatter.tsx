@@ -220,6 +220,7 @@ interface JsonFormatterProps {
     search?: string;
     expandLevel?: number; // Not used yet but requested
     fontSize?: number; // Not used yet
+    triggerNext?: number; // Increment to trigger next result
 }
 
 // --- Flattened Row Component ---
@@ -281,7 +282,7 @@ const JsonFormatterRow = React.memo(({ index, item, isMatch, toggleExpand }: Jso
 });
 JsonFormatterRow.displayName = 'JsonFormatterRow';
 
-const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search }) => {
+const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext }) => {
     const [input, setInput] = useState('');
     const [parsedData, setParsedData] = useState<any>(null);
     const [formattedString, setFormattedString] = useState('');
@@ -308,6 +309,13 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search }) => {
     const [searchResults, setSearchResults] = useState<string[]>([]);
     const [currentResultIndex, setCurrentResultIndex] = useState(-1);
     const [isSearching, setIsSearching] = useState(false);
+
+    // Watch for external trigger
+    useEffect(() => {
+        if (data !== undefined && searchQuery && searchResults.length > 0) {
+            nextResult();
+        }
+    }, [triggerNext]);
 
     // Sync Search Prop
     useEffect(() => {

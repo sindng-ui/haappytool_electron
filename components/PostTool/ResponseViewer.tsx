@@ -17,6 +17,8 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
     const [parsedJson, setParsedJson] = useState<any>(null);
     const [isJson, setIsJson] = useState(false);
 
+    const [triggerNext, setTriggerNext] = useState(0);
+
     // Raw Search
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -38,6 +40,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
             setIsJson(seemsJson);
             setViewMode('raw');
             setSearchText('');
+            setTriggerNext(0);
         } else {
             setParsedJson(null);
             setIsJson(false);
@@ -178,7 +181,15 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                                     placeholder={viewMode === 'pretty' ? "Search JSON..." : "Search text..."}
                                     value={searchText}
                                     onChange={(e) => setSearchText(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && viewMode === 'raw') handleRawSearch('next'); }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            if (viewMode === 'raw') {
+                                                handleRawSearch('next');
+                                            } else if (viewMode === 'pretty') {
+                                                setTriggerNext(n => n + 1);
+                                            }
+                                        }
+                                    }}
                                     disabled={viewMode === 'preview'}
                                     className="w-full pl-8 pr-3 py-1 text-xs bg-white dark:bg-slate-800 border-none rounded-md focus:ring-1 focus:ring-indigo-500 placeholder-slate-400 text-slate-700 dark:text-slate-300 shadow-sm disabled:opacity-50"
                                 />
@@ -210,6 +221,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                                 <JsonFormatter
                                     data={parsedJson}
                                     search={searchText}
+                                    triggerNext={triggerNext}
                                     expandLevel={2}
                                     fontSize={12}
                                 />
