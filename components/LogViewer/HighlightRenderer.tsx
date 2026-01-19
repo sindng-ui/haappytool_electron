@@ -8,17 +8,22 @@ interface HighlightRendererProps {
 }
 
 export const HighlightRenderer = React.memo(({ text, highlights, caseSensitive = false }: HighlightRendererProps) => {
-    const parts = useMemo(() => {
-        if (!highlights || highlights.length === 0) return null;
+    const { pattern, sortedHighlights } = useMemo(() => {
+        if (!highlights || highlights.length === 0) return { pattern: null, sortedHighlights: [] };
         const validHighlights = highlights.filter(h => h.keyword.trim() !== '');
-        if (validHighlights.length === 0) return null;
+        if (validHighlights.length === 0) return { pattern: null, sortedHighlights: [] };
 
         const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         // Sort by length descending to match longest keywords first
-        const sortedHighlights = [...validHighlights].sort((a, b) => b.keyword.length - a.keyword.length);
-        const pattern = new RegExp(`(${sortedHighlights.map(h => escapeRegExp(h.keyword)).join('|')})`, caseSensitive ? 'g' : 'gi');
+        const sorted = [...validHighlights].sort((a, b) => b.keyword.length - a.keyword.length);
+        const regex = new RegExp(`(${sorted.map(h => escapeRegExp(h.keyword)).join('|')})`, caseSensitive ? 'g' : 'gi');
+        return { pattern: regex, sortedHighlights: sorted };
+    }, [highlights, caseSensitive]);
+
+    const parts = useMemo(() => {
+        if (!pattern) return null;
         return text.split(pattern);
-    }, [text, highlights, caseSensitive]);
+    }, [text, pattern]);
 
     if (!parts) return <>{text}</>;
 
@@ -26,7 +31,7 @@ export const HighlightRenderer = React.memo(({ text, highlights, caseSensitive =
         <>
             {parts.map((part, i) => {
                 if (!part) return null; // Handle empty parts from split
-                const highlight = highlights?.find(h => caseSensitive ? h.keyword === part : h.keyword.toLowerCase() === part.toLowerCase());
+                const highlight = sortedHighlights?.find(h => caseSensitive ? h.keyword === part : h.keyword.toLowerCase() === part.toLowerCase());
                 if (highlight) {
                     // Check if it's a valid CSS color (Hex, RGB, HSL, or named color) 
                     // Robust check: Starts with #, rgb, hsl OR is a named color (letters only)
