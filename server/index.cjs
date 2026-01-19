@@ -314,41 +314,24 @@ io.on('connection', (socket) => {
     // --- SDB Handler ---
     // ...
 
-    socket.on('connect_sdb', ({ deviceId, debug, saveToFile }) => {
+    socket.on('connect_sdb', ({ deviceId, debug, saveToFile, command }) => {
         if (sdbProcess) {
             sdbProcess.kill();
             sdbProcess = null;
         }
-        if (debugStream) {
-            debugStream.end();
-            debugStream = null;
-        }
-        if (logFileStream) {
-            logFileStream.end();
-            logFileStream = null;
-        }
 
-        if (saveToFile) {
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const fileName = `sdb_${timestamp}.txt`;
-            const filePath = path.join(process.cwd(), fileName);
-            logFileStream = fs.createWriteStream(filePath, { flags: 'a' });
-            console.log(`[SDB] Saving logs to ${filePath}`);
-            socket.emit('log_data', `[System] Saving logs to file: ${fileName}\n`);
-        }
-
-        if (debug) {
-            // ...
-            const fileName = `tizen_debug_sdb_${Date.now()}.log`;
-            debugStream = fs.createWriteStream(path.join(__dirname, fileName), { flags: 'a' });
-            logDebug(`Starting SDB Shell to ${deviceId || 'default'}`);
-            socket.emit('debug_log', `Debug logging started: ${fileName}`);
-        }
-
-        // ...
+        // ... (lines 322-348 unchanged)
 
         // Defined args for sdb log stream (e.g. dlog -v threadtime)
-        const args = ['-s', deviceId || 'default', 'shell', 'dlog', '-v', 'threadtime'];
+        // If command is provided, split it by space. Otherwise default.
+        let args = ['-s', deviceId || 'default', 'shell'];
+        if (command && typeof command === 'string' && command.trim().length > 0) {
+            console.log(`[SDB] Using custom command: ${command}`);
+            const cmdParts = command.trim().split(/\s+/);
+            args.push(...cmdParts);
+        } else {
+            args.push('dlog', '-v', 'threadtime');
+        }
 
         try {
             sdbProcess = spawn('sdb', args);
@@ -412,6 +395,48 @@ io.on('connection', (socket) => {
         // ...
         // ...
         if (logFileStream) { logFileStream.end(); logFileStream = null; }
+    });
+
+    socket.on('connect_sdb_remote', async ({ ip }) => {
+        console.log(`[SDB Remote] Connecting to ${ip}...`);
+        try {
+            // 1. sdb disconnect
+            await new Promise((resolve) => {
+                const child = spawn('sdb', ['disconnect']);
+                child.on('close', resolve);
+            });
+
+            // 2. sdb connect IP
+            await new Promise((resolve, reject) => {
+                const child = spawn('sdb', ['connect', ip]);
+                child.on('close', (code) => {
+                    if (code === 0) resolve();
+                    else reject(new Error(`Connect failed with code ${code}`));
+                });
+            });
+
+            // 3. sdb root on
+            await new Promise((resolve) => {
+                const child = spawn('sdb', ['root', 'on']);
+                child.on('close', resolve);
+            });
+
+            socket.emit('sdb_remote_result', { success: true, message: 'Connected and Rooted' });
+
+            // Refresh list
+            const listChild = spawn('sdb', ['devices']);
+            let listData = '';
+            listChild.stdout.on('data', d => listData += d.toString());
+            listChild.on('close', () => {
+                // simple parse or just trigger existing list logic?
+                // Let's just emit list_sdb_devices_result if we want, or rely on client to refresh
+                // But client logic refreshes on success probably.   
+            });
+
+        } catch (e) {
+            console.error(`[SDB Remote] Error: ${e.message}`);
+            socket.emit('sdb_remote_result', { success: false, error: e.message });
+        }
     });
 
 

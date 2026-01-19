@@ -540,6 +540,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             <input type="file" ref={leftFileInputRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleLeftFileChange(e.target.files[0]); e.target.value = ''; } }} />
             <input type="file" ref={rightFileInputRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleRightFileChange(e.target.files[0]); e.target.value = ''; } }} />
 
+            {/* Tizen Connection Modal */}
             <TizenConnectionModal
                 isOpen={isTizenModalOpen}
                 onClose={() => setIsTizenModalOpen(false)}
@@ -547,7 +548,16 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 isConnected={!!tizenSocket}
                 onDisconnect={handleTizenDisconnect}
                 currentConnectionInfo={leftFileName}
-                isQuickConnect={isTizenQuickConnect} // Pass Quick Connect prop
+                isQuickConnect={isTizenQuickConnect}
+                logCommand={(() => {
+                    const config = currentConfig;
+                    let cmd = config?.logCommand || 'dlog -v threadtime';
+                    if (cmd.includes('$(TAGS)')) {
+                        const tags = config?.logTags?.join(',') || '';
+                        cmd = cmd.replace('$(TAGS)', tags);
+                    }
+                    return cmd;
+                })()}
             />
 
 

@@ -686,9 +686,30 @@ export const useLogExtractorLogic = ({
 
         setConnectionMode(mode === 'test' ? null : mode as 'sdb' | 'ssh');
         // Reset logging state on new connection
-        setIsLogging(false);
+        setIsLogging(true);
 
         leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM' });
+
+        // FIX: For SSH specific, we need to manually send the log command to start streaming.
+        // SDB handles this on server side 'spawn', but SSH is just a shell.
+        if (mode === 'ssh') {
+            // Find current rule config to get custom command if any
+            const config = rules.find(r => r.id === selectedRuleId);
+            let cmd = config?.logCommand || 'dlog -v threadtime';
+
+            // Handle $(TAGS) replacement
+            if (cmd.includes('$(TAGS)')) {
+                const tags = config?.logTags?.join(',') || '';
+                cmd = cmd.replace('$(TAGS)', tags);
+            }
+
+            console.log('[useLog] SSH Connected. Auto-sending command:', cmd);
+
+            // Small delay to ensure shell stream is ready
+            setTimeout(() => {
+                socket.emit('ssh_write', cmd + '\n');
+            }, 500);
+        }
 
         // Apply current filter immediately to the worker
         const config = rules.find(r => r.id === selectedRuleId);

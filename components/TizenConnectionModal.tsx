@@ -10,6 +10,7 @@ interface TizenConnectionModalProps {
     onDisconnect?: () => void;
     currentConnectionInfo?: string | null;
     isQuickConnect?: boolean; // New prop
+    logCommand?: string; // New prop for custom SDB command
 }
 
 const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
@@ -17,11 +18,26 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
     isConnected: isExternalConnected,
     onDisconnect: onExternalDisconnect,
     currentConnectionInfo,
-    isQuickConnect
+    isQuickConnect,
+    logCommand
 }) => {
     // Persist last used mode
     const [mode, setMode] = useState<'ssh' | 'sdb' | 'test'>(() => (localStorage.getItem('lastConnectionMode') as any) || 'sdb');
     const [socket, setSocket] = useState<Socket | null>(null);
+
+    // ... (lines 26-98 unchanged)
+
+} else if (mode === 'sdb') {
+    // For SDB, we need to check if device is available? Or just try?
+    // Try connecting to last used device or auto-detect
+    newSocket?.emit('connect_sdb', {
+        deviceId: selectedDeviceId,
+        debug: debugMode,
+        saveToFile: saveToFile,
+        command: logCommand
+    });
+} else {
+    // If mock or unknown, just open normally
 
     // SSH State
     const [sshHost, setSshHost] = useState(() => localStorage.getItem('sshHost') || '');
@@ -255,7 +271,12 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
             onStreamStart(socket, `SSH:${sshHost}`, 'ssh', saveToFile);
             onClose();
         } else {
-            socket.emit('connect_sdb', { deviceId: selectedDeviceId, debug: debugMode, saveToFile: saveToFile });
+            socket.emit('connect_sdb', {
+                deviceId: selectedDeviceId,
+                debug: debugMode,
+                saveToFile: saveToFile,
+                command: logCommand
+            });
         }
     };
 
