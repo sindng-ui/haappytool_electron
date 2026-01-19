@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useHappyTool } from '../../contexts/HappyToolContext';
 import * as Lucide from 'lucide-react';
+import { db, ChatSession } from './db'; // Import DB
 
 const { Send, Bot, User, Trash2, StopCircle, RefreshCw, Copy, Check, Settings, X, Save, Plus, Paperclip, FileText, History, Download, AlignJustify, Edit2, ChevronRight } = Lucide;
 
@@ -25,13 +26,12 @@ interface SystemPrompt {
     content: string;
 }
 
-interface ChatSession {
-    id: string;
-    title: string;
-    messages: Message[];
-    activePromptId: string;
-    lastUpdated: number;
-}
+// Interface moved to db.ts, but we keep Message for local type usage if needed, 
+// strictly speaking we should import it or keep it compatible.
+// The db.ts defines ChatSession with inline messages type.
+// Let's rely on db.ts types or ensure compatibility.
+// We will remove ChatSession interface definition here to avoid conflict if I export it from db.ts
+// But wait, line 7-10 defines Message.
 
 const SUPPORTED_LANGUAGES = [
     { code: 'ko', name: '한국어' },
@@ -362,14 +362,13 @@ const CollapsibleText: React.FC<{ text: string }> = React.memo(({ text }) => {
 }); // End of CollapsibleText
 
 const AiAssistant: React.FC = () => {
-    const [sessions, setSessions] = useState<ChatSession[]>([
-        { id: 'default', title: 'New Chat', messages: [], activePromptId: 'default', lastUpdated: Date.now() }
-    ]);
+    const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [activeSessionId, setActiveSessionId] = useState<string>('default');
+    const [isDbLoaded, setIsDbLoaded] = useState(false);
 
     const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
-    const messages = activeSession.messages;
-    const activePromptId = activeSession.activePromptId;
+    const messages = activeSession?.messages || [];
+    const activePromptId = activeSession?.activePromptId || 'default';
 
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -413,6 +412,19 @@ const AiAssistant: React.FC = () => {
     const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
     const [editSessionTitle, setEditSessionTitle] = useState('');
 
+    // Load Sessions Helper
+    const loadSessions = async () => {
+        const all = await db.sessions.orderBy('lastUpdated').reverse().toArray();
+        if (all.length === 0) {
+            // Create default if empty
+            const def: ChatSession = { id: 'default', title: 'New Chat', messages: [], activePromptId: 'default', lastUpdated: Date.now() };
+            await db.sessions.add(def);
+            setSessions([def]);
+        } else {
+            setSessions(all);
+        }
+    };
+
     // ... (useEffect hooks)
 
     const handleStop = () => {
@@ -445,12 +457,13 @@ const AiAssistant: React.FC = () => {
             return;
         }
 
-        setSessions(prev => prev.map(s => {
-            if (s.id === id) {
-                return { ...s, title: editSessionTitle.trim(), lastUpdated: Date.now() };
-            }
-            return s;
-        }));
+        if (!editSessionTitle.trim()) {
+            setEditingSessionId(null);
+            return;
+        }
+
+        db.sessions.update(id, { title: editSessionTitle.trim(), lastUpdated: Date.now() })
+            .then(loadSessions);
         setEditingSessionId(null);
     };
 
@@ -489,18 +502,36 @@ const AiAssistant: React.FC = () => {
         }
 
         // Load sessions
-        const savedSessions = localStorage.getItem('ai_assistant_sessions');
-        const savedActiveSessionId = localStorage.getItem('ai_assistant_active_session_id');
+        // MIGRATION & INIT Logic
+        const initFn = async () => {
+            // Migration
+            const savedSessions = localStorage.getItem('ai_assistant_sessions');
+            if (savedSessions) {
+                try {
+                    const parsed = JSON.parse(savedSessions);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        // Check if DB is already populated to avoid double migration? 
+                        // Or just overwrite/merge. Let's assume if DB is empty we migrate.
+                        const count = await db.sessions.count();
+                        if (count === 0) {
+                            await db.sessions.bulkPut(parsed);
+                            console.log("Migrated sessions to IndexedDB");
+                        }
+                    }
+                } catch (e) { console.error("Migration failed", e); }
+                // Clear localStorage to free up space
+                localStorage.removeItem('ai_assistant_sessions');
+            }
 
-        if (savedSessions) {
-            try {
-                const parsed = JSON.parse(savedSessions);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    setSessions(parsed);
-                }
-            } catch (e) { console.error("Failed to parse sessions", e); }
-        }
-        if (savedActiveSessionId) setActiveSessionId(savedActiveSessionId);
+            await loadSessions();
+
+            const savedActiveSessionId = localStorage.getItem('ai_assistant_active_session_id');
+            if (savedActiveSessionId) setActiveSessionId(savedActiveSessionId);
+
+            setIsDbLoaded(true);
+        };
+
+        initFn();
 
         // Load history and settings
         const savedHistory = localStorage.getItem('ai_assistant_history');
@@ -528,9 +559,8 @@ const AiAssistant: React.FC = () => {
     // Save sessions whenever they change
     useEffect(() => {
         if (!isLoaded) return;
-        localStorage.setItem('ai_assistant_sessions', JSON.stringify(sessions));
         localStorage.setItem('ai_assistant_active_session_id', activeSessionId);
-    }, [sessions, activeSessionId, isLoaded]);
+    }, [activeSessionId, isLoaded]);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -547,7 +577,7 @@ const AiAssistant: React.FC = () => {
             activePromptId: 'default',
             lastUpdated: Date.now()
         };
-        setSessions(prev => [newSession, ...prev]);
+        db.sessions.add(newSession).then(loadSessions);
         setActiveSessionId(newId);
     };
 
@@ -558,25 +588,42 @@ const AiAssistant: React.FC = () => {
             return;
         }
         if (confirm("Delete this chat?")) {
-            setSessions(prev => {
-                const updated = prev.filter(s => s.id !== id);
-                if (activeSessionId === id) {
-                    setActiveSessionId(updated[0].id);
-                }
-                return updated;
+            // Calculate next active session manually if deleting active
+            let nextId = activeSessionId;
+            if (activeSessionId === id && sessions.length > 1) {
+                // Find index
+                const idx = sessions.findIndex(s => s.id === id);
+                // Try next, or prev
+                const nextS = sessions[idx + 1] || sessions[idx - 1];
+                if (nextS) nextId = nextS.id;
+            }
+
+            db.sessions.delete(id).then(() => {
+                loadSessions();
+                if (activeSessionId === id) setActiveSessionId(nextId);
             });
         }
     };
 
-    const updateActiveSession = (update: Partial<ChatSession> | ((prev: ChatSession) => Partial<ChatSession>)) => {
-        setSessions(prev => prev.map(s => {
-            if (s.id === activeSessionId) {
-                const newValues = typeof update === 'function' ? update(s) : update;
-                return { ...s, ...newValues, lastUpdated: Date.now() };
-            }
-            return s;
-        }));
+
+    const updateActiveSession = async (update: Partial<ChatSession> | ((prev: ChatSession) => Partial<ChatSession>)) => {
+        setSessions(prevSessions => {
+            const idx = prevSessions.findIndex(s => s.id === activeSessionId);
+            if (idx === -1) return prevSessions;
+
+            const current = prevSessions[idx];
+            const newValues = typeof update === 'function' ? update(current) : update;
+            const updatedSession = { ...current, ...newValues, lastUpdated: Date.now() };
+
+            // Fire-and-forget DB update to ensure sync
+            db.sessions.put(updatedSession).catch(err => console.error("DB Update Failed", err));
+
+            const newSessions = [...prevSessions];
+            newSessions[idx] = updatedSession;
+            return newSessions;
+        });
     };
+
 
     // Resize handlers
     const sidebarRef = useRef<HTMLDivElement>(null);
