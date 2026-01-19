@@ -229,7 +229,15 @@ io.on('connection', (socket) => {
         }
 
         const conn = new Client();
-        conn.on('ready', () => {
+        conn.on('keyboard-interactive', (name, instructions, instructionsLang, prompts, finish) => {
+            console.log('[SSH] Keyboard-Interactive Auth Requested');
+            // If prompts exist, respond with password for each
+            if (prompts.length > 0 && password) {
+                finish([password]);
+            } else {
+                finish([]);
+            }
+        }).on('ready', () => {
             conn.shell((err, stream) => {
                 if (err) {
                     socket.emit('ssh_error', { message: `Shell Error: ${err.message}` });
@@ -274,6 +282,7 @@ io.on('connection', (socket) => {
             port: parseInt(port, 10),
             username,
             password,
+            tryKeyboard: true,
             readyTimeout: 20000,
             keepaliveInterval: 10000
         });
