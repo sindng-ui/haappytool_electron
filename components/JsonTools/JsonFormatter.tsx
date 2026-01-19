@@ -1,5 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as Lucide from 'lucide-react';
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
+
+interface FlattenedNode {
+    id: string;
+    key: string;
+    value: any;
+    level: number;
+    isExpanded: boolean;
+    hasChildren: boolean;
+    parentKeyPath: string; // "key1.key2"
+    path: string[];
+}
 
 const { Trash2, AlignLeft, Minimize2, CheckCircle, AlertCircle, Copy, FileJson, PlusSquare, MinusSquare, ChevronDown, ChevronRight, Search, ArrowUp, ArrowDown } = Lucide;
 import { useToast } from '../../contexts/ToastContext';
@@ -101,118 +113,7 @@ const JsonNode: React.FC<JsonNodeProps> = ({ keyName, value, isLast, level, init
 
 // --- Main Formatter Component ---
 
-// --- Flattening Logic for Virtualization ---
-
-interface FlattenedNode {
-    id: string;
-    key: string;
-    value: any;
-    level: number;
-    isExpanded: boolean;
-    hasChildren: boolean;
-    parentKeyPath: string; // "key1.key2"
-    path: string[];
-}
-
-import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
-
-// ... (imports remain)
-
-// Remove List and AutoSizer imports/definitions
-
-// ...
-
-// Row Renderer for Virtuoso
-
-
-// Optimized Flattener
-const createFlattenedData = (data: any, expandedPaths: Set<string>): FlattenedNode[] => {
-    // ... (no changes to createFlattenedData)
-    const results: FlattenedNode[] = [];
-
-    const traverse = (node: any, level: number, path: string[]) => {
-        const pathStr = path.join('.');
-
-        // This is a simplified traversal that assumes we're rendering `node` itself? 
-        // No, usually we iterate keys.
-
-        // The Root is special.
-        if (level === 0) {
-            // We treat the top level object as the container
-            if (node !== null && typeof node === 'object') {
-                Object.keys(node).forEach((key, idx, arr) => {
-                    const val = node[key];
-                    const isObj = val !== null && typeof val === 'object';
-                    const hasChildren = isObj && Object.keys(val).length > 0;
-                    const currentPath = [...path, key];
-                    const currentPathStr = currentPath.join('.');
-                    const isExpanded = expandedPaths.has(currentPathStr);
-
-                    results.push({
-                        id: currentPathStr,
-                        key: key,
-                        value: val,
-                        level,
-                        isExpanded,
-                        hasChildren,
-                        parentKeyPath: pathStr,
-                        path: currentPath
-                    });
-
-                    if (isExpanded && hasChildren) {
-                        traverse(val, level + 1, currentPath);
-                    }
-                });
-            }
-        } else {
-            // For nested objects/arrays
-            if (node !== null && typeof node === 'object') {
-                Object.keys(node).forEach((key) => {
-                    const val = node[key];
-                    const isObj = val !== null && typeof val === 'object';
-                    const hasChildren = isObj && Object.keys(val).length > 0;
-                    const currentPath = [...path, key];
-                    const currentPathStr = currentPath.join('.');
-                    const isExpanded = expandedPaths.has(currentPathStr);
-
-                    results.push({
-                        id: currentPathStr,
-                        key: key,
-                        value: val,
-                        level,
-                        isExpanded,
-                        hasChildren,
-                        parentKeyPath: pathStr,
-                        path: currentPath
-                    });
-
-                    if (isExpanded && hasChildren) {
-                        traverse(val, level + 1, currentPath);
-                    }
-                });
-            }
-        }
-    };
-
-    // Special handling for Root:
-    // If root is object, we start traversal inside it.
-    // If root is string/number, we just make one node.
-    if (data !== null && typeof data === 'object') {
-        // We actually want to show the brace if it's the root? 
-        // The original formatter showed "root" keys.
-        // Let's simulate the previous recursive structure but linearly.
-
-        // BUT, recreating the array on every toggle is expensive for huge JSON.
-        // However, it's MUCH cheaper than rendering 10,000 DOM nodes.
-        // For 100k nodes, creating an array of 100k objects takes ~10-20ms. 
-        // Rendering them takes seconds. So this is the right tradeoff.
-
-        // Root Wrapper (Virtual) - actually we skip root wrapper and just show keys
-        traverse(data, 0, []);
-    }
-
-    return results;
-};
+// Local Flattening Removed - Moved to Worker
 
 
 interface JsonFormatterProps {
@@ -367,15 +268,30 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
                     const initialPaths = new Set<string>();
                     setExpandedPaths(initialPaths);
 
-                    // Trigger calc
-                    const items = createFlattenedData(payload.data, initialPaths);
-                    setFlattenedItems(items);
+                    // Trigger calc via worker
+                    // Note: 'payload.data' is already cached in parsing flow, but let's be explicit if needed.
+                    // Actually PARSE_AND_FORMAT updates cache.
+                    workerRef.current?.postMessage({
+                        type: 'FLATTEN',
+                        payload: { expandedPaths: Array.from(initialPaths) }
+                    });
+
                     setSearchResults([]);
                     setCurrentResultIndex(-1);
 
                 } else if (requestId === 'minify') {
                     copyToClipboard(payload);
                 }
+            } else if (type === 'SET_DATA_SUCCESS') {
+                // Data set, request initial flatten
+                const initialPaths = new Set<string>();
+                setExpandedPaths(initialPaths);
+                workerRef.current?.postMessage({
+                    type: 'FLATTEN',
+                    payload: { expandedPaths: [] }
+                });
+            } else if (type === 'FLATTEN_SUCCESS') {
+                setFlattenedItems(payload); // payload is FlattenedNode[]
             }
         };
 
@@ -407,11 +323,11 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
             setValid(true);
             setError(null);
 
-            // Generate flattened items immediately
-            const initialPaths = new Set<string>();
-            setExpandedPaths(initialPaths);
-            const items = createFlattenedData(data, initialPaths);
-            setFlattenedItems(items);
+            // Send data to worker
+            workerRef.current?.postMessage({
+                type: 'SET_DATA',
+                payload: data
+            });
         }
     }, [data]);
 
@@ -425,13 +341,17 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
         }
         setExpandedPaths(newSet);
 
-        if (parsedData) {
-            setFlattenedItems(createFlattenedData(parsedData, newSet));
-        }
+        workerRef.current?.postMessage({
+            type: 'FLATTEN',
+            payload: { expandedPaths: Array.from(newSet) }
+        });
     };
 
     // Batch Expand/Collapse
     const expandAll = () => {
+        // Recursive expansion needs data access. 
+        // Only worker has data now efficiently or we use parsedData?
+        // We have parsedData locally too.
         if (!parsedData) return;
         const newSet = new Set<string>();
         const traverseAdd = (node: any, path: string[], depth: number) => {
@@ -447,12 +367,19 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
         };
         traverseAdd(parsedData, [], 0);
         setExpandedPaths(newSet);
-        setFlattenedItems(createFlattenedData(parsedData, newSet));
+
+        workerRef.current?.postMessage({
+            type: 'FLATTEN',
+            payload: { expandedPaths: Array.from(newSet) }
+        });
     };
 
     const collapseAll = () => {
         setExpandedPaths(new Set());
-        if (parsedData) setFlattenedItems(createFlattenedData(parsedData, new Set()));
+        workerRef.current?.postMessage({
+            type: 'FLATTEN',
+            payload: { expandedPaths: [] }
+        });
     };
 
     const copyToClipboard = (text: string) => {
@@ -508,6 +435,19 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
         });
     };
 
+    const pendingJumpRef = useRef<string | null>(null);
+
+    // Scroll to pending jump target when items update
+    useEffect(() => {
+        if (pendingJumpRef.current && flattenedItems.length > 0) {
+            const index = flattenedItems.findIndex(item => item.id === pendingJumpRef.current);
+            if (index !== -1 && virtuosoRef.current) {
+                virtuosoRef.current.scrollToIndex({ index, align: 'center' });
+                pendingJumpRef.current = null;
+            }
+        }
+    }, [flattenedItems]);
+
     const jumpToResult = (pathStr: string) => {
         const parts = pathStr.split('.');
         if (parts.length === 0) return;
@@ -526,16 +466,12 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
 
         if (changed) {
             setExpandedPaths(newSet);
-            const newItems = createFlattenedData(parsedData, newSet);
-            setFlattenedItems(newItems);
-
-            // Defer scroll to allow render
-            setTimeout(() => {
-                const index = newItems.findIndex(item => item.id === pathStr);
-                if (index !== -1 && virtuosoRef.current) {
-                    virtuosoRef.current.scrollToIndex({ index, align: 'center' });
-                }
-            }, 50);
+            // Request Flatten logic from worker
+            pendingJumpRef.current = pathStr;
+            workerRef.current?.postMessage({
+                type: 'FLATTEN',
+                payload: { expandedPaths: Array.from(newSet) }
+            });
         } else {
             const index = flattenedItems.findIndex(item => item.id === pathStr);
             if (index !== -1 && virtuosoRef.current) {
