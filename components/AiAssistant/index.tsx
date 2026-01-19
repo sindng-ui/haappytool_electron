@@ -824,8 +824,10 @@ const AiAssistant: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchModels();
-    }, []);
+        if (isLoaded) {
+            fetchModels();
+        }
+    }, [isLoaded]);
 
     const handleSubmit = async (e?: React.FormEvent) => {
         e?.preventDefault();
