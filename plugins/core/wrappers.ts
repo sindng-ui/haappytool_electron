@@ -11,7 +11,7 @@ const SmartThingsDevicesPane = React.lazy(() => import('../../components/SmartTh
 const ReverseEngineer = React.lazy(() => import('../../components/ReverseEngineer'));
 import { ToolId } from '../../types';
 
-const { FileText, Send, Braces, Archive, Smartphone, Pickaxe } = Lucide;
+const { FileText, Send, Braces, Archive, Smartphone, Pickaxe, Workflow, Activity } = Lucide;
 
 export const LogExtractorPlugin: HappyPlugin = {
     id: ToolId.LOG_EXTRACTOR,
@@ -72,7 +72,7 @@ export const BlockTestPlugin: HappyPlugin = {
     order: 3,
 };
 const EasyUML = React.lazy(() => import('../../components/EasyUML'));
-const { Activity } = Lucide;
+// Activity already destructured at top
 
 export const EasyUMLPlugin: HappyPlugin = {
     id: ToolId.EASY_UML,
@@ -124,4 +124,15 @@ export const AiAssistantPlugin: HappyPlugin = {
     icon: Bot,
     component: AiAssistant,
     order: 12,
+};
+
+const RxFlowVisualizer = React.lazy(() => import('../../components/RxFlow'));
+// const { Workflow } = Lucide; // Removed duplicate
+
+export const RxFlowVisualizerPlugin: HappyPlugin = {
+    id: ToolId.RXFLOW_VISUALIZER,
+    name: 'RxFlow Visualizer',
+    icon: Activity,
+    component: RxFlowVisualizer,
+    order: 13,
 };

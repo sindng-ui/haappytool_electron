@@ -19,10 +19,20 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [isLabExpanded, setIsLabExpanded] = useState(false);
 
-  const activePlugins = pluginOrder
+  // Calculate initial active plugins based on order
+  let activePlugins = pluginOrder
     .filter(id => enabledPlugins.includes(id))
     .map(id => plugins.find(p => p.id === id))
     .filter((p): p is HappyPlugin => !!p);
+
+  // Append any enabled plugins that were NOT in the pluginOrder (fail-safe)
+  const activeIds = new Set(activePlugins.map(p => p.id));
+  const missingPlugins = enabledPlugins
+    .filter(id => !activeIds.has(id))
+    .map(id => plugins.find(p => p.id === id))
+    .filter((p): p is HappyPlugin => !!p);
+
+  activePlugins = [...activePlugins, ...missingPlugins];
 
   const labPlugins = plugins.filter(p => !enabledPlugins.includes(p.id));
 
@@ -80,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                   <span className="text-white font-black text-lg">H</span>
                 </div>
                 <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-indigo-200 via-indigo-100 to-white bg-clip-text text-transparent drop-shadow-sm">
-                  HappyTool
+                  HappyTool (Updated)
                 </span>
               </div>
             ) : (

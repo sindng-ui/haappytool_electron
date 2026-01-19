@@ -11,11 +11,13 @@ import {
     CpuAnalyzerPlugin,
     SmartHomeDashboardPlugin,
     ScreenMatcherPlugin,
-    AiAssistantPlugin
+    AiAssistantPlugin,
+    RxFlowVisualizerPlugin
 } from './core/wrappers';
 
 // Registry array to hold all registered plugins
 export const ALL_PLUGINS: HappyPlugin[] = [
+    RxFlowVisualizerPlugin,
     LogExtractorPlugin,
     PostToolPlugin,
     JsonToolsPlugin,

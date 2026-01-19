@@ -52,6 +52,7 @@ async function createWindow() {
 
     if (isDev) {
         mainWindow.loadURL('http://127.0.0.1:3000');
+        mainWindow.webContents.openDevTools();
     } else {
         mainWindow.loadURL('http://127.0.0.1:3003');
     }
@@ -190,6 +191,76 @@ app.whenReady().then(async () => {
         return { status: 'started' };
     });
 
+    // IPC Handler for Roslyn Validation
+    ipcMain.handle('validateRoslyn', async (event, code) => {
+        const { spawn } = require('child_process');
+
+        // Determine path to validator
+        // In Dev: K:\...\RxFlow.Validator\bin\Debug\net9.0\RxFlow.Validator.exe
+        // In Prod: resources/RxFlow.Validator.exe (if we pack it)
+        console.log('[Roslyn] process.env.NODE_ENV:', process.env.NODE_ENV);
+        console.log('[Roslyn] app.isPackaged:', require('electron').app.isPackaged);
+
+        // Use app.isPackaged as more reliable indicator
+        const isDev = !require('electron').app.isPackaged;
+        console.log('[Roslyn] isDev:', isDev);
+
+        return new Promise((resolve) => {
+
+            const validatorPath = isDev
+                ? path.join(__dirname, '..', 'RxFlow.Validator', 'bin', 'Debug', 'net7.0', 'RxFlow.Validator.exe')
+                : path.join(process.resourcesPath, 'RxFlow.Validator.exe');
+
+            console.log('[Roslyn] Looking for validator at:', validatorPath);
+            console.log('[Roslyn] __dirname is:', __dirname);
+
+            // Check if validator exists
+            if (!require('fs').existsSync(validatorPath)) {
+                console.warn('[Roslyn] Validator not found at:', validatorPath);
+                resolve([{ Id: 'ERR_VALIDATOR_MISSING', Message: 'RxFlow Validator not found. Please build the .NET project.', Line: 0, Severity: 'Warning' }]);
+                return;
+            }
+
+            const child = spawn(validatorPath, [], {
+                stdio: ['pipe', 'pipe', 'pipe']
+            });
+            let stdout = '';
+            let stderr = '';
+
+            child.stdout.on('data', (data) => stdout += data.toString());
+            child.stderr.on('data', (data) => stderr += data.toString());
+
+            child.on('close', (code) => {
+                if (code !== 0) {
+                    console.error('Validator exited with code', code, stderr);
+                    resolve([{ Id: 'ERR_PROCESS', Message: `Validator process failed: ${stderr}`, Line: 0, Severity: 'Error' }]);
+                    return;
+                }
+                try {
+                    // Find the JSON array in output (ignore build logs if any)
+                    // dotnet run might output "Building..."
+                    // We look for [ ... ]
+                    const jsonStart = stdout.indexOf('[');
+                    const jsonEnd = stdout.lastIndexOf(']');
+                    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                        const json = stdout.substring(jsonStart, jsonEnd + 1);
+                        resolve(JSON.parse(json));
+                    } else {
+                        resolve([]); // No output?
+                    }
+                } catch (e) {
+                    console.error('Failed to parse validator output', e, stdout);
+                    resolve([{ Id: 'ERR_PARSE', Message: 'Failed to parse validator output', Line: 0, Severity: 'Error' }]);
+                }
+            });
+
+            // Write code to stdin
+            child.stdin.write(code);
+            child.stdin.end();
+        });
+    });
+
+    console.log('[DEBUG] HappyTool Main Process Started - ID: 8888');
     console.log('Starting internal server...');
     try {
         await startServer(app.getPath('userData'));
