@@ -82,25 +82,42 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
             newSocket = io('http://127.0.0.1:3003');
 
             newSocket.on('connect', () => {
+                console.log('[TizenModal] ✓ Socket connected to server');
                 setStatus('Connected to Local Log Server');
                 setError('');
 
                 // Quick Connect Logic
                 if (isQuickConnect && !isHandedOver.current) {
+                    console.log('[TizenModal] Quick Connect mode active');
                     setStatus('Initiating Quick Connect...');
                     // Add small delay to ensure socket is ready and listeners active
                     setTimeout(() => {
                         console.log('[QuickConnect] Mode:', mode);
                         if (mode === 'ssh') {
+                            console.log('[QuickConnect] Emitting connect_ssh with params:', {
+                                host: sshHost,
+                                port: parseInt(sshPort),
+                                username: sshUser,
+                                passwordProvided: !!sshPassword,
+                                debug: debugMode,
+                                saveToFile: saveToFile
+                            });
                             newSocket?.emit('connect_ssh', {
                                 host: sshHost,
                                 port: parseInt(sshPort),
                                 username: sshUser,
                                 password: sshPassword,
                                 debug: debugMode,
-                                saveToFile: saveToFile
+                                saveToFile: saveToFile,
+                                command: logCommand
                             });
                         } else if (mode === 'sdb') {
+                            console.log('[QuickConnect] Emitting connect_sdb with params:', {
+                                deviceId: selectedDeviceId || 'auto-detect',
+                                debug: debugMode,
+                                saveToFile: saveToFile,
+                                command: logCommand || 'default'
+                            });
                             // For SDB, we need to check if device is available? Or just try?
                             // Try connecting to last used device or auto-detect
                             newSocket?.emit('connect_sdb', {
@@ -110,6 +127,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                                 command: logCommand
                             });
                         } else {
+                            console.warn('[QuickConnect] Unknown mode, closing modal');
                             // If mock or unknown, just open normally
                             onClose(); // Failed/Cancelled
                         }
@@ -117,7 +135,8 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                 }
             });
 
-            newSocket.on('connect_error', () => {
+            newSocket.on('connect_error', (err) => {
+                console.error('[TizenModal] ✗ Socket connection error:', err);
                 setError('Failed to connect to Local Log Server. Is it running? (node server)');
                 setStatus('Server Offline');
             });
@@ -129,49 +148,63 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
             });
 
             newSocket.on('ssh_status', (data) => {
+                console.log('[TizenModal] SSH status received:', data);
                 clearConnectionTimeout();
                 setStatus(data.message);
                 if (data.status === 'connected') {
+                    console.log('[TizenModal] SSH connected successfully');
                     // Prevent duplicate stream start for SSH if already handled
-                    if (mode === 'ssh' && isHandedOver.current) return;
+                    if (mode === 'ssh' && isHandedOver.current) {
+                        console.warn('[TizenModal] SSH already handed over, ignoring duplicate');
+                        return;
+                    }
 
                     setIsConnected(true);
                     setMode('ssh');
                     isHandedOver.current = true;
+                    console.log('[TizenModal] Handing over to stream, closing modal');
                     onStreamStart(newSocket!, `SSH:${sshHost}`, 'ssh', saveToFile);
                     onClose();
                 } else if (data.status === 'disconnected') {
+                    console.log('[TizenModal] SSH disconnected');
                     setIsConnected(false);
                 }
                 setIsConnecting(false);
             });
 
             newSocket.on('ssh_error', (data) => {
+                console.error('[TizenModal] SSH error received:', data);
                 clearConnectionTimeout();
                 setError(data.message);
                 setIsConnecting(false);
             });
 
             newSocket.on('sdb_status', (data) => {
+                console.log('[TizenModal] SDB status received:', data);
                 clearConnectionTimeout();
                 setStatus(data.message);
                 if (data.status === 'connected') {
+                    console.log('[TizenModal] SDB connected successfully');
                     setIsConnected(true);
                     setMode('sdb');
                     isHandedOver.current = true;
+                    console.log('[TizenModal] Handing over to stream, closing modal');
                     onStreamStart(newSocket!, `SDB:${selectedDeviceId || 'Default'}`, 'sdb', saveToFile);
                     onClose();
                 } else if (data.status === 'disconnected') {
+                    console.log('[TizenModal] SDB disconnected');
                     setIsConnected(false);
                 }
                 setIsConnecting(false);
             });
 
             newSocket.on('sdb_error', (data) => {
+                console.error('[TizenModal] SDB error received:', data);
                 clearConnectionTimeout();
                 let msg = data.message;
                 // Check for common 'command not found' patterns for sdb
                 if (msg && (msg.includes('spawn sdb ENOENT') || msg.includes('is not recognized') || msg.includes('command not found'))) {
+                    console.error('[TizenModal] SDB not found in PATH');
                     msg = "SDB command not found. Please add 'sdb' to your system PATH.";
                 }
                 setError(msg);
@@ -232,7 +265,14 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
     }, [socket]);
 
     const handleConnect = () => {
-        if (!socket) return;
+        console.log('[TizenModal] ========== Manual Connect Initiated ==========');
+        console.log('[TizenModal] Mode:', mode);
+
+        if (!socket) {
+            console.error('[TizenModal] No socket available');
+            return;
+        }
+
         setError('');
         setIsConnecting(true);
         startTimeout();
@@ -241,6 +281,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
         localStorage.setItem('lastConnectionMode', mode);
 
         if (mode === 'test') {
+            console.log('[TizenModal] Test mode - starting simulated stream');
             socket.emit('start_scroll_stream');
             setIsConnected(true);
             isHandedOver.current = true;
@@ -250,20 +291,37 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
         }
 
         if (mode === 'ssh') {
+            console.log('[TizenModal] Emitting connect_ssh with params:', {
+                host: sshHost,
+                port: parseInt(sshPort),
+                username: sshUser,
+                passwordProvided: !!sshPassword,
+                debug: debugMode,
+                saveToFile: saveToFile,
+                command: logCommand
+            });
             socket.emit('connect_ssh', {
                 host: sshHost,
                 port: parseInt(sshPort),
                 username: sshUser,
                 password: sshPassword,
                 debug: debugMode,
-                saveToFile: saveToFile
+                saveToFile: saveToFile,
+                command: logCommand
             });
             // Immediate Handover for SSH to support interactive prompts in main view
+            console.log('[TizenModal] SSH - immediate handover mode');
             setIsConnected(true);
             isHandedOver.current = true;
             onStreamStart(socket, `SSH:${sshHost}`, 'ssh', saveToFile);
             onClose();
         } else {
+            console.log('[TizenModal] Emitting connect_sdb with params:', {
+                deviceId: selectedDeviceId || 'auto-detect',
+                debug: debugMode,
+                saveToFile: saveToFile,
+                command: logCommand || 'default'
+            });
             socket.emit('connect_sdb', {
                 deviceId: selectedDeviceId,
                 debug: debugMode,

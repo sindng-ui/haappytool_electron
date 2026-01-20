@@ -192,10 +192,27 @@ io.on('connection', (socket) => {
     // ...
 
     // --- SSH Handler ---
-    socket.on('connect_ssh', ({ host, port, username, password, debug, saveToFile }) => {
+    socket.on('connect_ssh', ({ host, port, username, password, debug, saveToFile, command }) => {
+        console.log('[SSH] ========== SSH Connection Request ==========');
+        console.log('[SSH] Connection initiated with params:', {
+            host,
+            port,
+            username,
+            passwordProvided: !!password,
+            debug,
+            saveToFile,
+            command: command || 'default (dlogutil -v threadtime)'
+        });
+
         if (sshConnection) {
+            console.log('[SSH] Closing existing SSH connection...');
             sshConnection.end();
             sshConnection = null;
+        }
+        if (sdbProcess) {
+            console.log('[SSH] Killing existing SDB process to prevent duplicates...');
+            sdbProcess.kill();
+            sdbProcess = null;
         }
         if (debugStream) {
             debugStream.end();
@@ -219,61 +236,130 @@ io.on('connection', (socket) => {
         }
 
         if (debug) {
-            // ... (keep existing debug logic)
             const fileName = `tizen_debug_ssh_${Date.now()}.log`;
             const filePath = path.join(process.cwd(), fileName);
             debugStream = fs.createWriteStream(filePath, { flags: 'a' });
+            console.log(`[SSH] Debug mode enabled, logging to: ${filePath}`);
+            logDebug(`========== SSH Connection Debug Log ==========`);
             logDebug(`Starting SSH Connection to ${host}:${port} as ${username}`);
             logDebug(`Debug file path: ${filePath}`);
+            logDebug(`Timestamp: ${new Date().toISOString()}`);
             socket.emit('debug_log', `Debug logging started: ${filePath}`);
         }
 
+        console.log('[SSH] Creating SSH client...');
         const conn = new Client();
+
         conn.on('keyboard-interactive', (name, instructions, instructionsLang, prompts, finish) => {
             console.log('[SSH] Keyboard-Interactive Auth Requested');
+            console.log('[SSH] Auth prompts count:', prompts.length);
+            logDebug(`Keyboard-Interactive Auth: ${prompts.length} prompts`);
+
             // If prompts exist, respond with password for each
             if (prompts.length > 0 && password) {
+                console.log('[SSH] Responding to keyboard-interactive with password');
+                logDebug('Responding with password to keyboard-interactive prompts');
                 finish([password]);
             } else {
+                console.log('[SSH] No password for keyboard-interactive, sending empty response');
+                logDebug('No password provided for keyboard-interactive');
                 finish([]);
             }
         }).on('ready', () => {
+            console.log('[SSH] ✓ SSH connection ready, requesting shell...');
+            logDebug('SSH connection established successfully');
+
             conn.shell((err, stream) => {
                 if (err) {
+                    console.error('[SSH] ✗ Shell creation failed:', err.message);
+                    logDebug(`Shell creation error: ${err.message}`);
                     socket.emit('ssh_error', { message: `Shell Error: ${err.message}` });
                     conn.end();
                     return;
                 }
 
+                console.log('[SSH] ✓ Shell created successfully');
+                logDebug('Shell created successfully');
                 sshConnection.stream = stream;
 
+                // Track if we've received any data
+                let firstDataReceived = false;
+
                 stream.on('close', (code, signal) => {
+                    console.log('[SSH] Stream closed. Code:', code, 'Signal:', signal);
                     logDebug(`Stream closed. Code: ${code}, Signal: ${signal}`);
                     socket.emit('ssh_status', { status: 'disconnected', message: 'Shell closed' });
                     if (debugStream) { debugStream.end(); debugStream = null; }
                     if (logFileStream) { logFileStream.end(); logFileStream = null; }
                 }).on('data', (data) => {
+                    if (!firstDataReceived) {
+                        console.log('[SSH] ✓ First data received:', data.length, 'bytes');
+                        console.log('[SSH] First data preview:', data.toString().substring(0, 100));
+                        logDebug(`First data received: ${data.length} bytes`);
+                        firstDataReceived = true;
+                    }
+
                     if (debugStream) logDebug(`[DATA CHUNK] ${data.length} bytes`);
                     if (logFileStream) logFileStream.write(data);
                     socket.emit('log_data', data.toString());
                 }).stderr.on('data', (data) => {
+                    console.log('[SSH] STDERR data received:', data.toString());
                     logDebug(`STDERR: ${data}`);
                     if (logFileStream) logFileStream.write(data);
                     socket.emit('log_data', data.toString());
                 });
+
+                // CRITICAL FIX: Automatically send dlogutil command
+                console.log('[SSH] Sending dlogutil command to start log streaming...');
+                logDebug('Sending command: dlogutil -v threadtime');
+
+                // Wait a bit for shell to be ready, then send command
+                setTimeout(() => {
+                    let cmdToSend = 'dlogutil -v threadtime\n';
+
+                    if (command && typeof command === 'string' && command.trim().length > 0) {
+                        cmdToSend = command.trim() + '\n';
+                        console.log(`[SSH] Using custom command: ${command}`);
+                        logDebug(`Custom command provided: ${command}`);
+                    } else {
+                        console.log('[SSH] Using default command: dlogutil -v threadtime');
+                        logDebug('Using default command: dlogutil -v threadtime');
+                    }
+
+                    console.log('[SSH] Writing command to stream:', cmdToSend.trim());
+                    stream.write(cmdToSend);
+                    logDebug(`Command sent to shell: ${cmdToSend.trim()}`);
+                    console.log('[SSH] Command sent, waiting for log data...');
+                }, 500);
+
+                // Emit connected status
+                socket.emit('ssh_status', { status: 'connected', message: 'SSH Shell Connected' });
             });
         }).on('error', (err) => {
-            console.error('[SSH] Connection Error:', err);
+            console.error('[SSH] ✗ Connection Error:', err);
+            console.error('[SSH] Error details:', {
+                message: err.message,
+                code: err.code,
+                level: err.level,
+                errno: err.errno
+            });
+            logDebug(`Connection error: ${err.message} (code: ${err.code}, level: ${err.level})`);
+
             let userMessage = err.message;
             if (err.level === 'client-authentication') {
-                userMessage = 'Authentication Failed provided credentials.';
+                userMessage = 'Authentication Failed with provided credentials.';
+                console.error('[SSH] Authentication failed - check username/password');
             } else if (err.code === 'ECONNREFUSED') {
                 userMessage = 'Connection Refused (Is SSH enabled on device?)';
+                console.error('[SSH] Connection refused - SSH service may not be running');
             } else if (err.code === 'ENOTFOUND') {
                 userMessage = 'Host not found';
+                console.error('[SSH] Host not found - check IP address');
             } else if (err.code === 'ETIMEDOUT') {
                 userMessage = 'Connection Timed Out';
+                console.error('[SSH] Connection timeout - check network connectivity');
             }
+
             socket.emit('ssh_error', { message: userMessage });
             if (debugStream) { debugStream.end(); debugStream = null; }
             if (logFileStream) { logFileStream.end(); logFileStream = null; }
@@ -287,6 +373,8 @@ io.on('connection', (socket) => {
             keepaliveInterval: 10000
         });
 
+        console.log('[SSH] Connection attempt started...');
+        logDebug('Attempting to connect...');
         sshConnection = conn;
     });
 
@@ -312,60 +400,163 @@ io.on('connection', (socket) => {
     });
 
     // --- SDB Handler ---
-    // ...
-
     socket.on('connect_sdb', ({ deviceId, debug, saveToFile, command }) => {
+        console.log('[SDB] ========== SDB Connection Request ==========');
+        console.log('[SDB] Connection initiated with params:', {
+            deviceId: deviceId || 'auto-detect',
+            debug,
+            saveToFile,
+            command: command || 'default (dlog -v threadtime)'
+        });
+
         if (sdbProcess) {
+            console.log('[SDB] Killing existing SDB process...');
             sdbProcess.kill();
             sdbProcess = null;
         }
+        if (sshConnection) {
+            console.log('[SDB] Closing existing SSH connection to prevent duplicates...');
+            sshConnection.end();
+            sshConnection = null;
+        }
 
-        // ... (lines 322-348 unchanged)
+        // Setup debug and log file streams
+        if (debugStream) {
+            debugStream.end();
+            debugStream = null;
+        }
+        if (logFileStream) {
+            logFileStream.end();
+            logFileStream = null;
+        }
+
+        if (saveToFile) {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const fileName = `sdb_${timestamp}.txt`;
+            const filePath = path.join(process.cwd(), fileName);
+            logFileStream = fs.createWriteStream(filePath, { flags: 'a' });
+            console.log(`[SDB] Saving logs to ${filePath}`);
+            socket.emit('log_data', `[System] Saving logs to file: ${fileName}\n`);
+        }
+
+        if (debug) {
+            const fileName = `tizen_debug_sdb_${Date.now()}.log`;
+            const filePath = path.join(process.cwd(), fileName);
+            debugStream = fs.createWriteStream(filePath, { flags: 'a' });
+            console.log(`[SDB] Debug mode enabled, logging to: ${filePath}`);
+            logDebug(`========== SDB Connection Debug Log ==========`);
+            logDebug(`Starting SDB Connection to device: ${deviceId || 'auto-detect'}`);
+            logDebug(`Debug file path: ${filePath}`);
+            logDebug(`Timestamp: ${new Date().toISOString()}`);
+            socket.emit('debug_log', `Debug logging started: ${filePath}`);
+        }
 
         // Defined args for sdb log stream (e.g. dlog -v threadtime)
         // If command is provided, split it by space. Otherwise default.
         let args = ['-s', deviceId || 'default', 'shell'];
         if (command && typeof command === 'string' && command.trim().length > 0) {
             console.log(`[SDB] Using custom command: ${command}`);
+            logDebug(`Custom command provided: ${command}`);
             const cmdParts = command.trim().split(/\s+/);
             args.push(...cmdParts);
         } else {
+            console.log('[SDB] Using default command: dlog -v threadtime');
+            logDebug('Using default command: dlog -v threadtime');
             args.push('dlog', '-v', 'threadtime');
         }
 
+        console.log('[SDB] Final sdb args:', args);
+        logDebug(`Full command: sdb ${args.join(' ')}`);
+
         try {
+            console.log('[SDB] Spawning sdb process...');
+            logDebug('Attempting to spawn sdb process...');
+
             sdbProcess = spawn('sdb', args);
 
+            if (sdbProcess && sdbProcess.pid) {
+                console.log('[SDB] ✓ Process spawned successfully, PID:', sdbProcess.pid);
+                logDebug(`Process spawned with PID: ${sdbProcess.pid}`);
+            } else {
+                console.warn('[SDB] ⚠ Process spawned but no PID available');
+                logDebug('Warning: Process spawned but PID is undefined');
+            }
+
+            // Track if we've received any data
+            let firstStdoutReceived = false;
+            let firstStderrReceived = false;
+
             sdbProcess.on('error', (err) => {
-                // ...
-                socket.emit('sdb_error', { message: `SDB error: ${err.message}` }); // Simplified
+                console.error('[SDB] ✗ Process error:', err);
+                console.error('[SDB] Error details:', {
+                    message: err.message,
+                    code: err.code,
+                    errno: err.errno,
+                    syscall: err.syscall
+                });
+                logDebug(`Process error: ${err.message} (code: ${err.code})`);
+
+                let userMessage = `SDB error: ${err.message}`;
+                if (err.code === 'ENOENT') {
+                    userMessage = 'SDB command not found. Please ensure SDB is installed and in your PATH.';
+                    console.error('[SDB] SDB executable not found in PATH');
+                }
+
+                socket.emit('sdb_error', { message: userMessage });
                 if (debugStream) { debugStream.end(); debugStream = null; }
                 if (logFileStream) { logFileStream.end(); logFileStream = null; }
             });
 
+            console.log('[SDB] Emitting connected status...');
             socket.emit('sdb_status', { status: 'connected', message: `SDB Shell Connected to ${deviceId || 'default'}` });
 
             sdbProcess.stdout.on('data', (data) => {
-                if (debugStream) logDebug(`[DATA CHUNK] ${data.length} bytes`);
+                if (!firstStdoutReceived) {
+                    console.log('[SDB] ✓ First stdout data received:', data.length, 'bytes');
+                    console.log('[SDB] First stdout preview:', data.toString().substring(0, 100));
+                    logDebug(`First stdout data received: ${data.length} bytes`);
+                    firstStdoutReceived = true;
+                }
+
+                if (debugStream) logDebug(`[STDOUT CHUNK] ${data.length} bytes`);
                 if (logFileStream) logFileStream.write(data);
                 socket.emit('log_data', data.toString());
             });
 
             sdbProcess.stderr.on('data', (data) => {
+                if (!firstStderrReceived) {
+                    console.log('[SDB] ⚠ First stderr data received:', data.length, 'bytes');
+                    console.log('[SDB] stderr content:', data.toString());
+                    logDebug(`First stderr data received: ${data.length} bytes`);
+                    firstStderrReceived = true;
+                }
+
+                console.log('[SDB] STDERR:', data.toString());
+                logDebug(`SDB STDERR: ${data.toString()}`);
                 if (logFileStream) logFileStream.write(data);
                 socket.emit('log_data', data.toString());
-                logDebug(`SDB STDERR: ${data.toString()}`);
             });
 
             sdbProcess.on('close', (code) => {
+                console.log('[SDB] Process exited with code:', code);
                 logDebug(`SDB process exited with code ${code}`);
                 socket.emit('sdb_status', { status: 'disconnected', message: 'SDB process exited' });
                 sdbProcess = null;
                 if (debugStream) { debugStream.end(); debugStream = null; }
                 if (logFileStream) { logFileStream.end(); logFileStream = null; }
             });
+
+            console.log('[SDB] All event listeners attached, waiting for data...');
+            logDebug('Event listeners attached, process running');
+
         } catch (e) {
-            // ...
+            console.error('[SDB] ✗ Exception during spawn:', e);
+            console.error('[SDB] Exception details:', {
+                message: e.message,
+                stack: e.stack
+            });
+            logDebug(`Exception during spawn: ${e.message}`);
+            socket.emit('sdb_error', { message: `Failed to start SDB: ${e.message}` });
             if (debugStream) { debugStream.end(); debugStream = null; }
             if (logFileStream) { logFileStream.end(); logFileStream = null; }
         }
