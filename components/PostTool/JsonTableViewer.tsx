@@ -48,13 +48,13 @@ const JsonTableViewer: React.FC<JsonTableProps> = ({ data, name, isRoot = false,
         <div className="border border-slate-200 dark:border-slate-700 rounded overflow-hidden bg-white dark:bg-slate-900/50">
             <table className="w-full text-left border-collapse table-fixed">
                 <colgroup>
-                    <col className="w-auto" />
-                    <col className="w-full" />
+                    <col className="w-[30%] min-w-[150px]" />
+                    <col className="w-[70%]" />
                 </colgroup>
                 <tbody>
                     {keys.map((key) => (
                         <tr key={key} className="border-b last:border-0 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                            <td className="whitespace-nowrap py-1 px-2 text-xs font-semibold text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800 align-top select-text">
+                            <td className="whitespace-nowrap truncate max-w-0 py-1 px-2 text-xs font-semibold text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800 align-top select-text" title={key}>
                                 {key}
                             </td>
                             <td className="py-1 px-2 text-xs align-top select-text break-all">
