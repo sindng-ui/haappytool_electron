@@ -97,14 +97,24 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         if (index !== -1) {
             textareaRef.current.focus();
             textareaRef.current.setSelectionRange(index, index + query.length);
-            // Attempt to scroll: Native behavior might fail if not focused. 
-            // Simple hack to ensure visibility: blur then focus? No, focus is enough usually.
+
+            // Calculate scroll position
+            const textLines = content.substring(0, index).split('\n');
+            const lineNum = textLines.length;
+            const lineHeight = 16; // Approx line height for text-xs (12px) + padding
+            // It's hard to be exact with textarea, but we can try to center it
+            const scrollPos = (lineNum - 1) * lineHeight;
+
+            // Basic scroll attempt (Blur/Focus trick usually works for native scroll-to-caret)
+            textareaRef.current.blur();
+            textareaRef.current.focus();
+            textareaRef.current.setSelectionRange(index, index + query.length);
         }
     };
 
-    const [activeTab, setActiveTab] = useState<'BODY' | 'HEADERS'>('BODY');
 
-    // ... existing hooks ...
+
+    const [activeTab, setActiveTab] = useState<'BODY' | 'HEADERS'>('BODY');
 
     // Derived Headers List
     const headersList = response ? Object.entries(response.headers) : [];
@@ -242,7 +252,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                             <textarea
                                 ref={textareaRef}
                                 readOnly
-                                defaultValue={getRawContent()}
+                                value={getRawContent()}
                                 className="w-full h-full p-4 font-mono text-xs text-slate-800 dark:text-slate-300 resize-none focus:outline-none bg-transparent"
                             />
                         )}
