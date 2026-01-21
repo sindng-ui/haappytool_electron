@@ -551,9 +551,9 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 isQuickConnect={isTizenQuickConnect}
                 logCommand={(() => {
                     const config = currentConfig;
-                    let cmd = config?.logCommand || 'dlog -v threadtime';
+                    let cmd = config?.logCommand || 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
                     if (cmd.includes('$(TAGS)')) {
-                        const tags = config?.logTags?.join(',') || '';
+                        const tags = config?.logTags?.join(' ') || '';
                         cmd = cmd.replace('$(TAGS)', tags);
                     }
                     return cmd;

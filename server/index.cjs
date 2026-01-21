@@ -309,21 +309,17 @@ io.on('connection', (socket) => {
                     socket.emit('log_data', data.toString());
                 });
 
-                // CRITICAL FIX: Automatically send dlogutil command
-                console.log('[SSH] Sending dlogutil command to start log streaming...');
-                logDebug('Sending command: dlogutil -v threadtime');
-
                 // Wait a bit for shell to be ready, then send command
                 setTimeout(() => {
-                    let cmdToSend = 'dlogutil -v threadtime\n';
+                    let cmdToSend = 'dlogutil -v kerneltime\n';
 
                     if (command && typeof command === 'string' && command.trim().length > 0) {
                         cmdToSend = command.trim() + '\n';
                         console.log(`[SSH] Using custom command: ${command}`);
                         logDebug(`Custom command provided: ${command}`);
                     } else {
-                        console.log('[SSH] Using default command: dlogutil -v threadtime');
-                        logDebug('Using default command: dlogutil -v threadtime');
+                        console.log('[SSH] Using default command: dlogutil -v kerneltime');
+                        logDebug('Using default command: dlogutil -v kerneltime');
                     }
 
                     console.log('[SSH] Writing command to stream:', cmdToSend.trim());
@@ -406,7 +402,7 @@ io.on('connection', (socket) => {
             deviceId: deviceId || 'auto-detect',
             debug,
             saveToFile,
-            command: command || 'default (dlog -v threadtime)'
+            command: command || 'default (dlogutil -v kerneltime)'
         });
 
         if (sdbProcess) {
@@ -451,7 +447,7 @@ io.on('connection', (socket) => {
             socket.emit('debug_log', `Debug logging started: ${filePath}`);
         }
 
-        // Defined args for sdb log stream (e.g. dlog -v threadtime)
+        // Defined args for sdb log stream (e.g. dlogutil -v threadtime)
         // If command is provided, split it by space. Otherwise default.
         let args = ['-s', deviceId || 'default', 'shell'];
         if (command && typeof command === 'string' && command.trim().length > 0) {
@@ -460,9 +456,9 @@ io.on('connection', (socket) => {
             const cmdParts = command.trim().split(/\s+/);
             args.push(...cmdParts);
         } else {
-            console.log('[SDB] Using default command: dlog -v threadtime');
-            logDebug('Using default command: dlog -v threadtime');
-            args.push('dlog', '-v', 'threadtime');
+            console.log('[SDB] Using default command: dlogutil -v kerneltime');
+            logDebug('Using default command: dlogutil -v kerneltime');
+            args.push('dlogutil', '-v', 'kerneltime');
         }
 
         console.log('[SDB] Final sdb args:', args);
@@ -904,7 +900,7 @@ io.on('connection', (socket) => {
 
             // Spawn command
             // We need to handle shell commands properly.
-            // sdb dlog -v threadtime might need shell=true or split args.
+            // sdb dlogutil -v kerneltime might need shell=true or split args.
             // Using spawn with shell option is safest for "command" strings.
             const child = spawn(command, { shell: true });
 
