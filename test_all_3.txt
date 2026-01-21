@@ -1,0 +1,464 @@
+
+> happytool@0.9.7 test:all
+> vitest run --no-color
+
+
+ RUN  v4.0.15 K:/Antigravity_Projects/gitbase/happytool_electron
+
+ ??utils/settingsHelper.test.ts (7 tests) 4ms
+ ??test/workers/LogProcessor.worker.test.ts (12 tests) 4ms
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should initialize and spawn workers
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should initialize and spawn workers
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle Tizen connection start (sdb)
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle Tizen connection start (sdb)
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should BUFFER log_data for 500ms before sending to worker
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should BUFFER log_data for 500ms before sending to worker
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should FLUSH IMMEDIATELY if buffer exceeds limit (>2000 items)
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should FLUSH IMMEDIATELY if buffer exceeds limit (>2000 items)
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should reset state on disconnect
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should reset state on disconnect
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle SSH Error event
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+[useLog] SSH Connected. Stream should start automatically via Server.
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle SSH Auth Request and Response
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+[useLog] SSH Connected. Stream should start automatically via Server.
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle logical disconnect (sdb_status)
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle logical disconnect (sdb_status)
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should load logViewPreferences from DB on mount
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should load logViewPreferences from DB on mount
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+ ??test/hooks/useLogExtractorLogic.test.tsx (9 tests) 109ms
+stdout | test/server_socket.test.js
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ??audit secrets and track compliance: https://dotenvx.com/ops
+
+
+燧뉛툘  [START TEST] "should execute default command (dlogutil -v kerneltime) if none provided"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: 'test-device',
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'dlogutil -v kerneltime $(TAGS)',
+  tags: []
+}
+[SDB] Substituted $(TAGS) -> ""
+[SDB] Effective command: dlogutil -v kerneltime 
+[SDB] Using custom command: dlogutil -v kerneltime 
+[SDB] Final sdb args: [ '-s', 'test-device', 'shell', 'dlogutil', '-v', 'kerneltime' ]
+[SDB] Spawning sdb process...
+[SDB] ??Process spawned successfully, PID: 1234
+[SDB] Emitting connected status...
+[SDB] All event listeners attached, waiting for data...
+燧놅툘  [END TEST]   "should execute default command (dlogutil -v kerneltime) if none provided"
+
+
+燧뉛툘  [START TEST] "should execute user provided command (e.g. ls -al)"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: 'test-device',
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'ls -al',
+  tags: []
+}
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: ls -al
+[SDB] Final sdb args: [ '-s', 'test-device', 'shell', 'ls', '-al' ]
+[SDB] Spawning sdb process...
+[SDB] ??Process spawned successfully, PID: 1234
+[SDB] Emitting connected status...
+[SDB] All event listeners attached, waiting for data...
+燧놅툘  [END TEST]   "should execute user provided command (e.g. ls -al)"
+
+
+燧뉛툘  [START TEST] "should execute complex user provided command (e.g. ps -ef | grep process)"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: 'test-device',
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'ps -ef | grep process',
+  tags: []
+}
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: ps -ef | grep process
+[SDB] Final sdb args: [ '-s', 'test-device', 'shell', 'ps', '-ef', '|', 'grep', 'process' ]
+[SDB] Spawning sdb process...
+[SDB] ??Process spawned successfully, PID: 1234
+[SDB] Emitting connected status...
+[SDB] All event listeners attached, waiting for data...
+燧놅툘  [END TEST]   "should execute complex user provided command (e.g. ps -ef | grep process)"
+
+
+燧뉛툘  [START TEST] "should substitute $(TAGS) with space-joined tags in SDB command"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: 'test-device',
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'dlogutil $(TAGS) kerneltime',
+  tags: [ '-v', 'threadtime', 'InputManager' ]
+}
+[SDB] Substituted $(TAGS) -> "-v threadtime InputManager"
+[SDB] Effective command: dlogutil -v threadtime InputManager kerneltime
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil -v threadtime InputManager kerneltime
+[SDB] Final sdb args: [
+  '-s',
+  'test-device',
+  'shell',
+  'dlogutil',
+  '-v',
+  'threadtime',
+  'InputManager',
+  'kerneltime'
+]
+[SDB] Spawning sdb process...
+[SDB] ??Process spawned successfully, PID: 1234
+[SDB] Emitting connected status...
+[SDB] All event listeners attached, waiting for data...
+燧놅툘  [END TEST]   "should substitute $(TAGS) with space-joined tags in SDB command"
+
+
+燧뉛툘  [START TEST] "should apply tags to DEFAULT SDB command if no command provided"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: 'test-device',
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'dlogutil -v kerneltime $(TAGS)',
+  tags: [ 'AudioPolicy' ]
+}
+[SDB] Substituted $(TAGS) -> "AudioPolicy"
+[SDB] Effective command: dlogutil -v kerneltime AudioPolicy
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil -v kerneltime AudioPolicy
+[SDB] Final sdb args: [
+  '-s',
+  'test-device',
+  'shell',
+  'dlogutil',
+  '-v',
+  'kerneltime',
+  'AudioPolicy'
+]
+[SDB] Spawning sdb process...
+[SDB] ??Process spawned successfully, PID: 1234
+[SDB] Emitting connected status...
+[SDB] All event listeners attached, waiting for data...
+燧놅툘  [END TEST]   "should apply tags to DEFAULT SDB command if no command provided"
+
+
+燧뉛툘  [START TEST] "should emit log_data when process writes to stdout"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: 'test-device',
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'dlogutil -v kerneltime $(TAGS)',
+  tags: []
+}
+[SDB] Substituted $(TAGS) -> ""
+[SDB] Effective command: dlogutil -v kerneltime 
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil -v kerneltime 
+[SDB] Final sdb args: [ '-s', 'test-device', 'shell', 'dlogutil', '-v', 'kerneltime' ]
+[SDB] Spawning sdb process...
+[SDB] ??Process spawned successfully, PID: 1234
+[SDB] Emitting connected status...
+[SDB] All event listeners attached, waiting for data...
+[SDB] ??First stdout data received: 15 bytes
+[SDB] First stdout preview: Sample Log Line
+燧놅툘  [END TEST]   "should emit log_data when process writes to stdout"
+
+
+燧뉛툘  [START TEST] "should emit sdb_error when process encounters error"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: 'test-device',
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'dlogutil -v kerneltime $(TAGS)',
+  tags: []
+}
+[SDB] Substituted $(TAGS) -> ""
+[SDB] Effective command: dlogutil -v kerneltime 
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil -v kerneltime 
+[SDB] Final sdb args: [ '-s', 'test-device', 'shell', 'dlogutil', '-v', 'kerneltime' ]
+[SDB] Spawning sdb process...
+[SDB] ??Process spawned successfully, PID: 1234
+[SDB] Emitting connected status...
+[SDB] All event listeners attached, waiting for data...
+燧놅툘  [END TEST]   "should emit sdb_error when process encounters error"
+
+
+燧뉛툘  [START TEST] "should kill existing process before starting new one"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: 'dev1',
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'dlogutil -v kerneltime $(TAGS)',
+  tags: []
+}
+[SDB] Substituted $(TAGS) -> ""
+[SDB] Effective command: dlogutil -v kerneltime 
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil -v kerneltime 
+[SDB] Final sdb args: [ '-s', 'dev1', 'shell', 'dlogutil', '-v', 'kerneltime' ]
+[SDB] Spawning sdb process...
+[SDB] ??Process spawned successfully, PID: 1234
+[SDB] Emitting connected status...
+[SDB] All event listeners attached, waiting for data...
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: 'dev2',
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'dlogutil -v kerneltime $(TAGS)',
+  tags: []
+}
+[SDB] Substituted $(TAGS) -> ""
+[SDB] Effective command: dlogutil -v kerneltime 
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil -v kerneltime 
+[SDB] Final sdb args: [ '-s', 'dev2', 'shell', 'dlogutil', '-v', 'kerneltime' ]
+[SDB] Spawning sdb process...
+[SDB] ??Process spawned successfully, PID: 5678
+[SDB] Emitting connected status...
+[SDB] All event listeners attached, waiting for data...
+燧놅툘  [END TEST]   "should kill existing process before starting new one"
+
+
+燧뉛툘  [START TEST] "should execute default command (dlogutil -v kerneltime) if none provided"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: '1.2.3.4',
+  port: 22,
+  username: 'root',
+  passwordProvided: true,
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &',
+  tags: []
+}
+[SSH] Substituted $(TAGS) -> ""
+[SSH] Effective command: dlogutil -c;logger-mgr --filter ; dlogutil -v kerneltime  &
+[SSH] Killing existing SDB process to prevent duplicates...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+[SSH] ??SSH connection ready, requesting shell...
+[SSH] ??Shell created successfully
+[SSH] Using custom command: dlogutil -c;logger-mgr --filter ; dlogutil -v kerneltime  &
+[SSH] Writing command to stream: dlogutil -c;logger-mgr --filter ; dlogutil -v kerneltime  &
+[SSH] Command sent, waiting for log data...
+燧놅툘  [END TEST]   "should execute default command (dlogutil -v kerneltime) if none provided"
+
+
+燧뉛툘  [START TEST] "should execute user provided command (e.g. tail -f ...)"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: '1.2.3.4',
+  port: undefined,
+  username: 'testuser',
+  passwordProvided: false,
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'tail -f /var/log/messages',
+  tags: []
+}
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+[SSH] ??SSH connection ready, requesting shell...
+[SSH] ??Shell created successfully
+[SSH] Using custom command: tail -f /var/log/messages
+[SSH] Writing command to stream: tail -f /var/log/messages
+[SSH] Command sent, waiting for log data...
+燧놅툘  [END TEST]   "should execute user provided command (e.g. tail -f ...)"
+
+
+燧뉛툘  [START TEST] "should execute arbitrary user provided command (e.g. top)"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: '1.2.3.4',
+  port: undefined,
+  username: 'testuser',
+  passwordProvided: false,
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'top -n 1',
+  tags: []
+}
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+[SSH] ??SSH connection ready, requesting shell...
+[SSH] ??Shell created successfully
+[SSH] Using custom command: top -n 1
+[SSH] Writing command to stream: top -n 1
+[SSH] Command sent, waiting for log data...
+燧놅툘  [END TEST]   "should execute arbitrary user provided command (e.g. top)"
+
+
+燧뉛툘  [START TEST] "should substitute $(TAGS) with space-joined tags in SSH command"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: '1.2.3.4',
+  port: undefined,
+  username: 'testuser',
+  passwordProvided: false,
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &',
+  tags: [ 'AudioPolicy', 'AudioFlinger' ]
+}
+[SSH] Substituted $(TAGS) -> "AudioPolicy AudioFlinger"
+[SSH] Effective command: logger-mgr --filter AudioPolicy AudioFlinger; dlogutil -v kerneltime AudioPolicy AudioFlinger &
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+[SSH] ??SSH connection ready, requesting shell...
+[SSH] ??Shell created successfully
+[SSH] Using custom command: logger-mgr --filter AudioPolicy AudioFlinger; dlogutil -v kerneltime AudioPolicy AudioFlinger &
+[SSH] Writing command to stream: logger-mgr --filter AudioPolicy AudioFlinger; dlogutil -v kerneltime AudioPolicy AudioFlinger &
+[SSH] Command sent, waiting for log data...
+燧놅툘  [END TEST]   "should substitute $(TAGS) with space-joined tags in SSH command"
+
+
+燧뉛툘  [START TEST] "should apply tags to DEFAULT SSH command if no command provided"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: '1.2.3.4',
+  port: undefined,
+  username: 'testuser',
+  passwordProvided: false,
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &',
+  tags: [ 'SystemUI' ]
+}
+[SSH] Substituted $(TAGS) -> "SystemUI"
+[SSH] Effective command: dlogutil -c;logger-mgr --filter SystemUI; dlogutil -v kerneltime SystemUI &
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+[SSH] ??SSH connection ready, requesting shell...
+[SSH] ??Shell created successfully
+[SSH] Using custom command: dlogutil -c;logger-mgr --filter SystemUI; dlogutil -v kerneltime SystemUI &
+[SSH] Writing command to stream: dlogutil -c;logger-mgr --filter SystemUI; dlogutil -v kerneltime SystemUI &
+[SSH] Command sent, waiting for log data...
+燧놅툘  [END TEST]   "should apply tags to DEFAULT SSH command if no command provided"
+
+
+燧뉛툘  [START TEST] "should emit log_data when stream outputs data"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: '1.2.3.4',
+  port: undefined,
+  username: 'testuser',
+  passwordProvided: false,
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &',
+  tags: []
+}
+[SSH] Substituted $(TAGS) -> ""
+[SSH] Effective command: dlogutil -c;logger-mgr --filter ; dlogutil -v kerneltime  &
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+[SSH] ??SSH connection ready, requesting shell...
+[SSH] ??Shell created successfully
+[SSH] Using custom command: dlogutil -c;logger-mgr --filter ; dlogutil -v kerneltime  &
+[SSH] Writing command to stream: dlogutil -c;logger-mgr --filter ; dlogutil -v kerneltime  &
+[SSH] Command sent, waiting for log data...
+[SSH] ??First data received: 12 bytes
+[SSH] First data preview: SSH Log Line
+燧놅툘  [END TEST]   "should emit log_data when stream outputs data"
+
+
+燧뉛툘  [START TEST] "should emit ssh_error on connection failure"
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: '1.2.3.4',
+  port: undefined,
+  username: 'testuser',
+  passwordProvided: false,
+  debug: undefined,
+  saveToFile: undefined,
+  command: 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &',
+  tags: []
+}
+[SSH] Substituted $(TAGS) -> ""
+[SSH] Effective command: dlogutil -c;logger-mgr --filter ; dlogutil -v kerneltime  &
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+燧놅툘  [END TEST]   "should emit ssh_error on connection failure"
+
+ ??test/server_socket.test.js (15 tests) 17ms
+ ??components/PostTool.test.tsx (4 tests) 48ms
+
+ Test Files  5 passed (5)
+      Tests  47 passed (47)
+   Start at  04:56:08
+   Duration  1.72s (transform 1.10s, setup 424ms, import 1.89s, tests 183ms, environment 3.02s)
+

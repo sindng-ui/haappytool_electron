@@ -1,0 +1,251 @@
+
+ RUN  v4.0.15 K:/Antigravity_Projects/gitbase/happytool_electron
+
+ ??test/workers/LogProcessor.worker.test.ts (25 tests | 13 failed) 46ms
+     ??should match all lines when no filter is applied 1ms
+     횞 should match lines containing include terms (single group, single term) 4ms
+     횞 should require ALL terms in a group to match (AND logic) 1ms
+     횞 should match if ANY group matches (OR logic) 1ms
+     횞 should exclude lines matching block list 0ms
+     횞 should exclude even if line matches includes 0ms
+     횞 should respect case sensitivity for includes 0ms
+     횞 should respect case sensitivity for excludes 0ms
+     ??should show all lines when include groups are empty 0ms
+     ??should force include non-standard log lines in stream mode 0ms
+     ??should force include [TEST_LOG_ lines in stream mode 0ms
+     횞 should trim whitespace from filter terms 0ms
+     횞 should ignore empty string filter terms 0ms
+     ??should process multiple lines from a chunk correctly 0ms
+     ??should strip ANSI codes from lines 0ms
+     ??should initialize stream mode on INIT_STREAM message 32ms
+     ??should process chunk and not drop any lines 1ms
+     ??should strip ANSI color codes from log lines 0ms
+     횞 should filter lines using include groups (AND logic) 1ms
+     횞 should exclude lines matching block list 1ms
+     횞 should respect case sensitivity in filtering 1ms
+     ??should accumulate multiple chunks correctly 0ms
+     횞 should buffer incomplete lines across chunks 0ms
+     ??should retrieve lines by index correctly 0ms
+     ??should handle empty chunks gracefully 0ms
+
+??렞??렞??렞 Failed Tests 13 ??렞??렞??렞??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Filtering Logic > should match lines containing include terms (single group, single term)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ??test/workers/LogProcessor.worker.test.ts:101:56
+     99|         expect(checkIsMatch('ERROR: Connection failed', rule)).toBe(tr??    100|         expect(checkIsMatch('error: lowercase', rule)).toBe(true); // ??    101|         expect(checkIsMatch('INFO: Normal log', rule)).toBe(false);
+       |                                                        ^
+    102|     });
+    103| 
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??1/13]??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Filtering Logic > should require ALL terms in a group to match (AND logic)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ??test/workers/LogProcessor.worker.test.ts:120:54
+    118| 
+    119|         expect(checkIsMatch('ERROR: Connection failed', rule)).toBe(tr??    120|         expect(checkIsMatch('ERROR: Timeout', rule)).toBe(false); // M??       |                                                      ^
+    121|         expect(checkIsMatch('Connection test INFO', rule)).toBe(false)??    122|     });
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??2/13]??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Filtering Logic > should match if ANY group matches (OR logic)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ??test/workers/LogProcessor.worker.test.ts:144:52
+    142|         expect(checkIsMatch('ERROR: Failed', rule)).toBe(true);
+    143|         expect(checkIsMatch('WARNING: Low memory', rule)).toBe(true);
+    144|         expect(checkIsMatch('INFO: Normal', rule)).toBe(false);
+       |                                                    ^
+    145|     });
+    146| 
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??3/13]??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Filtering Logic > should exclude lines matching block list
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ??test/workers/LogProcessor.worker.test.ts:162:59
+    160|         };
+    161| 
+    162|         expect(checkIsMatch('DEBUG: Trace output', rule)).toBe(false);
+       |                                                           ^
+    163|         expect(checkIsMatch('VERBOSE: Details', rule)).toBe(false);
+    164|         expect(checkIsMatch('INFO: Important', rule)).toBe(true);
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??4/13]??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Filtering Logic > should exclude even if line matches includes
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ??test/workers/LogProcessor.worker.test.ts:183:57
+    181| 
+    182|         expect(checkIsMatch('ERROR: Connection', rule)).toBe(true);
+    183|         expect(checkIsMatch('DEBUG ERROR: Test', rule)).toBe(false); /??       |                                                         ^
+    184|     });
+    185| 
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??5/13]??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Filtering Logic > should respect case sensitivity for includes
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ??test/workers/LogProcessor.worker.test.ts:202:56
+    200| 
+    201|         expect(checkIsMatch('ERROR: Uppercase', rule)).toBe(true);
+    202|         expect(checkIsMatch('error: Lowercase', rule)).toBe(false); //??       |                                                        ^
+    203|         expect(checkIsMatch('Error: Mixed', rule)).toBe(false);
+    204|     });
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??6/13]??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Filtering Logic > should respect case sensitivity for excludes
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ??test/workers/LogProcessor.worker.test.ts:221:56
+    219|         };
+    220| 
+    221|         expect(checkIsMatch('DEBUG: Uppercase', rule)).toBe(false);
+       |                                                        ^
+    222|         expect(checkIsMatch('debug: Lowercase', rule)).toBe(true); // ??    223|     });
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??7/13]??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Filtering Logic > should trim whitespace from filter terms
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ??test/workers/LogProcessor.worker.test.ts:305:51
+    303| 
+    304|         expect(checkIsMatch('ERROR: Connection failed', rule)).toBe(tr??    305|         expect(checkIsMatch('DEBUG: Test', rule)).toBe(false);
+       |                                                   ^
+    306|     });
+    307| 
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??8/13]??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Filtering Logic > should ignore empty string filter terms
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ??test/workers/LogProcessor.worker.test.ts:325:54
+    323|         // Empty strings should be filtered out, leaving only "ERROR"
+    324|         expect(checkIsMatch('ERROR: Message', rule)).toBe(true);
+    325|         expect(checkIsMatch('DEBUG: Message', rule)).toBe(false);
+       |                                                      ^
+    326|     });
+    327| });
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??9/13]??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Stream Mode > should filter lines using include groups (AND logic)
+AssertionError: expected 3 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 3
+
+ ??test/workers/LogProcessor.worker.test.ts:549:51
+    547|         const filterComplete = postedMessages.find(m => m.type === 'FI??    548|         expect(filterComplete).toBeDefined();
+    549|         expect(filterComplete.payload.matchCount).toBe(2);
+       |                                                   ^
+    550|     });
+    551| 
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞[10/13]??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Stream Mode > should exclude lines matching block list
+AssertionError: expected 3 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 3
+
+ ??test/workers/LogProcessor.worker.test.ts:588:51
+    586|         const filterComplete = postedMessages.find(m => m.type === 'FI??    587|         expect(filterComplete).toBeDefined();
+    588|         expect(filterComplete.payload.matchCount).toBe(1);
+       |                                                   ^
+    589|     });
+    590| 
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞[11/13]??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Stream Mode > should respect case sensitivity in filtering
+AssertionError: expected 3 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 3
+
+ ??test/workers/LogProcessor.worker.test.ts:627:51
+    625|         const filterComplete = postedMessages.find(m => m.type === 'FI??    626|         expect(filterComplete).toBeDefined();
+    627|         expect(filterComplete.payload.matchCount).toBe(1);
+       |                                                   ^
+    628|     });
+    629| 
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞[12/13]??
+ FAIL  test/workers/LogProcessor.worker.test.ts > LogProcessor Worker - Stream Mode > should buffer incomplete lines across chunks
+TypeError: Cannot read properties of undefined (reading 'payload')
+ ??test/workers/LogProcessor.worker.test.ts:682:31
+    680|         // Should not process incomplete line yet
+    681|         let filterComplete = postedMessages.find(m => m.type === 'FILT??    682|         expect(filterComplete.payload.totalLines).toBe(0);
+       |                               ^
+    683| 
+    684|         postedMessages = [];
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞[13/13]??
+
+ Test Files  1 failed (1)
+      Tests  13 failed | 12 passed (25)
+   Start at  04:37:36
+   Duration  1.11s (transform 53ms, setup 77ms, import 46ms, tests 46ms, environment 508ms)
+
