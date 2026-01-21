@@ -15,15 +15,17 @@ let globalBlockTestDir = path.join(process.cwd(), 'BlockTest');
 // Lazy load OpenCV
 let cv = null;
 try {
-    const cvModule = require('opencv-wasm');
-    if (cvModule && typeof cvModule.then === 'function') {
-        cvModule.then(c => {
-            cv = c;
-            console.log('OpenCV (WASM) Loaded');
-        });
-    } else {
-        // Handling if it returns structure directly (unlikely for this package but safely handling)
-        cv = cvModule;
+    if (process.env.NODE_ENV !== 'test') {
+        const cvModule = require('opencv-wasm');
+        if (cvModule && typeof cvModule.then === 'function') {
+            cvModule.then(c => {
+                cv = c;
+                console.log('OpenCV (WASM) Loaded');
+            });
+        } else {
+            // Handling if it returns structure directly (unlikely for this package but safely handling)
+            cv = cvModule;
+        }
     }
 } catch (e) {
     console.error('Failed to load opencv-wasm:', e);
@@ -180,6 +182,7 @@ let sshConnection = null;
 let sdbProcess = null;
 let debugStream = null;
 let logFileStream = null;
+let sshAuthFinish = null;
 
 function logDebug(msg) {
     if (debugStream) {
@@ -188,11 +191,15 @@ function logDebug(msg) {
     }
 }
 
-io.on('connection', (socket) => {
-    // ...
+const handleSocketConnection = (socket, deps = {}) => {
+    const spawnProc = deps.spawn || spawn;
+    const SSHClient = deps.Client || Client;
 
     // --- SSH Handler ---
-    socket.on('connect_ssh', ({ host, port, username, password, debug, saveToFile, command }) => {
+    socket.on('connect_ssh', ({ host, port, username, password, debug, saveToFile, command, tags }) => {
+        // Set Default Command Upfront
+        command = command || 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
+
         console.log('[SSH] ========== SSH Connection Request ==========');
         console.log('[SSH] Connection initiated with params:', {
             host,
@@ -201,8 +208,17 @@ io.on('connection', (socket) => {
             passwordProvided: !!password,
             debug,
             saveToFile,
-            command: command || 'default (dlogutil -v threadtime)'
+            command,
+            tags: tags || []
         });
+
+        // Perform Tag Substitution
+        if (command && command.includes('$(TAGS)')) {
+            const tagString = Array.isArray(tags) ? tags.join(' ') : '';
+            command = command.replace(/\$\(TAGS\)/g, tagString);
+            console.log(`[SSH] Substituted $(TAGS) -> "${tagString}"`);
+            console.log(`[SSH] Effective command: ${command}`);
+        }
 
         if (sshConnection) {
             console.log('[SSH] Closing existing SSH connection...');
@@ -248,7 +264,7 @@ io.on('connection', (socket) => {
         }
 
         console.log('[SSH] Creating SSH client...');
-        const conn = new Client();
+        const conn = new SSHClient();
 
         conn.on('keyboard-interactive', (name, instructions, instructionsLang, prompts, finish) => {
             console.log('[SSH] Keyboard-Interactive Auth Requested');
@@ -396,14 +412,26 @@ io.on('connection', (socket) => {
     });
 
     // --- SDB Handler ---
-    socket.on('connect_sdb', ({ deviceId, debug, saveToFile, command }) => {
+    socket.on('connect_sdb', ({ deviceId, debug, saveToFile, command, tags }) => {
+        // Set Default Command Upfront
+        command = command || 'dlogutil -v kerneltime $(TAGS)';
+
         console.log('[SDB] ========== SDB Connection Request ==========');
         console.log('[SDB] Connection initiated with params:', {
             deviceId: deviceId || 'auto-detect',
             debug,
             saveToFile,
-            command: command || 'default (dlogutil -v kerneltime)'
+            command,
+            tags: tags || []
         });
+
+        // Perform Tag Substitution
+        if (command && command.includes('$(TAGS)')) {
+            const tagString = Array.isArray(tags) ? tags.join(' ') : '';
+            command = command.replace(/\$\(TAGS\)/g, tagString);
+            console.log(`[SDB] Substituted $(TAGS) -> "${tagString}"`);
+            console.log(`[SDB] Effective command: ${command}`);
+        }
 
         if (sdbProcess) {
             console.log('[SDB] Killing existing SDB process...');
@@ -468,7 +496,7 @@ io.on('connection', (socket) => {
             console.log('[SDB] Spawning sdb process...');
             logDebug('Attempting to spawn sdb process...');
 
-            sdbProcess = spawn('sdb', args);
+            sdbProcess = spawnProc('sdb', args);
 
             if (sdbProcess && sdbProcess.pid) {
                 console.log('[SDB] ✓ Process spawned successfully, PID:', sdbProcess.pid);
@@ -564,7 +592,7 @@ io.on('connection', (socket) => {
             sdbProcess.kill();
             sdbProcess = null;
         }
-        spawn('sdb', ['disconnect']);
+        spawnProc('sdb', ['disconnect']);
 
         socket.emit('sdb_status', { status: 'disconnected', message: 'SDB Disconnected by user' });
 
@@ -589,13 +617,13 @@ io.on('connection', (socket) => {
         try {
             // 1. sdb disconnect
             await new Promise((resolve) => {
-                const child = spawn('sdb', ['disconnect']);
+                const child = spawnProc('sdb', ['disconnect']);
                 child.on('close', resolve);
             });
 
             // 2. sdb connect IP
             await new Promise((resolve, reject) => {
-                const child = spawn('sdb', ['connect', ip]);
+                const child = spawnProc('sdb', ['connect', ip]);
                 child.on('close', (code) => {
                     if (code === 0) resolve();
                     else reject(new Error(`Connect failed with code ${code}`));
@@ -604,14 +632,14 @@ io.on('connection', (socket) => {
 
             // 3. sdb root on
             await new Promise((resolve) => {
-                const child = spawn('sdb', ['root', 'on']);
+                const child = spawnProc('sdb', ['root', 'on']);
                 child.on('close', resolve);
             });
 
             socket.emit('sdb_remote_result', { success: true, message: 'Connected and Rooted' });
 
             // Refresh list
-            const listChild = spawn('sdb', ['devices']);
+            const listChild = spawnProc('sdb', ['devices']);
             let listData = '';
             listChild.stdout.on('data', d => listData += d.toString());
             listChild.on('close', () => {
@@ -814,7 +842,7 @@ io.on('connection', (socket) => {
 
                 // Synchronous-like spawn wrapper for cleaner loop? using promise
                 await new Promise((resolve, reject) => {
-                    const child = spawn('sdb', sdbArgs);
+                    const child = spawnProc('sdb', sdbArgs);
                     child.on('close', resolve);
                     child.on('error', reject);
                 });
@@ -822,7 +850,7 @@ io.on('connection', (socket) => {
                 // Pull
                 const pullArgs = deviceId ? ['-s', deviceId, 'pull', tempRemotePath, localPath] : ['pull', tempRemotePath, localPath];
                 await new Promise((resolve, reject) => {
-                    const child = spawn('sdb', pullArgs);
+                    const child = spawnProc('sdb', pullArgs);
                     child.on('close', resolve);
                     child.on('error', reject);
                 });
@@ -902,7 +930,7 @@ io.on('connection', (socket) => {
             // We need to handle shell commands properly.
             // sdb dlogutil -v kerneltime might need shell=true or split args.
             // Using spawn with shell option is safest for "command" strings.
-            const child = spawn(command, { shell: true });
+            const child = spawnProc(command, { shell: true });
 
             child.stdout.on('data', (data) => {
                 fileStream.write(data);
@@ -940,7 +968,7 @@ io.on('connection', (socket) => {
 
         // 1. If stopCommand provided, execute it (e.g. sdb shell killall dlog)
         if (stopCommand) {
-            const stopProc = spawn(stopCommand, { shell: true });
+            const stopProc = spawnProc(stopCommand, { shell: true });
             stopProc.on('close', (code) => {
                 console.log(`[BackgroundLog] Stop command exited with ${code}`);
             });
@@ -983,7 +1011,7 @@ io.on('connection', (socket) => {
         const captureCmd = `/usr/bin/enlightenment_info -dump_screen ${tempRemotePath}`;
         const sdbArgs = deviceId ? ['-s', deviceId, 'shell', captureCmd] : ['shell', captureCmd];
 
-        const captureProcess = spawn('sdb', sdbArgs);
+        const captureProcess = spawnProc('sdb', sdbArgs);
 
         captureProcess.on('close', (code) => {
             if (code !== 0) {
@@ -996,7 +1024,7 @@ io.on('connection', (socket) => {
             // Step 2: Pull
             // sdb -s [id] pull [remote] [local]
             const pullArgs = deviceId ? ['-s', deviceId, 'pull', tempRemotePath, localPath] : ['pull', tempRemotePath, localPath];
-            const pullProcess = spawn('sdb', pullArgs);
+            const pullProcess = spawnProc('sdb', pullArgs);
 
             pullProcess.on('close', (pullCode) => {
                 if (pullCode === 0 && fs.existsSync(localPath)) {
@@ -1007,7 +1035,7 @@ io.on('connection', (socket) => {
 
                     // Cleanup remote (optional, good practice)
                     const rmArgs = deviceId ? ['-s', deviceId, 'shell', 'rm', tempRemotePath] : ['shell', 'rm', tempRemotePath];
-                    spawn('sdb', rmArgs);
+                    spawnProc('sdb', rmArgs);
                 } else {
                     socket.emit('capture_result', { success: false, message: 'Failed to pull screen capture. Command might have failed.' });
                 }
@@ -1149,7 +1177,7 @@ io.on('connection', (socket) => {
             const args = ['-s', deviceId, 'shell', 'top', '-b', '-d', '1'];
 
             try {
-                cpuMonitorProcess = spawn('sdb', args);
+                cpuMonitorProcess = spawnProc('sdb', args);
 
                 let buffer = '';
 
@@ -1359,7 +1387,7 @@ io.on('connection', (socket) => {
             const args = ['-s', deviceId, 'shell', 'top', '-H', '-b', '-d', '1', '-p', pid];
 
             try {
-                threadMonitorProcess = spawn('sdb', args);
+                threadMonitorProcess = spawnProc('sdb', args);
                 let buffer = '';
 
                 threadMonitorProcess.stdout.on('data', (data) => {
@@ -1542,7 +1570,7 @@ io.on('connection', (socket) => {
                 const cmdArgs = ['-s', deviceId, 'shell', 'vd_memps', '-p', targetPid, '-t', interval || '1'];
 
                 try {
-                    memoryMonitorProcess = spawn('sdb', cmdArgs);
+                    memoryMonitorProcess = spawnProc('sdb', cmdArgs);
 
                     memoryMonitorProcess.stdout.on('data', (data) => {
                         const text = data.toString();
@@ -1606,7 +1634,8 @@ io.on('connection', (socket) => {
         socket.emit('memory_status', { status: 'stopped', message: 'Stopped' });
     });
 
-});
+};
+io.on('connection', handleSocketConnection);
 
 // SPA Fallback for non-API routes
 app.get(/(.*)/, (req, res) => {
@@ -1665,4 +1694,4 @@ if (require.main === module) {
     startServer();
 }
 
-module.exports = { startServer };
+module.exports = { startServer, handleSocketConnection };

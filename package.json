@@ -11,7 +11,10 @@
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:3000 && electron .\"",
     "electron:build": "vite build && electron-builder",
-    "test": "vitest"
+    "test": "vitest run --no-color",
+    "test:all": "vitest run --no-color",
+    "test:frontend": "vitest run --no-color test/hooks/useLogExtractorLogic.test.tsx",
+    "test:backend": "vitest run --no-color test/server_socket.test.js"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
