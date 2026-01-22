@@ -260,6 +260,64 @@ app.whenReady().then(async () => {
         });
     });
 
+    // IPC Handler for Rx Code Parsing
+    ipcMain.handle('parseRxCode', async (event, code) => {
+        const { spawn } = require('child_process');
+
+        const isDev = !require('electron').app.isPackaged;
+        console.log('[RxParser] Parsing Rx code, isDev:', isDev);
+
+        return new Promise((resolve) => {
+            const validatorPath = isDev
+                ? path.join(__dirname, '..', 'RxFlow.Validator', 'bin', 'Debug', 'net7.0', 'RxFlow.Validator.exe')
+                : path.join(process.resourcesPath, 'RxFlow.Validator.exe');
+
+            console.log('[RxParser] Looking for validator at:', validatorPath);
+
+            // Check if validator exists
+            if (!require('fs').existsSync(validatorPath)) {
+                console.warn('[RxParser] Validator not found at:', validatorPath);
+                resolve({ nodes: [], edges: [], errors: ['RxFlow Validator not found. Please build the .NET project.'] });
+                return;
+            }
+
+            const child = spawn(validatorPath, ['--parse'], {
+                stdio: ['pipe', 'pipe', 'pipe']
+            });
+            let stdout = '';
+            let stderr = '';
+
+            child.stdout.on('data', (data) => stdout += data.toString());
+            child.stderr.on('data', (data) => stderr += data.toString());
+
+            child.on('close', (code) => {
+                if (code !== 0) {
+                    console.error('[RxParser] Validator exited with code', code, stderr);
+                    resolve({ nodes: [], edges: [], errors: [`Validator process failed: ${stderr}`] });
+                    return;
+                }
+                try {
+                    // Find the JSON object in output
+                    const jsonStart = stdout.indexOf('{');
+                    const jsonEnd = stdout.lastIndexOf('}');
+                    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                        const json = stdout.substring(jsonStart, jsonEnd + 1);
+                        resolve(JSON.parse(json));
+                    } else {
+                        resolve({ nodes: [], edges: [], errors: [] });
+                    }
+                } catch (e) {
+                    console.error('[RxParser] Failed to parse output', e, stdout);
+                    resolve({ nodes: [], edges: [], errors: ['Failed to parse validator output'] });
+                }
+            });
+
+            // Write code to stdin
+            child.stdin.write(code);
+            child.stdin.end();
+        });
+    });
+
     console.log('[DEBUG] HappyTool Main Process Started - ID: 8888');
     console.log('Starting internal server...');
     try {

@@ -26,5 +26,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openExternal: (url) => ipcRenderer.invoke('openExternal', url),
     fetchUrl: (url, type) => ipcRenderer.invoke('fetchUrl', { url, type }),
     getAppPath: () => ipcRenderer.invoke('getAppPath'),
-    validateRoslyn: (code) => ipcRenderer.invoke('validateRoslyn', code)
+    validateRoslyn: (code) => ipcRenderer.invoke('validateRoslyn', code),
+    parseRxCode: (code) => ipcRenderer.invoke('parseRxCode', code)
 });

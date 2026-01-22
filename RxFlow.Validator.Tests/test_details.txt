@@ -1,0 +1,219 @@
+C:\Users\simja\.nuget\packages\system.collections.immutable\9.0.0\buildTransitive\netcoreapp2.0\System.Collections.Immutable.targets(4,5): warning : System.Collections.Immutable 9.0.0 doesn't support net7.0 and has not been tested with it. Consider upgrading your TargetFramework to net8.0 or later. You may also set <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings> in the project file to ignore this warning and attempt to run in this unsupported configuration at your own risk. [K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxFlow.Validator.Tests.csproj]
+C:\Users\simja\.nuget\packages\system.reflection.metadata\9.0.0\buildTransitive\netcoreapp2.0\System.Reflection.Metadata.targets(4,5): warning : System.Reflection.Metadata 9.0.0 doesn't support net7.0 and has not been tested with it. Consider upgrading your TargetFramework to net8.0 or later. You may also set <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings> in the project file to ignore this warning and attempt to run in this unsupported configuration at your own risk. [K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxFlow.Validator.Tests.csproj]
+  蹂듭썝???꾨줈?앺듃瑜??뺤씤?섎뒗 以?..
+  蹂듭썝??紐⑤뱺 ?꾨줈?앺듃媛 理쒖떊 ?곹깭?낅땲??
+C:\Users\simja\.nuget\packages\system.collections.immutable\9.0.0\buildTransitive\netcoreapp2.0\System.Collections.Immutable.targets(4,5): warning : System.Collections.Immutable 9.0.0 doesn't support net7.0 and has not been tested with it. Consider upgrading your TargetFramework to net8.0 or later. You may also set <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings> in the project file to ignore this warning and attempt to run in this unsupported configuration at your own risk. [K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxFlow.Validator.Tests.csproj]
+C:\Users\simja\.nuget\packages\system.reflection.metadata\9.0.0\buildTransitive\netcoreapp2.0\System.Reflection.Metadata.targets(4,5): warning : System.Reflection.Metadata 9.0.0 doesn't support net7.0 and has not been tested with it. Consider upgrading your TargetFramework to net8.0 or later. You may also set <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings> in the project file to ignore this warning and attempt to run in this unsupported configuration at your own risk. [K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxFlow.Validator.Tests.csproj]
+C:\Users\simja\.nuget\packages\system.collections.immutable\9.0.0\buildTransitive\netcoreapp2.0\System.Collections.Immutable.targets(4,5): warning : System.Collections.Immutable 9.0.0 doesn't support net7.0 and has not been tested with it. Consider upgrading your TargetFramework to net8.0 or later. You may also set <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings> in the project file to ignore this warning and attempt to run in this unsupported configuration at your own risk. [K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator\RxFlow.Validator.csproj]
+C:\Users\simja\.nuget\packages\system.reflection.metadata\9.0.0\buildTransitive\netcoreapp2.0\System.Reflection.Metadata.targets(4,5): warning : System.Reflection.Metadata 9.0.0 doesn't support net7.0 and has not been tested with it. Consider upgrading your TargetFramework to net8.0 or later. You may also set <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings> in the project file to ignore this warning and attempt to run in this unsupported configuration at your own risk. [K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator\RxFlow.Validator.csproj]
+  RxFlow.Validator -> K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator\bin\Debug\net7.0\RxFlow.Validator.dll
+  RxFlow.Validator.Tests -> K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\bin\Debug\net7.0\RxFlow.Validator.Tests.dll
+K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\bin\Debug\net7.0\RxFlow.Validator.Tests.dll(.NETCoreApp,Version=v7.0)??????뚯뒪???ㅽ뻾
+Microsoft (R) Test Execution Command Line Tool Version 17.5.0 (x64)
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+?뚯뒪???ㅽ뻾???쒖옉?섎뒗 以묒엯?덈떎. ?좎떆 湲곕떎??二쇱꽭??..
+吏?뺣맂 ?⑦꽩怨??쇱튂??珥??뚯뒪???뚯씪 ?섎뒗 1媛쒖엯?덈떎.
+K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\bin\Debug\net7.0\RxFlow.Validator.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.4.5+1caef2f33e (64-bit .NET 7.0.4)
+[xUnit.net 00:00:00.36]   Discovering: RxFlow.Validator.Tests
+[xUnit.net 00:00:00.37]   Discovered:  RxFlow.Validator.Tests
+[xUnit.net 00:00:00.37]   Starting:    RxFlow.Validator.Tests
+[xUnit.net 00:00:00.46]     RxFlow.Validator.Tests.RxCodeParserTests.Parse_SimpleIntervalSubscribe_CreatesCorrectNodes [FAIL]
+[xUnit.net 00:00:00.46]       Assert.Equal() Failure
+[xUnit.net 00:00:00.46]       Expected: 2
+[xUnit.net 00:00:00.46]       Actual:   1
+[xUnit.net 00:00:00.46]       Stack Trace:
+[xUnit.net 00:00:00.46]         K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs(31,0): at RxFlow.Validator.Tests.RxCodeParserTests.Parse_SimpleIntervalSubscribe_CreatesCorrectNodes()
+[xUnit.net 00:00:00.46]            at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+[xUnit.net 00:00:00.46]            at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.46]     RxFlow.Validator.Tests.RxCodeParserTests.Parse_GroupByOperator_ExtractsKeySelector [FAIL]
+[xUnit.net 00:00:00.46]       System.InvalidOperationException : Sequence contains no matching element
+[xUnit.net 00:00:00.46]       Stack Trace:
+[xUnit.net 00:00:00.46]            at System.Linq.ThrowHelper.ThrowNoMatchException()
+[xUnit.net 00:00:00.46]            at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+[xUnit.net 00:00:00.46]         K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs(263,0): at RxFlow.Validator.Tests.RxCodeParserTests.Parse_GroupByOperator_ExtractsKeySelector()
+[xUnit.net 00:00:00.46]            at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+[xUnit.net 00:00:00.46]            at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.47]     RxFlow.Validator.Tests.RxCodeParserTests.Parse_ComplexChain_CreatesCorrectEdgeSequence [FAIL]
+[xUnit.net 00:00:00.47]       Assert.Equal() Failure
+[xUnit.net 00:00:00.47]       Expected: 5
+[xUnit.net 00:00:00.47]       Actual:   1
+[xUnit.net 00:00:00.47]       Stack Trace:
+[xUnit.net 00:00:00.47]         K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs(228,0): at RxFlow.Validator.Tests.RxCodeParserTests.Parse_ComplexChain_CreatesCorrectEdgeSequence()
+[xUnit.net 00:00:00.47]            at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+[xUnit.net 00:00:00.47]            at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.47]     RxFlow.Validator.Tests.RxCodeParserTests.Parse_BufferOperator_WithTimeSpan_ExtractsDuration [FAIL]
+[xUnit.net 00:00:00.47]       System.InvalidOperationException : Sequence contains no matching element
+[xUnit.net 00:00:00.47]       Stack Trace:
+[xUnit.net 00:00:00.47]            at System.Linq.ThrowHelper.ThrowNoMatchException()
+[xUnit.net 00:00:00.47]            at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+[xUnit.net 00:00:00.47]         K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs(190,0): at RxFlow.Validator.Tests.RxCodeParserTests.Parse_BufferOperator_WithTimeSpan_ExtractsDuration()
+[xUnit.net 00:00:00.47]            at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+[xUnit.net 00:00:00.47]            at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+  ?듦낵 RxFlow.Validator.Tests.UnitTest1.Test1 [1 ms]
+  ?ㅽ뙣 RxFlow.Validator.Tests.RxCodeParserTests.Parse_SimpleIntervalSubscribe_CreatesCorrectNodes [46 ms]
+  ?ㅻ쪟 硫붿떆吏:
+   Assert.Equal() Failure
+Expected: 2
+Actual:   1
+  ?ㅽ깮 異붿쟻:
+     at RxFlow.Validator.Tests.RxCodeParserTests.Parse_SimpleIntervalSubscribe_CreatesCorrectNodes() in K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs:line 31
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+  ?듦낵 RxFlow.Validator.Tests.RxCodeParserTests.Parse_NoObservableCode_ReturnsEmptyGraph [2 ms]
+  ?듦낵 RxFlow.Validator.Tests.RxCodeParserTests.Parse_BehaviorSubject_ExtractsInitialValue [2 ms]
+  ?듦낵 RxFlow.Validator.Tests.RxCodeParserTests.Parse_UnknownOperator_UsesGenericParameterExtraction [1 ms]
+  ?ㅽ뙣 RxFlow.Validator.Tests.RxCodeParserTests.Parse_GroupByOperator_ExtractsKeySelector [1 ms]
+  ?ㅻ쪟 硫붿떆吏:
+   System.InvalidOperationException : Sequence contains no matching element
+  ?ㅽ깮 異붿쟻:
+     at System.Linq.ThrowHelper.ThrowNoMatchException()
+   at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+   at RxFlow.Validator.Tests.RxCodeParserTests.Parse_GroupByOperator_ExtractsKeySelector() in K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs:line 263
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+  ?듦낵 RxFlow.Validator.Tests.RxCodeParserTests.Parse_RetryOperator_ExtractsRetryCount [< 1 ms]
+  ?ㅽ뙣 RxFlow.Validator.Tests.RxCodeParserTests.Parse_ComplexChain_CreatesCorrectEdgeSequence [< 1 ms]
+  ?ㅻ쪟 硫붿떆吏:
+   Assert.Equal() Failure
+Expected: 5
+Actual:   1
+  ?ㅽ깮 異붿쟻:
+     at RxFlow.Validator.Tests.RxCodeParserTests.Parse_ComplexChain_CreatesCorrectEdgeSequence() in K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs:line 228
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+  ?ㅽ뙣 RxFlow.Validator.Tests.RxCodeParserTests.Parse_BufferOperator_WithTimeSpan_ExtractsDuration [< 1 ms]
+  ?ㅻ쪟 硫붿떆吏:
+   System.InvalidOperationException : Sequence contains no matching element
+  ?ㅽ깮 異붿쟻:
+     at System.Linq.ThrowHelper.ThrowNoMatchException()
+   at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+   at RxFlow.Validator.Tests.RxCodeParserTests.Parse_BufferOperator_WithTimeSpan_ExtractsDuration() in K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs:line 190
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.48]     RxFlow.Validator.Tests.RxCodeParserTests.Parse_MergeOperator_CreatesJoinNode [FAIL]
+[xUnit.net 00:00:00.48]       Assert.NotNull() Failure
+[xUnit.net 00:00:00.48]       Stack Trace:
+[xUnit.net 00:00:00.48]         K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs(161,0): at RxFlow.Validator.Tests.RxCodeParserTests.Parse_MergeOperator_CreatesJoinNode()
+[xUnit.net 00:00:00.48]            at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+[xUnit.net 00:00:00.48]            at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.48]     RxFlow.Validator.Tests.RxCodeParserTests.Parse_SelectOperator_ExtractsLambdaExpression [FAIL]
+[xUnit.net 00:00:00.48]       System.InvalidOperationException : Sequence contains no matching element
+[xUnit.net 00:00:00.48]       Stack Trace:
+[xUnit.net 00:00:00.48]            at System.Linq.ThrowHelper.ThrowNoMatchException()
+[xUnit.net 00:00:00.48]            at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+[xUnit.net 00:00:00.48]         K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs(87,0): at RxFlow.Validator.Tests.RxCodeParserTests.Parse_SelectOperator_ExtractsLambdaExpression()
+[xUnit.net 00:00:00.48]            at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+[xUnit.net 00:00:00.48]            at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.48]     RxFlow.Validator.Tests.RxCodeParserTests.Parse_BufferOperator_WithCount_ExtractsCountParameter [FAIL]
+[xUnit.net 00:00:00.48]       System.InvalidOperationException : Sequence contains no matching element
+[xUnit.net 00:00:00.48]       Stack Trace:
+[xUnit.net 00:00:00.48]            at System.Linq.ThrowHelper.ThrowNoMatchException()
+[xUnit.net 00:00:00.48]            at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+[xUnit.net 00:00:00.48]         K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs(175,0): at RxFlow.Validator.Tests.RxCodeParserTests.Parse_BufferOperator_WithCount_ExtractsCountParameter()
+[xUnit.net 00:00:00.48]            at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+[xUnit.net 00:00:00.48]            at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.48]     RxFlow.Validator.Tests.RxCodeParserTests.Parse_SubscribeOperator_ExtractsAllHandlers [FAIL]
+[xUnit.net 00:00:00.48]       System.InvalidOperationException : Sequence contains no matching element
+[xUnit.net 00:00:00.48]       Stack Trace:
+[xUnit.net 00:00:00.48]            at System.Linq.ThrowHelper.ThrowNoMatchException()
+[xUnit.net 00:00:00.48]            at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+[xUnit.net 00:00:00.48]         K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs(141,0): at RxFlow.Validator.Tests.RxCodeParserTests.Parse_SubscribeOperator_ExtractsAllHandlers()
+[xUnit.net 00:00:00.48]            at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+[xUnit.net 00:00:00.48]            at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.48]     RxFlow.Validator.Tests.RxCodeParserTests.Parse_ScanOperator_ExtractsSeedAndAccumulator [FAIL]
+[xUnit.net 00:00:00.48]       System.InvalidOperationException : Sequence contains no matching element
+[xUnit.net 00:00:00.48]       Stack Trace:
+[xUnit.net 00:00:00.48]            at System.Linq.ThrowHelper.ThrowNoMatchException()
+[xUnit.net 00:00:00.48]            at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+[xUnit.net 00:00:00.48]         K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs(119,0): at RxFlow.Validator.Tests.RxCodeParserTests.Parse_ScanOperator_ExtractsSeedAndAccumulator()
+[xUnit.net 00:00:00.48]            at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+[xUnit.net 00:00:00.48]            at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.48]     RxFlow.Validator.Tests.RxCodeParserTests.Parse_ThrottleOperator_ExtractsDuration [FAIL]
+[xUnit.net 00:00:00.48]       System.InvalidOperationException : Sequence contains no matching element
+[xUnit.net 00:00:00.48]       Stack Trace:
+[xUnit.net 00:00:00.48]            at System.Linq.ThrowHelper.ThrowNoMatchException()
+[xUnit.net 00:00:00.48]            at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+[xUnit.net 00:00:00.48]         K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs(248,0): at RxFlow.Validator.Tests.RxCodeParserTests.Parse_ThrottleOperator_ExtractsDuration()
+[xUnit.net 00:00:00.48]            at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+[xUnit.net 00:00:00.48]            at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+  ?ㅽ뙣 RxFlow.Validator.Tests.RxCodeParserTests.Parse_MergeOperator_CreatesJoinNode [< 1 ms]
+  ?ㅻ쪟 硫붿떆吏:
+   Assert.NotNull() Failure
+  ?ㅽ깮 異붿쟻:
+     at RxFlow.Validator.Tests.RxCodeParserTests.Parse_MergeOperator_CreatesJoinNode() in K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs:line 161
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+  ?ㅽ뙣 RxFlow.Validator.Tests.RxCodeParserTests.Parse_SelectOperator_ExtractsLambdaExpression [< 1 ms]
+  ?ㅻ쪟 硫붿떆吏:
+   System.InvalidOperationException : Sequence contains no matching element
+  ?ㅽ깮 異붿쟻:
+     at System.Linq.ThrowHelper.ThrowNoMatchException()
+   at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+   at RxFlow.Validator.Tests.RxCodeParserTests.Parse_SelectOperator_ExtractsLambdaExpression() in K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs:line 87
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+  ?듦낵 RxFlow.Validator.Tests.RxCodeParserTests.Parse_RangeOperator_ExtractsStartAndCount [< 1 ms]
+  ?듦낵 RxFlow.Validator.Tests.RxCodeParserTests.Parse_IntervalOperator_ExtractsTimeParameter [< 1 ms]
+  ?ㅽ뙣 RxFlow.Validator.Tests.RxCodeParserTests.Parse_BufferOperator_WithCount_ExtractsCountParameter [< 1 ms]
+  ?ㅻ쪟 硫붿떆吏:
+   System.InvalidOperationException : Sequence contains no matching element
+  ?ㅽ깮 異붿쟻:
+     at System.Linq.ThrowHelper.ThrowNoMatchException()
+   at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+   at RxFlow.Validator.Tests.RxCodeParserTests.Parse_BufferOperator_WithCount_ExtractsCountParameter() in K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs:line 175
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+  ?듦낵 RxFlow.Validator.Tests.RxCodeParserTests.Parse_EmptyCode_ReturnsEmptyGraph [< 1 ms]
+  ?ㅽ뙣 RxFlow.Validator.Tests.RxCodeParserTests.Parse_SubscribeOperator_ExtractsAllHandlers [10 ms]
+  ?ㅻ쪟 硫붿떆吏:
+   System.InvalidOperationException : Sequence contains no matching element
+  ?ㅽ깮 異붿쟻:
+     at System.Linq.ThrowHelper.ThrowNoMatchException()
+   at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+   at RxFlow.Validator.Tests.RxCodeParserTests.Parse_SubscribeOperator_ExtractsAllHandlers() in K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs:line 141
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+  ?ㅽ뙣 RxFlow.Validator.Tests.RxCodeParserTests.Parse_ScanOperator_ExtractsSeedAndAccumulator [< 1 ms]
+  ?ㅻ쪟 硫붿떆吏:
+   System.InvalidOperationException : Sequence contains no matching element
+  ?ㅽ깮 異붿쟻:
+     at System.Linq.ThrowHelper.ThrowNoMatchException()
+   at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+   at RxFlow.Validator.Tests.RxCodeParserTests.Parse_ScanOperator_ExtractsSeedAndAccumulator() in K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs:line 119
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+  ?ㅽ뙣 RxFlow.Validator.Tests.RxCodeParserTests.Parse_ThrottleOperator_ExtractsDuration [< 1 ms]
+  ?ㅻ쪟 硫붿떆吏:
+   System.InvalidOperationException : Sequence contains no matching element
+  ?ㅽ깮 異붿쟻:
+     at System.Linq.ThrowHelper.ThrowNoMatchException()
+   at System.Linq.Enumerable.First[TSource](IEnumerable`1 source, Func`2 predicate)
+   at RxFlow.Validator.Tests.RxCodeParserTests.Parse_ThrottleOperator_ExtractsDuration() in K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs:line 248
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.48]     RxFlow.Validator.Tests.RxCodeParserTests.Parse_SelectWhereChain_CreatesCorrectNodeTypes [FAIL]
+[xUnit.net 00:00:00.48]       Assert.Equal() Failure
+[xUnit.net 00:00:00.48]       Expected: 4
+[xUnit.net 00:00:00.48]       Actual:   1
+[xUnit.net 00:00:00.48]       Stack Trace:
+[xUnit.net 00:00:00.48]         K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs(54,0): at RxFlow.Validator.Tests.RxCodeParserTests.Parse_SelectWhereChain_CreatesCorrectNodeTypes()
+[xUnit.net 00:00:00.48]            at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+[xUnit.net 00:00:00.48]            at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+[xUnit.net 00:00:00.49]   Finished:    RxFlow.Validator.Tests
+  ?ㅽ뙣 RxFlow.Validator.Tests.RxCodeParserTests.Parse_SelectWhereChain_CreatesCorrectNodeTypes [< 1 ms]
+  ?ㅻ쪟 硫붿떆吏:
+   Assert.Equal() Failure
+Expected: 4
+Actual:   1
+  ?ㅽ깮 異붿쟻:
+     at RxFlow.Validator.Tests.RxCodeParserTests.Parse_SelectWhereChain_CreatesCorrectNodeTypes() in K:\Antigravity_Projects\gitbase\happytool_electron\RxFlow.Validator.Tests\RxCodeParserTests.cs:line 54
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodInvoker.Invoke(Object obj, IntPtr* args, BindingFlags invokeAttr)
+
+?뚯뒪???ㅽ뻾???ㅽ뙣?덉뒿?덈떎.
+珥??뚯뒪???? 19
+     ?듦낵: 8
+     ?ㅽ뙣: 11
+ 珥??쒓컙: 1.0421 珥?

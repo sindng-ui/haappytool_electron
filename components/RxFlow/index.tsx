@@ -1,10 +1,10 @@
 import React, { useRef, useMemo } from 'react';
-import { ReactFlow, Background, Controls, useReactFlow, ReactFlowProvider } from '@xyflow/react';
+import { ReactFlow, Background, Controls, useReactFlow, ReactFlowProvider, Node, Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useRxFlowStore } from './RxFlowStore';
-import { Play, RotateCcw, Save, Download, Upload, Trash2 } from 'lucide-react';
+import { Play, RotateCcw, Save, Download, Upload, Trash2, Code } from 'lucide-react';
 import { SourceNode, OperatorNode, JoinNode, SubjectNode, SinkNode } from './Nodes/CustomNodes';
-import { CATEGORIES } from './constants';
+import { CATEGORIES, RxNodeData } from './constants';
 import PropertyPanel from './Sidebar/PropertyPanel';
 
 import CustomEdge from './Canvas/CustomEdge';
@@ -14,6 +14,7 @@ import Timeline from './Simulation/Timeline';
 import { generateCSharp } from './CodeGen/CSharpGenerator';
 import { validateCode, ValidationResult } from './CodeGen/RoslynBridge';
 import LibraryModal from './Library/LibraryModal';
+import ImportCodeModal from './Library/ImportCodeModal';
 import { saveGraph, updateGraph, SavedGraph, listGraphs, deleteGraph } from './Storage/GraphStorage';
 
 const RxFlowVisualizer: React.FC = () => {
@@ -29,6 +30,7 @@ const RxFlowVisualizer: React.FC = () => {
     const [isLibraryOpen, setIsLibraryOpen] = React.useState(false);
     const [showSaveDialog, setShowSaveDialog] = React.useState(false);
     const [saveName, setSaveName] = React.useState('');
+    const [isImportOpen, setIsImportOpen] = React.useState(false);
 
     // Save As - prompt for name and save to library
     const handleSaveAs = () => {
@@ -56,6 +58,14 @@ const RxFlowVisualizer: React.FC = () => {
     const handleLoadGraph = (graph: SavedGraph) => {
         setGraph(graph.nodes, graph.edges);
         setCurrentGraph(graph.id, graph.name);
+    };
+
+    // Import from C# code
+    const handleImportCode = (nodes: Node<RxNodeData>[], edges: Edge[]) => {
+        // Merge with existing or replace? Let's replace for simplicity
+        // You could add a checkbox in modal for "merge" vs "replace"
+        setGraph(nodes, edges);
+        setCurrentGraph(null, null); // Reset current graph since this is new content
     };
 
     // File input for legacy file-based load
@@ -380,6 +390,9 @@ const RxFlowVisualizer: React.FC = () => {
                             <button onClick={() => setIsLibraryOpen(true)} className="p-2 bg-indigo-600 border border-indigo-500 rounded-lg hover:bg-indigo-700 text-white" title="Open Library">
                                 <Upload size={18} />
                             </button>
+                            <button onClick={() => setIsImportOpen(true)} className="px-3 py-2 bg-purple-600 border border-purple-500 rounded-lg hover:bg-purple-700 text-white font-semibold" title="Import C# Code">
+                                C# Import
+                            </button>
                             <button onClick={handleSaveAs} className="p-2 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 text-slate-300" title="Save As">
                                 <Save size={18} />
                             </button>
@@ -475,6 +488,13 @@ const RxFlowVisualizer: React.FC = () => {
                     isOpen={isLibraryOpen}
                     onClose={() => setIsLibraryOpen(false)}
                     onLoad={handleLoadGraph}
+                />
+
+                {/* Import Code Modal */}
+                <ImportCodeModal
+                    isOpen={isImportOpen}
+                    onClose={() => setIsImportOpen(false)}
+                    onImport={handleImportCode}
                 />
             </div>
         </div>

@@ -90,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                   <span className="text-white font-black text-lg">H</span>
                 </div>
                 <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-indigo-200 via-indigo-100 to-white bg-clip-text text-transparent drop-shadow-sm">
-                  HappyTool (Updated)
+                  HappyTool
                 </span>
               </div>
             ) : (
