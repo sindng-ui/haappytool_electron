@@ -462,4 +462,4 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
     );
 };
 
-export default RequestSidebar;
+export default React.memo(RequestSidebar);

@@ -113,40 +113,74 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
     };
 
 
-
     // Preview Mode Search State
     const [previewMatches, setPreviewMatches] = useState<string[]>([]);
     const [previewMatchIndex, setPreviewMatchIndex] = useState(-1);
 
-    // Collect Matches for Preview Mode
+    // Optimization: Pre-calculated sets to avoid recursion in render
+    const [matchedPaths, setMatchedPaths] = useState<Set<string>>(new Set());
+    const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+
+    // Collect Matches for Preview Mode (Debounced)
     useEffect(() => {
         if (viewMode === 'preview' && isJson && parsedJson && searchText) {
-            const matches: string[] = [];
-            const query = searchText.toLowerCase();
+            const timer = setTimeout(() => {
+                const matches: string[] = [];
+                const newMatchedPaths = new Set<string>();
+                const newExpandedPaths = new Set<string>();
+                const query = searchText.toLowerCase();
 
-            const traverse = (data: any, path: string) => {
-                if (typeof data === 'object' && data !== null) {
-                    Object.keys(data).forEach(key => {
-                        const newPath = path ? `${path}.${key}` : key;
-                        // Check Key Match
-                        if (key.toLowerCase().includes(query)) {
-                            matches.push(newPath + ":key");
+                // Returns true if this branch has a match
+                const traverse = (data: any, path: string): boolean => {
+                    let hasChildMatch = false;
+
+                    if (typeof data === 'object' && data !== null) {
+                        Object.keys(data).forEach(key => {
+                            const newPath = path ? `${path}.${key}` : key;
+
+                            // Check Key Match
+                            let keyMatch = false;
+                            if (key.toLowerCase().includes(query)) {
+                                matches.push(newPath + ":key");
+                                newMatchedPaths.add(newPath + ":key");
+                                keyMatch = true;
+                            }
+
+                            // Recurse
+                            const childHadMatch = traverse(data[key], newPath);
+
+                            if (keyMatch || childHadMatch) {
+                                hasChildMatch = true;
+                                // Expand this node (parent of key/value)
+                                if (path) newExpandedPaths.add(path);
+                                else newExpandedPaths.add("ROOT"); // Special marker for root if needed
+                            }
+                        });
+                    } else {
+                        // Primitive Value
+                        if (String(data).toLowerCase().includes(query)) {
+                            matches.push(path + ":value");
+                            newMatchedPaths.add(path + ":value");
+                            return true;
                         }
-                        traverse(data[key], newPath);
-                    });
-                } else {
-                    // Primitive Value
-                    if (String(data).toLowerCase().includes(query)) {
-                        matches.push(path + ":value");
                     }
-                }
-            };
+                    return hasChildMatch;
+                };
 
-            traverse(parsedJson, "");
-            setPreviewMatches(matches);
-            setPreviewMatchIndex(matches.length > 0 ? 0 : -1);
+                const rootHasMatch = traverse(parsedJson, "");
+                if (rootHasMatch) newExpandedPaths.add("ROOT");
+
+                setPreviewMatches(matches);
+                setMatchedPaths(newMatchedPaths);
+                setExpandedPaths(newExpandedPaths);
+                setPreviewMatchIndex(matches.length > 0 ? 0 : -1);
+            }, 300); // 300ms Debounce
+
+            return () => clearTimeout(timer);
         } else {
             setPreviewMatches([]);
+            setMatchedPaths(new Set());
+            setExpandedPaths(new Set());
             setPreviewMatchIndex(-1);
         }
     }, [viewMode, isJson, parsedJson, searchText]);

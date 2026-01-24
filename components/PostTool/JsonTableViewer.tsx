@@ -11,24 +11,27 @@ interface JsonTableProps {
     search?: string;
     activeMatch?: string; // "path:key" or "path:value"
     path?: string; // Current path identifier
+    matchedPaths?: Set<string>;
+    expandedPaths?: Set<string>;
 }
 
-const Highlight: React.FC<{ text: string; search?: string; isActive?: boolean; className?: string }> = ({ text, search, isActive, className }) => {
+const Highlight: React.FC<{ text: string; search?: string; isActive?: boolean; isMatch?: boolean; className?: string }> = ({ text, search, isActive, isMatch, className }) => {
     if (!search || !text) return <span className={className}>{text}</span>;
+    if (isMatch === false) return <span className={className}>{text}</span>;
 
     const parts = text.split(new RegExp(`(${search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
     return (
         <span className={className}>
             {parts.map((part, i) => {
-                const isMatch = part.toLowerCase() === search.toLowerCase();
+                const partMatch = part.toLowerCase() === search.toLowerCase();
                 let highlightClass = "";
-                if (isMatch) {
+                if (partMatch) {
                     highlightClass = isActive
                         ? "bg-orange-500 text-white rounded px-0.5 shadow-sm font-bold animate-pulse"
                         : "bg-yellow-300 dark:bg-yellow-600/50 text-black dark:text-white rounded px-0.5";
                 }
 
-                return isMatch ?
+                return partMatch ?
                     <span key={i} className={highlightClass}>{part}</span>
                     : part;
             })}
@@ -36,54 +39,43 @@ const Highlight: React.FC<{ text: string; search?: string; isActive?: boolean; c
     );
 };
 
-const JsonTableViewer: React.FC<JsonTableProps> = ({ data, name, isRoot = false, depth = 0, search, activeMatch, path = "" }) => {
+const JsonTableViewer: React.FC<JsonTableProps> = ({ data, name, isRoot = false, depth = 0, search, activeMatch, path = "", matchedPaths, expandedPaths }) => {
     const tableRef = React.useRef<HTMLDivElement>(null);
     const keyRef = React.useRef<HTMLTableCellElement>(null);
 
-    const checkMatch = (val: any, query: string): boolean => {
-        if (!query) return false;
-        query = query.toLowerCase();
-        if (typeof val === 'object' && val !== null) {
-            return Object.keys(val).some(k => k.toLowerCase().includes(query) || checkMatch(val[k], query));
-        }
-        return String(val).toLowerCase().includes(query);
-    };
-
-    const hasMatch = React.useMemo(() => {
-        if (!search) return false;
-        if (name && name.toLowerCase().includes(search.toLowerCase())) return true;
-        return checkMatch(data, search);
-    }, [data, name, search]);
-
-    // Check if this node OR its children contain the active match
-    const containsActiveMatch = React.useMemo(() => {
-        if (!activeMatch) return false;
-
-        // Active match format: "path.to.key:key" or "path.to.key:value"
-        const activePathPart = activeMatch.split(':')[0];
-
-        // If current path is a prefix of active match path, we are in the chain
-        if (activePathPart === path) return true; // Exact match (self)
-        if (activePathPart.startsWith(path + ".")) return true; // Child match
-
-        // Special case for root
-        if (path === "" && activePathPart.length > 0) return true;
-
-        return false;
-    }, [activeMatch, path]);
-
+    // Initial state based on optimization props OR depth
     const [expanded, setExpanded] = useState(() => {
-        if (search && hasMatch) return true;
+        if (expandedPaths) {
+            if (isRoot) return true; // Root usually expanded
+            return expandedPaths.has(path || "ROOT");
+        }
         return depth < 2;
     });
+
+    // Sync with optimization props when search changes
+    React.useEffect(() => {
+        if (expandedPaths && search) {
+            if (expandedPaths.has(path || "ROOT")) {
+                setExpanded(true);
+            }
+        }
+    }, [expandedPaths, path, search]);
+
+    // Active Match Expansion (Fallback / Priority)
+    const containsActiveMatch = React.useMemo(() => {
+        if (!activeMatch) return false;
+        const activePathPart = activeMatch.split(':')[0];
+        if (activePathPart === path) return true;
+        if (activePathPart.startsWith(path + ".")) return true;
+        if (path === "" && activePathPart.length > 0) return true;
+        return false;
+    }, [activeMatch, path]);
 
     React.useEffect(() => {
         if (containsActiveMatch) {
             setExpanded(true);
-        } else if (search && hasMatch) {
-            setExpanded(true);
         }
-    }, [search, hasMatch, containsActiveMatch]);
+    }, [containsActiveMatch]);
 
     // Scroll Into View Logic
     React.useEffect(() => {
@@ -115,6 +107,9 @@ const JsonTableViewer: React.FC<JsonTableProps> = ({ data, name, isRoot = false,
                 typeof data === 'boolean' ? "text-orange-600 dark:text-orange-400" : "text-slate-600 dark:text-slate-300";
 
         const isValueActive = activeMatch === myValueId;
+        const isValueMatch = matchedPaths ? matchedPaths.has(myValueId || "") : true; // Fallback to true if optimization not used? Or strict?
+        // If matchedPaths is provided, we STRICTLY follow it.
+        const shouldHighlight = matchedPaths ? isValueMatch : true; // If no matchedPaths (legacy), default behavior
 
         // Ref for primitive
         // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -128,7 +123,7 @@ const JsonTableViewer: React.FC<JsonTableProps> = ({ data, name, isRoot = false,
 
         return (
             <span ref={primRef}>
-                <Highlight text={String(data)} search={search} isActive={isValueActive} className={`font-mono text-xs break-all ${colorClass}`} />
+                <Highlight text={String(data)} search={search} isActive={isValueActive} isMatch={shouldHighlight} className={`font-mono text-xs break-all ${colorClass}`} />
             </span>
         );
     }
@@ -156,6 +151,8 @@ const JsonTableViewer: React.FC<JsonTableProps> = ({ data, name, isRoot = false,
                         const childKeyId = `${childPath}:key`;
                         const isKeyActive = activeMatch === childKeyId;
 
+                        const isKeyMatch = matchedPaths ? matchedPaths.has(childKeyId) : true;
+
                         return (
                             <tr key={key} className={`border-b last:border-0 border-slate-100 dark:border-slate-800 transition-colors ${isKeyActive ? 'bg-orange-50 dark:bg-orange-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
                                 <td
@@ -163,7 +160,7 @@ const JsonTableViewer: React.FC<JsonTableProps> = ({ data, name, isRoot = false,
                                     title={key}
                                     ref={isKeyActive ? keyRef : undefined}
                                 >
-                                    <Highlight text={key} search={search} isActive={isKeyActive} />
+                                    <Highlight text={key} search={search} isActive={isKeyActive} isMatch={isKeyMatch} />
                                 </td>
                                 <td className="py-1 px-2 text-xs align-top select-text break-all">
                                     <JsonTableViewer
@@ -173,6 +170,8 @@ const JsonTableViewer: React.FC<JsonTableProps> = ({ data, name, isRoot = false,
                                         search={search}
                                         activeMatch={activeMatch}
                                         path={childPath}
+                                        matchedPaths={matchedPaths}
+                                        expandedPaths={expandedPaths}
                                     />
                                 </td>
                             </tr>

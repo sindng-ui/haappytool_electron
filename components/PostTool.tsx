@@ -43,7 +43,10 @@ const PostTool: React.FC = () => {
     } = useHappyTool();
     const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [response, setResponse] = useState<PerfResponse | null>(null);
+    const [responseCache, setResponseCache] = useState<Map<string, PerfResponse>>(new Map());
+    // Derived response for current view
+    const response = activeRequestId ? responseCache.get(activeRequestId) || null : null;
+
     const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
     const [showEnvDropdown, setShowEnvDropdown] = useState(false); // Dropdown state
@@ -146,7 +149,7 @@ const PostTool: React.FC = () => {
         onUpdateRequests([...savedRequests, newReq]);
         setActiveRequestId(newId);
         setCurrentRequest(newReq);
-        setResponse(null);
+        // Do not clear response cache
     };
 
     const handleDuplicateRequest = (e: React.MouseEvent, req: SavedRequest) => {
@@ -161,7 +164,7 @@ const PostTool: React.FC = () => {
         onUpdateRequests([...savedRequests, newReq]);
         setActiveRequestId(newId);
         setCurrentRequest(newReq);
-        setResponse(null);
+        // Do not clear response cache
     };
 
     const handleDeleteRequest = (e: React.MouseEvent, id: string) => {
@@ -169,10 +172,16 @@ const PostTool: React.FC = () => {
         if (window.confirm('Are you sure you want to delete this request?')) {
             const newRequests = savedRequests.filter(r => r.id !== id);
             onUpdateRequests(newRequests);
+            // Remove from cache
+            setResponseCache(prev => {
+                const next = new Map(prev);
+                next.delete(id);
+                return next;
+            });
+
             if (activeRequestId === id) {
                 setActiveRequestId(null);
                 setCurrentRequest({ id: 'temp', name: 'New Request', method: 'GET', url: '', headers: [{ key: '', value: '' }], body: '' });
-                setResponse(null);
             }
         }
     };
@@ -214,7 +223,13 @@ const PostTool: React.FC = () => {
 
     const handleSend = async () => {
         setLoading(true);
-        setResponse(null);
+        // Don't clear response immediately for cache, but maybe clear FOR CURRENT VIEW?
+        // Actually typical UX is show loading over old response or clear. 
+        // Let's clear current ID from cache to show loading state if we want strict loading.
+        // But better UX: Keep old response visible until simplified loading spinner overlays?
+        // For now, let's just clear specific cache entry effectively by setting it to null or handling loading state in UI.
+        // We already have 'loading' state which overlays/disables button. We can just keep old response until new one arrives.
+
         try {
             let finalUrl = replaceVariables(currentRequest.url); // Changed to let
 
@@ -293,20 +308,41 @@ const PostTool: React.FC = () => {
                 data = await res.text();
             }
 
-            setResponse({
+            const newResponse = {
                 status: res.status,
                 statusText: res.statusText,
                 headers: Object.fromEntries(res.headers.entries()),
                 data,
                 timeTaken: endTime - startTime
+            };
+
+            setResponseCache(prev => {
+                const next = new Map(prev);
+                if (activeRequestId) {
+                    next.delete(activeRequestId); // Re-insert to update order (LRU)
+                    next.set(activeRequestId, newResponse);
+
+                    // LRU Limit: 10
+                    if (next.size > 10) {
+                        const firstKey = next.keys().next().value;
+                        if (firstKey) next.delete(firstKey);
+                    }
+                }
+                return next;
             });
+
         } catch (error: any) {
-            setResponse({
+            const errorResponse = {
                 status: 0,
                 statusText: 'Error',
                 headers: {},
                 data: error.message,
                 timeTaken: 0
+            };
+            setResponseCache(prev => {
+                const next = new Map(prev);
+                if (activeRequestId) next.set(activeRequestId, errorResponse);
+                return next;
             });
         } finally {
             setLoading(false);
@@ -318,7 +354,7 @@ const PostTool: React.FC = () => {
         if (req) {
             setActiveRequestId(id);
             setCurrentRequest(req);
-            setResponse(null);
+            // No need to clear response, it will be derived from cache
         }
     };
 

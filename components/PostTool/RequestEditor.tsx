@@ -696,4 +696,4 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
         </div>
     );
 };
-export default RequestEditor;
+export default React.memo(RequestEditor);
