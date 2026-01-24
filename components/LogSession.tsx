@@ -549,7 +549,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 onDisconnect={handleTizenDisconnect}
                 currentConnectionInfo={leftFileName}
                 isQuickConnect={isTizenQuickConnect}
-                logTags={currentConfig?.logTags || []}
+                tags={currentConfig?.logTags || []}
                 logCommand={currentConfig?.logCommand}
             />
 

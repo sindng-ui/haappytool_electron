@@ -117,7 +117,7 @@ const AppContent: React.FC = () => {
   // Plugin Management State
   const defaultEnabledPlugins = [
     ToolId.LOG_EXTRACTOR,
-    ToolId.RXFLOW_VISUALIZER,
+
     ToolId.BLOCK_TEST,
     ToolId.JSON_TOOLS,
     ToolId.POST_TOOL,
@@ -197,14 +197,7 @@ const AppContent: React.FC = () => {
           setPostGlobalAuth(parsed.postGlobalAuth);
         }
         if (parsed.lastEndpoint) setLastApiUrl(parsed.lastEndpoint);
-        if (parsed.enabledPlugins) {
-          // Force add RXFLOW_VISUALIZER if missing (migration)
-          const plugins = parsed.enabledPlugins;
-          if (!plugins.includes(ToolId.RXFLOW_VISUALIZER)) {
-            plugins.push(ToolId.RXFLOW_VISUALIZER);
-          }
-          setEnabledPlugins(plugins);
-        }
+
       } catch (e) {
         console.error("Failed to load settings", e);
         // Fallback to default on error

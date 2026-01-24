@@ -23,26 +23,6 @@ const SubjectNode: React.FC<SubjectNodeProps> = ({ data, selected, id }) => {
     const emissions = data.emissions || [];
     const manualInjections = data.manualInjections || [];
 
-    // Trigger re-simulation after manual injection
-    const triggerResimulation = () => {
-        // Import runSimulation from Engine
-        const { runSimulation } = require('../Simulation/Engine');
-
-        // Re-run simulation with updated manual injections
-        const { edgeEmissions, maxTime, sinkEmissions } = runSimulation(nodes, edges);
-        setEdgeEmissions(edgeEmissions);
-        setSimulationDuration(maxTime || 10000);
-
-        // Update sink nodes
-        Object.entries(sinkEmissions).forEach(([nodeId, emissions]: [string, any]) => {
-            updateNode(nodeId, { emissions });
-        });
-
-        // Restart playback from beginning
-        setSimulationTime(0);
-        setIsPlaying(true);
-    };
-
     // Manual injection handlers
     const handleOnNext = () => {
         if (!inputValue.trim()) return;

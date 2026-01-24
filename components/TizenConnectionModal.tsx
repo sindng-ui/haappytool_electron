@@ -80,6 +80,12 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
         let newSocket: Socket | null = null;
 
         if (isOpen) {
+            // Reset transient state
+            setIsConnecting(false);
+            setError('');
+            setStatus('');
+            setIsScanning(false);
+
             isHandedOver.current = false;
             newSocket = io('http://127.0.0.1:3003');
 
