@@ -8,6 +8,7 @@ const PostTool = React.lazy(() => import('../../components/PostTool'));
 const TpkExtractor = React.lazy(() => import('../../components/TpkExtractor'));
 const JsonTools = React.lazy(() => import('../../components/JsonTools'));
 const SmartThingsDevicesPane = React.lazy(() => import('../../components/SmartThingsDevices/SmartThingsDevicesPane'));
+const SmartThingsLabPlugin = React.lazy(() => import('../SmartThingsLab/SmartThingsLabPlugin'));
 const ReverseEngineer = React.lazy(() => import('../../components/ReverseEngineer'));
 import { ToolId } from '../../types';
 
@@ -52,6 +53,15 @@ export const SmartThingsDevicesPlugin: HappyPlugin = {
     component: SmartThingsDevicesPane,
     order: 7,
 };
+
+export const SmartThingsLabPluginWrapper: HappyPlugin = {
+    id: ToolId.SMARTTHINGS_LAB,
+    name: 'ST Lab',
+    icon: Smartphone,
+    component: SmartThingsLabPlugin,
+    order: 14,
+};
+
 
 export const ReverseEngineerPlugin: HappyPlugin = {
     id: ToolId.REVERSE_ENGINEER,
