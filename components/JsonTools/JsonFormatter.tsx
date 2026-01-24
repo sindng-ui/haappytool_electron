@@ -131,15 +131,22 @@ interface JsonFormatterRowProps {
     item: FlattenedNode;
     isMatch: boolean;
     toggleExpand: (id: string) => void;
+    copyToClipboard: (text: string) => void;
 }
 
-const JsonFormatterRow = React.memo(({ index, item, isMatch, toggleExpand }: JsonFormatterRowProps) => {
+const JsonFormatterRow = React.memo(({ index, item, isMatch, toggleExpand, copyToClipboard }: JsonFormatterRowProps) => {
     const { key, value, level, isExpanded, hasChildren, id } = item;
     const isArray = Array.isArray(value);
     const indent = level * 20;
 
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const text = JSON.stringify(value, null, 2);
+        copyToClipboard(text);
+    };
+
     return (
-        <div className={`font-mono text-sm leading-6 flex items-center pr-2 whitespace-nowrap h-7 transition-colors ${isMatch ? 'bg-indigo-500/30' : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}>
+        <div className={`font-mono text-sm leading-6 flex items-center pr-2 whitespace-nowrap h-7 transition-colors group ${isMatch ? 'bg-indigo-500/30' : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}>
             <div style={{ width: indent, flexShrink: 0 }}></div>
 
             <span
@@ -153,7 +160,7 @@ const JsonFormatterRow = React.memo(({ index, item, isMatch, toggleExpand }: Jso
                 )}
             </span>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
                 <span className={isMatch ? "text-indigo-600 dark:text-indigo-300 font-bold" : "text-indigo-600 dark:text-indigo-400 font-bold"}>"{key}":</span>
 
                 {hasChildren ? (
@@ -178,6 +185,15 @@ const JsonFormatterRow = React.memo(({ index, item, isMatch, toggleExpand }: Jso
                 )}
                 <span className="text-slate-400 dark:text-slate-500">,</span>
             </div>
+
+            {/* Copy Button (Visible on Group Hover) */}
+            <button
+                onClick={handleCopy}
+                className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-all ml-2"
+                title="Copy Subtree JSON"
+            >
+                <Copy size={12} />
+            </button>
         </div>
     );
 });
@@ -605,6 +621,7 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
                                             item={item}
                                             isMatch={isMatch}
                                             toggleExpand={toggleExpand}
+                                            copyToClipboard={copyToClipboard}
                                         />
                                     );
                                 }}

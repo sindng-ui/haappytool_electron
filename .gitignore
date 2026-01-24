@@ -31,3 +31,21 @@ npm-debug.log*
 BlockTest/blocks.json
 BlockTest/pipelines.json
 BlockTest/test_config.json
+
+# --------------------
+# 테스트 데이터 및 리포트
+# --------------------
+BlockTest/reports/
+BlockTest/*.txt
+test_subject_output.json
+worker_test_output.txt
+worker_test_error.txt
+final_test_results.txt
+all_tests_final.txt
+RxFlow.Validator.Tests/test_details.txt
+
+# --------------------
+# C# 빌드 결과물
+# --------------------
+bin/
+obj/

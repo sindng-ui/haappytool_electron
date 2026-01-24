@@ -116,6 +116,43 @@ export const runSimulation = (
                     }
                     break;
 
+                case 'subject':
+                    // Subject nodes - create appropriate Subject type
+                    const subjectType = label;
+                    const manualInjections = node.data.manualInjections || [];
+
+                    // Create the appropriate Subject
+                    let subject: Subject<any>;
+                    if (subjectType === 'BehaviorSubject') {
+                        const initialValue = params.initialValue || 0;
+                        subject = new Subject(); // RxJS BehaviorSubject requires import, use Subject for now
+                        // Emit initial value
+                        setTimeout(() => subject.next(initialValue), 0);
+                    } else if (subjectType === 'ReplaySubject') {
+                        subject = new Subject(); // Would use ReplaySubject(bufferSize) in real impl
+                    } else if (subjectType === 'AsyncSubject') {
+                        subject = new Subject(); // Would use AsyncSubject in real impl
+                    } else {
+                        subject = new Subject();
+                    }
+
+                    // Process manual injections from user (onNext/onError/onCompleted clicks)
+                    manualInjections.forEach((injection: any) => {
+                        const delay = injection.time ? (injection.time - Date.now()) : 0;
+                        scheduler.schedule(() => {
+                            if (injection.type === 'next') {
+                                subject.next(injection.value);
+                            } else if (injection.type === 'error') {
+                                subject.error(injection.value || 'Error');
+                            } else if (injection.type === 'complete') {
+                                subject.complete();
+                            }
+                        }, Math.max(0, delay));
+                    });
+
+                    obs = subject.asObservable();
+                    break;
+
                 case 'pipe':
                 case 'sink':
                     // Pipe/Sink (1 input usually, but we take first if multiple for pipe)

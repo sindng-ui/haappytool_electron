@@ -152,6 +152,20 @@ namespace RxFlow.Validator
                 }
             }
 
+            // Also find Subject creations (new BehaviorSubject<T>(), etc.)
+            var objectCreations = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>();
+            foreach (var creation in objectCreations)
+            {
+                var typeName = creation.Type.ToString();
+                // Extract base type name (remove generic part)
+                var baseTypeName = typeName.Split('<')[0];
+                
+                if (baseTypeName.EndsWith("Subject"))
+                {
+                    ParseSubjectCreation(creation);
+                }
+            }
+
             return graph;
         }
 
@@ -460,6 +474,117 @@ namespace RxFlow.Validator
             }
 
             return null;
+        }
+
+        private void ParseSubjectCreation(ObjectCreationExpressionSyntax creation)
+        {
+            var typeName = creation.Type.ToString();
+            var baseTypeName = typeName.Split('<')[0];
+
+            // Create Subject node
+            var nodeId = $"n{++nodeIdCounter}";
+            var parameters = new Dictionary<string, object>();
+
+            // Extract parameters from constructor arguments
+            if (creation.ArgumentList != null && creation.ArgumentList.Arguments.Count > 0)
+            {
+                if (baseTypeName == "BehaviorSubject")
+                {
+                    parameters["initialValue"] = creation.ArgumentList.Arguments[0].ToString();
+                }
+                else if (baseTypeName == "ReplaySubject")
+                {
+                    parameters["bufferSize"] = creation.ArgumentList.Arguments[0].ToString();
+                }
+            }
+
+            graph.nodes.Add(new ParsedNode
+            {
+                id = nodeId,
+                type = "subject",
+                label = baseTypeName,
+                parameters = parameters
+            });
+
+            // Find if this subject has method calls chained
+            var parent = creation.Parent;
+            while (parent != null)
+            {
+                if (parent is VariableDeclaratorSyntax declarator)
+                {
+                    var variableName = declarator.Identifier.Text;
+                    var root = creation.SyntaxTree.GetRoot();
+                    
+                    // Find all invocations that reference this variable
+                    var invocations = root.DescendantNodes()
+                        .OfType<InvocationExpressionSyntax>()
+                        .Where(inv => ContainsIdentifier(inv, variableName))
+                        .ToList();
+
+                    // Find the OUTERMOST invocation (end of chain like Subscribe)
+                    // This is the one that is NOT inside another invocation
+                    InvocationExpressionSyntax outermostInvocation = null;
+                    foreach (var inv in invocations)
+                    {
+                        bool isInner = invocations.Any(other => 
+                            other != inv && other.Span.Contains(inv.Span));
+                        if (!isInner && !processedInvocations.Contains(inv))
+                        {
+                            outermostInvocation = inv;
+                            break;
+                        }
+                    }
+
+                    if (outermostInvocation != null)
+                    {
+                        ParseChainFromSubject(outermostInvocation, nodeId);
+                    }
+                    
+                    break;
+                }
+                parent = parent.Parent;
+            }
+        }
+
+        private bool ContainsIdentifier(InvocationExpressionSyntax invocation, string identifier)
+        {
+            return invocation.ToString().Contains(identifier) ||
+                   invocation.Expression.ToString().Contains(identifier);
+        }
+
+        private void ParseChainFromSubject(InvocationExpressionSyntax startInvocation, string subjectNodeId)
+        {
+            var chain = new List<InvocationExpressionSyntax>();
+            
+            SyntaxNode current = startInvocation;
+            while (current != null)
+            {
+                if (current is InvocationExpressionSyntax inv)
+                {
+                    chain.Insert(0, inv);
+                    processedInvocations.Add(inv);
+                    current = inv.Expression;
+                }
+                else if (current is MemberAccessExpressionSyntax memberAccess)
+                {
+                    if (memberAccess.Expression is IdentifierNameSyntax)
+                    {
+                        break;
+                    }
+                    current = memberAccess.Expression;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            string previousNodeId = subjectNodeId;
+            foreach (var invocation in chain)
+            {
+                var nodeId = ParseInvocation(invocation, previousNodeId);
+                previousNodeId = nodeId;
+            }
         }
     }
 }

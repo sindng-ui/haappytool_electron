@@ -11,6 +11,7 @@ interface TizenConnectionModalProps {
     currentConnectionInfo?: string | null;
     isQuickConnect?: boolean; // New prop
     logCommand?: string; // New prop for custom SDB command
+    tags?: string[]; // Optional tags for substitution
 }
 
 const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
@@ -19,7 +20,8 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
     onDisconnect: onExternalDisconnect,
     currentConnectionInfo,
     isQuickConnect,
-    logCommand
+    logCommand,
+    tags
 }) => {
     // Persist last used mode
     const [mode, setMode] = useState<'ssh' | 'sdb' | 'test'>(() => (localStorage.getItem('lastConnectionMode') as any) || 'sdb');
@@ -100,7 +102,8 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                                 username: sshUser,
                                 passwordProvided: !!sshPassword,
                                 debug: debugMode,
-                                saveToFile: saveToFile
+                                saveToFile: saveToFile,
+                                tags: tags || []
                             });
                             newSocket?.emit('connect_ssh', {
                                 host: sshHost,
@@ -109,14 +112,16 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                                 password: sshPassword,
                                 debug: debugMode,
                                 saveToFile: saveToFile,
-                                command: logCommand
+                                command: logCommand,
+                                tags: tags || []
                             });
                         } else if (mode === 'sdb') {
                             console.log('[QuickConnect] Emitting connect_sdb with params:', {
                                 deviceId: selectedDeviceId || 'auto-detect',
                                 debug: debugMode,
                                 saveToFile: saveToFile,
-                                command: logCommand || 'default'
+                                command: logCommand || 'default',
+                                tags: tags || []
                             });
                             // For SDB, we need to check if device is available? Or just try?
                             // Try connecting to last used device or auto-detect
@@ -124,7 +129,8 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                                 deviceId: selectedDeviceId,
                                 debug: debugMode,
                                 saveToFile: saveToFile,
-                                command: logCommand
+                                command: logCommand,
+                                tags: tags || []
                             });
                         } else {
                             console.warn('[QuickConnect] Unknown mode, closing modal');

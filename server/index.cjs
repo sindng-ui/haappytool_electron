@@ -477,7 +477,13 @@ const handleSocketConnection = (socket, deps = {}) => {
 
         // Defined args for sdb log stream (e.g. dlogutil -v threadtime)
         // If command is provided, split it by space. Otherwise default.
-        let args = ['-s', deviceId || 'default', 'shell'];
+        let args = [];
+        if (deviceId && deviceId !== 'auto-detect') {
+            args.push('-s', deviceId);
+        }
+
+        args.push('shell');
+
         if (command && typeof command === 'string' && command.trim().length > 0) {
             console.log(`[SDB] Using custom command: ${command}`);
             logDebug(`Custom command provided: ${command}`);

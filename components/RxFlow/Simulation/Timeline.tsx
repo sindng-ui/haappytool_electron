@@ -58,7 +58,18 @@ const Timeline: React.FC = () => {
         if (!startTimeRef.current) startTimeRef.current = time;
         const elapsed = time - startTimeRef.current;
 
-        setSimulationTime(elapsed);
+        const MAX_DURATION = 30000; // 30 seconds
+        const cappedElapsed = Math.min(elapsed, MAX_DURATION);
+
+        setSimulationTime(cappedElapsed);
+
+        // Stop if reached max duration
+        if (cappedElapsed >= MAX_DURATION) {
+            setIsPlaying(false);
+            if (requestRef.current) cancelAnimationFrame(requestRef.current);
+            return;
+        }
+
         requestRef.current = requestAnimationFrame(animate);
     };
 

@@ -42,6 +42,9 @@ interface RxFlowState {
     currentGraphId: string | null;
     currentGraphName: string | null;
     setCurrentGraph: (id: string | null, name: string | null) => void;
+
+    // Trigger re-simulation (for manual injection)
+    triggerResimulation: () => void;
 }
 
 export const useRxFlowStore = create<RxFlowState>((set, get) => ({
@@ -100,4 +103,25 @@ export const useRxFlowStore = create<RxFlowState>((set, get) => ({
     currentGraphId: null,
     currentGraphName: null,
     setCurrentGraph: (id, name) => set({ currentGraphId: id, currentGraphName: name }),
+
+    triggerResimulation: () => {
+        const { nodes, edges } = get();
+
+        // Dynamically import runSimulation to avoid circular dependency
+        import('./Simulation/Engine').then(({ runSimulation }) => {
+            const { edgeEmissions, maxTime, sinkEmissions } = runSimulation(nodes, edges);
+
+            set({
+                edgeEmissions,
+                simulationDuration: maxTime || 10000,
+                simulationTime: 0,
+                isPlaying: true
+            });
+
+            // Update sink nodes with emissions
+            Object.entries(sinkEmissions).forEach(([nodeId, emissions]) => {
+                get().updateNodeData(nodeId, { emissions });
+            });
+        });
+    },
 }));

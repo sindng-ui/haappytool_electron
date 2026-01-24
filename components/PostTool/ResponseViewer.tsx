@@ -114,6 +114,73 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
 
 
 
+    // Preview Mode Search State
+    const [previewMatches, setPreviewMatches] = useState<string[]>([]);
+    const [previewMatchIndex, setPreviewMatchIndex] = useState(-1);
+
+    // Collect Matches for Preview Mode
+    useEffect(() => {
+        if (viewMode === 'preview' && isJson && parsedJson && searchText) {
+            const matches: string[] = [];
+            const query = searchText.toLowerCase();
+
+            const traverse = (data: any, path: string) => {
+                if (typeof data === 'object' && data !== null) {
+                    Object.keys(data).forEach(key => {
+                        const newPath = path ? `${path}.${key}` : key;
+                        // Check Key Match
+                        if (key.toLowerCase().includes(query)) {
+                            matches.push(newPath + ":key");
+                        }
+                        traverse(data[key], newPath);
+                    });
+                } else {
+                    // Primitive Value
+                    if (String(data).toLowerCase().includes(query)) {
+                        matches.push(path + ":value");
+                    }
+                }
+            };
+
+            traverse(parsedJson, "");
+            setPreviewMatches(matches);
+            setPreviewMatchIndex(matches.length > 0 ? 0 : -1);
+        } else {
+            setPreviewMatches([]);
+            setPreviewMatchIndex(-1);
+        }
+    }, [viewMode, isJson, parsedJson, searchText]);
+
+    const handlePreviewNav = (direction: 'next' | 'prev') => {
+        if (previewMatches.length === 0) return;
+        setPreviewMatchIndex(prev => {
+            if (direction === 'next') {
+                return (prev + 1) % previewMatches.length;
+            } else {
+                return (prev - 1 + previewMatches.length) % previewMatches.length;
+            }
+        });
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (viewMode === 'raw') handleRawSearch('next');
+            else if (viewMode === 'preview') handlePreviewNav('next');
+            else if (viewMode === 'pretty') setTriggerNext(n => n + 1);
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (viewMode === 'raw') handleRawSearch('next');
+            else if (viewMode === 'preview') handlePreviewNav('next');
+            else if (viewMode === 'pretty') setTriggerNext(n => n + 1);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (viewMode === 'raw') handleRawSearch('prev');
+            else if (viewMode === 'preview') handlePreviewNav('prev');
+            else if (viewMode === 'pretty') setTriggerNext(n => n - 1);
+        }
+    };
+
     const [activeTab, setActiveTab] = useState<'BODY' | 'HEADERS'>('BODY');
 
     // Derived Headers List
@@ -191,25 +258,45 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                                     placeholder={viewMode === 'pretty' ? "Search JSON..." : "Search text..."}
                                     value={searchText}
                                     onChange={(e) => setSearchText(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            if (viewMode === 'raw') {
-                                                handleRawSearch('next');
-                                            } else if (viewMode === 'pretty') {
-                                                setTriggerNext(n => n + 1);
-                                            }
-                                        }
-                                    }}
-                                    disabled={viewMode === 'preview'}
+                                    onKeyDown={handleKeyDown}
+                                    disabled={false}
                                     className="w-full pl-8 pr-3 py-1 text-xs bg-white dark:bg-slate-800 border-none rounded-md focus:ring-1 focus:ring-indigo-500 placeholder-slate-400 text-slate-700 dark:text-slate-300 shadow-sm disabled:opacity-50"
                                 />
                             </div>
                         </div>
 
-                        {viewMode === 'raw' && searchText && (
-                            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded px-1 h-6 gap-1 border border-slate-200 dark:border-slate-700">
-                                <button onClick={() => handleRawSearch('prev')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowUp size={12} /></button>
-                                <button onClick={() => handleRawSearch('next')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowDown size={12} /></button>
+                        {(viewMode === 'raw' || viewMode === 'preview') && searchText && (
+                            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded px-1 h-6 gap-1 border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-200">
+                                {viewMode === 'preview' && previewMatches.length > 0 && (
+                                    <span className="text-[10px] text-slate-500 px-1 font-mono">{previewMatchIndex + 1}/{previewMatches.length}</span>
+                                )}
+                                <button onClick={() => viewMode === 'raw' ? handleRawSearch('prev') : handlePreviewNav('prev')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowUp size={12} /></button>
+                                <button onClick={() => viewMode === 'raw' ? handleRawSearch('next') : handlePreviewNav('next')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowDown size={12} /></button>
+                            </div>
+                        )}
+
+                        <div className="relative flex-1 max-w-sm flex items-center gap-1">
+                            <div className="relative flex-1">
+                                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                    type="text"
+                                    placeholder={viewMode === 'pretty' ? "Search JSON..." : "Search text..."}
+                                    value={searchText}
+                                    onChange={(e) => setSearchText(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    disabled={false}
+                                    className="w-full pl-8 pr-3 py-1 text-xs bg-white dark:bg-slate-800 border-none rounded-md focus:ring-1 focus:ring-indigo-500 placeholder-slate-400 text-slate-700 dark:text-slate-300 shadow-sm disabled:opacity-50"
+                                />
+                            </div>
+                        </div>
+
+                        {(viewMode === 'raw' || viewMode === 'preview') && searchText && (
+                            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded px-1 h-6 gap-1 border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-200">
+                                {viewMode === 'preview' && previewMatches.length > 0 && (
+                                    <span className="text-[10px] text-slate-500 px-1 font-mono">{previewMatchIndex + 1}/{previewMatches.length}</span>
+                                )}
+                                <button onClick={() => viewMode === 'raw' ? handleRawSearch('prev') : handlePreviewNav('prev')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowUp size={12} /></button>
+                                <button onClick={() => viewMode === 'raw' ? handleRawSearch('next') : handlePreviewNav('next')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowDown size={12} /></button>
                             </div>
                         )}
 
@@ -239,7 +326,12 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                         ) : viewMode === 'preview' ? (
                             isJson ? (
                                 <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
-                                    <JsonTableViewer data={parsedJson} isRoot={true} />
+                                    <JsonTableViewer
+                                        data={parsedJson}
+                                        isRoot={true}
+                                        search={searchText}
+                                        activeMatch={previewMatches[previewMatchIndex]}
+                                    />
                                 </div>
                             ) : (
                                 <iframe

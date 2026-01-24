@@ -14,7 +14,7 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
 interface SubjectNodeProps extends NodeProps<RxNodeData> { }
 
 const SubjectNode: React.FC<SubjectNodeProps> = ({ data, selected, id }) => {
-    const { updateNodeData } = useRxFlowStore();
+    const { updateNodeData, triggerResimulation } = useRxFlowStore();
     const Icon = TYPE_ICONS[data.label] || Zap;
     const [showControls, setShowControls] = useState(false);
     const [inputValue, setInputValue] = useState('');
@@ -23,22 +23,47 @@ const SubjectNode: React.FC<SubjectNodeProps> = ({ data, selected, id }) => {
     const emissions = data.emissions || [];
     const manualInjections = data.manualInjections || [];
 
+    // Trigger re-simulation after manual injection
+    const triggerResimulation = () => {
+        // Import runSimulation from Engine
+        const { runSimulation } = require('../Simulation/Engine');
+
+        // Re-run simulation with updated manual injections
+        const { edgeEmissions, maxTime, sinkEmissions } = runSimulation(nodes, edges);
+        setEdgeEmissions(edgeEmissions);
+        setSimulationDuration(maxTime || 10000);
+
+        // Update sink nodes
+        Object.entries(sinkEmissions).forEach(([nodeId, emissions]: [string, any]) => {
+            updateNode(nodeId, { emissions });
+        });
+
+        // Restart playback from beginning
+        setSimulationTime(0);
+        setIsPlaying(true);
+    };
+
     // Manual injection handlers
     const handleOnNext = () => {
         if (!inputValue.trim()) return;
         const newInjections = [...manualInjections, { type: 'next', value: inputValue, time: Date.now() }];
         updateNodeData(id, { manualInjections: newInjections });
         setInputValue('');
+
+        // Trigger re-simulation to apply the injection
+        setTimeout(() => triggerResimulation(), 100);
     };
 
     const handleOnError = () => {
         const newInjections = [...manualInjections, { type: 'error', value: 'Error', time: Date.now() }];
         updateNodeData(id, { manualInjections: newInjections });
+        setTimeout(() => triggerResimulation(), 100);
     };
 
     const handleOnCompleted = () => {
         const newInjections = [...manualInjections, { type: 'complete', time: Date.now() }];
         updateNodeData(id, { manualInjections: newInjections });
+        setTimeout(() => triggerResimulation(), 100);
     };
 
     // Get current value for BehaviorSubject
@@ -111,8 +136,8 @@ const SubjectNode: React.FC<SubjectNodeProps> = ({ data, selected, id }) => {
                 <div className="mt-2 pt-2 border-t border-slate-700/50">
                     <div className="text-[10px] text-slate-500 uppercase mb-1">State:</div>
                     <div className={`text-xs font-mono px-2 py-1 rounded ${manualInjections.some((inj: any) => inj.type === 'complete')
-                            ? 'text-yellow-400 bg-yellow-900/20'
-                            : 'text-slate-400 bg-slate-900/50'
+                        ? 'text-yellow-400 bg-yellow-900/20'
+                        : 'text-slate-400 bg-slate-900/50'
                         }`}>
                         {manualInjections.some((inj: any) => inj.type === 'complete') ? '✓ Completed' : 'Pending'}
                     </div>
