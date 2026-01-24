@@ -9,8 +9,10 @@ const TpkExtractor = React.lazy(() => import('../../components/TpkExtractor'));
 const JsonTools = React.lazy(() => import('../../components/JsonTools'));
 const SmartThingsDevicesPane = React.lazy(() => import('../../components/SmartThingsDevices/SmartThingsDevicesPane'));
 const SmartThingsLabPlugin = React.lazy(() => import('../SmartThingsLab/SmartThingsLabPlugin'));
+const TizenLabPlugin = React.lazy(() => import('../TizenLab/TizenLabPlugin'));
 const ReverseEngineer = React.lazy(() => import('../../components/ReverseEngineer'));
 import { ToolId } from '../../types';
+import { Network } from 'lucide-react';
 
 const { FileText, Send, Braces, Archive, Smartphone, Pickaxe, Workflow, Activity } = Lucide;
 
@@ -145,4 +147,12 @@ export const RxFlowVisualizerPlugin: HappyPlugin = {
     icon: Activity,
     component: RxFlowVisualizer,
     order: 13,
+};
+
+export const TizenLabPluginWrapper: HappyPlugin = {
+    id: ToolId.TIZEN_LAB,
+    name: 'Tizen Lab',
+    icon: Network,
+    component: TizenLabPlugin,
+    order: 15,
 };

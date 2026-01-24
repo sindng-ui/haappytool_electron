@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Terminal, Play, AlertCircle } from 'lucide-react';
+import { Send, Terminal, Play, AlertCircle, Loader2 } from 'lucide-react';
 import { STDevice, STCommandRequest } from './types';
 import { SmartThingsService } from './services/smartThingsService';
 
 interface CommandInterfaceProps {
     device: STDevice;
     service: SmartThingsService;
+    token: string;
     onLog: (entry: any) => void;
 }
 
-export const CommandInterface: React.FC<CommandInterfaceProps> = ({ device, service, onLog }) => {
+export const CommandInterface: React.FC<CommandInterfaceProps> = ({ device, service, token, onLog }) => {
     const [selectedComponent, setSelectedComponent] = useState<string>('main');
     const [selectedCapability, setSelectedCapability] = useState<string>('');
     const [selectedCommand, setSelectedCommand] = useState<string>('');
@@ -96,11 +97,44 @@ export const CommandInterface: React.FC<CommandInterfaceProps> = ({ device, serv
         }
     };
 
+    const copyAsCurl = () => {
+        const url = `https://api.smartthings.com/v1/devices/${device.deviceId}/commands`;
+        const body = {
+            commands: [{
+                component: selectedComponent,
+                capability: selectedCapability,
+                command: selectedCommand,
+                arguments: JSON.parse(argsInput)
+            }]
+        };
+        const curl = `curl -X POST "${url}" \\\n  -H "Authorization: Bearer ${token}" \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(body, null, 2)}'`;
+        navigator.clipboard.writeText(curl);
+        alert('CURL copied!');
+    };
+
+    const copyAsCli = () => {
+        const commands = [{
+            component: selectedComponent,
+            capability: selectedCapability,
+            command: selectedCommand,
+            arguments: JSON.parse(argsInput)
+        }];
+        const cli = `smartthings devices:commands ${device.deviceId} '${JSON.stringify(commands)}'`;
+        navigator.clipboard.writeText(cli);
+        alert('CLI command copied!');
+    };
+
     return (
-        <div className="flex flex-col gap-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-500 font-bold uppercase text-xs tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
-                <Terminal size={14} />
-                Command Executor
+        <div className="flex flex-col gap-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-full">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <div className="flex items-center gap-2 text-slate-500 font-bold uppercase text-xs tracking-wider">
+                    <Terminal size={14} />
+                    Command Executor
+                </div>
+                <div className="flex gap-1">
+                    <button onClick={copyAsCurl} className="px-2 py-0.5 text-[10px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded font-bold text-slate-500 transition-colors">CURL</button>
+                    <button onClick={copyAsCli} className="px-2 py-0.5 text-[10px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded font-bold text-slate-500 transition-colors">CLI</button>
+                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -165,9 +199,9 @@ export const CommandInterface: React.FC<CommandInterfaceProps> = ({ device, serv
             <button
                 onClick={handleExecute}
                 disabled={executing || !selectedCommand}
-                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-lg flex items-center justify-center gap-2 font-bold transition-colors"
+                className="w-full py-2 mt-auto bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-lg flex items-center justify-center gap-2 font-bold transition-colors"
             >
-                {executing ? <AlertCircle size={16} className="animate-pulse" /> : <Play size={16} />}
+                {executing ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
                 Execute Command
             </button>
         </div>

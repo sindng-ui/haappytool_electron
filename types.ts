@@ -15,6 +15,7 @@ export enum ToolId {
   SCREEN_MATCHER = 'SCREEN_MATCHER',
   AI_ASSISTANT = 'AI_ASSISTANT',
   RXFLOW_VISUALIZER = 'RXFLOW_VISUALIZER',
+  TIZEN_LAB = 'TIZEN_LAB',
 }
 
 export interface LogHighlight {

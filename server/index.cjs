@@ -1602,10 +1602,10 @@ const handleSocketConnection = (socket, deps = {}) => {
 
                             socket.emit('memory_data', {
                                 timestamp: Date.now(),
-                                pss,
-                                gemrss,
-                                swap,
-                                gpu
+                                pss: Math.floor(pss),
+                                gemrss: Math.floor(gemrss),
+                                swap: Math.floor(swap),
+                                gpu: Math.floor(gpu)
                             });
                         }
                     });
@@ -1614,15 +1614,16 @@ const handleSocketConnection = (socket, deps = {}) => {
                         console.log(`vd_memps stderr: ${data}`);
                     });
 
-                    memoryMonitorProcess.on('close', () => {
-                        socket.emit('memory_status', { status: 'stopped', message: 'Memory Monitoring Stopped' });
+                    memoryMonitorProcess.on('close', (code) => {
+                        console.log(`vd_memps exited with code ${code}`);
+                        socket.emit('memory_status', { status: 'stopped', message: 'Monitoring Stopped' });
                         memoryMonitorProcess = null;
                     });
 
-                    socket.emit('memory_status', { status: 'monitoring', message: `Monitoring ${safeAppName} (PID:${targetPid})` });
+                    socket.emit('memory_status', { status: 'monitoring', message: `Monitoring ${safeAppName}` });
 
                 } catch (e) {
-                    socket.emit('memory_error', { message: `Failed to spawn vd_memps: ${e.message}` });
+                    socket.emit('memory_error', { message: `Failed to spawn sdb: ${e.message}` });
                 }
             });
         }
@@ -1636,11 +1637,339 @@ const handleSocketConnection = (socket, deps = {}) => {
         if (memoryMonitorInterval) {
             clearInterval(memoryMonitorInterval);
             memoryMonitorInterval = null;
+            socket.emit('memory_status', { status: 'stopped', message: 'Monitoring Stopped' });
         }
-        socket.emit('memory_status', { status: 'stopped', message: 'Stopped' });
+    });
+
+    // --- Tizen SDB File Explorer Handlers ---
+
+    const handleSdbCommand = (cmd, callback) => {
+        // On Windows, shell errors like "command not found" are in system encoding (CP949 in Korea)
+        // which looks like garbage in UTF-8. We intercept common sdb-not-found patterns.
+        const fullCmd = process.platform === 'win32' ? `chcp 65001 > nul && ${cmd}` : cmd;
+
+        exec(fullCmd, { encoding: 'utf-8' }, (error, stdout, stderr) => {
+            if (error) {
+                let msg = stderr || error.message;
+                // Detect "sdb is not recognized" in broken encoding or standard English
+                if (msg.includes('is not recognized') || msg.includes('not found') || msg.includes('ENOENT') ||
+                    (process.platform === 'win32' && (msg.includes('\'sdb\'') || msg.includes('G')))) {
+                    msg = "SDB 명령어를 찾을 수 없습니다. Tizen Studio가 설치되어 있고 시스템 PATH 환경 변수에 'sdb' 경로가 포함되어 있는지 확인해주세요.";
+                }
+                callback(error, stdout, msg);
+            } else {
+                callback(null, stdout, stderr);
+            }
+        });
+    };
+
+    socket.on('list_tizen_files', ({ deviceId, path: remotePath }) => {
+        console.log(`[TizenExplorer] Listing files in ${remotePath} on ${deviceId || 'default'}`);
+        // sdb shell ls -alp [path]
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `ls -alF "${remotePath}"`] : ['shell', `ls -alF "${remotePath}"`];
+
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            if (error) {
+                socket.emit('list_tizen_files_result', { success: false, error: stderr });
+                return;
+            }
+
+            const lines = stdout.split('\n');
+            const files = [];
+
+            // Skip first line if it's "total X"
+            for (const line of lines) {
+                if (line.trim().startsWith('total ')) continue;
+                if (!line.trim()) continue;
+
+                // Typical ls -alF output:
+                // drwxr-xr-x    2 root     root          4096 Jan 24 12:34 bin/
+                // -rw-r--r--    1 root     root           123 Jan 24 12:34 test.txt
+                const parts = line.trim().split(/\s+/);
+                if (parts.length < 9) continue;
+
+                const permissions = parts[0];
+                const type = permissions[0] === 'd' ? 'directory' : 'file';
+                const size = parseInt(parts[4]);
+                const name = parts.slice(8).join(' '); // Name can contain spaces
+
+                // Skip . and ..
+                if (name === './' || name === '../' || name === '.' || name === '..') continue;
+
+                files.push({
+                    name: name.replace(/[*]$/, '').replace(/[/]$/, ''), // Remove trailing F markers
+                    type,
+                    size,
+                    permissions,
+                    owner: parts[2],
+                    group: parts[3],
+                    modified: parts.slice(5, 8).join(' ')
+                });
+            }
+
+            socket.emit('list_tizen_files_result', { success: true, files, path: remotePath });
+        });
+    });
+
+    socket.on('pull_tizen_file', ({ deviceId, remotePath, localPath }) => {
+        console.log(`[TizenExplorer] Pulling ${remotePath} to ${localPath}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'pull', remotePath, localPath] : ['pull', remotePath, localPath];
+
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            if (error) {
+                socket.emit('pull_tizen_file_result', { success: false, error: stderr });
+            } else {
+                socket.emit('pull_tizen_file_result', { success: true, remotePath, localPath });
+            }
+        });
+    });
+
+    socket.on('push_tizen_file', ({ deviceId, localPath, remotePath }) => {
+        console.log(`[TizenExplorer] Pushing ${localPath} to ${remotePath}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'push', localPath, remotePath] : ['push', localPath, remotePath];
+
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            if (error) {
+                socket.emit('push_tizen_file_result', { success: false, error: stderr });
+            } else {
+                socket.emit('push_tizen_file_result', { success: true, remotePath, localPath });
+            }
+        });
+    });
+
+    socket.on('delete_tizen_path', ({ deviceId, path }) => {
+        console.log(`[TizenExplorer] Deleting ${path}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `rm -rf "${path}"`] : ['shell', `rm -rf "${path}"`];
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'delete', target: 'tizen' });
+        });
+    });
+
+    socket.on('rename_tizen_path', ({ deviceId, oldPath, newPath }) => {
+        console.log(`[TizenExplorer] Renaming ${oldPath} to ${newPath}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `mv "${oldPath}" "${newPath}"`] : ['shell', `mv "${oldPath}" "${newPath}"`];
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'rename', target: 'tizen' });
+        });
+    });
+
+    socket.on('mkdir_tizen_path', ({ deviceId, path }) => {
+        console.log(`[TizenExplorer] Creating directory ${path}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `mkdir -p "${path}"`] : ['shell', `mkdir -p "${path}"`];
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'mkdir', target: 'tizen' });
+        });
+    });
+
+    socket.on('install_tizen_tpk', ({ deviceId, path }) => {
+        console.log(`[TizenExplorer] Installing TPK: ${path}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `pkgcmd -i -t tpk -p "${path}"`] : ['shell', `pkgcmd -i -t tpk -p "${path}"`];
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'install', target: 'tizen', output: stdout });
+        });
+    });
+
+    socket.on('read_tizen_file', ({ deviceId, path }) => {
+        console.log(`[TizenExplorer] Reading file: ${path}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `cat "${path}"`] : ['shell', `cat "${path}"`];
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            if (error) {
+                socket.emit('read_tizen_file_result', { success: false, error: stderr, path });
+            } else {
+                socket.emit('read_tizen_file_result', { success: true, content: stdout, path });
+            }
+        });
+    });
+
+    socket.on('list_tizen_apps', ({ deviceId }) => {
+        console.log(`[TizenAppManager] Listing apps on ${deviceId || 'auto'}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', 'pkgcmd -l'] : ['shell', 'pkgcmd -l'];
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            if (error) {
+                socket.emit('list_tizen_apps_result', { success: false, error: stderr });
+                return;
+            }
+            // Parse pkgcmd -l output
+            // Example output:
+            // 	'org.tizen.example'	'ExampleApp'	'installed'
+            // 	'org.tizen.home'	'TizenHome'	'installed'
+            const apps = stdout.split('\n').map(line => {
+                const match = line.match(/^\s*'(.*?)'\s*'(.*?)'\s*'(.*?)'/);
+                if (match) {
+                    return { pkgId: match[1], name: match[2], status: match[3] };
+                }
+                return null;
+            }).filter(Boolean);
+            socket.emit('list_tizen_apps_result', { success: true, apps });
+        });
+    });
+
+    socket.on('uninstall_tizen_app', ({ deviceId, pkgId }) => {
+        console.log(`[TizenAppManager] Uninstalling ${pkgId}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `pkgcmd -u -n "${pkgId}"`] : ['shell', `pkgcmd -u -n "${pkgId}"`];
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'uninstall', target: 'tizen_app', pkgId });
+        });
+    });
+
+    socket.on('launch_tizen_app', ({ deviceId, pkgId }) => {
+        console.log(`[TizenAppManager] Launching ${pkgId}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `launch_app "${pkgId}"`] : ['shell', `launch_app "${pkgId}"`];
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'launch', target: 'tizen_app', pkgId });
+        });
+    });
+
+    socket.on('terminate_tizen_app', ({ deviceId, pkgId }) => {
+        console.log(`[TizenAppManager] Terminating ${pkgId}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `app_terminate "${pkgId}"`] : ['shell', `app_terminate "${pkgId}"`];
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'terminate', target: 'tizen_app', pkgId });
+        });
+    });
+
+    // --- Tizen Performance Insight ---
+    socket.on('get_tizen_process_info', ({ deviceId, pid }) => {
+        // Get more details about a process (e.g. fd count, smaps summary)
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell'] : ['shell'];
+        const cmd = `cat /proc/${pid}/status | grep -E "Threads|FDSize|VmRSS|VmSwap"`;
+
+        handleSdbCommand(`sdb ${args.join(' ')} "${cmd}"`, (error, stdout, stderr) => {
+            if (error) {
+                socket.emit('tizen_process_info_result', { success: false, error: stderr });
+            } else {
+                socket.emit('tizen_process_info_result', { success: true, pid, info: stdout });
+            }
+        });
+    });
+
+    socket.on('tizen_process_info_result', (data) => {
+        // ... previous handlers ...
+    });
+
+    // --- Local PC File Explorer Handlers ---
+    socket.on('list_local_files', async ({ path: localPath }) => {
+        const trimmedPath = (localPath || '').trim();
+        console.log(`[LocalExplorer] Listing files in ${trimmedPath}`);
+        try {
+            let targetPath = trimmedPath;
+            if (trimmedPath.startsWith('~')) {
+                targetPath = path.join(require('os').homedir(), trimmedPath.slice(1));
+            }
+            if (!targetPath) {
+                targetPath = process.platform === 'win32' ? 'C:\\' : '/';
+            }
+            targetPath = path.resolve(targetPath);
+
+            // Use non-blocking readdir with file types
+            const dirents = await fs.promises.readdir(targetPath, { withFileTypes: true });
+
+            // Map dirents to our file objects. We still might need stat for size/mtime if they are files.
+            const filePromises = dirents.map(async (dirent) => {
+                try {
+                    const fullPath = path.join(targetPath, dirent.name);
+                    const isDir = dirent.isDirectory();
+
+                    // We only need stat for files to get size/mtime, 
+                    // or for directories if we want mtime.
+                    const fileStats = await fs.promises.stat(fullPath);
+
+                    return {
+                        name: dirent.name,
+                        type: isDir ? 'directory' : 'file',
+                        size: fileStats.size,
+                        modified: fileStats.mtime.toLocaleString(),
+                        permissions: fileStats.mode.toString(8)
+                    };
+                } catch (e) {
+                    return null;
+                }
+            });
+
+            const files = (await Promise.all(filePromises)).filter(Boolean);
+            socket.emit('list_local_files_result', { success: true, files, path: targetPath });
+        } catch (e) {
+            console.error(`[LocalExplorer] Error listing ${localPath}:`, e);
+            socket.emit('list_local_files_result', { success: false, error: e.message });
+        }
+    });
+
+    socket.on('delete_local_path', ({ path: targetPath }) => {
+        console.log(`[LocalExplorer] Deleting ${targetPath}`);
+        try {
+            if (fs.existsSync(targetPath)) {
+                const stats = fs.statSync(targetPath);
+                if (stats.isDirectory()) {
+                    fs.rmSync(targetPath, { recursive: true, force: true });
+                } else {
+                    fs.unlinkSync(targetPath);
+                }
+                socket.emit('operation_result', { success: true, op: 'delete', target: 'local' });
+            } else {
+                socket.emit('operation_result', { success: false, error: 'File does not exist', op: 'delete', target: 'local' });
+            }
+        } catch (e) {
+            socket.emit('operation_result', { success: false, error: e.message, op: 'delete', target: 'local' });
+        }
+    });
+
+    socket.on('rename_local_path', ({ oldPath, newPath }) => {
+        console.log(`[LocalExplorer] Renaming ${oldPath} to ${newPath}`);
+        try {
+            fs.renameSync(oldPath, newPath);
+            socket.emit('operation_result', { success: true, op: 'rename', target: 'local' });
+        } catch (e) {
+            socket.emit('operation_result', { success: false, error: e.message, op: 'rename', target: 'local' });
+        }
+    });
+
+    socket.on('mkdir_local_path', ({ path: targetPath }) => {
+        console.log(`[LocalExplorer] Making directory ${targetPath}`);
+        try {
+            fs.mkdirSync(targetPath, { recursive: true });
+            socket.emit('operation_result', { success: true, op: 'mkdir', target: 'local' });
+        } catch (e) {
+            socket.emit('operation_result', { success: false, error: e.message, op: 'mkdir', target: 'local' });
+        }
+    });
+
+    socket.on('open_local_path', ({ path: targetPath }) => {
+        console.log(`[LocalExplorer] Opening ${targetPath}`);
+        try {
+            const { shell } = require('electron');
+            if (shell) {
+                shell.openPath(targetPath);
+            } else {
+                const cmd = process.platform === 'win32' ? `explorer "${targetPath}"` : `open "${targetPath}"`;
+                exec(cmd);
+            }
+        } catch (e) {
+            console.error('Failed to open path:', e);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        logDebug('User requested disconnect');
+        if (sshConnection) {
+            sshConnection.end();
+            sshConnection = null;
+        }
+        if (sdbProcess) {
+            sdbProcess.kill();
+            sdbProcess = null;
+        }
+        if (debugStream) {
+            debugStream.end();
+            debugStream = null;
+        }
+        if (logFileStream) {
+            logFileStream.end();
+            logFileStream = null;
+        }
     });
 
 };
+
 io.on('connection', handleSocketConnection);
 
 // SPA Fallback for non-API routes
@@ -1673,19 +2002,6 @@ function startServer(userDataPath) {
         }).on('error', (err) => {
             if (err.code === 'EADDRINUSE') {
                 console.log(`Port ${PORT} already in use, assuming server is running.`);
-                // Do not resolve/reject promptly if we want to keep this process 'alive' in concurrently
-                // actually, if we resolve, the script finishes and exits?
-                // No, node process exits if event loop is empty.
-                // If server is NOT listening here, we need to keep event loop alive?
-
-                // Better approach: If port is use, just log and keep running (don't exit)
-                // But if we don't start a server, what keeps this script alive?
-                // We can set an interval or just resolve.
-
-                // Actually, the issue is that if `startServer` resolves, the `node server/index.cjs` script (which calls it) 
-                // reaches end of file and might exit if there are no active handles.
-
-                // Let's create a dummy interval to keep the process alive if port is in use.
                 setInterval(() => { }, 1000000);
                 resolve(server);
             } else {
