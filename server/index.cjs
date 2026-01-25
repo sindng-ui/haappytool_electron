@@ -184,6 +184,29 @@ let debugStream = null;
 let logFileStream = null;
 let sshAuthFinish = null;
 
+// Batching State
+let logBuffer = '';
+let batchTimeout = null;
+const BATCH_INTERVAL = 20; // ms
+
+function flushLogs(socket) {
+    if (logBuffer.length > 0) {
+        socket.emit('log_data', logBuffer);
+        logBuffer = '';
+    }
+    batchTimeout = null;
+}
+
+function handleLogData(data, socket) {
+    const str = data.toString();
+    if (logFileStream) logFileStream.write(data);
+
+    logBuffer += str;
+    if (!batchTimeout) {
+        batchTimeout = setTimeout(() => flushLogs(socket), BATCH_INTERVAL);
+    }
+}
+
 function logDebug(msg) {
     if (debugStream) {
         const timestamp = new Date().toISOString();
@@ -197,8 +220,16 @@ const handleSocketConnection = (socket, deps = {}) => {
 
     // --- SSH Handler ---
     socket.on('connect_ssh', ({ host, port, username, password, debug, saveToFile, command, tags }) => {
-        // Set Default Command Upfront
-        command = command || 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
+        // Set Default Command Smartly
+        if (!command) {
+            const tagString = (Array.isArray(tags) && tags.length > 0) ? tags.join(' ') : '';
+            if (tagString) {
+                command = `dlogutil -c; logger-mgr --filter ${tagString}; dlogutil -v kerneltime ${tagString}`;
+            } else {
+                command = `dlogutil -v kerneltime`;
+            }
+            console.log(`[SSH] Using smart default command: ${command}`);
+        }
 
         console.log('[SSH] ========== SSH Connection Request ==========');
         console.log('[SSH] Connection initiated with params:', {
@@ -212,10 +243,18 @@ const handleSocketConnection = (socket, deps = {}) => {
             tags: tags || []
         });
 
-        // Perform Tag Substitution
+        // Perform Tag Substitution for custom or default command
         if (command && command.includes('$(TAGS)')) {
             const tagString = Array.isArray(tags) ? tags.join(' ') : '';
             command = command.replace(/\$\(TAGS\)/g, tagString);
+
+            // Cleanup: remove redundant separators and spaces
+            command = command.replace(/--filter\s+;/g, ';') // remove empty filter before semicolon
+                .replace(/;\s*;/g, ';')      // remove double semicolons
+                .replace(/\s+/g, ' ')        // collapse spaces
+                .replace(/;\s*$/, '')        // remove trailing semicolon
+                .trim();
+
             console.log(`[SSH] Substituted $(TAGS) -> "${tagString}"`);
             console.log(`[SSH] Effective command: ${command}`);
         }
@@ -276,6 +315,10 @@ const handleSocketConnection = (socket, deps = {}) => {
                 console.log('[SSH] Responding to keyboard-interactive with password');
                 logDebug('Responding with password to keyboard-interactive prompts');
                 finish([password]);
+            } else if (prompts.length > 0) {
+                console.log('[SSH] Password not provided for keyboard-interactive. Sending request to client.');
+                sshAuthFinish = finish;
+                socket.emit('ssh_auth_request', { prompt: prompts[0].prompt, echo: prompts[0].echo });
             } else {
                 console.log('[SSH] No password for keyboard-interactive, sending empty response');
                 logDebug('No password provided for keyboard-interactive');
@@ -316,13 +359,11 @@ const handleSocketConnection = (socket, deps = {}) => {
                     }
 
                     if (debugStream) logDebug(`[DATA CHUNK] ${data.length} bytes`);
-                    if (logFileStream) logFileStream.write(data);
-                    socket.emit('log_data', data.toString());
+                    handleLogData(data, socket);
                 }).stderr.on('data', (data) => {
                     console.log('[SSH] STDERR data received:', data.toString());
                     logDebug(`STDERR: ${data}`);
-                    if (logFileStream) logFileStream.write(data);
-                    socket.emit('log_data', data.toString());
+                    handleLogData(data, socket);
                 });
 
                 // Wait a bit for shell to be ready, then send command
@@ -411,10 +452,26 @@ const handleSocketConnection = (socket, deps = {}) => {
         sshAuthFinish = null;
     });
 
+    socket.on('ssh_auth_response', (data) => {
+        if (sshAuthFinish) {
+            console.log('[SSH] Received auth response from client');
+            sshAuthFinish([data]);
+            sshAuthFinish = null;
+        }
+    });
+
     // --- SDB Handler ---
     socket.on('connect_sdb', ({ deviceId, debug, saveToFile, command, tags }) => {
-        // Set Default Command Upfront
-        command = command || 'dlogutil -v kerneltime $(TAGS)';
+        // Set Default Command Smartly
+        if (!command) {
+            const tagString = (Array.isArray(tags) && tags.length > 0) ? tags.join(' ') : '';
+            if (tagString) {
+                command = `dlogutil -v kerneltime ${tagString}`;
+            } else {
+                command = `dlogutil -v kerneltime`;
+            }
+            console.log(`[SDB] Using smart default command: ${command}`);
+        }
 
         console.log('[SDB] ========== SDB Connection Request ==========');
         console.log('[SDB] Connection initiated with params:', {
@@ -429,6 +486,10 @@ const handleSocketConnection = (socket, deps = {}) => {
         if (command && command.includes('$(TAGS)')) {
             const tagString = Array.isArray(tags) ? tags.join(' ') : '';
             command = command.replace(/\$\(TAGS\)/g, tagString);
+
+            // Cleanup: similar to SSH for consistency
+            command = command.replace(/\s+/g, ' ').trim();
+
             console.log(`[SDB] Substituted $(TAGS) -> "${tagString}"`);
             console.log(`[SDB] Effective command: ${command}`);
         }
@@ -554,8 +615,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                         }
 
                         if (debugStream) logDebug(`[STDOUT CHUNK] ${data.length} bytes`);
-                        if (logFileStream) logFileStream.write(data);
-                        socket.emit('log_data', data.toString());
+                        handleLogData(data, socket);
                     });
 
                     sdbProcess.stderr.on('data', (data) => {
@@ -568,8 +628,7 @@ const handleSocketConnection = (socket, deps = {}) => {
 
                         console.log('[SDB] STDERR:', data.toString());
                         logDebug(`SDB STDERR: ${data.toString()}`);
-                        if (logFileStream) logFileStream.write(data);
-                        socket.emit('log_data', data.toString());
+                        handleLogData(data, socket);
                     });
 
                     sdbProcess.on('close', (code) => {
