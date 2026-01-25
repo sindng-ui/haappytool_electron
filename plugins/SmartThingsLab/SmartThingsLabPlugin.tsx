@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useHappyTool } from '../../contexts/HappyToolContext';
 import { SmartThingsService } from './services/smartThingsService';
 import { SSEService } from './services/sseService';
@@ -44,6 +44,7 @@ const SmartThingsLabPlugin: React.FC = () => {
     // Logs & Events
     const [sseEvents, setSseEvents] = useState<any[]>([]);
     const [commandLogs, setCommandLogs] = useState<any[]>([]);
+    const [sseUrl, setSseUrl] = useState<string>('https://sse.example.com/events');
 
     const [loading, setLoading] = useState(false);
     const [loadingCaps, setLoadingCaps] = useState(false);
@@ -101,7 +102,7 @@ const SmartThingsLabPlugin: React.FC = () => {
         }
     }, [token]);
 
-    const handleSelect = async (item: any, type: SelectionType) => {
+    const handleSelect = useCallback(async (item: any, type: SelectionType) => {
         setSelectionType(type);
         setSelectedItem(item);
 
@@ -141,11 +142,11 @@ const SmartThingsLabPlugin: React.FC = () => {
         } else {
             setSelectedId((item as STRoom).roomId);
         }
-    };
+    }, [service, capabilitiesMap]);
 
-    const handleLog = (entry: any) => {
+    const handleLog = useCallback((entry: any) => {
         setCommandLogs(prev => [entry, ...prev]);
-    };
+    }, []);
 
     // SSE Handler
     const handleSSEMessage = (event: any) => {
@@ -166,12 +167,12 @@ const SmartThingsLabPlugin: React.FC = () => {
         );
     }, [sseEvents, eventFilter]);
 
-    const toggleSSE = (url: string) => {
-        if (sseEvents.length > 0 && !url) {
+    const toggleSSE = () => {
+        if (sseEvents.length > 0 && !sseUrl) {
             sse.disconnect();
             return;
         }
-        sse.connect(url, token);
+        sse.connect(sseUrl, token);
         sse.addListener('device-event', handleSSEMessage);
         sse.addListener('message', handleSSEMessage);
     };
@@ -285,9 +286,16 @@ const SmartThingsLabPlugin: React.FC = () => {
                                                 <input
                                                     type="text"
                                                     placeholder="SSE URL"
-                                                    className="flex-1 px-3 py-1.5 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md"
+                                                    className="flex-1 px-3 py-1.5 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                    value={sseUrl}
+                                                    onChange={e => setSseUrl(e.target.value)}
                                                 />
-                                                <button className="px-4 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-bold shadow-sm">Connect</button>
+                                                <button
+                                                    onClick={toggleSSE}
+                                                    className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-xs font-bold shadow-sm active:scale-95 transition-all outline-none"
+                                                >
+                                                    Connect
+                                                </button>
                                                 <input
                                                     type="text"
                                                     placeholder="Filter Events..."

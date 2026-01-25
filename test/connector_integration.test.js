@@ -79,6 +79,10 @@ describe('Live Logging Ecosystem Integration', () => {
 
             // [4] Simulate live log data from device
             logProcess.stdout.emit('data', Buffer.from('TEST_LOG_DATA'));
+
+            // Step 4.1: Advance timers because server now batches logs (20ms)
+            vi.advanceTimersByTime(50);
+
             expect(socket.emit).toHaveBeenCalledWith('log_data', 'TEST_LOG_DATA');
 
             // [5] Stop Logging command from FE
@@ -130,6 +134,10 @@ describe('Live Logging Ecosystem Integration', () => {
 
             // Verify log data relay
             mockSSHStream.emit('data', Buffer.from('SSH_STREAM_DATA'));
+
+            // Advance timers for batching
+            vi.advanceTimersByTime(50);
+
             expect(socket.emit).toHaveBeenCalledWith('log_data', 'SSH_STREAM_DATA');
 
             // Verify control (Stop Logging)
