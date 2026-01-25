@@ -1,32 +1,28 @@
-# 기능 구현 계획 - Capability Schema 기반 동적 커맨드 폼
+# 기능 구현 계획 - ST Lab 고도화 (그래프 모니터링 & 가상 장치)
 
-## 1. 분석 및 설계
-*   **데이터 구조**: `STCommand` 객체 내부의 `arguments` 배열을 순회하며 각 인자의 `schema` 정보를 활용.
-*   **UI 매핑 규칙**:
-    *   `enum` 존재 -> `<select>`
-    *   `type: integer | number` -> `<input type="number">` (with min/max)
-    *   `type: string` -> `<input type="text">`
-    *   기타 -> `<textarea>` (JSON)
+## 1. 실시간 센서 그래프 (Live Monitor)
+*   **파일**: `plugins/SmartThingsLab/LiveMonitor.tsx` 생성
+*   **기능**:
+    *   `recharts`를 사용하여 라인 차트 구현.
+    *   선택된 디바이스의 Capability 중 수치형(Number) 속성 자동 감지 (온도, 습도, 레벨 등).
+    *   SSE 이벤트(`device-event`) 수신 시 차트 데이터 배열에 `{ timestamp, value }` 추가.
+    *   최근 50~100개 데이터 포인트 유지 (Windowing).
+    *   차트 Y축 자동 스케일링 및 툴팁 제공.
 
-## 2. 상세 구현 단계
+## 2. 가상 장치 생성 고도화
+*   **파일**: `plugins/SmartThingsLab/VirtualDeviceManager.tsx` 수정
+*   **기능**:
+    *   단순 이름 입력에서 **프로필(Profile) 선택** 기능 추가.
+    *   사전 정의된 유용한 가상 장치 프로필 목록 제공 (예: 스위치, 디머, 온습도 센서, 모션 센서 등).
+    *   생성 전 "미리보기" 아이콘 표시.
 
-### 1단계: Argument 상태 구조 변경
-*   `argsInput` (문자열 JSON) 외에 `argValues` (배열) 상태 추가.
-*   커맨드 선택 시 `argValues`를 스키마에 정의된 기본값 또는 빈 값으로 초기화.
+## 3. 통합 및 UI 배치
+*   `SmartThingsLabPlugin.tsx`
+    1.  Tab 메뉴에 `MONITOR` 추가.
+    2.  `LiveMonitor` 컴포넌트 연결.
+    3.  `VirtualDeviceManager` props 확장.
 
-### 2단계: 동적 입력 컴포넌트 (`ArgumentField`) 구현
-*   개별 인자를 위한 하위 컴포넌트 또는 렌더링 함수 생성.
-*   스키마 타입별로 적절한 HTML 요소 렌더링.
-
-### 3단계: 양방향 동기화 및 Execute 로직 수정
-*   동적 폼 입력 시 `argsInput` 문자열 자동 업데이트.
-*   `argsInput` 수동 수정 시 (고급 사용자) 동적 폼 상태 반영 노력 (선택 사항).
-*   최종 `handleExecute`에서 스키마 기반 검증 로직 추가 고려.
-
-### 4단계: UI 폴리싱
-*   인자 이름(label) 가독성 향상.
-*   Optional 인자에 대한 시각적 표시.
-
-## 3. 예외 케이스 처리
-*   커맨드에 인자가 없는 경우 처리.
-*   스키마 정보가 불완전한 경우 Fallback 처리 (기존 Textarea 노출).
+## 4. 상세 구현 스텝
+1.  **LiveMonitor 컴포넌트 개발**: Recharts 연동 및 더미 데이터 테스트.
+2.  **데이터 파이프라인 연결**: `SmartThingsLabPlugin`에서 수신한 SSE 이벤트를 `LiveMonitor`로 전달하거나, Context/Props로 공유.
+3.  **VirtualDeviceManager UI 개선**: 프로필 선택 드롭다운 및 미리보기 UI 추가.

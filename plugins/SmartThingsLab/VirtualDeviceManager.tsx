@@ -8,10 +8,20 @@ interface VirtualDeviceManagerProps {
     locations: STLocation[];
     onRefresh: () => void;
 }
+const DEVICE_PROFILES = [
+    { id: 'switch', name: 'Switch', icon: 'Power' },
+    { id: 'dimmer-switch', name: 'Dimmer Switch', icon: 'Sun' },
+    { id: 'bulb', name: 'Color Bulb', icon: 'Lightbulb' },
+    { id: 'contact-sensor', name: 'Contact Sensor', icon: 'DoorOpen' },
+    { id: 'motion-sensor', name: 'Motion Sensor', icon: 'Activity' },
+    { id: 'presence-sensor', name: 'Presence Sensor', icon: 'MapPin' },
+    { id: 'temperature-humidity-sensor', name: 'Temp & Humidity', icon: 'Thermometer' }
+];
 
 export const VirtualDeviceManager: React.FC<VirtualDeviceManagerProps> = ({ service, locations, onRefresh }) => {
     const [name, setName] = useState('');
     const [selectedLocation, setSelectedLocation] = useState('');
+    const [selectedProfile, setSelectedProfile] = useState(DEVICE_PROFILES[0].id);
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -23,13 +33,15 @@ export const VirtualDeviceManager: React.FC<VirtualDeviceManagerProps> = ({ serv
             await service.createVirtualDevice({
                 name,
                 locationId: selectedLocation,
-                ownerId: 'me' // API handles this usually or requires specific ID
+                ownerId: 'me',
+                deviceProfileId: selectedProfile // Pass the selected profile ID
             });
             setName('');
             onRefresh();
-            alert('Virtual Device Created!');
+            alert(`Virtual Device '${name}' Created!`);
         } catch (e: any) {
-            setError(e.message);
+            console.error(e);
+            setError(e.message || 'Failed to create device. Make sure you have permission.');
         } finally {
             setCreating(false);
         }
@@ -66,6 +78,26 @@ export const VirtualDeviceManager: React.FC<VirtualDeviceManagerProps> = ({ serv
                             <option key={loc.locationId} value={loc.locationId}>{loc.name}</option>
                         ))}
                     </select>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Device Type (Profile)</label>
+                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
+                        {DEVICE_PROFILES.map(profile => (
+                            <button
+                                key={profile.id}
+                                onClick={() => setSelectedProfile(profile.id)}
+                                className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all
+                                    ${selectedProfile === profile.id
+                                        ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-500 ring-1 ring-indigo-500 text-indigo-700 dark:text-indigo-300'
+                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700'
+                                    }`}
+                            >
+                                {/* We can use a dynamic icon component helper if needed, for now simplistic */}
+                                <div className="text-[10px] font-bold truncate">{profile.name}</div>
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {error && (

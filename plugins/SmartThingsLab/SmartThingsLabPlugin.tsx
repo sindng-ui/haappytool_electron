@@ -8,13 +8,14 @@ import { CommandInterface } from './CommandInterface';
 import { RawDataViewer } from './RawDataViewer';
 import { CapabilityExplorer } from './CapabilityExplorer';
 import { VirtualDeviceManager } from './VirtualDeviceManager';
+import { LiveMonitor } from './LiveMonitor';
 import { STLocation, STRoom, STDevice, STDeviceStatus, STCapability } from './types';
 import * as Lucide from 'lucide-react';
 
 const { Settings, RefreshCw, Activity, Terminal, Database, Smartphone, Zap, Wrench } = Lucide;
 
 type SelectionType = 'LOCATION' | 'ROOM' | 'DEVICE';
-type Tab = 'DATA' | 'EVENTS' | 'LOGS' | 'CAPABILITIES' | 'TOOLS';
+type Tab = 'DATA' | 'EVENTS' | 'LOGS' | 'CAPABILITIES' | 'TOOLS' | 'MONITOR';
 
 const SmartThingsLabPlugin: React.FC = () => {
     const { postGlobalAuth } = useHappyTool();
@@ -255,6 +256,7 @@ const SmartThingsLabPlugin: React.FC = () => {
                                 <div className="flex gap-1 mb-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
                                     <TabButton active={activeTab === 'DATA'} onClick={() => setActiveTab('DATA')} icon={<Database size={14} />} label="Data" />
                                     <TabButton active={activeTab === 'CAPABILITIES'} onClick={() => setActiveTab('CAPABILITIES')} icon={<Zap size={14} />} label="Capabilities" />
+                                    <TabButton active={activeTab === 'MONITOR'} onClick={() => setActiveTab('MONITOR')} icon={<Activity size={14} />} label="Monitor" />
                                     <TabButton active={activeTab === 'LOGS'} onClick={() => setActiveTab('LOGS')} icon={<Terminal size={14} />} label="Logs" />
                                     <TabButton active={activeTab === 'EVENTS'} onClick={() => setActiveTab('EVENTS')} icon={<Activity size={14} />} label="SSE" />
                                     <TabButton active={activeTab === 'TOOLS'} onClick={() => setActiveTab('TOOLS')} icon={<Wrench size={14} />} label="Tools" />
@@ -275,6 +277,12 @@ const SmartThingsLabPlugin: React.FC = () => {
                                         <CapabilityExplorer
                                             capabilities={capabilitiesMap[selectedItem.deviceId] || []}
                                             loading={loadingCaps}
+                                        />
+                                    )}
+                                    {activeTab === 'MONITOR' && selectionType === 'DEVICE' && (
+                                        <LiveMonitor
+                                            device={selectedItem}
+                                            sseEvents={sseEvents}
                                         />
                                     )}
                                     {activeTab === 'LOGS' && (
