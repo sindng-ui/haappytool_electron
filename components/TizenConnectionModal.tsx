@@ -303,15 +303,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
         }
 
         if (mode === 'ssh') {
-            console.log('[TizenModal] Emitting connect_ssh with params:', {
-                host: sshHost,
-                port: parseInt(sshPort),
-                username: sshUser,
-                passwordProvided: !!sshPassword,
-                debug: debugMode,
-                saveToFile: saveToFile,
-                command: logCommand
-            });
+            console.log('[TizenModal] SSH - waiting for server connection confirmation');
             socket.emit('connect_ssh', {
                 host: sshHost,
                 port: parseInt(sshPort),
@@ -319,14 +311,9 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                 password: sshPassword,
                 debug: debugMode,
                 saveToFile: saveToFile,
-                command: logCommand
+                command: logCommand,
+                tags: tags || []
             });
-            // Immediate Handover for SSH to support interactive prompts in main view
-            console.log('[TizenModal] SSH - immediate handover mode');
-            setIsConnected(true);
-            isHandedOver.current = true;
-            onStreamStart(socket, `SSH:${sshHost}`, 'ssh', saveToFile);
-            onClose();
         } else {
             console.log('[TizenModal] Emitting connect_sdb with params:', {
                 deviceId: selectedDeviceId || 'auto-detect',
@@ -338,7 +325,8 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                 deviceId: selectedDeviceId,
                 debug: debugMode,
                 saveToFile: saveToFile,
-                command: logCommand
+                command: logCommand,
+                tags: tags || []
             });
         }
     };

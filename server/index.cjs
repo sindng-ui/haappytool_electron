@@ -499,96 +499,99 @@ const handleSocketConnection = (socket, deps = {}) => {
         logDebug(`Full command: sdb ${args.join(' ')}`);
 
         try {
-            console.log('[SDB] Spawning sdb process...');
-            logDebug('Attempting to spawn sdb process...');
+            console.log('[SDB] Verifying device connection before streaming...');
+            logDebug('Verifying device connection with a simple shell command...');
 
-            sdbProcess = spawnProc('sdb', args);
+            // Step 0: Quick check if device is reachable
+            const checkArgs = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', 'echo', 'READY'] : ['shell', 'echo', 'READY'];
+            const checker = spawnProc('sdb', checkArgs);
+            let checkerOutput = '';
+            let checkerError = '';
 
-            if (sdbProcess && sdbProcess.pid) {
-                console.log('[SDB] ✓ Process spawned successfully, PID:', sdbProcess.pid);
-                logDebug(`Process spawned with PID: ${sdbProcess.pid}`);
-            } else {
-                console.warn('[SDB] ⚠ Process spawned but no PID available');
-                logDebug('Warning: Process spawned but PID is undefined');
-            }
+            checker.stdout.on('data', d => checkerOutput += d.toString());
+            checker.stderr.on('data', d => checkerError += d.toString());
 
-            // Track if we've received any data
-            let firstStdoutReceived = false;
-            let firstStderrReceived = false;
+            checker.on('close', (code) => {
+                try {
+                    if (code !== 0 || !checkerOutput.includes('READY')) {
+                        const errMsg = checkerError.trim() || `Device not responding (Exit code: ${code})`;
+                        console.error(`[SDB] ✗ Connection verification failed: ${errMsg}`);
+                        logDebug(`Connection verification failed: ${errMsg}`);
+                        socket.emit('sdb_error', { message: `Connection Failed: ${errMsg}` });
+                        if (debugStream) { debugStream.end(); debugStream = null; }
+                        if (logFileStream) { logFileStream.end(); logFileStream = null; }
+                        return;
+                    }
 
-            sdbProcess.on('error', (err) => {
-                console.error('[SDB] ✗ Process error:', err);
-                console.error('[SDB] Error details:', {
-                    message: err.message,
-                    code: err.code,
-                    errno: err.errno,
-                    syscall: err.syscall
-                });
-                logDebug(`Process error: ${err.message} (code: ${err.code})`);
+                    console.log('[SDB] ✓ Device verified, starting log stream...');
+                    logDebug('Device verified, spawning log process...');
 
-                let userMessage = `SDB error: ${err.message}`;
-                if (err.code === 'ENOENT') {
-                    userMessage = 'SDB command not found. Please ensure SDB is installed and in your PATH.';
-                    console.error('[SDB] SDB executable not found in PATH');
+                    sdbProcess = spawnProc('sdb', args);
+
+                    if (sdbProcess && sdbProcess.pid) {
+                        console.log('[SDB] ✓ Process spawned successfully, PID:', sdbProcess.pid);
+                        logDebug(`Process spawned with PID: ${sdbProcess.pid}`);
+                    }
+
+                    // Track if we've received any data
+                    let firstStdoutReceived = false;
+                    let firstStderrReceived = false;
+
+                    sdbProcess.on('error', (err) => {
+                        console.error('[SDB] ✗ Process error:', err);
+                        socket.emit('sdb_error', { message: `SDB error: ${err.message}` });
+                    });
+
+                    console.log('[SDB] Emitting connected status...');
+                    socket.emit('sdb_status', { status: 'connected', message: `SDB Shell Connected to ${deviceId || 'default'}` });
+
+                    sdbProcess.stdout.on('data', (data) => {
+                        if (!firstStdoutReceived) {
+                            console.log('[SDB] ✓ First stdout data received:', data.length, 'bytes');
+                            console.log('[SDB] First stdout preview:', data.toString().substring(0, 100));
+                            logDebug(`First stdout data received: ${data.length} bytes`);
+                            firstStdoutReceived = true;
+                        }
+
+                        if (debugStream) logDebug(`[STDOUT CHUNK] ${data.length} bytes`);
+                        if (logFileStream) logFileStream.write(data);
+                        socket.emit('log_data', data.toString());
+                    });
+
+                    sdbProcess.stderr.on('data', (data) => {
+                        if (!firstStderrReceived) {
+                            console.log('[SDB] ⚠ First stderr data received:', data.length, 'bytes');
+                            console.log('[SDB] stderr content:', data.toString());
+                            logDebug(`First stderr data received: ${data.length} bytes`);
+                            firstStderrReceived = true;
+                        }
+
+                        console.log('[SDB] STDERR:', data.toString());
+                        logDebug(`SDB STDERR: ${data.toString()}`);
+                        if (logFileStream) logFileStream.write(data);
+                        socket.emit('log_data', data.toString());
+                    });
+
+                    sdbProcess.on('close', (code) => {
+                        console.log('[SDB] Process exited with code:', code);
+                        logDebug(`SDB process exited with code ${code}`);
+                        socket.emit('sdb_status', { status: 'disconnected', message: 'SDB process exited' });
+                        sdbProcess = null;
+                        if (debugStream) { debugStream.end(); debugStream = null; }
+                        if (logFileStream) { logFileStream.end(); logFileStream = null; }
+                    });
+
+                    console.log('[SDB] All event listeners attached, waiting for data...');
+                    logDebug('Event listeners attached, process running');
+
+                } catch (e) {
+                    console.error('[SDB] ✗ Exception in sdb process setup:', e);
+                    socket.emit('sdb_error', { message: `Failed to start SDB: ${e.message}` });
                 }
-
-                socket.emit('sdb_error', { message: userMessage });
-                if (debugStream) { debugStream.end(); debugStream = null; }
-                if (logFileStream) { logFileStream.end(); logFileStream = null; }
             });
-
-            console.log('[SDB] Emitting connected status...');
-            socket.emit('sdb_status', { status: 'connected', message: `SDB Shell Connected to ${deviceId || 'default'}` });
-
-            sdbProcess.stdout.on('data', (data) => {
-                if (!firstStdoutReceived) {
-                    console.log('[SDB] ✓ First stdout data received:', data.length, 'bytes');
-                    console.log('[SDB] First stdout preview:', data.toString().substring(0, 100));
-                    logDebug(`First stdout data received: ${data.length} bytes`);
-                    firstStdoutReceived = true;
-                }
-
-                if (debugStream) logDebug(`[STDOUT CHUNK] ${data.length} bytes`);
-                if (logFileStream) logFileStream.write(data);
-                socket.emit('log_data', data.toString());
-            });
-
-            sdbProcess.stderr.on('data', (data) => {
-                if (!firstStderrReceived) {
-                    console.log('[SDB] ⚠ First stderr data received:', data.length, 'bytes');
-                    console.log('[SDB] stderr content:', data.toString());
-                    logDebug(`First stderr data received: ${data.length} bytes`);
-                    firstStderrReceived = true;
-                }
-
-                console.log('[SDB] STDERR:', data.toString());
-                logDebug(`SDB STDERR: ${data.toString()}`);
-                if (logFileStream) logFileStream.write(data);
-                socket.emit('log_data', data.toString());
-            });
-
-            sdbProcess.on('close', (code) => {
-                console.log('[SDB] Process exited with code:', code);
-                logDebug(`SDB process exited with code ${code}`);
-                socket.emit('sdb_status', { status: 'disconnected', message: 'SDB process exited' });
-                sdbProcess = null;
-                if (debugStream) { debugStream.end(); debugStream = null; }
-                if (logFileStream) { logFileStream.end(); logFileStream = null; }
-            });
-
-            console.log('[SDB] All event listeners attached, waiting for data...');
-            logDebug('Event listeners attached, process running');
-
         } catch (e) {
-            console.error('[SDB] ✗ Exception during spawn:', e);
-            console.error('[SDB] Exception details:', {
-                message: e.message,
-                stack: e.stack
-            });
-            logDebug(`Exception during spawn: ${e.message}`);
-            socket.emit('sdb_error', { message: `Failed to start SDB: ${e.message}` });
-            if (debugStream) { debugStream.end(); debugStream = null; }
-            if (logFileStream) { logFileStream.end(); logFileStream = null; }
+            console.error('[SDB] ✗ Exception during connection verification:', e);
+            socket.emit('sdb_error', { message: `SDB verification error: ${e.message}` });
         }
     });
 
@@ -609,6 +612,20 @@ const handleSocketConnection = (socket, deps = {}) => {
         if (logFileStream) {
             logFileStream.end();
             logFileStream = null;
+        }
+    });
+
+    socket.on('sdb_write', (data) => {
+        if (sdbProcess && sdbProcess.stdin && sdbProcess.stdin.writable) {
+            console.log(`[SDB] Writing to process: ${data.trim()}`);
+            sdbProcess.stdin.write(data);
+        }
+    });
+
+    socket.on('ssh_write', (data) => {
+        if (sshConnection && sshConnection.stream && sshConnection.stream.writable) {
+            console.log(`[SSH] Writing to stream: ${data.trim()}`);
+            sshConnection.stream.write(data);
         }
     });
 
