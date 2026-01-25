@@ -1689,16 +1689,28 @@ const handleSocketConnection = (socket, deps = {}) => {
                 if (parts.length < 9) continue;
 
                 const permissions = parts[0];
-                const type = permissions[0] === 'd' ? 'directory' : 'file';
+                let type = 'file';
+                if (permissions[0] === 'd') type = 'directory';
+                else if (permissions[0] === 'l') type = 'link';
+
                 const size = parseInt(parts[4]);
-                const name = parts.slice(8).join(' '); // Name can contain spaces
+                let name = parts.slice(8).join(' '); // Name can contain spaces
+
+                // Handle symbolic links (e.g., "linkname -> target")
+                if (type === 'link') {
+                    const arrowIndex = name.indexOf(' -> ');
+                    if (arrowIndex !== -1) {
+                        name = name.substring(0, arrowIndex);
+                    }
+                }
 
                 // Skip . and ..
                 if (name === './' || name === '../' || name === '.' || name === '..') continue;
 
                 files.push({
-                    name: name.replace(/[*]$/, '').replace(/[/]$/, ''), // Remove trailing F markers
-                    type,
+                    name: name.replace(/[*]$/, '').replace(/[/]$/, '').replace(/[@]$/, ''), // Remove trailing F markers
+                    type: type === 'link' ? 'file' : type, // UI treats links as files for simplicity (cat works)
+                    isLink: type === 'link',
                     size,
                     permissions,
                     owner: parts[2],
