@@ -6,7 +6,7 @@ import { io, Socket } from 'socket.io-client';
 const {
     Folder, File, ChevronRight, RefreshCw, ArrowLeftRight, Download, Upload,
     Home, Search, HardDrive, Trash2, ArrowLeft, Star, X, Monitor,
-    MoreVertical, Edit3, Plus, ExternalLink, Terminal, Check, Eye
+    MoreVertical, Edit3, Plus, ExternalLink, Terminal, Check, Eye, Copy
 } = Lucide;
 
 import { useToast } from '../../contexts/ToastContext';
@@ -29,6 +29,7 @@ const FileTable = ({
     currentPath,
     setPath,
     onTransfer,
+    onDropTransfer,
     transferIcon: Icon,
     isLoading,
     error,
@@ -48,6 +49,7 @@ const FileTable = ({
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, file: any } | null>(null);
     const lastToastRef = useRef<{ message: string, time: number } | null>(null);
     const lastTabRequestRef = useRef<number>(0);
+    const paneRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleClick = () => setContextMenu(null);
@@ -57,7 +59,16 @@ const FileTable = ({
 
     const handleContextMenu = (e: React.MouseEvent, file: any) => {
         e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY, file });
+        let x = e.clientX;
+        let y = e.clientY;
+
+        // Prevent menu from going off-screen (Right/Bottom)
+        const menuWidth = 160;
+        const menuHeight = 240;
+        if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
+        if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 20;
+
+        setContextMenu({ x, y, file });
     };
 
     useEffect(() => {
@@ -102,9 +113,36 @@ const FileTable = ({
             }}
             onDrop={(e) => {
                 e.preventDefault();
-                const fileName = e.dataTransfer.getData('text/plain');
-                if (fileName) {
-                    onTransfer({ name: fileName, type: 'file' });
+                const fileName = e.dataTransfer.getData('text/plain')?.trim();
+                if (fileName && onDropTransfer) {
+                    onDropTransfer({ name: fileName, type: 'file' });
+                }
+            }}
+            tabIndex={0}
+            ref={paneRef}
+            onKeyDown={(e) => {
+                // 1. Delete Key
+                if (e.key === 'Delete' && selectedFiles.length > 0) {
+                    const confirmMsg = selectedFiles.length === 1
+                        ? `Are you sure you want to delete ${selectedFiles[0]}?`
+                        : `Are you sure you want to delete ${selectedFiles.length} items?`;
+
+                    if (confirm(confirmMsg)) {
+                        selectedFiles.forEach((name: string) => {
+                            onOperation('delete', { file: { name } });
+                        });
+                        onOperation('select_batch', { names: [], clear: true });
+                    }
+                }
+
+                // 2. Ctrl+C (Copy)
+                if (e.ctrlKey && e.key === 'c' && selectedFiles.length > 0) {
+                    onOperation('clipboard_copy', { names: selectedFiles });
+                }
+
+                // 3. Ctrl+V (Paste)
+                if (e.ctrlKey && e.key === 'v') {
+                    onOperation('clipboard_paste', {});
                 }
             }}
         >
@@ -184,6 +222,20 @@ const FileTable = ({
                 >
                     <Plus size={12} />
                 </button>
+                {selectedFiles.length > 0 && (
+                    <button
+                        onClick={() => {
+                            if (confirm(`Are you sure you want to delete ${selectedFiles.length} item(s)?`)) {
+                                selectedFiles.forEach((name: string) => onOperation('delete', { file: { name } }));
+                                onOperation('select_batch', { names: [], clear: true });
+                            }
+                        }}
+                        className="p-1 hover:bg-red-500/20 rounded text-red-500 transition-colors"
+                        title="Delete Selected"
+                    >
+                        <Trash2 size={12} />
+                    </button>
+                )}
             </div>
 
             {/* 3. Address / Breadcrumb Bar (Bookmark Integrated) */}
@@ -520,6 +572,7 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
     const [localSelected, setLocalSelected] = useState<string[]>([]);
 
     const [viewingFile, setViewingFile] = useState<{ name: string, content: string } | null>(null);
+    const [clipboard, setClipboard] = useState<{ names: string[], sourcePath: string, target: 'tizen' | 'local' } | null>(null);
     const completionCallbackRef = useRef<((matches: string[], dir: string) => void) | null>(null);
 
     const { addToast } = useToast();
@@ -631,7 +684,9 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
 
         filesToTransfer.forEach(f => {
             const separator = localPath.includes('\\') ? '\\' : '/';
-            const localFull = localPath.endsWith(separator) ? localPath + f.name : localPath + (localPath.includes(':') && localPath.length === 2 ? localPath + '\\' + f.name : localPath + separator + f.name);
+            const localFull = localPath.endsWith(separator)
+                ? localPath + f.name
+                : localPath + (localPath.includes(':') && localPath.length === 2 ? '\\' : separator) + f.name;
             const tizenFull = tizenPath.endsWith('/') ? tizenPath + f.name : tizenPath + '/' + f.name;
 
             if (direction === 'pull') socket.emit('pull_tizen_file', { deviceId, remotePath: tizenFull, localPath: localFull });
@@ -679,6 +734,49 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
                 socket.emit('complete_local_path', { path: data.path });
             }
         }
+
+        if (op === 'clipboard_copy') {
+            setClipboard({ names: data.names, sourcePath: target === 'tizen' ? tizenPath : localPath, target });
+            addToast(`Copied ${data.names.length} items to clipboard`, 'info');
+        }
+
+        if (op === 'clipboard_paste') {
+            if (!clipboard) {
+                addToast('Nothing to paste', 'warning');
+                return;
+            }
+
+            const isSameTarget = clipboard.target === target;
+            const currentDestPath = target === 'tizen' ? tizenPath : localPath;
+            const srcNames = clipboard.names;
+
+            srcNames.forEach(name => {
+                const srcFull = clipboard.sourcePath + (clipboard.sourcePath.endsWith(clipboard.target === 'local' && localPath.includes('\\') ? '\\' : '/') ? '' : (clipboard.target === 'local' && localPath.includes('\\') ? '\\' : '/')) + name;
+
+                if (isSameTarget) {
+                    // Pane 내부 복사 (같은 target 내 복사)
+                    const extIndex = name.lastIndexOf('.');
+                    const namePart = extIndex === -1 ? name : name.substring(0, extIndex);
+                    const extPart = extIndex === -1 ? '' : name.substring(extIndex);
+                    const destName = `${namePart}_copy${extPart}`;
+                    const destFull = currentDestPath + (currentDestPath.endsWith(target === 'local' && localPath.includes('\\') ? '\\' : '/') ? '' : (target === 'local' && localPath.includes('\\') ? '\\' : '/')) + destName;
+
+                    if (target === 'tizen') socket.emit('copy_tizen_path', { deviceId, srcPath: srcFull, destPath: destFull });
+                    else socket.emit('copy_local_path', { srcPath: srcFull, destPath: destFull });
+                } else {
+                    // Pane 간 복사 (Transfer)
+                    const targetFile = { name, type: 'file' } as FileItem;
+                    if (target === 'tizen') {
+                        // Local -> Tizen (Push)
+                        socket.emit('push_tizen_file', { deviceId, localPath: srcFull, remotePath: currentDestPath + (currentDestPath.endsWith('/') ? '' : '/') + name });
+                    } else {
+                        // Tizen -> Local (Pull)
+                        const sep = localPath.includes('\\') ? '\\' : '/';
+                        socket.emit('pull_tizen_file', { deviceId, remotePath: srcFull, localPath: currentDestPath + (currentDestPath.endsWith(sep) ? '' : sep) + name });
+                    }
+                }
+            });
+        }
     };
 
     const toggleBookmark = (pathToToggle: string) => {
@@ -724,7 +822,8 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
                     files={tizenFiles}
                     currentPath={tizenPath}
                     setPath={setTizenPath}
-                    onTransfer={(f: any) => handleTransfer(f, 'pull')}
+                    onTransfer={(f: any) => handleTransfer(f, 'pull')} // Send: Tizen -> PC
+                    onDropTransfer={(f: any) => handleTransfer(f, 'push')} // Receive: PC -> Tizen
                     transferIcon={Download}
                     isLoading={tizenLoading}
                     error={tizenError}
@@ -761,7 +860,8 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
                     files={localFiles}
                     currentPath={localPath}
                     setPath={setLocalPath}
-                    onTransfer={(f: any) => handleTransfer(f, 'push')}
+                    onTransfer={(f: any) => handleTransfer(f, 'push')} // Send: PC -> Tizen
+                    onDropTransfer={(f: any) => handleTransfer(f, 'pull')} // Receive: Tizen -> PC
                     transferIcon={Upload}
                     isLoading={localLoading}
                     error={localError}
@@ -775,8 +875,23 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
 
             {/* File Viewer Modal */}
             {viewingFile && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-4xl h-full max-h-[80vh] flex flex-col shadow-2xl overflow-hidden scale-in-center duration-300">
+                <div
+                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+                    onKeyDown={(e) => {
+                        if (e.ctrlKey && e.key === 'a') {
+                            e.preventDefault();
+                            const range = document.createRange();
+                            const selection = window.getSelection();
+                            const pre = document.getElementById('view-content-pre');
+                            if (pre && selection) {
+                                range.selectNodeContents(pre);
+                                selection.removeAllRanges();
+                                selection.addRange(range);
+                            }
+                        }
+                    }}
+                >
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-[90vw] max-w-6xl h-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden scale-in-center duration-300">
                         <div className="px-6 py-4 bg-slate-950/50 border-b border-white/5 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
@@ -787,15 +902,30 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
                                     <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-widest font-bold">Tizen File Content</p>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => setViewingFile(null)}
-                                className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-all"
-                            >
-                                <X size={20} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(viewingFile.content);
+                                        addToast('Copied to clipboard', 'success');
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg text-[11px] font-bold transition-all border border-indigo-500/20"
+                                >
+                                    <Copy size={14} /> Copy
+                                </button>
+                                <button
+                                    onClick={() => setViewingFile(null)}
+                                    className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-all"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
                         </div>
                         <div className="flex-1 overflow-auto p-6 bg-slate-950/30 custom-scrollbar">
-                            <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap leading-relaxed selection:bg-indigo-500/30">
+                            <pre
+                                id="view-content-pre"
+                                className="text-xs font-mono text-slate-300 whitespace-pre-wrap leading-relaxed selection:bg-indigo-500/30 outline-none"
+                                tabIndex={0}
+                            >
                                 {viewingFile.content || "Empty file."}
                             </pre>
                         </div>

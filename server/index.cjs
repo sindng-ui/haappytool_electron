@@ -1180,7 +1180,9 @@ const handleSocketConnection = (socket, deps = {}) => {
             // Common Tizen 'top' output line 1: "User 10% + System 5% ... = 15% Total"
             // OR standard Linux top. We will try to parse generically.
 
-            const args = ['-s', deviceId, 'shell', 'top', '-b', '-d', '1'];
+            const args = deviceId && deviceId !== 'auto-detect'
+                ? ['-s', deviceId, 'shell', 'top', '-b', '-d', '1']
+                : ['shell', 'top', '-b', '-d', '1'];
 
             try {
                 cpuMonitorProcess = spawnProc('sdb', args);
@@ -1390,7 +1392,9 @@ const handleSocketConnection = (socket, deps = {}) => {
         } else {
             console.log(`Starting Thread Monitoring on ${deviceId} for PID ${pid}`);
             // sdb -s [id] shell top -H -b -d 1 -p [PID]
-            const args = ['-s', deviceId, 'shell', 'top', '-H', '-b', '-d', '1', '-p', pid];
+            const args = deviceId && deviceId !== 'auto-detect'
+                ? ['-s', deviceId, 'shell', 'top', '-H', '-b', '-d', '1', '-p', pid]
+                : ['shell', 'top', '-H', '-b', '-d', '1', '-p', pid];
 
             try {
                 threadMonitorProcess = spawnProc('sdb', args);
@@ -1531,7 +1535,8 @@ const handleSocketConnection = (socket, deps = {}) => {
             // Tizen 'ps' usually outputs: PID USER VSZ STAT COMMAND or similar.
             // Using 'ps -ef' might be safer if available, or just 'ps'.
             // simple grep approach
-            const grepCmd = `sdb -s ${deviceId} shell "ps -ef | grep ${safeAppName}"`;
+            const sdbPrefix = deviceId && deviceId !== 'auto-detect' ? `sdb -s ${deviceId}` : 'sdb';
+            const grepCmd = `${sdbPrefix} shell "ps -ef | grep ${safeAppName}"`;
 
             exec(grepCmd, (error, stdout, stderr) => {
                 if (error) {
@@ -1573,7 +1578,9 @@ const handleSocketConnection = (socket, deps = {}) => {
 
                 // Step 2: Start vd_memps
                 // Command: sdb -s [id] shell vd_memps -p [PID] -t [interval]
-                const cmdArgs = ['-s', deviceId, 'shell', 'vd_memps', '-p', targetPid, '-t', interval || '1'];
+                const cmdArgs = deviceId && deviceId !== 'auto-detect'
+                    ? ['-s', deviceId, 'shell', 'vd_memps', '-p', targetPid, '-t', interval || '1']
+                    : ['shell', 'vd_memps', '-p', targetPid, '-t', interval || '1'];
 
                 try {
                     memoryMonitorProcess = spawnProc('sdb', cmdArgs);
@@ -1781,6 +1788,14 @@ const handleSocketConnection = (socket, deps = {}) => {
         });
     });
 
+    socket.on('copy_tizen_path', ({ deviceId, srcPath, destPath }) => {
+        console.log(`[TizenExplorer] Copying ${srcPath} to ${destPath}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `cp -r "${srcPath}" "${destPath}"`] : ['shell', `cp -r "${srcPath}" "${destPath}"`];
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+            socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'copy', target: 'tizen' });
+        });
+    });
+
     socket.on('delete_tizen_path', ({ deviceId, path }) => {
         console.log(`[TizenExplorer] Deleting ${path}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `rm -rf "${path}"`] : ['shell', `rm -rf "${path}"`];
@@ -1830,20 +1845,36 @@ const handleSocketConnection = (socket, deps = {}) => {
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', 'pkgcmd -l'] : ['shell', 'pkgcmd -l'];
         handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
             if (error) {
+                console.error(`[TizenAppManager] Error listing apps: ${error.message} (${stderr})`);
                 socket.emit('list_tizen_apps_result', { success: false, error: stderr });
                 return;
             }
             // Parse pkgcmd -l output
-            // Example output:
+            // Example outputs:
             // 	'org.tizen.example'	'ExampleApp'	'installed'
-            // 	'org.tizen.home'	'TizenHome'	'installed'
+            //   org.tizen.example  ExampleApp  installed
+            console.log(`[TizenAppManager] Raw output: ${stdout.substring(0, 200)}...`);
+
             const apps = stdout.split('\n').map(line => {
-                const match = line.match(/^\s*'(.*?)'\s*'(.*?)'\s*'(.*?)'/);
-                if (match) {
-                    return { pkgId: match[1], name: match[2], status: match[3] };
+                const trimmed = line.trim();
+                if (!trimmed) return null;
+
+                // Flexible regex to match quoted or unquoted parts
+                // 1. Matches text inside single quotes: '(...)'
+                // 2. Or matches non-whitespace sequence: ([^\s]+)
+                const parts = trimmed.match(/'([^']*)'|([^\s]+)/g);
+
+                if (parts && parts.length >= 3) {
+                    return {
+                        pkgId: parts[0].replace(/'/g, ''),
+                        name: parts[1].replace(/'/g, ''),
+                        status: parts[2].replace(/'/g, '')
+                    };
                 }
                 return null;
             }).filter(Boolean);
+
+            console.log(`[TizenAppManager] Parsed ${apps.length} apps`);
             socket.emit('list_tizen_apps_result', { success: true, apps });
         });
     });
@@ -1999,6 +2030,20 @@ const handleSocketConnection = (socket, deps = {}) => {
             }
         } catch (e) {
             socket.emit('operation_result', { success: false, error: e.message, op: 'delete', target: 'local' });
+        }
+    });
+
+    socket.on('copy_local_path', ({ srcPath, destPath }) => {
+        console.log(`[LocalExplorer] Copying ${srcPath} to ${destPath}`);
+        try {
+            if (fs.existsSync(srcPath)) {
+                fs.cpSync(srcPath, destPath, { recursive: true });
+                socket.emit('operation_result', { success: true, op: 'copy', target: 'local' });
+            } else {
+                socket.emit('operation_result', { success: false, error: 'Source does not exist', op: 'copy', target: 'local' });
+            }
+        } catch (e) {
+            socket.emit('operation_result', { success: false, error: e.message, op: 'copy', target: 'local' });
         }
     });
 

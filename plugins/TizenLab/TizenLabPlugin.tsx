@@ -19,15 +19,15 @@ const TizenLabPlugin: React.FC = () => {
     return (
         <div className="flex flex-col h-full bg-slate-950 text-slate-200 overflow-hidden">
             {/* Tab Bar */}
-            <div className="h-14 bg-slate-900 border-b border-indigo-500/20 flex items-center px-6 gap-8 flex-shrink-0">
-                <div className="flex items-center gap-2 mr-4">
+            <div className="h-14 bg-slate-900 border-b border-indigo-500/20 flex items-center px-6 pr-[140px] gap-8 flex-shrink-0 title-drag">
+                <div className="flex items-center gap-2 mr-4 no-drag">
                     <div className="p-1.5 bg-indigo-500/20 rounded-lg text-indigo-400">
                         <Activity size={18} />
                     </div>
                     <span className="font-bold text-sm tracking-tight text-white uppercase">Tizen Lab</span>
                 </div>
 
-                <div className="flex h-full">
+                <div className="flex h-full no-drag">
                     <button
                         onClick={() => setActiveTab('explorer')}
                         className={`px-4 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${activeTab === 'explorer' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
@@ -35,16 +35,16 @@ const TizenLabPlugin: React.FC = () => {
                         <FolderTree size={14} /> File Explorer
                     </button>
                     <button
-                        onClick={() => setActiveTab('perf')}
-                        className={`px-4 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${activeTab === 'perf' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-                    >
-                        <Activity size={14} /> Performance Monitor
-                    </button>
-                    <button
                         onClick={() => setActiveTab('apps')}
                         className={`px-4 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${activeTab === 'apps' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
                     >
                         <Box size={14} /> App Manager
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('perf')}
+                        className={`px-4 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${activeTab === 'perf' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+                    >
+                        <Activity size={14} /> Performance Monitor
                     </button>
                     <button
                         onClick={() => setActiveTab('settings')}
@@ -54,7 +54,7 @@ const TizenLabPlugin: React.FC = () => {
                     </button>
                 </div>
 
-                <div className="ml-auto flex items-center gap-3">
+                <div className="ml-auto flex items-center gap-3 no-drag">
                     <div className="flex items-center gap-2 bg-slate-800 rounded-full px-4 py-1.5 border border-slate-700">
                         <span className="text-[10px] font-bold text-slate-500 uppercase">Device</span>
                         <input
@@ -73,8 +73,8 @@ const TizenLabPlugin: React.FC = () => {
             {/* Content Area */}
             <div className="flex-1 overflow-hidden relative">
                 {activeTab === 'explorer' && <TizenFileExplorer deviceId={deviceId} />}
-                {activeTab === 'perf' && <TizenPerfMonitor deviceId={deviceId} />}
                 {activeTab === 'apps' && <TizenAppManager deviceId={deviceId} />}
+                {activeTab === 'perf' && <TizenPerfMonitor deviceId={deviceId} />}
                 {activeTab === 'settings' && (
                     <div className="p-8 max-w-2xl mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="space-y-2">
