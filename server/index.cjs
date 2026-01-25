@@ -1711,6 +1711,38 @@ const handleSocketConnection = (socket, deps = {}) => {
         });
     });
 
+    socket.on('complete_tizen_path', ({ deviceId, path: partialPath }) => {
+        console.log(`[TizenExplorer] Auto-complete request for: ${partialPath}`);
+        const lastSlash = partialPath.lastIndexOf('/');
+        let dir, fragment;
+
+        if (lastSlash === -1) {
+            dir = '.';
+            fragment = partialPath;
+        } else {
+            dir = partialPath.substring(0, lastSlash) || '/';
+            fragment = partialPath.substring(lastSlash + 1);
+        }
+
+        console.log(`[TizenExplorer] Searching in: ${dir}, Fragment: ${fragment}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `ls -F "${dir}"`] : ['shell', `ls -F "${dir}"`];
+        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout) => {
+            if (error) {
+                console.error(`[TizenExplorer] Completion error: ${error.message}`);
+                socket.emit('complete_tizen_path_result', { success: false, error: 'Command failed' });
+                return;
+            }
+            const matches = stdout.split('\n')
+                .map(l => l.trim())
+                .filter(l => l && !l.startsWith('total '))
+                .map(l => l.replace(/[*]$/, '')) // Remove executable marker
+                .filter(l => l.toLowerCase().startsWith(fragment.toLowerCase()));
+
+            console.log(`[TizenExplorer] Found matches: ${matches.length}`);
+            socket.emit('complete_tizen_path_result', { success: true, matches, dir, fragment });
+        });
+    });
+
     socket.on('pull_tizen_file', ({ deviceId, remotePath, localPath }) => {
         console.log(`[TizenExplorer] Pulling ${remotePath} to ${localPath}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'pull', remotePath, localPath] : ['pull', remotePath, localPath];
@@ -1891,6 +1923,51 @@ const handleSocketConnection = (socket, deps = {}) => {
         } catch (e) {
             console.error(`[LocalExplorer] Error listing ${localPath}:`, e);
             socket.emit('list_local_files_result', { success: false, error: e.message });
+        }
+    });
+
+    socket.on('complete_local_path', async ({ path: partialPath }) => {
+        console.log(`[LocalExplorer] Auto-complete request for: ${partialPath}`);
+        try {
+            const isWin = process.platform === 'win32';
+            const sep = isWin ? '\\' : '/';
+
+            // Normalize path for finding the last separator
+            const normalizedPath = partialPath.replace(/\//g, sep);
+            const lastSlash = normalizedPath.lastIndexOf(sep);
+
+            let dir, fragment;
+            if (lastSlash === -1) {
+                // Check if it's just a drive letter like C:
+                if (isWin && /^[a-zA-Z]:$/.test(partialPath)) {
+                    dir = partialPath + sep;
+                    fragment = '';
+                } else {
+                    dir = '.';
+                    fragment = partialPath;
+                }
+            } else {
+                dir = partialPath.substring(0, lastSlash + 1);
+                fragment = partialPath.substring(lastSlash + 1);
+            }
+
+            console.log(`[LocalExplorer] Searching in: ${dir}, Fragment: ${fragment}`);
+            if (!fs.existsSync(dir)) {
+                console.warn(`[LocalExplorer] Directory not found: ${dir}`);
+                socket.emit('complete_local_path_result', { success: false, error: 'Directory not found' });
+                return;
+            }
+
+            const files = fs.readdirSync(dir, { withFileTypes: true });
+            const matches = files
+                .filter(f => f.name.toLowerCase().startsWith(fragment.toLowerCase()))
+                .map(f => f.name + (f.isDirectory() ? sep : ''));
+
+            console.log(`[LocalExplorer] Found matches: ${matches.length}`);
+            socket.emit('complete_local_path_result', { success: true, matches, dir, fragment });
+        } catch (e) {
+            console.error('[CompleteLocalPath] Error:', e.message);
+            socket.emit('complete_local_path_result', { success: false, error: e.message });
         }
     });
 

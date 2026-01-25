@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import * as Lucide from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 
@@ -39,14 +39,15 @@ const FileTable = ({
     toggleBookmark,
     selectedFiles,
     toggleSelection,
-    onOperation
+    onOperation,
+    addToast
 }: any) => {
     const [filter, setFilter] = useState('');
     const [isEditingPath, setIsEditingPath] = useState(false);
     const [tempPath, setTempPath] = useState(currentPath);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, file: any } | null>(null);
-
-    const { addToast } = useToast();
+    const lastToastRef = useRef<{ message: string, time: number } | null>(null);
+    const lastTabRequestRef = useRef<number>(0);
 
     useEffect(() => {
         const handleClick = () => setContextMenu(null);
@@ -77,14 +78,13 @@ const FileTable = ({
     }), [pathParts, isWin, separator]);
 
     const goToParent = () => {
-        if (pathParts.length > 0) {
-            const parts = [...pathParts];
-            parts.pop();
-            let newPath = parts.join(separator);
-            if (!isWin) newPath = '/' + newPath;
-            if (isWin && parts.length === 1 && /^[A-Z]:$/i.test(parts[0])) newPath += '\\';
-            setPath(newPath || (isWin ? 'C:\\' : '/'));
-        }
+        if (isLoading || pathParts.length === 0) return;
+        const parts = [...pathParts];
+        parts.pop();
+        let newPath = parts.join(separator);
+        if (!isWin) newPath = '/' + newPath;
+        if (isWin && parts.length === 1 && /^[A-Z]:$/i.test(parts[0])) newPath += '\\';
+        setPath(newPath || (isWin ? 'C:\\' : '/'));
     };
 
     const quickLinks = isWin
@@ -114,7 +114,7 @@ const FileTable = ({
                     <SideIcon size={16} className="text-indigo-400" />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-300">{title}</span>
                     <button
-                        onClick={() => setPath(currentPath)}
+                        onClick={() => !isLoading && setPath(currentPath)}
                         className="p-1 hover:bg-slate-800 rounded text-slate-500 hover:text-indigo-400 transition-colors"
                         title="Refresh"
                     >
@@ -143,7 +143,7 @@ const FileTable = ({
                     <select
                         className="bg-slate-800 text-[9px] font-bold text-indigo-400 border-none outline-none rounded px-1 py-0.5 mr-1"
                         value={currentPath.split(':')[0].toUpperCase() + ':'}
-                        onChange={(e) => setPath(e.target.value + '\\')}
+                        onChange={(e) => !isLoading && setPath(e.target.value + '\\')}
                     >
                         {['C:', 'D:', 'E:', 'F:'].map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
@@ -151,7 +151,7 @@ const FileTable = ({
                 {quickLinks.map(link => (
                     <button
                         key={link}
-                        onClick={() => setPath(link)}
+                        onClick={() => !isLoading && setPath(link)}
                         className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all flex-shrink-0 ${currentPath.startsWith(link) ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-500 hover:text-slate-300'}`}
                     >
                         {link.length > 10 ? link.split(/[\\/]/).pop() : link}
@@ -193,7 +193,7 @@ const FileTable = ({
                         className="flex-1 flex items-center gap-1 text-[11px] font-mono text-indigo-400 overflow-x-auto no-scrollbar cursor-text"
                         onClick={() => { setIsEditingPath(true); setTempPath(currentPath); }}
                     >
-                        <button onClick={(e) => { e.stopPropagation(); setPath(isWin ? 'C:\\' : '/'); }} className="hover:text-white transition-colors">
+                        <button onClick={(e) => { e.stopPropagation(); !isLoading && setPath(isWin ? 'C:\\' : '/'); }} className="hover:text-white transition-colors">
                             <Home size={12} />
                         </button>
                         {breadcrumbs.length > 0 && <ChevronRight size={10} className="text-slate-700" />}
@@ -201,7 +201,7 @@ const FileTable = ({
                             <React.Fragment key={i}>
                                 <button
                                     className="hover:text-white transition-colors whitespace-nowrap"
-                                    onClick={(e) => { e.stopPropagation(); setPath(bc.path); }}
+                                    onClick={(e) => { e.stopPropagation(); !isLoading && setPath(bc.path); }}
                                 >
                                     {bc.name}
                                 </button>
@@ -215,13 +215,63 @@ const FileTable = ({
                         className="flex-1 bg-slate-800 border border-indigo-500/50 rounded px-2 py-0.5 text-[11px] font-mono text-white outline-none"
                         value={tempPath}
                         onChange={(e) => setTempPath(e.target.value)}
-                        onBlur={() => setIsEditingPath(false)}
+                        onBlur={() => {
+                            // Delay blur slightly to allow click on completion if needed, though here we use Tab
+                            setTimeout(() => setIsEditingPath(false), 200);
+                        }}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                                setPath(tempPath);
+                                if (!isLoading) setPath(tempPath);
                                 setIsEditingPath(false);
                             }
                             if (e.key === 'Escape') setIsEditingPath(false);
+                            if (e.key === 'Tab') {
+                                e.preventDefault();
+
+                                const now = Date.now();
+                                if (now - lastTabRequestRef.current < 200) return;
+                                lastTabRequestRef.current = now;
+
+                                onOperation('complete', {
+                                    path: tempPath, callback: (matches: string[], dir: string) => {
+                                        if (!matches || matches.length === 0) {
+                                            if (addToast) addToast('No matching files found', 'warning');
+                                            return;
+                                        }
+
+                                        // 1. Calculate Longest Common Prefix (LCP)
+                                        let lcp = matches[0];
+                                        for (let i = 1; i < matches.length; i++) {
+                                            let j = 0;
+                                            while (j < lcp.length && j < matches[i].length && lcp[j].toLowerCase() === matches[i][j].toLowerCase()) {
+                                                j++;
+                                            }
+                                            lcp = lcp.substring(0, j);
+                                        }
+
+                                        // 2. Prepare for completion
+                                        const lastSep = tempPath.lastIndexOf(separator);
+                                        const prefixPath = lastSep === -1 ? "" : tempPath.substring(0, lastSep + 1);
+                                        const currentFrag = lastSep === -1 ? tempPath : tempPath.substring(lastSep + 1);
+
+                                        // 3. Complete if possible
+                                        if (lcp.length > currentFrag.length) {
+                                            setTempPath(prefixPath + lcp);
+                                        } else if (matches.length === 1) {
+                                            setTempPath(prefixPath + matches[0]);
+                                        }
+
+                                        // 4. Show matches in toast if multiple (with duplicate check)
+                                        if (matches.length > 1) {
+                                            const msg = `Matches: ${matches.slice(0, 8).join(', ')}${matches.length > 8 ? '...' : ''}`;
+                                            if (!lastToastRef.current || lastToastRef.current.message !== msg || Date.now() - lastToastRef.current.time > 2000) {
+                                                if (addToast) addToast(msg, 'info');
+                                                lastToastRef.current = { message: msg, time: Date.now() };
+                                            }
+                                        }
+                                    }
+                                });
+                            }
                         }}
                     />
                 )}
@@ -257,8 +307,10 @@ const FileTable = ({
                         <tbody className="text-[11px] font-mono">
                             {pathParts.length > 0 && (
                                 <tr
-                                    className="hover:bg-white/5 cursor-pointer text-indigo-400 font-bold"
+                                    className="hover:bg-white/5 cursor-pointer text-indigo-400 font-bold outline-none focus:bg-white/10"
+                                    tabIndex={0}
                                     onClick={goToParent}
+                                    onKeyDown={(e) => e.key === 'Enter' && goToParent()}
                                 >
                                     <td className="px-3 py-2 flex items-center gap-2">
                                         <ArrowLeft size={14} />
@@ -282,7 +334,8 @@ const FileTable = ({
                                 return (
                                     <tr
                                         key={i}
-                                        className={`group hover:bg-indigo-500/10 transition-colors cursor-pointer border-b border-white/5 ${file.type === 'directory' ? 'text-slate-200' : 'text-slate-400'} ${isSelected ? 'bg-indigo-500/20' : ''}`}
+                                        tabIndex={0}
+                                        className={`group hover:bg-indigo-500/10 transition-colors cursor-pointer border-b border-white/5 outline-none focus:bg-indigo-500/20 ${file.type === 'directory' ? 'text-slate-200' : 'text-slate-400'} ${isSelected ? 'bg-indigo-500/20' : ''}`}
                                         draggable={file.type === 'file'}
                                         onDragStart={(e) => {
                                             e.dataTransfer.setData('text/plain', file.name);
@@ -291,23 +344,42 @@ const FileTable = ({
                                         onClick={(e) => {
                                             if (e.ctrlKey || e.metaKey) {
                                                 toggleSelection(file.name);
-                                            } else if (file.type === 'directory') {
-                                                setPath(
-                                                    currentPath.endsWith('\\') || currentPath.endsWith('/')
-                                                        ? currentPath + file.name
-                                                        : currentPath + (currentPath.includes('\\') ? '\\' : '/') + file.name
-                                                );
                                             } else {
                                                 toggleSelection(file.name);
                                             }
                                         }}
                                         onContextMenu={(e) => handleContextMenu(e, file)}
                                         onDoubleClick={() => {
-                                            if (file.type === 'file' && title === 'Tizen Device') {
+                                            if (isLoading) return;
+                                            if (file.type === 'directory') {
+                                                setPath(
+                                                    currentPath.endsWith('\\') || currentPath.endsWith('/')
+                                                        ? currentPath + file.name
+                                                        : currentPath + (currentPath.includes('\\') ? '\\' : '/') + file.name
+                                                );
+                                            } else if (file.type === 'file' && title === 'Tizen Device') {
                                                 if (file.name.endsWith('.tpk')) {
                                                     onOperation('install', { file });
                                                 } else {
                                                     onOperation('read', { file });
+                                                }
+                                            }
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                if (isLoading) return;
+                                                if (file.type === 'directory') {
+                                                    setPath(
+                                                        currentPath.endsWith('\\') || currentPath.endsWith('/')
+                                                            ? currentPath + file.name
+                                                            : currentPath + (currentPath.includes('\\') ? '\\' : '/') + file.name
+                                                    );
+                                                } else if (file.type === 'file' && title === 'Tizen Device') {
+                                                    if (file.name.endsWith('.tpk')) {
+                                                        onOperation('install', { file });
+                                                    } else {
+                                                        onOperation('read', { file });
+                                                    }
                                                 }
                                             }
                                         }}
@@ -448,6 +520,7 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
     const [localSelected, setLocalSelected] = useState<string[]>([]);
 
     const [viewingFile, setViewingFile] = useState<{ name: string, content: string } | null>(null);
+    const completionCallbackRef = useRef<((matches: string[], dir: string) => void) | null>(null);
 
     const { addToast } = useToast();
 
@@ -503,6 +576,28 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
                 setViewingFile({ name: data.path.split('/').pop(), content: data.content });
             } else {
                 addToast(`Read Error: ${data.error}`, 'error');
+            }
+        });
+
+        newSocket.on('complete_tizen_path_result', (data) => {
+            if (completionCallbackRef.current) {
+                if (data.success) {
+                    completionCallbackRef.current(data.matches, data.dir);
+                } else {
+                    addToast(`Tizen path completion failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+                completionCallbackRef.current = null;
+            }
+        });
+
+        newSocket.on('complete_local_path_result', (data) => {
+            if (completionCallbackRef.current) {
+                if (data.success) {
+                    completionCallbackRef.current(data.matches, data.dir);
+                } else {
+                    addToast(`Local path completion failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+                completionCallbackRef.current = null;
             }
         });
 
@@ -568,6 +663,10 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
             if (op === 'read') {
                 socket.emit('read_tizen_file', { deviceId, path: pathPrefix + data.file.name });
             }
+            if (op === 'complete') {
+                completionCallbackRef.current = data.callback;
+                socket.emit('complete_tizen_path', { deviceId, path: data.path });
+            }
         } else {
             const sep = localPath.includes('\\') ? '\\' : '/';
             const pathPrefix = localPath + (localPath.endsWith(sep) ? '' : sep);
@@ -575,6 +674,10 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
             if (op === 'rename') socket.emit('rename_local_path', { oldPath: pathPrefix + data.file.name, newPath: pathPrefix + data.newName });
             if (op === 'mkdir') socket.emit('mkdir_local_path', { path: pathPrefix + data.name });
             if (op === 'open') socket.emit('open_local_path', { path: pathPrefix + data.file.name });
+            if (op === 'complete') {
+                completionCallbackRef.current = data.callback;
+                socket.emit('complete_local_path', { path: data.path });
+            }
         }
     };
 
@@ -596,7 +699,7 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
                     {bookmarks.map((b, i) => (
-                        <div key={i} className={`group flex items-center justify-between px-2 py-1.5 rounded transition-all cursor-pointer text-xs ${tizenPath === b ? 'bg-indigo-500/10 text-indigo-400' : 'text-slate-500 hover:bg-slate-800'}`} onClick={() => setTizenPath(b)}>
+                        <div key={i} className={`group flex items-center justify-between px-2 py-1.5 rounded transition-all cursor-pointer text-xs ${tizenPath === b ? 'bg-indigo-500/10 text-indigo-400' : 'text-slate-500 hover:bg-slate-800'}`} onClick={() => !tizenLoading && setTizenPath(b)}>
                             <span className="truncate">{b.split(/[\\/]/).pop() || '/'}</span>
                             <X size={10} className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-400" onClick={(e) => { e.stopPropagation(); toggleBookmark(b); }} />
                         </div>
@@ -631,6 +734,7 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
                     selectedFiles={tizenSelected}
                     toggleSelection={(name: string) => setTizenSelected(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name])}
                     onOperation={(op: string, data: any) => handleOperation(op, data, 'tizen')}
+                    addToast={addToast}
                 />
 
                 <div className="w-[1px] bg-indigo-500/20 relative z-10">
@@ -665,6 +769,7 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
                     selectedFiles={localSelected}
                     toggleSelection={(name: string) => setLocalSelected(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name])}
                     onOperation={(op: string, data: any) => handleOperation(op, data, 'local')}
+                    addToast={addToast}
                 />
             </div>
 
