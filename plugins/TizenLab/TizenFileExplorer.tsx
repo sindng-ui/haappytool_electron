@@ -388,7 +388,7 @@ const FileTable = ({
                                         key={i}
                                         tabIndex={0}
                                         className={`group hover:bg-indigo-500/10 transition-colors cursor-pointer border-b border-white/5 outline-none focus:bg-indigo-500/20 ${file.type === 'directory' ? 'text-slate-200' : 'text-slate-400'} ${isSelected ? 'bg-indigo-500/20' : ''}`}
-                                        draggable={file.type === 'file'}
+                                        draggable={true}
                                         onDragStart={(e) => {
                                             e.dataTransfer.setData('text/plain', file.name);
                                             e.dataTransfer.effectAllowed = 'copy';
@@ -453,14 +453,12 @@ const FileTable = ({
                                         </td>
                                         <td className="px-3 py-1.5 text-right">
                                             <div className="flex items-center justify-end gap-1">
-                                                {file.type === 'file' && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); onTransfer(file); }}
-                                                        className="p-1 hover:bg-indigo-500 rounded text-indigo-400 hover:text-white transition-all opacity-0 group-hover:opacity-100"
-                                                    >
-                                                        <Icon size={14} />
-                                                    </button>
-                                                )}
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); onTransfer(file); }}
+                                                    className="p-1 hover:bg-indigo-500 rounded text-indigo-400 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                                >
+                                                    <Icon size={14} />
+                                                </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleContextMenu(e as any, file); }}
                                                     className="p-1 hover:bg-slate-800 rounded text-slate-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
