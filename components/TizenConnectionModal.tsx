@@ -64,9 +64,9 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
         timeoutRef.current = setTimeout(() => {
             setIsConnecting(false);
             setIsScanning(false);
-            setStatus('Connection timed out (15s). Please try again.');
-            setError('Request timed out. Please check your connection.');
-        }, 15000);
+            setStatus('Connection timed out (12s). Please try again.');
+            setError('Request timed out (12s). Please check your connection.');
+        }, 12000);
     };
 
     const clearConnectionTimeout = () => {
@@ -98,6 +98,8 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                 if (isQuickConnect && !isHandedOver.current) {
                     console.log('[TizenModal] Quick Connect mode active');
                     setStatus('Initiating Quick Connect...');
+                    setIsConnecting(true); // Ensure connecting state
+                    startTimeout(); // Start timeout timer for auto-connect
                     // Add small delay to ensure socket is ready and listeners active
                     setTimeout(() => {
                         console.log('[QuickConnect] Mode:', mode);
@@ -364,11 +366,18 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
 
                 <div className="p-6">
                     {/* Quick Connect Overlay */}
-                    {isQuickConnect && (
+                    {/* Quick Connect Overlay */}
+                    {isQuickConnect && !error && isConnecting && (
                         <div className="flex flex-col items-center justify-center py-10 space-y-4">
                             <RefreshCw size={48} className="text-indigo-500 animate-spin" />
                             <div className="text-lg font-bold text-slate-200">Connecting...</div>
                             <div className="text-sm text-slate-400">{status}</div>
+                            <button
+                                onClick={onClose}
+                                className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors"
+                            >
+                                Cancel
+                            </button>
                         </div>
                     )}
 

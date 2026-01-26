@@ -541,122 +541,143 @@ const handleSocketConnection = (socket, deps = {}) => {
             socket.emit('debug_log', `Debug logging started: ${filePath}`);
         }
 
-        // Defined args for sdb log stream (e.g. dlogutil -v threadtime)
-        // If command is provided, split it by space. Otherwise default.
-        let args = [];
-        if (deviceId && deviceId !== 'auto-detect') {
-            args.push('-s', deviceId);
-        }
+        // Helper to encapsulate connection logic for easy retry
+        const initiateSdbConnection = (isRetry = false) => {
+            // Defined args for sdb log stream (e.g. dlogutil -v threadtime)
+            // If command is provided, split it by space. Otherwise default.
+            let args = [];
+            if (deviceId && deviceId !== 'auto-detect') {
+                args.push('-s', deviceId);
+            }
 
-        args.push('shell');
+            args.push('shell');
 
-        if (command && typeof command === 'string' && command.trim().length > 0) {
-            console.log(`[SDB] Using custom command: ${command}`);
-            logDebug(`Custom command provided: ${command}`);
-            const cmdParts = command.trim().split(/\s+/);
-            args.push(...cmdParts);
-        } else {
-            console.log('[SDB] Using default command: dlogutil -v kerneltime');
-            logDebug('Using default command: dlogutil -v kerneltime');
-            args.push('dlogutil', '-v', 'kerneltime');
-        }
-
-        console.log('[SDB] Final sdb args:', args);
-        logDebug(`Full command: sdb ${args.join(' ')}`);
-
-        try {
-            console.log('[SDB] Verifying device connection before streaming...');
-            logDebug('Verifying device connection with a simple shell command...');
-
-            // Step 0: Quick check if device is reachable
-            const checkArgs = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', 'echo', 'READY'] : ['shell', 'echo', 'READY'];
-            const checker = spawnProc(getSdbBin(sdbPath), checkArgs);
-            let checkerOutput = '';
-            let checkerError = '';
-
-            checker.stdout.on('data', d => checkerOutput += d.toString());
-            checker.stderr.on('data', d => checkerError += d.toString());
-
-            checker.on('close', (code) => {
-                try {
-                    if (code !== 0 || !checkerOutput.includes('READY')) {
-                        const errMsg = checkerError.trim() || `Device not responding (Exit code: ${code})`;
-                        console.error(`[SDB] ✗ Connection verification failed: ${errMsg}`);
-                        logDebug(`Connection verification failed: ${errMsg}`);
-                        socket.emit('sdb_error', { message: `Connection Failed: ${errMsg}` });
-                        if (debugStream) { debugStream.end(); debugStream = null; }
-                        if (logFileStream) { logFileStream.end(); logFileStream = null; }
-                        return;
-                    }
-
-                    console.log('[SDB] ✓ Device verified, starting log stream...');
-                    logDebug('Device verified, spawning log process...');
-
-                    sdbProcess = spawnProc(getSdbBin(sdbPath), args);
-
-                    if (sdbProcess && sdbProcess.pid) {
-                        console.log('[SDB] ✓ Process spawned successfully, PID:', sdbProcess.pid);
-                        logDebug(`Process spawned with PID: ${sdbProcess.pid}`);
-                    }
-
-                    // Track if we've received any data
-                    let firstStdoutReceived = false;
-                    let firstStderrReceived = false;
-
-                    sdbProcess.on('error', (err) => {
-                        console.error('[SDB] ✗ Process error:', err);
-                        socket.emit('sdb_error', { message: `SDB error: ${err.message}` });
-                    });
-
-                    console.log('[SDB] Emitting connected status...');
-                    socket.emit('sdb_status', { status: 'connected', message: `SDB Shell Connected to ${deviceId || 'default'}` });
-
-                    sdbProcess.stdout.on('data', (data) => {
-                        if (!firstStdoutReceived) {
-                            console.log('[SDB] ✓ First stdout data received:', data.length, 'bytes');
-                            console.log('[SDB] First stdout preview:', data.toString().substring(0, 100));
-                            logDebug(`First stdout data received: ${data.length} bytes`);
-                            firstStdoutReceived = true;
-                        }
-
-                        if (debugStream) logDebug(`[STDOUT CHUNK] ${data.length} bytes`);
-                        handleLogData(data, socket);
-                    });
-
-                    sdbProcess.stderr.on('data', (data) => {
-                        if (!firstStderrReceived) {
-                            console.log('[SDB] ⚠ First stderr data received:', data.length, 'bytes');
-                            console.log('[SDB] stderr content:', data.toString());
-                            logDebug(`First stderr data received: ${data.length} bytes`);
-                            firstStderrReceived = true;
-                        }
-
-                        console.log('[SDB] STDERR:', data.toString());
-                        logDebug(`SDB STDERR: ${data.toString()}`);
-                        handleLogData(data, socket);
-                    });
-
-                    sdbProcess.on('close', (code) => {
-                        console.log('[SDB] Process exited with code:', code);
-                        logDebug(`SDB process exited with code ${code}`);
-                        socket.emit('sdb_status', { status: 'disconnected', message: 'SDB process exited' });
-                        sdbProcess = null;
-                        if (debugStream) { debugStream.end(); debugStream = null; }
-                        if (logFileStream) { logFileStream.end(); logFileStream = null; }
-                    });
-
-                    console.log('[SDB] All event listeners attached, waiting for data...');
-                    logDebug('Event listeners attached, process running');
-
-                } catch (e) {
-                    console.error('[SDB] ✗ Exception in sdb process setup:', e);
-                    socket.emit('sdb_error', { message: `Failed to start SDB: ${e.message}` });
+            if (command && typeof command === 'string' && command.trim().length > 0) {
+                if (!isRetry) { // Log only once
+                    console.log(`[SDB] Using custom command: ${command}`);
+                    logDebug(`Custom command provided: ${command}`);
                 }
-            });
-        } catch (e) {
-            console.error('[SDB] ✗ Exception during connection verification:', e);
-            socket.emit('sdb_error', { message: `SDB verification error: ${e.message}` });
-        }
+                const cmdParts = command.trim().split(/\s+/);
+                args.push(...cmdParts);
+            } else {
+                if (!isRetry) {
+                    console.log('[SDB] Using default command: dlogutil -v kerneltime');
+                    logDebug('Using default command: dlogutil -v kerneltime');
+                }
+                args.push('dlogutil', '-v', 'kerneltime');
+            }
+
+            if (!isRetry) {
+                console.log('[SDB] Final sdb args:', args);
+                logDebug(`Full command: sdb ${args.join(' ')}`);
+            }
+
+            try {
+                if (!isRetry) {
+                    console.log('[SDB] Verifying device connection before streaming...');
+                    logDebug('Verifying device connection with a simple shell command...');
+                }
+
+                // Step 0: Quick check if device is reachable
+                const checkArgs = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', 'echo', 'READY'] : ['shell', 'echo', 'READY'];
+                const checker = spawnProc(getSdbBin(sdbPath), checkArgs);
+                let checkerOutput = '';
+                let checkerError = '';
+
+                checker.stdout.on('data', d => checkerOutput += d.toString());
+                checker.stderr.on('data', d => checkerError += d.toString());
+
+                checker.on('close', (code) => {
+                    try {
+                        if (code !== 0 || !checkerOutput.includes('READY')) {
+                            const errMsg = checkerError.trim() || `Device not responding (Exit code: ${code})`;
+
+                            // [Auto-Recovery] Target not found
+                            if (!isRetry && (errMsg.includes('target not found') || errMsg.includes('error: target not found'))) {
+                                const fixedIp = '192.168.250.250';
+                                // We ignore what deviceId is, and force reconnect to fixedIp as per user request
+                                console.log(`[SDB Recovery] Target not found event. Attempting fixed auto-reconnect to ${fixedIp}...`);
+                                logDebug(`[Recovery] Target not found. Attempting disconnect/connect for fixed IP: ${fixedIp}`);
+
+                                const dis = spawnProc(getSdbBin(sdbPath), ['disconnect', fixedIp]);
+                                dis.on('close', () => {
+                                    const con = spawnProc(getSdbBin(sdbPath), ['connect', fixedIp]);
+                                    con.on('close', () => {
+                                        console.log(`[SDB Recovery] Reconnection attempt finished. Retrying session...`);
+                                        logDebug(`[Recovery] Reconnection finished. Retrying...`);
+                                        initiateSdbConnection(true); // Retry
+                                    });
+                                });
+                                return;
+                            }
+
+                            console.error(`[SDB] ✗ Connection verification failed: ${errMsg}`);
+                            logDebug(`Connection verification failed: ${errMsg}`);
+                            socket.emit('sdb_error', { message: `Connection Failed: ${errMsg}` });
+                            if (debugStream) { debugStream.end(); debugStream = null; }
+                            if (logFileStream) { logFileStream.end(); logFileStream = null; }
+                            return;
+                        }
+
+                        console.log('[SDB] ✓ Device verified, starting log stream...');
+                        logDebug('Device verified, spawning log process...');
+
+                        sdbProcess = spawnProc(getSdbBin(sdbPath), args);
+
+                        if (sdbProcess && sdbProcess.pid) {
+                            console.log('[SDB] ✓ Process spawned successfully, PID:', sdbProcess.pid);
+                            logDebug(`Process spawned with PID: ${sdbProcess.pid}`);
+                        }
+
+                        if (!sdbProcess) {
+                            throw new Error('Failed to spawn SDB process');
+                        }
+
+                        // ... SDB Stdout/Stderr listeners ...
+                        sdbProcess.stdout.on('data', (data) => {
+                            if (data) {
+                                const str = data.toString();
+                                socket.emit('log_data', str);
+                                if (saveToFile && logFileStream) logFileStream.write(str);
+                            }
+                        });
+
+                        sdbProcess.stderr.on('data', (data) => {
+                            if (data) {
+                                const str = data.toString();
+                                // Optional: Emit stderr as log or error? 
+                                // Typically dlogutil output goes to stdout, but errors to stderr.
+                                console.log('[SDB STDERR]', str);
+                                if (str.includes('closed') || str.includes('error') || str.includes('failed')) {
+                                    // socket.emit('sdb_error', { message: str }); // Can be noisy
+                                }
+                                if (saveToFile && logFileStream) logFileStream.write(`[STDERR] ${str}`);
+                            }
+                        });
+
+                        sdbProcess.on('close', (code) => {
+                            console.log(`[SDB] Process exited with code ${code}`);
+                            logDebug(`Process exited with code ${code}`);
+                            socket.emit('sdb_status', { status: 'disconnected', message: `SDB Exited (Code: ${code})` });
+
+                            if (debugStream) { debugStream.end(); debugStream = null; }
+                            if (logFileStream) { logFileStream.end(); logFileStream = null; }
+                            sdbProcess = null;
+                        });
+
+                    } catch (e) {
+                        console.error('[SDB] ✗ Exception in sdb process setup:', e);
+                        socket.emit('sdb_error', { message: `Failed to start SDB: ${e.message}` });
+                    }
+                });
+            } catch (e) {
+                console.error('[SDB] ✗ Exception during connection verification:', e);
+                socket.emit('sdb_error', { message: `SDB verification error: ${e.message}` });
+            }
+        };
+
+        // Start the session
+        initiateSdbConnection(false);
     });
 
     socket.on('disconnect_sdb', () => {
@@ -666,11 +687,9 @@ const handleSocketConnection = (socket, deps = {}) => {
             sdbProcess = null;
         }
         // We don't have sdbPath here easily unless we stored it in session/closure. 
-        // Assume default sdb for disconnect or passed from client? 
-        // usually disconnect_sdb is called without params. 
-        // Let's just use 'sdb' default or try to track it. 
+        // Assume default sdb for disconnect or try to track it. 
         // For simplicity, we rely on 'sdb' here or ignore if it fails, as we killed the process.
-        spawnProc('sdb', ['disconnect']);
+        // spawnProc('sdb', ['disconnect']); // Removed to prevent dropping device connection
 
         socket.emit('sdb_status', { status: 'disconnected', message: 'SDB Disconnected by user' });
 
@@ -1294,7 +1313,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                     for (const line of lines) {
                         const trimmed = line.trim();
                         // Parse Total CPU
-                        // Case 1: "User 13% + System 4% ... = 17% Total"
+                        // Case 1: "User 10% + System 5% ... = 15% Total"
                         if (trimmed.includes('Total') && trimmed.includes('User')) {
                             // Extract N% Total
                             const match = trimmed.match(/=\s*([0-9.]+)/); // Matches "= 17"
@@ -1333,8 +1352,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                             // Usually CPU% is one of the columns containing '%'.
 
                             // Let's assume standard columns often seen:
-                            // PID USER PR NI CPU% S #THR VSS RSS PCY Name
-                            // If parts length is large enough
+                            // PID, USER, ..., CPU%, ... Name (last)
 
                             if (parts.length >= 8) {
                                 // Try to find the part with % or just a number that looks like CPU
@@ -1379,7 +1397,7 @@ const handleSocketConnection = (socket, deps = {}) => {
 
                     // Emit update if we found something meaningful
                     // Note: 'top' outputs a full screen batch. We need to know when a batch ends?
-                    // 'top -b' just streams. We parsed lines.
+                    // 'top' -b just streams. We parsed lines.
                     // Issue: We might emit partial updates or mixed frames?
                     // Improvement: Accumulate until we see the "User ... Total" line again?
                     // For now, let's emit every time we parse a Summary line + some processes?
@@ -1736,7 +1754,7 @@ const handleSocketConnection = (socket, deps = {}) => {
 
     // --- Tizen SDB File Explorer Handlers ---
 
-    const handleSdbCommand = (cmd, callback) => {
+    const handleSdbCommand = (cmd, callback, retryCount = 0) => {
         // On Windows, shell errors like "command not found" are in system encoding (CP949 in Korea)
         // which looks like garbage in UTF-8. We intercept common sdb-not-found patterns.
         const fullCmd = process.platform === 'win32' ? `chcp 65001 > nul && ${cmd}` : cmd;
@@ -1744,6 +1762,29 @@ const handleSocketConnection = (socket, deps = {}) => {
         exec(fullCmd, { encoding: 'utf-8' }, (error, stdout, stderr) => {
             if (error) {
                 let msg = stderr || error.message;
+
+                // [Auto-Recovery] for "target not found"
+                if (retryCount === 0 && (msg.includes('target not found') || msg.includes('error: target not found'))) {
+                    // Force using 192.168.250.250 as requested by user
+                    const fixedIp = '192.168.250.250';
+                    console.log(`[SDB Recovery] Target not found. Attempting to reconnect to fixed IP ${fixedIp}...`);
+
+                    // Extract sdb binary path from cmd if present, or default to 'sdb'
+                    let sdbBin = 'sdb';
+                    const binMatch = cmd.match(/^(".*?"|\S+)/);
+                    if (binMatch) sdbBin = binMatch[1];
+
+                    const recoverCmd = `${sdbBin} disconnect ${fixedIp} && ${sdbBin} connect ${fixedIp}`;
+                    const fullRecoverCmd = process.platform === 'win32' ? `chcp 65001 > nul && ${recoverCmd}` : recoverCmd;
+
+                    exec(fullRecoverCmd, { encoding: 'utf-8' }, (recErr, recOut) => {
+                        console.log(`[SDB Recovery] Reconnect output: ${recOut}`);
+                        // Retry original command (once)
+                        handleSdbCommand(cmd, callback, 1);
+                    });
+                    return;
+                }
+
                 // Detect "sdb is not recognized" in broken encoding or standard English
                 if (msg.includes('is not recognized') || msg.includes('not found') || msg.includes('ENOENT') ||
                     (process.platform === 'win32' && (msg.includes('\'sdb\'') || msg.includes('G')))) {
