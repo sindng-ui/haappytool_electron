@@ -15,6 +15,7 @@ const TizenLabPlugin: React.FC = () => {
     const { addToast } = useToast();
     const [activeTab, setActiveTab] = useState<Tab>('explorer');
     const [deviceId, setDeviceId] = useState(() => localStorage.getItem('lastSdbDeviceId') || '');
+    const [sdbPath, setSdbPath] = useState(() => localStorage.getItem('tizen_sdb_path') || '');
 
     return (
         <div className="flex flex-col h-full bg-slate-950 text-slate-200 overflow-hidden">
@@ -72,9 +73,9 @@ const TizenLabPlugin: React.FC = () => {
 
             {/* Content Area */}
             <div className="flex-1 overflow-hidden relative">
-                {activeTab === 'explorer' && <TizenFileExplorer deviceId={deviceId} />}
-                {activeTab === 'apps' && <TizenAppManager deviceId={deviceId} />}
-                {activeTab === 'perf' && <TizenPerfMonitor deviceId={deviceId} />}
+                {activeTab === 'explorer' && <TizenFileExplorer deviceId={deviceId} sdbPath={sdbPath} />}
+                {activeTab === 'apps' && <TizenAppManager deviceId={deviceId} sdbPath={sdbPath} />}
+                {activeTab === 'perf' && <TizenPerfMonitor deviceId={deviceId} sdbPath={sdbPath} />}
                 {activeTab === 'settings' && (
                     <div className="p-8 max-w-2xl mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="space-y-2">
@@ -98,9 +99,11 @@ const TizenLabPlugin: React.FC = () => {
                                 <input
                                     className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2.5 text-xs font-mono text-indigo-300 outline-none focus:border-indigo-500/50 transition-all"
                                     placeholder="e.g. C:\tizen-studio\tools\sdb.exe"
-                                    value={localStorage.getItem('tizen_sdb_path') || ''}
+                                    value={sdbPath}
                                     onChange={(e) => {
-                                        localStorage.setItem('tizen_sdb_path', e.target.value);
+                                        const newVal = e.target.value;
+                                        setSdbPath(newVal);
+                                        localStorage.setItem('tizen_sdb_path', newVal);
                                         // Force re-render if needed, but for now just saving is fine
                                         addToast('SDB Path updated. Changes will apply on next operation.', 'info');
                                     }}

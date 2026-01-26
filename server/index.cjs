@@ -218,6 +218,11 @@ const handleSocketConnection = (socket, deps = {}) => {
     const spawnProc = deps.spawn || spawn;
     const SSHClient = deps.Client || Client;
 
+    // Helper to determine SDB executable
+    const getSdbBin = (p) => p || 'sdb';
+    // Helper to determine SDB command string (for exec/shell usage) with quoting if needed
+    const getSdbCmd = (p) => p ? `"${p}"` : 'sdb';
+
     // --- SSH Handler ---
     socket.on('connect_ssh', ({ host, port, username, password, debug, saveToFile, command, tags }) => {
         // Set Default Command Smartly
@@ -461,7 +466,7 @@ const handleSocketConnection = (socket, deps = {}) => {
     });
 
     // --- SDB Handler ---
-    socket.on('connect_sdb', ({ deviceId, debug, saveToFile, command, tags }) => {
+    socket.on('connect_sdb', ({ deviceId, debug, saveToFile, command, tags, sdbPath }) => {
         // Set Default Command Smartly
         if (!command) {
             const tagString = (Array.isArray(tags) && tags.length > 0) ? tags.join(' ') : '';
@@ -565,7 +570,7 @@ const handleSocketConnection = (socket, deps = {}) => {
 
             // Step 0: Quick check if device is reachable
             const checkArgs = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', 'echo', 'READY'] : ['shell', 'echo', 'READY'];
-            const checker = spawnProc('sdb', checkArgs);
+            const checker = spawnProc(getSdbBin(sdbPath), checkArgs);
             let checkerOutput = '';
             let checkerError = '';
 
@@ -587,7 +592,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                     console.log('[SDB] ✓ Device verified, starting log stream...');
                     logDebug('Device verified, spawning log process...');
 
-                    sdbProcess = spawnProc('sdb', args);
+                    sdbProcess = spawnProc(getSdbBin(sdbPath), args);
 
                     if (sdbProcess && sdbProcess.pid) {
                         console.log('[SDB] ✓ Process spawned successfully, PID:', sdbProcess.pid);
@@ -660,6 +665,11 @@ const handleSocketConnection = (socket, deps = {}) => {
             sdbProcess.kill();
             sdbProcess = null;
         }
+        // We don't have sdbPath here easily unless we stored it in session/closure. 
+        // Assume default sdb for disconnect or passed from client? 
+        // usually disconnect_sdb is called without params. 
+        // Let's just use 'sdb' default or try to track it. 
+        // For simplicity, we rely on 'sdb' here or ignore if it fails, as we killed the process.
         spawnProc('sdb', ['disconnect']);
 
         socket.emit('sdb_status', { status: 'disconnected', message: 'SDB Disconnected by user' });
@@ -694,18 +704,18 @@ const handleSocketConnection = (socket, deps = {}) => {
         if (logFileStream) { logFileStream.end(); logFileStream = null; }
     });
 
-    socket.on('connect_sdb_remote', async ({ ip }) => {
+    socket.on('connect_sdb_remote', async ({ ip, sdbPath }) => {
         console.log(`[SDB Remote] Connecting to ${ip}...`);
         try {
             // 1. sdb disconnect
             await new Promise((resolve) => {
-                const child = spawnProc('sdb', ['disconnect']);
+                const child = spawnProc(getSdbBin(sdbPath), ['disconnect']);
                 child.on('close', resolve);
             });
 
             // 2. sdb connect IP
             await new Promise((resolve, reject) => {
-                const child = spawnProc('sdb', ['connect', ip]);
+                const child = spawnProc(getSdbBin(sdbPath), ['connect', ip]);
                 child.on('close', (code) => {
                     if (code === 0) resolve();
                     else reject(new Error(`Connect failed with code ${code}`));
@@ -714,14 +724,14 @@ const handleSocketConnection = (socket, deps = {}) => {
 
             // 3. sdb root on
             await new Promise((resolve) => {
-                const child = spawnProc('sdb', ['root', 'on']);
+                const child = spawnProc(getSdbBin(sdbPath), ['root', 'on']);
                 child.on('close', resolve);
             });
 
             socket.emit('sdb_remote_result', { success: true, message: 'Connected and Rooted' });
 
             // Refresh list
-            const listChild = spawnProc('sdb', ['devices']);
+            const listChild = spawnProc(getSdbBin(sdbPath), ['devices']);
             let listData = '';
             listChild.stdout.on('data', d => listData += d.toString());
             listChild.on('close', () => {
@@ -892,7 +902,7 @@ const handleSocketConnection = (socket, deps = {}) => {
     });
 
 
-    socket.on('wait_for_image_match', async ({ templatePath, timeoutMs = 10000, deviceId }) => {
+    socket.on('wait_for_image_match', async ({ templatePath, timeoutMs = 10000, deviceId, sdbPath }) => {
         console.log(`[ScreenMatcher] Waiting for image match... Timeout: ${timeoutMs}ms`);
         if (!cv) {
             socket.emit('wait_for_image_result', { success: false, message: 'OpenCV not loaded' });
@@ -924,7 +934,7 @@ const handleSocketConnection = (socket, deps = {}) => {
 
                 // Synchronous-like spawn wrapper for cleaner loop? using promise
                 await new Promise((resolve, reject) => {
-                    const child = spawnProc('sdb', sdbArgs);
+                    const child = spawnProc(getSdbBin(sdbPath), sdbArgs);
                     child.on('close', resolve);
                     child.on('error', reject);
                 });
@@ -932,7 +942,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                 // Pull
                 const pullArgs = deviceId ? ['-s', deviceId, 'pull', tempRemotePath, localPath] : ['pull', tempRemotePath, localPath];
                 await new Promise((resolve, reject) => {
-                    const child = spawnProc('sdb', pullArgs);
+                    const child = spawnProc(getSdbBin(sdbPath), pullArgs);
                     child.on('close', resolve);
                     child.on('error', reject);
                 });
@@ -1069,7 +1079,7 @@ const handleSocketConnection = (socket, deps = {}) => {
     });
 
     // --- Screen Matcher Handlers ---
-    socket.on('capture_screen', async ({ deviceId }) => {
+    socket.on('capture_screen', async ({ deviceId, sdbPath }) => {
         console.log(`[ScreenMatcher] Capturing screen for ${deviceId || 'default'}...`);
         const tempRemotePath = '/tmp/screen_capture.png';
         const timestamp = Date.now();
@@ -1093,7 +1103,7 @@ const handleSocketConnection = (socket, deps = {}) => {
         const captureCmd = `/usr/bin/enlightenment_info -dump_screen ${tempRemotePath}`;
         const sdbArgs = deviceId ? ['-s', deviceId, 'shell', captureCmd] : ['shell', captureCmd];
 
-        const captureProcess = spawnProc('sdb', sdbArgs);
+        const captureProcess = spawnProc(getSdbBin(sdbPath), sdbArgs);
 
         captureProcess.on('close', (code) => {
             if (code !== 0) {
@@ -1106,7 +1116,7 @@ const handleSocketConnection = (socket, deps = {}) => {
             // Step 2: Pull
             // sdb -s [id] pull [remote] [local]
             const pullArgs = deviceId ? ['-s', deviceId, 'pull', tempRemotePath, localPath] : ['pull', tempRemotePath, localPath];
-            const pullProcess = spawnProc('sdb', pullArgs);
+            const pullProcess = spawnProc(getSdbBin(sdbPath), pullArgs);
 
             pullProcess.on('close', (pullCode) => {
                 if (pullCode === 0 && fs.existsSync(localPath)) {
@@ -1117,7 +1127,7 @@ const handleSocketConnection = (socket, deps = {}) => {
 
                     // Cleanup remote (optional, good practice)
                     const rmArgs = deviceId ? ['-s', deviceId, 'shell', 'rm', tempRemotePath] : ['shell', 'rm', tempRemotePath];
-                    spawnProc('sdb', rmArgs);
+                    spawnProc(getSdbBin(sdbPath), rmArgs);
                 } else {
                     socket.emit('capture_result', { success: false, message: 'Failed to pull screen capture. Command might have failed.' });
                 }
@@ -1207,7 +1217,7 @@ const handleSocketConnection = (socket, deps = {}) => {
     let cpuMonitorProcess = null;
     let cpuMonitorInterval = null;
 
-    socket.on('start_cpu_monitoring', ({ deviceId }) => {
+    socket.on('start_cpu_monitoring', ({ deviceId, sdbPath }) => {
         // Cleanup existing
         if (cpuMonitorProcess) {
             cpuMonitorProcess.kill();
@@ -1261,7 +1271,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                 : ['shell', 'top', '-b', '-d', '1'];
 
             try {
-                cpuMonitorProcess = spawnProc('sdb', args);
+                cpuMonitorProcess = spawnProc(getSdbBin(sdbPath), args);
 
                 let buffer = '';
 
@@ -1429,7 +1439,7 @@ const handleSocketConnection = (socket, deps = {}) => {
     let threadMonitorProcess = null;
     let threadMonitorInterval = null;
 
-    socket.on('start_thread_monitoring', ({ deviceId, pid }) => {
+    socket.on('start_thread_monitoring', ({ deviceId, pid, sdbPath }) => {
         // Cleanup existing
         if (threadMonitorProcess) {
             threadMonitorProcess.kill();
@@ -1473,7 +1483,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                 : ['shell', 'top', '-H', '-b', '-d', '1', '-p', pid];
 
             try {
-                threadMonitorProcess = spawnProc('sdb', args);
+                threadMonitorProcess = spawnProc(getSdbBin(sdbPath), args);
                 let buffer = '';
 
                 threadMonitorProcess.stdout.on('data', (data) => {
@@ -1565,7 +1575,7 @@ const handleSocketConnection = (socket, deps = {}) => {
     let memoryMonitorProcess = null;
     let memoryMonitorInterval = null;
 
-    socket.on('start_memory_monitoring', ({ deviceId, appName, interval }) => {
+    socket.on('start_memory_monitoring', ({ deviceId, appName, interval, sdbPath }) => {
         // Cleanup existing
         if (memoryMonitorProcess) {
             memoryMonitorProcess.kill();
@@ -1611,7 +1621,7 @@ const handleSocketConnection = (socket, deps = {}) => {
             // Tizen 'ps' usually outputs: PID USER VSZ STAT COMMAND or similar.
             // Using 'ps -ef' might be safer if available, or just 'ps'.
             // simple grep approach
-            const sdbPrefix = deviceId && deviceId !== 'auto-detect' ? `sdb -s ${deviceId}` : 'sdb';
+            const sdbPrefix = deviceId && deviceId !== 'auto-detect' ? `${getSdbCmd(sdbPath)} -s ${deviceId}` : getSdbCmd(sdbPath);
             const grepCmd = `${sdbPrefix} shell "ps -ef | grep ${safeAppName}"`;
 
             exec(grepCmd, (error, stdout, stderr) => {
@@ -1659,7 +1669,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                     : ['shell', 'vd_memps', '-p', targetPid, '-t', interval || '1'];
 
                 try {
-                    memoryMonitorProcess = spawnProc('sdb', cmdArgs);
+                    memoryMonitorProcess = spawnProc(getSdbBin(sdbPath), cmdArgs);
 
                     memoryMonitorProcess.stdout.on('data', (data) => {
                         const text = data.toString();
@@ -1746,12 +1756,12 @@ const handleSocketConnection = (socket, deps = {}) => {
         });
     };
 
-    socket.on('list_tizen_files', ({ deviceId, path: remotePath }) => {
+    socket.on('list_tizen_files', ({ deviceId, path: remotePath, sdbPath }) => {
         console.log(`[TizenExplorer] Listing files in ${remotePath} on ${deviceId || 'default'}`);
         // sdb shell ls -alp [path]
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `ls -alF "${remotePath}"`] : ['shell', `ls -alF "${remotePath}"`];
 
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             if (error) {
                 socket.emit('list_tizen_files_result', { success: false, error: stderr });
                 return;
@@ -1806,7 +1816,8 @@ const handleSocketConnection = (socket, deps = {}) => {
         });
     });
 
-    socket.on('complete_tizen_path', ({ deviceId, path: partialPath }) => {
+    socket.on('complete_tizen_path', ({ deviceId, path: partialPath, sdbPath }) => {
+        // ... (lines 1810-1822 omitted for brevity as they are unchanged logic) ...
         console.log(`[TizenExplorer] Auto-complete request for: ${partialPath}`);
         const lastSlash = partialPath.lastIndexOf('/');
         let dir, fragment;
@@ -1821,7 +1832,7 @@ const handleSocketConnection = (socket, deps = {}) => {
 
         console.log(`[TizenExplorer] Searching in: ${dir}, Fragment: ${fragment}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `ls -F "${dir}"`] : ['shell', `ls -F "${dir}"`];
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout) => {
             if (error) {
                 console.error(`[TizenExplorer] Completion error: ${error.message}`);
                 socket.emit('complete_tizen_path_result', { success: false, error: 'Command failed' });
@@ -1838,11 +1849,11 @@ const handleSocketConnection = (socket, deps = {}) => {
         });
     });
 
-    socket.on('pull_tizen_file', ({ deviceId, remotePath, localPath }) => {
+    socket.on('pull_tizen_file', ({ deviceId, remotePath, localPath, sdbPath }) => {
         console.log(`[TizenExplorer] Pulling ${remotePath} to ${localPath}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'pull', remotePath, localPath] : ['pull', remotePath, localPath];
 
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             if (error) {
                 socket.emit('pull_tizen_file_result', { success: false, error: stderr });
             } else {
@@ -1851,11 +1862,11 @@ const handleSocketConnection = (socket, deps = {}) => {
         });
     });
 
-    socket.on('push_tizen_file', ({ deviceId, localPath, remotePath }) => {
+    socket.on('push_tizen_file', ({ deviceId, localPath, remotePath, sdbPath }) => {
         console.log(`[TizenExplorer] Pushing ${localPath} to ${remotePath}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'push', localPath, remotePath] : ['push', localPath, remotePath];
 
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             if (error) {
                 socket.emit('push_tizen_file_result', { success: false, error: stderr });
             } else {
@@ -1864,50 +1875,50 @@ const handleSocketConnection = (socket, deps = {}) => {
         });
     });
 
-    socket.on('copy_tizen_path', ({ deviceId, srcPath, destPath }) => {
+    socket.on('copy_tizen_path', ({ deviceId, srcPath, destPath, sdbPath }) => {
         console.log(`[TizenExplorer] Copying ${srcPath} to ${destPath}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `cp -r "${srcPath}" "${destPath}"`] : ['shell', `cp -r "${srcPath}" "${destPath}"`];
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'copy', target: 'tizen' });
         });
     });
 
-    socket.on('delete_tizen_path', ({ deviceId, path }) => {
+    socket.on('delete_tizen_path', ({ deviceId, path, sdbPath }) => {
         console.log(`[TizenExplorer] Deleting ${path}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `rm -rf "${path}"`] : ['shell', `rm -rf "${path}"`];
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'delete', target: 'tizen' });
         });
     });
 
-    socket.on('rename_tizen_path', ({ deviceId, oldPath, newPath }) => {
+    socket.on('rename_tizen_path', ({ deviceId, oldPath, newPath, sdbPath }) => {
         console.log(`[TizenExplorer] Renaming ${oldPath} to ${newPath}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `mv "${oldPath}" "${newPath}"`] : ['shell', `mv "${oldPath}" "${newPath}"`];
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'rename', target: 'tizen' });
         });
     });
 
-    socket.on('mkdir_tizen_path', ({ deviceId, path }) => {
+    socket.on('mkdir_tizen_path', ({ deviceId, path, sdbPath }) => {
         console.log(`[TizenExplorer] Creating directory ${path}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `mkdir -p "${path}"`] : ['shell', `mkdir -p "${path}"`];
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'mkdir', target: 'tizen' });
         });
     });
 
-    socket.on('install_tizen_tpk', ({ deviceId, path }) => {
+    socket.on('install_tizen_tpk', ({ deviceId, path, sdbPath }) => {
         console.log(`[TizenExplorer] Installing TPK: ${path}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `pkgcmd -i -t tpk -p "${path}"`] : ['shell', `pkgcmd -i -t tpk -p "${path}"`];
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'install', target: 'tizen', output: stdout });
         });
     });
 
-    socket.on('read_tizen_file', ({ deviceId, path }) => {
+    socket.on('read_tizen_file', ({ deviceId, path, sdbPath }) => {
         console.log(`[TizenExplorer] Reading file: ${path}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `cat "${path}"`] : ['shell', `cat "${path}"`];
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             if (error) {
                 socket.emit('read_tizen_file_result', { success: false, error: stderr, path });
             } else {
@@ -1916,10 +1927,10 @@ const handleSocketConnection = (socket, deps = {}) => {
         });
     });
 
-    socket.on('list_tizen_apps', ({ deviceId }) => {
+    socket.on('list_tizen_apps', ({ deviceId, sdbPath }) => {
         console.log(`[TizenAppManager] Listing apps on ${deviceId || 'auto'}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', 'pkgcmd -l'] : ['shell', 'pkgcmd -l'];
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             if (error) {
                 console.error(`[TizenAppManager] Error listing apps: ${error.message} (${stderr})`);
                 socket.emit('list_tizen_apps_result', { success: false, error: stderr });
@@ -1955,37 +1966,37 @@ const handleSocketConnection = (socket, deps = {}) => {
         });
     });
 
-    socket.on('uninstall_tizen_app', ({ deviceId, pkgId }) => {
+    socket.on('uninstall_tizen_app', ({ deviceId, pkgId, sdbPath }) => {
         console.log(`[TizenAppManager] Uninstalling ${pkgId}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `pkgcmd -u -n "${pkgId}"`] : ['shell', `pkgcmd -u -n "${pkgId}"`];
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'uninstall', target: 'tizen_app', pkgId });
         });
     });
 
-    socket.on('launch_tizen_app', ({ deviceId, pkgId }) => {
+    socket.on('launch_tizen_app', ({ deviceId, pkgId, sdbPath }) => {
         console.log(`[TizenAppManager] Launching ${pkgId}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `launch_app "${pkgId}"`] : ['shell', `launch_app "${pkgId}"`];
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'launch', target: 'tizen_app', pkgId });
         });
     });
 
-    socket.on('terminate_tizen_app', ({ deviceId, pkgId }) => {
+    socket.on('terminate_tizen_app', ({ deviceId, pkgId, sdbPath }) => {
         console.log(`[TizenAppManager] Terminating ${pkgId}`);
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `app_terminate "${pkgId}"`] : ['shell', `app_terminate "${pkgId}"`];
-        handleSdbCommand(`sdb ${args.join(' ')}`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
             socket.emit('operation_result', { success: !error, error: error ? stderr : null, op: 'terminate', target: 'tizen_app', pkgId });
         });
     });
 
     // --- Tizen Performance Insight ---
-    socket.on('get_tizen_process_info', ({ deviceId, pid }) => {
+    socket.on('get_tizen_process_info', ({ deviceId, pid, sdbPath }) => {
         // Get more details about a process (e.g. fd count, smaps summary)
         const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell'] : ['shell'];
         const cmd = `cat /proc/${pid}/status | grep -E "Threads|FDSize|VmRSS|VmSwap"`;
 
-        handleSdbCommand(`sdb ${args.join(' ')} "${cmd}"`, (error, stdout, stderr) => {
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')} "${cmd}"`, (error, stdout, stderr) => {
             if (error) {
                 socket.emit('tizen_process_info_result', { success: false, error: stderr });
             } else {

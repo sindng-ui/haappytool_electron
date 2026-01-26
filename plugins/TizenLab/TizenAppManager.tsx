@@ -17,9 +17,10 @@ interface AppItem {
 
 interface TizenAppManagerProps {
     deviceId: string;
+    sdbPath?: string;
 }
 
-const TizenAppManager: React.FC<TizenAppManagerProps> = ({ deviceId }) => {
+const TizenAppManager: React.FC<TizenAppManagerProps> = ({ deviceId, sdbPath }) => {
     const [apps, setApps] = useState<AppItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [filter, setFilter] = useState('');
@@ -70,9 +71,9 @@ const TizenAppManager: React.FC<TizenAppManagerProps> = ({ deviceId }) => {
     const refreshApps = useCallback(() => {
         if (socket) {
             setIsLoading(true);
-            socket.emit('list_tizen_apps', { deviceId });
+            socket.emit('list_tizen_apps', { deviceId, sdbPath });
         }
-    }, [socket, deviceId]);
+    }, [socket, deviceId, sdbPath]);
 
     useEffect(() => {
         refreshApps();
@@ -88,7 +89,7 @@ const TizenAppManager: React.FC<TizenAppManagerProps> = ({ deviceId }) => {
         if (!socket) return;
         if (action === 'uninstall' && !confirm(`Are you sure you want to uninstall ${pkgId}?`)) return;
 
-        socket.emit(`${action}_tizen_app`, { deviceId, pkgId });
+        socket.emit(`${action}_tizen_app`, { deviceId, pkgId, sdbPath });
     };
 
     const filteredApps = useMemo(() => apps.filter(app =>

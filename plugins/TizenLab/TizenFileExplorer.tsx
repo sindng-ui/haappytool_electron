@@ -22,6 +22,7 @@ interface FileItem {
 
 interface TizenFileExplorerProps {
     deviceId: string;
+    sdbPath?: string;
 }
 
 const FileTable = ({
@@ -549,7 +550,7 @@ const FileTable = ({
     );
 };
 
-const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
+const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId, sdbPath }) => {
     const [tizenPath, setTizenPath] = useState(() => localStorage.getItem('tizen_last_path') || '/home/owner');
     const [tizenFiles, setTizenFiles] = useState<FileItem[]>([]);
     const [tizenLoading, setTizenLoading] = useState(false);
@@ -658,7 +659,7 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
 
     const sortFiles = (files: FileItem[]) => [...files].sort((a, b) => a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'directory' ? -1 : 1);
 
-    const refreshTizenFiles = useCallback(() => { if (socket) { setTizenLoading(true); socket.emit('list_tizen_files', { deviceId, path: tizenPath }); } }, [socket, deviceId, tizenPath]);
+    const refreshTizenFiles = useCallback(() => { if (socket) { setTizenLoading(true); socket.emit('list_tizen_files', { deviceId, path: tizenPath, sdbPath }); } }, [socket, deviceId, tizenPath, sdbPath]);
     const refreshLocalFiles = useCallback(() => { if (socket) { setLocalLoading(true); socket.emit('list_local_files', { path: localPath }); } }, [socket, localPath]);
 
     useEffect(() => { refreshTizenFiles(); }, [tizenPath, deviceId, socket]);
@@ -687,8 +688,8 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
                 : localPath + (localPath.includes(':') && localPath.length === 2 ? '\\' : separator) + f.name;
             const tizenFull = tizenPath.endsWith('/') ? tizenPath + f.name : tizenPath + '/' + f.name;
 
-            if (direction === 'pull') socket.emit('pull_tizen_file', { deviceId, remotePath: tizenFull, localPath: localFull });
-            else socket.emit('push_tizen_file', { deviceId, localPath: localFull, remotePath: tizenFull });
+            if (direction === 'pull') socket.emit('pull_tizen_file', { deviceId, remotePath: tizenFull, localPath: localFull, sdbPath });
+            else socket.emit('push_tizen_file', { deviceId, localPath: localFull, remotePath: tizenFull, sdbPath });
         });
 
         // Clear selection after transfer
@@ -706,19 +707,19 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
 
         if (target === 'tizen') {
             const pathPrefix = tizenPath + (tizenPath.endsWith('/') ? '' : '/');
-            if (op === 'delete') socket.emit('delete_tizen_path', { deviceId, path: pathPrefix + data.file.name });
-            if (op === 'rename') socket.emit('rename_tizen_path', { deviceId, oldPath: pathPrefix + data.file.name, newPath: pathPrefix + data.newName });
-            if (op === 'mkdir') socket.emit('mkdir_tizen_path', { deviceId, path: pathPrefix + data.name });
+            if (op === 'delete') socket.emit('delete_tizen_path', { deviceId, path: pathPrefix + data.file.name, sdbPath });
+            if (op === 'rename') socket.emit('rename_tizen_path', { deviceId, oldPath: pathPrefix + data.file.name, newPath: pathPrefix + data.newName, sdbPath });
+            if (op === 'mkdir') socket.emit('mkdir_tizen_path', { deviceId, path: pathPrefix + data.name, sdbPath });
             if (op === 'install') {
                 addToast(`Installing ${data.file.name}...`, 'info');
-                socket.emit('install_tizen_tpk', { deviceId, path: pathPrefix + data.file.name });
+                socket.emit('install_tizen_tpk', { deviceId, path: pathPrefix + data.file.name, sdbPath });
             }
             if (op === 'read') {
-                socket.emit('read_tizen_file', { deviceId, path: pathPrefix + data.file.name });
+                socket.emit('read_tizen_file', { deviceId, path: pathPrefix + data.file.name, sdbPath });
             }
             if (op === 'complete') {
                 completionCallbackRef.current = data.callback;
-                socket.emit('complete_tizen_path', { deviceId, path: data.path });
+                socket.emit('complete_tizen_path', { deviceId, path: data.path, sdbPath });
             }
         } else {
             const sep = localPath.includes('\\') ? '\\' : '/';
@@ -759,18 +760,18 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId }) => {
                     const destName = `${namePart}_copy${extPart}`;
                     const destFull = currentDestPath + (currentDestPath.endsWith(target === 'local' && localPath.includes('\\') ? '\\' : '/') ? '' : (target === 'local' && localPath.includes('\\') ? '\\' : '/')) + destName;
 
-                    if (target === 'tizen') socket.emit('copy_tizen_path', { deviceId, srcPath: srcFull, destPath: destFull });
+                    if (target === 'tizen') socket.emit('copy_tizen_path', { deviceId, srcPath: srcFull, destPath: destFull, sdbPath });
                     else socket.emit('copy_local_path', { srcPath: srcFull, destPath: destFull });
                 } else {
                     // Pane 간 복사 (Transfer)
                     const targetFile = { name, type: 'file' } as FileItem;
                     if (target === 'tizen') {
                         // Local -> Tizen (Push)
-                        socket.emit('push_tizen_file', { deviceId, localPath: srcFull, remotePath: currentDestPath + (currentDestPath.endsWith('/') ? '' : '/') + name });
+                        socket.emit('push_tizen_file', { deviceId, localPath: srcFull, remotePath: currentDestPath + (currentDestPath.endsWith('/') ? '' : '/') + name, sdbPath });
                     } else {
                         // Tizen -> Local (Pull)
                         const sep = localPath.includes('\\') ? '\\' : '/';
-                        socket.emit('pull_tizen_file', { deviceId, remotePath: srcFull, localPath: currentDestPath + (currentDestPath.endsWith(sep) ? '' : sep) + name });
+                        socket.emit('pull_tizen_file', { deviceId, remotePath: srcFull, localPath: currentDestPath + (currentDestPath.endsWith(sep) ? '' : sep) + name, sdbPath });
                     }
                 }
             });
