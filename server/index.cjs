@@ -642,6 +642,9 @@ const handleSocketConnection = (socket, deps = {}) => {
                         if (sdbProcess && sdbProcess.pid) {
                             console.log('[SDB] ✓ Process spawned successfully, PID:', sdbProcess.pid);
                             logDebug(`Process spawned with PID: ${sdbProcess.pid}`);
+
+                            // CRITICAL: Notify client that connection succeeded
+                            socket.emit('sdb_status', { status: 'connected', message: 'SDB Connected successfully' });
                         }
 
                         if (!sdbProcess) {
@@ -780,6 +783,150 @@ const handleSocketConnection = (socket, deps = {}) => {
         }
     });
 
+
+    // --- SDB Remote Connection Handler (for Auto-Scan button) ---
+    socket.on('connect_sdb_remote', ({ ip, sdbPath }) => {
+        console.log(`[SDB Remote] Attempting to connect to ${ip}...`);
+
+        // Try system sdb first, fallback to custom path
+        const tryConnect = (sdbBin) => {
+            return new Promise((resolve, reject) => {
+                const disconnectCmd = process.platform === 'win32'
+                    ? `chcp 65001 > nul && "${sdbBin}" disconnect ${ip}`
+                    : `"${sdbBin}" disconnect ${ip}`;
+
+                exec(disconnectCmd, (dErr) => {
+                    // Ignore disconnect errors (device might not be connected)
+                    const connectCmd = process.platform === 'win32'
+                        ? `chcp 65001 > nul && "${sdbBin}" connect ${ip}`
+                        : `"${sdbBin}" connect ${ip}`;
+
+                    exec(connectCmd, { encoding: 'utf-8', timeout: 10000 }, (cErr, stdout, stderr) => {
+                        if (cErr) {
+                            reject(new Error(stderr || cErr.message));
+                        } else {
+                            resolve(stdout);
+                        }
+                    });
+                });
+            });
+        };
+
+        // Try system sdb first
+        tryConnect('sdb')
+            .then((result) => {
+                console.log(`[SDB Remote] Connected via system sdb: ${result}`);
+
+                // Check if connection succeeded or if we need root
+                const rootCmd = process.platform === 'win32'
+                    ? `chcp 65001 > nul && sdb root on`
+                    : `sdb root on`;
+
+                exec(rootCmd, (rErr, rOut) => {
+                    const message = rOut && rOut.includes('already')
+                        ? 'Connected and rooted'
+                        : 'Connected successfully';
+                    socket.emit('sdb_remote_result', { success: true, message });
+                });
+            })
+            .catch((systemErr) => {
+                // System sdb failed, try custom path if provided
+                if (sdbPath && sdbPath.trim().length > 0) {
+                    console.log(`[SDB Remote] System sdb failed, trying custom path: ${sdbPath}`);
+                    tryConnect(sdbPath)
+                        .then((result) => {
+                            console.log(`[SDB Remote] Connected via custom sdb: ${result}`);
+
+                            const rootCmd = process.platform === 'win32'
+                                ? `chcp 65001 > nul && "${sdbPath}" root on`
+                                : `"${sdbPath}" root on`;
+
+                            exec(rootCmd, (rErr, rOut) => {
+                                const message = rOut && rOut.includes('already')
+                                    ? 'Connected and rooted'
+                                    : 'Connected successfully';
+                                socket.emit('sdb_remote_result', { success: true, message });
+                            });
+                        })
+                        .catch((customErr) => {
+                            console.error(`[SDB Remote] Both attempts failed:`, customErr.message);
+                            socket.emit('sdb_remote_result', {
+                                success: false,
+                                message: `Failed: ${customErr.message}`
+                            });
+                        });
+                } else {
+                    console.error(`[SDB Remote] System sdb failed and no custom path:`, systemErr.message);
+                    socket.emit('sdb_remote_result', {
+                        success: false,
+                        message: `Failed: ${systemErr.message}`
+                    });
+                }
+            });
+    });
+
+    socket.on('list_sdb_devices', ({ sdbPath } = {}) => {
+        console.log('[SDB] Listing devices...');
+
+        // Helper to parse output and emit
+        const parseAndEmit = (stdout) => {
+            const lines = (stdout || '').split('\n');
+            const devices = [];
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('List of devices')) continue;
+                if (trimmed.startsWith('*')) continue;
+                if (trimmed.includes('Active code page')) continue;
+                const parts = trimmed.split(/\s+/);
+                if (parts.length >= 1) {
+                    const id = parts[0];
+                    const type = parts.length > 1 ? parts[1] : 'unknown';
+                    if (id.includes('.') || id.length > 5) {
+                        devices.push({ id, type });
+                    }
+                }
+            }
+            console.log(`[SDB] Found ${devices.length} devices`);
+            socket.emit('sdb_devices', devices);
+        };
+
+        // 1. Try system 'sdb' first
+        const systemCmd = `sdb devices`;
+        // Use chcp 65001 to ensure UTF-8 output on Windows
+        const systemFullCmd = process.platform === 'win32' ? `chcp 65001 > nul && ${systemCmd}` : systemCmd;
+
+        exec(systemFullCmd, { encoding: 'utf-8' }, (error, stdout, stderr) => {
+            // Check if successful. Note: stderr might contain warnings, so mainly check error code or "not found"
+            const systemFailed = error || (stderr && (stderr.includes('not found') || stderr.includes('is not recognized')));
+
+            if (!systemFailed) {
+                console.log('[SDB] System sdb worked.');
+                parseAndEmit(stdout);
+                return;
+            }
+
+            // If system sdb failed, and we have a custom path, try that
+            if (sdbPath && sdbPath.trim().length > 0) {
+                console.log(`[SDB] System sdb failed, trying custom path: ${sdbPath}`);
+                const customCmd = `"${sdbPath}" devices`;
+                const customFullCmd = process.platform === 'win32' ? `chcp 65001 > nul && ${customCmd}` : customCmd;
+
+                exec(customFullCmd, { encoding: 'utf-8' }, (cErr, cOut, cStderr) => {
+                    if (cErr) {
+                        console.error('[SDB] Custom sdb also failed:', cErr.message);
+                        // Emit empty list but maybe with a toast? For now just empty.
+                        socket.emit('sdb_devices', []);
+                    } else {
+                        console.log('[SDB] Custom sdb worked.');
+                        parseAndEmit(cOut);
+                    }
+                });
+            } else {
+                console.error('[SDB] System sdb failed and no custom path provided.');
+                socket.emit('sdb_devices', []);
+            }
+        });
+    });
 
     // --- Block Test Plugin Handlers ---
 

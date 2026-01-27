@@ -258,7 +258,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
         if (socket) {
             // Keep scanning true until list returns
             setSdbDevices([]);
-            socket.emit('list_sdb_devices');
+            socket.emit('list_sdb_devices', { sdbPath });
         }
     };
 
