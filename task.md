@@ -1,20 +1,4 @@
-# 제안: 실시간 센서 데이터 그래프 모니터링 (Live Sensor Graph)
-
-ST Lab에 **실시간 모니터링 탭**을 추가하여, SmartThings SSE 이벤트를 통해 수신되는 센서 데이터(온도, 전력량, 습도 등)를 시각적인 그래프로 보여주는 기능을 제안합니다.
-
-## 제안 배경
-*   현재 Raw Data와 Log만으로는 시간의 흐름에 따른 데이터 변화를 파악하기 어렵습니다.
-*   `recharts` 라이브러리가 이미 프로젝트에 포함되어 있어 즉시 구현이 가능합니다.
-*   "Lab"이라는 목적에 맞게, 디바이스의 상태 변화 패턴을 분석하는 도구가 필요합니다.
-
-## 구현 기능 상세
-1.  **Monitor 탭 추가**: ST Lab 메인 탭에 'Monitor' 추가.
-2.  **실시간 차트**:
-    *   선택된 디바이스의 수치형 속성(Attribute) 자동 감지.
-    *   SSE 이벤트 수신 시 실시간으로 차트에 데이터 포인트 업데이트.
-3.  **다중 속성 지원**: 온도, 습도, 배터리 등 여러 속성을 탭이나 범례로 구분하여 표시.
-
-## 기대 효과
-*   센서 값의 변동 추이를 한눈에 파악 가능.
-*   명령 실행 후 값이 어떻게 변하는지 시각적으로 즉시 확인 가능 (피드백 루프).
-*   전반적인 플러그인의 전문성 및 심미성(UI Wows) 강화.
+# Tizen Log Extractor Fix
+- [x] Investigate "request timed out" error during SDB connection <!-- id: 0 -->
+- [x] Add timeout handling to server-side SDB verification process <!-- id: 1 -->
+- [ ] Verify fix with user <!-- id: 2 -->

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Server, Terminal, RefreshCw, Wifi, Usb, ShieldAlert } from 'lucide-react';
+import { X, Server, Terminal, RefreshCw, Wifi, Usb, ShieldAlert, Info } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 
 interface TizenConnectionModalProps {
@@ -41,6 +41,10 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
     useEffect(() => { localStorage.setItem('sshPort', sshPort); }, [sshPort]);
     useEffect(() => { localStorage.setItem('sshUser', sshUser); }, [sshUser]);
     useEffect(() => { localStorage.setItem('sshPassword', sshPassword); }, [sshPassword]);
+
+    // SDB Path
+    const [sdbPath, setSdbPath] = useState(() => localStorage.getItem('tizen_sdb_path') || '');
+
     // SDB State
     const [sdbDevices, setSdbDevices] = useState<{ id: string, type: string }[]>([]);
     const [selectedDeviceId, setSelectedDeviceId] = useState(() => localStorage.getItem('lastSdbDeviceId') || '');
@@ -48,7 +52,12 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
 
     useEffect(() => { localStorage.setItem('lastSdbDeviceId', selectedDeviceId); }, [selectedDeviceId]);
     const [debugMode, setDebugMode] = useState(false);
-    const [saveToFile, setSaveToFile] = useState(false);
+
+    // Persist Save to File preference
+    const [saveToFile, setSaveToFile] = useState(() => localStorage.getItem('tizen_auto_save_logs') === 'true');
+    useEffect(() => {
+        localStorage.setItem('tizen_auto_save_logs', String(saveToFile));
+    }, [saveToFile]);
 
     // Connection Status
     const [status, setStatus] = useState<string>('');
@@ -138,7 +147,8 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                                 debug: debugMode,
                                 saveToFile: saveToFile,
                                 command: logCommand,
-                                tags: tags || []
+                                tags: tags || [],
+                                sdbPath
                             });
                         } else {
                             console.warn('[QuickConnect] Unknown mode, closing modal');
@@ -258,7 +268,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
             setStatus('Connecting to 192.168.250.250...');
             setError('');
             startTimeout();
-            socket.emit('connect_sdb_remote', { ip: '192.168.250.250' });
+            socket.emit('connect_sdb_remote', { ip: '192.168.250.250', sdbPath });
         }
     };
 
@@ -328,7 +338,8 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                 debug: debugMode,
                 saveToFile: saveToFile,
                 command: logCommand,
-                tags: tags || []
+                tags: tags || [],
+                sdbPath
             });
         }
     };
@@ -418,7 +429,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                                 </button>
                             </div>
                             <select
-                                className="w-full bg-slate-800 text-slate-200 p-3 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none"
+                                className="w-full bg-slate-800 text-slate-200 p-3 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none mb-4"
                                 value={selectedDeviceId}
                                 onChange={(e) => setSelectedDeviceId(e.target.value)}
                             >
@@ -427,6 +438,24 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                                     <option key={d.id} value={d.id}>{d.id} ({d.type})</option>
                                 ))}
                             </select>
+
+                            <div className="pt-2 border-t border-slate-800">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-1">
+                                    SDB Path (Optional)
+                                    <span title="Specify full path to sdb.exe if not in System PATH" className="cursor-help flex items-center">
+                                        <Info size={10} />
+                                    </span>
+                                </label>
+                                <input
+                                    className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-xs font-mono text-slate-400 placeholder-slate-700 focus:border-indigo-500/50 focus:text-indigo-300 transition-colors outline-none"
+                                    placeholder="e.g. C:\tizen-studio\tools\sdb.exe"
+                                    value={sdbPath}
+                                    onChange={(e) => {
+                                        setSdbPath(e.target.value);
+                                        localStorage.setItem('tizen_sdb_path', e.target.value);
+                                    }}
+                                />
+                            </div>
                         </div>
                     )}
 

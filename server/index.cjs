@@ -580,14 +580,29 @@ const handleSocketConnection = (socket, deps = {}) => {
 
                 // Step 0: Quick check if device is reachable
                 const checkArgs = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', 'echo', 'READY'] : ['shell', 'echo', 'READY'];
+                console.log(`[SDB] Verifying device with: ${getSdbBin(sdbPath)} ${checkArgs.join(' ')}`);
+
                 const checker = spawnProc(getSdbBin(sdbPath), checkArgs);
                 let checkerOutput = '';
                 let checkerError = '';
+                let checkerKilled = false;
+
+                // Timeout for verification
+                const checkerTimeout = setTimeout(() => {
+                    console.error('[SDB] Verification timed out (5s). Killing checker...');
+                    checkerKilled = true;
+                    checker.kill();
+                    socket.emit('sdb_error', { message: 'Device connection verify timed out (5s). Check USB/Network.' });
+                    if (debugStream) { debugStream.end(); debugStream = null; }
+                    if (logFileStream) { logFileStream.end(); logFileStream = null; }
+                }, 5000);
 
                 checker.stdout.on('data', d => checkerOutput += d.toString());
                 checker.stderr.on('data', d => checkerError += d.toString());
 
                 checker.on('close', (code) => {
+                    clearTimeout(checkerTimeout);
+                    if (checkerKilled) return;
                     try {
                         if (code !== 0 || !checkerOutput.includes('READY')) {
                             const errMsg = checkerError.trim() || `Device not responding (Exit code: ${code})`;
