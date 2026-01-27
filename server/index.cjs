@@ -2212,6 +2212,81 @@ const handleSocketConnection = (socket, deps = {}) => {
         // ... previous handlers ...
     });
 
+    // --- Tizen App Manager Handlers ---
+    socket.on('list_tizen_apps', ({ deviceId, sdbPath }) => {
+        console.log(`[TizenAppManager] Listing apps on ${deviceId || 'default'}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', 'app_launcher -l'] : ['shell', 'app_launcher -l'];
+
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
+            if (error) {
+                socket.emit('list_tizen_apps_result', { success: false, error: stderr });
+                return;
+            }
+
+            // Parse app_launcher output
+            // Format: [pkgId] [name] ([status])
+            const lines = stdout.split('\n');
+            const apps = [];
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('---') || trimmed.startsWith('Package') || trimmed.startsWith('Total')) continue;
+
+                // Example: org.tizen.settings Settings (Stopped)
+                const match = trimmed.match(/^(\S+)\s+(.+?)\s+\((.+)\)$/);
+                if (match) {
+                    apps.push({
+                        pkgId: match[1],
+                        name: match[2].trim(),
+                        status: match[3].trim()
+                    });
+                }
+            }
+
+            console.log(`[TizenAppManager] Found ${apps.length} apps`);
+            socket.emit('list_tizen_apps_result', { success: true, apps });
+        });
+    });
+
+    socket.on('launch_tizen_app', ({ deviceId, pkgId, sdbPath }) => {
+        console.log(`[TizenAppManager] Launching ${pkgId} on ${deviceId || 'default'}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `app_launcher -s ${pkgId}`] : ['shell', `app_launcher -s ${pkgId}`];
+
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
+            if (error) {
+                socket.emit('operation_result', { target: 'tizen_app', success: false, op: 'launch', pkgId, error: stderr });
+            } else {
+                socket.emit('operation_result', { target: 'tizen_app', success: true, op: 'launch', pkgId, output: stdout });
+            }
+        });
+    });
+
+    socket.on('terminate_tizen_app', ({ deviceId, pkgId, sdbPath }) => {
+        console.log(`[TizenAppManager] Terminating ${pkgId} on ${deviceId || 'default'}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `app_launcher -k ${pkgId}`] : ['shell', `app_launcher -k ${pkgId}`];
+
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
+            if (error) {
+                socket.emit('operation_result', { target: 'tizen_app', success: false, op: 'terminate', pkgId, error: stderr });
+            } else {
+                socket.emit('operation_result', { target: 'tizen_app', success: true, op: 'terminate', pkgId, output: stdout });
+            }
+        });
+    });
+
+    socket.on('uninstall_tizen_app', ({ deviceId, pkgId, sdbPath }) => {
+        console.log(`[TizenAppManager] Uninstalling ${pkgId} on ${deviceId || 'default'}`);
+        const args = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', `pkgcmd -u -n ${pkgId}`] : ['shell', `pkgcmd -u -n ${pkgId}`];
+
+        handleSdbCommand(`${getSdbCmd(sdbPath)} ${args.join(' ')}`, (error, stdout, stderr) => {
+            if (error) {
+                socket.emit('operation_result', { target: 'tizen_app', success: false, op: 'uninstall', pkgId, error: stderr });
+            } else {
+                socket.emit('operation_result', { target: 'tizen_app', success: true, op: 'uninstall', pkgId, output: stdout });
+            }
+        });
+    });
+
     // --- Local PC File Explorer Handlers ---
     socket.on('list_local_files', async ({ path: localPath }) => {
         const trimmedPath = (localPath || '').trim();
