@@ -11,6 +11,7 @@ const jimp = require('jimp');
 
 // Global BlockTest Dir (Configurable via startServer)
 let globalBlockTestDir = path.join(process.cwd(), 'BlockTest');
+let globalUserDataPath = null;
 
 // Lazy load OpenCV
 let cv = null;
@@ -245,16 +246,20 @@ const handleSocketConnection = (socket, deps = {}) => {
         if (saveToFile) {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const fileName = `ssh_${timestamp}.txt`;
-            const filePath = path.join(process.cwd(), fileName);
+            const basePath = globalUserDataPath || process.cwd();
+            const filePath = path.join(basePath, fileName);
             logFileStream = fs.createWriteStream(filePath, { flags: 'a' });
+            logFileStream.on('error', (err) => console.error(`[SSH] Failed to write to log file ${filePath}:`, err));
             console.log(`[SSH] Saving logs to ${filePath}`);
             socket.emit('log_data', `[System] Saving logs to file: ${fileName}\n`);
         }
 
         if (debug) {
             const fileName = `tizen_debug_ssh_${Date.now()}.log`;
-            const filePath = path.join(process.cwd(), fileName);
+            const basePath = globalUserDataPath || process.cwd();
+            const filePath = path.join(basePath, fileName);
             debugStream = fs.createWriteStream(filePath, { flags: 'a' });
+            debugStream.on('error', (err) => console.error(`[SSH] Failed to write to debug file ${filePath}:`, err));
             console.log(`[SSH] Debug mode enabled, logging to: ${filePath}`);
             logDebug(`========== SSH Connection Debug Log ==========`);
             logDebug(`Starting SSH Connection to ${host}:${port} as ${username}`);
@@ -457,16 +462,20 @@ const handleSocketConnection = (socket, deps = {}) => {
         if (saveToFile) {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const fileName = `sdb_${timestamp}.txt`;
-            const filePath = path.join(process.cwd(), fileName);
+            const basePath = globalUserDataPath || process.cwd();
+            const filePath = path.join(basePath, fileName);
             logFileStream = fs.createWriteStream(filePath, { flags: 'a' });
+            logFileStream.on('error', (err) => console.error(`[SDB] Failed to write to log file ${filePath}:`, err));
             console.log(`[SDB] Saving logs to ${filePath}`);
             socket.emit('log_data', `[System] Saving logs to file: ${fileName}\n`);
         }
 
         if (debug) {
             const fileName = `tizen_debug_sdb_${Date.now()}.log`;
-            const filePath = path.join(process.cwd(), fileName);
+            const basePath = globalUserDataPath || process.cwd();
+            const filePath = path.join(basePath, fileName);
             debugStream = fs.createWriteStream(filePath, { flags: 'a' });
+            debugStream.on('error', (err) => console.error(`[SDB] Failed to write to debug file ${filePath}:`, err));
             console.log(`[SDB] Debug mode enabled, logging to: ${filePath}`);
             logDebug(`========== SDB Connection Debug Log ==========`);
             logDebug(`Starting SDB Connection to device: ${deviceId || 'auto-detect'}`);
@@ -1652,6 +1661,7 @@ const PORT = 3003;
 
 function startServer(userDataPath) {
     if (userDataPath) {
+        globalUserDataPath = userDataPath;
         globalBlockTestDir = path.join(userDataPath, 'BlockTest');
         console.log(`[Server] Updated BlockTest Dir to: ${globalBlockTestDir}`);
     }

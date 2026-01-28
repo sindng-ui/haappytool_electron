@@ -9,7 +9,7 @@ import { RawDataViewer } from './RawDataViewer';
 import { STLocation, STRoom, STDevice, STDeviceStatus } from './types';
 import * as Lucide from 'lucide-react';
 
-const { Settings, RefreshCw, Activity, Terminal, Database } = Lucide;
+const { Settings, RefreshCw, Activity, Terminal, Database, Smartphone } = Lucide;
 
 type SelectionType = 'LOCATION' | 'ROOM' | 'DEVICE';
 type Tab = 'DATA' | 'EVENTS' | 'LOGS';
