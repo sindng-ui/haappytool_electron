@@ -97,10 +97,16 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         return 2;
     });
 
+    // ✅ Performance: Debounce localStorage writes (1000ms)
+    // Prevents synchronous I/O blocking during rapid tab switching or reordering
     useEffect(() => {
-        const safeTabs = tabs.map(t => ({ id: t.id, title: t.title, filePath: t.filePath }));
-        localStorage.setItem('openTabs', JSON.stringify(safeTabs));
-        localStorage.setItem('activeTabId', activeTabId);
+        const timer = setTimeout(() => {
+            const safeTabs = tabs.map(t => ({ id: t.id, title: t.title, filePath: t.filePath }));
+            localStorage.setItem('openTabs', JSON.stringify(safeTabs));
+            localStorage.setItem('activeTabId', activeTabId);
+        }, 1000);
+
+        return () => clearTimeout(timer);
     }, [tabs, activeTabId]);
 
     // ✅ Drag & Drop state
@@ -410,7 +416,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                 </div>
             </div>
         </div>
-    ), [tabs, activeTabId, handleAddTab, handleCloseTab, handleGlobalDrop]);
+    ), [tabs, activeTabId, handleAddTab, handleCloseTab, handleGlobalDrop, draggedTabId, dragOverTabId, handleTabDragStart, handleTabDragOver, handleTabDragLeave, handleTabDrop, handleTabDragEnd]);
 
     const handleTitleChange = useCallback((tabId: string, newTitle: string) => {
         setTabs(current => current.map(t => t.id === tabId ? { ...t, title: newTitle } : t));
