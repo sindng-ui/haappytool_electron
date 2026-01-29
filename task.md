@@ -10,9 +10,10 @@
 - 애니메이션 개선
 - 디자인 토큰
 
-## 🎁 편의 기능 (2개)
+## 🎁 편의 기능 (3개)
 - Keyboard Shortcuts Panel (Ctrl+?)
 - Context Menu (우클릭)
+- **Drag & Drop Tab Reordering** ✨ (NEW)
 
 ## 상태
 ✅ **PERFECT!** 
@@ -22,3 +23,4 @@
 - PERFORMANCE_OPTIMIZATION_DONE.md
 - UI_IMPROVEMENT_DONE.md  
 - CONVENIENCE_FEATURES_DONE.md
+- DRAG_DROP_DONE.md

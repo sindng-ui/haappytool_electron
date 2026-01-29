@@ -103,6 +103,11 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         localStorage.setItem('activeTabId', activeTabId);
     }, [tabs, activeTabId]);
 
+    // ✅ Drag & Drop state
+    const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
+    const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
+
+
     const handleAddTab = useCallback((file: File | null = null) => {
         const newTabId = `tab-${tabCounter}`;
         const newTitle = file ? file.name : `New Log ${tabCounter}`;
@@ -224,6 +229,67 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         ]);
     }, [tabs, showContextMenu, handleDuplicateTab, handleCloseTab, handleCloseOtherTabs, handleCloseAllTabs]);
 
+    // ✅ Drag & Drop handlers
+    const handleTabDragStart = useCallback((e: React.DragEvent, tabId: string) => {
+        setDraggedTabId(tabId);
+        e.dataTransfer.effectAllowed = 'move';
+        // Set a semi-transparent drag image
+        if (e.currentTarget instanceof HTMLElement) {
+            const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
+            dragImage.style.opacity = '0.5';
+            document.body.appendChild(dragImage);
+            e.dataTransfer.setDragImage(dragImage, 0, 0);
+            setTimeout(() => document.body.removeChild(dragImage), 0);
+        }
+    }, []);
+
+    const handleTabDragOver = useCallback((e: React.DragEvent, tabId: string) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        if (draggedTabId && draggedTabId !== tabId) {
+            setDragOverTabId(tabId);
+        }
+    }, [draggedTabId]);
+
+    const handleTabDragLeave = useCallback(() => {
+        setDragOverTabId(null);
+    }, []);
+
+    const handleTabDrop = useCallback((e: React.DragEvent, targetTabId: string) => {
+        e.preventDefault();
+
+        if (!draggedTabId || draggedTabId === targetTabId) {
+            setDraggedTabId(null);
+            setDragOverTabId(null);
+            return;
+        }
+
+        const draggedIndex = tabs.findIndex(t => t.id === draggedTabId);
+        const targetIndex = tabs.findIndex(t => t.id === targetTabId);
+
+        if (draggedIndex === -1 || targetIndex === -1) {
+            setDraggedTabId(null);
+            setDragOverTabId(null);
+            return;
+        }
+
+        // ✅ Performance: Create new array with reordered tabs
+        const newTabs = [...tabs];
+        const [draggedTab] = newTabs.splice(draggedIndex, 1);
+        newTabs.splice(targetIndex, 0, draggedTab);
+
+        setTabs(newTabs);
+        setDraggedTabId(null);
+        setDragOverTabId(null);
+    }, [draggedTabId, tabs]);
+
+    const handleTabDragEnd = useCallback(() => {
+        setDraggedTabId(null);
+        setDragOverTabId(null);
+    }, []);
+
+
     // Keyboard Navigation for Tabs
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -276,16 +342,27 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                 <div className="flex items-end h-full gap-0.5 tab-container" style={{ minWidth: 'max-content' }}>
                     {tabs.map((tab, idx) => {
                         const isActive = tab.id === activeTabId;
+                        const isDragging = tab.id === draggedTabId;
+                        const isDragOver = tab.id === dragOverTabId;
+
                         return (
                             <div
                                 key={tab.id}
+                                draggable
                                 onClick={() => setActiveTabId(tab.id)}
                                 onContextMenu={(e) => handleTabContextMenu(e, tab.id)}
+                                onDragStart={(e) => handleTabDragStart(e, tab.id)}
+                                onDragOver={(e) => handleTabDragOver(e, tab.id)}
+                                onDragLeave={handleTabDragLeave}
+                                onDrop={(e) => handleTabDrop(e, tab.id)}
+                                onDragEnd={handleTabDragEnd}
                                 className={`
                                     group relative flex items-center gap-2 px-4 py-1.5 min-w-[120px] max-w-[200px] h-[36px] 
-                                    text-xs font-medium cursor-pointer rounded-t-lg border-t border-l border-r
+                                    text-xs font-medium cursor-move rounded-t-lg border-t border-l border-r
                                     transition-all duration-200 ease-out
                                     ${idx > 0 ? '-ml-3' : ''}
+                                    ${isDragging ? 'opacity-40 scale-95' : ''}
+                                    ${isDragOver ? 'border-indigo-400 border-2' : ''}
                                     ${isActive
                                         ? 'bg-slate-900 border-indigo-500/50 text-indigo-300 z-20 shadow-lg shadow-indigo-500/10 scale-[1.02]'
                                         : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-900/50 hover:text-slate-300 border-b-indigo-500/30 z-10 hover:z-15 hover:scale-[1.01]'
