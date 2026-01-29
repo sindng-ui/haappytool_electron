@@ -210,29 +210,38 @@ const AppContent: React.FC = () => {
     setIsSettingsLoaded(true);
   }, []);
 
-  // Auto-save settings when changed
+  // ✅ Performance: Auto-save settings with debounce to reduce I/O
   useEffect(() => {
     if (!isSettingsLoaded) return;
 
-    const settings: AppSettings = {
-      logRules,
-      savedRequests,
-      savedRequestGroups,
-      requestHistory,
-      envProfiles,
-      activeEnvId,
-      // postGlobalVariables is now just a snapshot of the active profile for legacy reasons if needed, 
-      // but we store the profiles structure as primary.
-      // We can still write it for safety if checking diffs? No need.
-      postGlobalAuth,
-      lastEndpoint: lastApiUrl,
-      lastMethod,
-      enabledPlugins
-    };
-    localStorage.setItem('devtool_suite_settings', JSON.stringify(settings));
+    // 1-second debounce to prevent excessive writes
+    const timer = setTimeout(() => {
+      const settings: AppSettings = {
+        logRules,
+        savedRequests,
+        savedRequestGroups,
+        requestHistory,
+        envProfiles,
+        activeEnvId,
+        postGlobalAuth,
+        lastEndpoint: lastApiUrl,
+        lastMethod,
+        enabledPlugins
+      };
+
+      try {
+        localStorage.setItem('devtool_suite_settings', JSON.stringify(settings));
+        // console.log('[App] Settings auto-saved to localStorage');
+      } catch (e) {
+        console.error('[App] Failed to save settings:', e);
+      }
+    }, 1000); // ✅ 1-second debounce
+
+    return () => clearTimeout(timer);
   }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins]);
 
-  const handleExportSettings = () => {
+  // ✅ Performance: Memoize export/import handlers
+  const handleExportSettings = React.useCallback(() => {
     const settings: AppSettings = {
       logRules,
       savedRequests,
@@ -255,9 +264,9 @@ const AppContent: React.FC = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
+  }, [logRules, savedRequests, savedRequestGroups, envProfiles, activeEnvId, postGlobalAuth, lastApiUrl, lastMethod, enabledPlugins]);
 
-  const handleImportSettings = (settings: AppSettings) => {
+  const handleImportSettings = React.useCallback((settings: AppSettings) => {
     if (settings.logRules) {
       // Migration for imported legacy rules
       const migratedRules = settings.logRules.map((r: any) => {
@@ -326,7 +335,7 @@ const AppContent: React.FC = () => {
 
     // Notify plugins to reload from localStorage
     window.dispatchEvent(new Event('happytool:settings-imported'));
-  };
+  }, [activeEnvId]); // ✅ Only depends on activeEnvId (setters are stable)
 
   const handleImportClick = () => {
     importInputRef.current?.click();
@@ -353,6 +362,27 @@ const AppContent: React.FC = () => {
     e.target.value = ''; // Reset
   };
 
+  // ✅ Performance: Separate memoization for derived values
+  const postGlobalVariables = React.useMemo(() =>
+    envProfiles.find(p => p.id === activeEnvId)?.variables || []
+    , [envProfiles, activeEnvId]);
+
+  const setPostGlobalVariables = React.useCallback((action: any) => {
+    setEnvProfiles(currentProfiles => {
+      const activeIdx = currentProfiles.findIndex(p => p.id === activeEnvId);
+      if (activeIdx === -1) return currentProfiles;
+
+      const activeProfile = currentProfiles[activeIdx];
+      const newVars = typeof action === 'function'
+        ? (action as (prev: PostGlobalVariable[]) => PostGlobalVariable[])(activeProfile.variables)
+        : action;
+
+      const newProfiles = [...currentProfiles];
+      newProfiles[activeIdx] = { ...activeProfile, variables: newVars };
+      return newProfiles;
+    });
+  }, [activeEnvId]); // ✅ Only depend on activeEnvId, not envProfiles
+
   const contextValue: HappyToolContextType = React.useMemo(() => ({
     logRules,
     setLogRules,
@@ -362,23 +392,8 @@ const AppContent: React.FC = () => {
     setSavedRequestGroups,
     requestHistory,
     setRequestHistory,
-    // Emulate old interface by deriving from active profile
-    postGlobalVariables: envProfiles.find(p => p.id === activeEnvId)?.variables || [],
-    setPostGlobalVariables: (action) => {
-      setEnvProfiles(currentProfiles => {
-        const activeIdx = currentProfiles.findIndex(p => p.id === activeEnvId);
-        if (activeIdx === -1) return currentProfiles;
-
-        const activeProfile = currentProfiles[activeIdx];
-        const newVars = typeof action === 'function'
-          ? (action as (prev: PostGlobalVariable[]) => PostGlobalVariable[])(activeProfile.variables)
-          : action;
-
-        const newProfiles = [...currentProfiles];
-        newProfiles[activeIdx] = { ...activeProfile, variables: newVars };
-        return newProfiles;
-      });
-    },
+    postGlobalVariables, // ✅ Already memoized
+    setPostGlobalVariables, // ✅ Stable callback
     envProfiles,
     setEnvProfiles,
     activeEnvId,
@@ -392,12 +407,12 @@ const AppContent: React.FC = () => {
     savedRequests,
     savedRequestGroups,
     requestHistory,
+    postGlobalVariables, // ✅ Now stable
+    setPostGlobalVariables, // ✅ Now stable
     envProfiles,
     activeEnvId,
-    postGlobalAuth,
-    lastApiUrl,
-    lastMethod,
-    requestHistory
+    postGlobalAuth
+    // ✅ Removed duplicates: requestHistory, lastApiUrl, lastMethod
   ]);
 
 

@@ -50,7 +50,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
             }
         }
         return undefined;
-    }, [data, preferences, levelMatchers]);
+    }, [data, levelMatchers]); // ✅ Performance: Removed 'preferences' to reduce recalculation
 
     const matchingHighlight = React.useMemo(() => {
         if (!lineHighlights || !data) return undefined;
@@ -164,5 +164,22 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                 )}
             </div>
         </div>
+    );
+}, (prevProps, nextProps) => {
+    // ✅ Performance: Custom comparison function to reduce unnecessary re-renders
+    // Only compare props that actually matter for rendering
+    return (
+        prevProps.data?.lineNum === nextProps.data?.lineNum &&
+        prevProps.data?.content === nextProps.data?.content &&
+        prevProps.isActive === nextProps.isActive &&
+        prevProps.isSelected === nextProps.isSelected &&
+        prevProps.hasBookmark === nextProps.hasBookmark &&
+        prevProps.isRawMode === nextProps.isRawMode &&
+        prevProps.highlightCaseSensitive === nextProps.highlightCaseSensitive &&
+        prevProps.preferences === nextProps.preferences &&
+        prevProps.levelMatchers === nextProps.levelMatchers &&
+        prevProps.textHighlights === nextProps.textHighlights &&
+        prevProps.lineHighlights === nextProps.lineHighlights
+        // ✅ Skip function props comparison (assumed stable from parent)
     );
 });

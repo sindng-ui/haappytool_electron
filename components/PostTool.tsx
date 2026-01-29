@@ -124,12 +124,19 @@ const PostTool: React.FC = () => {
     const handleMouseMove = () => { };
     const handleMouseUp = () => { };
 
+    // ✅ Performance: Debounce request updates to avoid excessive re-renders during typing
     useEffect(() => {
-        if (activeRequestId && activeRequestId !== 'temp') {
-            const updated = savedRequests.map(r => r.id === activeRequestId ? currentRequest : r);
+        if (!activeRequestId || activeRequestId === 'temp') return;
+
+        const timer = setTimeout(() => {
+            const updated = savedRequests.map(r =>
+                r.id === activeRequestId ? currentRequest : r
+            );
             onUpdateRequests(updated);
-        }
-    }, [currentRequest]);
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timer);
+    }, [currentRequest, activeRequestId]); // ✅ Removed savedRequests, onUpdateRequests to prevent infinite loop
 
     const handleNewRequest = (groupId?: string) => {
         const newId = generateUUID();
@@ -316,13 +323,19 @@ const PostTool: React.FC = () => {
                 timeTaken: endTime - startTime
             };
 
+            // ✅ Performance: Improved LRU cache update
             setResponseCache(prev => {
+                // Delete and re-insert to maintain LRU order
+                if (activeRequestId && prev.has(activeRequestId)) {
+                    prev.delete(activeRequestId);
+                }
+
+                // Add new/updated response (becomes most recent)
                 const next = new Map(prev);
                 if (activeRequestId) {
-                    next.delete(activeRequestId); // Re-insert to update order (LRU)
                     next.set(activeRequestId, newResponse);
 
-                    // LRU Limit: 10
+                    // LRU Limit: 10 (evict oldest)
                     if (next.size > 10) {
                         const firstKey = next.keys().next().value;
                         if (firstKey) next.delete(firstKey);
@@ -460,7 +473,7 @@ const PostTool: React.FC = () => {
                         onSelectHistory={(item) => {
                             setActiveRequestId(null);
                             setCurrentRequest({ ...item, id: generateUUID() }); // Clone as new
-                            setResponse(null);
+                            // Response will be derived from cache (no cached response = null)
                         }}
                     />
 

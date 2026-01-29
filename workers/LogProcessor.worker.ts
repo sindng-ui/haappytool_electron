@@ -47,10 +47,25 @@ function binarySearch(arr: Int32Array, val: number): number {
     return -1;
 }
 
-// --- Helper: Get Visual Bookmarks ---
+// --- Helper: Get Visual Bookmarks (with caching) ---
+// ✅ Performance: Cache bookmark positions to avoid repeated binary searches
+let bookmarkCache: number[] = [];
+let bookmarkCacheDirty = true;
+let lastFilteredIndicesLength = 0;
+
+const invalidateBookmarkCache = () => {
+    bookmarkCacheDirty = true;
+};
+
 const getVisualBookmarks = (): number[] => {
     if (!filteredIndices) return [];
 
+    // ✅ Check if cache is still valid
+    if (!bookmarkCacheDirty && filteredIndices.length === lastFilteredIndicesLength) {
+        return bookmarkCache;
+    }
+
+    // Rebuild cache
     const visualBookmarks: number[] = [];
 
     // Optimization: filteredIndices is always sorted.
@@ -64,6 +79,11 @@ const getVisualBookmarks = (): number[] => {
             visualBookmarks.push(vIdx);
         }
     });
+
+    // ✅ Update cache
+    bookmarkCache = visualBookmarks;
+    bookmarkCacheDirty = false;
+    lastFilteredIndicesLength = filteredIndices.length;
 
     return visualBookmarks;
 };
@@ -156,11 +176,15 @@ const initStream = () => {
     originalBookmarks.clear();
     streamBuffer = '';
     filteredIndices = new Int32Array(0);
+    lastFilterNotifyTime = 0; // ✅ Reset throttle timer
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready', mode: 'stream' } });
 };
 
 // --- Handler: Process Chunk (Stream) ---
 let streamBuffer = '';
+// ✅ Performance: Throttle FILTER_COMPLETE messages
+let lastFilterNotifyTime = 0;
+const MIN_NOTIFY_INTERVAL_MS = 500; // 500ms throttle
 
 const processChunk = (chunk: string) => {
     if (!isStreamMode) return;
@@ -205,7 +229,22 @@ const processChunk = (chunk: string) => {
         filteredIndices = new Int32Array(newMatches);
     }
 
-    respond({ type: 'FILTER_COMPLETE', payload: { matchCount: filteredIndices.length, totalLines: streamLines.length, visualBookmarks: getVisualBookmarks() } });
+    // ✅ Performance: Invalidate bookmark cache when filtered indices change
+    invalidateBookmarkCache();
+
+    // ✅ Performance: Only send update if enough time has passed (throttle)
+    const now = Date.now();
+    if (now - lastFilterNotifyTime >= MIN_NOTIFY_INTERVAL_MS) {
+        respond({
+            type: 'FILTER_COMPLETE',
+            payload: {
+                matchCount: filteredIndices.length,
+                totalLines: streamLines.length,
+                visualBookmarks: getVisualBookmarks()
+            }
+        });
+        lastFilterNotifyTime = now;
+    }
 };
 
 

@@ -660,11 +660,31 @@ export const useLogExtractorLogic = ({
 
 
     const flushTizenBuffer = useCallback(() => {
+        const MAX_CHUNK_TEXT_SIZE = 1024 * 512; // ✅ 512KB limit to prevent main thread blocking
+
         if (tizenBuffer.current.length === 0) return;
-        const combined = tizenBuffer.current.join('');
-        tizenBuffer.current = [];
-        // console.log(`[useLog] Flushing ${combined.length} bytes to worker`);
-        leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: combined });
+
+        let combined = '';
+        let chunkCount = 0;
+
+        // ✅ Performance: Process buffer in chunks to avoid large string operations
+        while (tizenBuffer.current.length > 0 && combined.length < MAX_CHUNK_TEXT_SIZE) {
+            const chunk = tizenBuffer.current.shift();
+            if (chunk) {
+                combined += chunk;
+                chunkCount++;
+            }
+        }
+
+        if (combined.length > 0) {
+            // console.log(`[useLog] Flushing ${combined.length} bytes (${chunkCount} chunks) to worker`);
+            leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: combined });
+        }
+
+        // ✅ If buffer still has data, schedule next flush in next frame
+        if (tizenBuffer.current.length > 0) {
+            requestAnimationFrame(() => flushTizenBuffer());
+        }
     }, []);
 
     const [connectionMode, setConnectionMode] = useState<'sdb' | 'ssh' | null>(null);
@@ -721,21 +741,26 @@ export const useLogExtractorLogic = ({
 
             tizenBuffer.current.push(chunk);
 
-            // "Better Way" (Adaptive):
-            // 1. If buffer gets too large (high traffic), flush immediately to prevent accumulation lag.
-            if (tizenBuffer.current.length > 2000) {
-                if (tizenBufferTimeout.current) clearTimeout(tizenBufferTimeout.current);
+            // ✅ Performance: Adaptive buffering strategy
+            const MAX_BUFFER_SIZE = 500; // Limit buffer size to prevent memory issues
+            const BUFFER_TIMEOUT_MS = 250; // Reduced from 500ms for better responsiveness
+
+            // 1. If buffer is too large, flush immediately
+            if (tizenBuffer.current.length >= MAX_BUFFER_SIZE) {
+                if (tizenBufferTimeout.current) {
+                    clearTimeout(tizenBufferTimeout.current);
+                    tizenBufferTimeout.current = null;
+                }
                 flushTizenBuffer();
-                tizenBufferTimeout.current = null;
                 return;
             }
 
-            // 2. Otherwise, buffer for 500ms to reduce UI flickering (User Request)
+            // 2. Otherwise, buffer with shorter timeout for better UI responsiveness
             if (!tizenBufferTimeout.current) {
                 tizenBufferTimeout.current = setTimeout(() => {
                     flushTizenBuffer();
                     tizenBufferTimeout.current = null;
-                }, 500); // Increased from 100ms to 500ms for smoother UI
+                }, BUFFER_TIMEOUT_MS);
             }
         });
 
