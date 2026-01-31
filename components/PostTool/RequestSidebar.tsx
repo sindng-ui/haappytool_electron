@@ -37,6 +37,7 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
 
     // DnD State
     const [draggedRequestId, setDraggedRequestId] = useState<string | null>(null);
+    const [draggedGroupId, setDraggedGroupId] = useState<string | null>(null);
     const [dragOverId, setDragOverId] = useState<string | null>(null); // Request ID or Group ID being hovered
     const [dragOverPosition, setDragOverPosition] = useState<'top' | 'bottom' | 'center' | null>(null); // center = into group
 
@@ -49,11 +50,12 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
 
     const getMethodColor = (m: string) => {
         switch (m) {
-            case 'GET': return 'text-blue-400';
-            case 'POST': return 'text-green-400';
-            case 'DELETE': return 'text-red-400';
-            case 'PUT': return 'text-orange-400';
-            default: return 'text-slate-400';
+            case 'GET': return 'text-emerald-500 bg-emerald-500/10';
+            case 'POST': return 'text-blue-500 bg-blue-500/10';
+            case 'PUT': return 'text-orange-500 bg-orange-500/10';
+            case 'PATCH': return 'text-purple-500 bg-purple-500/10';
+            case 'DELETE': return 'text-red-500 bg-red-500/10';
+            default: return 'text-slate-400 bg-slate-400/10';
         }
     };
 
@@ -116,6 +118,7 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
 
     const handleDragEnd = () => {
         setDraggedRequestId(null);
+        setDraggedGroupId(null);
         setDragOverId(null);
         setDragOverPosition(null);
     };
@@ -138,6 +141,21 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
     const handleDragOverGroup = (e: React.DragEvent, groupId: string) => {
         e.preventDefault();
         e.stopPropagation();
+
+        // If dragging a group, calculate top/bottom like items
+        if (draggedGroupId) {
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            const pos = e.clientY < midY ? 'top' : 'bottom';
+
+            if (dragOverId !== groupId || dragOverPosition !== pos) {
+                setDragOverId(groupId);
+                setDragOverPosition(pos);
+            }
+            return;
+        }
+
+        // If drag ging a request into group header
         if (!draggedRequestId) return;
 
         // If hovering group header, we mean "Drop into group"
@@ -150,6 +168,32 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
     const handleDrop = (e: React.DragEvent, targetId: string, isGroup: boolean) => {
         e.preventDefault();
         e.stopPropagation();
+
+        // Handle Group D&D
+        if (draggedGroupId && onUpdateGroups) {
+            const sourceIndex = savedRequestGroups.findIndex(g => g.id === draggedGroupId);
+            if (sourceIndex === -1) return;
+
+            const newGroups = [...savedRequestGroups];
+            const [movedGroup] = newGroups.splice(sourceIndex, 1);
+
+            const targetIndex = newGroups.findIndex(g => g.id === targetId);
+            if (targetIndex !== -1) {
+                if (dragOverPosition === 'top') {
+                    newGroups.splice(targetIndex, 0, movedGroup);
+                } else {
+                    newGroups.splice(targetIndex + 1, 0, movedGroup);
+                }
+            } else {
+                newGroups.push(movedGroup);
+            }
+
+            onUpdateGroups(newGroups);
+            handleDragEnd();
+            return;
+        }
+
+        // Handle Request D&D
         if (!draggedRequestId || !onUpdateRequests) return;
 
         const sourceIndex = savedRequests.findIndex(r => r.id === draggedRequestId);
@@ -228,7 +272,7 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                 )}
 
                 <div className="flex items-center gap-2 overflow-hidden flex-1 pointer-events-none">
-                    <span className={`text-[10px] font-bold w-8 shrink-0 ${getMethodColor(req.method)}`}>{req.method}</span>
+                    <span className={`text-[10px] font-bold w-12 shrink-0 text-center py-0.5 rounded ${getMethodColor(req.method)}`}>{req.method}</span>
                     {editingId === req.id && activeRequestId === req.id ? (
                         <input
                             autoFocus
@@ -336,19 +380,34 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                     {/* Groups */}
                     {savedRequestGroups.map(group => {
                         const groupRequests = savedRequests.filter(r => r.groupId === group.id);
-                        const isGroupOver = dragOverId === group.id && dragOverPosition === 'center';
+                        const isGroupOver = dragOverId === group.id && (dragOverPosition === 'center' || (draggedGroupId && (dragOverPosition === 'top' || dragOverPosition === 'bottom')));
+                        const isGroupDragging = draggedGroupId === group.id;
                         const groupColorClass = getGroupColor(group.id);
 
                         return (
                             <div
                                 key={group.id}
-                                className={`mb-1 border rounded-xl overflow-hidden transition-all ${isGroupOver
+                                className={`mb-1 border rounded-xl overflow-hidden transition-all relative ${isGroupDragging ? 'opacity-30' : ''} ${isGroupOver && !draggedGroupId
                                     ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-500/10'
                                     : `${groupColorClass} bg-opacity-10 dark:bg-opacity-5` // Use colored bg/border
                                     }`}
                             >
+                                {/* Drop Indicators for Group D&D */}
+                                {isGroupOver && draggedGroupId && dragOverPosition === 'top' && (
+                                    <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500 z-50 rounded-t-xl" />
+                                )}
+                                {isGroupOver && draggedGroupId && dragOverPosition === 'bottom' && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 z-50 rounded-b-xl" />
+                                )}
+
                                 <div
-                                    className={`flex items-center justify-between p-2 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 group/header ${group.collapsed ? '' : 'border-b border-black/5 dark:border-white/5'}`}
+                                    draggable
+                                    onDragStart={(e) => {
+                                        setDraggedGroupId(group.id);
+                                        e.dataTransfer.effectAllowed = 'move';
+                                    }}
+                                    onDragEnd={handleDragEnd}
+                                    className={`flex items-center justify-between p-2 cursor-grab active:cursor-grabbing hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 group/header ${group.collapsed ? '' : 'border-b border-black/5 dark:border-white/5'}`}
                                     onClick={() => toggleGroup(group)}
                                     onDragOver={(e) => handleDragOverGroup(e, group.id)}
                                     onDrop={(e) => handleDrop(e, group.id, true)}
@@ -446,7 +505,7 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                                     className="p-3 hover:bg-slate-200/50 dark:hover:bg-white/5 cursor-pointer transition-colors group"
                                 >
                                     <div className="flex items-center justify-between mb-1">
-                                        <span className={`text-[10px] font-bold ${getMethodColor(item.method)}`}>{item.method}</span>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${getMethodColor(item.method)}`}>{item.method}</span>
                                         <span className="text-[10px] text-slate-400">{new Date(item.executedAt).toLocaleTimeString()}</span>
                                     </div>
                                     <div className="text-xs text-slate-700 dark:text-slate-300 truncate font-mono opacity-80 group-hover:opacity-100">

@@ -105,12 +105,51 @@ export interface AppSettings {
   enabledPlugins?: string[];
   blocks?: CommandBlock[];
   pipelines?: Pipeline[];
+  mockEndpoints?: MockEndpoint[];
 }
 
 export interface RequestGroup {
   id: string;
   name: string;
   collapsed: boolean;
+}
+
+// Test Assertions
+export interface TestAssertion {
+  id: string;
+  type: 'status' | 'jsonPath' | 'responseTime' | 'header';
+  field?: string; // JSON path or header name
+  operator: 'equals' | 'contains' | 'greaterThan' | 'lessThan' | 'exists';
+  expected?: string | number;
+}
+
+export interface TestResult {
+  assertionId: string;
+  passed: boolean;
+  actual: any;
+  expected: any;
+  message: string;
+}
+
+// Request Chaining
+export interface ResponseExtractor {
+  id: string;
+  name: string; // Variable name to save as
+  source: 'body' | 'header' | 'status';
+  jsonPath?: string; // e.g., "data.token"
+  headerName?: string;
+}
+
+// Mock Server
+export interface MockEndpoint {
+  id: string;
+  enabled: boolean;
+  method: string;
+  path: string; // e.g., "/api/users/:id"
+  statusCode: number;
+  headers: { key: string; value: string }[];
+  body: string;
+  delay?: number; // Response delay in ms
 }
 
 export interface SavedRequest {
@@ -127,6 +166,8 @@ export interface SavedRequest {
     basicUsername?: string;
     basicPassword?: string;
   };
+  tests?: TestAssertion[];
+  extractors?: ResponseExtractor[];
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
