@@ -11,7 +11,7 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete }) => {
     const [status, setStatus] = useState('Initializing...');
     const [isComplete, setIsComplete] = useState(false);
     const startTimeRef = React.useRef<number>(Date.now());
-    const MIN_DISPLAY_TIME = 3000; // 최소 3초 표시
+    const MIN_DISPLAY_TIME = 2000; // 최소 3초 표시
 
     useEffect(() => {
         console.log('[LoadingSplash] Component mounted');

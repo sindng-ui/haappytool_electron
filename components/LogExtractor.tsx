@@ -112,6 +112,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     // ✅ Drag & Drop state
     const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
     const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
+    const [dragOverPosition, setDragOverPosition] = useState<'left' | 'right'>('right');
 
 
     const handleAddTab = useCallback((file: File | null = null) => {
@@ -255,11 +256,18 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
 
         if (draggedTabId && draggedTabId !== tabId) {
             setDragOverTabId(tabId);
+
+            // Calculate drop position based on mouse X relative to tab center
+            const rect = e.currentTarget.getBoundingClientRect();
+            const mouseX = e.clientX;
+            const tabCenter = rect.left + rect.width / 2;
+            setDragOverPosition(mouseX < tabCenter ? 'left' : 'right');
         }
     }, [draggedTabId]);
 
     const handleTabDragLeave = useCallback(() => {
         setDragOverTabId(null);
+        setDragOverPosition('right');
     }, []);
 
     const handleTabDrop = useCallback((e: React.DragEvent, targetTabId: string) => {
@@ -277,23 +285,67 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         if (draggedIndex === -1 || targetIndex === -1) {
             setDraggedTabId(null);
             setDragOverTabId(null);
+            setDragOverPosition('right');
             return;
         }
 
-        // ✅ Performance: Create new array with reordered tabs
+        // ✅ Calculate drop position explicitly from event to avoid state race conditions
+        const rect = e.currentTarget.getBoundingClientRect();
+        const dropPos = (e.clientX < (rect.left + rect.width / 2)) ? 'left' : 'right';
+
+        // ✅ Calculate insert position based on calculated drop position
         const newTabs = [...tabs];
         const [draggedTab] = newTabs.splice(draggedIndex, 1);
-        newTabs.splice(targetIndex, 0, draggedTab);
+
+        // Adjust target index based on position and if we removed before target
+        let insertIndex = targetIndex;
+        if (dropPos === 'right') {
+            insertIndex = targetIndex + 1;
+        }
+        // If dragged from before target, decrement insert index
+        if (draggedIndex < targetIndex) {
+            insertIndex--;
+        }
+
+        newTabs.splice(insertIndex, 0, draggedTab);
 
         setTabs(newTabs);
         setDraggedTabId(null);
         setDragOverTabId(null);
+        setDragOverPosition('right');
     }, [draggedTabId, tabs]);
 
     const handleTabDragEnd = useCallback(() => {
         setDraggedTabId(null);
         setDragOverTabId(null);
+        setDragOverPosition('right');
     }, []);
+
+    // Tab color function (similar to Post Tool groups)
+    const getTabStyles = (id: string) => {
+        const styles = [
+            { base: 'border-blue-500/50 bg-blue-500/5', shadow: 'shadow-blue-500/10', gradient: 'from-blue-500 to-blue-400' },
+            { base: 'border-purple-500/50 bg-purple-500/5', shadow: 'shadow-purple-500/10', gradient: 'from-purple-500 to-purple-400' },
+            { base: 'border-pink-500/50 bg-pink-500/5', shadow: 'shadow-pink-500/10', gradient: 'from-pink-500 to-pink-400' },
+            { base: 'border-rose-500/50 bg-rose-500/5', shadow: 'shadow-rose-500/10', gradient: 'from-rose-500 to-rose-400' },
+            { base: 'border-red-500/50 bg-red-500/5', shadow: 'shadow-red-500/10', gradient: 'from-red-500 to-red-400' },
+            { base: 'border-indigo-500/50 bg-indigo-500/5', shadow: 'shadow-indigo-500/10', gradient: 'from-indigo-500 to-indigo-400' },
+            { base: 'border-violet-500/50 bg-violet-500/5', shadow: 'shadow-violet-500/10', gradient: 'from-violet-500 to-violet-400' },
+            { base: 'border-fuchsia-500/50 bg-fuchsia-500/5', shadow: 'shadow-fuchsia-500/10', gradient: 'from-fuchsia-500 to-fuchsia-400' },
+            { base: 'border-cyan-500/50 bg-cyan-500/5', shadow: 'shadow-cyan-500/10', gradient: 'from-cyan-500 to-cyan-400' },
+            { base: 'border-sky-500/50 bg-sky-500/5', shadow: 'shadow-sky-500/10', gradient: 'from-sky-500 to-sky-400' },
+            { base: 'border-teal-500/50 bg-teal-500/5', shadow: 'shadow-teal-500/10', gradient: 'from-teal-500 to-teal-400' },
+            { base: 'border-emerald-500/50 bg-emerald-500/5', shadow: 'shadow-emerald-500/10', gradient: 'from-emerald-500 to-emerald-400' },
+            { base: 'border-lime-500/50 bg-lime-500/5', shadow: 'shadow-lime-500/10', gradient: 'from-lime-500 to-lime-400' },
+            { base: 'border-amber-500/50 bg-amber-500/5', shadow: 'shadow-amber-500/10', gradient: 'from-amber-500 to-amber-400' },
+            { base: 'border-orange-500/50 bg-orange-500/5', shadow: 'shadow-orange-500/10', gradient: 'from-orange-500 to-orange-400' },
+        ];
+        let hash = 0;
+        for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+        return styles[Math.abs(hash) % styles.length];
+    };
+
+
 
 
     // Keyboard Navigation for Tabs
@@ -350,6 +402,11 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                         const isActive = tab.id === activeTabId;
                         const isDragging = tab.id === draggedTabId;
                         const isDragOver = tab.id === dragOverTabId;
+                        const tabStyles = getTabStyles(tab.id);
+
+                        const draggedIndex = tabs.findIndex(t => t.id === draggedTabId);
+                        const isLeftValid = draggedIndex !== idx - 1; // Don't show left indicator if dragging immediate previous tab
+                        const isRightValid = draggedIndex !== idx + 1; // Don't show right indicator if dragging immediate next tab
 
                         return (
                             <div
@@ -368,10 +425,9 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                                     transition-all duration-200 ease-out
                                     ${idx > 0 ? '-ml-3' : ''}
                                     ${isDragging ? 'opacity-40 scale-95' : ''}
-                                    ${isDragOver ? 'border-indigo-400 border-2' : ''}
                                     ${isActive
-                                        ? 'bg-slate-900 border-indigo-500/50 text-indigo-300 z-20 shadow-lg shadow-indigo-500/10 scale-[1.02]'
-                                        : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-900/50 hover:text-slate-300 border-b-indigo-500/30 z-10 hover:z-15 hover:scale-[1.01]'
+                                        ? `bg-slate-900 ${tabStyles.base} text-slate-200 z-20 shadow-lg ${tabStyles.shadow} scale-[1.02]`
+                                        : `bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-900/50 hover:text-slate-300 border-b-indigo-500/30 z-10 hover:z-15 hover:scale-[1.01]`
                                     }
                                 `}
                                 style={{
@@ -379,16 +435,24 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                                 }}
                                 title={tab.title}
                             >
+                                {/* Drop indicators - Smart hiding */}
+                                {isDragOver && draggedTabId && dragOverPosition === 'left' && isLeftValid && (
+                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 z-50 rounded-l-lg" />
+                                )}
+                                {isDragOver && draggedTabId && dragOverPosition === 'right' && isRightValid && (
+                                    <div className="absolute right-0 top-0 bottom-0 w-1 bg-indigo-500 z-50 rounded-r-lg" />
+                                )}
+
                                 <FileText
                                     size={12}
-                                    className={`transition-colors duration-200 ${isActive ? 'text-indigo-400' : 'opacity-50 group-hover:opacity-80'}`}
+                                    className={`transition-colors duration-200 ${isActive ? 'text-slate-200' : 'opacity-50 group-hover:opacity-80'}`}
                                 />
                                 <span className="truncate flex-1">{tab.title}</span>
                                 <button
                                     onClick={(e) => handleCloseTab(e, tab.id)}
                                     className={`
                                         opacity-0 group-hover:opacity-100 p-0.5 rounded-md transition-all duration-200
-                                        ${isActive ? 'hover:bg-indigo-500/20 text-indigo-400' : 'hover:bg-slate-700 text-slate-400'}
+                                        ${isActive ? 'hover:bg-slate-700/50 text-slate-300' : 'hover:bg-slate-700 text-slate-400'}
                                     `}
                                 >
                                     <X size={12} />
@@ -396,7 +460,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
 
                                 {/* Active indicator */}
                                 {isActive && (
-                                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-indigo-500 to-purple-500 rounded-t-full" />
+                                    <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r ${tabStyles.gradient} rounded-t-full`} />
                                 )}
                                 {/* Bottom border hider for active tab */}
                                 {isActive && (
