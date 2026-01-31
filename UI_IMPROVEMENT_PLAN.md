@@ -1,66 +1,176 @@
-# HappyTool UI/UX Enhancement Plan
+# 🎨 HappyTool UI 개선 계획
 
-This plan aims to elevate the aesthetic quality of HappyTool, making it feel premium, modern, and "alive" without compromising functionality.
+## 📋 현재 상태 분석
 
-## 1. Sidebar & Navigation (The First Impression)
-**Goal:** Transform the sidebar from a simple container into a sleek, floating command center.
+### LogExtractor
+- ✅ 탭 기반 UI
+- ✅ 36px 고정 헤더 (h-9)
+- ❌ 스크롤 불가
+- ❌ 일관성 없는 스타일
 
-- **Glassmorphism:** Replace the solid `bg-slate-950` with a semi-transparent `bg-slate-950/90` with `backdrop-blur-xl`. This adds depth.
-- **Floating Effect:** Instead of a full-height border, consider making the active tool indicator a "floating pill" or using a soft glowing border on the right.
-- **Interactive Icons:**
-  - Add subtle "breathing" animations or extensive glow on hover.
-  - Active state: Instead of a flat fill, use a gradient background (`bg-gradient-to-r from-indigo-600 to-indigo-500`) with a shadow.
-- **Logo Area:** Make the "HappyTool" header more dynamic, possibly with a subtle gradient text effect.
+### PostTool
+- 확인 필요
 
-## 2. Color System & Atmosphere
-**Goal:** Move away from utility-only grays to access curated, harmonious tones.
-
-- **Background Strategy:**
-  - **Base:** Deep, rich darks (e.g., `#0B0F19` instead of standard Slate-950) for better contrast with glows.
-  - **Surface:** Use slightly lighter, translucent layers (`bg-white/5`) for cards and panels to avoid the "boxy" look.
-- **Accent Colors:**
-  - Primary: **Electric Indigo** (`#6366f1`) - Already in use, but we will boost its presence with glows.
-  - Seconds: **Emerald** (Success), **Rose** (Error), **Amber** (Warning) - Use these for status indicators with slight desaturation to fit the dark theme.
-- **Glow Effects:** Use `box-shadow` to create colored light bleeds. E.g., a "Search" input might glow blue when focused.
-
-## 3. Configuration Panel & Cards
-**Goal:** Make settings and "Happy Combos" feel like distinct, physical cards on a glass surface.
-
-- **Card Styling:**
-  - Replace solid `bg-slate-800` with `bg-slate-900/60` + `backdrop-blur`.
-  - Add a subtle 1px border with a gradient (`border-white/5` to `border-transparent`) to simulate light hitting the top edge.
-- **Rounding:**
-  - Standardize on `rounded-2xl` for outer containers.
-  - Use `rounded-xl` for inner interactive elements (inputs, buttons).
-- **Tag Pills:**
-  - Change tags to `rounded-full` for a more organic feel.
-  - Add `hover:brightness-110` and scale transitions.
-
-## 4. Typography & Micro-Interactions
-**Goal:** Improve readability and engagement.
-
-- **Headers:** Use `tracking-tight` for large headers and `tracking-widest` + `uppercase` for small labels (already partially done, but will standardize).
-- **Inputs:**
-  - Remove standard borders. Use a background fill (`bg-black/20`) that highlights (`ring-2 ring-indigo-500/50`) on focus.
-- **Transitions:**
-  - Ensure all hover states have `duration-200` or `duration-300`.
-  - Add `active:scale-95` to buttons for tactile "click" feedback.
-
-## 5. Scrollbars & Layout
-- **Scrollbars:** Make them thinner (6px) and ensure the track is transparent, so the thumb looks like it's floating.
+### TPKExtractor
+- 확인 필요
 
 ---
 
-## Proposed Execution Phases
+## 🎯 개선 목표
 
-1.  **Phase 1: Global Theme & Sidebar**
-    - Update `index.css` with new backdrop/glass utilities if needed (or just use Tailwind).
-    - Refactor `Sidebar.tsx` to use the new glass style and active states.
-2.  **Phase 2: Configuration Panel Polish**
-    - Apply glassmorphism to `ConfigurationPanel.tsx`.
-    - Revamp the "Happy Combo" groups with clearer visual separation and "card" aesthetics.
-3.  **Phase 3: Micro-Interactions & Input Polish**
-    - Update `Button.tsx`, `IconButton.tsx`, and Inputs across the app to have the new premium feel (glows, transitions).
-4.  **Phase 4: Review & Tweak**
-    - Check contrast ratios.
-    - Ensure performance isn't impacted by too many blurs.
+### 1. 통일된 Title Bar ⭐
+- **높이**: 40px (h-10) 통일
+- **스타일**: 공통 디자인 시스템
+- **구성**: [아이콘] [제목] [액션 버튼들]
+
+### 2. 스크롤 가능한 Title Bar 🔄
+- Horizontal scroll for tabs
+- Smooth scrolling
+- Hide scrollbar (보기 좋게)
+
+### 3. UI 일관성 📐
+- 색상 팔레트 통일
+- 간격/여백 표준화
+- 애니메이션 표준화
+
+### 4. 유려한 느낌 ✨
+- Smooth transitions (200ms)
+- Subtle shadows
+- Hover effects
+- Micro-animations
+
+### 5. 편의성 개선 🚀
+- Drag tabs to reorder
+- Keyboard shortcuts indicator
+- Quick actions menu
+- Context menu
+
+---
+
+## 🛠️ 구현 계획
+
+### Phase 1: 공통 컴포넌트 (30분)
+1. **TitleBar 컴포넌트** 생성
+   - 재사용 가능한 title bar
+   - Props: title, icon, actions, scrollable
+
+2. **디자인 토큰** 정의
+   - colors.ts
+   - spacing.ts
+   - animations.ts
+
+### Phase 2: LogExtractor 개선 (20분)
+1. 새 TitleBar 적용
+2. 탭 스크롤 개선
+3. 애니메이션 추가
+
+### Phase 3: PostTool 개선 (20분)
+1. TitleBar 통일
+2. 레이아웃 개선
+
+### Phase 4: TPKExtractor 개선 (15분)
+1. TitleBar 통일
+2. 일관성 확보
+
+### Phase 5: 전체 폴리싱 (15분)
+1. 애니메이션 조정
+2. 색상 조화
+3. 최종 테스트
+
+---
+
+## 🎨 디자인 시스템
+
+### Colors
+```css
+--bg-primary: #0f172a (slate-950)
+--bg-secondary: #1e293b (slate-900)
+--bg-tertiary: #334155 (slate-800)
+
+--accent-primary: #6366f1 (indigo-500)
+--accent-hover: #818cf8 (indigo-400)
+--accent-active: #4f46e5 (indigo-600)
+
+--text-primary: #f1f5f9 (slate-100)
+--text-secondary: #cbd5e1 (slate-300)
+--text-muted: #94a3b8 (slate-400)
+
+--border-default: rgba(99, 102, 241, 0.3)
+--border-subtle: rgba(255, 255, 255, 0.1)
+```
+
+### Spacing
+```css
+--spacing-xs: 4px
+--spacing-sm: 8px
+--spacing-md: 12px
+--spacing-lg: 16px
+--spacing-xl: 24px
+```
+
+### Animations
+```css
+--transition-fast: 150ms ease
+--transition-normal: 200ms ease
+--transition-slow: 300ms ease
+```
+
+---
+
+## ✨ 새로운 기능
+
+### 1. Drag & Drop Tab Reordering
+- 탭 순서 변경 가능
+- 부드러운 애니메이션
+
+### 2. Keyboard Shortcuts
+- Ctrl+T: 새 탭
+- Ctrl+W: 탭 닫기
+- Ctrl+Tab: 다음 탭
+- Ctrl+Shift+Tab: 이전 탭
+
+### 3. Context Menu
+- 우클릭 메뉴
+- 탭 복제
+- 모든 탭 닫기
+- 다른 탭 닫기
+
+### 4. Quick Actions
+- Floating action button
+- 자주 쓰는 기능 빠른 접근
+
+---
+
+## 🚀 성능 고려사항
+
+### ✅ 최적화 방법
+1. **CSS Transform 사용** - GPU 가속
+2. **useCallback/useMemo** - 리렌더링 방지
+3. **Virtual Scrolling** - 많은 탭 대응
+4. **Debounce** - 과도한 이벤트 방지
+
+### ❌ 피해야 할 것
+1. ~~Heavy animations~~ → Subtle만
+2. ~~Excessive re-renders~~ → Memoization
+3. ~~Large bundle size~~ → Native CSS
+
+---
+
+## 📝 체크리스트
+
+- [ ] TitleBar 공통 컴포넌트
+- [ ] 디자인 토큰 정의
+- [ ] LogExtractor 개선
+- [ ] PostTool 개선
+- [ ] TPKExtractor 개선
+- [ ] Drag & Drop
+- [ ] Context Menu
+- [ ] Keyboard Shortcuts
+- [ ] 애니메이션 폴리싱
+- [ ] 최종 테스트
+
+---
+
+**예상 소요 시간**: 약 1.5시간  
+**우선순위**: Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5  
+**시작 시간**: 2026-01-30 02:45 KST

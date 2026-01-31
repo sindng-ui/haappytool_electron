@@ -63,6 +63,10 @@ export class SmartThingsService {
         return this.request<STDeviceStatus>(`/devices/${deviceId}/status`);
     }
 
+    async getDeviceHealth(deviceId: string): Promise<{ state: 'ONLINE' | 'OFFLINE' | 'UNKNOWN', lastUpdatedDate?: string }> {
+        return this.request(`/devices/${deviceId}/health`);
+    }
+
     async executeCommand(deviceId: string, commands: STCommandRequest[]): Promise<any> {
         return this.request(`/devices/${deviceId}/commands`, {
             method: 'POST',
@@ -77,5 +81,27 @@ export class SmartThingsService {
 
     async getCapability(capabilityId: string, version: number): Promise<any> {
         return this.request(`/capabilities/${capabilityId}/${version}`);
+    }
+
+    // NEW: Virtual Device Management
+    async createVirtualDevice(data: { name: string, ownerId: string, locationId: string, deviceProfileId?: string }): Promise<any> {
+        return this.request('/devices', {
+            method: 'POST',
+            body: JSON.stringify({
+                label: data.name,
+                locationId: data.locationId,
+                prototype: 'VIRTUAL',
+                virtualDevice: {
+                    name: data.name,
+                    deviceProfileId: data.deviceProfileId
+                }
+            })
+        });
+    }
+
+    async deleteDevice(deviceId: string): Promise<any> {
+        return this.request(`/devices/${deviceId}`, {
+            method: 'DELETE'
+        });
     }
 }

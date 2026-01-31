@@ -21,6 +21,8 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
 
     // Raw Search
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+    const iframeRef = useRef<HTMLIFrameElement>(null);
 
     useEffect(() => {
         if (response) {
@@ -81,34 +83,66 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
 
     const handleRawSearch = (direction: 'next' | 'prev') => {
         if (!textareaRef.current || !searchText) return;
+
         const content = textareaRef.current.value.toLowerCase();
         const query = searchText.toLowerCase();
-        const currentPos = textareaRef.current.selectionStart;
+
+        // Use current selection end as start point for next, or start for prev
+        const currentPos = direction === 'next'
+            ? textareaRef.current.selectionEnd
+            : textareaRef.current.selectionStart;
 
         let index = -1;
         if (direction === 'next') {
-            index = content.indexOf(query, currentPos + 1);
-            if (index === -1) index = content.indexOf(query, 0); // Wrap
+            index = content.indexOf(query, currentPos);
+            // Wrap around
+            if (index === -1) index = content.indexOf(query, 0);
         } else {
+            // LastIndexOf searches backwards fromIndex
             index = content.lastIndexOf(query, currentPos - 1);
-            if (index === -1) index = content.lastIndexOf(query); // Wrap
+            // Wrap around
+            if (index === -1) index = content.lastIndexOf(query);
         }
 
         if (index !== -1) {
+            const wasSearchFocused = document.activeElement === searchInputRef.current;
+
             textareaRef.current.focus();
             textareaRef.current.setSelectionRange(index, index + query.length);
-
-            // Calculate scroll position
-            const textLines = content.substring(0, index).split('\n');
-            const lineNum = textLines.length;
-            const lineHeight = 16; // Approx line height for text-xs (12px) + padding
-            // It's hard to be exact with textarea, but we can try to center it
-            const scrollPos = (lineNum - 1) * lineHeight;
 
             // Basic scroll attempt (Blur/Focus trick usually works for native scroll-to-caret)
-            textareaRef.current.blur();
-            textareaRef.current.focus();
-            textareaRef.current.setSelectionRange(index, index + query.length);
+            // But we want to restore focus if user was typing
+            if (wasSearchFocused) {
+                // Immediate focus restore might hide selection in some browsers, 
+                // but checking scroll position is key. 
+                // Let's rely on browser behavior: focusing textarea usually scrolls to selection.
+                // Retaining focus in input is better for repeated 'Enter' usage.
+                setTimeout(() => searchInputRef.current?.focus(), 0);
+            }
+        }
+    };
+
+    const handleIframeSearch = (direction: 'next' | 'prev') => {
+        if (!iframeRef.current || !iframeRef.current.contentWindow) return;
+
+        // Note: window.find is non-standard but widely supported in Chromium
+        // It returns true if found.
+        const win = iframeRef.current.contentWindow as any;
+        if (win.find) {
+            // (aString, aCaseSensitive, aBackwards, aWrapAround, aWholeWord, aSearchInFrames, aShowDialog)
+            // Chrome: find(text, caseSensitive, backward, wrapAround)
+            // We need to implement wrapping manually or rely on find's boolean return
+
+            // Reset selection if new search? 
+            // Simple usage:
+            const found = win.find(searchText, false, direction === 'prev', true, false, true, false);
+
+            if (!found) {
+                // Wrap logic for find() roughly works with 'true' param in some versions, 
+                // but if not, we can reset selection.
+                // win.getSelection().collapse(document.body, 0);
+                // win.find(searchText, ...);
+            }
         }
     };
 
@@ -200,17 +234,26 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             if (viewMode === 'raw') handleRawSearch('next');
-            else if (viewMode === 'preview') handlePreviewNav('next');
+            else if (viewMode === 'preview') {
+                if (isJson) handlePreviewNav('next');
+                else handleIframeSearch('next');
+            }
             else if (viewMode === 'pretty') setTriggerNext(n => n + 1);
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
             if (viewMode === 'raw') handleRawSearch('next');
-            else if (viewMode === 'preview') handlePreviewNav('next');
+            else if (viewMode === 'preview') {
+                if (isJson) handlePreviewNav('next');
+                else handleIframeSearch('next');
+            }
             else if (viewMode === 'pretty') setTriggerNext(n => n + 1);
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             if (viewMode === 'raw') handleRawSearch('prev');
-            else if (viewMode === 'preview') handlePreviewNav('prev');
+            else if (viewMode === 'preview') {
+                if (isJson) handlePreviewNav('prev');
+                else handleIframeSearch('prev');
+            }
             else if (viewMode === 'pretty') setTriggerNext(n => n - 1);
         }
     };
@@ -288,6 +331,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                             <div className="relative flex-1">
                                 <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
+                                    ref={searchInputRef}
                                     type="text"
                                     placeholder={viewMode === 'pretty' ? "Search JSON..." : "Search text..."}
                                     value={searchText}
@@ -301,38 +345,23 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
 
                         {(viewMode === 'raw' || viewMode === 'preview') && searchText && (
                             <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded px-1 h-6 gap-1 border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-200">
-                                {viewMode === 'preview' && previewMatches.length > 0 && (
+                                {viewMode === 'preview' && isJson && previewMatches.length > 0 && (
                                     <span className="text-[10px] text-slate-500 px-1 font-mono">{previewMatchIndex + 1}/{previewMatches.length}</span>
                                 )}
-                                <button onClick={() => viewMode === 'raw' ? handleRawSearch('prev') : handlePreviewNav('prev')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowUp size={12} /></button>
-                                <button onClick={() => viewMode === 'raw' ? handleRawSearch('next') : handlePreviewNav('next')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowDown size={12} /></button>
+                                <button onClick={() => {
+                                    if (viewMode === 'raw') handleRawSearch('prev');
+                                    else if (isJson) handlePreviewNav('prev');
+                                    else handleIframeSearch('prev');
+                                }} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowUp size={12} /></button>
+                                <button onClick={() => {
+                                    if (viewMode === 'raw') handleRawSearch('next');
+                                    else if (isJson) handlePreviewNav('next');
+                                    else handleIframeSearch('next');
+                                }} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowDown size={12} /></button>
                             </div>
                         )}
 
-                        <div className="relative flex-1 max-w-sm flex items-center gap-1">
-                            <div className="relative flex-1">
-                                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input
-                                    type="text"
-                                    placeholder={viewMode === 'pretty' ? "Search JSON..." : "Search text..."}
-                                    value={searchText}
-                                    onChange={(e) => setSearchText(e.target.value)}
-                                    onKeyDown={handleKeyDown}
-                                    disabled={false}
-                                    className="w-full pl-8 pr-3 py-1 text-xs bg-white dark:bg-slate-800 border-none rounded-md focus:ring-1 focus:ring-indigo-500 placeholder-slate-400 text-slate-700 dark:text-slate-300 shadow-sm disabled:opacity-50"
-                                />
-                            </div>
-                        </div>
 
-                        {(viewMode === 'raw' || viewMode === 'preview') && searchText && (
-                            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded px-1 h-6 gap-1 border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-200">
-                                {viewMode === 'preview' && previewMatches.length > 0 && (
-                                    <span className="text-[10px] text-slate-500 px-1 font-mono">{previewMatchIndex + 1}/{previewMatches.length}</span>
-                                )}
-                                <button onClick={() => viewMode === 'raw' ? handleRawSearch('prev') : handlePreviewNav('prev')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowUp size={12} /></button>
-                                <button onClick={() => viewMode === 'raw' ? handleRawSearch('next') : handlePreviewNav('next')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowDown size={12} /></button>
-                            </div>
-                        )}
 
                         <div className="ml-auto flex items-center gap-1">
                             <button
@@ -369,9 +398,10 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                                 </div>
                             ) : (
                                 <iframe
+                                    ref={iframeRef}
                                     srcDoc={typeof response.data === 'string' ? response.data : JSON.stringify(response.data)}
                                     className="w-full h-full border-none bg-white"
-                                    sandbox="allow-scripts"
+                                    sandbox="allow-scripts allow-popups allow-modals allow-same-origin"
                                 />
                             )
                         ) : (

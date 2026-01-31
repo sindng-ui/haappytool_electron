@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { ChevronRight, ChevronDown, MapPin, Box, Smartphone, Search } from 'lucide-react';
 import { STLocation, STRoom, STDevice } from './types';
 
@@ -10,7 +10,7 @@ interface HierarchyPaneProps {
     selectedId?: string;
 }
 
-export const HierarchyPane: React.FC<HierarchyPaneProps> = ({ locations, rooms, devices, onSelect, selectedId }) => {
+export const HierarchyPane: React.FC<HierarchyPaneProps> = memo(({ locations, rooms, devices, onSelect, selectedId }) => {
     // Map data for easier access
     const [expandedLocs, setExpandedLocs] = useState<Set<string>>(new Set());
     const [expandedRooms, setExpandedRooms] = useState<Set<string>>(new Set());
@@ -130,4 +130,4 @@ export const HierarchyPane: React.FC<HierarchyPaneProps> = ({ locations, rooms, 
             </div>
         </div>
     );
-};
+});

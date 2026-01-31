@@ -33,7 +33,7 @@ export interface MemoryDataPoint {
     gpu: number;
 }
 
-export const useCpuData = (deviceId: string) => {
+export const useCpuData = (deviceId: string, sdbPath?: string) => {
     const [status, setStatus] = useState<string>('disconnected');
     const [data, setData] = useState<CpuDataPoint[]>([]);
     const [memoryData, setMemoryData] = useState<MemoryDataPoint[]>([]);
@@ -120,7 +120,7 @@ export const useCpuData = (deviceId: string) => {
         if (socketRef.current) {
             console.log('Emitting start_cpu_monitoring for device:', deviceId);
             setData([]); // Clear old data
-            socketRef.current.emit('start_cpu_monitoring', { deviceId });
+            socketRef.current.emit('start_cpu_monitoring', { deviceId, sdbPath });
         } else {
             console.error('Socket not initialized, cannot start monitoring');
         }
@@ -135,7 +135,7 @@ export const useCpuData = (deviceId: string) => {
     const startMemoryMonitoring = (appName: string, interval: number) => {
         if (socketRef.current) {
             setMemoryData([]);
-            socketRef.current.emit('start_memory_monitoring', { deviceId, appName, interval });
+            socketRef.current.emit('start_memory_monitoring', { deviceId, appName, interval, sdbPath });
         }
     };
 
@@ -148,7 +148,7 @@ export const useCpuData = (deviceId: string) => {
     const startThreadMonitoring = (pid: string) => {
         if (socketRef.current) {
             setThreads([]); // Clear old threads
-            socketRef.current.emit('start_thread_monitoring', { deviceId, pid });
+            socketRef.current.emit('start_thread_monitoring', { deviceId, pid, sdbPath });
         }
     };
 
@@ -161,7 +161,7 @@ export const useCpuData = (deviceId: string) => {
 
     const getCallStack = (pid: string, tid: string) => {
         if (socketRef.current) {
-            socketRef.current.emit('get_call_stack', { deviceId, pid, tid });
+            socketRef.current.emit('get_call_stack', { deviceId, pid, tid, sdbPath });
         }
     };
 

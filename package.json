@@ -1,7 +1,7 @@
 {
   "name": "happytool",
   "private": true,
-  "version": "0.9.8",
+  "version": "0.9.9",
   "type": "module",
   "homepage": "./",
   "main": "electron/main.js",
@@ -13,6 +13,7 @@
     "electron:build": "vite build && electron-builder",
     "test": "vitest run --no-color",
     "test:all": "vitest run --no-color",
+    "test:sdb": "vitest run --no-color test/sdb_connection.test.js",
     "test:frontend": "vitest run --no-color test/hooks/useLogExtractorLogic.test.tsx",
     "test:backend": "vitest run --no-color test/server_socket.test.js"
   },

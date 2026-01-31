@@ -71,11 +71,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
   return (
     <div className="h-full relative shrink-0 z-50">
       {/* Placeholder to reserve layout space */}
-      <div className="w-20 h-full" />
+      <div className="w-14 h-full" />
 
       {/* Floating Animated Sidebar */}
       <div
-        className={`absolute top-0 left-0 h-full glass-morphism text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden transform-gpu backface-hidden outline-none z-50 ${isExpanded ? 'w-72' : 'w-20'
+        className={`absolute top-0 left-0 h-full glass-morphism text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden transform-gpu backface-hidden outline-none z-50 ${isExpanded ? 'w-56' : 'w-14'
           }`}
         tabIndex={0}
         onBlur={handleBlur}
@@ -86,15 +86,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
           <div className={`transition-all duration-300 ${isExpanded ? 'scale-100' : 'scale-90'}`}>
             {isExpanded ? (
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 relative z-10 group-hover:scale-105 transition-transform duration-300">
-                  <span className="text-white font-black text-lg">H</span>
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 relative z-10 group-hover:scale-105 transition-transform duration-300">
+                  <span className="text-white font-black text-base">H</span>
                 </div>
-                <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-indigo-200 via-indigo-100 to-white bg-clip-text text-transparent drop-shadow-sm">
+                <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-indigo-200 via-indigo-100 to-white bg-clip-text text-transparent drop-shadow-sm">
                   HappyTool
                 </span>
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 animate-gradient-xy flex items-center justify-center shadow-lg shadow-indigo-500/40 ring-1 ring-white/20 group-hover:scale-110 transition-transform cursor-pointer relative overflow-hidden">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 animate-gradient-xy flex items-center justify-center shadow-lg shadow-indigo-500/40 ring-1 ring-white/20 group-hover:scale-110 transition-transform cursor-pointer relative overflow-hidden">
                 {/* Shine Effect */}
                 <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full group-hover:animate-[shimmer_1s_infinite]"></div>
 
@@ -105,7 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
           </div>
         </div>
 
-        <div className="flex-1 px-3 py-2 space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar">
+        <div className="flex-1 px-1 py-2 space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar">
           {activePlugins.map((plugin) => {
             const Icon = plugin.icon;
             const isActive = activePluginId === plugin.id;
@@ -120,7 +120,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                 onDragOver={handleDragOver}
                 onDragEnter={(e) => handleDragEnter(e, plugin.id)}
                 onClick={() => onSelectPlugin(plugin.id)}
-                className={`w-full flex items-center h-12 px-3 rounded-xl transition-all duration-200 group relative cursor-pointer outline-none border border-transparent ${isActive
+                className={`w-full flex items-center h-12 rounded-xl transition-all duration-200 group relative cursor-pointer outline-none border border-transparent ${isActive
                   ? 'bg-gradient-to-r from-indigo-600/90 to-indigo-500/90 backdrop-blur-md text-white shadow-lg shadow-indigo-500/25 border-indigo-400/20 scale-[1.02]'
                   : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 active:scale-95 hover:shadow-lg hover:shadow-indigo-500/10'
                   } ${isDragging ? 'opacity-20 border-dashed border-slate-600' : ''}`}
@@ -130,11 +130,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                     <GripVertical size={14} />
                   </div>
                 )}
-                <div className="min-w-[40px] flex items-center justify-center">
+                <div className="w-12 shrink-0 flex items-center justify-center">
                   <Icon className={`w-[22px] h-[22px] transition-transform duration-200 ${isActive ? 'scale-110 icon-glow' : 'group-hover:scale-110 group-hover:text-indigo-300'
                     }`} />
                 </div>
-                <span className={`ml-3 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
+                <span className={`ml-1 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
                   }`}>
                   {plugin.name}
                 </span>
@@ -161,13 +161,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                     setIsLabExpanded(!isLabExpanded);
                   }
                 }}
-                className={`w-full flex items-center h-10 px-3 rounded-xl transition-all duration-200 group relative cursor-pointer outline-none ${isLabExpanded ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500 hover:text-slate-300'
+                className={`w-full flex items-center h-10 rounded-xl transition-all duration-200 group relative cursor-pointer outline-none ${isLabExpanded ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500 hover:text-slate-300'
                   }`}
               >
-                <div className="min-w-[40px] flex items-center justify-center">
+                <div className="w-12 shrink-0 flex items-center justify-center">
                   <FlaskConical className={`w-5 h-5 transition-transform duration-200 ${isLabExpanded ? 'text-indigo-400' : 'group-hover:text-indigo-300'}`} />
                 </div>
-                <span className={`ml-3 font-medium text-[13px] uppercase tracking-wider whitespace-nowrap transition-all duration-300 flex-1 text-left ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'}`}>
+                <span className={`ml-1 font-medium text-[13px] uppercase tracking-wider whitespace-nowrap transition-all duration-300 flex-1 text-left ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'}`}>
                   Lab
                 </span>
                 {isExpanded && (
@@ -193,13 +193,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                       <button
                         key={plugin.id}
                         onClick={() => onSelectPlugin(plugin.id)}
-                        className={`w-full flex items-center h-10 px-3 rounded-lg transition-all duration-200 group relative cursor-pointer outline-none border border-transparent ${isActive
+                        className={`w-full flex items-center h-10 px-2 rounded-lg transition-all duration-200 group relative cursor-pointer outline-none border border-transparent ${isActive
                           ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
                           : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'
                           }`}
                       >
                         <div className="min-w-[30px] flex items-center justify-center">
-                          <Icon size={16} />
+                          <Icon className="w-4 h-4" />
                         </div>
                         <span className="ml-2 text-sm truncate">{plugin.name}</span>
                       </button>
@@ -211,17 +211,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
           )}
         </div>
 
-        <div className="px-3 pb-4 w-full mt-auto space-y-3">
+        <div className="px-1 pb-4 w-full mt-auto space-y-3">
           <div className={`h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent ${isExpanded ? 'opacity-100' : 'opacity-0'} transition-opacity`} />
 
           <button
             onClick={onOpenSettings}
-            className={`w-full flex items-center h-12 px-3 rounded-xl transition-all duration-200 group relative cursor-pointer text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 border border-transparent active:scale-95 hover:shadow-lg hover:shadow-indigo-500/10`}
+            className={`w-full flex items-center h-12 rounded-xl transition-all duration-200 group relative cursor-pointer text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 border border-transparent active:scale-95 hover:shadow-lg hover:shadow-indigo-500/10`}
           >
-            <div className="min-w-[40px] flex items-center justify-center">
+            <div className="w-12 shrink-0 flex items-center justify-center">
               <Settings className="w-[22px] h-[22px] group-hover:rotate-90 transition-transform duration-500 ease-out group-hover:text-indigo-300" />
             </div>
-            <span className={`ml-3 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
+            <span className={`ml-1 font-medium text-[15px] whitespace-nowrap transition-all duration-300 ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 hidden'
               }`}>
               Settings
             </span>

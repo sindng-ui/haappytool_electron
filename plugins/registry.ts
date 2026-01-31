@@ -13,7 +13,8 @@ import {
     ScreenMatcherPlugin,
     AiAssistantPlugin,
     RxFlowVisualizerPlugin,
-    SmartThingsLabPluginWrapper
+    SmartThingsLabPluginWrapper,
+    TizenLabPluginWrapper
 } from './core/wrappers';
 
 // Registry array to hold all registered plugins
@@ -31,7 +32,8 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     SmartHomeDashboardPlugin,
     ScreenMatcherPlugin,
     AiAssistantPlugin,
-    SmartThingsLabPluginWrapper
+    SmartThingsLabPluginWrapper,
+    TizenLabPluginWrapper
 ];
 
 export const getPluginById = (id: string): HappyPlugin | undefined => {

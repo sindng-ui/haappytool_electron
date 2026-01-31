@@ -73,7 +73,7 @@ const ConfigurationPanel: React.FC = () => {
 
     return (
         <div
-            className={`${isPanelOpen ? '' : 'w-12'} glass-morphism flex flex-col h-full shadow-2xl z-20 custom-scrollbar relative shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]`}
+            className={`${isPanelOpen ? '' : 'w-8'} glass-morphism flex flex-col h-full shadow-2xl z-20 custom-scrollbar relative shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]`}
             style={{ width: isPanelOpen ? configPanelWidth : undefined }}
         >
             {isPanelOpen && (
@@ -146,8 +146,8 @@ const ConfigurationPanel: React.FC = () => {
 
                 </div>
             ) : (
-                <div className="h-full flex flex-col items-center pt-24 gap-4 cursor-pointer hover:bg-white/5 transition-colors group" onClick={onToggle}>
-                    <div className="vertical-text text-slate-500 font-bold tracking-[0.2em] text-[10px] uppercase transform rotate-180 opacity-60 group-hover:text-indigo-400 group-hover:opacity-100 transition-all whitespace-nowrap" style={{ writingMode: 'vertical-rl' }}>
+                <div className="h-full flex flex-col items-center pt-24 gap-4 cursor-pointer hover:bg-white/5 transition-colors group px-0" onClick={onToggle}>
+                    <div className="vertical-text text-slate-500 font-bold tracking-[0.1em] text-[9px] uppercase transform rotate-180 opacity-60 group-hover:text-indigo-400 group-hover:opacity-100 transition-all whitespace-nowrap" style={{ writingMode: 'vertical-rl' }}>
                         Configuration
                     </div>
                 </div>

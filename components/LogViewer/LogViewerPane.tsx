@@ -6,27 +6,12 @@ import { LogLine } from './LogLine';
 
 const { Upload, X, Zap, Split, Copy, Download, Bookmark, ArrowDown } = Lucide;
 
-declare global {
-    interface Window {
-        electronAPI?: {
-            readFile: (path: string) => Promise<string>;
-            streamReadFile: (path: string) => Promise<{ status: string }>;
-            onFileChunk: (callback: (chunk: string) => void) => () => void;
-            onFileStreamComplete: (callback: () => void) => () => void;
-            onFileStreamError: (callback: (err: string) => void) => () => void;
-            setZoomFactor: (factor: number) => void;
-            getZoomFactor: () => number;
-            copyToClipboard: (text: string) => Promise<void>;
-            saveFile: (content: string) => Promise<{ status: string, filePath?: string }>;
-            openExternal: (url: string) => Promise<{ status: string, error?: string }>;
-            getAppPath: () => Promise<string>;
-        };
-    }
-}
+// ✅ ElectronAPI types moved to vite-env.d.ts for consistency
 
 // Default fallback if preferences are missing
 const DEFAULT_ROW_HEIGHT = 24;
-const OVERSCAN_COUNT = 120;
+const OVERSCAN_COUNT = 120; // Default overscan
+const OVERSCAN_COUNT_LOW = 50; // ✅ Performance: Reduced overscan for real-time streaming
 
 interface LogViewerPaneProps {
     workerReady: boolean;
@@ -126,6 +111,13 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 
     // Auto-scroll (Sticky Bottom) State
     const [atBottom, setAtBottom] = useState(false);
+
+    // ✅ Performance: Dynamic overscan based on scroll state
+    // When streaming at bottom, reduce overscan to save rendering cost
+    const dynamicOverscan = useMemo(() => {
+        // If at bottom (likely streaming), use lower overscan
+        return atBottom ? OVERSCAN_COUNT_LOW : OVERSCAN_COUNT;
+    }, [atBottom]);
 
     // Drag Selection State
     const isDraggingSelection = useRef(false);
@@ -580,7 +572,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 levelMatchers={levelMatchers}
             />
         );
-    }, [activeLineIndex, bookmarks, isRawMode, textHighlights, lineHighlights, highlightCaseSensitive, onLineDoubleClick, cachedLines, absoluteOffset, selectedIndices, handleLineMouseDown, handleLineMouseEnter, preferences, rowHeight, levelMatchers]);
+    }, [activeLineIndex, bookmarks, isRawMode, textHighlights, lineHighlights, highlightCaseSensitive, onLineDoubleClick, absoluteOffset, selectedIndices, handleLineMouseDown, handleLineMouseEnter, preferences, rowHeight, levelMatchers]); // ✅ Removed cachedLines (already using Ref)
 
     // Non-passive wheel listener to allow preventDefault for Shift+Scroll
     useEffect(() => {
@@ -710,7 +702,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                 }
                             }}
                             totalCount={totalMatches || 0}
-                            overscan={OVERSCAN_COUNT * rowHeight} // Pixel based overscan
+                            overscan={dynamicOverscan * rowHeight} // ✅ Dynamic overscan (50 when streaming, 120 when scrolling)
                             {...(initialScrollIndex !== undefined ? { initialTopMostItemIndex: { index: initialScrollIndex, align: 'center' } } : {})}
                             itemContent={itemContent}
 
