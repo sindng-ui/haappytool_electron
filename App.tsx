@@ -10,6 +10,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { CommandProvider, useCommand } from './contexts/CommandContext';
 import PluginContainer from './components/PluginContainer';
 import CommandPalette from './components/CommandPalette/CommandPalette';
+import LoadingSplash from './components/LoadingSplash';
 import * as Lucide from 'lucide-react';
 
 const { Settings, Monitor, Terminal, Database, Code, Activity, Home, FileUp, FileDown } = Lucide;
@@ -78,6 +79,7 @@ const CommandRegistrar: React.FC<{
 
 const AppContent: React.FC = () => {
   const [activeTool, setActiveTool] = useState<string>(ToolId.LOG_EXTRACTOR);
+  const [isAppLoading, setIsAppLoading] = useState(true);
 
   // App-wide state (Settings)
   const [logRules, setLogRules] = useState<LogRule[]>([
@@ -415,6 +417,15 @@ const AppContent: React.FC = () => {
     // ✅ Removed duplicates: requestHistory, lastApiUrl, lastMethod
   ]);
 
+  // Loading complete handler
+  const handleLoadingComplete = () => {
+    setIsAppLoading(false);
+  };
+
+  // Show loading splash if still loading
+  if (isAppLoading) {
+    return <LoadingSplash onLoadingComplete={handleLoadingComplete} />;
+  }
 
   return (
     <HappyToolProvider value={contextValue}>

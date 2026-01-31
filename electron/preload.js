@@ -27,5 +27,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     fetchUrl: (url, type) => ipcRenderer.invoke('fetchUrl', { url, type }),
     getAppPath: () => ipcRenderer.invoke('getAppPath'),
     validateRoslyn: (code) => ipcRenderer.invoke('validateRoslyn', code),
-    parseRxCode: (code) => ipcRenderer.invoke('parseRxCode', code)
+    parseRxCode: (code) => ipcRenderer.invoke('parseRxCode', code),
+
+    // Loading events
+    on: (channel, callback) => {
+        const validChannels = ['loading-progress', 'loading-log', 'loading-complete'];
+        if (validChannels.includes(channel)) {
+            const subscription = (_event, ...args) => callback(...args);
+            ipcRenderer.on(channel, subscription);
+            return () => ipcRenderer.removeListener(channel, subscription);
+        }
+    },
+    off: (channel, callback) => {
+        const validChannels = ['loading-progress', 'loading-log', 'loading-complete'];
+        if (validChannels.includes(channel)) {
+            ipcRenderer.removeListener(channel, callback);
+        }
+    }
 });

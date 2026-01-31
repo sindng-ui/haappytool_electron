@@ -14,6 +14,12 @@ interface ElectronAPI {
     openExternal: (url: string) => Promise<{ status: string, error?: string }>; // ✅ Updated return type
     fetchUrl: (url: string, options: any) => Promise<string>;
     getAppPath: () => Promise<string>;
+    validateRoslyn?: (code: string) => Promise<any>;
+    parseRxCode?: (code: string) => Promise<any>;
+
+    // Loading events
+    on?: (channel: 'loading-progress' | 'loading-log' | 'loading-complete', callback: (...args: any[]) => void) => (() => void) | undefined;
+    off?: (channel: 'loading-progress' | 'loading-log' | 'loading-complete', callback: (...args: any[]) => void) => void;
 }
 
 interface Window {

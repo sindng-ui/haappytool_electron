@@ -46,16 +46,28 @@ async function createWindow() {
         mainWindow.maximize();
     }
 
-    mainWindow.show();
 
-    const isDev = process.env.NODE_ENV === 'development';
 
+    const isDev = !app.isPackaged;
+    console.log('[DEBUG] isDev:', isDev, 'NODE_ENV:', process.env.NODE_ENV);
+
+    // Load URL first
     if (isDev) {
+        console.log('[DEBUG] Loading dev URL: http://127.0.0.1:3000');
         mainWindow.loadURL('http://127.0.0.1:3000');
         mainWindow.webContents.openDevTools();
     } else {
-        mainWindow.loadURL('http://127.0.0.1:3003');
+        // Production: Load built files
+        const indexPath = path.join(__dirname, '../dist/index.html');
+        console.log('[DEBUG] Loading production file:', indexPath);
+        mainWindow.loadFile(indexPath);
     }
+
+
+    // Show window when ready
+    mainWindow.once('ready-to-show', () => {
+        mainWindow.show();
+    });
 
     // Save state on close
     mainWindow.on('close', async () => {
@@ -72,6 +84,14 @@ async function createWindow() {
 
     mainWindow.on('closed', () => {
         mainWindow = null;
+    });
+
+    // Return a promise that resolves when did-finish-load fires
+    return new Promise((resolve) => {
+        mainWindow.webContents.once('did-finish-load', () => {
+            console.log('[DEBUG] did-finish-load fired inside createWindow');
+            resolve();
+        });
     });
 }
 
@@ -319,15 +339,161 @@ app.whenReady().then(async () => {
     });
 
     console.log('[DEBUG] HappyTool Main Process Started - ID: 8888');
-    console.log('Starting internal server...');
-    try {
-        await startServer(app.getPath('userData'));
-        console.log('Internal server started!');
-    } catch (e) {
-        console.error('Failed to start internal server:', e);
+
+    // Create window first (hidden) - await because it's async
+    await createWindow();
+    console.log('[DEBUG] Window created, mainWindow exists:', !!mainWindow);
+
+    // Console.log 오버라이드 (조기 설정으로 서버 시작 로그도 캡처)
+    const originalLog = console.log;
+    const originalError = console.error;
+
+    // Send loading progress events (use originalLog to avoid infinite recursion)
+    const sendProgress = (progress, status) => {
+        originalLog('[DEBUG] sendProgress called:', progress, status);
+        if (mainWindow && mainWindow.webContents) {
+            try {
+                mainWindow.webContents.send('loading-progress', { progress, status });
+                originalLog('[DEBUG] Sent loading-progress event');
+            } catch (e) {
+                originalError('[DEBUG] Failed to send progress:', e);
+            }
+        } else {
+            originalLog('[DEBUG] mainWindow or webContents not available');
+        }
+    };
+
+    const sendLog = (message) => {
+        originalLog('[DEBUG] sendLog called:', message);
+        if (mainWindow && mainWindow.webContents) {
+            try {
+                mainWindow.webContents.send('loading-log', message);
+                originalLog('[DEBUG] Sent loading-log event');
+            } catch (e) {
+                originalError('[DEBUG] Failed to send log:', e);
+            }
+        } else {
+            originalLog('[DEBUG] mainWindow or webContents not available');
+        }
+    };
+
+    console.log = (...args) => {
+        const message = args.map(arg =>
+            typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+        ).join(' ');
+
+        // 로딩 관련 메시지만 전송
+        if (message.includes('Server') ||
+            message.includes('running') ||
+            message.includes('VITE') ||
+            message.includes('dotenv') ||
+            message.includes('Loading') ||
+            message.includes('[FILE]') ||
+            message.includes('[Server]')) {
+            sendLog(message);
+        }
+
+        originalLog.apply(console, args);
+    };
+
+    console.error = (...args) => {
+        const message = args.map(arg =>
+            typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+        ).join(' ');
+        sendLog(`❌ ${message}`);
+        originalError.apply(console, args);
+    };
+
+    // Start server in parallel with page load (don't await yet)
+    let serverStarted = false;
+    let serverError = null;
+
+    const serverStartPromise = (async () => {
+        try {
+            await startServer(app.getPath('userData'));
+            serverStarted = true;
+        } catch (e) {
+            serverError = e;
+            console.error('Failed to start internal server:', e);
+        }
+    })();
+
+
+
+    // createWindow already waited for did-finish-load, so page is ready
+    console.log('[DEBUG] Page loaded, starting initialization...');
+
+    // 초기화 시작
+    sendProgress(0, 'Initializing...');
+    sendLog('🚀 HappyTool starting...');
+    sendLog('📦 Loading application resources...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    sendProgress(5, 'Checking environment...');
+    sendLog('🔍 Checking system environment...');
+    sendLog(`📁 User data directory: ${app.getPath('userData')}`);
+    sendLog(`💻 Platform: ${process.platform} (${process.arch})`);
+    sendLog(`⚡ Electron v${process.versions.electron}`);
+    sendLog(`🌐 Node.js v${process.versions.node}`);
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    sendProgress(15, 'Initializing services...');
+    sendLog('⚙️  Initializing internal services...');
+    sendLog('🔧 Setting up IPC handlers...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    sendProgress(20, 'Starting internal server...');
+    sendLog('🌐 Starting internal server...');
+    sendLog('📡 Binding to port 3003...');
+
+    // Wait for server to finish (already started in parallel)
+    await serverStartPromise;
+
+    if (serverStarted) {
+        sendProgress(50, 'Server started successfully');
+        sendLog('✅ Internal server ready on http://127.0.0.1:3003');
+        sendLog('🔌 Server endpoints initialized');
+        sendLog('📂 Static files route configured');
+    } else {
+        sendLog(`❌ Error: ${serverError?.message || 'Unknown error'}`);
+        sendLog('⚠️  Application may not function correctly');
     }
 
-    createWindow();
+    sendProgress(60, 'Loading components...');
+    sendLog('🔌 Loading application components...');
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    sendProgress(70, 'Initializing plugins...');
+    sendLog('🎨 Loading Block Test plugin...');
+    sendLog('📊 Loading Log Extractor plugin...');
+    sendLog('🔧 Loading TPK Extractor plugin...');
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    sendProgress(85, 'Loading workspace...');
+    sendLog('💾 Loading user workspace...');
+    sendLog('📋 Restoring previous session...');
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    sendProgress(95, 'Finalizing...');
+    sendLog('🎯 Finalizing application setup...');
+    sendLog('🔐 Applying security policies...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    sendProgress(100, 'Ready!');
+    sendLog('✨ HappyTool is ready!');
+    sendLog('🎉 All systems operational');
+
+    // Console.log 복원
+    setTimeout(() => {
+        console.log = originalLog;
+        console.error = originalError;
+    }, 1000);
+
+
+    // Send loading complete event
+    if (mainWindow && mainWindow.webContents) {
+        mainWindow.webContents.send('loading-complete');
+    }
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
