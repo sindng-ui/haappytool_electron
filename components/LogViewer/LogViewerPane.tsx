@@ -566,7 +566,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 highlightCaseSensitive={highlightCaseSensitive}
                 onMouseDown={(idx, e) => handleLineMouseDown(globalIndex, e)}
                 onMouseEnter={(idx, e) => handleLineMouseEnter(globalIndex, e)}
-                onClick={undefined}
+                onClick={(idx, e) => onLineClick && onLineClick(globalIndex, e.shiftKey, e.ctrlKey || e.metaKey)}
                 onDoubleClick={() => onLineDoubleClick && onLineDoubleClick(globalIndex)}
                 preferences={effectivePreferences}
                 levelMatchers={levelMatchers}

@@ -725,6 +725,9 @@ const toggleBookmark = (visualIndex: number) => {
         console.log(`[Worker] Bookmark ADDED (Total: ${originalBookmarks.size})`);
     }
 
+    // Invalidate cache so getVisualBookmarks rebuilds with updated originalBookmarks
+    invalidateBookmarkCache();
+
     // Return updated visual bookmarks list so frontend can sync
     const vBookmarks = getVisualBookmarks();
     console.log(`[Worker] Sending Updated Visual Bookmarks: count=${vBookmarks.length}`);
