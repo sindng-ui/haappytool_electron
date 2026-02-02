@@ -12,6 +12,7 @@ const {
 interface AppItem {
     pkgId: string;
     name: string;
+    version?: string;
     status: string;
 }
 
@@ -174,8 +175,8 @@ const TizenAppManager: React.FC<TizenAppManagerProps> = ({ deviceId, sdbPath }) 
                                             <Box size={14} />
                                         </div>
                                         <div className="min-w-0">
-                                            <div className="text-xs font-bold text-slate-200 truncate">{app.name}</div>
-                                            <div className="text-[9px] text-slate-500 truncate font-mono">{app.pkgId}</div>
+                                            <div className="text-xs font-bold text-slate-200 truncate">{app.pkgId}</div>
+                                            {app.version && <div className="text-[8px] text-slate-600 mt-0.5">v{app.version}</div>}
                                         </div>
                                     </div>
                                     <div className="hidden group-hover:flex items-center gap-2 mt-2 pt-2 border-t border-white/5">
@@ -239,8 +240,8 @@ const AppCard = React.memo(({ app, isFav, onToggleFav, onAction }: any) => (
                 <Box size={24} />
             </div>
             <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-bold text-white truncate mb-0.5 group-hover:text-indigo-400 transition-colors">{app.name}</h3>
-                <p className="text-[10px] text-slate-500 font-mono truncate">{app.pkgId}</p>
+                <h3 className="text-sm font-bold text-white truncate mb-0.5 group-hover:text-indigo-400 transition-colors">{app.pkgId}</h3>
+                <p className="text-[10px] text-slate-500 font-mono truncate">{app.version ? `v${app.version}` : app.status}</p>
                 <div className="flex items-center gap-1.5 mt-2">
                     <span className={`w-1.5 h-1.5 rounded-full ${app.status === 'installed' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`}></span>
                     <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400">{app.status}</span>
@@ -283,8 +284,8 @@ const AppRow = React.memo(({ app, isFav, onToggleFav, onAction }: any) => (
         </div>
         <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2">
-                <h3 className="text-sm font-bold text-white truncate">{app.name}</h3>
-                <span className="text-[10px] text-slate-500 font-mono truncate flex-1">{app.pkgId}</span>
+                <h3 className="text-sm font-bold text-white truncate">{app.pkgId}</h3>
+                {app.version && <span className="text-[10px] text-slate-600">v{app.version}</span>}
             </div>
         </div>
         <div className="flex items-center gap-2">

@@ -2164,10 +2164,12 @@ const handleSocketConnection = (socket, deps = {}) => {
                 const parts = trimmed.match(/'([^']*)'|([^\s]+)/g);
 
                 if (parts && parts.length >= 3) {
+                    const cleaned = parts.map(p => p.replace(/'/g, ''));
                     return {
-                        pkgId: parts[0].replace(/'/g, ''),
-                        name: parts[1].replace(/'/g, ''),
-                        status: parts[2].replace(/'/g, '')
+                        pkgId: cleaned[0],
+                        name: cleaned[1] && cleaned[1] !== '' ? cleaned[1] : cleaned[0],  // Fallback to pkgId if name is empty
+                        version: cleaned.length >= 4 ? cleaned[2] : null,
+                        status: cleaned.length >= 4 ? cleaned[3] : cleaned[2]
                     };
                 }
                 return null;
