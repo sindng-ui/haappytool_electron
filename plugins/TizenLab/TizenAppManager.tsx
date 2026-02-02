@@ -24,7 +24,8 @@ interface TizenAppManagerProps {
 const TizenAppManager: React.FC<TizenAppManagerProps> = ({ deviceId, sdbPath }) => {
     const [apps, setApps] = useState<AppItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [filter, setFilter] = useState('');
+    const [inputValue, setInputValue] = useState('');  // For immediate UI update
+    const [filter, setFilter] = useState('');  // Debounced value for filtering
     const [socket, setSocket] = useState<Socket | null>(null);
     const { addToast } = useToast();
 
@@ -38,6 +39,14 @@ const TizenAppManager: React.FC<TizenAppManagerProps> = ({ deviceId, sdbPath }) 
     useEffect(() => {
         localStorage.setItem('tizen_favorite_apps', JSON.stringify(favorites));
     }, [favorites]);
+
+    // Debounce filter input (300ms delay)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setFilter(inputValue);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [inputValue]);
 
     useEffect(() => {
         const newSocket = io('http://127.0.0.1:3003');
@@ -116,8 +125,8 @@ const TizenAppManager: React.FC<TizenAppManagerProps> = ({ deviceId, sdbPath }) 
                         <input
                             placeholder="Filter apps by name or ID..."
                             className="bg-transparent border-none outline-none text-xs w-full text-slate-200"
-                            value={filter}
-                            onChange={e => setFilter(e.target.value)}
+                            value={inputValue}
+                            onChange={e => setInputValue(e.target.value)}
                         />
                     </div>
                     <button
