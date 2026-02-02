@@ -580,6 +580,11 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId, sdbPath
     useEffect(() => { localStorage.setItem('local_last_path', localPath); }, [localPath]);
     useEffect(() => { localStorage.setItem('tizen_explorer_bookmarks', JSON.stringify(bookmarks)); }, [bookmarks]);
 
+    const sortFiles = (files: FileItem[]) => [...files].sort((a, b) => a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'directory' ? -1 : 1);
+
+    const refreshTizenFiles = useCallback(() => { if (socket) { setTizenLoading(true); socket.emit('list_tizen_files', { deviceId, path: tizenPath, sdbPath }); } }, [socket, deviceId, tizenPath, sdbPath]);
+    const refreshLocalFiles = useCallback(() => { if (socket) { setLocalLoading(true); socket.emit('list_local_files', { path: localPath }); } }, [socket, localPath]);
+
     useEffect(() => {
         const newSocket = io('http://127.0.0.1:3003');
         newSocket.on('list_tizen_files_result', (data) => {
@@ -657,15 +662,10 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId, sdbPath
 
         setSocket(newSocket);
         return () => { newSocket.disconnect(); };
-    }, [addToast]);
+    }, [addToast, refreshLocalFiles, refreshTizenFiles]);
 
-    const sortFiles = (files: FileItem[]) => [...files].sort((a, b) => a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'directory' ? -1 : 1);
-
-    const refreshTizenFiles = useCallback(() => { if (socket) { setTizenLoading(true); socket.emit('list_tizen_files', { deviceId, path: tizenPath, sdbPath }); } }, [socket, deviceId, tizenPath, sdbPath]);
-    const refreshLocalFiles = useCallback(() => { if (socket) { setLocalLoading(true); socket.emit('list_local_files', { path: localPath }); } }, [socket, localPath]);
-
-    useEffect(() => { refreshTizenFiles(); }, [tizenPath, deviceId, socket]);
-    useEffect(() => { refreshLocalFiles(); }, [localPath, socket]);
+    useEffect(() => { refreshTizenFiles(); }, [refreshTizenFiles]);
+    useEffect(() => { refreshLocalFiles(); }, [refreshLocalFiles]);
 
     useEffect(() => {
         console.log('[TizenExplorer] Local Path:', localPath);
