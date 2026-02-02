@@ -20,7 +20,8 @@ const ConfigurationPanel: React.FC = () => {
         groupedRoots, collapsedRoots, setCollapsedRoots, handleToggleRoot,
         sendTizenCommand,
         logViewPreferences, updateLogViewPreferences,
-        isLogging, setIsLogging, connectionMode
+        isLogging, setIsLogging, connectionMode,
+        hasEverConnected, setIsTizenQuickConnect, setIsTizenModalOpen
     } = useLogContext();
 
     const onToggle = () => setIsPanelOpen(!isPanelOpen);
@@ -61,6 +62,10 @@ const ConfigurationPanel: React.FC = () => {
             sendTizenCommand(finalCmd + '\n');
             setIsLogging(true);
         }
+    };
+    const handleReconnect = () => {
+        setIsTizenQuickConnect(true);
+        setIsTizenModalOpen(true);
     };
 
     if (!currentConfig) {
@@ -134,6 +139,8 @@ const ConfigurationPanel: React.FC = () => {
                             isLogging={isLogging}
                             onToggleLogging={handleToggleLogging}
                             connectionMode={connectionMode}
+                            hasEverConnected={hasEverConnected}
+                            onReconnect={handleReconnect}
                         />
                     </div>
 

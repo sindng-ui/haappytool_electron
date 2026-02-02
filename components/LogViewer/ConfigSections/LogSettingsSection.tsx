@@ -12,11 +12,13 @@ interface LogSettingsSectionProps {
     isLogging: boolean;
     onToggleLogging: () => void;
     connectionMode: 'sdb' | 'ssh' | null;
+    hasEverConnected: boolean;     // New prop
+    onReconnect: () => void;       // New prop
 }
 
 const defaultLogCommand = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
 
-export const LogSettingsSection: React.FC<LogSettingsSectionProps> = ({ currentConfig, updateCurrentRule, isLogging, onToggleLogging, connectionMode }) => {
+export const LogSettingsSection: React.FC<LogSettingsSectionProps> = ({ currentConfig, updateCurrentRule, isLogging, onToggleLogging, connectionMode, hasEverConnected, onReconnect }) => {
     const [localCommand, setLocalCommand] = useState(currentConfig.logCommand ?? defaultLogCommand);
 
     useEffect(() => {
@@ -40,13 +42,19 @@ export const LogSettingsSection: React.FC<LogSettingsSectionProps> = ({ currentC
                 <div className="flex gap-3">
                     <Button
                         className={`font-bold flex-1 shadow-lg transition-all border ${isLogging
-                                ? 'bg-slate-700/50 hover:bg-red-500/80 text-slate-300 hover:text-white border-slate-600 hover:border-red-400 hover:shadow-red-900/40'
-                                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40 border-emerald-500/50'
+                            ? 'bg-slate-700/50 hover:bg-red-500/80 text-slate-300 hover:text-white border-slate-600 hover:border-red-400 hover:shadow-red-900/40'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40 border-emerald-500/50'
                             }`}
                         icon={isLogging ? <Square size={16} /> : <Play size={16} />}
-                        onClick={onToggleLogging}
-                        disabled={!connectionMode}
-                        title={!connectionMode ? "Connect to a Tizen device first" : ""}
+                        onClick={() => {
+                            if (!isLogging && !connectionMode && hasEverConnected) {
+                                onReconnect();
+                            } else {
+                                onToggleLogging();
+                            }
+                        }}
+                        disabled={!connectionMode && !hasEverConnected}
+                        title={(!connectionMode && !hasEverConnected) ? "Connect to a Tizen device first" : ""}
                     >
                         {isLogging ? "Stop Logging" : "Start Logging"}
                     </Button>
