@@ -594,7 +594,8 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId, sdbPath
         });
         newSocket.on('pull_tizen_file_result', (data) => {
             if (data.success) {
-                refreshLocalFiles();
+                refreshLocalFiles();   // Refresh destination (PC)
+                refreshTizenFiles();   // Refresh source (Tizen)
                 addToast(`Downloaded: ${data.remotePath.split('/').pop()}`, 'success');
             } else {
                 addToast(`Pull Error: ${data.error}`, 'error');
@@ -602,7 +603,8 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId, sdbPath
         });
         newSocket.on('push_tizen_file_result', (data) => {
             if (data.success) {
-                refreshTizenFiles();
+                refreshTizenFiles();   // Refresh destination (Tizen)
+                refreshLocalFiles();   // Refresh source (PC)
                 addToast(`Uploaded: ${data.localPath.split(/[\\/]/).pop()}`, 'success');
             } else {
                 addToast(`Push Error: ${data.error}`, 'error');
