@@ -496,92 +496,112 @@ const PostTool: React.FC = () => {
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-300">
             {/* Title Bar - Draggable Area */}
-            <div className="h-10 w-full flex-shrink-0 title-drag z-20 flex items-center gap-3 pl-4 pr-36 border-b border-indigo-500/30 bg-slate-900">
-                <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Lucide.Send size={14} className="icon-glow" /></div>
-                <span className="font-bold text-xs text-slate-200 no-drag mr-4">Post Tool</span>
-
-                {/* Environment Modal */}
-                {onUpdateGlobalVariables && (
-                    <EnvironmentModal
-                        isOpen={isEnvModalOpen}
-                        onClose={() => setIsEnvModalOpen(false)}
-                        variables={globalVariables}
-                        onUpdateVariables={onUpdateGlobalVariables}
-                    />
-                )}
-
-                {/* Environment Switcher */}
-                <div className="relative no-drag">
-                    <button
-                        onClick={() => setShowEnvDropdown(!showEnvDropdown)}
-                        className="flex items-center gap-2 px-2 py-1 rounded-md text-xs font-bold bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-all min-w-[120px] justify-between"
-                        title="Switch Active Environment"
-                    >
-                        <span className="truncate max-w-[100px]">
-                            {envProfiles?.find(p => p.id === activeEnvId)?.name || 'Default'}
-                        </span>
-                        <ChevronDown size={12} className={`transition-transform ${showEnvDropdown ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {/* Dropdown Menu */}
-                    {showEnvDropdown && (
-                        <>
-                            <div className="fixed inset-0 z-40" onClick={() => setShowEnvDropdown(false)}></div>
-                            <div className="absolute top-full left-0 mt-1 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 py-1 flex flex-col">
-                                <div className="px-2 py-1 text-[10px] font-bold text-slate-500 uppercase">Select Environment</div>
-                                {envProfiles?.map(profile => (
-                                    <button
-                                        key={profile.id}
-                                        onClick={() => {
-                                            setActiveEnvId && setActiveEnvId(profile.id);
-                                            setShowEnvDropdown(false);
-                                        }}
-                                        className={`px-3 py-2 text-xs font-medium text-left flex items-center justify-between hover:bg-slate-700 ${activeEnvId === profile.id ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-300'}`}
-                                    >
-                                        <span className="truncate">{profile.name}</span>
-                                        {activeEnvId === profile.id && <Check size={12} />}
-                                    </button>
-                                ))}
-                                <div className="h-px bg-slate-700 my-1"></div>
-                                <button
-                                    onClick={() => {
-                                        setIsEnvModalOpen(true);
-                                        setShowEnvDropdown(false);
-                                    }}
-                                    className="px-3 py-2 text-xs font-bold text-slate-400 hover:text-indigo-400 hover:bg-slate-700 text-left transition-colors"
-                                >
-                                    Manage Environments...
-                                </button>
-                            </div>
-                        </>
-                    )}
+            <div className="h-16 w-full flex-shrink-0 title-drag z-20 flex items-center justify-between pl-4 pr-36 border-b border-white/5 bg-[#0f172a]">
+                {/* Left: Brand */}
+                <div className="flex items-center gap-3 no-drag">
+                    <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-400 ring-1 ring-indigo-500/20 shadow-lg shadow-indigo-500/5">
+                        <Lucide.Send size={18} />
+                    </div>
+                    <span className="font-bold text-sm text-slate-100 tracking-tight">Post Tool</span>
                 </div>
 
-                <div className="h-4 w-px bg-slate-700 mx-2 no-drag"></div>
+                {/* Right: Actions */}
+                <div className="flex items-center gap-2 no-drag mr-32">
+                    {/* Environment Modal */}
+                    {onUpdateGlobalVariables && (
+                        <EnvironmentModal
+                            isOpen={isEnvModalOpen}
+                            onClose={() => setIsEnvModalOpen(false)}
+                            variables={globalVariables}
+                            onUpdateVariables={onUpdateGlobalVariables}
+                        />
+                    )}
 
-                {/* Global Auth Button */}
-                <button
-                    onClick={() => setIsAuthModalOpen(true)}
-                    className={`no-drag flex items-center gap-2 px-2 py-1 rounded-md text-xs font-bold transition-all border ${globalAuth?.enabled
-                        ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400 hover:bg-emerald-900/50'
-                        : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-300'
-                        }`}
-                    title="Configure Global Auth"
-                >
-                    {globalAuth?.enabled ? <ShieldCheck size={12} /> : <Shield size={12} />}
-                    <span className="hidden sm:inline">Auth Helper</span>
-                    {globalAuth?.enabled && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>}
-                </button>
+                    {/* Environment Switcher */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowEnvDropdown(!showEnvDropdown)}
+                            className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-800 border border-white/5 hover:border-indigo-500/30 transition-all group min-w-[140px] justify-between"
+                            title="Switch Active Environment"
+                        >
+                            <div className="flex flex-col items-start">
+                                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider group-hover:text-indigo-400 transition-colors">Environment</span>
+                                <span className="text-xs font-bold text-slate-200 truncate max-w-[100px]">
+                                    {envProfiles?.find(p => p.id === activeEnvId)?.name || 'Default'}
+                                </span>
+                            </div>
+                            <ChevronDown size={14} className={`text-slate-500 group-hover:text-slate-300 transition-transform ${showEnvDropdown ? 'rotate-180' : ''}`} />
+                        </button>
 
-                {/* Code Button */}
-                <button
-                    onClick={() => setShowCodeModal(true)}
-                    className="no-drag flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-300 transition-all"
-                    title="Generate Code Snippet"
-                >
-                    <Terminal size={12} />
-                    <span className="hidden lg:inline">Code</span>
-                </button>
+                        {/* Dropdown Menu */}
+                        {showEnvDropdown && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setShowEnvDropdown(false)}></div>
+                                <div className="absolute top-full right-0 mt-2 w-56 bg-slate-900 border border-slate-700/50 rounded-xl shadow-2xl z-50 py-1 flex flex-col overflow-hidden ring-1 ring-black/50">
+                                    <div className="px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-950/30">Select Environment</div>
+                                    <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1 space-y-0.5">
+                                        {envProfiles?.map(profile => (
+                                            <button
+                                                key={profile.id}
+                                                onClick={() => {
+                                                    setActiveEnvId && setActiveEnvId(profile.id);
+                                                    setShowEnvDropdown(false);
+                                                }}
+                                                className={`w-full px-3 py-2 text-xs font-medium text-left flex items-center justify-between rounded-lg transition-colors ${activeEnvId === profile.id
+                                                    ? 'bg-indigo-500/10 text-indigo-400'
+                                                    : 'text-slate-300 hover:bg-white/5'
+                                                    }`}
+                                            >
+                                                <span className="truncate">{profile.name}</span>
+                                                {activeEnvId === profile.id && <Check size={14} />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="h-px bg-white/5 my-1"></div>
+                                    <div className="p-1">
+                                        <button
+                                            onClick={() => {
+                                                setIsEnvModalOpen(true);
+                                                setShowEnvDropdown(false);
+                                            }}
+                                            className="w-full px-3 py-2 text-xs font-bold text-slate-400 hover:text-indigo-400 hover:bg-white/5 text-left transition-colors rounded-lg flex items-center gap-2"
+                                        >
+                                            <Lucide.Settings size={14} /> Manage Environments...
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    <div className="w-px h-8 bg-white/5 mx-2" />
+
+                    {/* Global Auth Button */}
+                    <button
+                        onClick={() => setIsAuthModalOpen(true)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all border ${globalAuth?.enabled
+                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/20'
+                            : 'bg-transparent border-transparent hover:bg-white/5 text-slate-400 hover:text-slate-200'
+                            }`}
+                        title="Configure Global Auth"
+                    >
+                        <div className="relative">
+                            {globalAuth?.enabled ? <ShieldCheck size={16} /> : <Shield size={16} />}
+                            {globalAuth?.enabled && <div className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>}
+                        </div>
+                        <span className="text-xs font-bold hidden sm:inline">Auth</span>
+                    </button>
+
+                    {/* Code Button */}
+                    <button
+                        onClick={() => setShowCodeModal(true)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all hover:bg-white/5 text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/5"
+                        title="Generate Code Snippet"
+                    >
+                        <Terminal size={16} />
+                        <span className="text-xs font-bold hidden lg:inline">Code</span>
+                    </button>
+                </div>
             </div>
 
             <div className="flex w-full h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">

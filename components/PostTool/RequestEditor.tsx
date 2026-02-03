@@ -22,40 +22,22 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
     // ... refs ...
     const activeInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
-    // ... autocomplete ...
-
-    // Helper to replace vars
-    const replace = (str: string) => {
-        let res = str;
-
-        // 1. Cross-Profile Reference
-        if (envProfiles) {
-            envProfiles.forEach(profile => {
-                profile.variables.forEach(v => {
-                    if (v.enabled) {
-                        const pattern = `{{${profile.name}.${v.key}}}`;
-                        res = res.split(pattern).join(v.value);
-                    }
-                });
-            });
-        }
-
-        // 2. Active Profile
-        globalVariables.forEach(v => {
-            if (v.enabled) res = res.replace(new RegExp(`{{${v.key}}}`, 'g'), v.value);
-        });
-        return res;
-    };
-
-
-
-    // ... updateParam ...
+    const COMMON_HEADERS = [
+        'Accept', 'Accept-Charset', 'Accept-Encoding', 'Accept-Language', 'Accept-Datetime',
+        'Authorization', 'Cache-Control', 'Connection', 'Cookie', 'Content-Length',
+        'Content-Type', 'Date', 'Expect', 'Forwarded', 'From', 'Host', 'If-Match',
+        'If-Modified-Since', 'If-None-Match', 'If-Range', 'If-Unmodified-Since',
+        'Max-Forwards', 'Origin', 'Pragma', 'Proxy-Authorization', 'Range', 'Referer',
+        'TE', 'User-Agent', 'Upgrade', 'Via', 'Warning',
+        'X-Requested-With', 'X-Forwarded-For', 'X-Forwarded-Host', 'X-Forwarded-Proto',
+        'X-Api-Key', 'X-Auth-Token', 'X-Csrf-Token'
+    ];
 
     // Autocomplete State
     const [autocompleteState, setAutocompleteState] = useState<{
-        list: (PostGlobalVariable & { label: string, note?: string })[],
+        list: { label: string, note?: string, value?: string, type: 'VARIABLE' | 'HEADER' }[],
         position: { top: number, left: number },
-        apply: (v: PostGlobalVariable & { label: string }) => void,
+        apply: (item: { label: string, type: 'VARIABLE' | 'HEADER' }) => void,
         selectedIndex: number
     } | null>(null);
 
@@ -76,40 +58,42 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
     ) => {
         const val = e.target.value;
         const cursor = e.target.selectionStart || 0;
+        const target = e.target as HTMLInputElement;
+        const isHeaderKey = target.getAttribute('data-header-field') === 'key';
+
         updateFn(val); // Propagate change first
 
         const textBeforeCursor = val.slice(0, cursor);
         const lastOpen = textBeforeCursor.lastIndexOf('{{');
 
+        activeInputRef.current = e.target;
+        const rect = e.target.getBoundingClientRect();
+
+        // 1. Variable Autocomplete (Priority: inside {{...}})
         if (lastOpen !== -1) {
             const query = textBeforeCursor.slice(lastOpen + 2);
             if (!query.includes('}}') && !query.includes('\n')) {
                 // Filter Active Profile Vars
                 const activeMatches = globalVariables
                     .filter(v => v.enabled && v.key.toLowerCase().startsWith(query.toLowerCase()))
-                    .map(v => ({ ...v, label: v.key, note: 'Active' }));
+                    .map(v => ({ label: v.key, value: v.value, note: 'Active', type: 'VARIABLE' as const }));
 
                 // Filter Other Profiles (Namespaced)
-                const otherMatches: (PostGlobalVariable & { label: string, note: string })[] = [];
+                const otherMatches: { label: string, value: string, note: string, type: 'VARIABLE' }[] = [];
                 if (envProfiles) {
                     envProfiles.forEach(p => {
-                        // Skip active profile if needed, or include for explicit reference
                         p.variables.forEach(v => {
                             const namespacedKey = `${p.name}.${v.key}`;
                             if (v.enabled && namespacedKey.toLowerCase().startsWith(query.toLowerCase())) {
-                                otherMatches.push({ ...v, label: namespacedKey, note: p.name });
+                                otherMatches.push({ label: namespacedKey, value: v.value, note: p.name, type: 'VARIABLE' });
                             }
                         });
                     });
                 }
 
-                // Prioritize active matches
                 const filtered = [...activeMatches, ...otherMatches];
 
                 if (filtered.length > 0) {
-                    const rect = e.target.getBoundingClientRect();
-                    activeInputRef.current = e.target;
-
                     setAutocompleteState({
                         list: filtered,
                         position: { top: rect.bottom + 5, left: rect.left },
@@ -117,10 +101,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                         apply: (item) => {
                             const hasClosing = val.slice(cursor).startsWith('}}');
                             const suffix = hasClosing ? val.slice(cursor + 2) : val.slice(cursor);
-
-                            // Item label is the full key (e.g. "PROD.token" or "token")
                             const newValue = textBeforeCursor.slice(0, lastOpen) + `{{${item.label}}}` + suffix;
-
                             updateFn(newValue);
                             setAutocompleteState(null);
                             (e.target as HTMLElement).focus();
@@ -130,6 +111,34 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                 }
             }
         }
+
+        // 2. Header Key Autocomplete
+        if (isHeaderKey && val.length >= 1) {
+            const matches = COMMON_HEADERS
+                .filter(h => h.toLowerCase().includes(val.toLowerCase()) && h.toLowerCase() !== val.toLowerCase())
+                .slice(0, 10) // Limit to 10 suggestions
+                .map(h => ({
+                    label: h,
+                    note: 'Header',
+                    value: '',
+                    type: 'HEADER' as const
+                }));
+
+            if (matches.length > 0) {
+                setAutocompleteState({
+                    list: matches,
+                    position: { top: rect.bottom + 5, left: rect.left },
+                    selectedIndex: 0,
+                    apply: (item) => {
+                        updateFn(item.label);
+                        setAutocompleteState(null);
+                        (e.target as HTMLElement).focus();
+                    }
+                });
+                return;
+            }
+        }
+
         setAutocompleteState(null);
     };
 
@@ -406,11 +415,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                                     containerClassName="flex-1"
                                     textClassName="text-indigo-600 dark:text-indigo-300"
                                 />
-                                {i < paramsList.length - 1 && (
-                                    <button onClick={() => removeParam(i)} className="px-2 text-slate-400 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <X size={12} />
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => i < paramsList.length - 1 && removeParam(i)}
+                                    className={`px-2 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-opacity ${i < paramsList.length - 1 ? 'opacity-0 group-hover:opacity-100' : 'invisible pointer-events-none'}`}
+                                >
+                                    <X size={12} />
+                                </button>
                             </div>
                         ))}
                     </div>
@@ -511,11 +521,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                                     data-header-index={i}
                                     data-header-field="value"
                                 />
-                                {i < currentRequest.headers.length - 1 && (
-                                    <button onClick={() => removeHeader(i)} className="px-2 text-slate-400 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <X size={12} />
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => i < currentRequest.headers.length - 1 && removeHeader(i)}
+                                    className={`px-2 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-opacity ${i < currentRequest.headers.length - 1 ? 'opacity-0 group-hover:opacity-100' : 'invisible pointer-events-none'}`}
+                                >
+                                    <X size={12} />
+                                </button>
                             </div>
                         ))}
                     </div>
@@ -540,20 +551,23 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                     style={{ top: autocompleteState.position.top, left: autocompleteState.position.left }}
                 >
                     <div className="bg-slate-50 dark:bg-slate-900/50 px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Variables
+                        Suggestions
                     </div>
                     {autocompleteState.list.map((v, idx) => (
                         <button
-                            key={v.id}
+                            key={v.label}
                             onClick={() => autocompleteState.apply(v)}
                             className={`text-left px-3 py-1.5 text-xs font-mono flex items-center justify-between gap-4 group ${idx === autocompleteState.selectedIndex
                                 ? 'bg-indigo-100 dark:bg-indigo-500/30 text-indigo-700 dark:text-indigo-200'
                                 : 'hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'
                                 }`}
                         >
-                            <span className="font-bold">{`{{${v.label}}}`}</span>
+                            <div className="flex items-center gap-2">
+                                {v.type === 'HEADER' && <span className="text-[10px] font-bold bg-slate-200 dark:bg-slate-700 px-1 rounded text-slate-500">H</span>}
+                                <span className="font-bold">{v.type === 'VARIABLE' ? `{{${v.label}}}` : v.label}</span>
+                            </div>
                             <span className="text-slate-400 dark:text-slate-600 text-[10px] truncate max-w-[100px] group-hover:text-slate-500">
-                                {v.note === 'Active' ? v.value : `${v.note} • ${v.value}`}
+                                {v.type === 'VARIABLE' ? (v.note === 'Active' ? v.value : `${v.note}`) : 'Header'}
                             </span>
                         </button>
                     ))}
