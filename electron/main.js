@@ -178,6 +178,50 @@ app.whenReady().then(async () => {
         }
     });
 
+    // IPC Handler for PostTool Requests (Full Proxy)
+    ipcMain.handle('proxyRequest', async (event, { method, url, headers, body }) => {
+        try {
+            const fetchOptions = {
+                method,
+                headers,
+                body: ['GET', 'HEAD'].includes(method) ? undefined : body
+            };
+
+            const response = await fetch(url, fetchOptions);
+
+            // Convert headers to plain object
+            const responseHeaders = {};
+            for (const [key, value] of response.headers.entries()) {
+                responseHeaders[key] = value;
+            }
+
+            let data;
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                try {
+                    data = await response.json();
+                } catch {
+                    data = await response.text(); // Fallback if JSON parse fails
+                }
+            } else {
+                data = await response.text();
+            }
+
+            return {
+                status: response.status,
+                statusText: response.statusText,
+                headers: responseHeaders,
+                data: data
+            };
+        } catch (error) {
+            console.error('Proxy Request failed:', error);
+            return {
+                error: true,
+                message: error.message
+            };
+        }
+    });
+
     // IPC Handler for getting app path
     ipcMain.handle('getAppPath', () => {
         // In development: return project root

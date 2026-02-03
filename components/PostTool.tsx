@@ -303,28 +303,58 @@ const PostTool: React.FC = () => {
             }
 
             const startTime = performance.now();
-            const res = await fetch(finalUrl, {
-                method: currentRequest.method,
-                headers: finalHeaders,
-                body: ['GET', 'HEAD'].includes(currentRequest.method) ? undefined : finalBody
-            });
-            const endTime = performance.now();
+            let newResponse: PerfResponse;
 
-            let data;
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                data = await res.json();
+            if (window.electronAPI && window.electronAPI.proxyRequest) {
+                // Use Electron Proxy (Bypass CORS)
+                const res = await window.electronAPI.proxyRequest({
+                    method: currentRequest.method,
+                    url: finalUrl,
+                    headers: finalHeaders,
+                    body: ['GET', 'HEAD'].includes(currentRequest.method) ? undefined : finalBody
+                });
+
+                if (res.error) {
+                    throw new Error(res.message || 'Proxy Request Failed');
+                }
+
+                const endTime = performance.now();
+                newResponse = {
+                    status: res.status,
+                    statusText: res.statusText,
+                    headers: res.headers,
+                    data: res.data,
+                    timeTaken: endTime - startTime
+                };
             } else {
-                data = await res.text();
-            }
+                // Browser Fetch (Subject to CORS)
+                const res = await fetch(finalUrl, {
+                    method: currentRequest.method,
+                    headers: finalHeaders,
+                    body: ['GET', 'HEAD'].includes(currentRequest.method) ? undefined : finalBody
+                });
+                const endTime = performance.now();
 
-            const newResponse = {
-                status: res.status,
-                statusText: res.statusText,
-                headers: Object.fromEntries(res.headers.entries()),
-                data,
-                timeTaken: endTime - startTime
-            };
+                let data;
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        data = await res.json();
+                    } catch {
+                        data = await res.text();
+                    }
+                } else {
+                    data = await res.text();
+                }
+
+                newResponse = {
+                    status: res.status,
+                    statusText: res.statusText,
+                    headers: Object.fromEntries(res.headers.entries()),
+                    data,
+                    timeTaken: endTime - startTime
+                };
+            }
 
             // ✅ Performance: Improved LRU cache update
             setResponseCache(prev => {

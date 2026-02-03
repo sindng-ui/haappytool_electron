@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as Lucide from 'lucide-react';
 import { PerfResponse } from '../../types';
 import JsonFormatter from '../JsonTools/JsonFormatter';
@@ -18,8 +18,14 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
     const [isJson, setIsJson] = useState(false);
 
     const [triggerNext, setTriggerNext] = useState(0);
+    const [triggerPrev, setTriggerPrev] = useState(0);
 
-    // Raw Search
+    // Search Status State
+    const [prettyMatchStatus, setPrettyMatchStatus] = useState({ index: -1, count: 0 });
+    const [rawMatches, setRawMatches] = useState<number[]>([]);
+    const [currentRawIndex, setCurrentRawIndex] = useState(-1);
+
+    // Raw Search Refs
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -43,6 +49,8 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
             setViewMode('raw');
             setSearchText('');
             setTriggerNext(0);
+            setTriggerPrev(0);
+            setPrettyMatchStatus({ index: -1, count: 0 });
         } else {
             setParsedJson(null);
             setIsJson(false);
@@ -76,73 +84,64 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const getRawContent = () => {
+    const getRawContent = useCallback(() => {
         if (!response) return '';
         return typeof response.data === 'object' ? JSON.stringify(response.data, null, 2) : String(response.data);
-    };
+    }, [response]);
+
+    // --- Raw Mode Search Logic ---
+    useEffect(() => {
+        if (viewMode !== 'raw' || !searchText) {
+            setRawMatches([]);
+            setCurrentRawIndex(-1);
+            return;
+        }
+
+        const content = getRawContent().toLowerCase();
+        const query = searchText.toLowerCase();
+        const matches: number[] = [];
+        let pos = content.indexOf(query);
+        while (pos !== -1) {
+            matches.push(pos);
+            pos = content.indexOf(query, pos + 1);
+        }
+        setRawMatches(matches);
+        if (matches.length > 0) {
+            // Find match closest to current selection? Or just reset?
+            // Resetting is safer for explicit search behavior
+            setCurrentRawIndex(-1);
+        } else {
+            setCurrentRawIndex(-1);
+        }
+    }, [viewMode, searchText, getRawContent]);
 
     const handleRawSearch = (direction: 'next' | 'prev') => {
-        if (!textareaRef.current || !searchText) return;
+        if (!textareaRef.current || rawMatches.length === 0) return;
 
-        const content = textareaRef.current.value.toLowerCase();
-        const query = searchText.toLowerCase();
-
-        // Use current selection end as start point for next, or start for prev
-        const currentPos = direction === 'next'
-            ? textareaRef.current.selectionEnd
-            : textareaRef.current.selectionStart;
-
-        let index = -1;
+        let nextIndex: number;
         if (direction === 'next') {
-            index = content.indexOf(query, currentPos);
-            // Wrap around
-            if (index === -1) index = content.indexOf(query, 0);
+            // When -1, goes to 0 (first). When at end, wraps to 0.
+            nextIndex = (currentRawIndex + 1) % rawMatches.length;
         } else {
-            // LastIndexOf searches backwards fromIndex
-            index = content.lastIndexOf(query, currentPos - 1);
-            // Wrap around
-            if (index === -1) index = content.lastIndexOf(query);
+            // When -1, goes to last. When at 0, wraps to last.
+            nextIndex = currentRawIndex <= 0 ? rawMatches.length - 1 : currentRawIndex - 1;
         }
 
-        if (index !== -1) {
-            const wasSearchFocused = document.activeElement === searchInputRef.current;
+        setCurrentRawIndex(nextIndex);
 
-            textareaRef.current.focus();
-            textareaRef.current.setSelectionRange(index, index + query.length);
+        const matchPos = rawMatches[nextIndex];
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(matchPos, matchPos + searchText.length);
 
-            // Basic scroll attempt (Blur/Focus trick usually works for native scroll-to-caret)
-            // But we want to restore focus if user was typing
-            if (wasSearchFocused) {
-                // Immediate focus restore might hide selection in some browsers, 
-                // but checking scroll position is key. 
-                // Let's rely on browser behavior: focusing textarea usually scrolls to selection.
-                // Retaining focus in input is better for repeated 'Enter' usage.
-                setTimeout(() => searchInputRef.current?.focus(), 0);
-            }
-        }
+        // Restore focus to input for consecutive searches
+        setTimeout(() => searchInputRef.current?.focus(), 0);
     };
 
     const handleIframeSearch = (direction: 'next' | 'prev') => {
         if (!iframeRef.current || !iframeRef.current.contentWindow) return;
-
-        // Note: window.find is non-standard but widely supported in Chromium
-        // It returns true if found.
         const win = iframeRef.current.contentWindow as any;
         if (win.find) {
-            // (aString, aCaseSensitive, aBackwards, aWrapAround, aWholeWord, aSearchInFrames, aShowDialog)
-            // Chrome: find(text, caseSensitive, backward, wrapAround)
-            // We need to implement wrapping manually or rely on find's boolean return
-
-            // Reset selection if new search? 
-            // Simple usage:
-            const found = win.find(searchText, false, direction === 'prev', true, false, true, false);
-
-            if (!found) {
-                // Wrap logic for find() roughly works with 'true' param in some versions, 
-                // but if not, we can reset selection.
-                // win.getSelection().collapse(document.body, 0);
-                // win.find(searchText, ...);
-            }
+            win.find(searchText, false, direction === 'prev', true, false, true, false);
         }
     };
 
@@ -230,31 +229,29 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         });
     };
 
+    const handleSearchNav = (direction: 'next' | 'prev') => {
+        if (viewMode === 'raw') handleRawSearch(direction);
+        else if (viewMode === 'preview') {
+            if (isJson) handlePreviewNav(direction);
+            else handleIframeSearch(direction);
+        }
+        else if (viewMode === 'pretty') {
+            if (direction === 'next') setTriggerNext(n => n + 1);
+            else setTriggerPrev(n => n + 1);
+        }
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            if (viewMode === 'raw') handleRawSearch('next');
-            else if (viewMode === 'preview') {
-                if (isJson) handlePreviewNav('next');
-                else handleIframeSearch('next');
-            }
-            else if (viewMode === 'pretty') setTriggerNext(n => n + 1);
+            if (e.shiftKey) handleSearchNav('prev');
+            else handleSearchNav('next');
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            if (viewMode === 'raw') handleRawSearch('next');
-            else if (viewMode === 'preview') {
-                if (isJson) handlePreviewNav('next');
-                else handleIframeSearch('next');
-            }
-            else if (viewMode === 'pretty') setTriggerNext(n => n + 1);
+            handleSearchNav('next');
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            if (viewMode === 'raw') handleRawSearch('prev');
-            else if (viewMode === 'preview') {
-                if (isJson) handlePreviewNav('prev');
-                else handleIframeSearch('prev');
-            }
-            else if (viewMode === 'pretty') setTriggerNext(n => n - 1);
+            handleSearchNav('prev');
         }
     };
 
@@ -262,6 +259,51 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
 
     // Derived Headers List
     const headersList = response ? Object.entries(response.headers) : [];
+
+    // Unified Match Info
+    let matchDisplay = null;
+    if (searchText) {
+        let current = 0;
+        let total = 0;
+        let navEnabled = false;
+
+        if (viewMode === 'raw') {
+            total = rawMatches.length;
+            current = currentRawIndex;
+            navEnabled = total > 0;
+        } else if (viewMode === 'preview' && isJson) {
+            total = previewMatches.length;
+            current = previewMatchIndex;
+            navEnabled = total > 0;
+        } else if (viewMode === 'pretty') {
+            total = prettyMatchStatus.count;
+            current = prettyMatchStatus.index;
+            navEnabled = total > 0;
+        }
+
+        if (total > 0) {
+            matchDisplay = (
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded px-1 h-6 gap-1 border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-200 ml-1">
+                    <span className="text-[10px] text-slate-500 px-1 font-mono">{current + 1}/{total}</span>
+                    <button onClick={() => handleSearchNav('prev')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowUp size={12} /></button>
+                    <button onClick={() => handleSearchNav('next')} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowDown size={12} /></button>
+                </div>
+            );
+        } else if (searchText.length > 2) {
+            matchDisplay = (
+                <div className="flex items-center px-2 h-6 animate-in fade-in zoom-in duration-200">
+                    <span className="text-[10px] text-slate-400 font-mono">No matches</span>
+                </div>
+            );
+        }
+    }
+
+    const handlePrettyMatchStatus = useCallback((index: number, count: number) => {
+        setPrettyMatchStatus(prev => {
+            if (prev.index === index && prev.count === count) return prev;
+            return { index, count };
+        });
+    }, []);
 
     if (!response) {
         return (
@@ -274,6 +316,14 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
 
     return (
         <div className="flex-1 flex flex-col min-h-0 relative">
+            {/* Error Banner */}
+            {response.status === 0 && (
+                <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-2 flex items-center gap-2 text-red-500 text-xs font-bold animate-in slide-in-from-top-2 duration-200">
+                    <Lucide.AlertCircle size={14} />
+                    <span>Error: {typeof response.data === 'string' ? response.data : JSON.stringify(response.data)}</span>
+                </div>
+            )}
+
             {/* Main Tabs */}
             <div className="flex border-b border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-slate-900 px-4 gap-6 text-xs font-bold text-slate-500 dark:text-slate-500 shrink-0">
                 <button
@@ -328,7 +378,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                         <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
 
                         <div className="relative flex-1 max-w-sm flex items-center gap-1">
-                            <div className="relative flex-1">
+                            <div className="relative flex-1 flex items-center">
                                 <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
                                     ref={searchInputRef}
@@ -343,25 +393,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                             </div>
                         </div>
 
-                        {(viewMode === 'raw' || viewMode === 'preview') && searchText && (
-                            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded px-1 h-6 gap-1 border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-200">
-                                {viewMode === 'preview' && isJson && previewMatches.length > 0 && (
-                                    <span className="text-[10px] text-slate-500 px-1 font-mono">{previewMatchIndex + 1}/{previewMatches.length}</span>
-                                )}
-                                <button onClick={() => {
-                                    if (viewMode === 'raw') handleRawSearch('prev');
-                                    else if (isJson) handlePreviewNav('prev');
-                                    else handleIframeSearch('prev');
-                                }} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowUp size={12} /></button>
-                                <button onClick={() => {
-                                    if (viewMode === 'raw') handleRawSearch('next');
-                                    else if (isJson) handlePreviewNav('next');
-                                    else handleIframeSearch('next');
-                                }} className="p-0.5 hover:text-indigo-500 text-slate-500"><ArrowDown size={12} /></button>
-                            </div>
-                        )}
-
-
+                        {matchDisplay}
 
                         <div className="ml-auto flex items-center gap-1">
                             <button
@@ -382,6 +414,8 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                                     data={parsedJson}
                                     search={searchText}
                                     triggerNext={triggerNext}
+                                    triggerPrev={triggerPrev}
+                                    onMatchStatus={handlePrettyMatchStatus}
                                     expandLevel={2}
                                     fontSize={12}
                                 />

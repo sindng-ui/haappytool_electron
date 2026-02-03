@@ -122,6 +122,8 @@ interface JsonFormatterProps {
     expandLevel?: number; // Not used yet but requested
     fontSize?: number; // Not used yet
     triggerNext?: number; // Increment to trigger next result
+    triggerPrev?: number; // Increment to trigger prev result
+    onMatchStatus?: (index: number, count: number) => void;
 }
 
 // --- Flattened Row Component ---
@@ -199,7 +201,7 @@ const JsonFormatterRow = React.memo(({ index, item, isMatch, toggleExpand, copyT
 });
 JsonFormatterRow.displayName = 'JsonFormatterRow';
 
-const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext }) => {
+const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext, triggerPrev, onMatchStatus }) => {
     const [input, setInput] = useState('');
     const [parsedData, setParsedData] = useState<any>(null);
     const [formattedString, setFormattedString] = useState('');
@@ -227,12 +229,26 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
     const [currentResultIndex, setCurrentResultIndex] = useState(-1);
     const [isSearching, setIsSearching] = useState(false);
 
-    // Watch for external trigger
+    // Watch for external trigger Next
     useEffect(() => {
         if (data !== undefined && searchQuery && searchResults.length > 0) {
             nextResult();
         }
     }, [triggerNext]);
+
+    // Watch for external trigger Prev
+    useEffect(() => {
+        if (data !== undefined && searchQuery && searchResults.length > 0) {
+            prevResult();
+        }
+    }, [triggerPrev]);
+
+    // Notify Parent of Match Status
+    useEffect(() => {
+        if (onMatchStatus) {
+            onMatchStatus(currentResultIndex, searchResults.length);
+        }
+    }, [currentResultIndex, searchResults.length, onMatchStatus]);
 
     // Sync Search Prop
     useEffect(() => {
@@ -585,13 +601,7 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
                 {isViewerMode && (
                     <div className="flex justify-end gap-2 mb-1">
                         <div className="flex items-center gap-2">
-                            {searchResults.length > 0 && (
-                                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded px-2 h-6 text-xs gap-1 border border-slate-200 dark:border-slate-700">
-                                    <span className="text-slate-500">{currentResultIndex + 1}/{searchResults.length}</span>
-                                    <button onClick={prevResult}><ArrowUp size={12} /></button>
-                                    <button onClick={nextResult}><ArrowDown size={12} /></button>
-                                </div>
-                            )}
+                            {/* Internal Search Display Removed - Managed by Parent */}
                             <button onClick={expandAll} className="text-[10px] font-bold uppercase text-slate-400 hover:text-indigo-500 transition-colors">Expand All</button>
                             <button onClick={collapseAll} className="text-[10px] font-bold uppercase text-slate-400 hover:text-indigo-500 transition-colors">Collapse All</button>
                         </div>

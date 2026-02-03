@@ -13,6 +13,7 @@ interface ElectronAPI {
     saveBinaryFile: (data: Uint8Array, fileName: string) => Promise<string>;
     openExternal: (url: string) => Promise<{ status: string, error?: string }>; // ✅ Updated return type
     fetchUrl: (url: string, options: any) => Promise<string>;
+    proxyRequest: (request: { method: string; url: string; headers: any; body: any }) => Promise<{ status: number; statusText: string; headers: any; data: any; error?: boolean; message?: string }>;
     getAppPath: () => Promise<string>;
     validateRoslyn?: (code: string) => Promise<any>;
     parseRxCode?: (code: string) => Promise<any>;
