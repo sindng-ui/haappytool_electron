@@ -11,11 +11,17 @@ import { useToast } from '../../contexts/ToastContext';
 
 type Tab = 'explorer' | 'perf' | 'apps' | 'settings';
 
-const TizenLabPlugin: React.FC = () => {
+interface TizenLabPluginProps {
+    isActive?: boolean;
+}
+
+const TizenLabPlugin: React.FC<TizenLabPluginProps> = ({ isActive = false }) => {
     const { addToast } = useToast();
     const [activeTab, setActiveTab] = useState<Tab>('explorer');
     const [deviceId, setDeviceId] = useState(() => localStorage.getItem('lastSdbDeviceId') || '');
     const [sdbPath, setSdbPath] = useState(() => localStorage.getItem('tizen_sdb_path') || '');
+
+    if (!isActive) return null;
 
     return (
         <div className="flex flex-col h-full bg-slate-950 text-slate-200 overflow-hidden">
@@ -73,9 +79,9 @@ const TizenLabPlugin: React.FC = () => {
 
             {/* Content Area */}
             <div className="flex-1 overflow-hidden relative">
-                {activeTab === 'explorer' && <TizenFileExplorer deviceId={deviceId} sdbPath={sdbPath} />}
-                {activeTab === 'apps' && <TizenAppManager deviceId={deviceId} sdbPath={sdbPath} />}
-                {activeTab === 'perf' && <TizenPerfMonitor deviceId={deviceId} sdbPath={sdbPath} />}
+                {activeTab === 'explorer' && <TizenFileExplorer deviceId={deviceId} sdbPath={sdbPath} isActive={isActive && activeTab === 'explorer'} />}
+                {activeTab === 'apps' && <TizenAppManager deviceId={deviceId} sdbPath={sdbPath} isActive={isActive && activeTab === 'apps'} />}
+                {activeTab === 'perf' && <TizenPerfMonitor deviceId={deviceId} sdbPath={sdbPath} isActive={isActive && activeTab === 'perf'} />}
                 {activeTab === 'settings' && (
                     <div className="p-8 max-w-2xl mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="space-y-2">

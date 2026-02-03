@@ -734,6 +734,13 @@ const toggleBookmark = (visualIndex: number) => {
     respond({ type: 'BOOKMARKS_UPDATED', payload: { visualBookmarks: vBookmarks }, requestId: '' });
 };
 
+// --- Handler: Clear Bookmarks ---
+const clearBookmarks = () => {
+    originalBookmarks.clear();
+    invalidateBookmarkCache();
+    respond({ type: 'BOOKMARKS_UPDATED', payload: { visualBookmarks: [] }, requestId: '' });
+};
+
 // --- Message Listener ---
 ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
     const { type, payload, requestId } = evt.data;
@@ -752,6 +759,9 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             break;
         case 'TOGGLE_BOOKMARK':
             toggleBookmark(payload.visualIndex);
+            break;
+        case 'CLEAR_BOOKMARKS':
+            clearBookmarks();
             break;
         case 'GET_LINES':
             getLines(payload.startLine, payload.count, requestId || '');

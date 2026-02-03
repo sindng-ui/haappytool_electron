@@ -19,9 +19,10 @@ interface AppItem {
 interface TizenAppManagerProps {
     deviceId: string;
     sdbPath?: string;
+    isActive?: boolean;
 }
 
-const TizenAppManager: React.FC<TizenAppManagerProps> = ({ deviceId, sdbPath }) => {
+const TizenAppManager: React.FC<TizenAppManagerProps> = ({ deviceId, sdbPath, isActive = false }) => {
     const [apps, setApps] = useState<AppItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [inputValue, setInputValue] = useState('');  // For immediate UI update
@@ -49,6 +50,16 @@ const TizenAppManager: React.FC<TizenAppManagerProps> = ({ deviceId, sdbPath }) 
     }, [inputValue]);
 
     useEffect(() => {
+        if (!isActive) {
+            if (socket) {
+                socket.disconnect();
+                setSocket(null);
+            }
+            return;
+        }
+
+        if (socket) return;
+
         const newSocket = io('http://127.0.0.1:3003');
 
         newSocket.on('list_tizen_apps_result', (data) => {
@@ -76,7 +87,7 @@ const TizenAppManager: React.FC<TizenAppManagerProps> = ({ deviceId, sdbPath }) 
 
         setSocket(newSocket);
         return () => { newSocket.disconnect(); };
-    }, [addToast]);
+    }, [addToast, isActive]);
 
     const refreshApps = useCallback(() => {
         if (socket) {

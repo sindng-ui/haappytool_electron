@@ -2507,18 +2507,37 @@ function startServer(userDataPath) {
     }
 
     return new Promise((resolve, reject) => {
-        server.listen(PORT, '127.0.0.1', () => {
-            console.log(`Log Server running on port ${PORT} (Local Only)`);
-            resolve(server);
-        }).on('error', (err) => {
-            if (err.code === 'EADDRINUSE') {
-                console.log(`Port ${PORT} already in use, assuming server is running.`);
-                setInterval(() => { }, 1000000);
+        let retries = 0;
+        const maxRetries = 5;
+
+        const attemptListen = () => {
+            const onError = (err) => {
+                if (err.code === 'EADDRINUSE') {
+                    if (retries < maxRetries) {
+                        retries++;
+                        console.log(`[Server] Port ${PORT} in use, retrying (${retries}/${maxRetries}) in 1s...`);
+                        setTimeout(() => {
+                            server.close();
+                            attemptListen();
+                        }, 1000);
+                    } else {
+                        const msg = `Port ${PORT} is still busy after ${maxRetries} retries. Please close other HappyTool instances.`;
+                        console.error(`[Server] ${msg}`);
+                        reject(new Error(msg));
+                    }
+                } else {
+                    reject(err);
+                }
+            };
+
+            server.listen(PORT, '127.0.0.1', () => {
+                console.log(`Log Server running on port ${PORT} (Local Only)`);
+                server.removeListener('error', onError);
                 resolve(server);
-            } else {
-                reject(err);
-            }
-        });
+            }).once('error', onError);
+        };
+
+        attemptListen();
     });
 }
 

@@ -863,7 +863,7 @@ const AiAssistant: React.FC = () => {
                 console.warn('AI Assistant: Models data is not an array', modelList);
             }
         } catch (error) {
-            console.error('Failed to fetch models:', error);
+            console.warn('AI Assistant: Could not connect to model server. Is LM Studio/Ollama running?', error);
             // Fallback or alert
         } finally {
             setIsModelLoading(false);

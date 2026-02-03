@@ -11,9 +11,10 @@ import {
 interface TizenPerfMonitorProps {
     deviceId: string;
     sdbPath?: string;
+    isActive?: boolean;
 }
 
-const TizenPerfMonitor: React.FC<TizenPerfMonitorProps> = ({ deviceId, sdbPath }) => {
+const TizenPerfMonitor: React.FC<TizenPerfMonitorProps> = ({ deviceId, sdbPath, isActive = false }) => {
     const [appName, setAppName] = useState('');
     const [interval, setIntervalVal] = useState('1');
 
@@ -21,7 +22,7 @@ const TizenPerfMonitor: React.FC<TizenPerfMonitorProps> = ({ deviceId, sdbPath }
         status, data, memoryData, memoryStatus, processList, error,
         startMonitoring, stopMonitoring,
         startMemoryMonitoring, stopMemoryMonitoring
-    } = useCpuData(deviceId, sdbPath);
+    } = useCpuData(deviceId, sdbPath, isActive);
 
     const isMonitoring = status.includes('monitoring') || memoryStatus.includes('monitoring');
 

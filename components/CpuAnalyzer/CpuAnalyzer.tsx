@@ -7,7 +7,11 @@ import CpuProcessTable from './CpuProcessTable';
 import { Activity, Play, Square, Cpu, HardDrive } from 'lucide-react';
 import ThreadModal from './ThreadModal';
 
-const CpuAnalyzer: React.FC = () => {
+interface CpuAnalyzerProps {
+    isActive?: boolean;
+}
+
+const CpuAnalyzer: React.FC<CpuAnalyzerProps> = ({ isActive = false }) => {
     const [deviceId, setDeviceId] = useState('mock');
     const [appName, setAppName] = useState('');
     const [interval, setInterval] = useState('1');
@@ -18,7 +22,7 @@ const CpuAnalyzer: React.FC = () => {
         startMemoryMonitoring, stopMemoryMonitoring,
         startThreadMonitoring, stopThreadMonitoring,
         getCallStack
-    } = useCpuData(deviceId);
+    } = useCpuData(deviceId, undefined, isActive);
 
     const [selectedPid, setSelectedPid] = useState<string | null>(null);
 
@@ -83,6 +87,9 @@ const CpuAnalyzer: React.FC = () => {
         };
     }, [memoryData]);
 
+
+
+    if (!isActive) return null;
 
     return (
         <div className="flex flex-col h-full bg-[#111] text-white p-6 space-y-4 overflow-hidden">

@@ -23,6 +23,7 @@ interface FileItem {
 interface TizenFileExplorerProps {
     deviceId: string;
     sdbPath?: string;
+    isActive?: boolean;
 }
 
 const FileTable = ({
@@ -550,7 +551,7 @@ const FileTable = ({
     );
 };
 
-const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId, sdbPath }) => {
+const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId, sdbPath, isActive = false }) => {
     const [tizenPath, setTizenPath] = useState(() => localStorage.getItem('tizen_last_path') || '/home/owner');
     const [tizenFiles, setTizenFiles] = useState<FileItem[]>([]);
     const [tizenLoading, setTizenLoading] = useState(false);
@@ -586,86 +587,115 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId, sdbPath
     const refreshLocalFiles = useCallback(() => { if (socket) { setLocalLoading(true); socket.emit('list_local_files', { path: localPath }); } }, [socket, localPath]);
 
     useEffect(() => {
-        const newSocket = io('http://127.0.0.1:3003');
-        newSocket.on('list_tizen_files_result', (data) => {
-            setTizenLoading(false);
-            if (data.success) { setTizenFiles(sortFiles(data.files)); setTizenError(null); }
-            else { setTizenError(data.error); }
-        });
-        newSocket.on('list_local_files_result', (data) => {
-            setLocalLoading(false);
-            if (data.success) { setLocalFiles(sortFiles(data.files)); setLocalPath(data.path); setLocalError(null); }
-            else { setLocalError(data.error); }
-        });
-        newSocket.on('pull_tizen_file_result', (data) => {
-            if (data.success) {
-                refreshLocalFiles();   // Refresh destination (PC)
-                refreshTizenFiles();   // Refresh source (Tizen)
-                addToast(`Downloaded: ${data.remotePath.split('/').pop()}`, 'success');
-            } else {
-                addToast(`Pull Error: ${data.error}`, 'error');
-            }
-        });
-        newSocket.on('push_tizen_file_result', (data) => {
-            if (data.success) {
-                refreshTizenFiles();   // Refresh destination (Tizen)
-                refreshLocalFiles();   // Refresh source (PC)
-                addToast(`Uploaded: ${data.localPath.split(/[\\/]/).pop()}`, 'success');
-            } else {
-                addToast(`Push Error: ${data.error}`, 'error');
-            }
-        });
-        newSocket.on('operation_result', (data) => {
-            if (data.success) {
-                if (data.op === 'install') {
-                    addToast(`Installation finished!`, 'success');
-                    console.log('[TizenExplorer] Install output:', data.output);
-                } else {
-                    addToast(`${data.op.toUpperCase()} successful`, 'success');
-                }
-                if (data.target === 'tizen') refreshTizenFiles();
-                else refreshLocalFiles();
-            } else {
-                addToast(`${data.op.toUpperCase()} failed: ${data.error}`, 'error');
-            }
-        });
-
-        newSocket.on('read_tizen_file_result', (data) => {
-            if (data.success) {
-                setViewingFile({ name: data.path.split('/').pop(), content: data.content });
-            } else {
-                addToast(`Read Error: ${data.error}`, 'error');
-            }
-        });
-
-        newSocket.on('complete_tizen_path_result', (data) => {
-            if (completionCallbackRef.current) {
+        if (isActive && !socket) {
+            const newSocket = io('http://127.0.0.1:3003');
+            newSocket.on('list_tizen_files_result', (data) => {
+                setTizenLoading(false);
+                if (data.success) { setTizenFiles(sortFiles(data.files)); setTizenError(null); }
+                else { setTizenError(data.error); }
+            });
+            newSocket.on('list_local_files_result', (data) => {
+                setLocalLoading(false);
+                if (data.success) { setLocalFiles(sortFiles(data.files)); setLocalPath(data.path); setLocalError(null); }
+                else { setLocalError(data.error); }
+            });
+            newSocket.on('pull_tizen_file_result', (data) => {
                 if (data.success) {
-                    completionCallbackRef.current(data.matches, data.dir);
+                    refreshLocalFiles();   // Refresh destination (PC)
+                    refreshTizenFiles();   // Refresh source (Tizen)
+                    addToast(`Downloaded: ${data.remotePath.split('/').pop()}`, 'success');
                 } else {
-                    addToast(`Tizen path completion failed: ${data.error || 'Unknown error'}`, 'error');
+                    addToast(`Pull Error: ${data.error}`, 'error');
                 }
-                completionCallbackRef.current = null;
-            }
-        });
-
-        newSocket.on('complete_local_path_result', (data) => {
-            if (completionCallbackRef.current) {
+            });
+            newSocket.on('push_tizen_file_result', (data) => {
                 if (data.success) {
-                    completionCallbackRef.current(data.matches, data.dir);
+                    refreshTizenFiles();   // Refresh destination (Tizen)
+                    refreshLocalFiles();   // Refresh source (PC)
+                    addToast(`Uploaded: ${data.localPath.split(/[\\/]/).pop()}`, 'success');
                 } else {
-                    addToast(`Local path completion failed: ${data.error || 'Unknown error'}`, 'error');
+                    addToast(`Push Error: ${data.error}`, 'error');
                 }
-                completionCallbackRef.current = null;
+            });
+            newSocket.on('operation_result', (data) => {
+                if (data.success) {
+                    if (data.op === 'install') {
+                        addToast(`Installation finished!`, 'success');
+                        console.log('[TizenExplorer] Install output:', data.output);
+                    } else {
+                        addToast(`${data.op.toUpperCase()} successful`, 'success');
+                    }
+                    if (data.target === 'tizen') refreshTizenFiles();
+                    else refreshLocalFiles();
+                } else {
+                    addToast(`${data.op.toUpperCase()} failed: ${data.error}`, 'error');
+                }
+            });
+
+            newSocket.on('read_tizen_file_result', (data) => {
+                if (data.success) {
+                    setViewingFile({ name: data.path.split('/').pop(), content: data.content });
+                } else {
+                    addToast(`Read Error: ${data.error}`, 'error');
+                }
+            });
+
+            newSocket.on('complete_tizen_path_result', (data) => {
+                if (completionCallbackRef.current) {
+                    if (data.success) {
+                        completionCallbackRef.current(data.matches, data.dir);
+                    } else {
+                        addToast(`Tizen path completion failed: ${data.error || 'Unknown error'}`, 'error');
+                    }
+                    completionCallbackRef.current = null;
+                }
+            });
+
+            newSocket.on('complete_local_path_result', (data) => {
+                if (completionCallbackRef.current) {
+                    if (data.success) {
+                        completionCallbackRef.current(data.matches, data.dir);
+                    } else {
+                        addToast(`Local path completion failed: ${data.error || 'Unknown error'}`, 'error');
+                    }
+                    completionCallbackRef.current = null;
+                }
+            });
+
+            // Initial load when socket connects
+            newSocket.on('connect', () => {
+                console.log('[TizenExplorer] Socket connected');
+            });
+
+            setSocket(newSocket);
+        } else if (!isActive && socket) {
+            console.log('[TizenExplorer] Deactivating, disconnecting socket');
+            socket.disconnect();
+            setSocket(null);
+        }
+
+    }, [isActive, socket]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (socket) {
+                socket.disconnect();
             }
-        });
+        }
+    }, []);
 
-        setSocket(newSocket);
-        return () => { newSocket.disconnect(); };
-    }, [addToast, refreshLocalFiles, refreshTizenFiles]);
+    useEffect(() => {
+        if (socket && isActive) {
+            refreshTizenFiles();
+        }
+    }, [refreshTizenFiles, isActive]);
 
-    useEffect(() => { refreshTizenFiles(); }, [refreshTizenFiles]);
-    useEffect(() => { refreshLocalFiles(); }, [refreshLocalFiles]);
+    useEffect(() => {
+        if (socket && isActive) {
+            refreshLocalFiles();
+        }
+    }, [refreshLocalFiles, isActive]);
 
     useEffect(() => {
         console.log('[TizenExplorer] Local Path:', localPath);

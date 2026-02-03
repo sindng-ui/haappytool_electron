@@ -146,9 +146,9 @@ const TopBar: React.FC = () => {
                                 const val = e.currentTarget.value;
                                 if (val.trim()) {
                                     // Default to Left pane for now
-                                    findText(val, e.shiftKey ? 'prev' : 'next', 'left');
+                                    findText(val, e.shiftKey ? 'prev' : 'next', 'left', undefined, false, true);
                                     // If Dual View, maybe search Right too? 
-                                    if (isDualView) findText(val, e.shiftKey ? 'prev' : 'next', 'right');
+                                    if (isDualView) findText(val, e.shiftKey ? 'prev' : 'next', 'right', undefined, false, true);
                                 }
                             }
                         }}

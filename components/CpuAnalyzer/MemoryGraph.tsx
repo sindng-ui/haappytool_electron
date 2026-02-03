@@ -14,7 +14,7 @@ const MemoryGraph: React.FC<Props> = ({ data }) => {
 
     return (
         <div style={{ width: '100%', height: '300px', backgroundColor: '#1e1e1e', borderRadius: '8px', padding: '10px' }}>
-            <ResponsiveContainer width="100%" height="100%" minWidth={100}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                 <LineChart data={formattedData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#444" />
                     <XAxis dataKey="time" stroke="#aaa" fontSize={12} tick={{ fill: '#aaa' }} />

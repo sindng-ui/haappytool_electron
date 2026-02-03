@@ -22,4 +22,4 @@ const PluginContainer: React.FC<PluginContainerProps> = ({ plugin, isActive }) =
     );
 };
 
-export default PluginContainer;
+export default React.memo(PluginContainer);

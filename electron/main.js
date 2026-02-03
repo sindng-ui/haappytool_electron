@@ -455,8 +455,17 @@ app.whenReady().then(async () => {
         sendLog('🔌 Server endpoints initialized');
         sendLog('📂 Static files route configured');
     } else {
-        sendLog(`❌ Error: ${serverError?.message || 'Unknown error'}`);
-        sendLog('⚠️  Application may not function correctly');
+        const errorMsg = serverError?.message || 'Unknown error';
+        sendLog(`❌ Error: ${errorMsg}`);
+        console.error('[Critical] Server failed to start:', errorMsg);
+
+        // Show error dialog to user
+        dialog.showErrorBox(
+            'Startup Error',
+            `Failed to start local server service.\n\nError: ${errorMsg}\n\nPlease check if port 3003 is executing or another instance is running.`
+        );
+        app.quit();
+        return; // Stop initialization
     }
 
     sendProgress(60, 'Loading components...');

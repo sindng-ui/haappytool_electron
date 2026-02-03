@@ -417,6 +417,15 @@ const AppContent: React.FC = () => {
     // ✅ Removed duplicates: requestHistory, lastApiUrl, lastMethod
   ]);
 
+  // ✅ Performance: Use transition for tab switching to prevent UI blocking
+  const [isPending, startTransition] = React.useTransition();
+
+  const handleSetActiveTool = React.useCallback((id: string) => {
+    startTransition(() => {
+      setActiveTool(id);
+    });
+  }, []);
+
   // Loading complete handler
   const handleLoadingComplete = () => {
     setIsAppLoading(false);
@@ -430,7 +439,7 @@ const AppContent: React.FC = () => {
   return (
     <HappyToolProvider value={contextValue}>
       <CommandRegistrar
-        setActiveTool={setActiveTool}
+        setActiveTool={handleSetActiveTool}
         setIsSettingsOpen={setIsSettingsOpen}
         handleExport={handleExportSettings}
         handleImport={handleImportClick}
@@ -449,7 +458,7 @@ const AppContent: React.FC = () => {
         <div className="flex-1 flex overflow-hidden">
           <Sidebar
             activePluginId={activeTool}
-            onSelectPlugin={setActiveTool}
+            onSelectPlugin={handleSetActiveTool}
             pluginOrder={toolOrder}
             onReorderPlugins={setToolOrder}
             onOpenSettings={() => setIsSettingsOpen(true)}

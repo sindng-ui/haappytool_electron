@@ -18,7 +18,11 @@ const { Settings, RefreshCw, Activity, Terminal, Database, Smartphone, Zap, Wren
 type SelectionType = 'LOCATION' | 'ROOM' | 'DEVICE';
 type Tab = 'DATA' | 'EVENTS' | 'LOGS' | 'CAPABILITIES' | 'TOOLS' | 'MONITOR';
 
-const SmartThingsLabPlugin: React.FC = () => {
+interface SmartThingsLabPluginProps {
+    isActive?: boolean;
+}
+
+const SmartThingsLabPlugin: React.FC<SmartThingsLabPluginProps> = ({ isActive = false }) => {
     const { postGlobalAuth } = useHappyTool();
     const [token, setToken] = useState<string>('');
 
@@ -58,6 +62,17 @@ const SmartThingsLabPlugin: React.FC = () => {
             setToken(postGlobalAuth.bearerToken);
         }
     }, [postGlobalAuth]);
+
+    // Cleanup resources when inactive
+    useEffect(() => {
+        if (!isActive) {
+            if (sse) {
+                sse.disconnect();
+                // Optionally clear events if desired, but keeping them might be nice for history when switching back
+                // setSseEvents([]); 
+            }
+        }
+    }, [isActive, sse]);
 
     // Data Refresh
     const refreshData = async () => {
@@ -178,6 +193,8 @@ const SmartThingsLabPlugin: React.FC = () => {
         sse.addListener('device-event', handleSSEMessage);
         sse.addListener('message', handleSSEMessage);
     };
+
+    if (!isActive) return null;
 
     return (
         <div className="flex h-full w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 overflow-hidden">

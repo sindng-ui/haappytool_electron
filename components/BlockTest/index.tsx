@@ -10,7 +10,11 @@ import * as Lucide from 'lucide-react';
 import { Pipeline } from './types';
 import { THEME } from './theme';
 
-const BlockTest: React.FC = () => {
+interface BlockTestProps {
+    isActive?: boolean;
+}
+
+const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
     const {
         blocks,
         pipelines,
@@ -42,7 +46,7 @@ const BlockTest: React.FC = () => {
         activeScenarioId,
         scenarioStats,
         lastReportUrl
-    } = useBlockTest();
+    } = useBlockTest(isActive);
 
     const [sidebarTab, setSidebarTab] = useState<'blocks' | 'scenarios'>('blocks');
     const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(() => {

@@ -199,8 +199,12 @@ export const useLogExtractorLogic = ({
         rightWorkerRef.current?.postMessage({ type: 'TOGGLE_BOOKMARK', payload: { visualIndex: lineIndex } });
     }, []);
 
-    const clearLeftBookmarks = useCallback(() => { /* TODO: Implement clear bookmarks in worker if needed, or just clear visually? for now, maybe we need worker support. */ }, []);
-    const clearRightBookmarks = useCallback(() => { /* TODO */ }, []); // Clearing bookmarks usually implies clearing ALL. Worker needs CLEAR_BOOKMARKS message. For now, leave empty or TODO.
+    const clearLeftBookmarks = useCallback(() => {
+        leftWorkerRef.current?.postMessage({ type: 'CLEAR_BOOKMARKS' });
+    }, []);
+    const clearRightBookmarks = useCallback(() => {
+        rightWorkerRef.current?.postMessage({ type: 'CLEAR_BOOKMARKS' });
+    }, []);
     const [isTizenModalOpen, setIsTizenModalOpen] = useState(false);
     const [isTizenQuickConnect, setIsTizenQuickConnect] = useState(false);
 
@@ -581,6 +585,7 @@ export const useLogExtractorLogic = ({
 
     // Tizen Socket State
     const [tizenSocket, setTizenSocket] = useState<Socket | null>(null);
+
     const tizenBuffer = useRef<string[]>([]);
     const tizenBufferTimeout = useRef<NodeJS.Timeout | null>(null);
     const shouldAutoScroll = useRef(true);

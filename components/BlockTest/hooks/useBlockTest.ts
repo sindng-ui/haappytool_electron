@@ -12,7 +12,7 @@ import { io, Socket } from 'socket.io-client';
 // I'll assume I can get a socket or create one.
 // EXISTING PATTERN: `const socket = io('http://localhost:3002');` in components.
 
-export const useBlockTest = () => {
+export const useBlockTest = (isActive: boolean = true) => {
     const [blocks, setBlocks] = useState<CommandBlock[]>(() => {
         try {
             const saved = localStorage.getItem('happytool_blocks');
@@ -79,6 +79,17 @@ export const useBlockTest = () => {
     const lastItemSuccessRef = useRef<boolean>(true);
 
     useEffect(() => {
+        // if (!isActive) {
+        //     if (socketRef.current) {
+        //         console.log('[BlockTest] Keeping socket active per user request');
+        //         // socketRef.current.disconnect(); 
+        //         // socketRef.current = null;
+        //     }
+        //     return;
+        // }
+
+        if (socketRef.current) return;
+
         socketRef.current = io('http://127.0.0.1:3003');
 
         const socket = socketRef.current;
@@ -120,9 +131,12 @@ export const useBlockTest = () => {
         });
 
         return () => {
-            socket.disconnect();
+            if (socketRef.current) {
+                socketRef.current.disconnect();
+                socketRef.current = null;
+            }
         };
-    }, []);
+    }, [isActive]);
 
     useEffect(() => {
         const handleImport = () => {

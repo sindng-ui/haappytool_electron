@@ -16,6 +16,14 @@
 - Context Menu
 - Drag & Drop Tabs
 
+
+## 🔌 플러그인 리소스 최적화 (Inactivity Handling)
+- [x] **SmartThings Lab**: 비활성 시 SSE 연결 해제 구현
+- [x] **Tizen Lab**: 비활성 시 Socket 연결 해제 (기존 완료 확인)
+- [x] **CPU Analyzer**: 비활성 시 모니터링 소켓 해제 구현
+- [ ] **Log Extractor**: 비활성 시 연결 유지 (사용자 요청으로 Revert)
+- [x] **Screen Matcher**: 비활성 시 소켓 해제 확인
+- [x] **Block Test**: 비활성 시 소켓 해제 확인
+
 ## 상태
-✅ **ULTIMATE PERFECT!** 
-(Claude + Gemini Collaboration)
+✅ **모든 플러그인 비활성 처리 완료!**

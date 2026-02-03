@@ -12,7 +12,11 @@ interface MatchResult {
     message?: string;
 }
 
-const ScreenMatcher: React.FC = () => {
+interface ScreenMatcherProps {
+    isActive?: boolean;
+}
+
+const ScreenMatcher: React.FC<ScreenMatcherProps> = ({ isActive = false }) => {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [screenUrl, setScreenUrl] = useState<string | null>(null);
     const [screenAbsPath, setScreenAbsPath] = useState<string | null>(null);
@@ -23,6 +27,17 @@ const ScreenMatcher: React.FC = () => {
     const [isMatching, setIsMatching] = useState(false);
 
     useEffect(() => {
+        if (!isActive) {
+            if (socket) {
+                console.log('[ScreenMatcher] Deactivating, disconnecting socket');
+                socket.disconnect();
+                setSocket(null);
+            }
+            return;
+        }
+
+        if (socket) return; // Already connected
+
         const newSocket = io('http://127.0.0.1:3003');
 
         newSocket.on('connect', () => {
@@ -57,7 +72,7 @@ const ScreenMatcher: React.FC = () => {
         return () => {
             newSocket.disconnect();
         };
-    }, []);
+    }, [isActive]);
 
     const handleCapture = () => {
         if (!socket) return;
@@ -88,6 +103,8 @@ const ScreenMatcher: React.FC = () => {
         setStatus('Matching template...');
         socket.emit('match_image', { screenPath: screenAbsPath, templatePath: templateUrl });
     };
+
+    if (!isActive) return null;
 
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-6 overflow-hidden">

@@ -33,7 +33,7 @@ export interface MemoryDataPoint {
     gpu: number;
 }
 
-export const useCpuData = (deviceId: string, sdbPath?: string) => {
+export const useCpuData = (deviceId: string, sdbPath?: string, isActive: boolean = false) => {
     const [status, setStatus] = useState<string>('disconnected');
     const [data, setData] = useState<CpuDataPoint[]>([]);
     const [memoryData, setMemoryData] = useState<MemoryDataPoint[]>([]);
@@ -44,6 +44,17 @@ export const useCpuData = (deviceId: string, sdbPath?: string) => {
     const socketRef = useRef<Socket | null>(null);
 
     useEffect(() => {
+        if (!isActive) {
+            if (socketRef.current) {
+                console.log('[CpuData] Deactivating, disconnecting socket');
+                socketRef.current.disconnect();
+                socketRef.current = null;
+            }
+            return;
+        }
+
+        if (socketRef.current) return;
+
         const socket = io(URL);
         socketRef.current = socket;
 
@@ -113,8 +124,9 @@ export const useCpuData = (deviceId: string, sdbPath?: string) => {
         return () => {
             console.log('Disconnecting CPU Socket');
             socket.disconnect();
+            socketRef.current = null;
         };
-    }, []);
+    }, [isActive]);
 
     const startMonitoring = () => {
         if (socketRef.current) {

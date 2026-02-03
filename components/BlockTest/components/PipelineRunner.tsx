@@ -17,9 +17,10 @@ interface PipelineRunnerProps {
     onStop: () => void;
     onClose: () => void;
     embedded?: boolean;
+    reportUrl?: string | null;
 }
 
-const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs, activeItemId, stats, completedCount, isRunning, onStop, onClose, embedded }) => {
+const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs, activeItemId, stats, completedCount, isRunning, onStop, onClose, embedded, reportUrl }) => {
     const listContainerRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll to active item in List View
@@ -111,6 +112,19 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {/* Report Button */}
+                    {!isRunning && reportUrl && (
+                        <a
+                            href={reportUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mr-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-colors nav-no-drag"
+                        >
+                            <Lucide.FileText size={16} />
+                            <span className="hidden sm:inline">Report</span>
+                        </a>
+                    )}
+
                     {/* View Toggle */}
                     <div className="bg-slate-200 dark:bg-slate-800 p-1 rounded-lg flex items-center mr-2">
                         <button
