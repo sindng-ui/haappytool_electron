@@ -3,21 +3,22 @@ import { Activity } from 'lucide-react';
 
 interface LoadingSplashProps {
     onLoadingComplete?: () => void;
+    waitForPlugins?: boolean;
 }
 
-const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete }) => {
+const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete, waitForPlugins = false }) => {
     const [logs, setLogs] = useState<string[]>([]);
     const [progress, setProgress] = useState(0);
     const [status, setStatus] = useState('Initializing...');
     const [isComplete, setIsComplete] = useState(false);
+    const [isBackendComplete, setIsBackendComplete] = useState(false); // New state
     const startTimeRef = React.useRef<number>(Date.now());
     const MIN_DISPLAY_TIME = 1500; // 최소 1.5초 표시
+    const completeTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
+    // Watch for both completions
     useEffect(() => {
-        console.log('[LoadingSplash] Component mounted');
-        console.log('[LoadingSplash] window.electronAPI exists:', !!window.electronAPI);
-
-        // Electron이 아닌 웹 환경에서는 바로 완료 처리
+        // Web Environment Override
         if (!window.electronAPI) {
             setProgress(100);
             setStatus('Ready!');
@@ -26,55 +27,68 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete }) => {
             return;
         }
 
-        // 로딩 진행률 업데이트
+        // If backend is done, but plugins are not
+        if (isBackendComplete && waitForPlugins) {
+            setStatus('Loading plugins...');
+            setProgress(98); // Hold at 98%
+        }
+
+        // Check if fully complete
+        const safeToClose = isBackendComplete && !waitForPlugins;
+
+        if (safeToClose && !isComplete && !completeTimeoutRef.current) {
+            console.log('[LoadingSplash] All systems ready. Initiating closing sequence.');
+            setProgress(100);
+            setStatus('Ready!');
+
+            // Enforce minimum display time
+            const elapsedTime = Date.now() - startTimeRef.current;
+            const remainingTime = Math.max(0, MIN_DISPLAY_TIME - elapsedTime);
+
+            completeTimeoutRef.current = setTimeout(() => {
+                setIsComplete(true);
+                // Call callback after fade out
+                setTimeout(() => {
+                    onLoadingComplete?.();
+                }, 800);
+            }, remainingTime);
+        }
+    }, [isBackendComplete, waitForPlugins, isComplete, onLoadingComplete]);
+
+    useEffect(() => {
+        console.log('[LoadingSplash] Component mounted');
+
+        // ... existing log/progress handlers ...
         const handleProgress = (...args: any[]) => {
-            console.log('[LoadingSplash] handleProgress called with:', args);
-            const data = args[0] || args[1]; // Try both positions
+            const data = args[0] || args[1];
             if (data && typeof data === 'object') {
                 setProgress(data.progress);
                 setStatus(data.status);
             }
         };
 
-        // 로그 메시지 수신
         const handleLog = (...args: any[]) => {
-            console.log('[LoadingSplash] handleLog called with:', args);
-            const message = args[0] || args[1]; // Try both positions
+            const message = args[0] || args[1];
             if (typeof message === 'string') {
-                setLogs(prev => [...prev.slice(-29), message]); // 최근 30개 유지
+                setLogs(prev => [...prev.slice(-29), message]);
             }
         };
 
-        // 로딩 완료
-        const handleComplete = () => {
-            console.log('[LoadingSplash] handleComplete called');
-            setProgress(100);
-            setStatus('Ready!');
-
-            // 최소 표시 시간 확인
-            const elapsedTime = Date.now() - startTimeRef.current;
-            const remainingTime = Math.max(0, MIN_DISPLAY_TIME - elapsedTime);
-
-            // 최소 시간이 지나지 않았으면 대기
-            setTimeout(() => {
-                setIsComplete(true);
-
-                // 페이드 아웃 후 콜백 호출
-                setTimeout(() => {
-                    onLoadingComplete?.();
-                }, 800);
-            }, remainingTime);
+        // Backend signals it is done
+        const handleBackendComplete = () => {
+            console.log('[LoadingSplash] Backend reported complete.');
+            setIsBackendComplete(true);
+            // Note: We don't close here anymore, the useEffect above handles it
         };
 
-        console.log('[LoadingSplash] Registering event listeners');
         window.electronAPI.on('loading-progress', handleProgress);
         window.electronAPI.on('loading-log', handleLog);
-        window.electronAPI.on('loading-complete', handleComplete);
+        window.electronAPI.on('loading-complete', handleBackendComplete);
 
-        // ESC 키로 스킵 (개발 모드만)
         const handleKeyPress = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && process.env.NODE_ENV === 'development') {
-                handleComplete();
+                setIsBackendComplete(true); // Force backend complete
+                // Note: waitForPlugins might still block it, which is good
             }
         };
         window.addEventListener('keydown', handleKeyPress);
@@ -82,10 +96,11 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete }) => {
         return () => {
             window.electronAPI.off('loading-progress', handleProgress);
             window.electronAPI.off('loading-log', handleLog);
-            window.electronAPI.off('loading-complete', handleComplete);
+            window.electronAPI.off('loading-complete', handleBackendComplete);
             window.removeEventListener('keydown', handleKeyPress);
+            if (completeTimeoutRef.current) clearTimeout(completeTimeoutRef.current);
         };
-    }, [onLoadingComplete]);
+    }, []); // Run once to attach listeners
 
     return (
         <div

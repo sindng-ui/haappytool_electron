@@ -130,11 +130,23 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         setCurrentRawIndex(nextIndex);
 
         const matchPos = rawMatches[nextIndex];
-        textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(matchPos, matchPos + searchText.length);
+        const textarea = textareaRef.current;
 
-        // Restore focus to input for consecutive searches
-        setTimeout(() => searchInputRef.current?.focus(), 0);
+        textarea.focus();
+        textarea.setSelectionRange(matchPos, matchPos + searchText.length);
+
+        // Explicit scroll calculation to ensure the match is visible
+        const content = getRawContent();
+        const linesBeforeMatch = content.substring(0, matchPos).split('\n').length;
+        const lineHeight = 16; // Approximate line height in pixels
+        const scrollPadding = 3; // Lines of padding above the match
+
+        // Calculate target scroll position (centered with padding)
+        const targetScrollTop = Math.max(0, (linesBeforeMatch - scrollPadding) * lineHeight);
+        textarea.scrollTop = targetScrollTop;
+
+        // Restore focus to search input after scroll completes
+        setTimeout(() => searchInputRef.current?.focus(), 100);
     };
 
     const handleIframeSearch = (direction: 'next' | 'prev') => {

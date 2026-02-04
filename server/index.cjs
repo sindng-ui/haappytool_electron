@@ -638,8 +638,10 @@ const handleSocketConnection = (socket, deps = {}) => {
                                     con.stderr.on('data', d => conError += d.toString());
 
                                     // ✅ Add timeout for connection attempt (10 seconds)
+                                    let isTimedOut = false;
                                     const conTimeout = setTimeout(() => {
                                         console.error('[SDB Recovery] Connection timeout');
+                                        isTimedOut = true;
                                         con.kill();
                                         socket.emit('sdb_error', {
                                             message: `Auto-reconnect to ${fixedIp} timed out. Please check network connection or use Scan button.`
@@ -650,6 +652,7 @@ const handleSocketConnection = (socket, deps = {}) => {
 
                                     con.on('close', (code) => {
                                         clearTimeout(conTimeout);
+                                        if (isTimedOut) return; // Prevent duplicate handling
 
                                         // ✅ Check if connection succeeded
                                         const success = code === 0 || conOutput.toLowerCase().includes('connected');

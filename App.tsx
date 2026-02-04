@@ -79,7 +79,10 @@ const CommandRegistrar: React.FC<{
 
 const AppContent: React.FC = () => {
   const [activeTool, setActiveTool] = useState<string>(ToolId.LOG_EXTRACTOR);
-  const [isAppLoading, setIsAppLoading] = useState(true);
+  // Loading States
+  const [isBackendReady, setIsBackendReady] = useState(false);
+  const [isInitialPluginReady, setIsInitialPluginReady] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   // App-wide state (Settings)
   const [logRules, setLogRules] = useState<LogRule[]>([
@@ -426,15 +429,46 @@ const AppContent: React.FC = () => {
     });
   }, []);
 
-  // Loading complete handler
-  const handleLoadingComplete = () => {
-    setIsAppLoading(false);
+  // Loading complete handler (Backend)
+  const handleBackendLoadingComplete = () => {
+    setIsBackendReady(true);
   };
 
-  // Show loading splash if still loading
-  if (isAppLoading) {
-    return <LoadingSplash onLoadingComplete={handleLoadingComplete} />;
-  }
+  // Plugin loaded handler
+  const handlePluginLoaded = React.useCallback(() => {
+    setIsInitialPluginReady(true);
+  }, []);
+
+  // Update splash visibility based on states
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && !window.electronAPI) {
+      setShowSplash(false);
+      return;
+    }
+
+    // Listen for backend loading complete
+    window.electronAPI?.on('loading-complete', handleBackendLoadingComplete);
+
+    return () => {
+      window.electronAPI?.off('loading-complete', handleBackendLoadingComplete);
+    };
+  }, []);
+
+  // Safety timer for plugin loading (5s)
+  useEffect(() => {
+    if (isBackendReady && !isInitialPluginReady) {
+      const timer = setTimeout(() => {
+        console.warn('Plugin loading timed out, forcing ready');
+        setIsInitialPluginReady(true);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [isBackendReady, isInitialPluginReady]);
+
+  // When Splash says it's done (fade out finished)
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+  };
 
   return (
     <HappyToolProvider value={contextValue}>
@@ -476,6 +510,7 @@ const AppContent: React.FC = () => {
                     key={plugin.id}
                     plugin={plugin}
                     isActive={activeTool === plugin.id}
+                    onLoaded={activeTool === plugin.id ? handlePluginLoaded : undefined}
                   />
                 ))}
               </>
@@ -490,6 +525,13 @@ const AppContent: React.FC = () => {
             <CommandPalette />
           </main>
         </div>
+        {/* Splash Overlay - Always rendered until complete to allow plugins to load underneath */}
+        {showSplash && (
+          <LoadingSplash
+            onLoadingComplete={handleSplashComplete}
+            waitForPlugins={!isInitialPluginReady}
+          />
+        )}
       </div>
     </HappyToolProvider>
   );
