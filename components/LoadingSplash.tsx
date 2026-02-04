@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Activity } from 'lucide-react';
+import packageJson from '../package.json';
 
 interface LoadingSplashProps {
     onLoadingComplete?: () => void;
@@ -151,7 +152,7 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete, waitFo
                             <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent animate-gradient-shift">
                                 HappyTool
                             </h1>
-                            <p className="text-slate-400 text-sm mt-3">v0.9.8</p>
+                            <p className="text-slate-400 text-sm mt-3">v{packageJson.version}</p>
                         </div>
                     </div>
 

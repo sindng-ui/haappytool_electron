@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as Lucide from 'lucide-react';
 import { PerfResponse, SavedRequest, RequestGroup, PostGlobalVariable, EnvironmentProfile } from '../types';
 import RequestSidebar from './PostTool/RequestSidebar';
@@ -73,10 +73,12 @@ const PostTool: React.FC = () => {
     const responseHeightRef = React.useRef(responseHeight);
     const [isResizingResponse, setIsResizingResponse] = useState(false);
 
-    // Sync ref
+    // Sync ref for sidebar width to avoid re-binding listeners
+    const sidebarWidthRef = useRef(sidebarWidth);
     useEffect(() => {
-        responseHeightRef.current = responseHeight;
-    }, [responseHeight]);
+        sidebarWidthRef.current = sidebarWidth;
+        responseHeightRef.current = responseHeight; // Ensure this is also synced if not already
+    }, [sidebarWidth, responseHeight]);
 
     useEffect(() => {
         const handleGlobalMouseMove = (e: MouseEvent) => {
@@ -94,12 +96,11 @@ const PostTool: React.FC = () => {
         const handleGlobalMouseUp = () => {
             if (isResizing.current) {
                 isResizing.current = false;
-                localStorage.setItem('postToolSidebarWidth', sidebarWidth.toString());
+                localStorage.setItem('postToolSidebarWidth', sidebarWidthRef.current.toString());
                 document.body.style.cursor = 'default';
             }
             if (isResizingResponse) {
                 setIsResizingResponse(false);
-                // Use ref to get latest height without re-binding effect
                 localStorage.setItem('postToolResponseHeight', responseHeightRef.current.toString());
                 document.body.style.cursor = 'default';
             }
@@ -111,7 +112,8 @@ const PostTool: React.FC = () => {
             window.removeEventListener('mousemove', handleGlobalMouseMove);
             window.removeEventListener('mouseup', handleGlobalMouseUp);
         };
-    }, [sidebarWidth, isResizingResponse]); // No dependency on responseHeight needed now for saving
+    }, [isResizingResponse]); // Removed sidebarWidth dependency, isResizingResponse triggers mode change so re-bind is acceptable or use Ref for that too
+
 
     const handleResizeStart = () => {
         isResizing.current = true;
