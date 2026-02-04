@@ -619,17 +619,65 @@ const handleSocketConnection = (socket, deps = {}) => {
                             // [Auto-Recovery] Target not found
                             if (!isRetry && (errMsg.includes('target not found') || errMsg.includes('error: target not found'))) {
                                 const fixedIp = '192.168.250.250';
-                                // We ignore what deviceId is, and force reconnect to fixedIp as per user request
                                 console.log(`[SDB Recovery] Target not found event. Attempting fixed auto-reconnect to ${fixedIp}...`);
                                 logDebug(`[Recovery] Target not found. Attempting disconnect/connect for fixed IP: ${fixedIp}`);
+
+                                // ✅ Notify client that auto-recovery is in progress
+                                socket.emit('sdb_status', {
+                                    status: 'reconnecting',
+                                    message: `Device not found. Attempting auto-reconnect to ${fixedIp}...`
+                                });
 
                                 const dis = spawnProc(getSdbBin(sdbPath), ['disconnect', fixedIp]);
                                 dis.on('close', () => {
                                     const con = spawnProc(getSdbBin(sdbPath), ['connect', fixedIp]);
-                                    con.on('close', () => {
-                                        console.log(`[SDB Recovery] Reconnection attempt finished. Retrying session...`);
-                                        logDebug(`[Recovery] Reconnection finished. Retrying...`);
-                                        initiateSdbConnection(true); // Retry
+
+                                    let conOutput = '';
+                                    let conError = '';
+                                    con.stdout.on('data', d => conOutput += d.toString());
+                                    con.stderr.on('data', d => conError += d.toString());
+
+                                    // ✅ Add timeout for connection attempt (10 seconds)
+                                    const conTimeout = setTimeout(() => {
+                                        console.error('[SDB Recovery] Connection timeout');
+                                        con.kill();
+                                        socket.emit('sdb_error', {
+                                            message: `Auto-reconnect to ${fixedIp} timed out. Please check network connection or use Scan button.`
+                                        });
+                                        if (debugStream) { debugStream.end(); debugStream = null; }
+                                        if (logFileStream) { logFileStream.end(); logFileStream = null; }
+                                    }, 10000);
+
+                                    con.on('close', (code) => {
+                                        clearTimeout(conTimeout);
+
+                                        // ✅ Check if connection succeeded
+                                        const success = code === 0 || conOutput.toLowerCase().includes('connected');
+
+                                        if (success) {
+                                            console.log('[SDB Recovery] Auto-reconnect successful. Retrying connection...');
+                                            logDebug(`[Recovery] Reconnection successful. Output: ${conOutput}`);
+
+                                            socket.emit('sdb_status', {
+                                                status: 'reconnecting',
+                                                message: 'Auto-reconnect successful. Retrying connection...'
+                                            });
+
+                                            // Wait a bit for device to be ready, then retry
+                                            setTimeout(() => {
+                                                initiateSdbConnection(true);
+                                            }, 1000);
+                                        } else {
+                                            console.error(`[SDB Recovery] Auto-reconnect failed. Code: ${code}, Error: ${conError}`);
+                                            logDebug(`[Recovery] Reconnection failed. Code: ${code}, Output: ${conOutput}, Error: ${conError}`);
+
+                                            socket.emit('sdb_error', {
+                                                message: `Auto-reconnect failed. Please click Scan button or check device connection manually.`
+                                            });
+
+                                            if (debugStream) { debugStream.end(); debugStream = null; }
+                                            if (logFileStream) { logFileStream.end(); logFileStream = null; }
+                                        }
                                     });
                                 });
                                 return;

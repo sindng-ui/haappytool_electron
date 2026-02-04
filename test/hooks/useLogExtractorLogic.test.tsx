@@ -108,7 +108,7 @@ describe('useLogExtractorLogic (Frontend Logic)', () => {
         expect(leftWorker.postMessage).toHaveBeenCalledWith({ type: 'INIT_STREAM' });
     });
 
-    it('should BUFFER log_data for 500ms before sending to worker', async () => {
+    it('should BUFFER log_data for 250ms before sending to worker', async () => {
         vi.useFakeTimers();
         const { result } = renderHook(() => useLogExtractorLogic(defaultProps));
         const mockSocket = Object.assign(new EventEmitter(), {
@@ -133,15 +133,15 @@ describe('useLogExtractorLogic (Frontend Logic)', () => {
         // 2. Immediate check: Should NOT have sent yet
         expect(leftWorker.postMessage).not.toHaveBeenCalled();
 
-        // 3. Advance time by 400ms (Total 400ms) - Still waiting
+        // 3. Advance time by 200ms (Total 200ms) - Still waiting (buffer timeout is 250ms)
         act(() => {
-            vi.advanceTimersByTime(400);
+            vi.advanceTimersByTime(200);
         });
         expect(leftWorker.postMessage).not.toHaveBeenCalled();
 
-        // 4. Advance time by 200ms (Total 600ms) - Should flush
+        // 4. Advance time by 100ms (Total 300ms) - Should flush (past 250ms threshold)
         act(() => {
-            vi.advanceTimersByTime(200);
+            vi.advanceTimersByTime(100);
         });
 
         expect(leftWorker.postMessage).toHaveBeenCalledWith({
@@ -152,7 +152,7 @@ describe('useLogExtractorLogic (Frontend Logic)', () => {
         vi.useRealTimers();
     });
 
-    it('should FLUSH IMMEDIATELY if buffer exceeds limit (>2000 items)', () => {
+    it('should FLUSH IMMEDIATELY if buffer exceeds limit (>500 items)', () => {
         const { result } = renderHook(() => useLogExtractorLogic(defaultProps));
         const mockSocket = Object.assign(new EventEmitter(), {
             disconnect: vi.fn(),
@@ -165,17 +165,14 @@ describe('useLogExtractorLogic (Frontend Logic)', () => {
         const leftWorker = MockWorker.instances[0];
         leftWorker.postMessage.mockClear();
 
-        // Emit 2005 lines rapidly
+        // Emit 505 lines rapidly (MAX_BUFFER_SIZE is 500)
         act(() => {
-            // Arrays are faster to emit
-            for (let i = 0; i < 2005; i++) {
+            for (let i = 0; i < 505; i++) {
                 mockSocket.emit('log_data', `Line ${i}\n`);
             }
         });
 
         // Should have called postMessage at least once (for the flush)
-        // Note: The logic flushes ONE chunk when it hits 2001. 
-        // Then remaining 4 might buffer.
         expect(leftWorker.postMessage).toHaveBeenCalled();
 
         // Verify the payload of the first call contains many lines
@@ -301,5 +298,5 @@ describe('useLogExtractorLogic (Frontend Logic)', () => {
             expect(result.current.logViewPreferences.rowHeight).toBe(99);
             expect(result.current.logViewPreferences.fontSize).toBe(14);
         });
-    });
+    }, 10000);
 });

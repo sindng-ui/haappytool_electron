@@ -143,7 +143,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                             // For SDB, we need to check if device is available? Or just try?
                             // Try connecting to last used device or auto-detect
                             newSocket?.emit('connect_sdb', {
-                                deviceId: selectedDeviceId,
+                                deviceId: selectedDeviceId || undefined,  // ✅ Convert empty string to undefined for proper auto-detect
                                 debug: debugMode,
                                 saveToFile: saveToFile,
                                 command: logCommand,
@@ -215,11 +215,20 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                     console.log('[TizenModal] Handing over to stream, closing modal');
                     onStreamStart(newSocket!, `SDB:${selectedDeviceId || 'Default'}`, 'sdb', saveToFile);
                     onClose();
+                } else if (data.status === 'reconnecting') {
+                    // ✅ Keep connecting state during auto-recovery
+                    console.log('[TizenModal] SDB auto-reconnecting:', data.message);
+                    setIsConnecting(true);
+                    setError(''); // Clear previous errors
                 } else if (data.status === 'disconnected') {
                     console.log('[TizenModal] SDB disconnected');
                     setIsConnected(false);
+                    setIsConnecting(false);
                 }
-                setIsConnecting(false);
+                // Don't set isConnecting to false if reconnecting
+                if (data.status !== 'reconnecting') {
+                    setIsConnecting(false);
+                }
             });
 
             newSocket.on('sdb_error', (data) => {
@@ -334,7 +343,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                 command: logCommand || 'default'
             });
             socket.emit('connect_sdb', {
-                deviceId: selectedDeviceId,
+                deviceId: selectedDeviceId || undefined,  // ✅ Convert empty string to undefined for proper auto-detect
                 debug: debugMode,
                 saveToFile: saveToFile,
                 command: logCommand,
