@@ -521,12 +521,12 @@ const PostTool: React.FC = () => {
                     <div className="relative">
                         <button
                             onClick={() => setShowEnvDropdown(!showEnvDropdown)}
-                            className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-800 border border-white/5 hover:border-indigo-500/30 transition-all group min-w-[140px] justify-between"
+                            className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-800 border border-white/5 hover:border-indigo-500/30 transition-all group min-w-[180px] justify-between"
                             title="Switch Active Environment"
                         >
                             <div className="flex flex-col items-start">
                                 <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider group-hover:text-indigo-400 transition-colors">Environment</span>
-                                <span className="text-xs font-bold text-slate-200 truncate max-w-[100px]">
+                                <span className="text-xs font-bold text-slate-200 truncate max-w-[140px]">
                                     {envProfiles?.find(p => p.id === activeEnvId)?.name || 'Default'}
                                 </span>
                             </div>
