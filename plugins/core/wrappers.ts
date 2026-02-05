@@ -156,3 +156,14 @@ export const TizenLabPluginWrapper: HappyPlugin = {
     component: TizenLabPlugin,
     order: 15,
 };
+
+const EasyPost = React.lazy(() => import('../../plugins/EasyPost/EasyPostPlugin'));
+const { Zap } = Lucide;
+
+export const EasyPostPlugin: HappyPlugin = {
+    id: ToolId.EASY_POST,
+    name: 'Easy Post',
+    icon: Zap,
+    component: EasyPost,
+    order: 16,
+};
