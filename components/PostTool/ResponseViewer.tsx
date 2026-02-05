@@ -132,21 +132,32 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         const matchPos = rawMatches[nextIndex];
         const textarea = textareaRef.current;
 
-        textarea.focus();
+        // Set selection first
         textarea.setSelectionRange(matchPos, matchPos + searchText.length);
+        textarea.focus();
 
-        // Explicit scroll calculation to ensure the match is visible
+        // Calculate scroll position to center the match
+        // First, get the full content and calculate line number
         const content = getRawContent();
-        const linesBeforeMatch = content.substring(0, matchPos).split('\n').length;
-        const lineHeight = 16; // Approximate line height in pixels
-        const scrollPadding = 3; // Lines of padding above the match
+        const beforeMatch = content.substring(0, matchPos);
+        const lineNumber = beforeMatch.split('\n').length - 1; // 0-indexed line number
 
-        // Calculate target scroll position (centered with padding)
-        const targetScrollTop = Math.max(0, (linesBeforeMatch - scrollPadding) * lineHeight);
-        textarea.scrollTop = targetScrollTop;
+        // Get textarea dimensions and computed line height
+        const computedStyle = window.getComputedStyle(textarea);
+        const lineHeight = parseFloat(computedStyle.lineHeight);
+        const textareaHeight = textarea.clientHeight;
+
+        // Calculate scroll position to center the match vertically
+        const matchTopPosition = lineNumber * lineHeight;
+        const targetScrollTop = Math.max(0, matchTopPosition - (textareaHeight / 2) + (lineHeight / 2));
+
+        // Apply scroll smoothly
+        requestAnimationFrame(() => {
+            textarea.scrollTop = targetScrollTop;
+        });
 
         // Restore focus to search input after scroll completes
-        setTimeout(() => searchInputRef.current?.focus(), 100);
+        setTimeout(() => searchInputRef.current?.focus(), 150);
     };
 
     const handleIframeSearch = (direction: 'next' | 'prev') => {
