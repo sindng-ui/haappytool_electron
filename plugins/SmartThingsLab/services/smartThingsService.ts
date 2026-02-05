@@ -43,20 +43,42 @@ export class SmartThingsService {
         return response.json();
     }
 
+    /**
+     * Helper method to fetch all pages from a paginated API endpoint
+     * SmartThings API returns { items: T[], _links?: { next?: string } }
+     */
+    private async fetchAllPages<T>(endpoint: string): Promise<T[]> {
+        let allItems: T[] = [];
+        let nextUrl: string | null = endpoint;
+
+        while (nextUrl) {
+            const response = await this.request<{ items: T[], _links?: { next?: string } }>(nextUrl);
+            allItems = allItems.concat(response.items || []);
+
+            // Check if there's a next page
+            if (response._links?.next) {
+                // Extract just the path and query from the full URL
+                const url = new URL(response._links.next);
+                nextUrl = url.pathname + url.search;
+            } else {
+                nextUrl = null;
+            }
+        }
+
+        return allItems;
+    }
+
     async getLocations(): Promise<STLocation[]> {
-        const res = await this.request<{ items: STLocation[] }>('/locations');
-        return res.items;
+        return this.fetchAllPages<STLocation>('/locations');
     }
 
     async getRooms(locationId: string): Promise<STRoom[]> {
-        const res = await this.request<{ items: STRoom[] }>(`/locations/${locationId}/rooms`);
-        return res.items;
+        return this.fetchAllPages<STRoom>(`/locations/${locationId}/rooms`);
     }
 
     async getDevices(locationId?: string): Promise<STDevice[]> {
         const query = locationId ? `?locationId=${locationId}` : '';
-        const res = await this.request<{ items: STDevice[] }>(`/devices${query}`);
-        return res.items;
+        return this.fetchAllPages<STDevice>(`/devices${query}`);
     }
 
     async getDeviceStatus(deviceId: string): Promise<STDeviceStatus> {

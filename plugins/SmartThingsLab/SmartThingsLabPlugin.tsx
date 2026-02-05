@@ -112,12 +112,6 @@ const SmartThingsLabPlugin: React.FC<SmartThingsLabPluginProps> = ({ isActive = 
         }
     };
 
-    // Auto-refresh when token detected
-    useEffect(() => {
-        if (token && locations.length === 0) {
-            refreshData();
-        }
-    }, [token]);
 
     const handleSelect = useCallback(async (item: any, type: SelectionType) => {
         setSelectionType(type);
