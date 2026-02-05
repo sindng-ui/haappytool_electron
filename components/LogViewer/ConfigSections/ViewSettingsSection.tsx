@@ -1,5 +1,8 @@
 import React from 'react';
 import { LogViewPreferences, LogLevelStyle, LogLevel } from '../../../types';
+import * as Lucide from 'lucide-react';
+
+const { Eye } = Lucide;
 
 interface ViewSettingsSectionProps {
     preferences: LogViewPreferences;
@@ -33,22 +36,47 @@ export const ViewSettingsSection: React.FC<ViewSettingsSectionProps> = ({ prefer
 
     return (
         <div className="space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">View Settings</h3>
+            <div className="flex items-center justify-between mb-4">
+                <label className="text-sm font-bold text-indigo-100 flex items-center gap-2">
+                    <Eye size={16} className="text-indigo-400 icon-glow" />
+                    View Settings
+                </label>
+            </div>
 
             {/* Font Control */}
             <div className="flex items-center justify-between">
                 <label className="text-sm text-slate-300">Font Family</label>
-                <select
-                    value={preferences.fontFamily || 'Consolas, monospace'}
-                    onChange={(e) => onUpdate({ fontFamily: e.target.value })}
-                    className="bg-slate-700 text-slate-200 text-xs rounded border border-slate-600 focus:ring-1 focus:ring-indigo-500 focus:outline-none p-1 w-32"
-                >
-                    <option value="Consolas, monospace">Consolas</option>
-                    <option value="'Courier New', monospace">Courier New</option>
-                    <option value="'Lucida Console', monospace">Lucida Console</option>
-                    <option value="'Roboto Mono', monospace">Roboto Mono</option>
-                    <option value="monospace">System Monospace</option>
-                </select>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={preferences.fontFamily || 'Consolas, monospace'}
+                        onChange={(e) => onUpdate({ fontFamily: e.target.value })}
+                        className="bg-slate-700 text-slate-200 text-xs rounded border border-slate-600 focus:ring-1 focus:ring-indigo-500 focus:outline-none p-1 w-24"
+                    >
+                        <option value="Consolas, monospace">Consolas</option>
+                        <option value="'Courier New', monospace">Courier</option>
+                        <option value="'Lucida Console', monospace">Lucida</option>
+                        <option value="'Roboto Mono', monospace">Roboto</option>
+                        <option value="monospace">Mono</option>
+                    </select>
+                    <input
+                        type="number"
+                        min="8"
+                        max="24"
+                        value={preferences.fontSize || 12}
+                        onChange={(e) => {
+                            const newSize = parseInt(e.target.value, 10);
+                            // Auto-adjust row height for dense log view (approx 1.5x)
+                            // This ensures "Show a lot of text" requirement
+                            const newRowHeight = Math.ceil(newSize * 1.5);
+                            onUpdate({
+                                fontSize: newSize,
+                                rowHeight: newRowHeight
+                            });
+                        }}
+                        className="w-12 bg-slate-700 text-slate-200 text-xs rounded border border-slate-600 focus:ring-1 focus:ring-indigo-500 focus:outline-none p-1 text-center"
+                        title="Font Size (px)"
+                    />
+                </div>
             </div>
 
             {/* Row Height Control */}
