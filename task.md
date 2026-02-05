@@ -1,29 +1,18 @@
-# 🚀 모든 작업 완료!
+# Tizen Lab 앱 목록 표시 오류 수정
 
-## ✅ 성능 최적화 (17개)
-1~12. Phase 1~3 완료 (Claude)
-13~16. Extra 완료 (Claude)
-17. **localStorage Debounce** (Gemini) ✨
+## 작업 개요
+Tizen Lab 플러그인의 App Manager에서 앱 목록을 조회할 때, 실제 앱 대신 잘못된 헤더 정보(`system`, `vpkg_type`, `[WGT]`)가 반복적으로 카드로 표시되는 문제를 수정합니다.
 
-## 🎨 UI 개선 (4개)
-- Title Bar 통일
-- 스크롤바 커스텀
-- 애니메이션 개선
-- 디자인 토큰
+## 배경
+사용자가 `app_launcher -l` 명령을 통해 앱 목록을 가져올 때, 일부 Tizen 기기 또는 버전에서 다음과 같은 형식의 출력을 제공하는 것으로 추정됩니다:
+```
+system vpkg_type [WGT]
+org.app.id AppName [WGT]
+...
+```
+기존 파싱 로직은 `(Status)` 괄호 형식만 지원하고, `system` 헤더를 필터링하지 않아 잘못된 파싱 결과가 발생하고 있었습니다.
 
-## 🎁 편의 기능 (3개)
-- Keyboard Shortcuts
-- Context Menu
-- Drag & Drop Tabs
-
-
-## 🔌 플러그인 리소스 최적화 (Inactivity Handling)
-- [x] **SmartThings Lab**: 비활성 시 SSE 연결 해제 구현
-- [x] **Tizen Lab**: 비활성 시 Socket 연결 해제 (기존 완료 확인)
-- [x] **CPU Analyzer**: 비활성 시 모니터링 소켓 해제 구현
-- [ ] **Log Extractor**: 비활성 시 연결 유지 (사용자 요청으로 Revert)
-- [x] **Screen Matcher**: 비활성 시 소켓 해제 확인
-- [x] **Block Test**: 비활성 시 소켓 해제 확인
-
-## 상태
-✅ **모든 플러그인 비활성 처리 완료!**
+## 목표
+1. `server/index.cjs`의 `list_tizen_apps` 핸들러 수정
+2. `[Status]` 대괄호 형식 지원을 위한 정규식 개선
+3. `system vpkg_type` 등의 헤더 라인 필터링 추가

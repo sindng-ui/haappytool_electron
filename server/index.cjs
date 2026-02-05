@@ -2287,20 +2287,33 @@ const handleSocketConnection = (socket, deps = {}) => {
 
             // Parse app_launcher output
             // Format: [pkgId] [name] ([status])
+            // Also supports: [pkgId] [name] [status] for some Tizen versions
             const lines = stdout.split('\n');
             const apps = [];
 
             for (const line of lines) {
                 const trimmed = line.trim();
+                // Filter out common headers
                 if (!trimmed || trimmed.startsWith('---') || trimmed.startsWith('Package') || trimmed.startsWith('Total')) continue;
 
-                // Example: org.tizen.settings Settings (Stopped)
-                const match = trimmed.match(/^(\S+)\s+(.+?)\s+\((.+)\)$/);
+                // Regex to match both () and [] for status, and handle lenient spacing
+                // Matches:
+                // org.package.id  App Name  (Status)
+                // org.package.id  App Name  [Status]
+                const match = trimmed.match(/^(\S+)\s+(.+?)\s+[(\[](.+)[)\]]$/);
+
                 if (match) {
+                    const pkgId = match[1];
+                    const name = match[2].trim();
+                    const status = match[3].trim();
+
+                    // Filter out header row like "system vpkg_type [WGT]"
+                    if (pkgId === 'system' && name === 'vpkg_type') continue;
+
                     apps.push({
-                        pkgId: match[1],
-                        name: match[2].trim(),
-                        status: match[3].trim()
+                        pkgId,
+                        name,
+                        status
                     });
                 }
             }
