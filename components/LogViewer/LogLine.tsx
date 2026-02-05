@@ -84,7 +84,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                 // Background color priority: Active > Highlight > Custom Level > Bookmark > Hover
                 // Since Active is handled by class, we handle Custom Level via style if not active/highlight
                 ...(!(isActive || isSelected || matchingHighlight) && customBgStyle
-                    ? { backgroundColor: `${customBgStyle}33` } // ~20% opacity 
+                    ? { backgroundColor: `${customBgStyle}${Math.round((preferences?.logLevelOpacity ?? 20) / 100 * 255).toString(16).padStart(2, '0')}` }
                     : {}),
 
                 ...(matchingHighlight && isCssColor(matchingHighlight.color)

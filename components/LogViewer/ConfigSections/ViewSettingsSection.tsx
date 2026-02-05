@@ -69,7 +69,22 @@ export const ViewSettingsSection: React.FC<ViewSettingsSectionProps> = ({ prefer
 
             {/* Log Level Colors */}
             <div className="space-y-2 pt-2 border-t border-slate-800">
-                <label className="text-sm text-slate-300 block mb-2">Log Level Colors</label>
+                <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm text-slate-300">Log Level Colors</label>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 uppercase">Opacity</span>
+                        <input
+                            type="range"
+                            min="5"
+                            max="100"
+                            value={preferences.logLevelOpacity ?? 20}
+                            onChange={(e) => onUpdate({ logLevelOpacity: parseInt(e.target.value, 10) })}
+                            className="w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                        />
+                        <span className="text-xs text-slate-400 font-mono w-6 text-right">{preferences.logLevelOpacity ?? 20}%</span>
+                    </div>
+                </div>
+
                 <div className="space-y-1.5">
                     {levels.map(level => {
                         const style = preferences.levelStyles.find(s => s.level === level) || { level, color: '#000000', enabled: false };

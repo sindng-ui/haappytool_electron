@@ -60,6 +60,7 @@ export interface LogViewPreferences {
   fontSize: number;
   fontFamily?: string;
   levelStyles: LogLevelStyle[];
+  logLevelOpacity?: number; // 0-100 percentage
 }
 
 export interface PostGlobalVariable {

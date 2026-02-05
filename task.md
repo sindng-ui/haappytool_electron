@@ -1,13 +1,14 @@
-# Json Tool Copy 버튼 복원
+# Log Extractor 투명도 설정 추가
 
 ## 작업 내용
-사용자 요청에 따라 Json Format 도구에서 사라진 Copy 버튼을 복원했습니다.
+사용자 요청에 따라 Log Extractor의 View Settings에 Log Level 투명도(Opacity) 조절 기능을 추가했습니다.
 
 ## 변경 사항
-- `components/JsonTools/JsonFormatter.tsx` 수정
-  - 유효한 JSON 결과가 있을 때 표시되는 툴바 영역에 'Format Copy' 및 'Minify & Copy' 버튼을 추가했습니다.
-  - 기존에 주석으로 남아있던 `{/* ... Controls for Tool Mode ... */}` 위치에 구현체를 삽입했습니다.
+- **`types.ts`**: `LogViewPreferences` 인터페이스에 `logLevelOpacity` (number, 0-100) 필드 추가.
+- **`components/LogViewer/ConfigSections/ViewSettingsSection.tsx`**: Log Level Colors 항목 위에 투명도 조절 슬라이더(Input Range) 추가. (기본값 20%)
+- **`components/LogViewer/LogLine.tsx`**: 하드코딩된 투명도(`33` aka ~20%) 대신 설정된 `logLevelOpacity` 값을 기반으로 Alpha Hex 값을 계산하여 적용하도록 수정.
 
 ## 기능 확인
-- JSON을 입력하고 Beautify를 실행하면 우측 패널 상단에 복사 아이콘(Copy)과 축소 아이콘(Minify)이 나타납니다.
-- 각 버튼 클릭 시 클립보드에 결과가 복사됩니다.
+- Configuration > View Settings 섹션 확인.
+- "Opacity" 슬라이더 조절 시 Log Level 색상(Verbose, Debug 등)의 배경색 투명도가 실시간으로 변경되는지 확인.
+- 기본값 20%에서 적절히 표시되는지 확인.
