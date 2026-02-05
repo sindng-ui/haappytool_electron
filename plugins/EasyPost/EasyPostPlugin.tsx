@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useHappyTool } from '../../contexts/HappyToolContext';
 import { useRequestRunner } from '../../hooks/useRequestRunner';
 import { Folder, MapPin, Smartphone, Server, Play, ChevronRight, ChevronDown, Activity, Info } from 'lucide-react';
@@ -58,26 +58,32 @@ const EasyPostPlugin: React.FC = () => {
     const [locations, setLocations] = useState<LocationData[]>([]);
     const [executionLog, setExecutionLog] = useState<string[]>([]);
 
-    // --- Seeding Logic ---
-    useEffect(() => {
-        let needsUpdate = false;
-        let newRequests = [...savedRequests];
-        let newGroups = [...savedRequestGroups];
+    // --- Seeding Logic (Performance Optimized) ---
+    // ✅ FIX: Use useRef to prevent infinite loop and run only once
+    const hasSeededRef = useRef(false);
 
-        // 1. Ensure Group Exists
-        if (!newGroups.find(g => g.id === EP_GROUP_ID)) {
-            newGroups.push({ id: EP_GROUP_ID, name: 'Easy Post Defaults', collapsed: false });
-            needsUpdate = true;
+    useEffect(() => {
+        // Only run once on mount
+        if (hasSeededRef.current) return;
+
+        const groupExists = savedRequestGroups.find(g => g.id === EP_GROUP_ID);
+        const allRequestsExist = [REQ_LOCATIONS, REQ_ROOMS, REQ_DEVICES, REQ_LOC_SUMMARY, REQ_DEVICE_STATUS]
+            .every(reqId => savedRequests.find(r => r.id === reqId));
+
+        // Early exit if already seeded
+        if (groupExists && allRequestsExist) {
+            hasSeededRef.current = true;
+            return;
         }
 
-        // 2. Ensure Requests Exist
+        // Create defaults only if needed
         const defaults: SavedRequest[] = [
             {
                 id: REQ_LOCATIONS,
                 name: 'Get Locations',
                 method: 'GET',
                 url: 'https://api.smartthings.com/v1/locations',
-                headers: [{ key: 'Authorization', value: 'Bearer {{token}}' }], // Fallback if global auth off? User said use Global Auth.
+                headers: [{ key: 'Authorization', value: 'Bearer {{token}}' }],
                 body: '',
                 groupId: EP_GROUP_ID
             },
@@ -119,19 +125,20 @@ const EasyPostPlugin: React.FC = () => {
             }
         ];
 
-        defaults.forEach(def => {
-            if (!newRequests.find(r => r.id === def.id)) {
-                newRequests.push(def);
-                needsUpdate = true;
-            }
-        });
+        // Only update if necessary
+        const missingRequests = defaults.filter(def => !savedRequests.find(r => r.id === def.id));
 
-        if (needsUpdate) {
-            if (newGroups.length !== savedRequestGroups.length) setSavedRequestGroups(newGroups);
-            setSavedRequests(newRequests);
-            console.log('Easy Post Defaults Seeded');
+        if (missingRequests.length > 0) {
+            setSavedRequests([...savedRequests, ...missingRequests]);
         }
-    }, [savedRequests, savedRequestGroups]); // Run once mostly, or when they change (safe check)
+
+        if (!groupExists) {
+            setSavedRequestGroups([...savedRequestGroups, { id: EP_GROUP_ID, name: 'Easy Post Defaults', collapsed: false }]);
+        }
+
+        hasSeededRef.current = true;
+        console.log('[EasyPost] ✅ Defaults seeded (one-time only)');
+    }, []); // ✅ Empty dependency array - runs only once on mount
 
     const runnerOptions = useMemo(() => ({
         savedRequests,
