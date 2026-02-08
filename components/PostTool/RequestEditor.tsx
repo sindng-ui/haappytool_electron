@@ -159,6 +159,31 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
             return;
         }
 
+        // Params Navigation
+        if (activeTab === 'PARAMS' && index !== undefined && field) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (field === 'key') {
+                    // Move to Value
+                    const inputs = document.querySelectorAll(`input[data-param-index="${index}"][data-param-field="value"]`);
+                    (inputs[0] as HTMLElement)?.focus();
+                } else {
+                    // Move to Next Row Key
+                    const nextIndex = index + 1;
+                    const nextInputs = document.querySelectorAll(`input[data-param-index="${nextIndex}"][data-param-field="key"]`);
+                    if (nextInputs.length > 0) {
+                        (nextInputs[0] as HTMLElement)?.focus();
+                    } else {
+                        // Params list automatically adds new row, just wait and focus
+                        setTimeout(() => {
+                            const newInputs = document.querySelectorAll(`input[data-param-index="${nextIndex}"][data-param-field="key"]`);
+                            (newInputs[0] as HTMLElement)?.focus();
+                        }, 50);
+                    }
+                }
+            }
+        }
+
         // Header Navigation
         if (activeTab === 'HEADERS' && index !== undefined && field) {
             if (e.key === 'Enter') {
@@ -404,6 +429,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                                     className="bg-transparent p-2 text-xs font-mono placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:bg-indigo-50/50 dark:focus:bg-indigo-500/10 border-r border-slate-200 dark:border-white/5"
                                     containerClassName="flex-1"
                                     textClassName="text-slate-700 dark:text-slate-300"
+                                    data-param-index={i}
+                                    data-param-field="key"
                                 />
                                 <HighlightedInput
                                     placeholder="Value"
@@ -414,6 +441,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                                     className="bg-transparent p-2 text-xs font-mono placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:bg-indigo-50/50 dark:focus:bg-indigo-500/10"
                                     containerClassName="flex-1"
                                     textClassName="text-indigo-600 dark:text-indigo-300"
+                                    data-param-index={i}
+                                    data-param-field="value"
                                 />
                                 <button
                                     onClick={() => i < paramsList.length - 1 && removeParam(i)}

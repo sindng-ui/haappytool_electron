@@ -27,6 +27,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
 
     // Raw Search Refs
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const highlightPreRef = useRef<HTMLPreElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -154,11 +155,104 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
         // Apply scroll smoothly
         requestAnimationFrame(() => {
             textarea.scrollTop = targetScrollTop;
+            syncScroll();
         });
 
         // Restore focus to search input after scroll completes
         setTimeout(() => searchInputRef.current?.focus(), 150);
     };
+
+    // Sync scroll between textarea and pre
+    const syncScroll = useCallback(() => {
+        if (textareaRef.current && highlightPreRef.current) {
+            highlightPreRef.current.scrollTop = textareaRef.current.scrollTop;
+            highlightPreRef.current.scrollLeft = textareaRef.current.scrollLeft;
+        }
+    }, []);
+
+    // Render content with highlighted matches
+    const renderHighlightedContent = useCallback(() => {
+        if (!searchText || viewMode !== 'raw') {
+            return <span className="text-slate-800 dark:text-slate-300">{getRawContent()}</span>;
+        }
+
+        const content = getRawContent();
+        const lines = content.split('\n');
+        const query = searchText.toLowerCase();
+
+        return lines.map((line, lineIndex) => {
+            const lowerLine = line.toLowerCase();
+            const hasMatch = lowerLine.includes(query);
+
+            // Highlight line background if it contains a match
+            const lineClassName = hasMatch
+                ? 'bg-yellow-200/30 dark:bg-yellow-500/20'
+                : '';
+
+            // Highlight individual search terms
+            if (hasMatch) {
+                const parts: React.ReactNode[] = [];
+                let lastIndex = 0;
+                let searchIndex = lowerLine.indexOf(query);
+
+                while (searchIndex !== -1) {
+                    // Add text before match
+                    if (searchIndex > lastIndex) {
+                        parts.push(
+                            <span key={`text-${lineIndex}-${lastIndex}`} className="text-slate-800 dark:text-slate-300">
+                                {line.substring(lastIndex, searchIndex)}
+                            </span>
+                        );
+                    }
+
+                    // Check if this match is the current active match
+                    const lineStartPos = lines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0);
+                    const matchAbsolutePos = lineStartPos + searchIndex;
+                    const isCurrentMatch = rawMatches[currentRawIndex] === matchAbsolutePos;
+
+                    // Add highlighted match
+                    parts.push(
+                        <mark
+                            key={`mark-${lineIndex}-${searchIndex}`}
+                            className={isCurrentMatch
+                                ? 'bg-orange-400 dark:bg-orange-500 text-white font-bold'
+                                : 'bg-yellow-300 dark:bg-yellow-600 text-slate-900 dark:text-slate-100'
+                            }
+                        >
+                            {line.substring(searchIndex, searchIndex + searchText.length)}
+                        </mark>
+                    );
+
+                    lastIndex = searchIndex + searchText.length;
+                    searchIndex = lowerLine.indexOf(query, lastIndex);
+                }
+
+                // Add remaining text
+                if (lastIndex < line.length) {
+                    parts.push(
+                        <span key={`text-${lineIndex}-${lastIndex}`} className="text-slate-800 dark:text-slate-300">
+                            {line.substring(lastIndex)}
+                        </span>
+                    );
+                }
+
+                return (
+                    <div key={lineIndex} className={lineClassName}>
+                        {parts}
+                        {'\n'}
+                    </div>
+                );
+            }
+
+            // Line without match
+            return (
+                <div key={lineIndex} className="text-slate-800 dark:text-slate-300">
+                    {line}
+                    {'\n'}
+                </div>
+            );
+        });
+    }, [searchText, viewMode, getRawContent, rawMatches, currentRawIndex]);
 
     const handleIframeSearch = (direction: 'next' | 'prev') => {
         if (!iframeRef.current || !iframeRef.current.contentWindow) return;
@@ -462,12 +556,33 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                                 />
                             )
                         ) : (
-                            <textarea
-                                ref={textareaRef}
-                                readOnly
-                                value={getRawContent()}
-                                className="w-full h-full p-4 font-mono text-xs text-slate-800 dark:text-slate-300 resize-none focus:outline-none bg-transparent"
-                            />
+                            <div className="relative w-full h-full overflow-hidden">
+                                {/* Highlighting Layer (behind) */}
+                                <pre
+                                    ref={highlightPreRef}
+                                    className="absolute inset-0 p-4 font-mono text-xs pointer-events-none overflow-auto whitespace-pre-wrap break-words custom-scrollbar"
+                                    style={{
+                                        scrollBehavior: 'auto',
+                                        overflowY: 'scroll',
+                                        overflowX: 'auto'
+                                    }}
+                                >
+                                    {renderHighlightedContent()}
+                                </pre>
+
+                                {/* Textarea (on top) */}
+                                <textarea
+                                    ref={textareaRef}
+                                    readOnly
+                                    value={getRawContent()}
+                                    onScroll={syncScroll}
+                                    className="absolute inset-0 w-full h-full p-4 font-mono text-xs resize-none focus:outline-none bg-transparent custom-scrollbar"
+                                    style={{
+                                        color: searchText ? 'transparent' : undefined,
+                                        caretColor: 'auto'
+                                    }}
+                                />
+                            </div>
                         )}
                     </div>
                 </>
