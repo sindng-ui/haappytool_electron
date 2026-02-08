@@ -94,12 +94,20 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete, waitFo
         };
         window.addEventListener('keydown', handleKeyPress);
 
+        // Safety timeout: if backend doesn't signal completion within 5s, force complete
+        // This prevents infinite waiting in case of unexpected issues
+        const safetyTimeout = setTimeout(() => {
+            console.warn('[LoadingSplash] Backend timeout - forcing completion');
+            setIsBackendComplete(true);
+        }, 5000);
+
         return () => {
             window.electronAPI.off('loading-progress', handleProgress);
             window.electronAPI.off('loading-log', handleLog);
             window.electronAPI.off('loading-complete', handleBackendComplete);
             window.removeEventListener('keydown', handleKeyPress);
             if (completeTimeoutRef.current) clearTimeout(completeTimeoutRef.current);
+            clearTimeout(safetyTimeout);
         };
     }, []); // Run once to attach listeners
 

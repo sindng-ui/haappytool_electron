@@ -439,14 +439,31 @@ const AppContent: React.FC = () => {
     setIsInitialPluginReady(true);
   }, []);
 
-  // Update splash visibility based on states
+  // Detect page reload and skip splash screen
   useEffect(() => {
+    // In web environment (dev mode without Electron), skip splash immediately
     if (process.env.NODE_ENV === 'development' && !window.electronAPI) {
       setShowSplash(false);
       return;
     }
 
-    // Listen for backend loading complete
+    // Detect if this is a page reload (not initial load)
+    // In Electron, page reload happens when user presses Ctrl+R or Ctrl+Shift+R
+    if (window.performance) {
+      const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+      const isReload = navEntries.length > 0 && navEntries[0].type === 'reload';
+
+      if (isReload && window.electronAPI) {
+        // This is a page reload in Electron - backend is already ready, skip splash
+        console.log('[App] Page reload detected, skipping splash screen');
+        setShowSplash(false);
+        setIsBackendReady(true);
+        setIsInitialPluginReady(true);
+        return;
+      }
+    }
+
+    // Listen for backend loading complete (for initial app launch)
     window.electronAPI?.on('loading-complete', handleBackendLoadingComplete);
 
     return () => {
