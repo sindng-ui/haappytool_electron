@@ -132,9 +132,27 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 
     const handleLineMouseDown = useCallback((index: number, e: React.MouseEvent) => {
         if (e.button !== 0) return; // Only left click
+
+        // ✅ Text Selection Mode (Alt + Click/Drag ONLY)
+        // Ctrl is reserved for Toggle Line selection.
+        if (e.altKey) {
+            // Deselect existing lines to avoid confusion
+            onLineClick && onLineClick(-1, false, false);
+            return;
+        }
+
+        // 🚫 Prevent native text selection when NOT in Alt mode
+        // (Since we removed 'select-none' from LogLine, we must manually prevent it)
+        e.preventDefault();
+
+        // ✅ If starting a Line Selection (Drag), clear any existing Text Selection
+        if (window.getSelection) {
+            window.getSelection()?.removeAllRanges();
+        }
+
         isDraggingSelection.current = true;
 
-        // Shift+Click 기능 복구 (사용자 재요청)
+        // Shift+Click (Range), Ctrl+Click (Toggle) 기능 정상 동작
         onLineClick && onLineClick(index, e.shiftKey, e.ctrlKey || e.metaKey);
     }, [onLineClick]);
 

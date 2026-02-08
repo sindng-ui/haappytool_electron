@@ -928,14 +928,27 @@ export const useLogExtractorLogic = ({
     useEffect(() => { activeLineIndexLeftRef.current = activeLineIndexLeft; }, [activeLineIndexLeft]);
     useEffect(() => { activeLineIndexRightRef.current = activeLineIndexRight; }, [activeLineIndexRight]);
 
+    const selectedIndicesLeftRef = useRef<Set<number>>(new Set());
+    const selectedIndicesRightRef = useRef<Set<number>>(new Set());
+
+    useEffect(() => { selectedIndicesLeftRef.current = selectedIndicesLeft; }, [selectedIndicesLeft]);
+    useEffect(() => { selectedIndicesRightRef.current = selectedIndicesRight; }, [selectedIndicesRight]);
+
     // Selection Helpers
     const handleLineClick = useCallback((pane: 'left' | 'right', index: number, isShift: boolean, isCtrl: boolean) => {
         const setActive = pane === 'left' ? setActiveLineIndexLeft : setActiveLineIndexRight;
         const setSelection = pane === 'left' ? setSelectedIndicesLeft : setSelectedIndicesRight;
 
-        // Use Ref for immediate access to the "current anchor"
         const anchorRef = pane === 'left' ? activeLineIndexLeftRef : activeLineIndexRightRef;
         const currentActive = anchorRef.current;
+
+        // ✅ Handle Deselect (index === -1)
+        if (index === -1) {
+            setSelection(new Set());
+            anchorRef.current = -1;
+            setActive(-1);
+            return;
+        }
 
         // console.log(`[useLog] Click: pane=${pane}, idx=${index}, shift=${isShift}, ctrl=${isCtrl}, currAnchor=${currentActive}`);
 
@@ -1181,7 +1194,7 @@ export const useLogExtractorLogic = ({
 
     const handleCopyLogs = useCallback(async (paneId: 'left' | 'right') => {
         const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
-        const selectedIndices = paneId === 'left' ? selectedIndicesLeft : selectedIndicesRight;
+        const selectedIndices = paneId === 'left' ? selectedIndicesLeftRef.current : selectedIndicesRightRef.current;
         const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
         const requestSpecificLines = paneId === 'left'
             ? (indices: number[]) => requestBookmarkedLines(indices, 'left')
@@ -1245,7 +1258,7 @@ export const useLogExtractorLogic = ({
             console.error('[Copy] Failed', e);
             showToast('Failed to copy logs.', 'error');
         }
-    }, [leftFilteredCount, rightFilteredCount, selectedIndicesLeft, selectedIndicesRight, requestLeftFullText, requestRightFullText, requestBookmarkedLines, showToast]);
+    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, requestBookmarkedLines, showToast]);
 
     const handleSaveLogs = useCallback(async (paneId: 'left' | 'right') => {
         const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;

@@ -65,7 +65,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
 
     return (
         <div
-            className={`group flex items-center text-xs whitespace-pre cursor-pointer select-none transition-colors duration-75
+            className={`group flex items-center text-xs whitespace-pre cursor-pointer transition-colors duration-75
                 ${isSelected
                     ? 'bg-indigo-500/10 dark:bg-indigo-500/20 font-medium'
                     : isActive
@@ -94,6 +94,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                     : {})
             }}
             onDragStart={(e) => {
+                if (e.altKey) return; // Allow native text selection drag
                 e.preventDefault();
                 return false;
             }}
@@ -138,19 +139,21 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
 
             {/* Item Index # */}
             {!isRawMode && (
-                <div className={`min-w-[70px] w-[70px] shrink-0 text-right pr-2 select-none border-r border-slate-200 dark:border-white/5 mr-2 flex items-center justify-end font-mono text-[11px]
-                    ${matchingHighlight ? 'text-slate-900/70 dark:text-slate-400 border-slate-900/10 dark:border-white/5' : 'text-slate-400 dark:text-slate-600'}`}>
-                    #{index + 1}
-                </div>
+                <div
+                    className={`log-line-index min-w-[70px] w-[70px] shrink-0 text-right pr-2 select-none border-r border-slate-200 dark:border-white/5 mr-2 flex items-center justify-end font-mono text-[11px]
+                    ${matchingHighlight ? 'text-slate-900/70 dark:text-slate-400 border-slate-900/10 dark:border-white/5' : 'text-slate-400 dark:text-slate-600'}`}
+                    data-content={`#${index + 1}`}
+                />
             )}
 
             {/* Line Number */}
-            <div className={`min-w-[90px] w-[90px] shrink-0 text-right pr-3 select-none flex justify-end gap-1 items-center font-mono text-[11px] 
+            <div
+                className={`log-line-number min-w-[90px] w-[90px] shrink-0 text-right pr-3 select-none flex justify-end gap-1 items-center font-mono text-[11px] 
                 ${matchingHighlight
-                    ? 'text-slate-900 dark:text-slate-100 font-bold'
-                    : hasBookmark ? 'text-yellow-600 dark:text-yellow-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}>
-                {isLoading ? '' : data?.lineNum}
-            </div>
+                        ? 'text-slate-900 dark:text-slate-100 font-bold'
+                        : hasBookmark ? 'text-yellow-600 dark:text-yellow-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}
+                data-content={isLoading ? '' : String(data?.lineNum || '')}
+            />
 
             {/* Content */}
             <div className={`min-w-0 flex-1 px-2 ${isActive

@@ -564,11 +564,47 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     e.stopPropagation();
                                     setIsGoToLineModalOpen((prev: boolean) => !prev);
                                 }
+
+                                // ✅ Ctrl + C (Copy) - Explicit Handling
+                                if (e.key === 'c' || e.key === 'C') {
+                                    // 1. Check native text selection first
+                                    const selection = window.getSelection()?.toString();
+                                    if (selection && selection.length > 0) {
+                                        // Allow native copy (or explicitly execCommand)
+                                        // If we don't preventDefault, browser native copy handles it.
+                                        // But if Electron menu is intercepting, we might need manual copy.
+                                        // Let's try explicit clipboard write to be safe.
+                                        navigator.clipboard.writeText(selection);
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        return;
+                                    }
+
+                                    // 2. If no text selection, try copying selected lines (Custom Logic)
+                                    // Determine pane
+                                    let targetPane = 'left';
+                                    if (isDualView) {
+                                        const activeEl = document.activeElement;
+                                        if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
+                                            targetPane = 'right';
+                                        }
+                                    }
+
+                                    // Check if lines are selected
+                                    const st = stateRef.current;
+                                    const selectedIndices = targetPane === 'right' ? st.selectedIndicesRight : st.selectedIndicesLeft;
+
+                                    if (selectedIndices.size > 0) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleCopyLogs(targetPane as 'left' | 'right');
+                                    }
+                                }
                             }
                         };
                         window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
                         return () => window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences]);
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs]);
                     return null;
                 })()
             )}
