@@ -918,12 +918,26 @@ export const useLogExtractorLogic = ({
         };
     }, [tizenSocket]);
 
+    // ✅ Ref for synchronous access inside event handlers (Fixes Drag Selection issues)
+    const activeLineIndexLeftRef = useRef<number>(-1);
+    const activeLineIndexRightRef = useRef<number>(-1);
+
+    // Sync Ref with State changes (useEffect) is risky for immediate events.
+    // Better to update Ref wherever we update State, OR use Ref as truth in handlers.
+    // Let's update Ref when State changes to be safe, but primarily update Ref manually before State.
+    useEffect(() => { activeLineIndexLeftRef.current = activeLineIndexLeft; }, [activeLineIndexLeft]);
+    useEffect(() => { activeLineIndexRightRef.current = activeLineIndexRight; }, [activeLineIndexRight]);
+
     // Selection Helpers
     const handleLineClick = useCallback((pane: 'left' | 'right', index: number, isShift: boolean, isCtrl: boolean) => {
         const setActive = pane === 'left' ? setActiveLineIndexLeft : setActiveLineIndexRight;
         const setSelection = pane === 'left' ? setSelectedIndicesLeft : setSelectedIndicesRight;
-        const currentActive = pane === 'left' ? activeLineIndexLeft : activeLineIndexRight;
-        // console.log(`[useLog] Click: pane=${pane}, idx=${index}, shift=${isShift}, ctrl=${isCtrl}, currActive=${currentActive}`);
+
+        // Use Ref for immediate access to the "current anchor"
+        const anchorRef = pane === 'left' ? activeLineIndexLeftRef : activeLineIndexRightRef;
+        const currentActive = anchorRef.current;
+
+        // console.log(`[useLog] Click: pane=${pane}, idx=${index}, shift=${isShift}, ctrl=${isCtrl}, currAnchor=${currentActive}`);
 
         if (isShift && currentActive !== -1) {
             // Range Selection
@@ -931,26 +945,27 @@ export const useLogExtractorLogic = ({
             const end = Math.max(currentActive, index);
             const range = new Set<number>();
             for (let i = start; i <= end; i++) range.add(i);
+
+            // NOTE: isShift=true (Drag/ShiftClick) does not move the anchor.
             setSelection(range);
-            // NOTE: We do NOT update Active Index on Shift+Click usually, 
-            // but we DO want to ensure if we drag back, the anchor remains.
-            // So we leave active as is.
         } else if (isCtrl) {
-            // Toggle Selection (Add/Remove)
-            // Note: Set state update needs previous state access.
+            // Toggle Selection
             setSelection(prev => {
                 const next = new Set(prev);
                 if (next.has(index)) next.delete(index);
                 else next.add(index);
                 return next;
             });
-            setActive(index); // Update anchor to latest click
+            // Update Anchor
+            anchorRef.current = index;
+            setActive(index);
         } else {
-            // Single Selection
+            // Single Selection (Reset Anchor)
             setSelection(new Set([index]));
+            anchorRef.current = index;
             setActive(index);
         }
-    }, [activeLineIndexLeft, activeLineIndexRight]);
+    }, []); // Removed dependencies on activeLineIndex to prevent recreation during rapid events
 
     // Handle Shift+C (Global Selection Extension)
     useEffect(() => {

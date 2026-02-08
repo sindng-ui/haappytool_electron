@@ -134,19 +134,15 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         if (e.button !== 0) return; // Only left click
         isDraggingSelection.current = true;
 
-        // Trigger selection immediately on down
-        // Ensure we pass correct modifiers. 
-        // If user drags without shift, we treat it as starting a NEW selection (unless Ctrl is held).
-        // Then dragging extends it (like Shift).
-        onLineClick && onLineClick(index, e.shiftKey, (e.ctrlKey || e.metaKey));
+        // Shift+Click 기능 복구 (사용자 재요청)
+        onLineClick && onLineClick(index, e.shiftKey, e.ctrlKey || e.metaKey);
     }, [onLineClick]);
 
     const handleLineMouseEnter = useCallback((index: number, e: React.MouseEvent) => {
         if (isDraggingSelection.current && onLineClick) {
-            // Dragging always implies range selection (Shift=true) from the active anchor
-            // We preserve Ctrl state to allow adding ranges (if logic supports it, though usually standard drag replaces or extends)
-            // For now, let's assume dragging is extending the current "active" anchor.
-            onLineClick(index, true, (e.ctrlKey || e.metaKey));
+            // ✅ Shift=true로 전달하여 activeLineIndex(anchor)부터 현재까지 범위 선택
+            // Ctrl는 전달하지 않음 (드래그는 토글이 아님)
+            onLineClick(index, true, false);
         }
     }, [onLineClick]);
     const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
@@ -566,7 +562,6 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 highlightCaseSensitive={highlightCaseSensitive}
                 onMouseDown={(idx, e) => handleLineMouseDown(globalIndex, e)}
                 onMouseEnter={(idx, e) => handleLineMouseEnter(globalIndex, e)}
-                onClick={(idx, e) => onLineClick && onLineClick(globalIndex, e.shiftKey, e.ctrlKey || e.metaKey)}
                 onDoubleClick={() => onLineDoubleClick && onLineDoubleClick(globalIndex)}
                 preferences={effectivePreferences}
                 levelMatchers={levelMatchers}

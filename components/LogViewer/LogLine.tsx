@@ -65,16 +65,18 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
 
     return (
         <div
-            className={`group flex items-center text-xs whitespace-pre cursor-pointer select-text transition-colors duration-75
-                ${(isActive || isSelected)
+            className={`group flex items-center text-xs whitespace-pre cursor-pointer select-none transition-colors duration-75
+                ${isSelected
                     ? 'bg-indigo-500/10 dark:bg-indigo-500/20 font-medium'
-                    : matchingHighlight
-                        ? (isCssColor(matchingHighlight.color)
-                            ? ''
-                            : `${matchingHighlight.color} bg-opacity-30`) // Use bg-opacity utility
-                        : hasBookmark
-                            ? 'bg-yellow-50/50 dark:bg-yellow-500/10 hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
-                            : 'hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
+                    : isActive
+                        ? 'bg-indigo-500/5 dark:bg-indigo-500/10'
+                        : matchingHighlight
+                            ? (isCssColor(matchingHighlight.color)
+                                ? ''
+                                : `${matchingHighlight.color} bg-opacity-30`) // Use bg-opacity utility
+                            : hasBookmark
+                                ? 'bg-yellow-50/50 dark:bg-yellow-500/10 hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
+                                : 'hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
                 }`}
             style={{
                 ...style,
@@ -91,7 +93,10 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                     ? { backgroundColor: matchingHighlight.color.startsWith('#') ? `${matchingHighlight.color}80` : matchingHighlight.color.replace(')', ', 0.5)').replace('rgb', 'rgba').replace('hsl', 'hsla') } // Attempt to add alpha
                     : {})
             }}
-            onClick={(e) => onClick && onClick(index, e)}
+            onDragStart={(e) => {
+                e.preventDefault();
+                return false;
+            }}
             onMouseDown={(e) => onMouseDown && onMouseDown(index, e)}
             onMouseEnter={(e) => onMouseEnter && onMouseEnter(index, e)}
             onDoubleClick={(e) => {
@@ -106,15 +111,17 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
 
                 {/* State Overlay (matches row state) */}
                 <div className={`absolute inset-0 transition-colors 
-                    ${isActive
+                    ${isSelected
                         ? 'bg-indigo-500/10 dark:bg-indigo-500/20'
-                        : matchingHighlight
-                            ? (isCssColor(matchingHighlight.color)
-                                ? ''
-                                : `${matchingHighlight.color} bg-opacity-30`)
-                            : hasBookmark
-                                ? 'bg-yellow-50/50 dark:bg-yellow-500/10 group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'
-                                : 'group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'
+                        : isActive
+                            ? 'bg-indigo-500/5 dark:bg-indigo-500/10'
+                            : matchingHighlight
+                                ? (isCssColor(matchingHighlight.color)
+                                    ? ''
+                                    : `${matchingHighlight.color} bg-opacity-30`)
+                                : hasBookmark
+                                    ? 'bg-yellow-50/50 dark:bg-yellow-500/10 group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'
+                                    : 'group-hover:bg-slate-200/50 dark:group-hover:bg-indigo-500/5'
                     }`}
                     style={matchingHighlight && isCssColor(matchingHighlight.color)
                         ? { backgroundColor: matchingHighlight.color.startsWith('#') ? `${matchingHighlight.color}33` : matchingHighlight.color.replace(')', ', 0.2)').replace('rgb', 'rgba').replace('hsl', 'hsla') }

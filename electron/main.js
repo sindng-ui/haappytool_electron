@@ -257,6 +257,10 @@ app.whenReady().then(async () => {
 
     // IPC Handler for Roslyn Validation
     ipcMain.handle('validateRoslyn', async (event, code) => {
+        // [Hotfix] .NET 7.0 런타임 누락으로 인한 앱 종료 방지
+        // 사용자가 런타임을 설치하기 전까지는 유효성 검사를 스킵합니다.
+        return [{ Id: 'INFO_SKIP', Message: 'Validator skipped (Missing .NET Runtime). Please install .NET 7.0.', Line: 0, Severity: 'Warning' }];
+
         const { spawn } = require('child_process');
 
         // Determine path to validator

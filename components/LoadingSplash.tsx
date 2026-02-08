@@ -82,9 +82,17 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete, waitFo
             // Note: We don't close here anymore, the useEffect above handles it
         };
 
-        window.electronAPI.on('loading-progress', handleProgress);
-        window.electronAPI.on('loading-log', handleLog);
-        window.electronAPI.on('loading-complete', handleBackendComplete);
+        if (window.electronAPI) {
+            window.electronAPI.on('loading-progress', handleProgress);
+            window.electronAPI.on('loading-log', handleLog);
+            window.electronAPI.on('loading-complete', handleBackendComplete);
+        } else {
+            console.warn('[LoadingSplash] electronAPI not found. Running in browser mode?');
+            // Timer to fake completion in browser/dev mode if not in Electron
+            setTimeout(() => {
+                setIsBackendComplete(true);
+            }, 2000);
+        }
 
         const handleKeyPress = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && process.env.NODE_ENV === 'development') {
@@ -102,9 +110,11 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete, waitFo
         }, 5000);
 
         return () => {
-            window.electronAPI.off('loading-progress', handleProgress);
-            window.electronAPI.off('loading-log', handleLog);
-            window.electronAPI.off('loading-complete', handleBackendComplete);
+            if (window.electronAPI) {
+                window.electronAPI.off('loading-progress', handleProgress);
+                window.electronAPI.off('loading-log', handleLog);
+                window.electronAPI.off('loading-complete', handleBackendComplete);
+            }
             window.removeEventListener('keydown', handleKeyPress);
             if (completeTimeoutRef.current) clearTimeout(completeTimeoutRef.current);
             clearTimeout(safetyTimeout);
