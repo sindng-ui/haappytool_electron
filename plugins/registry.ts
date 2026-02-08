@@ -14,7 +14,8 @@ import {
     AiAssistantPlugin,
     RxFlowVisualizerPlugin,
     SmartThingsLabPluginWrapper,
-    TizenLabPluginWrapper
+    TizenLabPluginWrapper,
+    EasyPostPlugin
 } from './core/wrappers';
 
 // Registry array to hold all registered plugins
@@ -33,7 +34,8 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     ScreenMatcherPlugin,
     AiAssistantPlugin,
     SmartThingsLabPluginWrapper,
-    TizenLabPluginWrapper
+    TizenLabPluginWrapper,
+    EasyPostPlugin
 ];
 
 export const getPluginById = (id: string): HappyPlugin | undefined => {

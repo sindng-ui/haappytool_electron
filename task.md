@@ -1,29 +1,19 @@
-# 🚀 모든 작업 완료!
+# Easy Post 가짜 데이터 로드 추가
 
-## ✅ 성능 최적화 (17개)
-1~12. Phase 1~3 완료 (Claude)
-13~16. Extra 완료 (Claude)
-17. **localStorage Debounce** (Gemini) ✨
+## 작업 내용
+Easy Post 플러그인의 테스트를 용이하게 하기 위해 **Load Fake Data** 기능을 추가했습니다. 실제 API 호출 없이 미리 정의된 Mock 데이터를 로드하여 UI 및 동작을 확인할 수 있습니다.
 
-## 🎨 UI 개선 (4개)
-- Title Bar 통일
-- 스크롤바 커스텀
-- 애니메이션 개선
-- 디자인 토큰
+## 변경 사항
+- **`plugins/EasyPost/EasyPostPlugin.tsx`** 수정:
+    - **Load Fake Data** 버튼 추가 (에메랄드 색상, 기존 버튼 옆에 배치).
+    - `handleLoadFakeData` 함수 구현:
+        - 2개의 가상 Location (Home, Office) 생성.
+        - 각 Location 별 Room 및 Device 데이터 매핑.
+        - Summary 정보 포함.
+        - 실제 로딩 효과를 위한 0.8초 지연 추가.
 
-## 🎁 편의 기능 (3개)
-- Keyboard Shortcuts
-- Context Menu
-- Drag & Drop Tabs
-
-
-## 🔌 플러그인 리소스 최적화 (Inactivity Handling)
-- [x] **SmartThings Lab**: 비활성 시 SSE 연결 해제 구현
-- [x] **Tizen Lab**: 비활성 시 Socket 연결 해제 (기존 완료 확인)
-- [x] **CPU Analyzer**: 비활성 시 모니터링 소켓 해제 구현
-- [ ] **Log Extractor**: 비활성 시 연결 유지 (사용자 요청으로 Revert)
-- [x] **Screen Matcher**: 비활성 시 소켓 해제 확인
-- [x] **Block Test**: 비활성 시 소켓 해제 확인
-
-## 상태
-✅ **모든 플러그인 비활성 처리 완료!**
+## 기능 확인
+1.  Easy Post 플러그인 진입.
+2.  **Load Fake Data** 버튼 클릭.
+3.  "My Sweet Home", "Headquarters" Locations이 로드되는지 확인.
+4.  Location 확장 및 상세 보기(Summary) 테스트.

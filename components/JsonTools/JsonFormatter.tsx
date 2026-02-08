@@ -592,7 +592,24 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
                                     )}
                                 </div>
                             )}
-                            {/* ... Controls for Tool Mode ... */}
+                            {valid && (
+                                <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-800 pl-2">
+                                    <button
+                                        onClick={() => copyToClipboard(formattedString)}
+                                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                                        title="Copy Formatted JSON"
+                                    >
+                                        <Copy size={15} />
+                                    </button>
+                                    <button
+                                        onClick={handleMinify}
+                                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                                        title="Minify & Copy"
+                                    >
+                                        <Minimize2 size={15} />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
