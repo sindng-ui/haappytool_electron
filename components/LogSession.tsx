@@ -124,6 +124,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         isGoToLineModalOpen, setIsGoToLineModalOpen,
         searchInputRef,
         logViewPreferences, // Added
+        isPanelOpen, setIsPanelOpen, updateLogViewPreferences, // Added for shortcuts
     } = useLogContext();
 
     const rowHeight = logViewPreferences?.rowHeight || 24; // Use preference or default
@@ -478,6 +479,42 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 // Check if we are in this session (should be active)
                                 if (!isActive) return;
 
+                                // Ctrl + ` : Toggle Configuration Panel
+                                if (e.key === '`' || e.key === '~') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setIsPanelOpen(prev => !prev);
+                                    return;
+                                }
+
+                                // Ctrl + [ : Font Size Down
+                                if (e.key === '[') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const currentSize = logViewPreferences?.fontSize || 12;
+                                    const newSize = Math.max(8, currentSize - 1);
+                                    const newRowHeight = Math.ceil(newSize * 1.5);
+                                    updateLogViewPreferences({
+                                        fontSize: newSize,
+                                        rowHeight: newRowHeight
+                                    });
+                                    return;
+                                }
+
+                                // Ctrl + ] : Font Size Up
+                                if (e.key === ']') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const currentSize = logViewPreferences?.fontSize || 12;
+                                    const newSize = Math.min(24, currentSize + 1);
+                                    const newRowHeight = Math.ceil(newSize * 1.5);
+                                    updateLogViewPreferences({
+                                        fontSize: newSize,
+                                        rowHeight: newRowHeight
+                                    });
+                                    return;
+                                }
+
                                 // Ctrl + B: View Bookmarks
                                 if (e.key === 'b' || e.key === 'B') {
                                     e.preventDefault();
@@ -531,7 +568,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                         };
                         window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
                         return () => window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen]);
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences]);
                     return null;
                 })()
             )}
