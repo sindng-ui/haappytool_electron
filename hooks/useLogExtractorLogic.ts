@@ -931,6 +931,10 @@ export const useLogExtractorLogic = ({
     const selectedIndicesLeftRef = useRef<Set<number>>(new Set());
     const selectedIndicesRightRef = useRef<Set<number>>(new Set());
 
+    // Snapshot for Drag Operations (to support shrinking selection during drag)
+    const selectionSnapshotLeftRef = useRef<Set<number>>(new Set());
+    const selectionSnapshotRightRef = useRef<Set<number>>(new Set());
+
     useEffect(() => { selectedIndicesLeftRef.current = selectedIndicesLeft; }, [selectedIndicesLeft]);
     useEffect(() => { selectedIndicesRightRef.current = selectedIndicesRight; }, [selectedIndicesRight]);
 
@@ -941,10 +945,12 @@ export const useLogExtractorLogic = ({
 
         const anchorRef = pane === 'left' ? activeLineIndexLeftRef : activeLineIndexRightRef;
         const currentActive = anchorRef.current;
+        const snapshotRef = pane === 'left' ? selectionSnapshotLeftRef : selectionSnapshotRightRef;
 
         // ✅ Handle Deselect (index === -1)
         if (index === -1) {
             setSelection(new Set());
+            snapshotRef.current = new Set();
             anchorRef.current = -1;
             setActive(-1);
             return;
@@ -953,20 +959,33 @@ export const useLogExtractorLogic = ({
         // console.log(`[useLog] Click: pane=${pane}, idx=${index}, shift=${isShift}, ctrl=${isCtrl}, currAnchor=${currentActive}`);
 
         if (isShift && currentActive !== -1) {
-            // Range Selection
+            // Range Selection (Drag or Shift+Click)
             const start = Math.min(currentActive, index);
             const end = Math.max(currentActive, index);
             const range = new Set<number>();
             for (let i = start; i <= end; i++) range.add(i);
 
             // NOTE: isShift=true (Drag/ShiftClick) does not move the anchor.
-            setSelection(range);
+            if (isCtrl) {
+                // Union with SNAPSHOT (Ctrl + Shift/Drag)
+                // Usin snapshot allows shrinking the drag range correctly
+                setSelection(() => {
+                    const next = new Set(snapshotRef.current);
+                    range.forEach(idx => next.add(idx));
+                    return next;
+                });
+            } else {
+                // Replace selection (Standard Shift/Drag)
+                setSelection(range);
+            }
         } else if (isCtrl) {
             // Toggle Selection
             setSelection(prev => {
                 const next = new Set(prev);
                 if (next.has(index)) next.delete(index);
                 else next.add(index);
+                // Update Snapshot after toggle
+                snapshotRef.current = new Set(next);
                 return next;
             });
             // Update Anchor
@@ -974,7 +993,9 @@ export const useLogExtractorLogic = ({
             setActive(index);
         } else {
             // Single Selection (Reset Anchor)
-            setSelection(new Set([index]));
+            const next = new Set([index]);
+            setSelection(next);
+            snapshotRef.current = next; // Update Snapshot
             anchorRef.current = index;
             setActive(index);
         }

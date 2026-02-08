@@ -130,6 +130,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
     }, []);
 
+    const dragStartCtrlKey = useRef(false);
+
     const handleLineMouseDown = useCallback((index: number, e: React.MouseEvent) => {
         if (e.button !== 0) return; // Only left click
 
@@ -151,6 +153,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         }
 
         isDraggingSelection.current = true;
+        dragStartCtrlKey.current = e.ctrlKey || e.metaKey;
 
         // Shift+Click (Range), Ctrl+Click (Toggle) 기능 정상 동작
         onLineClick && onLineClick(index, e.shiftKey, e.ctrlKey || e.metaKey);
@@ -159,8 +162,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     const handleLineMouseEnter = useCallback((index: number, e: React.MouseEvent) => {
         if (isDraggingSelection.current && onLineClick) {
             // ✅ Shift=true로 전달하여 activeLineIndex(anchor)부터 현재까지 범위 선택
-            // Ctrl는 전달하지 않음 (드래그는 토글이 아님)
-            onLineClick(index, true, false);
+            // Ctrl 상태를 dragStartCtrlKey에서 가져와 전달 (다중 범위 선택 지원)
+            onLineClick(index, true, dragStartCtrlKey.current);
         }
     }, [onLineClick]);
     const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
