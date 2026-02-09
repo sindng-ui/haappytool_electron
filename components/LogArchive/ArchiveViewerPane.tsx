@@ -254,93 +254,107 @@ export function ArchiveViewerPane({
                     transition={{ duration: 0.3, ease: 'easeInOut' }}
                     className="archive-viewer-pane"
                 >
-                    {/* Header */}
-                    <div className="viewer-header">
-                        <div className="viewer-title">
-                            <FileText size={18} />
-                            <h3>{decodeHtmlEntities(archive.title)}</h3>
-                        </div>
-
-                        <div className="viewer-actions">
-                            {/* Search Bar - Always Visible */}
-                            <div className="viewer-search-bar">
-                                <Search size={14} className="text-slate-400" />
-                                <input
-                                    ref={searchInputRef}
-                                    className="viewer-search-input"
-                                    placeholder="Find..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    onKeyDown={handleInputKeyDown}
-                                />
-                                <span className="viewer-match-count">
-                                    {matches.length > 0 ? `${currentMatchIdx + 1}/${matches.length}` : (submittedTerm ? '0/0' : '')}
-                                </span>
-                                <div className="viewer-search-actions">
-                                    <button
-                                        className="viewer-search-btn"
-                                        onClick={() => setCurrentMatchIdx(prev => (prev - 1 + matches.length) % matches.length)}
-                                        disabled={matches.length === 0}
-                                        title="Previous Match (Shift+Enter)"
-                                    >
-                                        <ChevronUp size={14} />
-                                    </button>
-                                    <button
-                                        className="viewer-search-btn"
-                                        onClick={() => setCurrentMatchIdx(prev => (prev + 1) % matches.length)}
-                                        disabled={matches.length === 0}
-                                        title="Next Match (Enter)"
-                                    >
-                                        <ChevronDown size={14} />
-                                    </button>
+                    <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.9, opacity: 0 }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        className="viewer-modal"
+                    >
+                        {/* Header */}
+                        <div className="viewer-header">
+                            <div className="viewer-title-group">
+                                <div className={`viewer-icon-badge ${archive.tags.some(t => t.toLowerCase().includes('error')) ? 'error' :
+                                        archive.tags.some(t => t.toLowerCase().includes('success')) ? 'success' :
+                                            archive.title.toLowerCase().includes('db') ? 'db' : 'default'
+                                    }`}>
+                                    {archive.tags.some(t => t.toLowerCase().includes('error') || t.toLowerCase().includes('fail')) ? <Search size={22} color="#ef4444" /> :
+                                        archive.title.toLowerCase().includes('db') ? <FileText size={22} color="#f59e0b" /> :
+                                            <FileText size={22} color="#3b82f6" />}
+                                </div>
+                                <div className="viewer-title-text">
+                                    <span className="viewer-category-label">LOG ARCHIVE</span>
+                                    <h3 className="viewer-main-title">{decodeHtmlEntities(archive.title)}</h3>
                                 </div>
                             </div>
 
-                            {/* Divider */}
-                            <div className="h-4 w-px bg-slate-700 mx-1"></div>
+                            <div className="viewer-actions">
+                                {/* Search Bar - Always Visible */}
+                                <div className="viewer-search-bar">
+                                    <Search size={14} className="text-slate-400" />
+                                    <input
+                                        ref={searchInputRef}
+                                        className="viewer-search-input"
+                                        placeholder="Find..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        onKeyDown={handleInputKeyDown}
+                                    />
+                                    {matches.length > 0 && (
+                                        <span className="viewer-match-count">
+                                            {currentMatchIdx + 1}/{matches.length}
+                                        </span>
+                                    )}
+                                    <div className="viewer-search-actions">
+                                        <button
+                                            className="viewer-search-btn"
+                                            onClick={() => setCurrentMatchIdx(prev => (prev - 1 + matches.length) % matches.length)}
+                                            disabled={matches.length === 0}
+                                        >
+                                            <ChevronUp size={14} />
+                                        </button>
+                                        <button
+                                            className="viewer-search-btn"
+                                            onClick={() => setCurrentMatchIdx(prev => (prev + 1) % matches.length)}
+                                            disabled={matches.length === 0}
+                                        >
+                                            <ChevronDown size={14} />
+                                        </button>
+                                    </div>
+                                </div>
 
-                            <button
-                                className="icon-button"
-                                onClick={handleCopy}
-                                title="Copy to clipboard"
-                            >
-                                <Copy size={16} />
-                            </button>
+                                <div className="viewer-divider"></div>
 
-                            {archive.sourceFile && archive.sourceLineStart !== undefined && onGoToSource && (
-                                <button
-                                    className="icon-button"
-                                    onClick={handleGoToSource}
-                                    title="Go to source"
-                                >
-                                    <ExternalLink size={16} />
+                                <button className="icon-button" onClick={handleCopy} title="Copy Content">
+                                    <Copy size={16} />
                                 </button>
-                            )}
 
-                            <button
-                                className="icon-button danger"
-                                onClick={handleDelete}
-                                title="Delete"
-                            >
-                                <Trash2 size={16} />
-                            </button>
+                                {archive.sourceFile && archive.sourceLineStart !== undefined && onGoToSource && (
+                                    <button className="icon-button" onClick={handleGoToSource} title="Open Source">
+                                        <ExternalLink size={16} />
+                                    </button>
+                                )}
 
-                            <button
-                                className="icon-button"
-                                onClick={onClose}
-                                title="Close (ESC)"
-                            >
-                                <X size={16} />
-                            </button>
+                                <button className="icon-button danger" onClick={handleDelete} title="Delete Archive">
+                                    <Trash2 size={16} />
+                                </button>
+
+                                <button className="icon-button close" onClick={onClose} title="Close (ESC)">
+                                    <X size={20} />
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Metadata */}
-                    <div className="viewer-metadata">
-                        {/* Tags */}
-                        {archive.tags.length > 0 && (
-                            <div className="viewer-meta-item">
-                                <span className="viewer-meta-label">Tags:</span>
+                        {/* Metadata Row */}
+                        <div className="viewer-metadata">
+                            <div className="viewer-meta-left">
+                                <span className="viewer-meta-item">
+                                    <Calendar size={14} />
+                                    <span>{formatDateFull(archive.createdAt)}</span>
+                                </span>
+                                <span className="viewer-meta-item">
+                                    <FileText size={14} />
+                                    <span>{lineCount} lines</span>
+                                </span>
+                                {archive.sourceFile && (
+                                    <span className="viewer-meta-item source" title={archive.sourceFile}>
+                                        <ExternalLink size={14} />
+                                        <span>{archive.sourceFile.split(/[\\/]/).pop()}</span>
+                                    </span>
+                                )}
+                            </div>
+
+                            {archive.tags.length > 0 && (
                                 <div className="viewer-tags">
                                     {archive.tags.map(tag => (
                                         <span
@@ -352,41 +366,18 @@ export function ArchiveViewerPane({
                                         </span>
                                     ))}
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Stats */}
-                        <div className="viewer-stats">
-                            <span className="viewer-stat">
-                                <Calendar size={14} />
-                                <span>{formatDateFull(archive.createdAt)}</span>
-                            </span>
-
-                            <span className="viewer-stat">
-                                <FileText size={14} />
-                                <span>{lineCount} lines</span>
-                            </span>
-
-                            {archive.sourceFile && (
-                                <span className="viewer-stat" title={archive.sourceFile}>
-                                    <ExternalLink size={14} />
-                                    <span className="viewer-source-file">
-                                        {archive.sourceFile}
-                                        {archive.sourceLineStart !== undefined && archive.sourceLineEnd !== undefined && (
-                                            <> (L{archive.sourceLineStart}-{archive.sourceLineEnd})</>
-                                        )}
-                                    </span>
-                                </span>
                             )}
                         </div>
-                    </div>
 
-                    {/* Content */}
-                    <div className="viewer-content">
-                        <pre className="viewer-code">
-                            {contentElements}
-                        </pre>
-                    </div>
+                        {/* Content Area */}
+                        <div className="viewer-content">
+                            <div className="viewer-code-wrapper">
+                                <pre className="viewer-code">
+                                    {contentElements}
+                                </pre>
+                            </div>
+                        </div>
+                    </motion.div>
                 </motion.div>
             )}
         </AnimatePresence>

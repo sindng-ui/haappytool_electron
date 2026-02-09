@@ -69,6 +69,7 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
      */
     const sortedFolders = React.useMemo(() => {
         return Object.entries(folderStats)
+            .filter(([folder]) => folder !== 'Uncategorized') // 'Uncategorized'는 선택지에서 제외
             .sort((a, b) => b[1] - a[1]) // 개수 많은 순 (내림차순)
             .map(([folder]) => folder);
     }, [folderStats]);
