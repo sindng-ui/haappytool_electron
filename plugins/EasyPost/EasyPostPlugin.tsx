@@ -3,6 +3,7 @@ import { useHappyTool } from '../../contexts/HappyToolContext';
 import { useRequestRunner } from '../../hooks/useRequestRunner';
 import { Folder, MapPin, Smartphone, Server, Play, ChevronRight, ChevronDown, Activity, Info } from 'lucide-react';
 import { SavedRequest } from '../../types';
+import { useTextSelectionMenu } from '../../components/LogArchive/hooks/useTextSelectionMenu';
 
 const EP_GROUP_ID = 'easy-post-defaults-group';
 const REQ_LOCATIONS = 'ep-get-locations';
@@ -47,6 +48,7 @@ interface DeviceData {
 }
 
 const EasyPostPlugin: React.FC = () => {
+    const { handleContextMenu, ContextMenuComponent } = useTextSelectionMenu();
     const {
         savedRequests,
         setSavedRequests,
@@ -451,7 +453,10 @@ const EasyPostPlugin: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 p-6 overflow-hidden">
+        <div
+            className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 p-6 overflow-hidden"
+            onContextMenu={(e) => handleContextMenu(e, { sourceFile: 'EasyPostPlugin' })}
+        >
             <header className="mb-6">
                 <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-500 mb-2">
                     Easy Post
@@ -708,6 +713,7 @@ const EasyPostPlugin: React.FC = () => {
                     </div>
                 ))}
             </div>
+            {ContextMenuComponent}
         </div>
     );
 };

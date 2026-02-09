@@ -321,6 +321,15 @@ function suggestTags(content: string): string[] {
 - Export/Import
 - 통계 대시보드 (선택)
 
+### Phase 7: 타 플러그인 연동 (완료)
+- [x] Post Tool (Response Viewer)
+- [x] JSON Tools (Formatter, Diff Viewer)
+- [x] Easy Post
+- [x] AI Assistant (Chat Logs)
+- [x] TPK Extractor (Terminal Logs)
+- [x] Reverse Engineer (Context Menu)
+- [x] 공통 Hook (`useTextSelectionMenu`) 개발 및 적용
+
 ## 🧪 테스트 전략
 
 ### 성능 테스트

@@ -15,6 +15,7 @@ interface FlattenedNode {
 
 const { Trash2, AlignLeft, Minimize2, CheckCircle, AlertCircle, Copy, FileJson, PlusSquare, MinusSquare, ChevronDown, ChevronRight, Search, ArrowUp, ArrowDown } = Lucide;
 import { useToast } from '../../contexts/ToastContext';
+import { useTextSelectionMenu } from '../LogArchive/hooks/useTextSelectionMenu';
 
 // --- Helper Components ---
 
@@ -202,6 +203,7 @@ const JsonFormatterRow = React.memo(({ index, item, isMatch, toggleExpand, copyT
 JsonFormatterRow.displayName = 'JsonFormatterRow';
 
 const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext, triggerPrev, onMatchStatus }) => {
+    const { handleContextMenu, ContextMenuComponent } = useTextSelectionMenu();
     const [input, setInput] = useState('');
     const [parsedData, setParsedData] = useState<any>(null);
     const [formattedString, setFormattedString] = useState('');
@@ -531,7 +533,10 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
 
 
     return (
-        <div className="flex h-full gap-6">
+        <div
+            className="flex h-full gap-6"
+            onContextMenu={(e) => handleContextMenu(e, { sourceFile: 'JsonFormatter' })}
+        >
             {!isViewerMode && (
                 <div className="flex-1 flex flex-col gap-2">
                     {/* ... Input Column (Only in Tool Mode) ... */}
@@ -662,6 +667,7 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
                     )}
                 </div>
             </div>
+            {ContextMenuComponent}
         </div>
     );
 };

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useHappyTool } from '../../contexts/HappyToolContext';
 import * as Lucide from 'lucide-react';
 import { db, ChatSession } from './db'; // Import DB
+import { useTextSelectionMenu } from '../LogArchive/hooks/useTextSelectionMenu';
 
 const { Send, Bot, User, Trash2, StopCircle, RefreshCw, Copy, Check, Settings, X, Save, Plus, Paperclip, FileText, History, Download, AlignJustify, Edit2, ChevronRight } = Lucide;
 
@@ -362,6 +363,7 @@ const CollapsibleText: React.FC<{ text: string }> = React.memo(({ text }) => {
 }); // End of CollapsibleText
 
 const AiAssistant: React.FC = () => {
+    const { handleContextMenu, ContextMenuComponent } = useTextSelectionMenu();
     const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [activeSessionId, setActiveSessionId] = useState<string>('default');
     const [isDbLoaded, setIsDbLoaded] = useState(false);
@@ -1038,7 +1040,10 @@ const AiAssistant: React.FC = () => {
     };
 
     return (
-        <div className="flex h-full bg-slate-50 dark:bg-slate-950 overflow-hidden select-none">
+        <div
+            className="flex h-full bg-slate-50 dark:bg-slate-950 overflow-hidden select-none"
+            onContextMenu={(e) => handleContextMenu(e, { sourceFile: 'AiAssistant' })}
+        >
             {/* Left Sidebar */}
             <div
                 ref={sidebarRef}
@@ -1507,6 +1512,7 @@ const AiAssistant: React.FC = () => {
                     </div>
                 </div>
             </div>
+            {ContextMenuComponent}
         </div>
     );
 };

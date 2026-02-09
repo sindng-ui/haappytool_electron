@@ -25,7 +25,10 @@ interface STLocation {
     rooms: STRoom[];
 }
 
+import { useTextSelectionMenu } from './LogArchive/hooks/useTextSelectionMenu';
+
 const ReverseEngineer: React.FC = () => {
+    const { handleContextMenu, ContextMenuComponent } = useTextSelectionMenu();
     const [dragActive, setDragActive] = useState(false);
     const [status, setStatus] = useState<'IDLE' | 'PROCESSING' | 'COMPLETED'>('IDLE');
     const [locations, setLocations] = useState<STLocation[]>([]);
@@ -220,6 +223,7 @@ const ReverseEngineer: React.FC = () => {
             onDragOver={handleDrag}
             onDragLeave={handleDrag}
             onDrop={handleDrop}
+            onContextMenu={(e) => handleContextMenu(e, { sourceFile: 'ReverseEngineer' })}
         >
             {/* Header */}
             <div className="h-14 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center px-6 justify-between shrink-0 z-10 relative">
@@ -458,6 +462,7 @@ const ReverseEngineer: React.FC = () => {
                     </div>
                 )}
             </div>
+            {ContextMenuComponent}
         </div>
     );
 };

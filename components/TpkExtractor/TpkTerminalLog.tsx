@@ -8,9 +8,18 @@ interface TpkTerminalLogProps {
     isProcessing: boolean;
 }
 
+import { useTextSelectionMenu } from '../LogArchive/hooks/useTextSelectionMenu';
+
+// ... (existing imports)
+
 export const TpkTerminalLog: React.FC<TpkTerminalLogProps> = ({ logs, isProcessing }) => {
+    const { handleContextMenu, ContextMenuComponent } = useTextSelectionMenu();
+
     return (
-        <div className="bg-slate-950 dark:bg-black rounded-xl p-6 mb-6 font-mono text-xs flex-1 overflow-auto shadow-inner relative border border-slate-200 dark:border-slate-800 lg:min-h-[200px]">
+        <div
+            className="bg-slate-950 dark:bg-black rounded-xl p-6 mb-6 font-mono text-xs flex-1 overflow-auto shadow-inner relative border border-slate-200 dark:border-slate-800 lg:min-h-[200px]"
+            onContextMenu={(e) => handleContextMenu(e, { sourceFile: 'TpkTerminalLog' })}
+        >
             <div className="absolute top-3 right-4 flex gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-slate-200 dark:bg-slate-700"></div>
                 <div className="w-2.5 h-2.5 rounded-full bg-slate-200 dark:bg-slate-700"></div>
@@ -29,6 +38,7 @@ export const TpkTerminalLog: React.FC<TpkTerminalLogProps> = ({ logs, isProcessi
                     </div>
                 )}
             </div>
+            {ContextMenuComponent}
         </div>
     );
 };

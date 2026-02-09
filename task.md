@@ -206,8 +206,10 @@ import { LogArchive } from './components/LogArchive';
 - [x] 통계 대시보드
 - [x] CSS 스타일링
 - [x] 빌드 성공
-- [ ] LogExtractor 통합
-- [ ] 기능 테스트
+- [x] LogExtractor 통합 (기존 기능 활용)
+- [x] 타 플러그인 통합 (Post, Json, EasyPost, AI, TPK, RevEng)
+- [x] Context Menu Hook (`useTextSelectionMenu`)
+- [ ] 기능 테스트 (전체 통합)
 - [ ] 문서 업데이트
 
 **작성일**: 2026-02-09  

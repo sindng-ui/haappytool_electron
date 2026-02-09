@@ -3,6 +3,7 @@ import * as Lucide from 'lucide-react';
 import { PerfResponse } from '../../types';
 import JsonFormatter from '../JsonTools/JsonFormatter';
 import JsonTableViewer from './JsonTableViewer';
+import { useTextSelectionMenu } from '../LogArchive/hooks/useTextSelectionMenu';
 
 const { Copy, Search, Check, FileJson, AlignLeft, Eye, ArrowUp, ArrowDown } = Lucide;
 
@@ -11,6 +12,8 @@ interface ResponseViewerProps {
 }
 
 const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
+    const { handleContextMenu, ContextMenuComponent } = useTextSelectionMenu();
+
     const [viewMode, setViewMode] = useState<'pretty' | 'raw' | 'preview'>('raw');
     const [searchText, setSearchText] = useState('');
     const [copied, setCopied] = useState(false);
@@ -432,7 +435,10 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
     }
 
     return (
-        <div className="flex-1 flex flex-col min-h-0 relative">
+        <div
+            className="flex-1 flex flex-col min-h-0 relative"
+            onContextMenu={(e) => handleContextMenu(e, { sourceFile: 'PostTool Response' })}
+        >
             {/* Error Banner */}
             {response.status === 0 && (
                 <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-2 flex items-center gap-2 text-red-500 text-xs font-bold animate-in slide-in-from-top-2 duration-200">
@@ -595,6 +601,8 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
                     </div>
                 </div>
             )}
+
+            {ContextMenuComponent}
         </div>
     );
 };

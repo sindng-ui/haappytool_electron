@@ -2,9 +2,12 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import * as Lucide from 'lucide-react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 
+import { useTextSelectionMenu } from '../LogArchive/hooks/useTextSelectionMenu';
+
 const { ArrowRightLeft, GitCompare } = Lucide;
 
 const JsonDiffViewer: React.FC = () => {
+    const { handleContextMenu, ContextMenuComponent } = useTextSelectionMenu();
     const [leftJson, setLeftJson] = useState('');
     const [rightJson, setRightJson] = useState('');
     const [diffResult, setDiffResult] = useState<{ leftLines: string[], rightLines: string[] } | null>(null);
@@ -142,7 +145,10 @@ const JsonDiffViewer: React.FC = () => {
     JsonDiffRow.displayName = 'JsonDiffRow';
 
     return (
-        <div className="flex flex-col h-full gap-4">
+        <div
+            className="flex flex-col h-full gap-4"
+            onContextMenu={(e) => handleContextMenu(e, { sourceFile: 'JsonDiffViewer' })}
+        >
             {/* Inputs */}
             <div className="h-1/3 flex gap-4 min-h-[150px] shrink-0">
                 <div className="flex-1 flex flex-col">
@@ -232,6 +238,7 @@ const JsonDiffViewer: React.FC = () => {
                     )}
                 </div>
             </div>
+            {ContextMenuComponent}
         </div>
     );
 };
