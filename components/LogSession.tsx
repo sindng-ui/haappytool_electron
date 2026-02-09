@@ -1009,6 +1009,42 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 rightFileName={rightFileName || 'Right'}
             />
 
+            {/* Bookmarks Modal - Left */}
+            <BookmarksModal
+                isOpen={isLeftBookmarksOpen}
+                onClose={() => setLeftBookmarksOpen(false)}
+                bookmarks={leftBookmarks}
+                onJump={(index) => {
+                    handleFocusPaneRequest('left');
+                    jumpToGlobalLine(index, 'left');
+                }}
+                requestLines={requestLeftBookmarkedLines}
+                title={`Bookmarks - ${leftFileName || 'Left Pane'}`}
+                onClearAll={clearLeftBookmarks}
+                onDeleteBookmark={toggleLeftBookmark}
+                highlights={effectiveHighlights}
+                caseSensitive={currentConfig?.colorHighlightsCaseSensitive}
+            />
+
+            {/* Bookmarks Modal - Right */}
+            {isDualView && (
+                <BookmarksModal
+                    isOpen={isRightBookmarksOpen}
+                    onClose={() => setRightBookmarksOpen(false)}
+                    bookmarks={rightBookmarks}
+                    onJump={(index) => {
+                        handleFocusPaneRequest('right');
+                        jumpToGlobalLine(index, 'right');
+                    }}
+                    requestLines={requestRightBookmarkedLines}
+                    title={`Bookmarks - ${rightFileName || 'Right Pane'}`}
+                    onClearAll={clearRightBookmarks}
+                    onDeleteBookmark={toggleRightBookmark}
+                    highlights={effectiveHighlights}
+                    caseSensitive={currentConfig?.colorHighlightsCaseSensitive}
+                />
+            )}
+
             {ContextMenuComponent}
         </div>
     );

@@ -85,7 +85,7 @@ const TopBar: React.FC = () => {
     };
 
     return (
-        <div className="backdrop-blur-sm border-b p-4 flex items-center justify-between shrink-0 h-16 z-20 title-drag relative" style={{ backgroundColor: '#0f172a', borderBottomColor: 'rgba(99, 102, 241, 0.3)' }}>
+        <div className="backdrop-blur-sm border-b p-4 pr-[200px] flex items-center justify-between shrink-0 h-16 z-20 title-drag relative" style={{ backgroundColor: '#0f172a', borderBottomColor: 'rgba(99, 102, 241, 0.3)' }}>
             {/* Left Section: Mission & Rules */}
             <div className="flex items-center gap-6 no-drag">
                 <div className="flex items-center space-x-4">
@@ -106,7 +106,7 @@ const TopBar: React.FC = () => {
             </div>
 
             {/* Right Section: Layout, Tools */}
-            <div className="flex items-center gap-3 no-drag mr-36">
+            <div className="flex items-center gap-3 no-drag">
                 {/* File Init - Removed as per request */}
 
                 <button
