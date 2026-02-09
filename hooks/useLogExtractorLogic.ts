@@ -704,6 +704,7 @@ export const useLogExtractorLogic = ({
         setHasEverConnected(true);
         setTizenSocket(socket); // Save socket for disconnect
         setLeftFileName(deviceName);
+        setLeftFilePath(''); // ✅ Clear file path so we don't overwrite file persistence with stream state
         setLeftWorkerReady(false);
         setLeftIndexingProgress(0);
         setLeftTotalLines(0);
@@ -1205,7 +1206,9 @@ export const useLogExtractorLogic = ({
     // Periodic State Persistence
     const lastSavedState = useRef<string>('');
     useEffect(() => {
-        if (!leftFilePath) return;
+        // Do not save state if no file path (e.g. SDB/SSH stream)
+        if (!leftFilePath || tizenSocket) return;
+
         const timer = setInterval(() => {
             const scrollTop = leftViewerRef.current?.getScrollTop() || 0;
             const state = {
