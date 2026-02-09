@@ -281,32 +281,55 @@ export class LogArchiveDB extends Dexie {
     }
 
     /**
-     * 태그별 통계 (스트리밍 방식으로 메모리 효율적 처리)
+     * 태그별 통계 (Unique Keys + Count 방식)
+     * 데이터가 많을 때 전체를 순회하는 것보다 Index Scan(uniqueKeys) 후 Count가 훨씬 빠름 (Low Cardinality 가정)
      */
     async getTagStatistics(): Promise<Record<string, number>> {
         const tagCounts: Record<string, number> = {};
 
-        // Dexie의 each()를 사용하여 스트리밍 방식으로 처리 (메모리에 전체 로드 X)
-        await this.archives.each(archive => {
-            archive.tags.forEach(tag => {
-                tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-            });
-        });
+        // 1. 존재하는 모든 Unique 태그 조회
+        const uniqueTags = await this.archives.orderBy('tags').uniqueKeys();
+
+        // 2. 각 태그별 개수 조회 (병렬 처리)
+        // 태그 개수가 많지 않다고 가정 (일반적으로 수십~수백 개 수준)
+        await Promise.all(uniqueTags.map(async (key) => {
+            const tag = String(key);
+            const count = await this.archives.where('tags').equals(tag).count();
+            if (count > 0) {
+                tagCounts[tag] = count;
+            }
+        }));
 
         return tagCounts;
     }
 
     /**
-     * 폴더별 통계 (스트리밍 방식으로 메모리 효율적 처리)
+     * 폴더별 통계 (Unique Keys + Count 방식)
      */
     async getFolderStatistics(): Promise<Record<string, number>> {
         const folderCounts: Record<string, number> = {};
 
-        // Dexie의 each()를 사용하여 스트리밍 방식으로 처리
-        await this.archives.each(archive => {
-            const folder = archive.metadata?.folder || 'Uncategorized';
-            folderCounts[folder] = (folderCounts[folder] || 0) + 1;
-        });
+        // 1. 존재하는 모든 Folder 조회
+        const uniqueFolders = await this.archives.orderBy('metadata.folder').uniqueKeys();
+
+        // 2. 각 폴더별 개수 조회
+        await Promise.all(uniqueFolders.map(async (key) => {
+            if (!key) return; // undefined/null 스킵
+            const folder = String(key);
+            const count = await this.archives.where('metadata.folder').equals(folder).count();
+            if (count > 0) {
+                folderCounts[folder] = count;
+            }
+        }));
+
+        // 3. Uncategorized (폴더 없는 항목) 계산
+        // 전체 개수 - 폴더가 있는 항목들의 합
+        const total = await this.archives.count();
+        const categorizedCount = Object.values(folderCounts).reduce((a, b) => a + b, 0);
+
+        if (total > categorizedCount) {
+            folderCounts['Uncategorized'] = total - categorizedCount;
+        }
 
         return folderCounts;
     }
