@@ -137,6 +137,9 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     const handleLineMouseDown = useCallback((index: number, e: React.MouseEvent) => {
         if (e.button !== 0) return; // Only left click
 
+        // ✅ Explicitly focus the viewer container to prevent other elements (like checkboxes) from stealing focus
+        containerRef.current?.focus({ preventScroll: true });
+
         // ✅ Text Selection Mode (Alt + Click/Drag ONLY)
         // Ctrl is reserved for Toggle Line selection.
         if (e.altKey) {

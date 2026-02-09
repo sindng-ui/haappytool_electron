@@ -14,6 +14,7 @@ let streamLines: string[] = [];
 
 // Common
 let filteredIndices: Int32Array | null = null; // Line numbers (0-based) that match
+let filteredIndicesBuffer: Int32Array | null = null; // Backing buffer for dynamic growth
 let currentRule: LogRule | null = null;
 
 // Bookmarks (0-based Original Index)
@@ -176,6 +177,7 @@ const initStream = () => {
     originalBookmarks.clear();
     streamBuffer = '';
     filteredIndices = new Int32Array(0);
+    filteredIndicesBuffer = new Int32Array(1024 * 1024); // Start with 1M capacity
     lastFilterNotifyTime = 0; // ✅ Reset throttle timer
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready', mode: 'stream' } });
 };
@@ -219,15 +221,27 @@ const processChunk = (chunk: string) => {
         }
     });
 
-    // Append to filteredIndices
-    if (filteredIndices) {
-        const newArr = new Int32Array(filteredIndices.length + newMatches.length);
-        newArr.set(filteredIndices);
-        newArr.set(newMatches, filteredIndices.length);
-        filteredIndices = newArr;
-    } else {
-        filteredIndices = new Int32Array(newMatches);
+    // Append to filteredIndices using Buffer Strategy
+    const currentLen = filteredIndices ? filteredIndices.length : 0;
+    const requiredLen = currentLen + newMatches.length;
+
+    // Ensure buffer exists and has capacity
+    if (!filteredIndicesBuffer || filteredIndicesBuffer.length < requiredLen) {
+        let newCap = filteredIndicesBuffer ? filteredIndicesBuffer.length * 2 : 1024 * 1024;
+        if (newCap < requiredLen) newCap = requiredLen;
+
+        const newBuffer = new Int32Array(newCap);
+        if (filteredIndices) {
+            newBuffer.set(filteredIndices);
+        }
+        filteredIndicesBuffer = newBuffer;
     }
+
+    // Append new matches
+    filteredIndicesBuffer.set(newMatches, currentLen);
+
+    // Update active view
+    filteredIndices = filteredIndicesBuffer.subarray(0, requiredLen);
 
     // ✅ Performance: Invalidate bookmark cache when filtered indices change
     invalidateBookmarkCache();
@@ -259,7 +273,14 @@ const applyFilter = async (rule: LogRule) => {
         streamLines.forEach((line, i) => {
             if (checkIsMatch(line, rule, isStreamMode)) matches.push(i);
         });
-        filteredIndices = new Int32Array(matches);
+
+        // Re-init buffer with results
+        const requiredLen = matches.length;
+        const initialCap = Math.max(requiredLen, 1024 * 1024);
+        filteredIndicesBuffer = new Int32Array(initialCap);
+        filteredIndicesBuffer.set(matches);
+        filteredIndices = filteredIndicesBuffer.subarray(0, requiredLen);
+
         respond({ type: 'FILTER_COMPLETE', payload: { matchCount: matches.length, totalLines: streamLines.length, visualBookmarks: getVisualBookmarks() } });
         respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
         return;
