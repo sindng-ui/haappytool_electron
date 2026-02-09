@@ -1,0 +1,121 @@
+﻿
+> happytool@0.9.9 test:log-archive
+> vitest run --no-color test/log-archive.test.ts --reporter=verbose
+
+
+ RUN  v4.0.18 C:/AntigravityWorkspace/happytool_electron/haappytool_electron
+
+node.exe : stderr | test/log-archive.t
+est.ts > LogArchiveDB - Search Operati
+ons > RegEx Search > should handle inv
+alid regex gracefully
+위치 줄:1 문자:1
++ & "C:\Program Files\nodejs/node.exe"
+ "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpec 
+   ified: (stderr | test/l...egex gr  
+  acefully:String) [], RemoteExcept   
+ ion
+    + FullyQualifiedErrorId : NativeC 
+   ommandError
+ 
+Invalid regex pattern: [invalid(regex
+
+ ??test/log-archive.test.ts > LogArchiveDB - CRUD Operations > Create (saveArchive) > should save a new archive with all required fields 15ms
+ ??test/log-archive.test.ts > LogArchiveDB - CRUD Operations > Create (saveArchive) > should auto-generate timestamps on save 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - CRUD Operations > Create (saveArchive) > should handle archives without optional fields 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - CRUD Operations > Read (getArchive) > should retrieve archive by ID 1ms
+ ??test/log-archive.test.ts > LogArchiveDB - CRUD Operations > Read (getArchive) > should return undefined for non-existent ID 1ms
+ ??test/log-archive.test.ts > LogArchiveDB - CRUD Operations > Update (updateArchive) > should update existing archive 20ms
+ ??test/log-archive.test.ts > LogArchiveDB - CRUD Operations > Update (updateArchive) > should update only specified fields 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - CRUD Operations > Delete (deleteArchive) > should delete archive by ID 1ms
+ ??test/log-archive.test.ts > LogArchiveDB - CRUD Operations > Delete (deleteArchive) > should not throw error when deleting non-existent ID 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Text Search > should search by title 3ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Text Search > should search by content 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Text Search > should be case-insensitive 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Text Search > should return empty array for no matches 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > RegEx Search > should search with regex pattern 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > RegEx Search > should handle invalid regex gracefully 3ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Tag Filter > should filter by single tag 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Tag Filter > should filter by multiple tags (AND condition) 3ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Tag Filter > should return empty for non-matching tags 3ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Folder Filter > should filter by folder 3ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Folder Filter > should return empty for non-matching folder 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Combined Filters > should combine query and tags 3ms
+ 횞 test/log-archive.test.ts > LogArchiveDB - Search Operations > Sorting > should sort by createdAt desc (default) 8ms
+   ??expected 1770633566572 to be greater than or equal to 1770633566573
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Sorting > should sort by createdAt asc 4ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Sorting > should sort by title 10ms
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Pagination > should limit results 2ms
+ 횞 test/log-archive.test.ts > LogArchiveDB - Search Operations > Pagination > should offset results 5ms
+   ??expected 88 to be 90 // Object.is equality
+ ??test/log-archive.test.ts > LogArchiveDB - Search Operations > Pagination > should combine limit and offset 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Statistics > should get all unique tags 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Statistics > should get all unique folders 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Statistics > should get tag statistics 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Statistics > should get folder statistics 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Statistics > should get archive count 1ms
+ ??test/log-archive.test.ts > LogArchiveDB - Statistics > should get filtered archive count 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Advanced Features > should clear all archives 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Advanced Features > should export to JSON 1ms
+ ??test/log-archive.test.ts > LogArchiveDB - Advanced Features > should import from JSON 1ms
+ ??test/log-archive.test.ts > LogArchiveDB - Advanced Features > should handle statistics summary 2ms
+ ??test/log-archive.test.ts > LogArchiveDB - Edge Cases > should handle empty tags array 1ms
+ ??test/log-archive.test.ts > LogArchiveDB - Edge Cases > should handle very long content 1ms
+ ??test/log-archive.test.ts > LogArchiveDB - Edge Cases > should handle special characters in content 1ms
+ ??test/log-archive.test.ts > LogArchiveDB - Edge Cases > should handle unicode characters 1ms
+
+??렞??렞??렞??Failed Tests 2 ??렞??렞??렞??
+ FAIL  test/log-archive.test.ts > LogA
+rchiveDB - Search Operations > Sorting
+ > should sort by createdAt desc (defa
+ult)
+AssertionError: expected 1770633566572
+ to be greater than or equal to 177063
+3566573
+ ??test/log-archive.test.ts:289:50
+    287| 
+    288|             for (let i = 1; i
+ < results.length; i++) {
+    289|                 expect(result
+s[i - 1].createdAt).toBeGreaterThanOrE
+qua??       |                         
+                         ^
+    290|             }
+    291|         });
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞[1
+/2]??
+ FAIL  test/log-archive.test.ts > LogA
+rchiveDB - Search Operations > Paginat
+ion > should offset results
+AssertionError: expected 88 to be 90 /
+/ Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 90[39m
+[31m+ 88[39m
+
+ ??test/log-archive.test.ts:322:41
+    320| 
+    321|             expect(offsetResu
+lts.length).toBe(all.length - 2);
+    322|             expect(offsetResu
+lts[0].id).toBe(all[2].id);
+       |                              
+           ^
+    323|         });
+    324| 
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞[2
+/2]??
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 39 passed (41)
+   Start at  19:39:25
+   Duration  1.37s (transform 80ms, setup 127ms, import 83ms, tests 127ms, environment 707ms)
+

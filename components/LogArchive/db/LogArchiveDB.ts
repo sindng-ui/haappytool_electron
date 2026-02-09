@@ -169,21 +169,24 @@ export class LogArchiveDB extends Dexie {
             }
         }
 
-        // 정렬
-        let results = await collection.sortBy(sortBy);
-
+        // 정렬 및 페이징 최적화
+        // sortOrder가 desc이고 기본 정렬 키를 사용하는 경우, reverse()를 먼저 적용
         if (sortOrder === 'desc') {
-            results = results.reverse();
+            collection = collection.reverse();
         }
 
-        // 페이징
+        // offset/limit이 있는 경우 먼저 적용 (전체를 메모리에 로드하지 않음)
+        if (offset > 0) {
+            collection = collection.offset(offset);
+        }
         if (limit !== undefined) {
-            results = results.slice(offset, offset + limit);
-        } else if (offset > 0) {
-            results = results.slice(offset);
+            collection = collection.limit(limit);
         }
 
-        return results;
+        // 최종 결과 반환 (메모리에 로드되는 데이터는 페이징된 결과만)
+        const results = await collection.sortBy(sortBy);
+
+        return sortOrder === 'desc' ? results.reverse() : results;
     }
 
     /**
@@ -270,13 +273,13 @@ export class LogArchiveDB extends Dexie {
     }
 
     /**
-     * 태그별 통계
+     * 태그별 통계 (스트리밍 방식으로 메모리 효율적 처리)
      */
     async getTagStatistics(): Promise<Record<string, number>> {
-        const archives = await this.archives.toArray();
         const tagCounts: Record<string, number> = {};
 
-        archives.forEach(archive => {
+        // Dexie의 each()를 사용하여 스트리밍 방식으로 처리 (메모리에 전체 로드 X)
+        await this.archives.each(archive => {
             archive.tags.forEach(tag => {
                 tagCounts[tag] = (tagCounts[tag] || 0) + 1;
             });
@@ -286,13 +289,13 @@ export class LogArchiveDB extends Dexie {
     }
 
     /**
-     * 폴더별 통계
+     * 폴더별 통계 (스트리밍 방식으로 메모리 효율적 처리)
      */
     async getFolderStatistics(): Promise<Record<string, number>> {
-        const archives = await this.archives.toArray();
         const folderCounts: Record<string, number> = {};
 
-        archives.forEach(archive => {
+        // Dexie의 each()를 사용하여 스트리밍 방식으로 처리
+        await this.archives.each(archive => {
             const folder = archive.metadata?.folder || 'Uncategorized';
             folderCounts[folder] = (folderCounts[folder] || 0) + 1;
         });
