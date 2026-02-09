@@ -4,7 +4,7 @@ import { X, Copy, ExternalLink, Edit, Trash2, Calendar, FileText, Search, Chevro
 import { ArchivedLog } from './db/LogArchiveDB';
 import { useLogArchiveContext } from './LogArchiveProvider';
 import { useLogArchive } from './hooks/useLogArchive';
-import { formatDateFull, copyToClipboard, countLines, getTagColor } from './utils';
+import { formatDateFull, copyToClipboard, countLines, getTagColor, decodeHtmlEntities } from './utils';
 
 interface ArchiveViewerPaneProps {
     /**
@@ -57,8 +57,9 @@ export function ArchiveViewerPane({
             const escaped = submittedTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(escaped, 'gi');
             const results = [];
+            const decodedContent = decodeHtmlEntities(archive.content);
             let match;
-            while ((match = regex.exec(archive.content)) !== null) {
+            while ((match = regex.exec(decodedContent)) !== null) {
                 results.push({ index: match.index, length: match[0].length });
             }
             return results;
@@ -161,7 +162,8 @@ export function ArchiveViewerPane({
     const handleCopy = async () => {
         if (!archive) return;
 
-        const success = await copyToClipboard(archive.content);
+        // Copy decoded content
+        const success = await copyToClipboard(decodeHtmlEntities(archive.content));
         if (success) {
             alert('Copied to clipboard!');
         }
@@ -202,7 +204,9 @@ export function ArchiveViewerPane({
      */
     const contentElements = useMemo(() => {
         if (!archive) return null;
-        if (!submittedTerm || matches.length === 0) return archive.content;
+        const decodedContent = decodeHtmlEntities(archive.content);
+
+        if (!submittedTerm || matches.length === 0) return decodedContent;
 
         const result = [];
         let lastIndex = 0;
@@ -210,7 +214,7 @@ export function ArchiveViewerPane({
         matches.forEach((match, i) => {
             // Text before match
             if (match.index > lastIndex) {
-                result.push(archive.content.substring(lastIndex, match.index));
+                result.push(decodedContent.substring(lastIndex, match.index));
             }
 
             const isCurrent = i === currentMatchIdx;
@@ -220,15 +224,15 @@ export function ArchiveViewerPane({
                     id={`search-match-${i}`}
                     className={`search-highlight ${isCurrent ? 'current' : ''}`}
                 >
-                    {archive.content.substring(match.index, match.index + match.length)}
+                    {decodedContent.substring(match.index, match.index + match.length)}
                 </mark>
             );
             lastIndex = match.index + match.length;
         });
 
         // Remaining text
-        if (lastIndex < archive.content.length) {
-            result.push(archive.content.substring(lastIndex));
+        if (lastIndex < decodedContent.length) {
+            result.push(decodedContent.substring(lastIndex));
         }
 
         return result;
@@ -248,7 +252,7 @@ export function ArchiveViewerPane({
                     <div className="viewer-header">
                         <div className="viewer-title">
                             <FileText size={18} />
-                            <h3>{archive.title}</h3>
+                            <h3>{decodeHtmlEntities(archive.title)}</h3>
                         </div>
 
                         <div className="viewer-actions">

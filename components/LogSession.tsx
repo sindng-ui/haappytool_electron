@@ -713,8 +713,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     jumpToHighlight(highlightIdx, targetPath as 'left' | 'right');
                                 }
 
-                                // Ctrl + F (Find)
-                                if (e.key === 'f' || e.key === 'F') {
+                                // Ctrl + F (Find) - Ensure Shift is NOT pressed so we don't trap Ctrl+Shift+F
+                                if ((e.key === 'f' || e.key === 'F') && !e.shiftKey) {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     searchInputRef.current?.focus();

@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, Edit, Trash2, FileText, Calendar, Folder } from 'lucide-react';
 import { ArchivedLog } from './db/LogArchiveDB';
-import { formatDate, getTagColor, countLines } from './utils';
+import { formatDate, getTagColor, countLines, decodeHtmlEntities } from './utils';
 
 interface ArchiveCardProps {
     /**
@@ -29,6 +29,12 @@ interface ArchiveCardProps {
      * 선택 여부
      */
     isSelected?: boolean;
+
+    /**
+     * 미리보기 표시 여부
+     * @default true
+     */
+    showPreview?: boolean;
 }
 
 /**
@@ -43,6 +49,7 @@ export const ArchiveCard = memo(function ArchiveCard({
     onEdit,
     onDelete,
     isSelected = false,
+    showPreview = true,
 }: ArchiveCardProps) {
     const lineCount = countLines(archive.content);
 
@@ -69,9 +76,9 @@ export const ArchiveCard = memo(function ArchiveCard({
             {/* Header: Title + Actions */}
             <div className="archive-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 className="archive-card-title cursor-pointer truncate" title={archive.title} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <h3 className="archive-card-title cursor-pointer truncate" title={decodeHtmlEntities(archive.title)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <FileText size={16} className="text-slate-400 flex-shrink-0" />
-                        <span className="font-medium text-slate-200 truncate">{archive.title}</span>
+                        <span className="font-medium text-slate-200 truncate">{decodeHtmlEntities(archive.title)}</span>
                     </h3>
 
                     {/* Folder Badge in Header (Optional: or below title) */}
@@ -141,11 +148,15 @@ export const ArchiveCard = memo(function ArchiveCard({
                 </div>
             )}
 
-            {/* Preview Content (Smaller) */}
-            <div className="archive-card-preview text-xs text-slate-400 font-mono bg-slate-900/50 p-2 rounded overflow-hidden h-16 relative">
-                {archive.content.slice(0, 200)}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 to-transparent pointer-events-none" />
-            </div>
+
+            {/* Preview Content (Smaller) */
+                showPreview && (
+                    <div className="archive-card-preview text-xs text-slate-400 font-mono bg-slate-900/50 p-2 rounded overflow-hidden h-16 relative">
+                        {decodeHtmlEntities(archive.content).slice(0, 200)}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 to-transparent pointer-events-none" />
+                    </div>
+                )}
+
 
             {/* No Bottom Actions Bar anymore */}
         </motion.div>

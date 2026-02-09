@@ -58,7 +58,16 @@ export const CommandProvider: React.FC<{ children: ReactNode }> = ({ children })
                 togglePalette();
             }
             // Ctrl+P or Cmd+P (Alternative)
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+            // Ctrl+Shift+F (Log Archive)
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                // We need to trigger the command, but we don't know the action here directly.
+                // However, we can find it in the commands list.
+                const cmd = commands.find(c => c.id === 'open-log-archive');
+                if (cmd) {
+                    cmd.action();
+                }
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
                 e.preventDefault();
                 togglePalette();
             }
@@ -66,7 +75,7 @@ export const CommandProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [togglePalette]);
+    }, [togglePalette, commands]);
 
     const value = React.useMemo(() => ({
         isOpen,

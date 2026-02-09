@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Archive, Download, Upload, Trash2, Loader2, SlidersHorizontal } from 'lucide-react';
+import { X, Archive, Download, Upload, Trash2, Loader2, SlidersHorizontal, Eye, EyeOff, MoreVertical } from 'lucide-react';
 import { SearchOptions } from './db/LogArchiveDB';
 import { useArchiveSearch } from './hooks/useArchiveSearch';
 import { useLogArchive } from './hooks/useLogArchive';
@@ -33,6 +33,7 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
 
     const [totalCount, setTotalCount] = useState(0);
     const [showActions, setShowActions] = useState(false);
+    const [showPreview, setShowPreview] = useState(true);
 
     /**
      * 초기 로드 및 전체 개수 조회
@@ -174,13 +175,22 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
                             </div>
 
                             <div className="sidebar-header-actions">
+                                {/* Preview Toggle */}
+                                <button
+                                    className={`icon-button ${showPreview ? 'text-blue-400' : 'text-slate-500'}`}
+                                    onClick={() => setShowPreview(!showPreview)}
+                                    title={showPreview ? "Hide Preview" : "Show Preview"}
+                                >
+                                    {showPreview ? <Eye size={18} /> : <EyeOff size={18} />}
+                                </button>
+
                                 {/* Actions Menu Toggle */}
                                 <button
                                     className="icon-button"
                                     onClick={() => setShowActions(!showActions)}
                                     title="Actions"
                                 >
-                                    <SlidersHorizontal size={18} />
+                                    <MoreVertical size={18} />
                                 </button>
 
                                 {/* Close Button */}
@@ -243,6 +253,7 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
                                 onLoadMore={loadMore}
                                 hasMore={hasMore}
                                 isLoading={isSearching}
+                                showPreview={showPreview}
                             />
                         </div>
                     </motion.div>

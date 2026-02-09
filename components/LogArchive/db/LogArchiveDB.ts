@@ -160,7 +160,7 @@ export class LogArchiveDB extends Dexie {
         if (query) {
             if (isRegex) {
                 try {
-                    const regex = new RegExp(query, 'i');
+                    const regex = new RegExp(query, 'is');
                     collection = collection.filter(archive => {
                         return regex.test(archive.title) || regex.test(archive.content);
                     });
@@ -224,7 +224,7 @@ export class LogArchiveDB extends Dexie {
         if (query) {
             if (isRegex) {
                 try {
-                    const regex = new RegExp(query, 'i');
+                    const regex = new RegExp(query, 'is');
                     collection = collection.filter(archive => {
                         return regex.test(archive.title) || regex.test(archive.content);
                     });

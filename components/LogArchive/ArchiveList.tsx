@@ -45,6 +45,12 @@ interface ArchiveListProps {
      * 로딩 상태
      */
     isLoading?: boolean;
+
+    /**
+     * 미리보기 표시 여부
+     * @default true
+     */
+    showPreview?: boolean;
 }
 
 /**
@@ -61,6 +67,7 @@ export function ArchiveList({
     onLoadMore,
     hasMore = false,
     isLoading = false,
+    showPreview = true,
 }: ArchiveListProps) {
     const { deleteArchive } = useLogArchive();
 
@@ -138,6 +145,7 @@ export function ArchiveList({
                             onEdit={onEdit}
                             onDelete={handleDelete}
                             isSelected={archive.id === selectedId}
+                            showPreview={showPreview}
                         />
                     </div>
                 )}

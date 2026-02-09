@@ -348,6 +348,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 20px 24px;
+    padding-top: 48px;
+    /* Window controls spacer */
     border-bottom: 1px solid #334155;
     background: #0f172a;
 }

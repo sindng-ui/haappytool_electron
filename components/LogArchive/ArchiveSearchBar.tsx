@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, X, Code, SlidersHorizontal, Folder } from 'lucide-react';
 import { SearchOptions } from './db/LogArchiveDB';
 import { useLogArchive } from './hooks/useLogArchive';
@@ -98,6 +98,17 @@ export function ArchiveSearchBar({ onSearchChange, isSearching = false }: Archiv
         setSortOrder('desc');
     }, []);
 
+    // Focus Input on Mount
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        // Slight delay to ensure animation has started/layout is ready
+        const timer = setTimeout(() => {
+            inputRef.current?.focus();
+        }, 100);
+        return () => clearTimeout(timer);
+    }, []);
+
     return (
         <div className="archive-search-bar">
             {/* Main Search Input */}
@@ -105,6 +116,7 @@ export function ArchiveSearchBar({ onSearchChange, isSearching = false }: Archiv
                 <Search size={18} className="search-icon" />
 
                 <input
+                    ref={inputRef}
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}

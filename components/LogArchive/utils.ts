@@ -66,13 +66,33 @@ export function suggestTags(content: string): string[] {
 }
 
 /**
+ * HTML 엔티티 디코딩
+ * 예: &quot; -> "
+ */
+export function decodeHtmlEntities(text: string): string {
+    if (!text) return '';
+    return text
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&apos;/g, "'")
+        .replace(/&#39;/g, "'");
+}
+
+/**
  * 로그 내용에서 첫 줄 추출 (제목용)
+ * HTML 엔티티 디코딩 적용
  */
 export function extractFirstLine(content: string, maxLength: number = 100): string {
     const lines = content.split('\n').filter(line => line.trim().length > 0);
     if (lines.length === 0) return 'Untitled';
 
-    const firstLine = lines[0].trim();
+    let firstLine = lines[0].trim();
+
+    // HTML 엔티티 디코딩
+    firstLine = decodeHtmlEntities(firstLine);
+
     if (firstLine.length <= maxLength) return firstLine;
 
     return firstLine.substring(0, maxLength) + '...';

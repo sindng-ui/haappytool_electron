@@ -8,7 +8,7 @@ import { ALL_PLUGINS } from './plugins/registry';
 import { HappyToolProvider, HappyToolContextType } from './contexts/HappyToolContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { CommandProvider, useCommand } from './contexts/CommandContext';
-import { LogArchiveProvider, LogArchive } from './components/LogArchive';
+import { LogArchiveProvider, LogArchive, useLogArchiveContext } from './components/LogArchive';
 import PluginContainer from './components/PluginContainer';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import LoadingSplash from './components/LoadingSplash';
@@ -24,6 +24,7 @@ const CommandRegistrar: React.FC<{
   handleImport: () => void;
 }> = ({ setActiveTool, setIsSettingsOpen, handleExport, handleImport }) => {
   const { registerCommand, unregisterCommand } = useCommand();
+  const { openSidebar } = useLogArchiveContext();
 
   useEffect(() => {
     // Register Navigation Commands
@@ -36,6 +37,16 @@ const CommandRegistrar: React.FC<{
         action: () => setActiveTool(plugin.id),
         keywords: [plugin.name, 'nav', 'switch']
       });
+    });
+
+    // Register Log Archive Command
+    registerCommand({
+      id: 'open-log-archive',
+      title: 'Open Log Archive',
+      section: 'Tools',
+      icon: <Lucide.Archive size={18} />,
+      action: openSidebar,
+      shortcut: 'Ctrl+Shift+F'
     });
 
     // Register Global Settings Command
@@ -72,8 +83,9 @@ const CommandRegistrar: React.FC<{
       unregisterCommand('global-settings');
       unregisterCommand('export-settings');
       unregisterCommand('import-settings');
+      unregisterCommand('open-log-archive');
     };
-  }, [registerCommand, unregisterCommand, setActiveTool, setIsSettingsOpen, handleExport, handleImport]);
+  }, [registerCommand, unregisterCommand, setActiveTool, setIsSettingsOpen, handleExport, handleImport, openSidebar]);
 
   return null;
 };

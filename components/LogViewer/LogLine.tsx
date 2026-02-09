@@ -24,12 +24,25 @@ interface LogLineProps {
 export const LogLine = React.memo(({ index, style, data, isActive, isSelected, hasBookmark, isRawMode = false, textHighlights, lineHighlights, highlightCaseSensitive = false, onClick, onDoubleClick, onMouseDown, onMouseEnter, preferences, levelMatchers }: LogLineProps) => {
     const isLoading = !data;
 
+    // Decode HTML entities for display and matching
+    const decodedContent = React.useMemo(() => {
+        if (!data?.content) return '';
+        // Fast regex replacement for common entities
+        return data.content
+            .replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&apos;/g, "'")
+            .replace(/&#39;/g, "'");
+    }, [data]);
+
     // Determine Log Level Style
     const customBgStyle = React.useMemo(() => {
-        if (!data) return undefined;
+        if (!decodedContent) return undefined;
 
         // Optimization: only search first 100 chars
-        const prefix = data.content.substring(0, 100);
+        const prefix = decodedContent.substring(0, 100);
 
         if (levelMatchers) {
             for (const matcher of levelMatchers) {
@@ -50,16 +63,16 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
             }
         }
         return undefined;
-    }, [data, levelMatchers]); // ✅ Performance: Removed 'preferences' to reduce recalculation
+    }, [decodedContent, levelMatchers, preferences]); // preferences added back as needed if levelMatchers is not passed
 
     const matchingHighlight = React.useMemo(() => {
-        if (!lineHighlights || !data) return undefined;
+        if (!lineHighlights || !decodedContent) return undefined;
         return lineHighlights.find(h =>
         (highlightCaseSensitive
-            ? data.content.includes(h.keyword)
-            : data.content.toLowerCase().includes(h.keyword.toLowerCase()))
+            ? decodedContent.includes(h.keyword)
+            : decodedContent.toLowerCase().includes(h.keyword.toLowerCase()))
         );
-    }, [lineHighlights, data, highlightCaseSensitive]);
+    }, [lineHighlights, decodedContent, highlightCaseSensitive]);
 
     const isCssColor = (color: string) => /^(#|rgb|hsl)/i.test(color.trim()) || (/^[a-z]+$/i.test(color.trim()) && !color.startsWith('bg-') && !color.startsWith('text-'));
 
@@ -165,9 +178,9 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                     <div className="h-3 w-48 bg-slate-200 dark:bg-slate-800/50 rounded animate-pulse mt-1" />
                 ) : (
                     isRawMode
-                        ? data?.content
+                        ? decodedContent
                         : <HighlightRenderer
-                            text={data?.content || ''}
+                            text={decodedContent}
                             highlights={textHighlights}
                             caseSensitive={highlightCaseSensitive}
                         />
