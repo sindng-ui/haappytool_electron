@@ -46,7 +46,7 @@ const CommandRegistrar: React.FC<{
       section: 'Tools',
       icon: <Lucide.Archive size={18} />,
       action: openSidebar,
-      shortcut: 'Ctrl+Shift+F'
+      shortcut: 'Ctrl+Shift+A'
     });
 
     // Register Global Settings Command

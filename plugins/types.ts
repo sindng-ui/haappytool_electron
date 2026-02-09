@@ -8,7 +8,7 @@ export interface PluginContext {
 export interface HappyPlugin {
     id: string;             // Unique ID (e.g., 'com.happytool.log-extractor')
     name: string;           // Display Name (e.g., 'Log Extractor')
-    icon: React.ComponentType<{ className?: string }>; // Icon for Sidebar
+    icon: React.ComponentType<{ className?: string; size?: number }>; // Icon for Sidebar
     component: React.ComponentType<any>; // Main Content Component
     order?: number;         // Default sort order
 

@@ -52,24 +52,38 @@ export const CommandProvider: React.FC<{ children: ReactNode }> = ({ children })
     // Global Shortcut Listener
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Ctrl+K or Cmd+K
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+            if (!e.key) return; // Safety check for undefined key
+
+            const key = e.key.toLowerCase();
+            const ctrl = e.ctrlKey || e.metaKey;
+            const shift = e.shiftKey;
+            const alt = e.altKey;
+
+            // Palette Toggle (Standard)
+            if (ctrl && (key === 'k' || key === 'p')) {
                 e.preventDefault();
                 togglePalette();
+                return;
             }
-            // Ctrl+P or Cmd+P (Alternative)
-            // Ctrl+Shift+F (Log Archive)
-            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
-                e.preventDefault();
-                // We need to trigger the command, but we don't know the action here directly.
-                // However, we can find it in the commands list.
-                const cmd = commands.find(c => c.id === 'open-log-archive');
-                if (cmd) {
+
+            // Check dynamically registered shortcuts
+            for (const cmd of commands) {
+                if (!cmd.shortcut || typeof cmd.shortcut !== 'string') continue;
+
+                const parts = cmd.shortcut.toLowerCase().split('+');
+                const hasCtrl = parts.includes('ctrl') || parts.includes('cmd');
+                const hasShift = parts.includes('shift');
+                const hasAlt = parts.includes('alt');
+                const mainKey = parts[parts.length - 1];
+
+                // Special handling for comma
+                const targetKey = mainKey === ',' ? ',' : mainKey;
+
+                if (ctrl === hasCtrl && shift === hasShift && alt === hasAlt && key === targetKey) {
+                    e.preventDefault();
                     cmd.action();
+                    return;
                 }
-            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
-                e.preventDefault();
-                togglePalette();
             }
         };
 

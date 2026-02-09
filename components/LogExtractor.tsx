@@ -481,14 +481,6 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                     >
                         <Plus size={16} />
                     </button>
-
-                    <button
-                        onClick={toggleSidebar}
-                        className="h-[32px] w-[32px] flex items-center justify-center rounded-lg text-slate-500 hover:text-emerald-400 hover:bg-slate-800/50 transition-all duration-200 ml-1 mb-0.5 z-0 hover:scale-110"
-                        title="Open Log Archive (Ctrl+Shift+A)"
-                    >
-                        <Archive size={16} />
-                    </button>
                 </div>
             </div>
         </div>

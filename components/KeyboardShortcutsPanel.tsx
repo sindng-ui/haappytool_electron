@@ -10,30 +10,33 @@ interface Shortcut {
 }
 
 const shortcuts: Shortcut[] = [
+    // General
+    { keys: ['Ctrl', ','], description: 'Open Settings', category: 'General' },
+    { keys: ['Ctrl', 'K'], description: 'Command Palette', category: 'General' },
+    { keys: ['Ctrl', 'P'], description: 'Command Palette (Alt)', category: 'General' },
+    { keys: ['Ctrl', '?'], description: 'Show Shortcuts', category: 'General' },
+
     // Tab Management
     { keys: ['Ctrl', 'T'], description: 'New Tab', category: 'Tab Management' },
     { keys: ['Ctrl', 'W'], description: 'Close Tab', category: 'Tab Management' },
     { keys: ['Ctrl', 'Tab'], description: 'Next Tab', category: 'Tab Management' },
     { keys: ['Ctrl', 'Shift', 'Tab'], description: 'Previous Tab', category: 'Tab Management' },
 
-    // File Operations
-    { keys: ['Ctrl', 'O'], description: 'Open File', category: 'File Operations' },
-    { keys: ['Ctrl', 'S'], description: 'Save File', category: 'File Operations' },
-    { keys: ['Ctrl', 'E'], description: 'Export Settings', category: 'File Operations' },
+    // Navigation & Search
+    { keys: ['Ctrl', 'F'], description: 'Find in Page', category: 'Navigation & Search' },
+    { keys: ['Ctrl', 'G'], description: 'Go to Line', category: 'Navigation & Search' },
+    { keys: ['Ctrl', 'Shift', 'A'], description: 'Open Log Archive', category: 'Navigation & Search' },
 
-    // Navigation
-    { keys: ['Ctrl', 'F'], description: 'Find in Page', category: 'Navigation' },
-    { keys: ['Ctrl', 'G'], description: 'Go to Line', category: 'Navigation' },
-    { keys: ['Ctrl', 'B'], description: 'Toggle Bookmark', category: 'Navigation' },
+    // Bookmarks
+    { keys: ['Space'], description: 'Toggle Bookmark (at line)', category: 'Bookmarks' },
+    { keys: ['Ctrl', 'B'], description: 'Toggle Bookmark (legacy)', category: 'Bookmarks' },
+    { keys: ['F3'], description: 'Next Bookmark', category: 'Bookmarks' },
+    { keys: ['F4'], description: 'Previous Bookmark', category: 'Bookmarks' },
 
     // View
     { keys: ['Ctrl', '+'], description: 'Zoom In', category: 'View' },
     { keys: ['Ctrl', '-'], description: 'Zoom Out', category: 'View' },
     { keys: ['Ctrl', '0'], description: 'Reset Zoom', category: 'View' },
-
-    // Help
-    { keys: ['Ctrl', '?'], description: 'Show Shortcuts', category: 'Help' },
-    { keys: ['F1'], description: 'Help', category: 'Help' },
 ];
 
 export const KeyboardShortcutsPanel: React.FC = () => {

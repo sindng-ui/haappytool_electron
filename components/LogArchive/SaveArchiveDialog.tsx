@@ -310,7 +310,7 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
                                 />
                                 <datalist id="folder-suggestions">
                                     {sortedFolders.map(f => (
-                                        <option key={f} value={`${f} (${folderStats[f]})`} />
+                                        <option key={f} value={f} />
                                     ))}
                                 </datalist>
                             </div>
