@@ -74,7 +74,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
     return (
         <div
             ref={menuRef}
-            className="fixed z-[9999] bg-slate-900/95 backdrop-blur-md border border-indigo-500/30 rounded-lg shadow-2xl shadow-black/50 min-w-[200px] py-1 animate-in fade-in zoom-in-95 duration-150"
+            className="fixed z-[9999] bg-[#0f172a]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8)] min-w-[220px] p-1.5 animate-in fade-in zoom-in-95 duration-200 ring-1 ring-white/5"
             style={{
                 left: `${adjustedPosition.x}px`,
                 top: `${adjustedPosition.y}px`,
@@ -91,12 +91,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
                     }}
                     disabled={item.disabled}
                     className={`
-                        w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-150
+                        w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group
                         ${item.disabled
-                            ? 'opacity-50 cursor-not-allowed'
+                            ? 'opacity-40 cursor-not-allowed'
                             : item.variant === 'danger'
                                 ? 'hover:bg-red-500/10 text-red-400 hover:text-red-300'
-                                : 'hover:bg-indigo-500/10 text-slate-300 hover:text-slate-100'
+                                : 'text-slate-300 hover:bg-gradient-to-r hover:from-indigo-600 hover:to-blue-600 hover:text-white hover:shadow-lg hover:shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98]'
                         }
                     `}
                 >

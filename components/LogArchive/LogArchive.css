@@ -11,26 +11,45 @@
 .floating-action-button {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    gap: 10px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
     color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+    /* Fully rounded pill shape */
+    font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-    transition: all 0.2s ease;
+    box-shadow:
+        0 4px 15px rgba(59, 130, 246, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 100;
+    backdrop-filter: blur(8px);
+    letter-spacing: 0.3px;
 }
 
 .floating-action-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
+    transform: translateY(-3px) scale(1.02);
+    background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+    box-shadow:
+        0 8px 25px rgba(79, 70, 229, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.2) inset;
 }
 
 .floating-action-button:active {
-    transform: translateY(0);
+    transform: translateY(-1px) scale(0.98);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.floating-action-button svg {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    transition: transform 0.3s ease;
+}
+
+.floating-action-button:hover svg {
+    transform: rotate(-10deg) scale(1.1);
 }
 
 /* ===========================
@@ -1319,6 +1338,7 @@
 .folder-chip {
     display: flex;
     align-items: center;
+    gap: 4px;
     background: #1e293b;
     border: 1px solid #334155;
     color: #94a3b8;
@@ -1339,4 +1359,166 @@
     background: #3b82f6;
     border-color: #3b82f6;
     color: white;
+}
+
+/* Folder count badge */
+.folder-count {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    opacity: 0.8;
+    font-weight: 600;
+    margin-left: 2px;
+}
+
+.folder-chip.active .folder-count {
+    opacity: 1;
+}
+
+/* Folder input for save dialog */
+.folder-input {
+    font-size: 14px;
+    padding: 8px 12px;
+}
+
+/* Improve datalist dropdown visibility */
+input[list]::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+}
+
+/* For better datalist option visibility in save dialog */
+datalist option {
+    font-size: 16px !important;
+    padding: 12px !important;
+    line-height: 1.6 !important;
+}
+
+/* ===========================
+   8. Archive Sidebar & List Virtualization
+   =========================== */
+
+.archive-sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 450px;
+    background: #0f172a;
+    /* Slate 900 */
+    border-left: 1px solid #334155;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid #334155;
+    background: #1e293b;
+}
+
+.sidebar-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.sidebar-actions {
+    display: flex;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    padding: 8px;
+    gap: 8px;
+}
+
+.action-button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+    background: #334155;
+    border: none;
+    border-radius: 6px;
+    color: #e2e8f0;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-button:hover {
+    background: #475569;
+}
+
+.action-button.danger {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.action-button.danger:hover {
+    background: rgba(239, 68, 68, 0.2);
+}
+
+.sidebar-results-info {
+    padding: 8px 16px;
+    font-size: 12px;
+    color: #64748b;
+    border-bottom: 1px solid #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sidebar-content {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.archive-list {
+    flex: 1;
+    height: 100%;
+}
+
+.archive-list-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #64748b;
+    padding: 32px;
+    text-align: center;
+}
+
+.archive-list-empty h3 {
+    margin: 16px 0 8px;
+    color: #94a3b8;
+}
+
+.archive-list-footer {
+    padding: 16px;
+    text-align: center;
+    color: #64748b;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }

@@ -14,6 +14,7 @@ export interface UseLogArchiveReturn {
     // 메타데이터
     getAllTags: () => Promise<string[]>;
     getAllFolders: () => Promise<string[]>;
+    getFolderStatistics: () => Promise<Record<string, number>>;
 
     // Export/Import
     exportToJSON: () => Promise<string>;
@@ -166,6 +167,17 @@ export function useLogArchive(): UseLogArchiveReturn {
     }, [handleError]);
 
     /**
+     * 폴더별 아카이브 개수 통계
+     */
+    const getFolderStatistics = useCallback(async (): Promise<Record<string, number>> => {
+        try {
+            return await db.getFolderStatistics();
+        } catch (err) {
+            return handleError(err, 'getFolderStatistics');
+        }
+    }, [handleError]);
+
+    /**
      * JSON으로 내보내기
      */
     const exportToJSON = useCallback(async (): Promise<string> => {
@@ -228,6 +240,7 @@ export function useLogArchive(): UseLogArchiveReturn {
         getArchive,
         getAllTags,
         getAllFolders,
+        getFolderStatistics,
         exportToJSON,
         importFromJSON,
         clearAll,

@@ -137,7 +137,11 @@ export class LogArchiveDB extends Dexie {
 
         // 폴더 필터
         if (folder) {
-            collection = collection.filter(archive => archive.metadata?.folder === folder);
+            if (folder === 'Uncategorized') {
+                collection = collection.filter(archive => !archive.metadata?.folder);
+            } else {
+                collection = collection.filter(archive => archive.metadata?.folder === folder);
+            }
         }
 
         // 태그 필터 (AND 조건)
@@ -204,7 +208,11 @@ export class LogArchiveDB extends Dexie {
 
         // 폴더 필터
         if (folder) {
-            collection = collection.filter(archive => archive.metadata?.folder === folder);
+            if (folder === 'Uncategorized') {
+                collection = collection.filter(archive => !archive.metadata?.folder);
+            } else {
+                collection = collection.filter(archive => archive.metadata?.folder === folder);
+            }
         }
 
         // 태그 필터

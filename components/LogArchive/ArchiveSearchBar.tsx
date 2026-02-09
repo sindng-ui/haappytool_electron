@@ -27,13 +27,13 @@ interface ArchiveSearchBarProps {
  * - NEW: 폴더 필터
  */
 export function ArchiveSearchBar({ onSearchChange, isSearching = false }: ArchiveSearchBarProps) {
-    const { getAllTags, getAllFolders } = useLogArchive();
+    const { getAllTags, getFolderStatistics } = useLogArchive();
 
     const [query, setQuery] = useState('');
     const [isRegex, setIsRegex] = useState(false);
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [availableTags, setAvailableTags] = useState<string[]>([]);
-    const [availableFolders, setAvailableFolders] = useState<string[]>([]);
+    const [folderStats, setFolderStats] = useState<Record<string, number>>({});
     const [selectedFolder, setSelectedFolder] = useState<string>('');
     const [sortBy, setSortBy] = useState<'createdAt' | 'title' | 'updatedAt'>('createdAt');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -47,8 +47,17 @@ export function ArchiveSearchBar({ onSearchChange, isSearching = false }: Archiv
      */
     useEffect(() => {
         getAllTags().then(setAvailableTags);
-        getAllFolders().then(setAvailableFolders);
-    }, [getAllTags, getAllFolders]);
+        getFolderStatistics().then(setFolderStats);
+    }, [getAllTags, getFolderStatistics]);
+
+    /**
+     * 폴더 목록을 개수 많은 순으로 정렬
+     */
+    const sortedFolders = React.useMemo(() => {
+        return Object.entries(folderStats)
+            .sort((a, b) => b[1] - a[1]) // 개수 많은 순 (내림차순)
+            .map(([folder]) => folder);
+    }, [folderStats]);
 
     /**
      * 검색 옵션 변경 시 콜백 호출
@@ -155,7 +164,7 @@ export function ArchiveSearchBar({ onSearchChange, isSearching = false }: Archiv
             </div>
 
             {/* Folder Filters (Chips) */}
-            {availableFolders.length > 0 && (
+            {sortedFolders.length > 0 && (
                 <div className="folder-filter-container">
                     <button
                         className={`folder-chip ${!selectedFolder ? 'active' : ''}`}
@@ -163,7 +172,7 @@ export function ArchiveSearchBar({ onSearchChange, isSearching = false }: Archiv
                     >
                         All Folders
                     </button>
-                    {availableFolders.map(folder => (
+                    {sortedFolders.map(folder => (
                         <button
                             key={folder}
                             className={`folder-chip ${selectedFolder === folder ? 'active' : ''}`}
@@ -171,6 +180,7 @@ export function ArchiveSearchBar({ onSearchChange, isSearching = false }: Archiv
                         >
                             <Folder size={12} className="mr-1" />
                             {folder}
+                            <span className="folder-count">({folderStats[folder]})</span>
                         </button>
                     ))}
                 </div>

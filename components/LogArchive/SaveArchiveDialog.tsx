@@ -34,7 +34,7 @@ interface SaveArchiveDialogProps {
  * 선택한 로그를 아카이브에 저장하는 모달 다이얼로그
  */
 export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchiveDialogProps) {
-    const { saveArchive, getAllTags } = useLogArchive();
+    const { saveArchive, getAllTags, getFolderStatistics } = useLogArchive();
 
     const [title, setTitle] = useState('');
     const [tags, setTags] = useState<string[]>([]);
@@ -43,7 +43,7 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
     const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
     const [folder, setFolder] = useState<string>('');
     const [folderInput, setFolderInput] = useState<string>('');
-    const [availableFolders, setAvailableFolders] = useState<string[]>([]);
+    const [folderStats, setFolderStats] = useState<Record<string, number>>({});
     const [selectedColor, setSelectedColor] = useState<string>('#3b82f6'); // 기본 파란색
     const [isSaving, setIsSaving] = useState(false);
 
@@ -65,6 +65,15 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
     const tagInputRef = useRef<HTMLInputElement>(null);
 
     /**
+     * 폴더 목록을 개수 많은 순으로 정렬
+     */
+    const sortedFolders = React.useMemo(() => {
+        return Object.entries(folderStats)
+            .sort((a, b) => b[1] - a[1]) // 개수 많은 순 (내림차순)
+            .map(([folder]) => folder);
+    }, [folderStats]);
+
+    /**
      * 기존 태그 로드 및 스마트 태그 추천
      */
     useEffect(() => {
@@ -80,13 +89,13 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
             // 기존 태그 로드
             getAllTags().then(setAvailableTags);
 
-            // 기존 폴더 로드
-            db.getAllFolders().then(setAvailableFolders);
+            // 기존 폴더 통계 로드
+            getFolderStatistics().then(setFolderStats);
 
             // 제목 입력창에 포커스
             setTimeout(() => titleInputRef.current?.focus(), 100);
         }
-    }, [isOpen, selectedText, getAllTags]);
+    }, [isOpen, selectedText, getAllTags, getFolderStatistics]);
 
     /**
      * 모달 닫기 시 상태 초기화
@@ -296,10 +305,11 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
                                     placeholder="Enter folder name..."
                                     disabled={isSaving}
                                     list="folder-suggestions"
+                                    className="folder-input"
                                 />
                                 <datalist id="folder-suggestions">
-                                    {availableFolders.map(f => (
-                                        <option key={f} value={f} />
+                                    {sortedFolders.map(f => (
+                                        <option key={f} value={`${f} (${folderStats[f]})`} />
                                     ))}
                                 </datalist>
                             </div>

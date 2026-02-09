@@ -97,12 +97,17 @@ export function ArchiveViewerPane({
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!archive) return;
 
-            // Search Focus (Ctrl+F)
+            // Search Focus (Ctrl+F) - Handle this FIRST
             if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
                 e.preventDefault();
                 e.stopPropagation();
-                searchInputRef.current?.focus();
-                searchInputRef.current?.select();
+                e.stopImmediatePropagation(); // Stop other handlers
+
+                // Focus and select text
+                setTimeout(() => {
+                    searchInputRef.current?.focus();
+                    searchInputRef.current?.select();
+                }, 0);
                 return;
             }
 
@@ -128,8 +133,9 @@ export function ArchiveViewerPane({
             // But we handle Enter in Input directly usually.
         };
 
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        // Use capture phase to catch event before browser default
+        window.addEventListener('keydown', handleKeyDown, true);
+        return () => window.removeEventListener('keydown', handleKeyDown, true);
     }, [archive, matches.length, onClose, searchTerm, submittedTerm]);
 
     /**
