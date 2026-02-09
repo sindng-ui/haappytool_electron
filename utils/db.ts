@@ -33,6 +33,6 @@ export const setStoredValue = async (key: string, value: any) => {
     try {
         await db.appState.put({ key, value });
     } catch (e) {
-        console.error(`Failed to set value for ${key}`, e);
+        console.error(`[DB] Failed to set value for ${key}`, e);
     }
 };

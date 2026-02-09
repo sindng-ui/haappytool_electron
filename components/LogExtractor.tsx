@@ -70,7 +70,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                 }
             }
         } catch (e) {
-            console.error('Failed to load tabs', e);
+            console.error('[LogExtractor] Failed to load tabs', e);
         }
         return [{ id: 'tab-1', title: 'New Log 1', initialFile: null }];
     });

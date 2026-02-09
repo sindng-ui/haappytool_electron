@@ -44,5 +44,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         if (validChannels.includes(channel)) {
             ipcRenderer.removeListener(channel, callback);
         }
+    },
+    // ✅ File Path Helper (Required for Context Isolation)
+    getFilePath: (file) => {
+        const { webUtils } = require('electron');
+        return webUtils.getPathForFile(file);
     }
 });

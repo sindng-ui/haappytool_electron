@@ -30,8 +30,10 @@ declare global {
             getZoomFactor: () => number;
             copyToClipboard: (text: string) => Promise<void>;
             saveFile: (content: string) => Promise<{ status: string, filePath?: string }>;
+            saveBinaryFile: (data: Uint8Array, fileName: string) => Promise<{ status: string, filePath?: string }>;
             openExternal: (url: string) => Promise<{ status: string, error?: string }>;
             getAppPath: () => Promise<string>;
+            getFilePath: (file: File) => string;
         };
     }
 }
@@ -233,7 +235,6 @@ export const useLogExtractorLogic = ({
 
     // Initialize Left Worker & Load State
     useEffect(() => {
-        console.log(`[useLog] Mounting tab ${tabId}. initialFilePath:`, initialFilePath);
 
         leftWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
 
@@ -242,7 +243,6 @@ export const useLogExtractorLogic = ({
         // Load saved state or initial file
         const loadState = async () => {
             const savedStateStr = await getStoredValue(`tabState_${tabId}`);
-            console.log(`[useLog] Raw saved state for ${tabId}:`, savedStateStr);
 
             let targetPath = initialFilePath;
             let savedScrollTop = 0;
@@ -256,11 +256,9 @@ export const useLogExtractorLogic = ({
                     if (saved.selectedLine) savedSelectedLine = saved.selectedLine;
                     if (saved.filePath && !initialFilePath) targetPath = saved.filePath; // Use saved path if no initial overrides
                 } catch (e) {
-                    console.error(`[Persistence] Failed to parse state for ${tabId}`, e);
+                    // Ignore parse errors
                 }
             }
-
-            console.log(`[useLog] Final targetPath:`, targetPath);
 
             if (savedScrollTop > 0) pendingScrollTop.current = savedScrollTop;
             if (savedSelectedLine >= 0) {
@@ -275,10 +273,17 @@ export const useLogExtractorLogic = ({
 
         const loadFile = (targetPath: string) => {
             if (window.electronAPI) {
-                console.log(`[useLog] Loading file via Electron:`, targetPath);
                 const fileName = targetPath.split(/[/\\]/).pop() || 'log_file.log';
                 setLeftFileName(fileName);
                 setLeftFilePath(targetPath);
+                // ✅ Sync with parent so it can save to localStorage for next session
+                if (onFileChange) {
+                    console.log(`[useLog] Calling onFileChange with:`, targetPath);
+                    onFileChange(targetPath);
+                } else {
+                    console.warn(`[useLog] onFileChange is NOT defined!`);
+                }
+
                 setLeftWorkerReady(false);
                 setLeftIndexingProgress(0);
                 setLeftTotalLines(0);
@@ -1041,8 +1046,7 @@ export const useLogExtractorLogic = ({
     const handleLeftFileChange = useCallback((file: File) => {
         if (!leftWorkerRef.current) return;
 
-        const path = ('path' in file) ? (file as any).path : '';
-        setLeftFilePath(path);
+        const path = ('path' in file && (file as any).path)
 
         if (path) {
             setStoredValue(`tabState_${tabId}`, JSON.stringify({
@@ -1199,6 +1203,7 @@ export const useLogExtractorLogic = ({
     }, []);
 
     // Periodic State Persistence
+    const lastSavedState = useRef<string>('');
     useEffect(() => {
         if (!leftFilePath) return;
         const timer = setInterval(() => {
@@ -1208,7 +1213,13 @@ export const useLogExtractorLogic = ({
                 selectedLine: activeLineIndexLeft,
                 scrollTop
             };
-            setStoredValue(`tabState_${tabId}`, JSON.stringify(state));
+
+            // Check if state changed to avoid unnecessary writes
+            const newStateStr = JSON.stringify(state);
+            if (lastSavedState.current !== newStateStr) {
+                lastSavedState.current = newStateStr;
+                setStoredValue(`tabState_${tabId}`, newStateStr);
+            }
         }, 1000); // 1s interval
         return () => clearInterval(timer);
     }, [tabId, leftFilePath, activeLineIndexLeft]);
