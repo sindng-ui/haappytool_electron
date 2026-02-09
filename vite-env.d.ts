@@ -21,6 +21,8 @@ interface ElectronAPI {
     // Loading events
     on?: (channel: 'loading-progress' | 'loading-log' | 'loading-complete', callback: (...args: any[]) => void) => (() => void) | undefined;
     off?: (channel: 'loading-progress' | 'loading-log' | 'loading-complete', callback: (...args: any[]) => void) => void;
+    // File Path Helper
+    getFilePath?: (file: File) => string;
 }
 
 interface Window {

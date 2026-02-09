@@ -303,7 +303,18 @@ export const useLogExtractorLogic = ({
                     cleanupListeners.push(unsubChunk, unsubComplete);
 
                     window.electronAPI.streamReadFile(targetPath).catch(e => {
-                        console.error('[useLog] streamReadFile failed:', e);
+                        console.error('[useLog] streamReadFile failed, falling back to readFile:', e);
+                        // Fallback to legacy readFile
+                        window.electronAPI.readFile(targetPath).then(content => {
+                            console.log(`[useLog] Fallback readFile success. size=${content.length}`);
+                            const file = new File([content], fileName);
+                            (file as any).path = targetPath;
+                            leftWorkerRef.current?.postMessage({ type: 'INIT_FILE', payload: file });
+                        }).catch(err => {
+                            console.error('[useLog] Fallback readFile also failed:', err);
+                            alert(`[useLog] Failed to load file: ${err.message}`);
+                            showToast(`Failed to load file: ${err.message}`, 'error');
+                        });
                     });
                 } else {
                     console.log('[useLog] Using readFile (Legacy)');
@@ -1046,8 +1057,12 @@ export const useLogExtractorLogic = ({
 
     const handleLeftFileChange = useCallback((file: File) => {
         if (!leftWorkerRef.current) return;
-
-        const path = ('path' in file && (file as any).path)
+        let path = '';
+        if (window.electronAPI && window.electronAPI.getFilePath) {
+            path = window.electronAPI.getFilePath(file);
+        } else {
+            path = ('path' in file && (file as any).path) || '';
+        }
 
         if (path) {
             setStoredValue(`tabState_${tabId}`, JSON.stringify({
