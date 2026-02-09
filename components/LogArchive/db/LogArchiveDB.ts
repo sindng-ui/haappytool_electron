@@ -101,30 +101,21 @@ export class LogArchiveDB extends Dexie {
      * 모든 태그 목록 조회 (중복 제거)
      */
     async getAllTags(): Promise<string[]> {
-        const archives = await this.archives.toArray();
-        const tagsSet = new Set<string>();
-
-        archives.forEach(archive => {
-            archive.tags.forEach(tag => tagsSet.add(tag));
-        });
-
-        return Array.from(tagsSet).sort();
+        // Dexie의 uniqueKeys를 사용하여 전체 데이터를 로드하지 않고 인덱스에서 태그만 추출
+        const uniqueTags = await this.archives.orderBy('tags').uniqueKeys();
+        return uniqueTags.map(tag => String(tag)).sort();
     }
 
     /**
      * 모든 폴더 목록 조회 (중복 제거)
      */
     async getAllFolders(): Promise<string[]> {
-        const archives = await this.archives.toArray();
-        const foldersSet = new Set<string>();
-
-        archives.forEach(archive => {
-            if (archive.metadata?.folder) {
-                foldersSet.add(archive.metadata.folder);
-            }
-        });
-
-        return Array.from(foldersSet).sort();
+        // Dexie의 uniqueKeys를 사용하여 전체 데이터를 로드하지 않고 인덱스에서 폴더만 추출
+        const uniqueFolders = await this.archives.orderBy('metadata.folder').uniqueKeys();
+        return uniqueFolders
+            .map(folder => String(folder))
+            .filter(folder => folder && folder !== 'undefined') // 유효한 폴더명만 필터링
+            .sort();
     }
 
     /**
