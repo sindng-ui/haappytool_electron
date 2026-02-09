@@ -8,6 +8,7 @@ import { ALL_PLUGINS } from './plugins/registry';
 import { HappyToolProvider, HappyToolContextType } from './contexts/HappyToolContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { CommandProvider, useCommand } from './contexts/CommandContext';
+import { LogArchiveProvider, LogArchive } from './components/LogArchive';
 import PluginContainer from './components/PluginContainer';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import LoadingSplash from './components/LoadingSplash';
@@ -540,6 +541,8 @@ const AppContent: React.FC = () => {
               setEnabledPlugins={setEnabledPlugins}
             />
             <CommandPalette />
+            {/* Log Archive - Global feature available across all plugins */}
+            <LogArchive />
           </main>
         </div>
         {/* Splash Overlay - Always rendered until complete to allow plugins to load underneath */}
@@ -558,7 +561,9 @@ const App: React.FC = () => {
   return (
     <ToastProvider>
       <CommandProvider>
-        <AppContent />
+        <LogArchiveProvider>
+          <AppContent />
+        </LogArchiveProvider>
       </CommandProvider>
     </ToastProvider>
   );

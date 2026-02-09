@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { LogRule, AppSettings } from '../types';
 import LogSession from './LogSession';
 import { LogProvider } from './LogViewer/LogContext';
-import { Plus, X, FileText, Copy, XCircle, Trash2 } from 'lucide-react';
+import { Plus, X, FileText, Copy, XCircle, Trash2, Archive } from 'lucide-react';
 import { useContextMenu } from './ContextMenu';
+import { useLogArchiveContext } from './LogArchive';
 
 
 
@@ -30,6 +31,9 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         handleExportSettings: onExportSettings,
         handleImportSettings: onImportSettings
     } = useHappyTool();
+
+    // Log Archive
+    const { toggleSidebar } = useLogArchiveContext();
     // Shared state for configuration panel width
     const [configPanelWidth, setConfigPanelWidth] = useState(() => {
         try {
@@ -477,10 +481,18 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                     >
                         <Plus size={16} />
                     </button>
+
+                    <button
+                        onClick={toggleSidebar}
+                        className="h-[32px] w-[32px] flex items-center justify-center rounded-lg text-slate-500 hover:text-emerald-400 hover:bg-slate-800/50 transition-all duration-200 ml-1 mb-0.5 z-0 hover:scale-110"
+                        title="Open Log Archive (Ctrl+Shift+A)"
+                    >
+                        <Archive size={16} />
+                    </button>
                 </div>
             </div>
         </div>
-    ), [tabs, activeTabId, handleAddTab, handleCloseTab, handleGlobalDrop, draggedTabId, dragOverTabId, handleTabDragStart, handleTabDragOver, handleTabDragLeave, handleTabDrop, handleTabDragEnd]);
+    ), [tabs, activeTabId, handleAddTab, handleCloseTab, handleGlobalDrop, draggedTabId, dragOverTabId, handleTabDragStart, handleTabDragOver, handleTabDragLeave, handleTabDrop, handleTabDragEnd, toggleSidebar]);
 
     const handleTitleChange = useCallback((tabId: string, newTitle: string) => {
         setTabs(current => current.map(t => t.id === tabId ? { ...t, title: newTitle } : t));

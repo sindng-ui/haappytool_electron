@@ -4,6 +4,9 @@
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/500.css";
 
+/* Log Archive Styles */
+@import "./components/LogArchive/LogArchive.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

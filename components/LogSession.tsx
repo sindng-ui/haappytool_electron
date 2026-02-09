@@ -9,6 +9,10 @@ import TopBar from './LogViewer/TopBar';
 import LoadingOverlay from './ui/LoadingOverlay';
 import { BookmarksModal } from './BookmarksModal';
 import GoToLineModal from './GoToLineModal';
+import { useLogSelection } from './LogArchive/hooks/useLogSelection';
+// FloatingActionButton removed
+import { useLogArchiveContext } from './LogArchive/LogArchiveProvider';
+import { useContextMenu } from './ContextMenu';
 
 const { X, Eraser, ChevronLeft, ChevronRight } = Lucide;
 
@@ -92,6 +96,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const leftFileInputRef = React.useRef<HTMLInputElement>(null);
     const rightFileInputRef = React.useRef<HTMLInputElement>(null);
 
+
     // Bookmark Modal States
     const [isLeftBookmarksOpen, setLeftBookmarksOpen] = React.useState(false);
     const [isRightBookmarksOpen, setRightBookmarksOpen] = React.useState(false);
@@ -126,6 +131,160 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         logViewPreferences, // Added
         isPanelOpen, setIsPanelOpen, updateLogViewPreferences, // Added for shortcuts
     } = useLogContext();
+
+    // Log Archive: Text Selection
+    // Log Archive: Text Selection & Line Selection
+    const { openSaveDialog, isSaveDialogOpen, isViewerOpen } = useLogArchiveContext();
+    const { showContextMenu, ContextMenuComponent } = useContextMenu();
+    const logContentRef = React.useRef<HTMLDivElement>(null);
+    const { selection: nativeSelection, handleSave: handleNativeSave } = useLogSelection(
+        logContentRef,
+        isDualView ? undefined : (leftFileName || undefined)
+    );
+
+    // === NEW CONTEXT MENU LOGIC === //
+    const handleUnifiedSave = async () => {
+        if (nativeSelection) {
+            handleNativeSave();
+        } else {
+            const targetIsLeft = (selectedIndicesLeft && selectedIndicesLeft.size > 0);
+            const indices = targetIsLeft ? selectedIndicesLeft : selectedIndicesRight;
+            const requestFn = targetIsLeft ? requestLeftLines : requestRightLines;
+            const fName = targetIsLeft ? leftFileName : rightFileName;
+
+            if (!indices || indices.size === 0) return;
+
+            const sorted = Array.from(indices).sort((a, b) => a - b);
+            const min = sorted[0];
+            const max = sorted[sorted.length - 1];
+            const count = max - min + 1;
+
+            try {
+                const lines = await requestFn(min, count);
+                const content = lines
+                    .filter((_, idx) => indices.has(min + idx))
+                    .map(l => l.content)
+                    .join('\n');
+
+                if (content) {
+                    openSaveDialog({
+                        content,
+                        sourceFile: fName,
+                        startLine: min + 1,
+                        endLine: max + 1
+                    });
+                }
+            } catch (e) {
+                console.error('[LogSession] Failed to retrieve selected lines', e);
+            }
+        }
+    };
+
+    const handleContextMenu = React.useCallback((e: React.MouseEvent) => {
+        const hasNative = nativeSelection || (window.getSelection() && !window.getSelection()?.isCollapsed && window.getSelection()?.toString().trim());
+        const hasLeftLine = selectedIndicesLeft && selectedIndicesLeft.size > 0;
+        const hasRightLine = isDualView && selectedIndicesRight && selectedIndicesRight.size > 0;
+
+        if (hasNative || hasLeftLine || hasRightLine) {
+            showContextMenu(e, [
+                {
+                    label: 'Save Selection to Archive',
+                    icon: <Lucide.Archive size={16} />,
+                    action: handleUnifiedSave
+                }
+            ]);
+        }
+    }, [nativeSelection, selectedIndicesLeft, selectedIndicesRight, isDualView, showContextMenu]);
+
+    // --- Line Selection Logic (Fallback for when native selection is blocked) ---
+    const mousePosRef = React.useRef({ x: 0, y: 0 });
+    const [lineSelection, setLineSelection] = React.useState<{ text: string, x: number, y: number } | null>(null);
+
+    // Track Mouse Position
+    React.useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            mousePosRef.current = { x: e.clientX, y: e.clientY };
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => window.removeEventListener('mousemove', handleMouseMove);
+    }, []);
+
+    // Detect Selection (Native or Line)
+    React.useEffect(() => {
+        const checkSelection = () => {
+            setTimeout(() => {
+                // 1. Native Selection Priority
+                if (nativeSelection || (window.getSelection() && !window.getSelection()?.isCollapsed && window.getSelection()?.toString().trim())) {
+                    setLineSelection(null);
+                    return;
+                }
+
+                // 2. Line Selection Check
+                const hasLeft = selectedIndicesLeft && selectedIndicesLeft.size > 0;
+                const hasRight = isDualView && selectedIndicesRight && selectedIndicesRight.size > 0;
+
+                if (hasLeft || hasRight) {
+                    setLineSelection({
+                        text: "Selected Lines",
+                        x: mousePosRef.current.x + 10,
+                        y: mousePosRef.current.y
+                    });
+                } else {
+                    setLineSelection(null);
+                }
+            }, 100);
+        };
+
+        window.addEventListener('mouseup', checkSelection);
+        window.addEventListener('keyup', checkSelection); // Keyboard selection support
+        return () => {
+            window.removeEventListener('mouseup', checkSelection);
+            window.removeEventListener('keyup', checkSelection);
+        };
+    }, [nativeSelection, selectedIndicesLeft, selectedIndicesRight, isDualView]);
+
+    const activeSelection = nativeSelection || lineSelection;
+
+    const handleUnifiedSave_Legacy = async () => {
+        if (nativeSelection) {
+            handleNativeSave();
+        } else if (lineSelection) {
+            // Line Selection Save
+            const targetIsLeft = (selectedIndicesLeft && selectedIndicesLeft.size > 0);
+            // Default to left if both, unless Right implies right focus? Logic: prioritized left.
+
+            const indices = targetIsLeft ? selectedIndicesLeft : selectedIndicesRight;
+            const requestFn = targetIsLeft ? requestLeftLines : requestRightLines;
+            const fName = targetIsLeft ? leftFileName : rightFileName;
+
+            if (!indices || indices.size === 0) return;
+
+            const sorted = Array.from(indices).sort((a, b) => a - b);
+            const min = sorted[0];
+            const max = sorted[sorted.length - 1];
+            const count = max - min + 1;
+
+            try {
+                const lines = await requestFn(min, count);
+                const content = lines
+                    .filter((_, idx) => indices.has(min + idx))
+                    .map(l => l.content)
+                    .join('\n');
+
+                if (content) {
+                    openSaveDialog({
+                        content,
+                        sourceFile: fName,
+                        startLine: min + 1,
+                        endLine: max + 1
+                    });
+                }
+            } catch (e) {
+                console.error('[LogSession] Failed to retrieve selected lines', e);
+            }
+            setLineSelection(null);
+        }
+    };
 
     const rowHeight = logViewPreferences?.rowHeight || 24; // Use preference or default
 
@@ -347,6 +506,9 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 (() => {
                     React.useEffect(() => {
                         const handleGlobalKeyDown = (e: KeyboardEvent) => {
+                            // If Save Dialog or Archive Viewer is open, disable all shortcuts to allow typing/local shortcuts
+                            if (isSaveDialogOpen || isViewerOpen) return;
+
                             // F3: Next Bookmark, F4 (or Shift+F3): Prev Bookmark
                             if (e.key === 'F3' || e.key === 'F4') {
                                 // If inside input, ignore? No, usually F3 works globally unless consumed.
@@ -604,7 +766,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                         };
                         window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
                         return () => window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs]);
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, isSaveDialogOpen, isViewerOpen]);
                     return null;
                 })()
             )}
@@ -646,7 +808,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 />
             )}
 
-            <div className="flex-1 flex overflow-hidden h-full relative group/layout">
+            <div ref={logContentRef} className="flex-1 flex overflow-hidden h-full relative group/layout">
                 {/* Configuration Panel with Resize Handle */}
                 <ConfigurationPanel />
 
@@ -695,6 +857,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onPageNavRequest={handlePageNavRequestLeft}
                                     onScrollToBottomRequest={handleScrollToBottomRequestLeft}
                                     preferences={logViewPreferences}
+                                    onContextMenu={handleContextMenu}
+
                                 />
                                 {leftTotalSegments > 1 && (
                                     <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
@@ -769,6 +933,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onPageNavRequest={handlePageNavRequestRight}
                                             onScrollToBottomRequest={handleScrollToBottomRequestRight}
                                             preferences={logViewPreferences}
+                                            onContextMenu={handleContextMenu}
+
                                         />
                                         {rightTotalSegments > 1 && (
                                             <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
@@ -843,38 +1009,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 rightFileName={rightFileName || 'Right'}
             />
 
-            {/* Bookmarks Modals */}
-            <BookmarksModal
-                isOpen={isLeftBookmarksOpen}
-                onClose={() => setLeftBookmarksOpen(false)}
-                title={`Bookmarks - ${leftFileName || 'Left Pane'}`}
-                bookmarks={leftBookmarks}
-                requestLines={requestLeftBookmarkedLines}
-                onJump={(idx) => {
-                    setLeftBookmarksOpen(false);
-                    jumpToGlobalLine(idx, 'left');
-                }}
-                onClearAll={clearLeftBookmarks}
-                onDeleteBookmark={toggleLeftBookmark}
-                highlights={currentConfig?.highlights || []}
-                caseSensitive={currentConfig?.colorHighlightsCaseSensitive}
-            />
-
-            <BookmarksModal
-                isOpen={isRightBookmarksOpen}
-                onClose={() => setRightBookmarksOpen(false)}
-                title={`Bookmarks - ${rightFileName || 'Right Pane'}`}
-                bookmarks={rightBookmarks}
-                requestLines={requestRightBookmarkedLines}
-                onJump={(idx) => {
-                    setRightBookmarksOpen(false);
-                    jumpToGlobalLine(idx, 'right');
-                }}
-                onClearAll={clearRightBookmarks}
-                onDeleteBookmark={toggleRightBookmark}
-                highlights={currentConfig?.highlights || []}
-                caseSensitive={currentConfig?.colorHighlightsCaseSensitive}
-            />
+            {ContextMenuComponent}
         </div>
     );
 };

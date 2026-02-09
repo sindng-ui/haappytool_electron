@@ -44,6 +44,7 @@ interface LogViewerPaneProps {
     onPageNavRequest?: (direction: 'next' | 'prev') => void;
     onScrollToBottomRequest?: () => void;
     preferences?: LogViewPreferences;
+    onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 export interface LogViewerHandle {
@@ -90,7 +91,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     onScrollToBottomRequest,
     absoluteOffset = 0,
     initialScrollIndex,
-    preferences
+    preferences,
+    onContextMenu
 }, ref) => {
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
 
@@ -659,8 +661,10 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 border-r border-slate-200 dark:border-white/5 last:border-r-0
             `}
             // REMOVED: style={{ overflowAnchor: 'none' }} - We want native anchoring behavior!
+            // REMOVED: style={{ overflowAnchor: 'none' }} - We want native anchoring behavior!
             onDragEnter={handleDrag} onDragOver={handleDrag} onDragLeave={handleDrag} onDrop={handleDropEvent}
             onKeyDown={handleKeyDown}
+            onContextMenu={onContextMenu}
         >
             {/* Toolbar */}
             {!isRawMode && (
