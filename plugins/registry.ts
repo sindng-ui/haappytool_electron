@@ -20,7 +20,7 @@ import {
 
 // Registry array to hold all registered plugins
 export const ALL_PLUGINS: HappyPlugin[] = [
-    RxFlowVisualizerPlugin,
+    //RxFlowVisualizerPlugin,
     LogExtractorPlugin,
     PostToolPlugin,
     JsonToolsPlugin,
@@ -32,7 +32,7 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     CpuAnalyzerPlugin,
     SmartHomeDashboardPlugin,
     ScreenMatcherPlugin,
-    AiAssistantPlugin,
+    // AiAssistantPlugin, // Disabled - causes startup failure
     SmartThingsLabPluginWrapper,
     TizenLabPluginWrapper,
     EasyPostPlugin

@@ -659,6 +659,16 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 // Check if we are in this session (should be active)
                                 if (!isActive) return;
 
+                                // Ctrl + Shift + X: Clear Logs (SSH/SDB connection only)
+                                if (e.shiftKey && (e.key === 'x' || e.key === 'X')) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (tizenSocket) {
+                                        handleClearLogs();
+                                    }
+                                    return;
+                                }
+
                                 // Ctrl + ` : Toggle Configuration Panel
                                 if (e.key === '`' || e.key === '~') {
                                     e.preventDefault();
@@ -784,7 +794,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                         };
                         window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
                         return () => window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, isSaveDialogOpen, isViewerOpen]);
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, isSaveDialogOpen, isViewerOpen, tizenSocket, handleClearLogs]);
                     return null;
                 })()
             )}

@@ -51,7 +51,20 @@ async function createWindow() {
     const isDev = !app.isPackaged;
     console.log('[DEBUG] isDev:', isDev, 'NODE_ENV:', process.env.NODE_ENV);
 
-    // Load URL first
+    // Show window when ready (must be registered BEFORE loadURL)
+    mainWindow.once('ready-to-show', () => {
+        mainWindow.show();
+    });
+
+    // Track page load completion (must be registered BEFORE loadURL)
+    const pageLoadedPromise = new Promise((resolve) => {
+        mainWindow.webContents.once('did-finish-load', () => {
+            console.log('[DEBUG] did-finish-load fired inside createWindow');
+            resolve();
+        });
+    });
+
+    // Load URL
     if (isDev) {
         console.log('[DEBUG] Loading dev URL: http://127.0.0.1:3000');
         await mainWindow.loadURL('http://127.0.0.1:3000');
@@ -62,12 +75,6 @@ async function createWindow() {
         console.log('[DEBUG] Loading production file:', indexPath);
         mainWindow.loadFile(indexPath);
     }
-
-
-    // Show window when ready
-    mainWindow.once('ready-to-show', () => {
-        mainWindow.show();
-    });
 
     // Save state on close
     mainWindow.on('close', async () => {
@@ -86,13 +93,8 @@ async function createWindow() {
         mainWindow = null;
     });
 
-    // Return a promise that resolves when did-finish-load fires
-    return new Promise((resolve) => {
-        mainWindow.webContents.once('did-finish-load', () => {
-            console.log('[DEBUG] did-finish-load fired inside createWindow');
-            resolve();
-        });
-    });
+    // Wait for page to finish loading
+    return pageLoadedPromise;
 }
 
 app.whenReady().then(async () => {
