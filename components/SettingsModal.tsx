@@ -201,39 +201,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                 {[
                                     {
                                         title: '🌐 Global',
-                                        description: '앱 전체에서 사용 가능한 단축키',
+                                        description: 'Shortcuts available globally',
                                         items: [
-                                            { action: 'Settings 열기', keys: ['Ctrl', ','] },
+                                            { action: 'Open Settings', keys: ['Ctrl', ','] },
                                             { action: 'Command Palette', keys: ['Ctrl', 'K'] },
                                             { action: 'Command Palette (Alt)', keys: ['Ctrl', 'P'] },
-                                            { action: 'UI 확대', keys: ['Ctrl', 'Shift', '+'] },
-                                            { action: 'UI 축소', keys: ['Ctrl', 'Shift', '-'] },
-                                            { action: 'UI 원래 크기', keys: ['Ctrl', '0'] },
+                                            { action: 'Zoom In', keys: ['Ctrl', 'Shift', '+'] },
+                                            { action: 'Zoom Out', keys: ['Ctrl', 'Shift', '-'] },
+                                            { action: 'Reset Zoom', keys: ['Ctrl', '0'] },
                                         ],
                                     },
                                     {
                                         title: '📊 Log Extractor',
-                                        description: '로그 분석 도구에서 사용 가능한 단축키',
+                                        description: 'Shortcuts for Log Extractor',
                                         items: [
-                                            { action: '새 탭', keys: ['Ctrl', 'T'] },
-                                            { action: '탭 닫기', keys: ['Ctrl', 'W'] },
-                                            { action: '다음 탭', keys: ['Ctrl', 'Tab'] },
-                                            { action: '이전 탭', keys: ['Ctrl', 'Shift', 'Tab'] },
-                                            { action: '검색 (Find)', keys: ['Ctrl', 'F'] },
-                                            { action: '줄 이동 (Go to Line)', keys: ['Ctrl', 'G'] },
-                                            { action: '로그 아카이브 열기', keys: ['Ctrl', 'Shift', 'A'] },
-                                            { action: '북마크 보기', keys: ['Ctrl', 'B'] },
-                                            { action: '북마크 토글', keys: ['Space'] },
-                                            { action: '다음 북마크', keys: ['F4'] },
-                                            { action: '이전 북마크', keys: ['F3'] },
-                                            { action: '하이라이트 #N 이동', keys: ['Ctrl', '1~5'] },
-                                            { action: '설정 패널 토글', keys: ['Ctrl', '`'] },
-                                            { action: '폰트 크기 키우기', keys: ['Ctrl', ']'] },
-                                            { action: '폰트 크기 줄이기', keys: ['Ctrl', '['] },
-                                            { action: '로그 클리어 (실시간)', keys: ['Ctrl', 'Shift', 'X'] },
-                                            { action: '선택 로그 복사', keys: ['Ctrl', 'C'] },
-                                            { action: '페이지 이동', keys: ['PageUp', 'PageDown'] },
-                                            { action: '동기 스크롤', keys: ['Shift', 'Scroll'] },
+                                            { action: 'New Tab', keys: ['Ctrl', 'T'] },
+                                            { action: 'Close Tab', keys: ['Ctrl', 'W'] },
+                                            { action: 'Next Tab', keys: ['Ctrl', 'Tab'] },
+                                            { action: 'Previous Tab', keys: ['Ctrl', 'Shift', 'Tab'] },
+                                            { action: 'Find', keys: ['Ctrl', 'F'] },
+                                            { action: 'Go to Line', keys: ['Ctrl', 'G'] },
+                                            { action: 'Open Log Archive', keys: ['Ctrl', 'Shift', 'A'] },
+                                            { action: 'View Bookmarks', keys: ['Ctrl', 'B'] },
+                                            { action: 'Toggle Bookmark', keys: ['Space'] },
+                                            { action: 'Next Bookmark', keys: ['F4'] },
+                                            { action: 'Previous Bookmark', keys: ['F3'] },
+                                            { action: 'Go to Highlight #N', keys: ['Ctrl', '1~5'] },
+                                            { action: 'Toggle Settings Panel', keys: ['Ctrl', '`'] },
+                                            { action: 'Increase Font Size', keys: ['Ctrl', ']'] },
+                                            { action: 'Decrease Font Size', keys: ['Ctrl', '['] },
+                                            { action: 'Clear Logs (Real-time)', keys: ['Ctrl', 'Shift', 'X'] },
+                                            { action: 'Copy Selected Log', keys: ['Ctrl', 'C'] },
+                                            { action: 'Page Navigation', keys: ['PageUp', 'PageDown'] },
+                                            { action: 'Sync Scroll', keys: ['Shift', 'Scroll'] },
                                         ],
                                     },
                                 ].map((group, groupIdx) => (
@@ -259,7 +259,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                     </div>
                                 ))}
 
-                                <p className="text-xs text-slate-500 mt-2 text-center">플러그인별 단축키는 향후 추가될 수 있습니다.</p>
+                                <p className="text-xs text-slate-500 mt-2 text-center">Shortcuts for other plugins may be added in the future.</p>
                             </div>
                         )}
 

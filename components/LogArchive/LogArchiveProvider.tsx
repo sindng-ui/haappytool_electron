@@ -38,6 +38,14 @@ export interface LogArchiveContextType {
     closeSaveDialog: () => void;
 
     setSelectedArchive: (archive: ArchivedLog | null) => void;
+
+    // 아카이브 → Log Extractor 탭으로 로드
+    loadArchiveToTab?: (title: string, content: string) => void;
+    setLoadArchiveToTab: (fn: ((title: string, content: string) => void) | undefined) => void;
+
+    // 데이터 갱신 트리거
+    refreshArchives: () => void;
+    setRefreshArchives: (fn: () => void) => void;
 }
 
 const LogArchiveContext = createContext<LogArchiveContextType | undefined>(undefined);
@@ -51,6 +59,12 @@ export function LogArchiveProvider({ children }: { children: ReactNode }) {
     const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
     const [selectedArchive, setSelectedArchive] = useState<ArchivedLog | null>(null);
     const [selectedText, setSelectedText] = useState<SelectedText | null>(null);
+    const [loadArchiveToTab, setLoadArchiveToTabRaw] = useState<((title: string, content: string) => void) | undefined>(undefined);
+
+    // useState에 함수를 저장하려면 래퍼 필요
+    const setLoadArchiveToTab = useCallback((fn: ((title: string, content: string) => void) | undefined) => {
+        setLoadArchiveToTabRaw(() => fn);
+    }, []);
 
     const openSidebar = useCallback(() => setIsSidebarOpen(true), []);
     const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
@@ -76,6 +90,12 @@ export function LogArchiveProvider({ children }: { children: ReactNode }) {
         setSelectedText(null);
     }, []);
 
+    const [refreshArchives, setRefreshArchivesRaw] = useState<(() => void)>(() => () => { });
+
+    const setRefreshArchives = useCallback((fn: () => void) => {
+        setRefreshArchivesRaw(() => fn);
+    }, []);
+
     const value: LogArchiveContextType = {
         isSidebarOpen,
         isViewerOpen,
@@ -90,6 +110,10 @@ export function LogArchiveProvider({ children }: { children: ReactNode }) {
         openSaveDialog,
         closeSaveDialog,
         setSelectedArchive,
+        loadArchiveToTab,
+        setLoadArchiveToTab,
+        refreshArchives,
+        setRefreshArchives,
     };
 
     return (

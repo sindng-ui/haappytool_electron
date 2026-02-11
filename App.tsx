@@ -500,6 +500,21 @@ const AppContent: React.FC = () => {
     setShowSplash(false);
   };
 
+  // Global Shortcut Prevention (Ctrl+W)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent Ctrl+W (Close Window) and Ctrl+T (New Tab) defaults
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'w' || e.key === 'W' || e.key === 't' || e.key === 'T')) {
+        e.preventDefault();
+        // Do not stop propagation, so other components (LogExtractor) can handle it
+        console.log(`[App] Parsed Ctrl+${e.key} - Preventing default behavior`);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+  }, []);
+
   return (
     <HappyToolProvider value={contextValue}>
       <CommandRegistrar

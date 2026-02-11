@@ -1,9 +1,10 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Copy, ExternalLink, Edit, Trash2, Calendar, FileText, Search, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, Copy, ExternalLink, Edit, Trash2, Calendar, FileText, Search, ChevronUp, ChevronDown, StickyNote, ArrowUpRight } from 'lucide-react';
 import { ArchivedLog } from './db/LogArchiveDB';
 import { useLogArchiveContext } from './LogArchiveProvider';
 import { useLogArchive } from './hooks/useLogArchive';
+import { useToast } from '../../contexts/ToastContext';
 import { formatDateFull, copyToClipboard, countLines, getTagColor, decodeHtmlEntities } from './utils';
 
 interface ArchiveViewerPaneProps {
@@ -33,7 +34,8 @@ export function ArchiveViewerPane({
     onClose,
     onGoToSource,
 }: ArchiveViewerPaneProps) {
-    const { deleteArchive } = useLogArchive();
+    const { deleteArchive, updateArchive } = useLogArchive();
+    const { loadArchiveToTab, closeViewer } = useLogArchiveContext();
 
     // Always visible search state
     const [searchTerm, setSearchTerm] = useState('');
@@ -41,11 +43,17 @@ export function ArchiveViewerPane({
     const [currentMatchIdx, setCurrentMatchIdx] = useState(0);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
+    // Memo editing state
+    const [isEditingMemo, setIsEditingMemo] = useState(false);
+    const [editMemo, setEditMemo] = useState('');
+
     // Reset search state when archive changes
     useEffect(() => {
         setSearchTerm('');
         setSubmittedTerm('');
         setCurrentMatchIdx(0);
+        setIsEditingMemo(false);
+        setEditMemo(archive?.memo || '');
     }, [archive?.id]);
 
     /**
@@ -165,13 +173,15 @@ export function ArchiveViewerPane({
     /**
      * 클립보드 복사
      */
+    const { addToast } = useToast();
+
     const handleCopy = async () => {
         if (!archive) return;
 
         // Copy decoded content
         const success = await copyToClipboard(decodeHtmlEntities(archive.content));
         if (success) {
-            alert('Copied to clipboard!');
+            addToast('Copied to clipboard!', 'success');
         }
     };
 
@@ -201,8 +211,47 @@ export function ArchiveViewerPane({
             onClose();
         } catch (err) {
             console.error('[ArchiveViewerPane] Delete failed:', err);
-            alert('삭제에 실패했습니다.');
+            alert('Failed to delete.');
         }
+    };
+
+    const { setSelectedArchive, refreshArchives } = useLogArchiveContext();
+
+    // ... (lines 218-220)
+
+    /**
+     * 메모 저장
+     */
+    const handleMemoSave = async () => {
+        if (!archive?.id) return;
+        const trimmed = editMemo.trim();
+        if (trimmed === (archive.memo || '')) {
+            setIsEditingMemo(false);
+            return;
+        }
+        try {
+            await updateArchive(archive.id, { memo: trimmed || undefined });
+            // ✅ Update local state immediately to reflect changes in UI
+            setSelectedArchive({ ...archive, memo: trimmed || undefined });
+            setIsEditingMemo(false);
+
+            // ✅ Refresh the sidebar list to show updated memo
+            refreshArchives();
+
+            addToast('Memo saved', 'success');
+        } catch (err) {
+            console.error('[ArchiveViewerPane] Memo save failed:', err);
+            addToast('Failed to save memo', 'error');
+        }
+    };
+
+    /**
+     * Log Extractor 탭으로 열기
+     */
+    const handleOpenInTab = () => {
+        if (!archive || !loadArchiveToTab) return;
+        loadArchiveToTab(archive.title, decodeHtmlEntities(archive.content));
+        closeViewer();
     };
 
     /**
@@ -265,8 +314,8 @@ export function ArchiveViewerPane({
                         <div className="viewer-header">
                             <div className="viewer-title-group">
                                 <div className={`viewer-icon-badge ${archive.tags.some(t => t.toLowerCase().includes('error')) ? 'error' :
-                                        archive.tags.some(t => t.toLowerCase().includes('success')) ? 'success' :
-                                            archive.title.toLowerCase().includes('db') ? 'db' : 'default'
+                                    archive.tags.some(t => t.toLowerCase().includes('success')) ? 'success' :
+                                        archive.title.toLowerCase().includes('db') ? 'db' : 'default'
                                     }`}>
                                     {archive.tags.some(t => t.toLowerCase().includes('error') || t.toLowerCase().includes('fail')) ? <Search size={22} color="#ef4444" /> :
                                         archive.title.toLowerCase().includes('db') ? <FileText size={22} color="#f59e0b" /> :
@@ -314,6 +363,12 @@ export function ArchiveViewerPane({
                                 </div>
 
                                 <div className="viewer-divider"></div>
+
+                                {loadArchiveToTab && (
+                                    <button className="icon-button" onClick={handleOpenInTab} title="Open in Log Extractor Tab">
+                                        <ArrowUpRight size={16} />
+                                    </button>
+                                )}
 
                                 <button className="icon-button" onClick={handleCopy} title="Copy Content">
                                     <Copy size={16} />
@@ -365,6 +420,73 @@ export function ArchiveViewerPane({
                                             {tag}
                                         </span>
                                     ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Memo Section */}
+                        <div style={{
+                            padding: '8px 16px',
+                            borderBottom: '1px solid rgba(99, 102, 241, 0.1)',
+                            minHeight: '32px',
+                        }}>
+                            {isEditingMemo ? (
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                    <StickyNote size={14} style={{ marginTop: '6px', opacity: 0.5, flexShrink: 0 }} />
+                                    <textarea
+                                        value={editMemo}
+                                        onChange={(e) => setEditMemo(e.target.value)}
+                                        onBlur={handleMemoSave}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                handleMemoSave();
+                                            }
+                                            if (e.key === 'Escape') {
+                                                e.stopPropagation();
+                                                setEditMemo(archive?.memo || '');
+                                                setIsEditingMemo(false);
+                                            }
+                                        }}
+                                        autoFocus
+                                        maxLength={500}
+                                        placeholder="메모를 입력하세요..."
+                                        style={{
+                                            flex: 1,
+                                            background: 'rgba(15, 23, 42, 0.4)',
+                                            border: '1px solid rgba(99, 102, 241, 0.3)',
+                                            borderRadius: '6px',
+                                            padding: '6px 10px',
+                                            color: '#e2e8f0',
+                                            fontSize: '12px',
+                                            resize: 'none',
+                                            outline: 'none',
+                                            fontFamily: 'inherit',
+                                            minHeight: '36px',
+                                            maxHeight: '80px',
+                                        }}
+                                    />
+                                </div>
+                            ) : (
+                                <div
+                                    onClick={() => { setEditMemo(archive?.memo || ''); setIsEditingMemo(true); }}
+                                    style={{
+                                        display: 'flex',
+                                        gap: '8px',
+                                        alignItems: 'center',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        color: archive?.memo ? '#94a3b8' : '#475569',
+                                        fontStyle: archive?.memo ? 'normal' : 'italic',
+                                        padding: '4px 0',
+                                        borderRadius: '4px',
+                                        transition: 'color 0.2s',
+                                    }}
+                                    title="클릭하여 메모 편집"
+                                >
+                                    <StickyNote size={14} style={{ opacity: 0.5, flexShrink: 0 }} />
+                                    <span>{archive?.memo || '메모 추가...'}</span>
+                                    <Edit size={12} style={{ opacity: 0.3, marginLeft: 'auto' }} />
                                 </div>
                             )}
                         </div>

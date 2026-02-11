@@ -13,6 +13,7 @@ export const useLogContext = () => {
 
 interface LogProviderProps extends LogExtractorLogicProps {
     children: ReactNode;
+    initialFile?: File | null; // ✅ Add support for direct File object
 }
 
 export const LogProvider: React.FC<LogProviderProps> = ({ children, ...props }) => {

@@ -4,7 +4,7 @@ import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { LogHighlight, LogViewPreferences } from '../../types';
 import { LogLine } from './LogLine';
 
-const { Upload, X, Zap, Split, Copy, Download, Bookmark, ArrowDown } = Lucide;
+const { Upload, X, Zap, Split, Copy, Download, Bookmark, ArrowDown, Archive } = Lucide;
 
 // ✅ ElectronAPI types moved to vite-env.d.ts for consistency
 
@@ -45,6 +45,8 @@ interface LogViewerPaneProps {
     onScrollToBottomRequest?: () => void;
     preferences?: LogViewPreferences;
     onContextMenu?: (e: React.MouseEvent) => void;
+    onArchiveSave?: () => void;
+    isArchiveSaveEnabled?: boolean;
 }
 
 export interface LogViewerHandle {
@@ -92,7 +94,9 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     absoluteOffset = 0,
     initialScrollIndex,
     preferences,
-    onContextMenu
+    onContextMenu,
+    onArchiveSave,
+    isArchiveSaveEnabled = false,
 }, ref) => {
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
 
@@ -684,6 +688,19 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                         </div>
                     </div>
                     <div className="flex items-center gap-1 transition-opacity duration-200">
+                        {workerReady && !isRawMode && onArchiveSave && (
+                            <button
+                                onClick={onArchiveSave}
+                                disabled={!isArchiveSaveEnabled}
+                                className={`p-1.5 rounded-lg transition-colors ${isArchiveSaveEnabled
+                                        ? 'hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 dark:text-slate-400 hover:text-purple-500 dark:hover:text-purple-400'
+                                        : 'text-slate-600/30 dark:text-slate-600/30 cursor-not-allowed'
+                                    }`}
+                                title={isArchiveSaveEnabled ? 'Save to Archive (30MB 이하)' : '로그 사이즈가 30MB를 초과하여 아카이브 저장 불가'}
+                            >
+                                <Archive size={14} />
+                            </button>
+                        )}
                         {workerReady && !isRawMode && onShowBookmarks && (
                             <button onClick={onShowBookmarks} className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors" title="View Bookmarks">
                                 <Bookmark size={14} fill={bookmarks.size > 0 ? "currentColor" : "none"} />

@@ -18,25 +18,7 @@ const defaultLogViewPreferences: LogViewPreferences = {
     ]
 };
 
-declare global {
-    interface Window {
-        electronAPI?: {
-            readFile: (path: string) => Promise<string>;
-            streamReadFile: (path: string) => Promise<{ status: string }>;
-            onFileChunk: (callback: (chunk: string) => void) => () => void;
-            onFileStreamComplete: (callback: () => void) => () => void;
-            onFileStreamError: (callback: (err: string) => void) => () => void;
-            setZoomFactor: (factor: number) => void;
-            getZoomFactor: () => number;
-            copyToClipboard: (text: string) => Promise<void>;
-            saveFile: (content: string) => Promise<{ status: string, filePath?: string }>;
-            saveBinaryFile: (data: Uint8Array, fileName: string) => Promise<{ status: string, filePath?: string }>;
-            openExternal: (url: string) => Promise<{ status: string, error?: string }>;
-            getAppPath: () => Promise<string>;
-            getFilePath: (file: File) => string;
-        };
-    }
-}
+
 
 export interface LogExtractorLogicProps {
     rules: LogRule[];
@@ -47,6 +29,7 @@ export interface LogExtractorLogicProps {
     setConfigPanelWidth: (width: number) => void;
     tabId: string;
     initialFilePath?: string;
+    initialFile?: File | null; // ✅ Add support for direct File object
     onFileChange?: (filePath: string) => void;
     isActive?: boolean;
 }
@@ -75,7 +58,7 @@ export const MAX_SEGMENT_SIZE = 1_350_000;
 export const useLogExtractorLogic = ({
     rules, onUpdateRules, onExportSettings, onImportSettings,
     configPanelWidth, setConfigPanelWidth,
-    tabId, initialFilePath, onFileChange,
+    tabId, initialFilePath, initialFile, onFileChange,
     isActive = true
 }: LogExtractorLogicProps) => {
     // ... (existing state) ...
@@ -242,6 +225,22 @@ export const useLogExtractorLogic = ({
 
         // Load saved state or initial file
         const loadState = async () => {
+            // ✅ Priority 1: Direct File Object (from Archive or Drag&Drop)
+            if (initialFile) {
+                console.log('[useLog] Loading from initialFile object:', initialFile.name);
+                setLeftFileName(initialFile.name);
+                setLeftFilePath((initialFile as any).path || ''); // Virtual files might not have path
+
+                setLeftWorkerReady(false);
+                setLeftIndexingProgress(0);
+                setLeftTotalLines(0);
+                setLeftFilteredCount(0);
+
+                leftWorkerRef.current?.postMessage({ type: 'INIT_FILE', payload: initialFile });
+                return;
+            }
+
+            // Priority 2: Saved State (Persistence)
             const savedStateStr = await getStoredValue(`tabState_${tabId}`);
 
             let targetPath = initialFilePath;

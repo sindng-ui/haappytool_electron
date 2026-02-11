@@ -33,7 +33,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     } = useHappyTool();
 
     // Log Archive
-    const { toggleSidebar } = useLogArchiveContext();
+    const { toggleSidebar, setLoadArchiveToTab } = useLogArchiveContext();
     // Shared state for configuration panel width
     const [configPanelWidth, setConfigPanelWidth] = useState(() => {
         try {
@@ -128,6 +128,22 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         setActiveTabId(newTabId);
         setTabCounter(prev => prev + 1);
     }, [tabCounter]);
+
+    /**
+     * 아카이브 로그를 새 탭으로 로드
+     * content 문자열을 File 객체로 변환하여 기존 탭 생성 플로우 활용
+     */
+    const handleArchiveToTab = useCallback((title: string, content: string) => {
+        const blob = new Blob([content], { type: 'text/plain' });
+        const file = new File([blob], `[Archive] ${title}.log`, { type: 'text/plain' });
+        handleAddTab(file);
+    }, [handleAddTab]);
+
+    // 아카이브 → 탭 로드 함수 등록
+    useEffect(() => {
+        setLoadArchiveToTab(handleArchiveToTab);
+        return () => setLoadArchiveToTab(undefined);
+    }, [handleArchiveToTab, setLoadArchiveToTab]);
 
     const handleCloseTab = useCallback((e: React.MouseEvent, tabId: string) => {
         e.stopPropagation();
@@ -371,11 +387,26 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
 
                 setActiveTabId(tabs[nextIndex].id);
             }
+
+            // Check for Ctrl+W (Close Current Tab)
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'w' || e.key === 'W')) {
+                e.preventDefault();
+                e.stopPropagation();
+                // Pass a synthetic event or null since handleCloseTab expects a MouseEvent but doesn't strictly need it for logic
+                handleCloseTab({ stopPropagation: () => { } } as any, activeTabId);
+            }
+
+            // Check for Ctrl+T (New Tab)
+            if ((e.ctrlKey || e.metaKey) && (e.key === 't' || e.key === 'T')) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleAddTab(null);
+            }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [tabs, activeTabId]);
+    }, [tabs, activeTabId, handleCloseTab]);
 
     // ✅ UI Improvement: Unified title bar with smooth scrolling
     const headerElement = React.useMemo(() => (
@@ -504,6 +535,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                         setConfigPanelWidth={setConfigPanelWidth}
                         tabId={tab.id}
                         initialFilePath={tab.filePath}
+                        initialFile={tab.initialFile} // ✅ Pass the File object
                         onFileChange={(newPath) => {
                             setTabs(current => current.map(t => t.id === tab.id ? { ...t, filePath: newPath } : t));
                         }}

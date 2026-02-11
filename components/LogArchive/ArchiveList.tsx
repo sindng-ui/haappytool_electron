@@ -83,7 +83,7 @@ export function ArchiveList({
                 onDeleteProp?.(archive.id);
             } catch (err) {
                 console.error('[ArchiveList] Failed to delete:', err);
-                alert('아카이브 삭제에 실패했습니다.');
+                alert('Failed to delete archive.');
             }
         },
         [deleteArchive, onDeleteProp]

@@ -4,62 +4,57 @@
 
 /**
  * 로그 내용에서 스마트 태그 추천
+ * 우선순위: 자주 사용되는 태그가 먼저 오도록 정렬됨
  */
-export function suggestTags(content: string): string[] {
+export function suggestTags(content: string, tagFrequency?: Record<string, number>): string[] {
     const suggestions: string[] = [];
-    const lowerContent = content.toLowerCase();
 
-    // 로그 레벨 감지
-    if (/\b(error|err|exception|fatal|critical)\b/i.test(content)) {
-        suggestions.push('ERROR');
-    } else if (/\b(warn|warning)\b/i.test(content)) {
-        suggestions.push('WARNING');
-    } else if (/\b(info|information)\b/i.test(content)) {
-        suggestions.push('INFO');
-    } else if (/\b(debug|trace)\b/i.test(content)) {
-        suggestions.push('DEBUG');
+    // 패턴 매칭 (우선순위 높은 것부터)
+    const patterns: Array<{ tag: string; regex: RegExp }> = [
+        // 로그 레벨
+        { tag: 'ERROR', regex: /\b(error|err|exception|fatal|critical)\b/i },
+        { tag: 'WARNING', regex: /\b(warn|warning)\b/i },
+        { tag: 'INFO', regex: /\b(info|information)\b/i },
+        { tag: 'DEBUG', regex: /\b(debug|trace)\b/i },
+
+        // 시스템 리소스
+        { tag: 'CPU', regex: /\b(cpu|processor|core|thread|usage)\b/i },
+        { tag: 'MEMORY', regex: /\b(memory|heap|stack|gc|garbage|oom|malloc|free)\b/i },
+        { tag: 'PERF', regex: /\b(performance|slow|timeout|latency|fps|jank|bottleneck)\b/i },
+
+        // UI / Lifecycle
+        { tag: 'VIEW', regex: /\b(view|render|layout|draw|paint|ui|widget|window)\b/i },
+        { tag: 'LIFECYCLE', regex: /\b(lifecycle|onCreate|onResume|onPause|onDestroy|onStart|onStop|activity|fragment)\b/i },
+
+        // IoT / SmartThings
+        { tag: 'ST-API', regex: /\b(smartthings|st-api|capability|command|component|attribute)\b/i },
+        { tag: 'SSE', regex: /\b(sse|server-sent|eventsource|event-stream|subscription)\b/i },
+        { tag: 'DEVICE', regex: /\b(device|sensor|actuator|switch|thermostat|light|plug|hub)\b/i },
+
+        // 인프라
+        { tag: 'NETWORK', regex: /\b(network|connection|socket|http|https|api|request|response)\b/i },
+        { tag: 'DATABASE', regex: /\b(database|db|sql|query|transaction)\b/i },
+        { tag: 'FILE_IO', regex: /\b(file|disk|io|read|write)\b/i },
+        { tag: 'AUTH', regex: /\b(auth|login|logout|permission|access|token|oauth)\b/i },
+
+        // Tizen / 모바일
+        { tag: 'CRASH', regex: /\b(crash|segfault|sigsegv|sigabrt|backtrace|tombstone)\b/i },
+        { tag: 'ANR', regex: /\b(anr|not responding|watchdog|deadlock|freeze)\b/i },
+    ];
+
+    for (const { tag, regex } of patterns) {
+        if (regex.test(content)) {
+            suggestions.push(tag);
+        }
     }
 
-    // 카테고리 감지
-    if (/\b(network|connection|socket|http|https|api|request|response)\b/i.test(content)) {
-        suggestions.push('NETWORK');
-    }
-
-    if (/\b(database|db|sql|query|transaction)\b/i.test(content)) {
-        suggestions.push('DATABASE');
-    }
-
-    if (/\b(memory|heap|stack|gc|garbage)\b/i.test(content)) {
-        suggestions.push('MEMORY');
-    }
-
-    if (/\b(file|disk|io|read|write)\b/i.test(content)) {
-        suggestions.push('FILE_IO');
-    }
-
-    if (/\b(auth|login|logout|permission|access)\b/i.test(content)) {
-        suggestions.push('AUTH');
-    }
-
-    if (/\b(performance|slow|timeout|latency)\b/i.test(content)) {
-        suggestions.push('PERFORMANCE');
-    }
-
-    // 날짜 기반 태그
-    const today = new Date();
-    const dateTag = today.toISOString().split('T')[0]; // YYYY-MM-DD
-    suggestions.push(dateTag);
-
-    // 시간대 태그
-    const hour = today.getHours();
-    if (hour >= 5 && hour < 12) {
-        suggestions.push('MORNING');
-    } else if (hour >= 12 && hour < 17) {
-        suggestions.push('AFTERNOON');
-    } else if (hour >= 17 && hour < 21) {
-        suggestions.push('EVENING');
-    } else {
-        suggestions.push('NIGHT');
+    // 자주 사용하는 태그 우선 정렬
+    if (tagFrequency && Object.keys(tagFrequency).length > 0) {
+        suggestions.sort((a, b) => {
+            const freqA = tagFrequency[a] || 0;
+            const freqB = tagFrequency[b] || 0;
+            return freqB - freqA; // 빈도 높은 순
+        });
     }
 
     return Array.from(new Set(suggestions)); // 중복 제거
@@ -108,25 +103,25 @@ export function formatDate(timestamp: number): string {
 
     // 1분 미만
     if (diff < 60 * 1000) {
-        return '방금 전';
+        return 'Just now';
     }
 
     // 1시간 미만
     if (diff < 60 * 60 * 1000) {
         const minutes = Math.floor(diff / (60 * 1000));
-        return `${minutes}분 전`;
+        return `${minutes}m ago`;
     }
 
     // 24시간 미만
     if (diff < 24 * 60 * 60 * 1000) {
         const hours = Math.floor(diff / (60 * 60 * 1000));
-        return `${hours}시간 전`;
+        return `${hours}h ago`;
     }
 
     // 7일 미만
     if (diff < 7 * 24 * 60 * 60 * 1000) {
         const days = Math.floor(diff / (24 * 60 * 60 * 1000));
-        return `${days}일 전`;
+        return `${days}d ago`;
     }
 
     // 그 외 (날짜 표시)

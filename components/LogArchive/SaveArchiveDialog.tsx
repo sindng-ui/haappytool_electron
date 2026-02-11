@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Tag as TagIcon, Save, Loader2, Folder, Palette } from 'lucide-react';
+import { X, Tag as TagIcon, Save, Loader2, Folder, Palette, StickyNote } from 'lucide-react';
 import { useLogArchive } from './hooks/useLogArchive';
 import { useLogArchiveContext } from './LogArchiveProvider';
 import { extractFirstLine, suggestTags } from './utils';
@@ -41,6 +41,7 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
     const [tagInput, setTagInput] = useState('');
     const [availableTags, setAvailableTags] = useState<string[]>([]);
     const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+    const [memo, setMemo] = useState('');
     const [folder, setFolder] = useState<string>('');
     const [folderInput, setFolderInput] = useState<string>('');
     const [folderStats, setFolderStats] = useState<Record<string, number>>({});
@@ -83,9 +84,11 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
             const autoTitle = extractFirstLine(selectedText.content);
             setTitle(autoTitle);
 
-            // 스마트 태그 추천
-            const suggested = suggestTags(selectedText.content);
-            setSuggestedTags(suggested);
+            // 태그 통계 로드 후 스마트 태그 추천 (빈도 기반 정렬)
+            db.getTagStatistics().then(tagStats => {
+                const suggested = suggestTags(selectedText.content, tagStats);
+                setSuggestedTags(suggested);
+            });
 
             // 기존 태그 로드
             getAllTags().then(setAvailableTags);
@@ -107,6 +110,7 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
             setTags([]);
             setTagInput('');
             setSuggestedTags([]);
+            setMemo('');
             setFolder('');
             setFolderInput('');
             setSelectedColor('#3b82f6');
@@ -160,6 +164,7 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
                 title: title.trim(),
                 content: selectedText.content,
                 tags,
+                memo: memo.trim() || undefined,
                 sourceFile: selectedText.sourceFile,
                 sourceLineStart: selectedText.startLine,
                 sourceLineEnd: selectedText.endLine,
@@ -173,7 +178,7 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
             onClose();
         } catch (err) {
             console.error('[SaveArchiveDialog] Failed to save:', err);
-            alert('아카이브 저장에 실패했습니다.');
+            alert('Failed to save archive.');
         } finally {
             setIsSaving(false);
         }
@@ -232,6 +237,41 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
                                     placeholder="Enter archive title..."
                                     disabled={isSaving}
                                     maxLength={200}
+                                />
+                            </div>
+
+                            {/* Memo Input */}
+                            <div className="form-group">
+                                <label htmlFor="archive-memo">
+                                    <StickyNote size={16} />
+                                    <span>Memo (Optional)</span>
+                                </label>
+                                <textarea
+                                    id="archive-memo"
+                                    value={memo}
+                                    onChange={(e) => setMemo(e.target.value)}
+                                    placeholder="Leave a memo for this log..."
+                                    disabled={isSaving}
+                                    maxLength={500}
+                                    rows={2}
+                                    className="memo-textarea"
+                                    style={{
+                                        width: '100%',
+                                        resize: 'vertical',
+                                        minHeight: '48px',
+                                        maxHeight: '120px',
+                                        padding: '8px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(99, 102, 241, 0.2)',
+                                        backgroundColor: 'rgba(15, 23, 42, 0.5)',
+                                        color: '#e2e8f0',
+                                        fontSize: '13px',
+                                        fontFamily: 'inherit',
+                                        outline: 'none',
+                                        transition: 'border-color 0.2s',
+                                    }}
+                                    onFocus={(e) => e.target.style.borderColor = 'rgba(99, 102, 241, 0.5)'}
+                                    onBlur={(e) => e.target.style.borderColor = 'rgba(99, 102, 241, 0.2)'}
                                 />
                             </div>
 
@@ -377,9 +417,9 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
 
                         {/* Keyboard Hints */}
                         <div className="keyboard-hints">
-                            <span><kbd>Enter</kbd> 태그 추가</span>
-                            <span><kbd>Ctrl+Enter</kbd> 저장</span>
-                            <span><kbd>Esc</kbd> 닫기</span>
+                            <span><kbd>Enter</kbd> Add Tag</span>
+                            <span><kbd>Ctrl+Enter</kbd> Save</span>
+                            <span><kbd>Esc</kbd> Close</span>
                         </div>
                     </motion.div>
                 </div>

@@ -142,6 +142,43 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         isDualView ? undefined : (leftFileName || undefined)
     );
 
+    // === ARCHIVE SAVE (full file) === //
+    const MAX_ARCHIVE_LINES = 300_000; // ~30MB @ ~100 bytes/line
+    const isLeftArchiveEnabled = leftWorkerReady && leftFilteredCount > 0 && leftFilteredCount <= MAX_ARCHIVE_LINES && !tizenSocket;
+    const isRightArchiveEnabled = rightWorkerReady && rightFilteredCount > 0 && rightFilteredCount <= MAX_ARCHIVE_LINES;
+
+    const onArchiveSaveLeft = React.useCallback(async () => {
+        if (!leftWorkerReady || leftFilteredCount === 0) return;
+        try {
+            const lines = await requestLeftLines(0, leftFilteredCount);
+            const content = lines.map(l => l.content).join('\n');
+            openSaveDialog({
+                content,
+                sourceFile: leftFileName || undefined,
+                startLine: 1,
+                endLine: leftFilteredCount,
+            });
+        } catch (e) {
+            console.error('[LogSession] Failed to fetch lines for archive', e);
+        }
+    }, [leftWorkerReady, leftFilteredCount, requestLeftLines, leftFileName, openSaveDialog]);
+
+    const onArchiveSaveRight = React.useCallback(async () => {
+        if (!rightWorkerReady || rightFilteredCount === 0) return;
+        try {
+            const lines = await requestRightLines(0, rightFilteredCount);
+            const content = lines.map(l => l.content).join('\n');
+            openSaveDialog({
+                content,
+                sourceFile: rightFileName || undefined,
+                startLine: 1,
+                endLine: rightFilteredCount,
+            });
+        } catch (e) {
+            console.error('[LogSession] Failed to fetch lines for archive', e);
+        }
+    }, [rightWorkerReady, rightFilteredCount, requestRightLines, rightFileName, openSaveDialog]);
+
     // === NEW CONTEXT MENU LOGIC === //
     const handleUnifiedSave = async () => {
         if (nativeSelection) {
@@ -886,6 +923,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onScrollToBottomRequest={handleScrollToBottomRequestLeft}
                                     preferences={logViewPreferences}
                                     onContextMenu={handleContextMenu}
+                                    onArchiveSave={onArchiveSaveLeft}
+                                    isArchiveSaveEnabled={isLeftArchiveEnabled}
 
                                 />
                                 {leftTotalSegments > 1 && (
@@ -962,6 +1001,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onScrollToBottomRequest={handleScrollToBottomRequestRight}
                                             preferences={logViewPreferences}
                                             onContextMenu={handleContextMenu}
+                                            onArchiveSave={onArchiveSaveRight}
+                                            isArchiveSaveEnabled={isRightArchiveEnabled}
 
                                         />
                                         {rightTotalSegments > 1 && (

@@ -39,6 +39,7 @@ export interface UseArchiveSearchReturn {
     // 검색 실행
     search: (options: SearchOptions, immediate?: boolean) => Promise<void>;
     loadMore: () => Promise<void>;
+    refresh: () => Promise<void>;
 
     // 검색 결과
     results: ArchivedLog[];
@@ -274,9 +275,28 @@ export function useArchiveSearch(debounceMs: number = 1000): UseArchiveSearchRet
         }
     }, []);
 
+    /**
+     * 현재 검색 조건으로 재검색 (데이터 갱신용)
+     */
+    const refresh = useCallback(async () => {
+        if (currentOptionsRef.current) {
+            // Keep current offset/limit logic if needed, or just reload first page?
+            // For simplicity, let's reload the current view by re-executing search with current options.
+            // But if we have scrolled down, we might want to keep the list.
+            // For now, let's just re-fetch the *current* set of results effectively?
+            // Actually, simplest is to just re-run search(currentOptions) which resets to page 0.
+            // If we want to keep scroll position, it's harder. Let's start with reset-search.
+            await executeSearch(currentOptionsRef.current);
+        } else {
+            // Initial load
+            await executeSearch({});
+        }
+    }, [executeSearch]);
+
     return {
         search,
         loadMore,
+        refresh, // Export refresh
         results,
         total,
         hasMore,

@@ -8,6 +8,7 @@ export interface ArchivedLog {
     title: string; // 로그 제목
     content: string; // 선택된 로그 텍스트
     tags: string[]; // 태그 배열
+    memo?: string; // 사용자 메모/노트
     sourceFile?: string; // 원본 파일 경로
     sourceLineStart?: number; // 원본 파일 시작 라인
     sourceLineEnd?: number; // 원본 파일 끝 라인
@@ -47,13 +48,11 @@ export class LogArchiveDB extends Dexie {
         // 버전 1: 초기 스키마
         this.version(1).stores({
             archives: '++id, title, *tags, sourceFile, createdAt, updatedAt, metadata.folder'
-            // ++id: auto-increment 기본 키
-            // title: 제목 인덱스 (검색 최적화)
-            // *tags: multi-entry 인덱스 (배열의 각 요소를 개별 인덱싱)
-            // sourceFile: 원본 파일 경로 인덱스
-            // createdAt: 생성일 인덱스 (정렬/필터링용)
-            // updatedAt: 수정일 인덱스
-            // metadata.folder: 폴더 인덱스
+        });
+
+        // 버전 2: memo 필드 추가 (하위 호환 - 기존 데이터 유지)
+        this.version(2).stores({
+            archives: '++id, title, *tags, sourceFile, createdAt, updatedAt, metadata.folder'
         });
     }
 
@@ -406,6 +405,77 @@ export class LogArchiveDB extends Dexie {
             mostUsedTags,
             recentArchives,
         };
+    }
+
+    /**
+     * 스토리지 사용량 조회 (bytes)
+     */
+    async getStorageUsage(): Promise<{ totalBytes: number; count: number; avgBytes: number }> {
+        let totalBytes = 0;
+        let count = 0;
+
+        await this.archives.each(archive => {
+            totalBytes += new Blob([archive.content]).size;
+            if (archive.memo) totalBytes += new Blob([archive.memo]).size;
+            count++;
+        });
+
+        return {
+            totalBytes,
+            count,
+            avgBytes: count > 0 ? Math.round(totalBytes / count) : 0,
+        };
+    }
+
+    /**
+     * 지정된 용량(바이트)보다 큰 아카이브 삭제
+     * @param sizeBytes 기준 용량 (Bytes)
+     */
+    async deleteLargerThan(sizeBytes: number): Promise<number> {
+        const largeArchives: number[] = [];
+        await this.archives.each(archive => {
+            const contentSize = new Blob([archive.content]).size;
+            const memoSize = archive.memo ? new Blob([archive.memo]).size : 0;
+            if ((contentSize + memoSize) > sizeBytes && archive.id) {
+                largeArchives.push(archive.id);
+            }
+        });
+
+        if (largeArchives.length > 0) {
+            await this.archives.bulkDelete(largeArchives);
+        }
+        return largeArchives.length;
+    }
+
+
+    /**
+     * 아카이브를 크기 순으로 정렬하여 반환
+     */
+    async getArchivesSortedBySize(limit: number = 20): Promise<Array<{ id: number; title: string; sizeBytes: number; createdAt: number }>> {
+        const archives = await this.archives.toArray();
+        return archives
+            .map(a => ({
+                id: a.id!,
+                title: a.title,
+                sizeBytes: new Blob([a.content]).size,
+                createdAt: a.createdAt,
+            }))
+            .sort((a, b) => b.sizeBytes - a.sizeBytes)
+            .slice(0, limit);
+    }
+
+    /**
+     * N일 이전 아카이브 일괄 삭제
+     */
+    async deleteOlderThan(days: number): Promise<number> {
+        const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+        const oldArchives = await this.archives
+            .where('createdAt')
+            .below(cutoff)
+            .primaryKeys();
+
+        await this.archives.bulkDelete(oldArchives);
+        return oldArchives.length;
     }
 }
 

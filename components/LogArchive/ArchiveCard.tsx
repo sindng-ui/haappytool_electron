@@ -138,6 +138,14 @@ export const ArchiveCard = memo(function ArchiveCard({
                 </div>
             )}
 
+            {/* Memo Preview (1 line) */}
+            {archive.memo && (
+                <div className="text-[11px] text-slate-400/80 mb-2 truncate italic flex items-center gap-1" title={archive.memo}>
+                    <span style={{ opacity: 0.6 }}>📝</span>
+                    <span className="truncate">{archive.memo}</span>
+                </div>
+            )}
+
 
             {/* Preview Content (Smaller) */
                 showPreview && (
