@@ -10,33 +10,34 @@ interface Shortcut {
 }
 
 const shortcuts: Shortcut[] = [
-    // General
-    { keys: ['Ctrl', ','], description: 'Open Settings', category: 'General' },
-    { keys: ['Ctrl', 'K'], description: 'Command Palette', category: 'General' },
-    { keys: ['Ctrl', 'P'], description: 'Command Palette (Alt)', category: 'General' },
-    { keys: ['Ctrl', '?'], description: 'Show Shortcuts', category: 'General' },
+    // Global
+    { keys: ['Ctrl', ','], description: 'Settings 열기', category: 'Global' },
+    { keys: ['Ctrl', 'K'], description: 'Command Palette', category: 'Global' },
+    { keys: ['Ctrl', 'P'], description: 'Command Palette (Alt)', category: 'Global' },
+    { keys: ['Ctrl', 'Shift', '+'], description: 'UI 확대', category: 'Global' },
+    { keys: ['Ctrl', 'Shift', '-'], description: 'UI 축소', category: 'Global' },
+    { keys: ['Ctrl', '0'], description: 'UI 원래 크기', category: 'Global' },
 
-    // Tab Management
-    { keys: ['Ctrl', 'T'], description: 'New Tab', category: 'Tab Management' },
-    { keys: ['Ctrl', 'W'], description: 'Close Tab', category: 'Tab Management' },
-    { keys: ['Ctrl', 'Tab'], description: 'Next Tab', category: 'Tab Management' },
-    { keys: ['Ctrl', 'Shift', 'Tab'], description: 'Previous Tab', category: 'Tab Management' },
-
-    // Navigation & Search
-    { keys: ['Ctrl', 'F'], description: 'Find in Page', category: 'Navigation & Search' },
-    { keys: ['Ctrl', 'G'], description: 'Go to Line', category: 'Navigation & Search' },
-    { keys: ['Ctrl', 'Shift', 'A'], description: 'Open Log Archive', category: 'Navigation & Search' },
-
-    // Bookmarks
-    { keys: ['Space'], description: 'Toggle Bookmark (at line)', category: 'Bookmarks' },
-    { keys: ['Ctrl', 'B'], description: 'Toggle Bookmark (legacy)', category: 'Bookmarks' },
-    { keys: ['F3'], description: 'Next Bookmark', category: 'Bookmarks' },
-    { keys: ['F4'], description: 'Previous Bookmark', category: 'Bookmarks' },
-
-    // View
-    { keys: ['Ctrl', '+'], description: 'Zoom In', category: 'View' },
-    { keys: ['Ctrl', '-'], description: 'Zoom Out', category: 'View' },
-    { keys: ['Ctrl', '0'], description: 'Reset Zoom', category: 'View' },
+    // Log Extractor
+    { keys: ['Ctrl', 'T'], description: '새 탭', category: 'Log Extractor' },
+    { keys: ['Ctrl', 'W'], description: '탭 닫기', category: 'Log Extractor' },
+    { keys: ['Ctrl', 'Tab'], description: '다음 탭', category: 'Log Extractor' },
+    { keys: ['Ctrl', 'Shift', 'Tab'], description: '이전 탭', category: 'Log Extractor' },
+    { keys: ['Ctrl', 'F'], description: '검색 (Find)', category: 'Log Extractor' },
+    { keys: ['Ctrl', 'G'], description: '줄 이동 (Go to Line)', category: 'Log Extractor' },
+    { keys: ['Ctrl', 'Shift', 'A'], description: '로그 아카이브 열기', category: 'Log Extractor' },
+    { keys: ['Ctrl', 'B'], description: '북마크 보기', category: 'Log Extractor' },
+    { keys: ['Space'], description: '북마크 토글', category: 'Log Extractor' },
+    { keys: ['F4'], description: '다음 북마크', category: 'Log Extractor' },
+    { keys: ['F3'], description: '이전 북마크', category: 'Log Extractor' },
+    { keys: ['Ctrl', '1~5'], description: '하이라이트 #N 이동', category: 'Log Extractor' },
+    { keys: ['Ctrl', '`'], description: '설정 패널 토글', category: 'Log Extractor' },
+    { keys: ['Ctrl', ']'], description: '폰트 크기 키우기', category: 'Log Extractor' },
+    { keys: ['Ctrl', '['], description: '폰트 크기 줄이기', category: 'Log Extractor' },
+    { keys: ['Ctrl', 'Shift', 'X'], description: '로그 클리어 (실시간)', category: 'Log Extractor' },
+    { keys: ['Ctrl', 'C'], description: '선택 로그 복사', category: 'Log Extractor' },
+    { keys: ['PageUp', 'PageDown'], description: '페이지 이동', category: 'Log Extractor' },
+    { keys: ['Shift', 'Scroll'], description: '동기 스크롤', category: 'Log Extractor' },
 ];
 
 export const KeyboardShortcutsPanel: React.FC = () => {

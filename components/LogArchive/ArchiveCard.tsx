@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { motion } from 'framer-motion';
-import { Eye, Edit, Trash2, FileText, Calendar, Folder } from 'lucide-react';
+import { Trash2, FileText, Calendar, Folder } from 'lucide-react';
 import { ArchivedLog } from './db/LogArchiveDB';
 import { formatDate, getTagColor, countLines, decodeHtmlEntities } from './utils';
 
@@ -91,24 +91,14 @@ export const ArchiveCard = memo(function ArchiveCard({
                 </div>
 
                 {/* Actions (Top Right) */}
-                <div className="archive-card-actions-inline flex gap-1 ml-2 flex-shrink-0">
-                    <button
-                        className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onView(archive);
-                        }}
-                        title="View"
-                    >
-                        <Eye size={16} />
-                    </button>
-                    {/* Edit button (if needed in future) */}
-
+                <div className="archive-card-actions-inline flex gap-1 ml-2 flex-shrink-0" style={{ position: 'relative', zIndex: 2 }}>
                     <button
                         className="p-1.5 hover:bg-red-900/30 rounded text-slate-400 hover:text-red-400 transition-colors"
                         onClick={(e) => {
                             e.stopPropagation();
-                            onDelete(archive);
+                            if (confirm(`"${archive.title}" 아카이브를 삭제하시겠습니까?`)) {
+                                onDelete(archive);
+                            }
                         }}
                         title="Delete"
                     >

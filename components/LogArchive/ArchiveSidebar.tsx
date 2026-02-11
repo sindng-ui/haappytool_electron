@@ -250,6 +250,11 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
                                 archives={results}
                                 selectedId={selectedArchive?.id}
                                 onView={handleView}
+                                onDelete={() => {
+                                    // 삭제 후 즉시 목록 새로고침 (debounce 없이)
+                                    search({}, true);
+                                    getTotalCount().then(setTotalCount);
+                                }}
                                 onLoadMore={loadMore}
                                 hasMore={hasMore}
                                 isLoading={isSearching}

@@ -194,37 +194,72 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
 
                         {/* Shortcuts Tab */}
                         {activeTab === 'shortcuts' && (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform">
+                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform">
                                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-700 dark:text-slate-300"><Keyboard size={18} /> Keyboard Shortcuts</h3>
-                                <div className="space-y-2">
-                                    {[
-                                        { action: "Zoom In", keys: ["Ctrl", "Shift", "+"] },
-                                        { action: "Zoom Out", keys: ["Ctrl", "Shift", "-"] },
-                                        { action: "Reset Zoom", keys: ["Ctrl", "0"] },
-                                        { action: "View Bookmarks", keys: ["Ctrl", "B"] },
-                                        { action: "Next Bookmark", keys: ["F4"] },
-                                        { action: "Prev Bookmark", keys: ["F3"] },
-                                        { action: "Sync Scroll", keys: ["Shift", "Scroll"] },
-                                        { action: "Scroll Page", keys: ["PageUp", "PageDown"] },
-                                        { action: "Focus Left Pane", keys: ["Ctrl", "←"] },
-                                        { action: "Focus Right Pane", keys: ["Ctrl", "→"] },
-                                        { action: "Jump Highlight 1-5", keys: ["Ctrl", "1-5"] },
-                                        { action: "Create Rule", keys: ["Context Menu"] },
-                                        { action: "Delete Tag/Branch", keys: ["Backspace"] },
-                                        { action: "Next Tag Input", keys: ["Enter"] },
-                                        { action: "Navigate Branches", keys: ["↑", "↓"] },
-                                    ].map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center p-3 bg-white dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
-                                            <span className="font-medium text-slate-700 dark:text-slate-300">{item.action}</span>
-                                            <div className="flex gap-1">
-                                                {item.keys.map((k, kIdx) => (
-                                                    <span key={kIdx} className="px-2 py-1 bg-slate-100 dark:bg-slate-700/50 rounded text-xs font-mono border border-slate-200 dark:border-slate-600/50 shadow-sm min-w-[24px] text-center text-slate-600 dark:text-slate-300">{k}</span>
-                                                ))}
-                                            </div>
+
+                                {/* Shortcut Groups */}
+                                {[
+                                    {
+                                        title: '🌐 Global',
+                                        description: '앱 전체에서 사용 가능한 단축키',
+                                        items: [
+                                            { action: 'Settings 열기', keys: ['Ctrl', ','] },
+                                            { action: 'Command Palette', keys: ['Ctrl', 'K'] },
+                                            { action: 'Command Palette (Alt)', keys: ['Ctrl', 'P'] },
+                                            { action: 'UI 확대', keys: ['Ctrl', 'Shift', '+'] },
+                                            { action: 'UI 축소', keys: ['Ctrl', 'Shift', '-'] },
+                                            { action: 'UI 원래 크기', keys: ['Ctrl', '0'] },
+                                        ],
+                                    },
+                                    {
+                                        title: '📊 Log Extractor',
+                                        description: '로그 분석 도구에서 사용 가능한 단축키',
+                                        items: [
+                                            { action: '새 탭', keys: ['Ctrl', 'T'] },
+                                            { action: '탭 닫기', keys: ['Ctrl', 'W'] },
+                                            { action: '다음 탭', keys: ['Ctrl', 'Tab'] },
+                                            { action: '이전 탭', keys: ['Ctrl', 'Shift', 'Tab'] },
+                                            { action: '검색 (Find)', keys: ['Ctrl', 'F'] },
+                                            { action: '줄 이동 (Go to Line)', keys: ['Ctrl', 'G'] },
+                                            { action: '로그 아카이브 열기', keys: ['Ctrl', 'Shift', 'A'] },
+                                            { action: '북마크 보기', keys: ['Ctrl', 'B'] },
+                                            { action: '북마크 토글', keys: ['Space'] },
+                                            { action: '다음 북마크', keys: ['F4'] },
+                                            { action: '이전 북마크', keys: ['F3'] },
+                                            { action: '하이라이트 #N 이동', keys: ['Ctrl', '1~5'] },
+                                            { action: '설정 패널 토글', keys: ['Ctrl', '`'] },
+                                            { action: '폰트 크기 키우기', keys: ['Ctrl', ']'] },
+                                            { action: '폰트 크기 줄이기', keys: ['Ctrl', '['] },
+                                            { action: '로그 클리어 (실시간)', keys: ['Ctrl', 'Shift', 'X'] },
+                                            { action: '선택 로그 복사', keys: ['Ctrl', 'C'] },
+                                            { action: '페이지 이동', keys: ['PageUp', 'PageDown'] },
+                                            { action: '동기 스크롤', keys: ['Shift', 'Scroll'] },
+                                        ],
+                                    },
+                                ].map((group, groupIdx) => (
+                                    <div key={groupIdx} className="bg-white dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-white/5 overflow-hidden">
+                                        {/* Group Header */}
+                                        <div className="px-4 py-3 bg-slate-100 dark:bg-slate-800/60 border-b border-slate-200 dark:border-white/5">
+                                            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">{group.title}</h4>
+                                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{group.description}</p>
                                         </div>
-                                    ))}
-                                </div>
-                                <p className="text-xs text-slate-500 mt-4 text-center">Custom key binding is coming soon...</p>
+                                        {/* Group Items */}
+                                        <div className="divide-y divide-slate-100 dark:divide-white/5">
+                                            {group.items.map((item, idx) => (
+                                                <div key={idx} className="flex justify-between items-center px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300">{item.action}</span>
+                                                    <div className="flex gap-1">
+                                                        {item.keys.map((k, kIdx) => (
+                                                            <span key={kIdx} className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700/50 rounded text-xs font-mono border border-slate-200 dark:border-slate-600/50 shadow-sm min-w-[24px] text-center text-slate-600 dark:text-slate-300">{k}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+
+                                <p className="text-xs text-slate-500 mt-2 text-center">플러그인별 단축키는 향후 추가될 수 있습니다.</p>
                             </div>
                         )}
 
