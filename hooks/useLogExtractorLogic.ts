@@ -894,20 +894,42 @@ export const useLogExtractorLogic = ({
     }, [currentConfig, rightTotalLines, isDualView]);
 
     const handleClearLogs = useCallback(() => {
+        // 1. Backend Clear (Device Buffer)
+        if (tizenSocket) {
+            if (connectionMode === 'sdb') {
+                // For SDB, we need the deviceId. 
+                // In handleTizenStreamStart, we set leftFileName to deviceName (which is deviceId for SDB).
+                tizenSocket.emit('sdb_clear', { deviceId: leftFileName });
+            } else if (connectionMode === 'ssh') {
+                tizenSocket.emit('ssh_clear');
+            }
+        }
+
+        // 2. Frontend Clear
         if (leftWorkerRef.current) {
             setLeftTotalLines(0);
-            setLeftFilteredCount(0);
             setLeftFilteredCount(0);
             setActiveLineIndexLeft(-1);
             setSelectedIndicesLeft(new Set());
             setLeftBookmarks(new Set()); // Clear bookmarks
+
+            // Clear pending buffer to prevent old logs from being processed after clear
+            tizenBuffer.current = [];
+
             leftWorkerRef.current.postMessage({ type: 'INIT_STREAM' });
 
             if (currentConfig) {
-                // ... (re-apply filter logic if needed)
+                // Optional: Re-trigger filter if needed, but INIT_STREAM usually resets everything.
+                // If we want to ensure the worker knows the current filter for *future* logs:
+                /*
+                leftWorkerRef.current.postMessage({
+                    type: 'FILTER_LOGS',
+                    payload: { ...currentConfig, includeGroups: refineGroups(currentConfig.includeGroups) }
+                });
+                */
             }
         }
-    }, [currentConfig]);
+    }, [currentConfig, tizenSocket, connectionMode, leftFileName]);
 
     const handleTizenDisconnect = useCallback(() => {
         if (tizenSocket) {

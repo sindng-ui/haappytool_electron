@@ -795,6 +795,52 @@ const handleSocketConnection = (socket, deps = {}) => {
         }
     });
 
+    // ✅ SSH Clear Buffer
+    socket.on('ssh_clear', () => {
+        if (sshConnection) {
+            logBuffer = ''; // ✅ Clear backend buffer immediately
+            console.log('[SSH] Clearing log buffer (dlogutil -c)...');
+            sshConnection.exec('dlogutil -c', (err, stream) => {
+                if (err) {
+                    console.error('[SSH] Failed to clear buffer:', err);
+                    return;
+                }
+                stream.on('close', (code) => {
+                    console.log(`[SSH] Buffer cleared (Code: ${code})`);
+                    socket.emit('log_data', '[System] Device log buffer cleared.\n');
+                }).on('data', () => { }).stderr.on('data', () => { });
+            });
+        }
+    });
+
+    // ✅ SDB Clear Buffer
+    socket.on('sdb_clear', ({ deviceId, sdbPath }) => {
+        logBuffer = ''; // ✅ Clear backend buffer immediately
+        console.log(`[SDB] Clearing log buffer for ${deviceId || 'default'}...`);
+        const bin = getSdbBin(sdbPath);
+
+        const args = [];
+        if (deviceId && deviceId !== 'auto-detect') {
+            args.push('-s', deviceId);
+        }
+        args.push('shell', 'dlogutil', '-c');
+
+        const clearProc = spawnProc(bin, args);
+
+        clearProc.on('close', (code) => {
+            if (code === 0) {
+                console.log('[SDB] Buffer cleared successfully');
+                socket.emit('log_data', '[System] Device log buffer cleared.\n');
+            } else {
+                console.error(`[SDB] Failed to clear buffer (Code: ${code})`);
+            }
+        });
+
+        clearProc.on('error', (err) => {
+            console.error('[SDB] Clear process error:', err);
+        });
+    });
+
     socket.on('disconnect', () => {
         // ...
         // ...
