@@ -26,7 +26,7 @@ const TizenLabPlugin: React.FC<TizenLabPluginProps> = ({ isActive = false }) => 
     return (
         <div className="flex flex-col h-full bg-slate-950 text-slate-200 overflow-hidden">
             {/* Tab Bar */}
-            <div className="h-14 bg-slate-900 border-b border-indigo-500/20 flex items-center px-6 pr-[140px] gap-8 flex-shrink-0 title-drag">
+            <div className="h-14 bg-[#0f172a] border-b border-indigo-500/20 flex items-center px-6 pr-[140px] gap-8 flex-shrink-0 title-drag">
                 <div className="flex items-center gap-2 mr-4 no-drag">
                     <div className="p-1.5 bg-indigo-500/20 rounded-lg text-indigo-400">
                         <Activity size={18} />

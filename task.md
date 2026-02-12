@@ -1,216 +1,25 @@
-# 로그 아카이브 기능 구현
+# 작업 요약 (Log Duplication & UI Fixes)
 
-## 현재 상태
+로그 중복 출력 문제와 Post Tool의 UI 가독성 문제를 해결했습니다.
 
-**Phase 1-5 구현 완료** ✅
+## 주요 변경 사항
 
-모든 핵심 기능과 추가 기능이 구현 완료되었습니다!
+### 1. 로그 중복 출력 해결
+- **원인 분석**: `useLogExtractorLogic` 훅의 `loadState` async 함수가 컴포넌트 마운트 시 실행되는데, React Strict Mode나 빠른 탭 전환 시 컴포넌트가 언마운트된 후에도 이전 `loadState` 실행이 계속되어 동일한 워커에 중복된 로드 명령을 보내는 현상을 발견했습니다.
+- **해결 방법**: `useEffect` 내부에 `isStale` 플래그를 추가하여, 언마운트된 후에는 async 작업의 결과가 반영되거나 추가적인 IPC 요청이 발생하지 않도록 차단했습니다.
 
-## 완료된 기능
+### 2. Post Tool UI 개선
+- **헤더 버튼 레이아웃 미세 조정**: 버튼들을 오른쪽 영역에서 약간 왼쪽으로 이동(`mr-40`)시켜, 우측 창 제어 버튼과의 간격을 벌리고 중앙 드래그 영역을 충분히 확보했습니다.
+- **구분선 가시성 강화**: 헤더 하단 구분선의 색상을 `border-indigo-500/30`으로 변경하여 가시성을 확보했습니다.
+- **배경색 통일**: 메인 콘텐츠 영역의 배경색을 `#0b0f19`로 업데이트하여 애플리케이션 전체 테마와 일치시켰습니다.
+- **Easy Post 스타일 보강**: `EasyPostPlugin`의 헤더 구분선도 동일하게 강화했습니다.
 
-### 1. ✅ 핵심 인프라
-- ✅ LogArchiveDB (Dexie.js) - IndexedDB 기반
-- ✅ useLogArchive Hook - CRUD 작업
-- ✅ useArchiveSearch Hook - Worker Thread 검색
-- ✅ useLogSelection Hook - 텍스트 선택 감지
-- ✅ ArchiveSearch.worker.ts - 백그라운드 처리
-- ✅ utils.ts - 유틸리티 함수
+## 기술적 세부 사항
+- `useLogExtractorLogic.ts`: `useEffect` 클린업 함수에서 `isStale = true` 설정 및 조건부 실행 로직 추가.
+- `PostTool.tsx`: JSX 구조 정리 및 클래스네임 업데이트 (`h-9`, `border-indigo-500/30`, `bg-[#0b0f19]`).
+- `LogExtractor.tsx`: 루트 컨테이너 배경색을 `#0b0f19`로 변경.
 
-### 2. ✅ UI 컴포넌트
-- ✅ LogArchiveProvider - Context Provider
-- ✅ FloatingActionButton - 저장 버튼
-- ✅ SaveArchiveDialog - 저장 모달 (폴더 + 컬러 라벨 지원)
-- ✅ ArchiveSearchBar - 검색바
-- ✅ ArchiveCard - 카드 컴포넌트 (컬러 라벨 + 폴더 배지 표시)
-- ✅ ArchiveList - 목록 (가상 스크롤링)
-- ✅ ArchiveSidebar - 사이드바
-- ✅ ArchiveViewerPane - 뷰어 패널
-- ✅ StatisticsDashboard - 통계 대시보드 ⭐ NEW
-
-### 3. ✅ 추가 기능 (Phase 2)
-#### 📁 폴더/그룹 기능
-- ✅ 폴더 선택 UI (자동완성 지원)
-- ✅ 폴더별 필터링
-- ✅ 폴더 배지 표시
-- ✅ 폴더별 통계
-
-#### 🎨 컬러 라벨
-- ✅ 10가지 컬러 팔레트
-- ✅ 컬러 선택 UI (체크마크 표시)
-- ✅ 카드에 컬러 인디케이터 (좌측 세로 바)
-- ✅ 사용자 정의 색상 저장
-
-#### 📊 통계 대시보드
-- ✅ 전체 아카이브 수, 최근 7일 활동, 태그 수, 폴더 수
-- ✅ 일별 트렌드 차트 (Line Chart - 30일)
-- ✅ 상위 10 태그 차트 (Horizontal Bar Chart)
-- ✅ 폴더 분포 차트 (Pie Chart)
-- ✅ 가장 많이 사용된 태그 리스트
-- ✅ Recharts 기반 시각화
-- ✅ 반응형 디자인
-
-### 4. ✅ 스타일 & 문서
-- ✅ LogArchive.css 완전 업데이트 (1200+ 줄)
-- ✅ 컬러 라벨 스타일
-- ✅ 폴더 배지 스타일
-- ✅ 통계 대시보드 스타일
-- ✅ LOG_ARCHIVE_README.md
-- ✅ task.md
-
-## 파일 목록
-
-### 데이터베이스 (7개)
-- `db/LogArchiveDB.ts` - Dexie DB + 통계 메서드
-  - `getTagStatistics()` ⭐ NEW
-  - `getFolderStatistics()` ⭐ NEW
-  - `getDailyTrend()` ⭐ NEW
-  - `getRecentActivity()` ⭐ NEW
-  - `getStatisticsSummary()` ⭐ NEW
-- `hooks/useLogArchive.ts`
-- `hooks/useArchiveSearch.ts`
-- `hooks/useLogSelection.ts`
-- `workers/ArchiveSearch.worker.ts`
-- `utils.ts`
-
-### UI 컴포넌트 (10개)
-- `LogArchiveProvider.tsx`
-- `FloatingActionButton.tsx`
-- `SaveArchiveDialog.tsx` - 폴더 + 컬러 라벨 추가 ⭐ UPDATED
-- `ArchiveSearchBar.tsx`
-- `ArchiveCard.tsx` - 컬러 인디케이터 + 폴더 배지 ⭐ UPDATED
-- `ArchiveList.tsx`
-- `ArchiveSidebar.tsx`
-- `ArchiveViewerPane.tsx`
-- `StatisticsDashboard.tsx` ⭐ NEW
-- `index.tsx` - export 추가 ⭐ UPDATED
-
-### 스타일 (1개)
-- `LogArchive.css` - 1200+ 줄 ⭐ UPDATED
-
-### 문서 (3개)
-- `LOG_ARCHIVE_IMPLEMENTATION_PLAN.md`
-- `LOG_ARCHIVE_README.md`
-- `task.md` (현재 파일)
-
-## 📊 통계
-
-- **총 파일**: 21개
-- **총 코드 라인**: 약 4,500줄
-- **컴포넌트**: 11개
-- **통계 차트**: 4종류
-- **컬러 팔레트**: 10색
-
-## 🎯 통합 방법
-
-### 1. Provider 래핑
-```tsx
-import { LogArchiveProvider } from './components/LogArchive';
-
-<LogArchiveProvider>
-  <YourApp />
-</LogArchiveProvider>
-```
-
-### 2. Archive 버튼 추가
-```tsx
-import { Archive, BarChart3 } from 'lucide-react';
-import { useLogArchiveContext } from './components/LogArchive';
-
-const { toggleSidebar } = useLogArchiveContext();
-
-<button onClick={toggleSidebar}>
-  <Archive size={20} />
-</button>
-```
-
-### 3. 통계 대시보드 사용
-```tsx
-import { StatisticsDashboard } from './components/LogArchive';
-
-// 별도 페이지나 모달로 표시
-<StatisticsDashboard />
-```
-
-### 4. LogArchive 컴포넌트 렌더링
-```tsx
-import { LogArchive } from './components/LogArchive';
-
-<LogArchive />
-```
-
-## ✨ 주요 기능
-
-### 폴더 기능
-- 저장 시 폴더 선택 (기존 폴더 자동완성)
-- 검색 시 폴더 필터링
-- 카드에 폴더 배지 표시
-- 통계에서 폴더별 분포 확인
-
-### 컬러 라벨
-- 10가지 프리셋 컬러
-- 저장 시 컬러 선택
-- 카드 좌측에 세로 컬러 바
-- 시각적 구분 강화
-
-### 통계 대시보드
-- 4가지 요약 카드 (애니메이션)
-- 일별 활동 트렌드 (Line Chart)
-- 상위 10 태그 (Bar Chart)
-- 폴더 분포 (Pie Chart)
-- 인기 태그 리스트
-- Recharts 기반 인터랙티브 차트
-
-## 🚀 다음 단계
-
-### 우선순위 1: LogExtractor 통합
-1. App.tsx에 LogArchiveProvider 추가
-2. LogExtractor 헤더에 Archive 버튼 추가
-3. LogArchive 컴포넌트 렌더링
-4. 텍스트 선택 기능 활성화
-
-### 우선순위 2: 추가 기능
-- 원본 로그 연동 (Go to Source)
-- 통계 대시보드를 사이드바 탭으로 추가
-- Export/Import 기능 강화
-- 태그 자동 추천 개선
-
-### 우선순위 3: 테스트
-- 대용량 데이터 테스트 (10,000+ 아카이브)
-- 검색 성능 테스트
-- UI/UX 개선
-
-## 📈 성능 특징
-
-- **Worker Thread**: 모든 DB 작업 백그라운드 처리
-- **비동기 페이징**: 50개씩 무한 스크롤
-- **Debounce**: 검색 1000ms 딜레이
-- **Virtual Scrolling**: react-virtuoso 사용
-- **IndexedDB 인덱스**: 빠른 쿼리
-- **React.memo**: 불필요한 리렌더링 방지
-
-## 🎨 디자인 특징
-
-- **다크 테마**: 프리미엄 색상 팔레트
-- **컬러 라벨**: 10색 시각적 구분
-- **폴더 배지**: 깔끔한 카테고리 표시
-- **애니메이션**: framer-motion 사용
-- **반응형**: 데스크톱/모바일 대응
-- **통계 차트**: Recharts 인터랙티브 시각화
-
-## ✅ 완료 체크리스트
-
-- [x] 데이터베이스 및 Hook 구현
-- [x] UI 컴포넌트 구현
-- [x] 폴더/그룹 기능
-- [x] 컬러 라벨 기능
-- [x] 통계 대시보드
-- [x] CSS 스타일링
-- [x] 빌드 성공
-- [x] LogExtractor 통합 (기존 기능 활용)
-- [x] 타 플러그인 통합 (Post, Json, EasyPost, AI, TPK, RevEng)
-- [x] Context Menu Hook (`useTextSelectionMenu`)
-- [ ] 기능 테스트 (전체 통합)
-- [ ] 문서 업데이트
-
-**작성일**: 2026-02-09  
-**버전**: 2.0 (폴더 + 컬러 라벨 + 통계 대시보드 포함)
+### 3. Perf Analyzer 분석 대상 필터링 기능 추가
+- **필터링 로직 구현**: `PerfAnalyzer`에서 선택된 미션의 `happy combo`, `패밀리콤보`, `block list`를 기준으로 로그를 필터링한 후 분석을 진행하도록 수정했습니다.
+- **성능 최적화**: 대용량 로그 처리를 위해 필터 조건 계산 로직을 루프 외부로 이동하고, 불필요한 연산을 줄여 분석 속도를 개선했습니다.
+- **설정 자동 저장**: 사용자가 선택한 미션, 분석 임계치, 분석 범위, 로드된 파일 정보 등을 로컬 스토리지에 자동 저장하여 앱 재시작 시에도 유지되도록 했습니다.

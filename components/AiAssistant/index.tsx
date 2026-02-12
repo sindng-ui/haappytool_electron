@@ -1047,9 +1047,12 @@ const AiAssistant: React.FC = () => {
             {/* Left Sidebar */}
             <div
                 ref={sidebarRef}
-                className="bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 z-20 relative"
+                className="bg-white dark:bg-[#0b0f19] border-r border-slate-200 dark:border-white/5 flex flex-col shrink-0 z-20 relative"
                 style={{ width: sidebarWidth }}
             >
+                <div className="h-9 shrink-0 title-drag pl-4 flex items-center border-b border-white/5 bg-[#0f172a]">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest no-drag">Control Panel</span>
+                </div>
                 {/* Drag Handle */}
                 <div
                     className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-indigo-500/50 active:bg-indigo-500 transition-colors z-50"
@@ -1311,39 +1314,27 @@ const AiAssistant: React.FC = () => {
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col h-full min-w-0 bg-white dark:bg-slate-950 relative">
-                {/* Header */}
-                <div
-                    className="h-14 border-b border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 px-4 flex items-center justify-between shadow-sm z-10 select-none"
-                    style={{ WebkitAppRegion: 'drag' } as any}
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
-                            <Bot size={20} />
-                        </div>
-                        <h1 className="font-bold text-slate-800 dark:text-slate-100">AI Assistant</h1>
-                        <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-2"></div>
+            <div className="flex-1 flex flex-col h-full min-w-0 bg-white dark:bg-[#0b0f19] relative">
+                {/* System Header */}
+                <div className="h-9 shrink-0 title-drag pl-4 pr-36 flex items-center gap-3 border-b border-white/5 bg-[#0f172a]">
+                    <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Bot size={14} className="icon-glow" /></div>
+                    <span className="font-bold text-xs text-slate-200 no-drag">AI Assistant</span>
+                    <div className="w-px h-3 bg-white/10 mx-1"></div>
+                    <div className="flex items-center gap-1 no-drag">
                         <button
                             onClick={handleExportChat}
-                            className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-green-400 hover:bg-green-500/10 rounded-md transition-colors"
                             title="Export Chat to JSON"
-                            style={{ WebkitAppRegion: 'no-drag' } as any}
                         >
-                            <Download size={18} />
+                            <Download size={14} />
                         </button>
                         <button
                             onClick={handleClear}
-                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
                             title="Clear Chat"
-                            style={{ WebkitAppRegion: 'no-drag' } as any}
                         >
-                            <Trash2 size={18} />
+                            <Trash2 size={14} />
                         </button>
-                    </div>
-
-                    <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
-                        {/* Windows Controls Spacer */}
-                        <div className="w-24 h-4 ml-2" style={{ WebkitAppRegion: 'drag' } as any}></div>
                     </div>
                 </div>
 

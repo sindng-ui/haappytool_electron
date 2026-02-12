@@ -190,12 +190,13 @@ const RxFlowVisualizer: React.FC = () => {
     };
 
     return (
-        <div className="flex h-full w-full bg-slate-900 text-slate-200 flex-col">
-            {/* Title Bar - Draggable */}
-            <div className="h-8 bg-slate-950 border-b border-slate-800 flex items-center px-4" style={{ WebkitAppRegion: 'drag' } as any}>
-                <h1 className="text-sm font-semibold text-indigo-400">RxFlow Visualizer</h1>
+        <div className="flex h-full w-full bg-[#0b0f19] text-slate-200 flex-col">
+            {/* System Header */}
+            <div className="h-9 shrink-0 title-drag pl-4 pr-36 flex items-center gap-3 border-b border-white/5 bg-[#0f172a]">
+                <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Play size={14} className="icon-glow" /></div>
+                <span className="font-bold text-xs text-slate-200 no-drag">RxFlow Visualizer</span>
                 {currentGraphName && (
-                    <span className="ml-3 text-xs text-slate-500">- {currentGraphName}</span>
+                    <span className="ml-3 text-[10px] text-slate-500 no-drag font-mono">- {currentGraphName}</span>
                 )}
             </div>
 

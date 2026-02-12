@@ -454,266 +454,274 @@ const EasyPostPlugin: React.FC = () => {
 
     return (
         <div
-            className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 p-6 overflow-hidden"
+            className="flex flex-col h-full bg-slate-50 dark:bg-[#0b0f19] overflow-hidden"
             onContextMenu={(e) => handleContextMenu(e, { sourceFile: 'EasyPostPlugin' })}
         >
-            <header className="mb-6">
-                <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-500 mb-2">
-                    Easy Post
-                </h1>
-                <p className="text-slate-500 text-sm">Simplified SmartThings Data Explorer</p>
-            </header>
-
-            <div className="flex gap-4 mb-6">
-                <button
-                    onClick={handleLoadData}
-                    disabled={isLoading}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/20 transition-all
-                        ${isLoading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 hover:scale-105 active:scale-95'}`}
-                >
-                    {isLoading ? <Activity className="animate-spin" /> : <Play fill="currentColor" />}
-                    Load SmartThings Data
-                </button>
-
-                <button
-                    onClick={handleLoadFakeData}
-                    disabled={isLoading}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg shadow-emerald-500/20 transition-all
-                        ${isLoading ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 hover:scale-105 active:scale-95'}`}
-                >
-                    <Server size={20} />
-                    Load Fake Data
-                </button>
+            {/* System Header */}
+            <div className="h-9 shrink-0 title-drag pl-4 pr-36 flex items-center gap-3 border-b border-indigo-500/30 bg-[#0f172a]">
+                <div className="p-1 bg-amber-500/10 rounded-lg text-amber-400 no-drag"><Activity size={14} className="icon-glow" /></div>
+                <span className="font-bold text-xs text-slate-200 no-drag">Easy Post</span>
             </div>
 
-            {/* Log Area */}
-            {executionLog.length > 0 && isLoading && (
-                <div className="mb-6 p-4 bg-slate-100 dark:bg-slate-900 rounded-xl font-mono text-xs text-slate-500 max-h-32 overflow-y-auto">
-                    {executionLog.map((line, i) => <div key={i}>{line}</div>)}
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col no-drag">
+                <header className="mb-6">
+                    <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-500 mb-2">
+                        Easy Post
+                    </h1>
+                    <p className="text-slate-500 text-sm">Simplified SmartThings Data Explorer</p>
+                </header>
+
+                <div className="flex gap-4 mb-6">
+                    <button
+                        onClick={handleLoadData}
+                        disabled={isLoading}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/20 transition-all
+                        ${isLoading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 hover:scale-105 active:scale-95'}`}
+                    >
+                        {isLoading ? <Activity className="animate-spin" /> : <Play fill="currentColor" />}
+                        Load SmartThings Data
+                    </button>
+
+                    <button
+                        onClick={handleLoadFakeData}
+                        disabled={isLoading}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg shadow-emerald-500/20 transition-all
+                        ${isLoading ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 hover:scale-105 active:scale-95'}`}
+                    >
+                        <Server size={20} />
+                        Load Fake Data
+                    </button>
                 </div>
-            )}
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
-                {locations.map(loc => (
-                    <div key={loc.locationId} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                {/* Log Area */}
+                {executionLog.length > 0 && isLoading && (
+                    <div className="mb-6 p-4 bg-slate-100 dark:bg-slate-900 rounded-xl font-mono text-xs text-slate-500 max-h-32 overflow-y-auto">
+                        {executionLog.map((line, i) => <div key={i}>{line}</div>)}
+                    </div>
+                )}
 
-                        {/* Location Header */}
-                        <div className="p-4 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            onClick={() => toggleLocationExpand(loc.locationId)}>
-                            <div className="flex items-center gap-3">
-                                <MapPin className="text-indigo-500" size={20} />
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="font-bold text-slate-700 dark:text-slate-200">{loc.name}</h3>
-                                        <span className="px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-[10px] text-slate-500 font-bold">
-                                            {loc.rooms.length} Rooms • {loc.devices.length} Devices
-                                        </span>
+                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
+                    {locations.map(loc => (
+                        <div key={loc.locationId} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+
+                            {/* Location Header */}
+                            <div className="p-4 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                onClick={() => toggleLocationExpand(loc.locationId)}>
+                                <div className="flex items-center gap-3">
+                                    <MapPin className="text-indigo-500" size={20} />
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-bold text-slate-700 dark:text-slate-200">{loc.name}</h3>
+                                            <span className="px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-[10px] text-slate-500 font-bold">
+                                                {loc.rooms.length} Rooms • {loc.devices.length} Devices
+                                            </span>
+                                        </div>
+                                        <span className="text-xs text-slate-400 font-mono">ID: {loc.locationId}</span>
                                     </div>
-                                    <span className="text-xs text-slate-400 font-mono">ID: {loc.locationId}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleGetSummary(loc); }}
+                                        className="px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 text-xs font-bold mr-2"
+                                    >
+                                        {loc.loadingSummary ? 'Loading...' : 'Get Summary'}
+                                    </button>
+                                    {loc.isExpanded ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronRight size={20} className="text-slate-400" />}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleGetSummary(loc); }}
-                                    className="px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 text-xs font-bold mr-2"
-                                >
-                                    {loc.loadingSummary ? 'Loading...' : 'Get Summary'}
-                                </button>
-                                {loc.isExpanded ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronRight size={20} className="text-slate-400" />}
-                            </div>
-                        </div>
 
-                        {/* Location Body */}
-                        {loc.isExpanded && (
-                            <div className="p-4 border-t border-slate-200 dark:border-slate-800/50">
-                                {loc.summary && (
-                                    <div className="mb-4 p-3 bg-slate-100 dark:bg-slate-950 rounded-lg text-xs font-mono overflow-x-auto border border-slate-200 dark:border-slate-800">
-                                        <div className="flex items-center gap-2 mb-2 text-slate-500 font-bold uppercase tracking-wider">
-                                            <Info size={12} /> Location Summary
-                                        </div>
-                                        <pre>{JSON.stringify(loc.summary, null, 2)}</pre>
-                                    </div>
-                                )}
-
-                                <div className="space-y-4">
-                                    {loc.rooms.map(room => (
-                                        <div key={room.roomId} className="pl-4 border-l-2 border-slate-200 dark:border-slate-800 ml-2">
-                                            <div className="flex items-center gap-2 mb-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 p-2 rounded-lg transition-colors"
-                                                onClick={() => toggleRoomExpand(loc.locationId, room.roomId)}>
-                                                <Folder size={16} className="text-amber-500" />
-                                                <div className="flex flex-col flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-bold text-sm text-slate-600 dark:text-slate-300">{room.name}</span>
-                                                        <span className="text-[10px] text-slate-400 font-bold bg-slate-100 dark:bg-slate-800 px-1.5 rounded-full">
-                                                            {room.devices.length} Devices
-                                                        </span>
-                                                    </div>
-                                                    <span className="text-[10px] text-slate-400 font-mono">ID: {room.roomId}</span>
-                                                </div>
-                                                {room.isExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+                            {/* Location Body */}
+                            {loc.isExpanded && (
+                                <div className="p-4 border-t border-slate-200 dark:border-slate-800/50">
+                                    {loc.summary && (
+                                        <div className="mb-4 p-3 bg-slate-100 dark:bg-slate-950 rounded-lg text-xs font-mono overflow-x-auto border border-slate-200 dark:border-slate-800">
+                                            <div className="flex items-center gap-2 mb-2 text-slate-500 font-bold uppercase tracking-wider">
+                                                <Info size={12} /> Location Summary
                                             </div>
+                                            <pre>{JSON.stringify(loc.summary, null, 2)}</pre>
+                                        </div>
+                                    )}
 
-                                            {room.isExpanded && (
-                                                <div className="flex flex-col gap-2 pl-4">
-                                                    {room.devices.map(dev => (
-                                                        <div key={dev.deviceId} className={`flex flex-col rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 transition-all ${dev.isExpanded ? 'ring-2 ring-indigo-500/20 shadow-md' : 'hover:border-indigo-500/30'}`}>
+                                    <div className="space-y-4">
+                                        {loc.rooms.map(room => (
+                                            <div key={room.roomId} className="pl-4 border-l-2 border-slate-200 dark:border-slate-800 ml-2">
+                                                <div className="flex items-center gap-2 mb-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 p-2 rounded-lg transition-colors"
+                                                    onClick={() => toggleRoomExpand(loc.locationId, room.roomId)}>
+                                                    <Folder size={16} className="text-amber-500" />
+                                                    <div className="flex flex-col flex-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-sm text-slate-600 dark:text-slate-300">{room.name}</span>
+                                                            <span className="text-[10px] text-slate-400 font-bold bg-slate-100 dark:bg-slate-800 px-1.5 rounded-full">
+                                                                {room.devices.length} Devices
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-[10px] text-slate-400 font-mono">ID: {room.roomId}</span>
+                                                    </div>
+                                                    {room.isExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+                                                </div>
 
-                                                            {/* Device Header */}
-                                                            <div className="p-2 flex items-center gap-3 cursor-pointer" onClick={() => toggleDeviceExpand(dev.deviceId)}>
-                                                                <Smartphone size={16} className={`shrink-0 ${dev.isExpanded ? 'text-indigo-500' : 'text-slate-400'}`} />
-                                                                <div className="min-w-0 flex-1">
-                                                                    <div className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{dev.label || 'Unnamed Device'}</div>
-                                                                    <div className="text-[10px] text-slate-400 font-mono truncate">ID: {dev.deviceId}</div>
-                                                                </div>
-                                                                {dev.isExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
-                                                            </div>
+                                                {room.isExpanded && (
+                                                    <div className="flex flex-col gap-2 pl-4">
+                                                        {room.devices.map(dev => (
+                                                            <div key={dev.deviceId} className={`flex flex-col rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 transition-all ${dev.isExpanded ? 'ring-2 ring-indigo-500/20 shadow-md' : 'hover:border-indigo-500/30'}`}>
 
-                                                            {dev.isExpanded && (
-                                                                <div className="px-3 pb-3 pt-0 text-xs">
-                                                                    <div className="h-px bg-slate-200 dark:bg-slate-700/50 mb-2" />
-
-                                                                    {/* Action Buttons */}
-                                                                    <div className="mb-3 flex gap-2 flex-wrap">
-                                                                        <button onClick={(e) => { e.stopPropagation(); handleGetDeviceStatus(dev); }}
-                                                                            className="text-[10px] bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded hover:bg-emerald-500/20 font-bold flex items-center gap-1">
-                                                                            {dev.loadingStatus ? <Activity size={10} className="animate-spin" /> : 'Get Status'}
-                                                                        </button>
-                                                                        <button onClick={(e) => { e.stopPropagation(); handleGetDeviceCanvas(dev); }}
-                                                                            className="text-[10px] bg-purple-500/10 text-purple-500 px-2 py-1 rounded hover:bg-purple-500/20 font-bold flex items-center gap-1">
-                                                                            {dev.loadingCanvas ? <Activity size={10} className="animate-spin" /> : 'Get Canvas'}
-                                                                        </button>
-                                                                        {dev.status && (
-                                                                            <button onClick={(e) => { e.stopPropagation(); toggleStatusViewMode(dev.deviceId); }}
-                                                                                className="text-[10px] bg-indigo-500/10 text-indigo-500 px-2 py-1 rounded hover:bg-indigo-500/20 font-bold">
-                                                                                {dev.statusViewMode === 'structured' ? 'Raw View' : 'Structured View'}
-                                                                            </button>
-                                                                        )}
+                                                                {/* Device Header */}
+                                                                <div className="p-2 flex items-center gap-3 cursor-pointer" onClick={() => toggleDeviceExpand(dev.deviceId)}>
+                                                                    <Smartphone size={16} className={`shrink-0 ${dev.isExpanded ? 'text-indigo-500' : 'text-slate-400'}`} />
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{dev.label || 'Unnamed Device'}</div>
+                                                                        <div className="text-[10px] text-slate-400 font-mono truncate">ID: {dev.deviceId}</div>
                                                                     </div>
+                                                                    {dev.isExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+                                                                </div>
 
-                                                                    {/* Components & Capabilities */}
-                                                                    {(dev.components && dev.components.length > 0) ? (
-                                                                        <div className="mb-3 space-y-1">
-                                                                            <div className="font-bold text-slate-500 text-[10px] uppercase tracking-wider">Info</div>
-                                                                            <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-500 font-mono bg-slate-100 dark:bg-slate-950 p-2 rounded">
-                                                                                {dev.components.map((comp: any) => (
-                                                                                    <div key={comp.id} className="col-span-2">
-                                                                                        <span className="text-indigo-400 font-bold">{comp.id}</span>
-                                                                                        <div className="pl-2 border-l border-slate-300 dark:border-slate-700 ml-1">
-                                                                                            {comp.capabilities?.map((cap: any) => (
-                                                                                                <span key={cap.id} className="block text-slate-600 dark:text-slate-400">{cap.id}</span>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
+                                                                {dev.isExpanded && (
+                                                                    <div className="px-3 pb-3 pt-0 text-xs">
+                                                                        <div className="h-px bg-slate-200 dark:bg-slate-700/50 mb-2" />
+
+                                                                        {/* Action Buttons */}
+                                                                        <div className="mb-3 flex gap-2 flex-wrap">
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleGetDeviceStatus(dev); }}
+                                                                                className="text-[10px] bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded hover:bg-emerald-500/20 font-bold flex items-center gap-1">
+                                                                                {dev.loadingStatus ? <Activity size={10} className="animate-spin" /> : 'Get Status'}
+                                                                            </button>
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleGetDeviceCanvas(dev); }}
+                                                                                className="text-[10px] bg-purple-500/10 text-purple-500 px-2 py-1 rounded hover:bg-purple-500/20 font-bold flex items-center gap-1">
+                                                                                {dev.loadingCanvas ? <Activity size={10} className="animate-spin" /> : 'Get Canvas'}
+                                                                            </button>
+                                                                            {dev.status && (
+                                                                                <button onClick={(e) => { e.stopPropagation(); toggleStatusViewMode(dev.deviceId); }}
+                                                                                    className="text-[10px] bg-indigo-500/10 text-indigo-500 px-2 py-1 rounded hover:bg-indigo-500/20 font-bold">
+                                                                                    {dev.statusViewMode === 'structured' ? 'Raw View' : 'Structured View'}
+                                                                                </button>
+                                                                            )}
                                                                         </div>
-                                                                    ) : <div className="text-slate-400 italic mb-2">No component info</div>}
 
-                                                                    {/* Canvas View */}
-                                                                    {dev.canvas && (
-                                                                        <div className="mb-3 space-y-1">
-                                                                            <div className="font-bold text-slate-500 text-[10px] uppercase tracking-wider">Device Canvas</div>
-                                                                            <div className="bg-slate-100 dark:bg-slate-950 p-2 rounded text-[10px] text-slate-600 dark:text-slate-400 overflow-x-auto max-h-40 custom-scrollbar">
-                                                                                <pre>{JSON.stringify(dev.canvas, null, 2)}</pre>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-
-                                                                    {/* Status View */}
-                                                                    {dev.status && (
-                                                                        <div className="space-y-1">
-                                                                            <div className="font-bold text-slate-500 text-[10px] uppercase tracking-wider">Current Status</div>
-
-                                                                            {dev.statusViewMode === 'structured' ? (
-                                                                                <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded space-y-2">
-                                                                                    {dev.status.components && Object.entries(dev.status.components).map(([compId, compData]: [string, any]) => (
-                                                                                        <div key={compId} className="border border-slate-200 dark:border-slate-700 rounded p-2">
-                                                                                            <div className="text-[10px] font-bold text-indigo-500 mb-1">{compId}</div>
-                                                                                            {Object.entries(compData).map(([capId, capData]: [string, any]) => (
-                                                                                                <div key={capId} className="ml-2 mb-2">
-                                                                                                    <div className="text-[9px] font-bold text-slate-500 uppercase mb-1">{capId}</div>
-                                                                                                    <div className="ml-2 space-y-1">
-                                                                                                        {Object.entries(capData).map(([attrName, attrData]: [string, any]) => (
-                                                                                                            <div key={attrName} className="flex items-center justify-between text-[10px]">
-                                                                                                                <span className="text-slate-600 dark:text-slate-400">{attrName}:</span>
-                                                                                                                <span className="font-bold text-slate-700 dark:text-slate-200">
-                                                                                                                    {typeof attrData?.value !== 'undefined' ? String(attrData.value) : JSON.stringify(attrData)}
-                                                                                                                </span>
-                                                                                                            </div>
-                                                                                                        ))}
-                                                                                                    </div>
-                                                                                                    {/* Command Buttons */}
-                                                                                                    <div className="mt-2 flex flex-wrap gap-1">
-                                                                                                        {capId === 'switch' && (
-                                                                                                            <>
-                                                                                                                <button
-                                                                                                                    onClick={(e) => { e.stopPropagation(); handleSendCommand(dev, 'switch', 'on'); }}
-                                                                                                                    className="text-[9px] bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 rounded hover:bg-green-500/20 font-bold">
-                                                                                                                    ON
-                                                                                                                </button>
-                                                                                                                <button
-                                                                                                                    onClick={(e) => { e.stopPropagation(); handleSendCommand(dev, 'switch', 'off'); }}
-                                                                                                                    className="text-[9px] bg-red-500/10 text-red-600 dark:text-red-400 px-2 py-0.5 rounded hover:bg-red-500/20 font-bold">
-                                                                                                                    OFF
-                                                                                                                </button>
-                                                                                                            </>
-                                                                                                        )}
-                                                                                                        {capId === 'audioVolume' && (
-                                                                                                            <>
-                                                                                                                <button
-                                                                                                                    onClick={(e) => { e.stopPropagation(); handleSendCommand(dev, 'audioVolume', 'volumeUp'); }}
-                                                                                                                    className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded hover:bg-blue-500/20 font-bold">
-                                                                                                                    Vol+
-                                                                                                                </button>
-                                                                                                                <button
-                                                                                                                    onClick={(e) => { e.stopPropagation(); handleSendCommand(dev, 'audioVolume', 'volumeDown'); }}
-                                                                                                                    className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded hover:bg-blue-500/20 font-bold">
-                                                                                                                    Vol-
-                                                                                                                </button>
-                                                                                                                <button
-                                                                                                                    onClick={(e) => { e.stopPropagation(); handleSendCommand(dev, 'audioVolume', 'setVolume', [50]); }}
-                                                                                                                    className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded hover:bg-blue-500/20 font-bold">
-                                                                                                                    Set 50%
-                                                                                                                </button>
-                                                                                                            </>
-                                                                                                        )}
-                                                                                                        {capId === 'refresh' && (
-                                                                                                            <button
-                                                                                                                onClick={(e) => { e.stopPropagation(); handleSendCommand(dev, 'refresh', 'refresh'); }}
-                                                                                                                className="text-[9px] bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 px-2 py-0.5 rounded hover:bg-cyan-500/20 font-bold">
-                                                                                                                Refresh
-                                                                                                            </button>
-                                                                                                        )}
-                                                                                                    </div>
-                                                                                                </div>
-                                                                                            ))}
+                                                                        {/* Components & Capabilities */}
+                                                                        {(dev.components && dev.components.length > 0) ? (
+                                                                            <div className="mb-3 space-y-1">
+                                                                                <div className="font-bold text-slate-500 text-[10px] uppercase tracking-wider">Info</div>
+                                                                                <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-500 font-mono bg-slate-100 dark:bg-slate-950 p-2 rounded">
+                                                                                    {dev.components.map((comp: any) => (
+                                                                                        <div key={comp.id} className="col-span-2">
+                                                                                            <span className="text-indigo-400 font-bold">{comp.id}</span>
+                                                                                            <div className="pl-2 border-l border-slate-300 dark:border-slate-700 ml-1">
+                                                                                                {comp.capabilities?.map((cap: any) => (
+                                                                                                    <span key={cap.id} className="block text-slate-600 dark:text-slate-400">{cap.id}</span>
+                                                                                                ))}
+                                                                                            </div>
                                                                                         </div>
                                                                                     ))}
                                                                                 </div>
-                                                                            ) : (
-                                                                                <div className="bg-slate-900 text-emerald-400 p-2 rounded font-mono text-[10px] whitespace-pre-wrap overflow-x-auto max-h-40 custom-scrollbar">
-                                                                                    {JSON.stringify(dev.status, null, 2)}
+                                                                            </div>
+                                                                        ) : <div className="text-slate-400 italic mb-2">No component info</div>}
+
+                                                                        {/* Canvas View */}
+                                                                        {dev.canvas && (
+                                                                            <div className="mb-3 space-y-1">
+                                                                                <div className="font-bold text-slate-500 text-[10px] uppercase tracking-wider">Device Canvas</div>
+                                                                                <div className="bg-slate-100 dark:bg-slate-950 p-2 rounded text-[10px] text-slate-600 dark:text-slate-400 overflow-x-auto max-h-40 custom-scrollbar">
+                                                                                    <pre>{JSON.stringify(dev.canvas, null, 2)}</pre>
                                                                                 </div>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                    {room.devices.length === 0 && <div className="text-xs text-slate-400 italic">No devices</div>}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                    {loc.rooms.length === 0 && <div className="text-sm text-slate-500 italic pl-6">No rooms found</div>}
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Status View */}
+                                                                        {dev.status && (
+                                                                            <div className="space-y-1">
+                                                                                <div className="font-bold text-slate-500 text-[10px] uppercase tracking-wider">Current Status</div>
+
+                                                                                {dev.statusViewMode === 'structured' ? (
+                                                                                    <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded space-y-2">
+                                                                                        {dev.status.components && Object.entries(dev.status.components).map(([compId, compData]: [string, any]) => (
+                                                                                            <div key={compId} className="border border-slate-200 dark:border-slate-700 rounded p-2">
+                                                                                                <div className="text-[10px] font-bold text-indigo-500 mb-1">{compId}</div>
+                                                                                                {Object.entries(compData).map(([capId, capData]: [string, any]) => (
+                                                                                                    <div key={capId} className="ml-2 mb-2">
+                                                                                                        <div className="text-[9px] font-bold text-slate-500 uppercase mb-1">{capId}</div>
+                                                                                                        <div className="ml-2 space-y-1">
+                                                                                                            {Object.entries(capData).map(([attrName, attrData]: [string, any]) => (
+                                                                                                                <div key={attrName} className="flex items-center justify-between text-[10px]">
+                                                                                                                    <span className="text-slate-600 dark:text-slate-400">{attrName}:</span>
+                                                                                                                    <span className="font-bold text-slate-700 dark:text-slate-200">
+                                                                                                                        {typeof attrData?.value !== 'undefined' ? String(attrData.value) : JSON.stringify(attrData)}
+                                                                                                                    </span>
+                                                                                                                </div>
+                                                                                                            ))}
+                                                                                                        </div>
+                                                                                                        {/* Command Buttons */}
+                                                                                                        <div className="mt-2 flex flex-wrap gap-1">
+                                                                                                            {capId === 'switch' && (
+                                                                                                                <>
+                                                                                                                    <button
+                                                                                                                        onClick={(e) => { e.stopPropagation(); handleSendCommand(dev, 'switch', 'on'); }}
+                                                                                                                        className="text-[9px] bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 rounded hover:bg-green-500/20 font-bold">
+                                                                                                                        ON
+                                                                                                                    </button>
+                                                                                                                    <button
+                                                                                                                        onClick={(e) => { e.stopPropagation(); handleSendCommand(dev, 'switch', 'off'); }}
+                                                                                                                        className="text-[9px] bg-red-500/10 text-red-600 dark:text-red-400 px-2 py-0.5 rounded hover:bg-red-500/20 font-bold">
+                                                                                                                        OFF
+                                                                                                                    </button>
+                                                                                                                </>
+                                                                                                            )}
+                                                                                                            {capId === 'audioVolume' && (
+                                                                                                                <>
+                                                                                                                    <button
+                                                                                                                        onClick={(e) => { e.stopPropagation(); handleSendCommand(dev, 'audioVolume', 'volumeUp'); }}
+                                                                                                                        className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded hover:bg-blue-500/20 font-bold">
+                                                                                                                        Vol+
+                                                                                                                    </button>
+                                                                                                                    <button
+                                                                                                                        onClick={(e) => { e.stopPropagation(); handleSendCommand(dev, 'audioVolume', 'volumeDown'); }}
+                                                                                                                        className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded hover:bg-blue-500/20 font-bold">
+                                                                                                                        Vol-
+                                                                                                                    </button>
+                                                                                                                    <button
+                                                                                                                        onClick={(e) => { e.stopPropagation(); handleSendCommand(dev, 'audioVolume', 'setVolume', [50]); }}
+                                                                                                                        className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded hover:bg-blue-500/20 font-bold">
+                                                                                                                        Set 50%
+                                                                                                                    </button>
+                                                                                                                </>
+                                                                                                            )}
+                                                                                                            {capId === 'refresh' && (
+                                                                                                                <button
+                                                                                                                    onClick={(e) => { e.stopPropagation(); handleSendCommand(dev, 'refresh', 'refresh'); }}
+                                                                                                                    className="text-[9px] bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 px-2 py-0.5 rounded hover:bg-cyan-500/20 font-bold">
+                                                                                                                    Refresh
+                                                                                                                </button>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <div className="bg-slate-900 text-emerald-400 p-2 rounded font-mono text-[10px] whitespace-pre-wrap overflow-x-auto max-h-40 custom-scrollbar">
+                                                                                        {JSON.stringify(dev.status, null, 2)}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                        {room.devices.length === 0 && <div className="text-xs text-slate-400 italic">No devices</div>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                        {loc.rooms.length === 0 && <div className="text-sm text-slate-500 italic pl-6">No rooms found</div>}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                ))}
+                            )}
+                        </div>
+                    ))}
+                </div>
+                {ContextMenuComponent}
             </div>
-            {ContextMenuComponent}
         </div>
     );
 };

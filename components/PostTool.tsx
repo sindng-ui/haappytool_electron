@@ -496,19 +496,17 @@ const PostTool: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-300">
-            {/* Title Bar - Draggable Area */}
-            <div className="h-16 w-full flex-shrink-0 title-drag z-20 flex items-center justify-between pl-4 pr-36 border-b border-white/5 bg-[#0f172a]">
-                {/* Left: Brand */}
+        <div className="flex flex-col h-full bg-[#0b0f19] overflow-hidden transition-colors duration-300">
+            {/* Consistent System Header */}
+            <div className="h-9 shrink-0 title-drag pl-4 pr-36 flex items-center justify-between border-b border-indigo-500/30 bg-[#0f172a]">
+                {/* Brand Area */}
                 <div className="flex items-center gap-3 no-drag">
-                    <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-400 ring-1 ring-indigo-500/20 shadow-lg shadow-indigo-500/5">
-                        <Lucide.Send size={18} />
-                    </div>
-                    <span className="font-bold text-sm text-slate-100 tracking-tight">Post Tool</span>
+                    <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400"><Lucide.Send size={14} className="icon-glow" /></div>
+                    <span className="font-bold text-xs text-slate-200">Post Tool</span>
                 </div>
 
-                {/* Right: Actions */}
-                <div className="flex items-center gap-2 no-drag mr-32">
+                {/* Actions Area */}
+                <div className="flex items-center gap-1 no-drag mr-40">
                     {/* Environment Modal */}
                     {onUpdateGlobalVariables && (
                         <EnvironmentModal
@@ -606,7 +604,7 @@ const PostTool: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex w-full h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
+            <div className="flex w-full h-full bg-[#0b0f19] text-slate-100 font-sans">
                 <div className="flex-1 flex min-w-0 relative">
                     <RequestSidebar
                         width={sidebarWidth}

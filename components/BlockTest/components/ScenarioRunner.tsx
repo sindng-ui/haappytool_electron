@@ -48,7 +48,7 @@ const ScenarioRunner: React.FC<ScenarioRunnerProps> = ({
     return (
         <div className={`flex flex-col h-full bg-slate-100 dark:bg-slate-900 ${THEME.runner.container}`}>
             {/* Scenario Header */}
-            <div className={`shrink-0 h-14 pl-4 pr-36 title-drag flex items-center justify-between bg-slate-900 border-b border-slate-700 shadow-md z-20`}>
+            <div className={`shrink-0 h-14 pl-4 pr-36 title-drag flex items-center justify-between bg-[#0f172a] border-b border-slate-700 shadow-md z-20`}>
                 <div className="flex items-center gap-4">
                     <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
                         <Lucide.ArrowLeft size={20} />

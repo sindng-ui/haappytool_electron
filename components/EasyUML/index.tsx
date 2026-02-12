@@ -1354,9 +1354,9 @@ const EasyUML: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 select-none relative">
+        <div className="flex flex-col h-full w-full bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-200 select-none relative">
             {/* Consistent System Header */}
-            <div className="h-9 shrink-0 title-drag pl-4 pr-36 flex items-center gap-3 border-b border-indigo-500/30 bg-slate-900">
+            <div className="h-9 shrink-0 title-drag pl-4 pr-36 flex items-center gap-3 border-b border-indigo-500/30 bg-[#0f172a]">
                 <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Lucide.GitGraph size={14} className="icon-glow" /></div>
                 <span className="font-bold text-xs text-slate-200 no-drag">EasyUML Sequence Diagram</span>
             </div>

@@ -1,22 +1,25 @@
-# 구현 계획: Tizen Lab 앱 목록 파싱 수정
+# 구현 계획 - 로그 중복 해결 및 Post Tool UI 개선
 
-## 문제 분석
-- **현상**: Tizen App Manager에서 모든 앱이 `system`, `vpkg_type`, `[WGT]`로 표시됨.
-- **원인**: 
-    1. `app_launcher -l` 출력에 헤더 라인이 포함되어 있음.
-    2. 파서가 헤더 라인을 유효한 앱으로 인식함.
-    3. 실제 앱들이 대괄호 `[]` 상태 표시를 사용하여 기존 정규식 `\((.+)\)`에 매칭되지 않음.
-    4. 또는 헤더 라인만 매칭되고 실제 앱은 매칭되지 않는 상황일 수 있음.
+## 1. 로그 중복 이슈 해결 (useLogExtractorLogic.ts)
+- [x] `useEffect` 마운트 시 `isStale` 로컬 변수 선언
+- [x] `loadState` async 함수 내 주요 지점에 `isStale` 체크 추가
+- [x] `onFileChunk`, `onFileStreamComplete` 등 IPC 리스너 내부에서 `isStale` 체크
+- [x] `cleanup` 함수에서 `isStale = true` 설정
 
-## 수정 방안
-1. **정규식 개선**: 상태 표시가 소괄호 `()` 뿐만 아니라 대괄호 `[]`로 감싸져 있어도 파싱되도록 수정.
-   - 기존: `/^(\S+)\s+(.+?)\s+\((.+)\)$/`
-   - 변경: `/^(\S+)\s+(.+?)\s+[(\[](.+)[)\]]$/`
-2. **필터링 강화**: `pkgId`가 'system'이고 `name`이 'vpkg_type'인 경우 무시하도록 예외 처리 추가.
+## 2. Post Tool UI 개선 (PostTool.tsx)
+- [x] 헤더 영역을 `h-16`에서 `h-9`로 축소 및 슬림화
+- [x] 헤더 하단 `border-indigo-500/30` 적용으로 가독성 확보
+- [x] 메인 컨테이너 및 요청/응답 영역 배경색을 `#0b0f19`로 통일
+- [x] 기존 `mr-32` 등 불필요한 마진 제거 및 레이아웃 조정
 
-## 변경 파일
-- `server/index.cjs`: `list_tizen_apps` 소켓 핸들러 수정
+## 3. 플러그인 일관성 확보
+- [x] `EasyPostPlugin.tsx` 헤더 구분선 강화
+- [x] `LogExtractor.tsx` 전체 배경색 `#0b0f19` 적용
 
-## 검증 계획
-- 코드를 수정한 후 서버를 재구동하여 `list_tizen_apps` 이벤트가 올바른 앱 목록을 반환하는지 확인 필요.
-- 사용자에게 변경 사항 적용 후 앱 목록 새로고침을 요청.
+## 4. Perf Analyzer 필터링 고도화 (PerfAnalyzer.tsx)
+- [x] `runAnalysis` 내부에 미션 기반 필터링 로직 추가
+- [x] `excludes` (Block List) 필터 우선 적용
+- [x] `happyGroups` 및 `includeGroups` (Happy Combo) 필터 적용
+- [x] `familyCombos` 태그 포함 로직 적용
+- [x] 필터 조건 계산 최적화 (루프 외부로 이동)
+- [x] 필터링된 로그에 대해서만 `logCount` 및 타임스탬프 처리 진행

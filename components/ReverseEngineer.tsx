@@ -226,19 +226,19 @@ const ReverseEngineer: React.FC = () => {
             onContextMenu={(e) => handleContextMenu(e, { sourceFile: 'ReverseEngineer' })}
         >
             {/* Header */}
-            <div className="h-14 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center px-6 justify-between shrink-0 z-10 relative">
-                <div className="flex items-center gap-3">
+            <div className="h-14 border-b border-indigo-500/30 bg-[#0f172a] flex items-center px-6 pr-36 justify-between shrink-0 z-10 relative title-drag">
+                <div className="flex items-center gap-3 no-drag">
                     <div className="p-2 bg-indigo-500/10 rounded-lg">
-                        <Smartphone className="text-indigo-500" size={20} />
+                        <Smartphone className="text-indigo-400" size={20} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-bold text-sm">Reverse Engineer</span>
+                        <span className="font-bold text-sm text-slate-100">Reverse Engineer</span>
                         <span className="text-[10px] text-slate-500">Log to Structure Converter</span>
                     </div>
                 </div>
 
                 {status === 'COMPLETED' && (
-                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 no-drag">
                         <button onClick={() => setViewMode('CARD')} className={`p-1.5 rounded-md transition-all ${viewMode === 'CARD' ? 'bg-white dark:bg-slate-700 text-indigo-500 shadow-sm' : 'text-slate-400'}`}>
                             <Grid size={16} />
                         </button>

@@ -15,7 +15,8 @@ import {
     RxFlowVisualizerPlugin,
     SmartThingsLabPluginWrapper,
     TizenLabPluginWrapper,
-    EasyPostPlugin
+    EasyPostPlugin,
+    PerfAnalyzerPlugin
 } from './core/wrappers';
 
 // Registry array to hold all registered plugins
@@ -35,7 +36,8 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     // AiAssistantPlugin, // Disabled - causes startup failure
     SmartThingsLabPluginWrapper,
     TizenLabPluginWrapper,
-    EasyPostPlugin
+    EasyPostPlugin,
+    PerfAnalyzerPlugin
 ];
 
 export const getPluginById = (id: string): HappyPlugin | undefined => {

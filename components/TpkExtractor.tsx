@@ -33,7 +33,7 @@ const TpkExtractor: React.FC = () => {
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-300">
             {/* ✅ UI Improvement: Unified Title Bar (h-10) */}
-            <div className="h-10 w-full flex-shrink-0 title-drag z-20 flex items-center gap-3 pl-4 pr-36 border-b border-indigo-500/30 bg-slate-900 transition-all duration-200">
+            <div className="h-10 w-full flex-shrink-0 title-drag z-20 flex items-center gap-3 pl-4 pr-36 border-b border-indigo-500/30 bg-[#0f172a] transition-all duration-200">
                 <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag transition-all duration-200 hover:bg-indigo-500/20">
                     <Archive size={16} className="icon-glow" />
                 </div>

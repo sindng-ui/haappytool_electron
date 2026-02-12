@@ -4,7 +4,7 @@ export const THEME = {
         border: "border-slate-200 dark:border-slate-800"
     },
     header: {
-        container: "bg-slate-900 border-b border-indigo-500/30",
+        container: "bg-[#0f172a] border-b border-indigo-500/30",
         tab: {
             active: "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300",
             inactive: "bg-transparent border-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
@@ -57,7 +57,7 @@ export const THEME = {
     },
     runner: {
         container: "bg-slate-950",
-        header: "bg-slate-950 border-b border-indigo-500/30",
+        header: "bg-[#0f172a] border-b border-indigo-500/30",
         visual: "bg-slate-950 border-r border-indigo-500/30",
         logs: "bg-black text-green-400",
         item: {

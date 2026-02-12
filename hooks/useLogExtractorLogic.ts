@@ -217,7 +217,7 @@ export const useLogExtractorLogic = ({
 
     // Initialize Left Worker & Load State
     useEffect(() => {
-
+        let isStale = false;
         leftWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
 
         let cleanupListeners: (() => void)[] = [];
@@ -226,9 +226,10 @@ export const useLogExtractorLogic = ({
         const loadState = async () => {
             // ✅ Priority 1: Direct File Object (from Archive or Drag&Drop)
             if (initialFile) {
+                if (isStale) return;
                 console.log('[useLog] Loading from initialFile object:', initialFile.name);
                 setLeftFileName(initialFile.name);
-                setLeftFilePath((initialFile as any).path || ''); // Virtual files might not have path
+                setLeftFilePath((initialFile as any).path || '');
 
                 setLeftWorkerReady(false);
                 setLeftIndexingProgress(0);
@@ -241,6 +242,7 @@ export const useLogExtractorLogic = ({
 
             // Priority 2: Saved State (Persistence)
             const savedStateStr = await getStoredValue(`tabState_${tabId}`);
+            if (isStale) return;
 
             let targetPath = initialFilePath;
             let savedScrollTop = 0;
@@ -249,14 +251,13 @@ export const useLogExtractorLogic = ({
             if (savedStateStr) {
                 try {
                     const saved = JSON.parse(savedStateStr);
-
                     if (saved.scrollTop) savedScrollTop = saved.scrollTop;
                     if (saved.selectedLine) savedSelectedLine = saved.selectedLine;
-                    if (saved.filePath && !initialFilePath) targetPath = saved.filePath; // Use saved path if no initial overrides
-                } catch (e) {
-                    // Ignore parse errors
-                }
+                    if (saved.filePath && !initialFilePath) targetPath = saved.filePath;
+                } catch (e) { }
             }
+
+            if (isStale) return;
 
             if (savedScrollTop > 0) pendingScrollTop.current = savedScrollTop;
             if (savedSelectedLine >= 0) {
@@ -270,16 +271,14 @@ export const useLogExtractorLogic = ({
         };
 
         const loadFile = (targetPath: string) => {
+            if (isStale) return;
             if (window.electronAPI) {
                 const fileName = targetPath.split(/[/\\]/).pop() || 'log_file.log';
                 setLeftFileName(fileName);
                 setLeftFilePath(targetPath);
-                // ✅ Sync with parent so it can save to localStorage for next session
+
                 if (onFileChange) {
-                    console.log(`[useLog] Calling onFileChange with:`, targetPath);
                     onFileChange(targetPath);
-                } else {
-                    console.warn(`[useLog] onFileChange is NOT defined!`);
                 }
 
                 setLeftWorkerReady(false);
@@ -288,69 +287,48 @@ export const useLogExtractorLogic = ({
                 setLeftFilteredCount(0);
 
                 if (window.electronAPI.streamReadFile) {
-                    console.log('[useLog] Using streamReadFile');
-                    // Stream Mode
-                    leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM' });
-
                     // Generate unique request ID
                     const requestId = `stream-${Date.now()}-${Math.random().toString(36).substring(7)}`;
                     activeStreamRequestId.current = requestId;
-                    console.log('[useLog] Stream requestId:', requestId);
 
                     const unsubChunk = window.electronAPI.onFileChunk((data: any) => {
-                        // Filter by requestId
-                        if (data.requestId !== activeStreamRequestId.current) {
-                            console.warn('[useLog] Ignoring chunk from stale stream:', data.requestId);
-                            return;
-                        }
+                        if (isStale || data.requestId !== activeStreamRequestId.current) return;
                         leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: data.chunk });
                     });
                     const unsubComplete = window.electronAPI.onFileStreamComplete((data: any) => {
-                        if (data?.requestId !== activeStreamRequestId.current) {
-                            console.warn('[useLog] Ignoring complete from stale stream:', data?.requestId);
-                            return;
-                        }
-                        console.log('[useLog] Stream load complete');
+                        if (isStale || data?.requestId !== activeStreamRequestId.current) return;
                     });
                     cleanupListeners.push(unsubChunk, unsubComplete);
 
+                    // Start actual read
+                    leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM' });
                     window.electronAPI.streamReadFile(targetPath, requestId).catch(e => {
-                        console.error('[useLog] streamReadFile failed, falling back to readFile:', e);
+                        if (isStale) return;
                         // Fallback to legacy readFile
                         window.electronAPI.readFile(targetPath).then(content => {
-                            console.log(`[useLog] Fallback readFile success. size=${content.length}`);
+                            if (isStale) return;
                             const file = new File([content], fileName);
                             (file as any).path = targetPath;
                             leftWorkerRef.current?.postMessage({ type: 'INIT_FILE', payload: file });
-                        }).catch(err => {
-                            console.error('[useLog] Fallback readFile also failed:', err);
-                            alert(`[useLog] Failed to load file: ${err.message}`);
-                            showToast(`Failed to load file: ${err.message}`, 'error');
                         });
                     });
                 } else {
-                    console.log('[useLog] Using readFile (Legacy)');
-                    // Legacy Mode
                     window.electronAPI.readFile(targetPath).then(content => {
-                        console.log(`[useLog] File read success. size=${content.length}`);
+                        if (isStale) return;
                         const file = new File([content], fileName);
-                        // Store path for persistence if valid
                         (file as any).path = targetPath;
                         leftWorkerRef.current?.postMessage({ type: 'INIT_FILE', payload: file });
-                        console.log('[useLog] Sent INIT_FILE to worker');
-                    }).catch(e => {
-                        console.error('[useLog] readFile failed:', e);
                     });
                 }
-            } else {
-                console.error('[useLog] window.electronAPI is MISSING!');
             }
-        }
+        };
 
         loadState();
 
         leftWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
+            if (isStale) return;
             const { type, payload, requestId } = e.data;
+            // ... (rest of onmessage logic)
             if (type === 'ERROR') console.error('[useLog] Worker Error:', payload.error);
             if (type === 'INDEX_COMPLETE') console.log('[useLog] Worker INDEX_COMPLETE:', payload);
             if (type === 'FILTER_COMPLETE') console.log('[useLog] Worker FILTER_COMPLETE matches:', payload.matchCount);
@@ -397,6 +375,7 @@ export const useLogExtractorLogic = ({
         };
 
         return () => {
+            isStale = true;
             leftWorkerRef.current?.terminate();
             cleanupListeners.forEach(cleanup => cleanup());
         };
@@ -417,10 +396,13 @@ export const useLogExtractorLogic = ({
 
     // Initialize Right Worker
     useEffect(() => {
+        let isStale = false;
         rightWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
 
         rightWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
+            if (isStale) return;
             const { type, payload, requestId } = e.data;
+            // ...
 
             if (requestId && rightPendingRequests.current.has(requestId)) {
                 const resolve = rightPendingRequests.current.get(requestId);
@@ -463,6 +445,7 @@ export const useLogExtractorLogic = ({
         };
 
         return () => {
+            isStale = true;
             rightWorkerRef.current?.terminate();
         };
     }, []);
@@ -648,8 +631,10 @@ export const useLogExtractorLogic = ({
     };
 
     // Auto-Apply Filter (Left)
+    // Auto-Apply Filter (Left)
     useEffect(() => {
-        if (leftWorkerRef.current && currentConfig && (leftTotalLines > 0 || tizenSocket)) {
+        // We use leftWorkerReady instead of leftTotalLines to check availability, avoiding re-runs on every log line
+        if (leftWorkerRef.current && currentConfig && (leftWorkerReady || tizenSocket)) {
             // Use happyGroups if available, otherwise fallback to includeGroups (legacy)
             const sourceGroups = currentConfig.happyGroups
                 ? currentConfig.happyGroups.filter(h => h.enabled).map(h => h.tags)
@@ -701,7 +686,7 @@ export const useLogExtractorLogic = ({
                 setSelectedIndicesLeft(new Set());
             }
         }
-    }, [currentConfig, leftTotalLines, tizenSocket]);
+    }, [currentConfig, leftWorkerReady, tizenSocket]); // ✅ Removed leftTotalLines to prevent re-calculation on every new log line
 
 
 
@@ -713,16 +698,21 @@ export const useLogExtractorLogic = ({
         let combined = '';
         let chunkCount = 0;
 
-        // ✅ Performance: Process buffer in chunks to avoid large string operations
-        while (tizenBuffer.current.length > 0 && combined.length < MAX_CHUNK_TEXT_SIZE) {
+        // ✅ Performance: Process buffer in chunks using array join (faster than string iter)
+        const chunksToProcess: string[] = [];
+        let currentSize = 0;
+
+        while (tizenBuffer.current.length > 0 && currentSize < MAX_CHUNK_TEXT_SIZE) {
             const chunk = tizenBuffer.current.shift();
             if (chunk) {
-                combined += chunk;
+                chunksToProcess.push(chunk);
+                currentSize += chunk.length;
                 chunkCount++;
             }
         }
 
-        if (combined.length > 0) {
+        if (chunksToProcess.length > 0) {
+            const combined = chunksToProcess.join('');
             // console.log(`[useLog] Flushing ${combined.length} bytes (${chunkCount} chunks) to worker`);
             leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: combined });
         }

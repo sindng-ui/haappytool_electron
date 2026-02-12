@@ -421,11 +421,13 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     // ✅ UI Improvement: Unified title bar with smooth scrolling
     const headerElement = React.useMemo(() => (
         <div
-            className="h-10 flex items-center bg-slate-950 border-b border-indigo-500/30 select-none"
+            className="h-9 flex items-center bg-[#0f172a] border-b border-indigo-500/30 select-none title-drag pr-36"
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleGlobalDrop}
         >
-            <div className="flex-1 flex overflow-x-auto items-end h-full px-2 scroll-smooth">
+            <div
+                className="flex-1 flex overflow-x-auto items-end h-full px-2 scroll-smooth no-drag"
+            >
                 {/* Custom scrollbar styling via Tailwind */}
                 <style>{`
                     .tab-container::-webkit-scrollbar {
@@ -524,7 +526,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     ), [tabs, activeTabId, handleAddTab, handleCloseTab, handleGlobalDrop, draggedTabId, dragOverTabId, handleTabDragStart, handleTabDragOver, handleTabDragLeave, handleTabDrop, handleTabDragEnd, toggleSidebar]);
 
     const handleTitleChange = useCallback((tabId: string, newTitle: string) => {
@@ -532,7 +534,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     }, []);
 
     return (
-        <div className="flex h-full flex-col font-sans overflow-hidden bg-slate-950">
+        <div className="flex h-full flex-col font-sans overflow-hidden bg-[#0b0f19]">
             <div className="flex-1 overflow-hidden relative">
                 {tabs.map((tab) => (
                     <LogProvider

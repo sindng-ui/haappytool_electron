@@ -17,6 +17,7 @@ export enum ToolId {
   RXFLOW_VISUALIZER = 'RXFLOW_VISUALIZER',
   TIZEN_LAB = 'TIZEN_LAB',
   EASY_POST = 'EASY_POST',
+  PERF_ANALYZER = 'PERF_ANALYZER',
 }
 
 export interface LogHighlight {
