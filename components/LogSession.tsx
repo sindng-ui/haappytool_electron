@@ -246,50 +246,74 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         return () => window.removeEventListener('mousemove', handleMouseMove);
     }, []);
 
-    // Detect Selection (Native or Line)
+
+    // --- Log Time Difference Calculation ---
+    const [leftSelectionDuration, setLeftSelectionDuration] = React.useState<string | null>(null);
+    const [rightSelectionDuration, setRightSelectionDuration] = React.useState<string | null>(null);
+
+    // Calculate Duration when selection changes
     React.useEffect(() => {
-        const checkSelection = () => {
-            setTimeout(() => {
-                // 1. Native Selection Priority
-                if (nativeSelection || (window.getSelection() && !window.getSelection()?.isCollapsed && window.getSelection()?.toString().trim())) {
-                    setLineSelection(null);
-                    return;
-                }
+        const calculateDuration = async () => {
+            // Helper to calculation duration for a specific pane
+            const calc = async (indices: Set<number>, requestFn: (start: number, count: number) => Promise<any[]>) => {
+                if (!indices || indices.size < 2) return null;
 
-                // 2. Line Selection Check
-                const hasLeft = selectedIndicesLeft && selectedIndicesLeft.size > 0;
-                const hasRight = isDualView && selectedIndicesRight && selectedIndicesRight.size > 0;
+                const sorted = Array.from(indices).sort((a, b) => a - b);
+                const firstIdx = sorted[0];
+                const lastIdx = sorted[sorted.length - 1];
 
-                if (hasLeft || hasRight) {
-                    setLineSelection({
-                        text: "Selected Lines",
-                        x: mousePosRef.current.x + 10,
-                        y: mousePosRef.current.y
-                    });
-                } else {
-                    setLineSelection(null);
+                try {
+                    const [firstLine, lastLine] = await Promise.all([
+                        requestFn(firstIdx, 1),
+                        requestFn(lastIdx, 1)
+                    ]);
+
+                    if (firstLine && firstLine.length > 0 && lastLine && lastLine.length > 0) {
+                        const { extractTimestamp, formatDuration } = await import('../utils/logTime');
+                        const startTime = extractTimestamp(firstLine[0].content);
+                        const endTime = extractTimestamp(lastLine[0].content);
+
+                        if (startTime !== null && endTime !== null) {
+                            const diff = Math.abs(endTime - startTime);
+                            return formatDuration(diff);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to calculate time difference', e);
                 }
-            }, 100);
+                return null;
+            };
+
+            // Left Pane
+            if (selectedIndicesLeft && selectedIndicesLeft.size > 1) {
+                setLeftSelectionDuration(await calc(selectedIndicesLeft, requestLeftLines));
+            } else {
+                setLeftSelectionDuration(null);
+            }
+
+            // Right Pane
+            if (isDualView && selectedIndicesRight && selectedIndicesRight.size > 1) {
+                setRightSelectionDuration(await calc(selectedIndicesRight, requestRightLines));
+            } else {
+                setRightSelectionDuration(null);
+            }
         };
 
-        window.addEventListener('mouseup', checkSelection);
-        window.addEventListener('keyup', checkSelection); // Keyboard selection support
-        return () => {
-            window.removeEventListener('mouseup', checkSelection);
-            window.removeEventListener('keyup', checkSelection);
-        };
-    }, [nativeSelection, selectedIndicesLeft, selectedIndicesRight, isDualView]);
+        const timer = setTimeout(calculateDuration, 200); // Debounce
+        return () => clearTimeout(timer);
+    }, [selectedIndicesLeft, selectedIndicesRight, isDualView, requestLeftLines, requestRightLines]);
 
-    const activeSelection = nativeSelection || lineSelection;
+    // Native Selection Logic reused (no lineSelection state needed anymore)
+    const activeSelection = nativeSelection; // Keep simple reference if needed, or remove usage
+
+
 
     const handleUnifiedSave_Legacy = async () => {
         if (nativeSelection) {
             handleNativeSave();
-        } else if (lineSelection) {
+        } else {
             // Line Selection Save
             const targetIsLeft = (selectedIndicesLeft && selectedIndicesLeft.size > 0);
-            // Default to left if both, unless Right implies right focus? Logic: prioritized left.
-
             const indices = targetIsLeft ? selectedIndicesLeft : selectedIndicesRight;
             const requestFn = targetIsLeft ? requestLeftLines : requestRightLines;
             const fName = targetIsLeft ? leftFileName : rightFileName;
@@ -319,7 +343,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             } catch (e) {
                 console.error('[LogSession] Failed to retrieve selected lines', e);
             }
-            setLineSelection(null);
         }
     };
 
@@ -927,7 +950,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     isArchiveSaveEnabled={isLeftArchiveEnabled}
 
                                 />
-                                {leftTotalSegments > 1 && (
+                                {(leftTotalSegments > 1 || leftSelectionDuration) && (
                                     <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
                                         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                                             <span className="font-bold text-indigo-600 dark:text-indigo-400">PAGE {leftSegmentIndex + 1}/{leftTotalSegments}</span>
@@ -935,6 +958,14 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             <span className="font-medium">{(leftSegmentIndex * MAX_SEGMENT_SIZE + 1).toLocaleString()} - {Math.min((leftSegmentIndex + 1) * MAX_SEGMENT_SIZE, leftFilteredCount).toLocaleString()}</span>
                                             <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
                                             <span className="opacity-70">Total: {leftFilteredCount.toLocaleString()}</span>
+                                            {leftSelectionDuration && (
+                                                <>
+                                                    <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
+                                                    <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+                                                        ⏱ {leftSelectionDuration}
+                                                    </span>
+                                                </>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <button
@@ -1005,7 +1036,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             isArchiveSaveEnabled={isRightArchiveEnabled}
 
                                         />
-                                        {rightTotalSegments > 1 && (
+                                        {(rightTotalSegments > 1 || rightSelectionDuration) && (
                                             <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
                                                 <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                                                     <span className="font-bold text-indigo-600 dark:text-indigo-400">PAGE {rightSegmentIndex + 1}/{rightTotalSegments}</span>
@@ -1013,6 +1044,14 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                                     <span className="font-medium">{(rightSegmentIndex * MAX_SEGMENT_SIZE + 1).toLocaleString()} - {Math.min((rightSegmentIndex + 1) * MAX_SEGMENT_SIZE, rightFilteredCount).toLocaleString()}</span>
                                                     <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
                                                     <span className="opacity-70">Total: {rightFilteredCount.toLocaleString()}</span>
+                                                    {rightSelectionDuration && (
+                                                        <>
+                                                            <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
+                                                            <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+                                                                ⏱ {rightSelectionDuration}
+                                                            </span>
+                                                        </>
+                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-1">
                                                     <button
@@ -1113,6 +1152,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     caseSensitive={currentConfig?.colorHighlightsCaseSensitive}
                 />
             )}
+
 
             {ContextMenuComponent}
         </div>

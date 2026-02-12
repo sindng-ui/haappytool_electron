@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { LogHighlight } from '../types';
 import { HighlightRenderer } from './LogViewer/HighlightRenderer';
+import { extractTimestamp, formatDuration } from '../utils/logTime';
 
 interface BookmarksModalProps {
     isOpen: boolean;
@@ -20,7 +21,7 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
     isOpen, onClose, requestLines, bookmarks, onJump, highlights, caseSensitive, title = "Bookmarks",
     onClearAll, onDeleteBookmark
 }) => {
-    const [lines, setLines] = useState<{ lineNum: number, content: string, formattedLineIndex: number }[]>([]);
+    const [lines, setLines] = useState<{ lineNum: number, content: string, formattedLineIndex: number, originalLineNum?: string }[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
@@ -51,7 +52,7 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
     return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
             <div
-                className="bg-white dark:bg-slate-900 w-[800px] h-[600px] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in duration-200"
+                className="bg-white dark:bg-slate-900 w-[1000px] h-[600px] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in duration-200"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
@@ -99,40 +100,62 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
                         </div>
                     ) : (
                         <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {lines.map((item, idx) => (
-                                <div
-                                    key={idx}
-                                    onClick={() => {
-                                        onJump(item.formattedLineIndex);
-                                        onClose();
-                                    }}
-                                    className="group flex hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
-                                >
-                                    {/* Line Number */}
-                                    <div className="w-16 shrink-0 py-2 px-3 text-right font-mono text-xs text-slate-400 border-r border-slate-100 dark:border-slate-800 group-hover:text-yellow-600 dark:group-hover:text-yellow-500">
-                                        {item.originalLineNum || item.lineNum}
+                            {lines.map((item, idx) => {
+                                let timeDiffStr = "";
+                                if (idx > 0) {
+                                    const prevItem = lines[idx - 1];
+                                    const currentTs = extractTimestamp(item.content);
+                                    const prevTs = extractTimestamp(prevItem.content);
+
+                                    if (currentTs !== null && prevTs !== null) {
+                                        const diff = currentTs - prevTs;
+                                        // Show + for positive, - for negative (though usually chronological)
+                                        const sign = diff >= 0 ? "+" : "-";
+                                        timeDiffStr = `${sign}${formatDuration(Math.abs(diff))}`;
+                                    }
+                                }
+
+                                return (
+                                    <div
+                                        key={idx}
+                                        onClick={() => {
+                                            onJump(item.formattedLineIndex);
+                                            onClose();
+                                        }}
+                                        className="group flex hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
+                                    >
+                                        {/* Line Number */}
+                                        <div className="w-16 shrink-0 py-2 px-3 text-right font-mono text-xs text-slate-400 border-r border-slate-100 dark:border-slate-800 group-hover:text-yellow-600 dark:group-hover:text-yellow-500">
+                                            {item.originalLineNum || item.lineNum}
+                                        </div>
+
+                                        {/* Time Diff Column */}
+                                        <div className={`w-32 shrink-0 py-2 px-3 text-right font-mono text-[11px] border-r border-slate-100 dark:border-slate-800 whitespace-nowrap overflow-hidden text-ellipsis ${timeDiffStr ? 'text-slate-500 dark:text-slate-400' : 'text-transparent'}`}>
+                                            {timeDiffStr || "-"}
+                                        </div>
+
+                                        {/* Content */}
+                                        <div className="flex-1 py-1 px-3 font-mono text-xs text-slate-700 dark:text-slate-300 break-all whitespace-pre-wrap overflow-hidden">
+                                            <HighlightRenderer text={item.content} highlights={highlights} caseSensitive={caseSensitive} />
+                                        </div>
+                                        {/* Delete Action */}
+                                        {onDeleteBookmark && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onDeleteBookmark(item.formattedLineIndex);
+                                                }}
+                                                className="w-8 shrink-0 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
+                                                title="Remove bookmark"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        )}
                                     </div>
-                                    {/* Content */}
-                                    <div className="flex-1 py-1 px-3 font-mono text-xs text-slate-700 dark:text-slate-300 break-all whitespace-pre-wrap overflow-hidden">
-                                        <HighlightRenderer text={item.content} highlights={highlights} caseSensitive={caseSensitive} />
-                                    </div>
-                                    {/* Delete Action */}
-                                    {onDeleteBookmark && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onDeleteBookmark(item.formattedLineIndex);
-                                            }}
-                                            className="w-8 shrink-0 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
-                                            title="Remove bookmark"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>

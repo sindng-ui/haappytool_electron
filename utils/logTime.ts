@@ -1,0 +1,104 @@
+
+/**
+ * Utility for parsing timestamps from log lines and formatting durations.
+ */
+
+// Regex patterns for common log timestamp formats
+const TIME_PATTERNS = [
+    // 1. Standard: "MM-DD HH:mm:ss.mss" or "YYYY-MM-DD HH:mm:ss.mss"
+    // Matches: 01-01 12:00:00.123, 2024-01-01 12:00:00.123
+    /(\d{2}-\d{2}\s+)?\d{2}:\d{2}:\d{2}\.\d{3}/,
+
+    // 2. Simple Time: "HH:mm:ss"
+    // Matches: 12:00:00
+    /\d{2}:\d{2}:\d{2}/,
+
+    // 3. Kernel Time: "[ 123.456]" (seconds.microseconds)
+    // Matches: [ 1234.567890], [  12.345]
+    /^\s*\[\s*(\d+\.\d+)\s*\]/
+];
+
+/**
+ * Extracts a timestamp (in milliseconds) from a log line.
+ * Returns null if no valid timestamp is found.
+ */
+export const extractTimestamp = (line: string): number | null => {
+    if (!line) return null;
+
+    // 1. Check for Standard Time Formats
+    // We prioritize standard time because it contains absolute time info (mostly)
+    const timeMatch = line.match(/(\d{2}:\d{2}:\d{2}\.\d{3})/);
+    if (timeMatch) {
+        // We only found time part. To make it comparable, we need a date.
+        // If line has date "MM-DD", we use it. Otherwise, we assume a dummy date.
+        // Since we only calculate DIFFERENCE, the absolute date matters less AS LONG AS
+        // both start and end lines use the same relative date assumption (or have explicit dates).
+
+        // Let's try to parse "MM-DD HH:mm:ss.mss" if present
+        const fullMatch = line.match(/(\d{4}-)?(\d{2}-\d{2}\s+)?(\d{2}:\d{2}:\d{2}\.\d{3})/);
+
+        if (fullMatch) {
+            const now = new Date();
+            const year = fullMatch[1] ? fullMatch[1].replace('-', '') : now.getFullYear();
+            const datePart = fullMatch[2] ? fullMatch[2].trim() : `${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+            const timePart = fullMatch[3];
+
+            // Construct ISO string: YYYY-MM-DDTHH:mm:ss.mss
+            const isoString = `${year}-${datePart}T${timePart}`;
+            const timestamp = Date.parse(isoString);
+            if (!isNaN(timestamp)) return timestamp;
+        }
+    }
+
+    // 2. Check for Kernel Time (Seconds from boot)
+    const kernelMatch = line.match(/^\s*\[\s*(\d+\.\d+)\s*\]/);
+    if (kernelMatch) {
+        // Convert seconds to milliseconds
+        return parseFloat(kernelMatch[1]) * 1000;
+    }
+
+    return null;
+};
+
+/**
+ * Formats a duration in milliseconds into a human-readable string.
+ * Format: "1h 2m 3s 45ms"
+ */
+export const formatDuration = (ms: number): string => {
+    if (ms < 0) ms = -ms;
+    if (ms === 0) return '0ms';
+
+    const time = Math.abs(ms);
+
+    // Less than 1 second
+    if (time < 1000) {
+        return `${Math.round(time)}ms`;
+    }
+
+    const seconds = Math.floor(time / 1000);
+    const milliseconds = Math.round(time % 1000);
+
+    // Less than 1 minute
+    if (seconds < 60) {
+        return milliseconds > 0
+            ? `${seconds}s ${milliseconds}ms`
+            : `${seconds}s`;
+    }
+
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+
+    // Less than 1 hour
+    if (minutes < 60) {
+        return remainingSeconds > 0
+            ? `${minutes}m ${remainingSeconds}s`
+            : `${minutes}m`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+
+    return remainingMinutes > 0
+        ? `${hours}h ${remainingMinutes}m`
+        : `${hours}h`;
+};
