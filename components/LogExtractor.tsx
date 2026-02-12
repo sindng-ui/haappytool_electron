@@ -50,6 +50,16 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         localStorage.setItem('configPanelWidth', configPanelWidth.toString());
     }, [configPanelWidth]);
 
+    // ✅ Shared state for Configuration Panel visibility
+    const [isPanelOpen, setIsPanelOpen] = useState(() => {
+        const saved = localStorage.getItem('isConfigPanelOpen');
+        return saved !== null ? saved === 'true' : true;
+    });
+
+    useEffect(() => {
+        localStorage.setItem('isConfigPanelOpen', String(isPanelOpen));
+    }, [isPanelOpen]);
+
     // ✅ Context Menu for tabs
     const { showContextMenu, ContextMenuComponent } = useContextMenu();
 
@@ -540,6 +550,8 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                             setTabs(current => current.map(t => t.id === tab.id ? { ...t, filePath: newPath } : t));
                         }}
                         isActive={isActive && tab.id === activeTabId}
+                        isPanelOpen={isPanelOpen}
+                        setIsPanelOpen={setIsPanelOpen}
                     >
                         <SessionWrapper
                             isActive={isActive && tab.id === activeTabId}

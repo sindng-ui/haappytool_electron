@@ -32,6 +32,8 @@ export interface LogExtractorLogicProps {
     initialFile?: File | null; // ✅ Add support for direct File object
     onFileChange?: (filePath: string) => void;
     isActive?: boolean;
+    isPanelOpen: boolean;
+    setIsPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 // Segmentation for Large Files (Browser Limit workaround)
@@ -59,7 +61,8 @@ export const useLogExtractorLogic = ({
     rules, onUpdateRules, onExportSettings, onImportSettings,
     configPanelWidth, setConfigPanelWidth,
     tabId, initialFilePath, initialFile, onFileChange,
-    isActive = true
+    isActive = true,
+    isPanelOpen, setIsPanelOpen
 }: LogExtractorLogicProps) => {
     // ... (existing state) ...
     const [leftSegmentIndex, setLeftSegmentIndex] = useState(0); // For pagination/segmentation (Left)
@@ -121,14 +124,7 @@ export const useLogExtractorLogic = ({
     }, [selectedRuleId]);
 
     const [isDualView, setIsDualView] = useState(false);
-    const [isPanelOpen, setIsPanelOpen] = useState(() => {
-        const saved = localStorage.getItem('isConfigPanelOpen');
-        return saved !== null ? saved === 'true' : true;
-    });
 
-    useEffect(() => {
-        localStorage.setItem('isConfigPanelOpen', String(isPanelOpen));
-    }, [isPanelOpen]);
 
     const toggleDualView = useCallback(() => {
         setIsDualView(prev => !prev);
