@@ -32,11 +32,21 @@ export interface HappyGroup {
   enabled: boolean;
 }
 
+export interface FamilyCombo {
+  id: string;
+  name: string;
+  startTags: string[];
+  endTags: string[];
+  middleTags: string[][]; // Array of branches (AND conditions)
+  enabled: boolean;
+}
+
 export interface LogRule {
   id: string;
   name: string;
   includeGroups: string[][]; // Outer array = OR, Inner array = AND
   happyGroups?: HappyGroup[]; // New unified structure for Happy Combos
+  familyCombos?: FamilyCombo[]; // New Family Combo structure
   disabledGroups?: string[][]; // Inactive filters
   excludes: string[];
   highlights: LogHighlight[];

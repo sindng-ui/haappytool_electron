@@ -21,118 +21,7 @@ const isTagEditing = (target: { groupIdx: number, termIdx: number, isActive: boo
     return !!(target && target.groupIdx === originalIdx && target.termIdx === termIdx && target.isActive === isActive);
 };
 
-// Component for a single editable tag
-const EditableTag = memo(({
-    isEditing,
-    value,
-    isActive,
-    onStartEdit,
-    onCommit,
-    onDelete,
-    onNavigate,
-    termIdx,
-    isLast,
-    rootIdx,
-    branchIdx
-}: {
-    isEditing: boolean;
-    value: string;
-    isActive: boolean;
-    onStartEdit: () => void;
-    onCommit: (newVal: string) => void;
-    onDelete: () => void;
-    onNavigate: (key: string, empty: boolean) => void;
-    termIdx: number;
-    isLast: boolean;
-    rootIdx: number;
-    branchIdx: number;
-}) => {
-    const inputRef = useRef<HTMLInputElement>(null);
-    const [localValue, setLocalValue] = useState(value);
-
-    useEffect(() => {
-        setLocalValue(value);
-    }, [value]);
-
-    useEffect(() => {
-        if (isEditing && inputRef.current) {
-            inputRef.current.focus();
-        }
-    }, [isEditing]);
-
-    if (isEditing) {
-        return (
-            <input
-                ref={inputRef}
-                className="bg-slate-700 text-slate-200 px-2 py-1 rounded text-xs font-medium border border-indigo-500 w-24 outline-none shadow-lg z-50 absolute-input"
-                value={localValue}
-                onChange={(e) => setLocalValue(e.target.value)}
-                onBlur={() => onCommit(localValue)}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        onCommit(localValue);
-                        if (isLast) onNavigate('NextInput', false); // Special handling to jump to + tag
-                    } else if (e.key === 'Escape') {
-                        onCommit(value); // Revert
-                    } else if (e.key === 'Backspace') {
-                        if (!localValue) {
-                            e.preventDefault();
-                            onDelete();
-                        } else if (e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0) {
-                            // Jump to previous item if at start
-                            e.preventDefault();
-                            onCommit(localValue);
-                            onNavigate('Backspace', false);
-                        }
-                    } else if (e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        onCommit(localValue);
-                        onNavigate('Up', false);
-                    } else if (e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        onCommit(localValue);
-                        onNavigate('Down', false);
-                    } else if (e.key === 'ArrowLeft') {
-                        if (e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0) {
-                            e.preventDefault();
-                            onCommit(localValue);
-                            onNavigate('Left', false);
-                        }
-                    } else if (e.key === 'ArrowRight') {
-                        if (e.currentTarget.selectionStart === localValue.length) {
-                            e.preventDefault();
-                            onCommit(localValue);
-                            onNavigate('Right', false);
-                        }
-                    }
-                }}
-            />
-        );
-    }
-
-    return (
-        <div
-            onClick={(e) => { e.stopPropagation(); onStartEdit(); }}
-            className={`flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-95 ${isActive
-                ? 'bg-slate-800/80 text-emerald-300 border-slate-700/50 hover:border-emerald-500/50 hover:bg-slate-800 shadow-sm'
-                : 'bg-slate-900/50 text-slate-500 border-slate-800 opacity-70'
-                }`}
-        >
-            <span>{value}</span>
-            <IconButton
-                variant="ghost"
-                size="xs"
-                icon={<X size={10} />}
-                className={`ml-1.5 -mr-1 ${isActive ? 'text-slate-500 hover:text-red-400' : 'text-slate-700'}`}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete();
-                }}
-            />
-        </div>
-    );
-});
+import { EditableTag } from './EditableTag';
 
 export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
     currentConfig,
@@ -206,8 +95,8 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
     };
 
     return (
-        <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
+        <div className="p-0">
+            <div className="flex items-center justify-between mb-6">
                 <label className="text-sm font-bold text-indigo-100 flex items-center gap-2">
                     <Zap size={16} className="text-yellow-400 fill-yellow-400 icon-glow" />
                     Happy Combos
@@ -317,9 +206,6 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                             value={term}
                                                             isActive={item.active}
                                                             isLast={tIdx === branchTags.length - 1}
-                                                            termIdx={tIdx}
-                                                            rootIdx={rootIdx}
-                                                            branchIdx={itemIdx}
                                                             onStartEdit={() => setEditingTarget({ groupIdx: item.originalIdx, termIdx: tIdx + 1, isActive: item.active })}
                                                             onCommit={(newVal) => {
                                                                 const newGroup = [...item.group];
@@ -527,7 +413,7 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
 
             <Button
                 variant="outline"
-                className="w-full mt-4 py-3 border border-dashed border-slate-700 rounded-xl text-slate-500 hover:bg-slate-800 hover:border-indigo-500/50 hover:text-indigo-300 transition-all hover:shadow-lg hover:shadow-indigo-900/10 group"
+                className="w-full mt-4 h-10 border border-dashed border-slate-700 rounded-xl text-slate-500 hover:bg-slate-800 hover:border-indigo-500/50 hover:text-indigo-300 transition-all hover:shadow-lg hover:shadow-indigo-900/10 group"
                 icon={<Plus size={16} className="group-hover:text-indigo-400" />}
                 onClick={() => {
                     let newName = 'NewRoot';

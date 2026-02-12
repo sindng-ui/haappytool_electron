@@ -4,6 +4,7 @@ import { useLogContext } from './LogContext';
 import { Button } from '../ui/Button';
 import { ConfigHeader } from './ConfigSections/ConfigHeader';
 import { HappyComboSection } from './ConfigSections/HappyComboSection';
+import { FamilyComboSection } from './ConfigSections/FamilyComboSection';
 import { BlockListSection } from './ConfigSections/BlockListSection';
 import { HighlightSection } from './ConfigSections/HighlightSection';
 import { LogSettingsSection } from './ConfigSections/LogSettingsSection';
@@ -98,7 +99,7 @@ const ConfigurationPanel: React.FC = () => {
                 </Button>
             </div>
             {isPanelOpen ? (
-                <div className="p-6 overflow-y-auto h-full custom-scrollbar pb-20 space-y-6">
+                <div className="p-5 pt-8 overflow-y-auto h-full custom-scrollbar pb-20 space-y-10">
                     <ConfigHeader
                         name={currentConfig.name}
                         onUpdateName={(name) => updateCurrentRule({ name })}
@@ -113,6 +114,13 @@ const ConfigurationPanel: React.FC = () => {
                             onToggleRootCollapse={onToggleRootCollapse}
                             handleToggleRoot={handleToggleRoot}
                             happyCombosCaseSensitive={currentConfig.happyCombosCaseSensitive || false}
+                        />
+                    </div>
+
+                    <div className="card-gradient p-1">
+                        <FamilyComboSection
+                            currentConfig={currentConfig}
+                            updateCurrentRule={updateCurrentRule}
                         />
                     </div>
 
@@ -144,7 +152,7 @@ const ConfigurationPanel: React.FC = () => {
                         />
                     </div>
 
-                    <div className="card-gradient p-4">
+                    <div className="card-gradient p-1">
                         <ViewSettingsSection
                             preferences={logViewPreferences}
                             onUpdate={updateLogViewPreferences}

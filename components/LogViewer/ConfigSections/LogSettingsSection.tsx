@@ -32,8 +32,8 @@ export const LogSettingsSection: React.FC<LogSettingsSectionProps> = ({ currentC
     };
 
     return (
-        <div className="mt-8 pb-12">
-            <label className="text-sm font-bold text-emerald-200 mb-4 flex items-center gap-2">
+        <div className="p-0">
+            <label className="text-sm font-bold text-emerald-200 mb-6 flex items-center gap-2">
                 <Terminal size={16} className="text-emerald-400 icon-glow" />
                 Log Settings
             </label>

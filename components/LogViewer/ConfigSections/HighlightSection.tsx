@@ -104,8 +104,8 @@ export const HighlightSection: React.FC<HighlightSectionProps> = ({ currentConfi
     };
 
     return (
-        <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
+        <div className="p-0">
+            <div className="flex items-center justify-between mb-6">
                 <label className="text-sm font-bold text-pink-200 flex items-center gap-2">
                     <Highlighter size={16} className="text-pink-400 icon-glow" />
                     Color Highlights

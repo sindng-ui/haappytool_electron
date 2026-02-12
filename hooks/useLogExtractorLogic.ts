@@ -161,6 +161,9 @@ export const useLogExtractorLogic = ({
     const [rightFileName, setRightFileName] = useState<string>('');
     const rightPendingRequests = useRef<Map<string, (data: any) => void>>(new Map());
 
+    // Stream Request ID (to prevent duplication from React Strict Mode)
+    const activeStreamRequestId = useRef<string | null>(null);
+
     const [selectedIndicesLeft, setSelectedIndicesLeft] = useState<Set<number>>(new Set());
     const [selectedIndicesRight, setSelectedIndicesRight] = useState<Set<number>>(new Set());
     const [activeLineIndexLeft, setActiveLineIndexLeft] = useState<number>(-1); // Anchor/Focus
@@ -289,15 +292,29 @@ export const useLogExtractorLogic = ({
                     // Stream Mode
                     leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM' });
 
-                    const unsubChunk = window.electronAPI.onFileChunk((chunk) => {
-                        leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: chunk });
+                    // Generate unique request ID
+                    const requestId = `stream-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+                    activeStreamRequestId.current = requestId;
+                    console.log('[useLog] Stream requestId:', requestId);
+
+                    const unsubChunk = window.electronAPI.onFileChunk((data: any) => {
+                        // Filter by requestId
+                        if (data.requestId !== activeStreamRequestId.current) {
+                            console.warn('[useLog] Ignoring chunk from stale stream:', data.requestId);
+                            return;
+                        }
+                        leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: data.chunk });
                     });
-                    const unsubComplete = window.electronAPI.onFileStreamComplete(() => {
+                    const unsubComplete = window.electronAPI.onFileStreamComplete((data: any) => {
+                        if (data?.requestId !== activeStreamRequestId.current) {
+                            console.warn('[useLog] Ignoring complete from stale stream:', data?.requestId);
+                            return;
+                        }
                         console.log('[useLog] Stream load complete');
                     });
                     cleanupListeners.push(unsubChunk, unsubComplete);
 
-                    window.electronAPI.streamReadFile(targetPath).catch(e => {
+                    window.electronAPI.streamReadFile(targetPath, requestId).catch(e => {
                         console.error('[useLog] streamReadFile failed, falling back to readFile:', e);
                         // Fallback to legacy readFile
                         window.electronAPI.readFile(targetPath).then(content => {
@@ -640,6 +657,19 @@ export const useLogExtractorLogic = ({
 
             const refinedGroups = refineGroups(sourceGroups);
 
+            // Add Family Combo Groups (After refinement to avoid root-suppression)
+            if (currentConfig.familyCombos) {
+                currentConfig.familyCombos.filter(f => f.enabled).forEach(f => {
+                    if (f.startTags.length > 0) refinedGroups.push(f.startTags);
+                    if (f.endTags.length > 0) refinedGroups.push(f.endTags);
+                    if (f.middleTags.length > 0) {
+                        f.middleTags.forEach(branch => {
+                            if (branch.length > 0) refinedGroups.push(branch);
+                        });
+                    }
+                });
+            }
+
             // Optimization: Check if effective filter changed
             const effectiveIncludes = refinedGroups.map(g =>
                 g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
@@ -741,7 +771,20 @@ export const useLogExtractorLogic = ({
             const sourceGroups = config.happyGroups
                 ? config.happyGroups.filter(h => h.enabled).map(h => h.tags)
                 : config.includeGroups;
+
             const refined = refineGroups(sourceGroups);
+
+            if (config.familyCombos) {
+                config.familyCombos.filter(f => f.enabled).forEach(f => {
+                    if (f.startTags.length > 0) refined.push(f.startTags);
+                    if (f.endTags.length > 0) refined.push(f.endTags);
+                    if (f.middleTags.length > 0) {
+                        f.middleTags.forEach(branch => {
+                            if (branch.length > 0) refined.push(branch);
+                        });
+                    }
+                });
+            }
             leftWorkerRef.current?.postMessage({
                 type: 'FILTER_LOGS',
                 payload: { ...config, includeGroups: refined }

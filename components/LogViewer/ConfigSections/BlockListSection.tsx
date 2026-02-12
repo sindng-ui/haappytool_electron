@@ -46,8 +46,8 @@ export const BlockListSection: React.FC<BlockListSectionProps> = ({ currentConfi
     };
 
     return (
-        <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
+        <div className="p-0">
+            <div className="flex items-center justify-between mb-6">
                 <label className="text-sm font-bold text-red-200 flex items-center gap-2">
                     <ShieldAlert size={16} className="text-red-500 icon-glow" />
                     Block List

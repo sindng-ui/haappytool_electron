@@ -2,19 +2,19 @@ const { contextBridge, ipcRenderer, clipboard } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
     readFile: (path) => ipcRenderer.invoke('readFile', path),
-    streamReadFile: (path) => ipcRenderer.invoke('streamReadFile', path),
+    streamReadFile: (path, requestId) => ipcRenderer.invoke('streamReadFile', path, requestId),
     onFileChunk: (callback) => {
-        const subscription = (_event, chunk) => callback(chunk);
+        const subscription = (_event, data) => callback(data);
         ipcRenderer.on('file-chunk', subscription);
         return () => ipcRenderer.removeListener('file-chunk', subscription);
     },
     onFileStreamComplete: (callback) => {
-        const subscription = (_event, ...args) => callback(...args);
+        const subscription = (_event, data) => callback(data);
         ipcRenderer.on('file-stream-complete', subscription);
         return () => ipcRenderer.removeListener('file-stream-complete', subscription);
     },
     onFileStreamError: (callback) => {
-        const subscription = (_event, err) => callback(err);
+        const subscription = (_event, data) => callback(data);
         ipcRenderer.on('file-stream-error', subscription);
         return () => ipcRenderer.removeListener('file-stream-error', subscription);
     },

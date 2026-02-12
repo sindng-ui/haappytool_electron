@@ -2,10 +2,10 @@
 
 interface ElectronAPI {
     readFile: (path: string) => Promise<string>;
-    streamReadFile: (path: string) => Promise<{ status: string }>; // ✅ Updated to match usage
-    onFileChunk: (callback: (chunk: string) => void) => () => void;
-    onFileStreamComplete: (callback: () => void) => () => void;
-    onFileStreamError: (callback: (err: string) => void) => () => void; // ✅ Updated parameter type
+    streamReadFile: (path: string, requestId: string) => Promise<{ status: string; requestId: string }>;
+    onFileChunk: (callback: (data: { chunk: string; requestId: string }) => void) => () => void;
+    onFileStreamComplete: (callback: (data: { requestId: string }) => void) => () => void;
+    onFileStreamError: (callback: (data: { error: string; requestId: string }) => void) => () => void;
     setZoomFactor: (factor: number) => void;
     getZoomFactor: () => number;
     copyToClipboard: (text: string) => Promise<void>;

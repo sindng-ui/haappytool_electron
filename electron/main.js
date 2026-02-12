@@ -238,23 +238,23 @@ app.whenReady().then(async () => {
     });
 
     // IPC Handler for file streaming
-    ipcMain.handle('streamReadFile', (event, filePath) => {
+    ipcMain.handle('streamReadFile', (event, filePath, requestId) => {
         const stream = originalFs.createReadStream(filePath, { encoding: 'utf-8', highWaterMark: 64 * 1024 }); // 64KB chunks
 
         stream.on('data', (chunk) => {
-            if (mainWindow) mainWindow.webContents.send('file-chunk', chunk);
+            if (mainWindow) mainWindow.webContents.send('file-chunk', { chunk, requestId });
         });
 
         stream.on('end', () => {
-            if (mainWindow) mainWindow.webContents.send('file-stream-complete');
+            if (mainWindow) mainWindow.webContents.send('file-stream-complete', { requestId });
         });
 
         stream.on('error', (err) => {
             console.error('Stream error:', err);
-            if (mainWindow) mainWindow.webContents.send('file-stream-error', err.message);
+            if (mainWindow) mainWindow.webContents.send('file-stream-error', { error: err.message, requestId });
         });
 
-        return { status: 'started' };
+        return { status: 'started', requestId };
     });
 
     // IPC Handler for Roslyn Validation
