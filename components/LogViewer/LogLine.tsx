@@ -19,9 +19,10 @@ interface LogLineProps {
     onMouseEnter?: (index: number, event: React.MouseEvent) => void;
     preferences?: LogViewPreferences;
     levelMatchers?: { regex: RegExp; color: string }[];
+    overrideBackgroundColor?: string;
 }
 
-export const LogLine = React.memo(({ index, style, data, isActive, isSelected, hasBookmark, isRawMode = false, textHighlights, lineHighlights, highlightCaseSensitive = false, onClick, onDoubleClick, onMouseDown, onMouseEnter, preferences, levelMatchers }: LogLineProps) => {
+export const LogLine = React.memo(({ index, style, data, isActive, isSelected, hasBookmark, isRawMode = false, textHighlights, lineHighlights, highlightCaseSensitive = false, onClick, onDoubleClick, onMouseDown, onMouseEnter, preferences, levelMatchers, overrideBackgroundColor }: LogLineProps) => {
     const isLoading = !data;
 
     // Decode HTML entities for display and matching
@@ -89,17 +90,22 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                                 : `${matchingHighlight.color} bg-opacity-30`) // Use bg-opacity utility
                             : hasBookmark
                                 ? 'bg-yellow-50/50 dark:bg-yellow-500/10 hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
-                                : 'hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
+                                : overrideBackgroundColor ? '' // Handled by inline style
+                                    : 'hover:bg-slate-200/50 dark:hover:bg-indigo-500/5'
                 }`}
             style={{
                 ...style,
                 // Override height/lineHeight from preferences if provided
                 ...(preferences ? { height: preferences.rowHeight, lineHeight: `${preferences.rowHeight}px`, fontSize: preferences.fontSize, fontFamily: preferences.fontFamily } : {}),
 
-                // Background color priority: Active > Highlight > Custom Level > Bookmark > Hover
-                // Since Active is handled by class, we handle Custom Level via style if not active/highlight
-                ...(!(isActive || isSelected || matchingHighlight) && customBgStyle
-                    ? { backgroundColor: `${customBgStyle}${Math.round((preferences?.logLevelOpacity ?? 20) / 100 * 255).toString(16).padStart(2, '0')}` }
+                // Background color priority: Active > Highlight > CUSTOM OVERRIDE > Custom Level > Bookmark > Hover
+                // Since Active is handled by class, we handle Custom Level/Override via style if not active/highlight
+                ...(!(isActive || isSelected || matchingHighlight)
+                    ? (overrideBackgroundColor
+                        ? { backgroundColor: overrideBackgroundColor }
+                        : (customBgStyle
+                            ? { backgroundColor: `${customBgStyle}${Math.round((preferences?.logLevelOpacity ?? 20) / 100 * 255).toString(16).padStart(2, '0')}` }
+                            : {}))
                     : {}),
 
                 ...(matchingHighlight && isCssColor(matchingHighlight.color)

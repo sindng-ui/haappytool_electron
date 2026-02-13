@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { PerfRawViewer } from './PerfRawViewer';
 import * as Lucide from 'lucide-react';
 import { useHappyTool } from '../contexts/HappyToolContext';
 import { useToast } from '../contexts/ToastContext';
@@ -42,6 +43,12 @@ const PerfAnalyzer: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
 
   // -- State --
   const [fileHandle, setFileHandle] = useState<{ path: string; name: string } | null>(null);
+
+  // Raw Viewer State
+  const [rawViewerOpen, setRawViewerOpen] = useState(false);
+  const [rawViewerRange, setRawViewerRange] = useState<{ startLine: number; endLine: number; type: 'step' | 'combo' | 'manual' } | null>(null);
+  const [rawViewerJumpLocations, setRawViewerJumpLocations] = useState<number[]>([]);
+
   const [selectedRuleId, setSelectedRuleId] = useState<string>('');
   const [targetTime, setTargetTime] = useState<number>(1000);
   const [thresholdMs, setThresholdMs] = useState<number>(200);
@@ -1083,15 +1090,56 @@ const PerfAnalyzer: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
 
                   {/* Right: Log Context & Detail (Feature 2) - Increased Width */}
                   <div className="col-span-9 flex flex-col bg-slate-900/40 border border-white/5 rounded-2xl overflow-hidden relative">
+
+
                     <div className="px-4 py-2.5 border-b border-white/5 flex items-center justify-between shrink-0">
                       <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                         <FileText size={14} className="text-sky-400" /> Log Trace Selection
                       </span>
-                      {selectedSegment && (
-                        <div className="px-3 py-1 bg-white/5 rounded-full text-[9px] font-black text-indigo-400 border border-indigo-500/20">
-                          L{selectedSegment.startLine} matched
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {selectedSegment && (
+                          <button
+                            onClick={() => {
+                              // Calculate Jump Locations
+                              const locations = new Set<number>();
+                              locations.add(selectedSegment.startLine);
+                              locations.add(selectedSegment.endLine);
+
+                              if (selectedSegment.type === 'combo') {
+                                // Find internal segments that fall within this combo
+                                const internalSegments = result.segments.filter(s => {
+                                  if (s.id === selectedSegment.id) return false;
+                                  // Must start AFTER parent start (or equal but later line)
+                                  // AND start BEFORE parent end
+                                  if (s.endLine < selectedSegment.startLine) return false;
+
+                                  const isAfterStart = s.startTime > selectedSegment.startTime ||
+                                    (s.startTime === selectedSegment.startTime && s.startLine > selectedSegment.startLine);
+
+                                  return isAfterStart && s.startTime < selectedSegment.endTime;
+                                });
+
+                                internalSegments.forEach(s => {
+                                  locations.add(s.startLine);
+                                  locations.add(s.endLine);
+                                });
+                              }
+
+                              setRawViewerJumpLocations(Array.from(locations).sort((a, b) => a - b));
+                              setRawViewerRange({ startLine: selectedSegment.startLine, endLine: selectedSegment.endLine, type: selectedSegment.type });
+                              setRawViewerOpen(true);
+                            }}
+                            className="px-2 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 items-center flex gap-1 rounded text-[9px] font-black text-indigo-400 border border-indigo-500/20 transition-colors uppercase"
+                          >
+                            <Maximize2 size={10} /> View Raw Context
+                          </button>
+                        )}
+                        {selectedSegment && (
+                          <div className="px-3 py-1 bg-white/5 rounded-full text-[9px] font-black text-indigo-400 border border-indigo-500/20">
+                            L{selectedSegment.startLine} matched
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {!selectedSegment ? (
@@ -1195,6 +1243,19 @@ const PerfAnalyzer: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Raw Viewer Modal */}
+      {rawViewerOpen && fileHandle && (
+        <PerfRawViewer
+          isOpen={rawViewerOpen}
+          onClose={() => setRawViewerOpen(false)}
+          filePath={fileHandle.path}
+          fileName={fileHandle.name}
+          // If we had the file object, we'd pass it here, but mostly we rely on path streaming for PerfAnalyzer history
+          targetRange={rawViewerRange || undefined}
+          jumpLocations={rawViewerJumpLocations}
+        />
+      )}
     </div>
   );
 };

@@ -47,6 +47,7 @@ interface LogViewerPaneProps {
     onContextMenu?: (e: React.MouseEvent) => void;
     onArchiveSave?: () => void;
     isArchiveSaveEnabled?: boolean;
+    lineHighlightRanges?: { start: number; end: number; color: string }[];
 }
 
 export interface LogViewerHandle {
@@ -97,6 +98,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     onContextMenu,
     onArchiveSave,
     isArchiveSaveEnabled = false,
+    lineHighlightRanges,
 }, ref) => {
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
 
@@ -578,6 +580,17 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         // Use preferences from context if available (standard Virtuoso pattern for external data)
         const effectivePreferences = context?.preferences || preferences;
 
+        // Check for range highlight
+        let overrideBackgroundColor: string | undefined;
+        if (lineHighlightRanges) {
+            for (const range of lineHighlightRanges) {
+                if (globalIndex >= range.start && globalIndex <= range.end) {
+                    overrideBackgroundColor = range.color;
+                    break;
+                }
+            }
+        }
+
         return (
             <LogLine
                 index={index}
@@ -595,9 +608,10 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 onDoubleClick={() => onLineDoubleClick && onLineDoubleClick(globalIndex)}
                 preferences={effectivePreferences}
                 levelMatchers={levelMatchers}
+                overrideBackgroundColor={overrideBackgroundColor}
             />
         );
-    }, [activeLineIndex, bookmarks, isRawMode, textHighlights, lineHighlights, highlightCaseSensitive, onLineDoubleClick, absoluteOffset, selectedIndices, handleLineMouseDown, handleLineMouseEnter, preferences, rowHeight, levelMatchers]); // ✅ Removed cachedLines (already using Ref)
+    }, [activeLineIndex, bookmarks, isRawMode, textHighlights, lineHighlights, highlightCaseSensitive, onLineDoubleClick, absoluteOffset, selectedIndices, handleLineMouseDown, handleLineMouseEnter, preferences, rowHeight, levelMatchers, lineHighlightRanges]); // ✅ Removed cachedLines (already using Ref)
 
     // Non-passive wheel listener to allow preventDefault for Shift+Scroll
     useEffect(() => {
@@ -693,8 +707,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                 onClick={onArchiveSave}
                                 disabled={!isArchiveSaveEnabled}
                                 className={`p-1.5 rounded-lg transition-colors ${isArchiveSaveEnabled
-                                        ? 'hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 dark:text-slate-400 hover:text-purple-500 dark:hover:text-purple-400'
-                                        : 'text-slate-600/30 dark:text-slate-600/30 cursor-not-allowed'
+                                    ? 'hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 dark:text-slate-400 hover:text-purple-500 dark:hover:text-purple-400'
+                                    : 'text-slate-600/30 dark:text-slate-600/30 cursor-not-allowed'
                                     }`}
                                 title={isArchiveSaveEnabled ? 'Save to Archive (30MB 이하)' : '로그 사이즈가 30MB를 초과하여 아카이브 저장 불가'}
                             >
