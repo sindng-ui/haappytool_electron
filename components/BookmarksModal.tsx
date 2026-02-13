@@ -52,7 +52,7 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
     return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
             <div
-                className="bg-white dark:bg-slate-900 w-[1000px] h-[600px] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in duration-200"
+                className="bg-white dark:bg-slate-900 w-[1400px] h-[600px] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in duration-200"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
@@ -109,9 +109,40 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
 
                                     if (currentTs !== null && prevTs !== null) {
                                         const diff = currentTs - prevTs;
-                                        // Show + for positive, - for negative (though usually chronological)
+                                        const absDiff = Math.abs(diff);
                                         const sign = diff >= 0 ? "+" : "-";
-                                        timeDiffStr = `${sign}${formatDuration(Math.abs(diff))}`;
+
+                                        // Format: Align magnitudes for easy comparison
+                                        // "4s" vs "94ms" -> "4.000s" vs "0.094s"
+                                        let text = "";
+                                        let styleClass = "";
+
+                                        if (absDiff < 60000) {
+                                            // Under 1 minute: Use decimal seconds fixed to 3 places
+                                            text = (absDiff / 1000).toFixed(3) + "s";
+                                        } else {
+                                            // Over 1 minute: Use standard readable format
+                                            text = formatDuration(absDiff);
+                                        }
+
+                                        // Color Coding for "Impact"
+                                        if (absDiff >= 1000) {
+                                            // > 1s: High impact (Red/Orange)
+                                            styleClass = "text-orange-600 dark:text-orange-400 font-bold";
+                                        } else if (absDiff >= 100) {
+                                            // 100ms ~ 1s: Medium impact (Blue/Normal)
+                                            styleClass = "text-blue-600 dark:text-blue-400 font-semibold";
+                                        } else {
+                                            // < 100ms: Low impact (Gray)
+                                            styleClass = "text-slate-400 dark:text-slate-500";
+                                        }
+
+                                        timeDiffStr = `${sign}${text}`;
+
+                                        // Store the colored element or just use classes? 
+                                        // Since we need to render it inside the return, let's just compute the class here.
+                                        // But wait, the variable 'timeDiffStr' was a string. Let's change the rendering logic slightly below.
+                                        var timeDiffClass = styleClass; // Use var/let in scope
                                     }
                                 }
 
@@ -130,7 +161,7 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
                                         </div>
 
                                         {/* Time Diff Column */}
-                                        <div className={`w-32 shrink-0 py-2 px-3 text-right font-mono text-[11px] border-r border-slate-100 dark:border-slate-800 whitespace-nowrap overflow-hidden text-ellipsis ${timeDiffStr ? 'text-slate-500 dark:text-slate-400' : 'text-transparent'}`}>
+                                        <div className={`w-32 shrink-0 py-2 px-3 text-right font-mono text-[11px] border-r border-slate-100 dark:border-slate-800 whitespace-nowrap overflow-hidden text-ellipsis ${timeDiffStr ? (timeDiffClass || 'text-slate-500 dark:text-slate-400') : 'text-transparent'}`}>
                                             {timeDiffStr || "-"}
                                         </div>
 
