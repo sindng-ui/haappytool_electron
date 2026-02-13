@@ -10,6 +10,7 @@ let lineOffsets: BigInt64Array | null = null; // Map LineNum -> ByteOffset
 
 // Stream Mode
 let isStreamMode = false;
+let isLiveStream = false; // Separate flag for "Shell Log Logic" (Live Tizen Stream) vs "Stream Delivery" (Large File Read)
 let streamLines: string[] = [];
 
 // Common
@@ -100,6 +101,7 @@ import { checkIsMatch } from '../utils/logFiltering';
 // --- Handler: File Indexing ---
 const buildFileIndex = async (file: File) => {
     isStreamMode = false;
+    isLiveStream = false;
     currentFile = file;
     streamLines = []; // Clear stream data
     originalBookmarks.clear(); // Clear bookmarks for new file
@@ -169,8 +171,9 @@ const buildFileIndex = async (file: File) => {
 };
 
 // --- Handler: Stream Init ---
-const initStream = () => {
+const initStream = (payload?: { isLive?: boolean }) => {
     isStreamMode = true;
+    isLiveStream = payload?.isLive !== false; // Default to true (legacy behavior) unless explicitly false
     currentFile = null;
     lineOffsets = null;
     streamLines = [];
@@ -216,7 +219,7 @@ const processChunk = (chunk: string) => {
 
     const newMatches: number[] = [];
     cleanLines.forEach((line, i) => {
-        if (checkIsMatch(line, currentRule, isStreamMode)) {
+        if (checkIsMatch(line, currentRule, isLiveStream)) {
             newMatches.push(startIdx + i);
         }
     });
@@ -271,7 +274,7 @@ const applyFilter = async (rule: LogRule) => {
         // Re-filter all stream lines
         const matches: number[] = [];
         streamLines.forEach((line, i) => {
-            if (checkIsMatch(line, rule, isStreamMode)) matches.push(i);
+            if (checkIsMatch(line, rule, isLiveStream)) matches.push(i);
         });
 
         // Re-init buffer with results
@@ -324,7 +327,7 @@ const applyFilter = async (rule: LogRule) => {
             buffer = lines.pop() || '';
 
             for (const line of lines) {
-                if (checkIsMatch(line, rule, isStreamMode)) {
+                if (checkIsMatch(line, rule, isLiveStream)) { // isLiveStream should be false here anyway
                     matches.push(globalLineIndex);
                 }
                 globalLineIndex++;
@@ -336,7 +339,7 @@ const applyFilter = async (rule: LogRule) => {
         }
 
         if (buffer) {
-            if (checkIsMatch(buffer, rule, isStreamMode)) matches.push(globalLineIndex);
+            if (checkIsMatch(buffer, rule, isLiveStream)) matches.push(globalLineIndex);
         }
 
     } catch (e) { console.error(e); }
@@ -770,7 +773,7 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             buildFileIndex(payload);
             break;
         case 'INIT_STREAM':
-            initStream();
+            initStream(payload);
             break;
         case 'PROCESS_CHUNK':
             processChunk(payload);

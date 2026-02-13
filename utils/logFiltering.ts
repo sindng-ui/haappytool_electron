@@ -12,12 +12,12 @@ import { LogRule } from '../types';
  * 
  * @param line - The log line to check
  * @param rule - The filtering rule to apply (or null for no filtering)
- * @param isStreamMode - Whether we're in stream mode (affects shell output bypass)
+ * @param bypassShellFilter - Whether to apply shell output bypass logic (Force Include non-standard logs)
  * @returns true if the line should be included, false if it should be filtered out
  */
-export const checkIsMatch = (line: string, rule: LogRule | null, isStreamMode: boolean): boolean => {
+export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilter: boolean): boolean => {
     // Force include Simulated Logs (for Tizen Connection Test) regardless of rules
-    if (isStreamMode && line.includes('[TEST_LOG_')) {
+    if (bypassShellFilter && line.includes('[TEST_LOG_')) {
         return true;
     }
 
@@ -26,7 +26,7 @@ export const checkIsMatch = (line: string, rule: LogRule | null, isStreamMode: b
     // "Show Shell/Raw Text Always" Bypass Logic
     // ONLY applied in Stream Mode (SDB/SSH) for shell output visibility.
     // In File Mode, we treat everything as content to be filtered strictly.
-    if (isStreamMode && rule.showRawLogLines !== false) {
+    if (bypassShellFilter && rule.showRawLogLines !== false) {
 
         // Strict Log Detection for Stream Mode
         // We want to detect standard dlogutil formats. Anything else is "Shell Output".

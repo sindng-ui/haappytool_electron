@@ -106,12 +106,12 @@ describe('Worker Filtering Logic', () => {
             excludes: [], happyCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: true // Enable bypass
         };
-        // Non-standard log (shell output)
-        expect(checkIsMatch('$ ls -la', rule, true, true)).toBe(true);
-        expect(checkIsMatch('total 1234', rule, true, true)).toBe(true);
-        // Standard log should be filtered
-        expect(checkIsMatch('01-22 10:30:45 I/SPECIFIC: Ok', rule, true, true)).toBe(true);
-        expect(checkIsMatch('01-22 10:30:45 I/OTHER: Fail', rule, true, true)).toBe(false);
+        // Non-standard log (shell output) -> Passed as bypassShellFilter=true
+        expect(checkIsMatch('$ ls -la', rule, true)).toBe(true);
+        expect(checkIsMatch('total 1234', rule, true)).toBe(true);
+        // Standard log should be filtered (Bypass logic identifies it as standard log, so it falls through to normal filtering)
+        expect(checkIsMatch('01-22 10:30:45 I/SPECIFIC: Ok', rule, true)).toBe(true);
+        expect(checkIsMatch('01-22 10:30:45 I/OTHER: Fail', rule, true)).toBe(false);
     });
 
     it('[MEDIUM] Test log bypass', () => {
@@ -120,8 +120,9 @@ describe('Worker Filtering Logic', () => {
             excludes: [], happyCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
-        expect(checkIsMatch('[TEST_LOG_SDB] Test', rule, true, true)).toBe(true);
-        expect(checkIsMatch('[TEST_LOG_SSH] Test', rule, true, true)).toBe(true);
+        // Force include test logs even if rules don't match
+        expect(checkIsMatch('[TEST_LOG_SDB] Test', rule, true)).toBe(true);
+        expect(checkIsMatch('[TEST_LOG_SSH] Test', rule, true)).toBe(true);
     });
 });
 

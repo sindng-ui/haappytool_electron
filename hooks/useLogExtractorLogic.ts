@@ -301,7 +301,7 @@ export const useLogExtractorLogic = ({
                     cleanupListeners.push(unsubChunk, unsubComplete);
 
                     // Start actual read
-                    leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM' });
+                    leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM', payload: { isLive: false } });
                     window.electronAPI.streamReadFile(targetPath, requestId).catch(e => {
                         if (isStale) return;
                         // Fallback to legacy readFile
@@ -745,7 +745,7 @@ export const useLogExtractorLogic = ({
         // Reset logging state on new connection
         setIsLogging(true);
 
-        leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM' });
+        leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM', payload: { isLive: true } });
 
 
         // NOTE: SSH log command is now executed by the server upon connection (passed via connect_ssh).
