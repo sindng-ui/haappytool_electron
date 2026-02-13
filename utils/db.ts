@@ -36,3 +36,11 @@ export const setStoredValue = async (key: string, value: any) => {
         console.error(`[DB] Failed to set value for ${key}`, e);
     }
 };
+
+export const deleteStoredValue = async (key: string) => {
+    try {
+        await db.appState.delete(key);
+    } catch (e) {
+        console.error(`[DB] Failed to delete value for ${key}`, e);
+    }
+};

@@ -5,6 +5,7 @@ import { LogProvider } from './LogViewer/LogContext';
 import { Plus, X, FileText, Copy, XCircle, Trash2, Archive } from 'lucide-react';
 import { useContextMenu } from './ContextMenu';
 import { useLogArchiveContext } from './LogArchive';
+import { deleteStoredValue } from '../utils/db';
 
 
 
@@ -131,6 +132,10 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
 
     const handleAddTab = useCallback((file: File | null = null) => {
         const newTabId = `tab-${tabCounter}`;
+
+        // Safety: Ensure any stale state for this reused ID is cleared
+        deleteStoredValue(`tabState_${newTabId}`);
+
         const newTitle = file ? file.name : `New Log ${tabCounter}`;
         const filePath = file && 'path' in file ? (file as any).path : undefined;
 
@@ -159,11 +164,14 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         e.stopPropagation();
 
         // Cleanup storage
-        localStorage.removeItem(`tabState_${tabId}`);
+        deleteStoredValue(`tabState_${tabId}`);
 
         if (tabs.length === 1) {
-            setTabs([{ id: `tab-${tabCounter}`, title: `New Log ${tabCounter}`, initialFile: null }]);
-            setActiveTabId(`tab-${tabCounter}`);
+            const nextId = `tab-${tabCounter}`;
+            deleteStoredValue(`tabState_${nextId}`);
+
+            setTabs([{ id: nextId, title: `New Log ${tabCounter}`, initialFile: null }]);
+            setActiveTabId(nextId);
             setTabCounter(prev => prev + 1);
             return;
         }
@@ -195,6 +203,8 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         if (!tab) return;
 
         const newTabId = `tab-${tabCounter}`;
+        deleteStoredValue(`tabState_${newTabId}`);
+
         const newTitle = `${tab.title} (Copy)`;
 
         setTabs(prev => [...prev, {
@@ -214,7 +224,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         // Cleanup storage for other tabs
         tabs.forEach(t => {
             if (t.id !== tabId) {
-                localStorage.removeItem(`tabState_${t.id}`);
+                deleteStoredValue(`tabState_${t.id}`);
             }
         });
 
@@ -225,10 +235,12 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     const handleCloseAllTabs = useCallback(() => {
         // Cleanup all storage
         tabs.forEach(t => {
-            localStorage.removeItem(`tabState_${t.id}`);
+            deleteStoredValue(`tabState_${t.id}`);
         });
 
         const newTabId = `tab-${tabCounter}`;
+        deleteStoredValue(`tabState_${newTabId}`);
+
         setTabs([{ id: newTabId, title: `New Log ${tabCounter}`, initialFile: null }]);
         setActiveTabId(newTabId);
         setTabCounter(prev => prev + 1);
