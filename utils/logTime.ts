@@ -25,36 +25,35 @@ const TIME_PATTERNS = [
 export const extractTimestamp = (line: string): number | null => {
     if (!line) return null;
 
-    // 1. Check for Standard Time Formats
-    // We prioritize standard time because it contains absolute time info (mostly)
-    const timeMatch = line.match(/(\d{2}:\d{2}:\d{2}\.\d{3})/);
-    if (timeMatch) {
-        // We only found time part. To make it comparable, we need a date.
-        // If line has date "MM-DD", we use it. Otherwise, we assume a dummy date.
-        // Since we only calculate DIFFERENCE, the absolute date matters less AS LONG AS
-        // both start and end lines use the same relative date assumption (or have explicit dates).
+    // 1. Standard / Tizen Dlog: "MM-DD HH:mm:ss.mss" or "YYYY-MM-DD HH:mm:ss.mss"
+    // Matches: 01-01 12:00:00.123, 2024-01-01 12:00:00.123
+    const stdMatch = line.match(/(\d{4}-)?(\d{2}-\d{2}\s+)?(\d{2}:\d{2}:\d{2}\.\d{3})/);
+    if (stdMatch) {
+        // Default to current year/date if missing, just for relative comparison
+        const now = new Date();
+        const year = stdMatch[1] ? stdMatch[1].replace('-', '') : now.getFullYear();
+        let datePart = stdMatch[2] ? stdMatch[2].trim() : `${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+        const timePart = stdMatch[3];
 
-        // Let's try to parse "MM-DD HH:mm:ss.mss" if present
-        const fullMatch = line.match(/(\d{4}-)?(\d{2}-\d{2}\s+)?(\d{2}:\d{2}:\d{2}\.\d{3})/);
+        // normalize datePart (remove trailing spaces)
+        datePart = datePart.replace(/\s+/g, '');
 
-        if (fullMatch) {
-            const now = new Date();
-            const year = fullMatch[1] ? fullMatch[1].replace('-', '') : now.getFullYear();
-            const datePart = fullMatch[2] ? fullMatch[2].trim() : `${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-            const timePart = fullMatch[3];
-
-            // Construct ISO string: YYYY-MM-DDTHH:mm:ss.mss
-            const isoString = `${year}-${datePart}T${timePart}`;
-            const timestamp = Date.parse(isoString);
-            if (!isNaN(timestamp)) return timestamp;
-        }
+        // Construct ISO string: YYYY-MM-DDTHH:mm:ss.mss
+        // Date.parse accepts "YYYY-MM-DDTHH:mm:ss.sss"
+        const isoString = `${year}-${datePart}T${timePart}`;
+        const timestamp = Date.parse(isoString);
+        if (!isNaN(timestamp)) return timestamp;
     }
 
-    // 2. Check for Kernel Time (Seconds from boot)
-    const kernelMatch = line.match(/^\s*\[\s*(\d+\.\d+)\s*\]/);
-    if (kernelMatch) {
-        // Convert seconds to milliseconds
-        return parseFloat(kernelMatch[1]) * 1000;
+    // 2. Raw Monotonic Time (Tizen/Linux Kernel style or "Seconds.Microseconds" at start)
+    // Matches: "[  123.456]" OR "123.456" at start of line
+    const rawMatch = line.match(/^(\s*\[\s*)?(\d+\.\d+)(\s*\])?/);
+    if (rawMatch) {
+        // rawMatch[2] is the timestamp part
+        const seconds = parseFloat(rawMatch[2]);
+        if (!isNaN(seconds)) {
+            return seconds * 1000; // Convert to ms
+        }
     }
 
     return null;
