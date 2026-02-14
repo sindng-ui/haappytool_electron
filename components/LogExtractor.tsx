@@ -458,7 +458,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     // ✅ UI Improvement: Unified title bar with smooth scrolling
     const headerElement = React.useMemo(() => (
         <div
-            className={`h-9 flex items-center bg-[#0f172a] border-b border-indigo-500/30 select-none title-drag pr-36 header-transition ${isFocusMode ? 'header-hidden' : ''}`}
+            className={`h-8 flex items-center bg-[#0f172a] border-b border-indigo-500/30 select-none title-drag pr-36 header-transition ${isFocusMode ? 'header-hidden' : ''}`}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleGlobalDrop}
         >
