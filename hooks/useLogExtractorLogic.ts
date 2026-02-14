@@ -100,12 +100,20 @@ export const useLogExtractorLogic = ({
     const hasRestoredFromDb = useRef(false);
 
     // Load saved rule ID on mount, but respect manual selection (like Create Rule)
+    // Load saved rule ID on mount, but respect manual selection (like Create Rule)
     useEffect(() => {
         if (rules.length === 0) return;
 
         if (!hasRestoredFromDb.current) {
             hasRestoredFromDb.current = true;
-            getStoredValue('lastSelectedRuleId').then(saved => {
+            // Try to load tab-specific rule first, then fall back to global last used
+            const tabKey = `lastSelectedRuleId_${tabId}`;
+
+            Promise.all([
+                getStoredValue(tabKey),
+                getStoredValue('lastSelectedRuleId')
+            ]).then(([tabSaved, globalSaved]) => {
+                const saved = tabSaved || globalSaved;
                 const target = saved && rules.find(r => r.id === saved) ? saved : (rules[0]?.id || '');
                 if (target) setSelectedRuleId(target);
             });
@@ -115,13 +123,15 @@ export const useLogExtractorLogic = ({
                 setSelectedRuleId(rules.length > 0 ? rules[0].id : '');
             }
         }
-    }, [rules, selectedRuleId]);
+    }, [rules, selectedRuleId, tabId]);
 
     useEffect(() => {
         if (selectedRuleId) {
+            // Save to both tab-specific and global (for new tabs/fallback)
+            setStoredValue(`lastSelectedRuleId_${tabId}`, selectedRuleId);
             setStoredValue('lastSelectedRuleId', selectedRuleId);
         }
-    }, [selectedRuleId]);
+    }, [selectedRuleId, tabId]);
 
     const [isDualView, setIsDualView] = useState(false);
 

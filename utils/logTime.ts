@@ -29,20 +29,32 @@ export const extractTimestamp = (line: string): number | null => {
     // Matches: 01-01 12:00:00.123, 2024-01-01 12:00:00.123
     const stdMatch = line.match(/(\d{4}-)?(\d{2}-\d{2}\s+)?(\d{2}:\d{2}:\d{2}\.\d{3})/);
     if (stdMatch) {
-        // Default to current year/date if missing, just for relative comparison
+        // Optimization: Manual parsing to avoid expensive Date.parse() and string allocation
         const now = new Date();
-        const year = stdMatch[1] ? stdMatch[1].replace('-', '') : now.getFullYear();
-        let datePart = stdMatch[2] ? stdMatch[2].trim() : `${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+        let year = now.getFullYear();
+        let month = now.getMonth();
+        let day = now.getDate();
+
+        if (stdMatch[1]) {
+            year = parseInt(stdMatch[1], 10);
+        }
+
+        if (stdMatch[2]) {
+            const dateStr = stdMatch[2].trim();
+            const dashIdx = dateStr.indexOf('-');
+            if (dashIdx !== -1) {
+                month = parseInt(dateStr.substring(0, dashIdx), 10) - 1; // 0-indexed
+                day = parseInt(dateStr.substring(dashIdx + 1), 10);
+            }
+        }
+
         const timePart = stdMatch[3];
+        const hours = parseInt(timePart.substring(0, 2), 10);
+        const minutes = parseInt(timePart.substring(3, 5), 10);
+        const seconds = parseInt(timePart.substring(6, 8), 10);
+        const milliseconds = parseInt(timePart.substring(9, 12), 10);
 
-        // normalize datePart (remove trailing spaces)
-        datePart = datePart.replace(/\s+/g, '');
-
-        // Construct ISO string: YYYY-MM-DDTHH:mm:ss.mss
-        // Date.parse accepts "YYYY-MM-DDTHH:mm:ss.sss"
-        const isoString = `${year}-${datePart}T${timePart}`;
-        const timestamp = Date.parse(isoString);
-        if (!isNaN(timestamp)) return timestamp;
+        return new Date(year, month, day, hours, minutes, seconds, milliseconds).getTime();
     }
 
     // 2. Raw Monotonic Time (Tizen/Linux Kernel style or "Seconds.Microseconds" at start)

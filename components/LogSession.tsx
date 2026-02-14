@@ -479,6 +479,28 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             });
         }
 
+        // Family Combos Support
+        if (currentConfig?.familyCombos) {
+            currentConfig.familyCombos.forEach(combo => {
+                if (combo.enabled !== false) {
+                    // Add Start Tags
+                    combo.startTags.forEach(tag => {
+                        if (tag && tag.trim()) termsToHighlight.add(tag.trim());
+                    });
+                    // Add End Tags
+                    combo.endTags.forEach(tag => {
+                        if (tag && tag.trim()) termsToHighlight.add(tag.trim());
+                    });
+                    // Add Middle Tags (Branches)
+                    combo.middleTags.forEach(branch => {
+                        branch.forEach(tag => {
+                            if (tag && tag.trim()) termsToHighlight.add(tag.trim());
+                        });
+                    });
+                }
+            });
+        }
+
         termsToHighlight.forEach(term => {
             const checkTerm = isCaseSensitive ? term : term.toLowerCase();
             // Only add auto-highlight if NO manual highlight exists for this term
