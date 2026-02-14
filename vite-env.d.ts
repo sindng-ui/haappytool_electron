@@ -15,8 +15,9 @@ interface ElectronAPI {
     fetchUrl: (url: string, options: any) => Promise<string>;
     proxyRequest: (request: { method: string; url: string; headers: any; body: any }) => Promise<{ status: number; statusText: string; headers: any; data: any; error?: boolean; message?: string }>;
     getAppPath: () => Promise<string>;
-    validateRoslyn?: (code: string) => Promise<any>;
-    parseRxCode?: (code: string) => Promise<any>;
+    validateRoslyn: (code: string) => Promise<{ isValid: boolean; error?: string }>;
+    parseRxCode: (code: string) => Promise<{ isValid: boolean; error?: string }>;
+    toggleFullscreen: (flag: boolean) => Promise<void>;
 
     // Loading events
     on?: (channel: 'loading-progress' | 'loading-log' | 'loading-complete', callback: (...args: any[]) => void) => (() => void) | undefined;

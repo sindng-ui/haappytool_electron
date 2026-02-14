@@ -57,6 +57,8 @@ export interface LogExtractorLogicProps {
 export const MAX_SEGMENT_SIZE = 1_350_000;
 
 
+import { useHappyTool } from '../contexts/HappyToolContext';
+
 export const useLogExtractorLogic = ({
     rules, onUpdateRules, onExportSettings, onImportSettings,
     configPanelWidth, setConfigPanelWidth,
@@ -65,6 +67,9 @@ export const useLogExtractorLogic = ({
     isPanelOpen, setIsPanelOpen
 }: LogExtractorLogicProps) => {
     // ... (existing state) ...
+    const { setAmbientMood } = useHappyTool(); // ✅ Mood Control
+    const moodTimeout = useRef<NodeJS.Timeout | null>(null);
+
     const [leftSegmentIndex, setLeftSegmentIndex] = useState(0); // For pagination/segmentation (Left)
     const [rightSegmentIndex, setRightSegmentIndex] = useState(0); // For pagination/segmentation (Right)
     const [selectedRuleId, setSelectedRuleId] = useState<string>(() => {
@@ -791,13 +796,38 @@ export const useLogExtractorLogic = ({
             });
         }
 
+
         socket.on('log_data', (data: any) => {
             const chunk = typeof data === 'string' ? data : (data.chunk || data.log || JSON.stringify(data));
-            // console.log('[useLogExtractorLogic] Received chunk:', chunk.substring(0, 50));
-            // Only show toast for the first chunk to avoid spam
-            // if (!hasEverConnected) {
-            //     showToast('Receiving data stream...', 'success');
-            // }
+
+            // ✅ Reactive Ambient Lighting Logic
+            if (setAmbientMood) {
+                const lowerChunk = chunk.toLowerCase();
+                const isError = lowerChunk.includes('error') || lowerChunk.includes('exception') || lowerChunk.includes('fail');
+
+                if (isError) {
+                    setAmbientMood('error');
+                    // Keep error mood for 2 seconds
+                    if (moodTimeout.current) clearTimeout(moodTimeout.current);
+                    moodTimeout.current = setTimeout(() => {
+                        setAmbientMood('idle');
+                    }, 2000);
+                } else {
+                    // Only switch to working if not currently in error state (or if we can't easily check state, just set it)
+                    // Optimistic approach: 'working' is fleeting.
+                    // We don't have direct access to 'ambientMood' state value here without adding it to dependency array,
+                    // which might cause re-binds. 
+                    // Let's just set 'working' if we assume we aren't in a sticky error state.
+                    // For simplicity: specific errors override 'working', but general stream sets 'working'.
+                    // To avoid flickering 'working' over 'error', we can just set working if NOT error.
+                    setAmbientMood(prev => prev === 'error' ? prev : 'working');
+
+                    if (moodTimeout.current) clearTimeout(moodTimeout.current);
+                    moodTimeout.current = setTimeout(() => {
+                        setAmbientMood('idle');
+                    }, 1000);
+                }
+            }
 
             tizenBuffer.current.push(chunk);
 

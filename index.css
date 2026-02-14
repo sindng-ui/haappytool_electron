@@ -343,14 +343,36 @@ pre {
   background: radial-gradient(circle at center, transparent 20%, rgba(99, 102, 241, 0.15) 100%);
   animation: ambient-pulse 4s ease-in-out infinite;
   will-change: opacity, transform;
+  /* Smooth color transition */
+  transition: background 1s ease-in-out;
+}
+
+.glow-idle {
+  background: radial-gradient(circle at center, transparent 20%, rgba(99, 102, 241, 0.15) 100%);
+}
+
+.glow-working {
+  background: radial-gradient(circle at center, transparent 20%, rgba(6, 182, 212, 0.15) 100%);
+  animation-duration: 2s;
+  /* Faster pulse */
+}
+
+.glow-error {
+  background: radial-gradient(circle at center, transparent 20%, rgba(244, 63, 94, 0.2) 100%);
+  animation: ambient-pulse 0.5s ease-in-out infinite;
+  /* Aggressive pulse */
+}
+
+.glow-success {
+  background: radial-gradient(circle at center, transparent 20%, rgba(34, 197, 94, 0.15) 100%);
 }
 
 /* Smooth Sidebar Transition */
 .sidebar-transition {
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    margin 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.8s cubic-bezier(0.2, 0, 0, 1),
+    opacity 0.8s cubic-bezier(0.2, 0, 0, 1),
+    width 0.8s cubic-bezier(0.2, 0, 0, 1),
+    margin 0.8s cubic-bezier(0.2, 0, 0, 1);
   will-change: transform, opacity, width, margin;
   contain: layout paint;
   /* Optimization hint */
@@ -365,23 +387,25 @@ pre {
   overflow: hidden;
   /* Powerful optimization: Skipping rendering completely when hidden */
   content-visibility: hidden;
+  /* Delay start of hiding to allow OS fullscreen to expand first */
+  transition-delay: 0.2s;
 }
 
 /* Header Transition */
+/* Header Transition */
 .header-transition {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform, opacity, height;
+  transition: transform 0.8s cubic-bezier(0.2, 0, 0, 1),
+    opacity 0.8s cubic-bezier(0.2, 0, 0, 1);
+  /* height transition removed as we don't zero it anymore */
+  will-change: transform, opacity;
+  transition-delay: 0s;
+  /* Reset delay when showing */
 }
 
 .header-hidden {
   transform: translateY(-100%);
   opacity: 0;
-  height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
   pointer-events: none;
-  overflow: hidden;
-  border-bottom-width: 0;
+  /* Delay start of hiding to allow OS fullscreen to expand first */
+  transition-delay: 0.2s;
 }

@@ -504,7 +504,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                                 onDrop={(e) => handleTabDrop(e, tab.id)}
                                 onDragEnd={handleTabDragEnd}
                                 className={`
-                                    group relative flex items-center gap-2 px-4 py-1.5 min-w-[120px] max-w-[200px] h-[36px] 
+                                    group relative flex items-center gap-2 px-4 py-1.5 min-w-[120px] max-w-[200px] h-full
                                     text-xs font-medium cursor-move rounded-t-lg border-t border-l border-r
                                     transition-all duration-200 ease-out
                                     ${idx > 0 ? '-ml-3' : ''}
@@ -571,7 +571,17 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     }, []);
 
     return (
-        <div className="flex h-full flex-col font-sans overflow-hidden bg-[#0b0f19]">
+        <div className="flex h-full flex-col font-sans overflow-hidden bg-[#0b0f19] relative">
+            {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
+            <div
+                className="absolute top-0 right-0 h-8 z-50 transition-[left] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+                style={{
+                    left: isPanelOpen ? configPanelWidth : 32
+                }}
+            >
+                {headerElement}
+            </div>
+
             <div className="flex-1 overflow-hidden relative">
                 {tabs.map((tab) => (
                     <LogProvider
@@ -597,7 +607,6 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                             title={tab.title}
                             tabId={tab.id}
                             onTitleChange={handleTitleChange}
-                            headerElement={headerElement}
                         />
                     </LogProvider>
                 ))}
@@ -615,14 +624,13 @@ const SessionWrapper: React.FC<{
     title: string;
     onTitleChange: (id: string, title: string) => void;
     tabId: string;
-    headerElement: React.ReactNode;
-}> = React.memo(({ isActive, title, onTitleChange, tabId, headerElement }) => {
+}> = React.memo(({ isActive, title, onTitleChange, tabId }) => {
     // We create a stable callback for this specific session instance
     const handleTitleChange = useCallback((newTitle: string) => {
         onTitleChange(tabId, newTitle);
     }, [onTitleChange, tabId]);
 
-    return <LogSession isActive={isActive} currentTitle={title} onTitleChange={handleTitleChange} headerElement={headerElement} />;
+    return <LogSession isActive={isActive} currentTitle={title} onTitleChange={handleTitleChange} />;
 });
 
 export default LogExtractor;

@@ -148,6 +148,9 @@ const AppContent: React.FC = () => {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const toggleFocusMode = React.useCallback(() => setIsFocusMode(prev => !prev), []);
 
+  // Reactive Ambient Mood
+  const [ambientMood, setAmbientMood] = useState<'idle' | 'working' | 'error' | 'success'>('idle');
+
   // Load settings on mount
   useEffect(() => {
     const saved = localStorage.getItem('devtool_suite_settings');
@@ -425,7 +428,9 @@ const AppContent: React.FC = () => {
     handleExportSettings,
     handleImportSettings,
     isFocusMode,
-    toggleFocusMode
+    toggleFocusMode,
+    ambientMood,
+    setAmbientMood
   }), [
     logRules,
     savedRequests,
@@ -532,12 +537,16 @@ const AppContent: React.FC = () => {
     const handleFocusModeKey = (e: KeyboardEvent) => {
       if (e.key === 'F11') {
         e.preventDefault();
-        toggleFocusMode();
+        const nextState = !isFocusMode;
+        setIsFocusMode(nextState);
+        if (window.electronAPI?.toggleFullscreen) {
+          window.electronAPI.toggleFullscreen(nextState);
+        }
       }
     };
     window.addEventListener('keydown', handleFocusModeKey);
     return () => window.removeEventListener('keydown', handleFocusModeKey);
-  }, [toggleFocusMode]);
+  }, [isFocusMode]);
 
   return (
     <HappyToolProvider value={contextValue}>

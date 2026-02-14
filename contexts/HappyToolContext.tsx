@@ -31,6 +31,10 @@ export interface HappyToolContextType {
     // Focus Mode (F11)
     isFocusMode: boolean;
     toggleFocusMode: () => void;
+
+    // Reactive Ambient Mood
+    ambientMood: 'idle' | 'working' | 'error' | 'success';
+    setAmbientMood: React.Dispatch<React.SetStateAction<'idle' | 'working' | 'error' | 'success'>>;
 }
 
 const HappyToolContext = createContext<HappyToolContextType | undefined>(undefined);

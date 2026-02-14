@@ -129,6 +129,13 @@ app.whenReady().then(async () => {
         }
     });
 
+    // Toggle Fullscreen IPC
+    ipcMain.handle('toggle-fullscreen', (event, flag) => {
+        if (mainWindow) {
+            mainWindow.setFullScreen(flag);
+        }
+    });
+
     // IPC Handler for file saving
     ipcMain.handle('saveFile', async (event, content) => {
         const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {

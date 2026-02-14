@@ -13,6 +13,7 @@ import { useLogSelection } from './LogArchive/hooks/useLogSelection';
 // FloatingActionButton removed
 import { useLogArchiveContext } from './LogArchive/LogArchiveProvider';
 import { useContextMenu } from './ContextMenu';
+import { useHappyTool } from '../contexts/HappyToolContext';
 
 const { X, Eraser, ChevronLeft, ChevronRight } = Lucide;
 
@@ -89,12 +90,12 @@ interface LogSessionProps {
     isActive: boolean;
     currentTitle?: string;
     onTitleChange?: (title: string) => void;
-    headerElement?: React.ReactNode;
 }
 
-const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitleChange, headerElement }) => {
+const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitleChange }) => {
     const leftFileInputRef = React.useRef<HTMLInputElement>(null);
     const rightFileInputRef = React.useRef<HTMLInputElement>(null);
+    const { isFocusMode } = useHappyTool(); // ✅ Use global focus mode state
 
 
     // Bookmark Modal States
@@ -919,13 +920,16 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             )}
 
             <div ref={logContentRef} className="flex-1 flex overflow-hidden h-full relative group/layout">
-                {/* Configuration Panel with Resize Handle */}
-                <ConfigurationPanel />
+                {/* Configuration Panel with Resize Handle - Always visible even in Focus Mode */}
+                <div className="block h-full flex-none">
+                    <ConfigurationPanel />
+                </div>
 
-                <div className="flex-1 flex flex-col overflow-hidden relative z-0">
+                <div className={`flex-1 flex flex-col overflow-hidden relative z-0 ${isFocusMode ? '' : 'pt-8'}`}>
 
-                    {/* Render Tab Bar here (passed from parent) */}
-                    {headerElement}
+                    {/* Render Tab Bar here (passed from parent) - REMOVED, now global in LogExtractor */}
+
+
 
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="flex w-full h-full">

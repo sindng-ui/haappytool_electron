@@ -28,7 +28,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     proxyRequest: (request) => ipcRenderer.invoke('proxyRequest', request),
     getAppPath: () => ipcRenderer.invoke('getAppPath'),
     validateRoslyn: (code) => ipcRenderer.invoke('validateRoslyn', code),
+    validateRoslyn: (code) => ipcRenderer.invoke('validateRoslyn', code),
     parseRxCode: (code) => ipcRenderer.invoke('parseRxCode', code),
+    toggleFullscreen: (flag) => ipcRenderer.invoke('toggle-fullscreen', flag),
 
     // Loading events
     on: (channel, callback) => {
