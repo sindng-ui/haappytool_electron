@@ -777,7 +777,10 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             // If user is at bottom, followOutput="auto" (stick)
                             // If user scrolls up, followOutput=false (stop sticking)
                             // Disable auto-scroll in Raw Mode to prevent jumping
-                            followOutput={(!isRawMode && atBottom && !isAutoScrollPaused) ? 'auto' : false}
+                            // If user is at bottom, followOutput="auto" (stick)
+                            // If user scrolls up, followOutput=false (stop sticking)
+                            // Disable auto-scroll in Raw Mode to prevent jumping
+                            followOutput={isRawMode ? false : (atBottom && !isAutoScrollPaused ? 'auto' : false)}
 
                             atBottomStateChange={(isAtBottom) => {
                                 // Virtuoso tells us when user enters/leaves bottom zone
