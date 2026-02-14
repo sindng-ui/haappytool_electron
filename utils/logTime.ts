@@ -56,6 +56,29 @@ export const extractTimestamp = (line: string): number | null => {
         }
     }
 
+    // 3. Prefixed Monotonic Time (e.g. "bluetooth: 12345.6789")
+    // Matches: "Service: 123.456" or "Tag: 123.456"
+    // Structure: Start -> Word/Dashes/Dots -> Optional (PID) -> Colon -> Space -> Timestamp
+    const prefixMatch = line.match(/^[\w\-\.]+(?:\(\d+\))?:\s+(\d+\.\d+)/);
+    if (prefixMatch) {
+        const seconds = parseFloat(prefixMatch[1]);
+        if (!isNaN(seconds)) {
+            return seconds * 1000;
+        }
+    }
+
+    // 4. Robust High-Precision Fallback
+    // Check for any floating point number with 6+ decimal places (timestamps usually have 6 or 9)
+    // This helps catch cases where formatting is slightly off or in middle of preamble
+    // Matches: " 123.456789 ", "Time: 123.456789"
+    const robustMatch = line.match(/(?:^|\s)(\d+\.\d{6,})(?:\s|$|:)/);
+    if (robustMatch) {
+        const seconds = parseFloat(robustMatch[1]);
+        if (!isNaN(seconds)) {
+            return seconds * 1000;
+        }
+    }
+
     return null;
 };
 

@@ -53,35 +53,23 @@ describe('Log Time Utils', () => {
             expect(date.getMilliseconds()).toBe(401);
         });
 
-        it('should extract simple kernel time format', () => {
-            const line = 'bluetooth-service 27.888888 I/EEEE (P111, T222): log';
-            // The regex for rawMatch is /^(\s*\[\s*)?(\d+\.\d+)(\s*\])?/
-            // This line does NOT start with the number, so it might fail with current logic unless we adjust regex to look *inside* or the user meant "timestamp at start".
-            // User example: "bluetooth-service 27.888888 I/EEEE (P111, T222): log"
-            // My current regex expects it at the start or in brackets.
-            // If the timestamp is in the middle, we need a strategy.
-            // However, usually logs start with timestamp.
-            // If "bluetooth-service" is the TAG, maybe the format is "TAG TIMESTAMP ..." ?
-            // Let's assume the user meant the line STARTS with standard log parts.
-            // But valid raw log usually starts with timestamp.
-            // Wait, the user said: "bluetooth-service 27.888888 I/EEEE (P111, T222): log"
-            // This implies the timestamp is the SECOND token?
-            // Or "bluetooth-service" is the process name printed by journalctl?
-            // Let's try to match a float timestamp anywhere early in the line?
-            // But that is risky (could match version numbers).
+        it('should extract timestamp from prefixed monotonic logs (Type 1)', () => {
+            const line = 'bluetooth: 4000.123456789 I/LOGTAG (P111, T111): contents';
+            const ts = extractTimestamp(line);
+            // 4000.123456789 seconds = 4000123.456789 ms
+            expect(ts).toBeCloseTo(4000123.456789);
+        });
 
-            // Let's stick to what I implemented: start of line.
-            // If the user's log really starts with "bluetooth-service...", I might need to relax the regex.
-            // Let's check the implementation again.
-            // const rawMatch = line.match(/^(\s*\[\s*)?(\d+\.\d+)(\s*\])?/);
-            // This only matches AT START.
+        it('should extract timestamp from simple monotonic logs (Type 2)', () => {
+            const line = '4000.123456789 I/LOGTAG (P111, T111): contents';
+            const ts = extractTimestamp(line);
+            expect(ts).toBeCloseTo(4000123.456789);
+        });
 
-            // If the user input "bluetooth-service 27.888888..." is real, I need to support it.
-            // Let's update the implementation to allow a prefix word?
-            // Or maybe simply look for the pattern `\s+(\d+\.\d+)\s+` ?
-            // That's dangerous.
-
-            // Let's test the ones I KNOW should work first (Raw at start).
+        it('should extract timestamp from monotonic logs with leading spaces', () => {
+            const line = '  4000.123456789 I/LOGTAG';
+            const ts = extractTimestamp(line);
+            expect(ts).toBeCloseTo(4000123.456789);
         });
     });
 
