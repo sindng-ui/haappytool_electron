@@ -79,8 +79,8 @@ const ConfigurationPanel: React.FC = () => {
 
     return (
         <div
-            className={`${isPanelOpen ? '' : 'w-8'} glass-morphism flex flex-col h-full shadow-2xl z-20 custom-scrollbar relative shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] overflow-hidden`}
-            style={{ width: isPanelOpen ? configPanelWidth : undefined }}
+            className={`${isPanelOpen ? '' : 'w-8'} glass-morphism flex flex-col h-full shadow-2xl z-20 custom-scrollbar relative shrink-0 transition-[width] duration-700 ease-[cubic-bezier(0.19,1,0.22,1)] overflow-hidden`}
+            style={{ width: isPanelOpen ? configPanelWidth : undefined, transitionDelay: isPanelOpen ? '100ms' : '0ms' }}
         >
             {isPanelOpen && (
                 <div

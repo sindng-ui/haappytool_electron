@@ -577,10 +577,14 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         <div className="flex h-full flex-col font-sans overflow-hidden bg-[#0b0f19] relative">
             {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
             {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
+            {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
             <div
-                className={`absolute right-0 h-8 z-40 transition-[left,transform] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] top-0 ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? 'translate-y-0' : 'translate-y-16'}`}
+                className={`absolute right-0 h-8 z-40 transition-[left,transform] duration-700 ease-[cubic-bezier(0.19,1,0.22,1)] top-0 ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? 'translate-y-0' : 'translate-y-16'}`}
                 style={{
-                    left: isPanelOpen ? configPanelWidth : 32
+                    left: isPanelOpen ? configPanelWidth : 32,
+                    transitionDelay: isPanelOpen ? '100ms, 0ms' : '0ms, 100ms' // Staggered: Open=HeaderDown/Wait/PanelOut, Close=PanelIn/Wait/HeaderUp. Wait...
+                    // Close (!isPanel): Panel Shrink (Left) -> 0ms. Header Up (Transform) -> 100ms. Correct: '0ms, 100ms'.
+                    // Open (isPanel): Header Down (Transform) -> 0ms. Panel Expand (Left) -> 100ms. Correct: '100ms, 0ms'.
                 }}
             >
                 {headerElement}
