@@ -72,7 +72,29 @@ export const extractTimestamp = (line: string): number | null => {
         }
     }
 
-    // 4. Robust High-Precision Fallback
+    // 4. Timestamp followed by colon (common in ftrace/dmesg)
+    // Matches: "task-123 [001] 100.123: func", "Tag 123.456:"
+    const colonMatch = line.match(/^\s*.*?\s+(\d+\.\d+):/);
+    if (colonMatch) {
+        const seconds = parseFloat(colonMatch[1]);
+        if (!isNaN(seconds)) {
+            return seconds * 1000;
+        }
+    }
+
+    // 5. Brackets with prefix or Simple Prefix (Non-greedy)
+    // Matches: "[Tag] 123.456", "Tag 123.456"
+    // Be careful with false positives (e.g. "Version 1.2")
+    // We restrict prefix to common tag chars
+    const loosePrefixMatch = line.match(/^\s*[\w\-\.\[\]]+\s+(\d+\.\d+)(?:\s|$)/);
+    if (loosePrefixMatch) {
+        const seconds = parseFloat(loosePrefixMatch[1]);
+        if (!isNaN(seconds)) {
+            return seconds * 1000;
+        }
+    }
+
+    // 6. Robust High-Precision Fallback
     // Check for any floating point number with 6+ decimal places (timestamps usually have 6 or 9)
     // This helps catch cases where formatting is slightly off or in middle of preamble
     // Matches: " 123.456789 ", "Time: 123.456789"
