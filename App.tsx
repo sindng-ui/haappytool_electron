@@ -144,6 +144,10 @@ const AppContent: React.FC = () => {
 
   const [enabledPlugins, setEnabledPlugins] = useState<string[]>(defaultEnabledPlugins);
 
+  // Focus Mode State (F11)
+  const [isFocusMode, setIsFocusMode] = useState(false);
+  const toggleFocusMode = React.useCallback(() => setIsFocusMode(prev => !prev), []);
+
   // Load settings on mount
   useEffect(() => {
     const saved = localStorage.getItem('devtool_suite_settings');
@@ -419,7 +423,9 @@ const AppContent: React.FC = () => {
     postGlobalAuth,
     setPostGlobalAuth,
     handleExportSettings,
-    handleImportSettings
+    handleImportSettings,
+    isFocusMode,
+    toggleFocusMode
   }), [
     logRules,
     savedRequests,
@@ -428,8 +434,12 @@ const AppContent: React.FC = () => {
     postGlobalVariables, // ✅ Now stable
     setPostGlobalVariables, // ✅ Now stable
     envProfiles,
+    setEnvProfiles,
     activeEnvId,
-    postGlobalAuth
+    setActiveEnvId,
+    postGlobalAuth,
+    isFocusMode,
+    toggleFocusMode
     // ✅ Removed duplicates: requestHistory, lastApiUrl, lastMethod
   ]);
 
@@ -513,7 +523,21 @@ const AppContent: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, []);
+
+  // Focus Mode Shortcut (F11)
+  useEffect(() => {
+    const handleFocusModeKey = (e: KeyboardEvent) => {
+      if (e.key === 'F11') {
+        e.preventDefault();
+        toggleFocusMode();
+      }
+    };
+    window.addEventListener('keydown', handleFocusModeKey);
+    return () => window.removeEventListener('keydown', handleFocusModeKey);
+  }, [toggleFocusMode]);
 
   return (
     <HappyToolProvider value={contextValue}>
@@ -535,15 +559,17 @@ const AppContent: React.FC = () => {
 
       <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0B0F19] font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300">
         <div className="flex-1 flex overflow-hidden">
-          <Sidebar
-            activePluginId={activeTool}
-            onSelectPlugin={handleSetActiveTool}
-            pluginOrder={toolOrder}
-            onReorderPlugins={setToolOrder}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            plugins={ALL_PLUGINS}
-            enabledPlugins={enabledPlugins}
-          />
+          {!isFocusMode && (
+            <Sidebar
+              activePluginId={activeTool}
+              onSelectPlugin={handleSetActiveTool}
+              pluginOrder={toolOrder}
+              onReorderPlugins={setToolOrder}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+              plugins={ALL_PLUGINS}
+              enabledPlugins={enabledPlugins}
+            />
+          )}
 
           <main className="flex-1 overflow-hidden relative bg-slate-50 dark:bg-slate-950 min-h-0 transition-colors duration-300">
             {!isSettingsLoaded ? (

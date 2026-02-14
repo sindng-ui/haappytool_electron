@@ -27,6 +27,10 @@ export interface HappyToolContextType {
     // Global Actions
     handleExportSettings: () => void;
     handleImportSettings: (settings: AppSettings) => void;
+
+    // Focus Mode (F11)
+    isFocusMode: boolean;
+    toggleFocusMode: () => void;
 }
 
 const HappyToolContext = createContext<HappyToolContextType | undefined>(undefined);
