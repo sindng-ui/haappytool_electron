@@ -68,10 +68,11 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
             if (!isActive) return; // Only if Log Extractor is active tool
 
             if (e.ctrlKey && e.shiftKey) {
-                if (e.key === '[') {
+                // Use e.code to handle matching regardless of Shift character (e.g. { or })
+                if (e.code === 'BracketLeft' || e.key === '[' || e.key === '{') {
                     e.preventDefault();
                     setConfigPanelWidth(current => Math.max(150, current - 20)); // Decrease width, min 150px
-                } else if (e.key === ']') {
+                } else if (e.code === 'BracketRight' || e.key === ']' || e.key === '}') {
                     e.preventDefault();
                     setConfigPanelWidth(current => Math.min(window.innerWidth - 100, current + 20)); // Increase width
                 }
@@ -97,7 +98,8 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                         id: t.id,
                         title: t.title,
                         initialFile: null, // File object cannot be restored, but filePath can
-                        filePath: t.filePath
+                        // Reading file to check usage first.
+                        // I will not replace yet.
                     }));
                 }
             }

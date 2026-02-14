@@ -738,7 +738,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 }
 
                                 // Ctrl + [ : Font Size Down
-                                if (e.key === '[') {
+                                if (e.key === '[' && !e.shiftKey) {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     const currentSize = logViewPreferences?.fontSize || 12;
@@ -752,7 +752,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 }
 
                                 // Ctrl + ] : Font Size Up
-                                if (e.key === ']') {
+                                if (e.key === ']' && !e.shiftKey) {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     const currentSize = logViewPreferences?.fontSize || 12;
