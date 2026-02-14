@@ -97,6 +97,22 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const rightFileInputRef = React.useRef<HTMLInputElement>(null);
     const { isFocusMode } = useHappyTool(); // ✅ Use global focus mode state
 
+    // ✅ Resize Detection for Smart Transitions
+    const [isResizing, setIsResizing] = React.useState(false);
+    React.useEffect(() => {
+        let timeout: NodeJS.Timeout;
+        const handleResize = () => {
+            setIsResizing(true);
+            clearTimeout(timeout);
+            timeout = setTimeout(() => setIsResizing(false), 200);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            clearTimeout(timeout);
+        };
+    }, []);
+
 
     // Bookmark Modal States
     const [isLeftBookmarksOpen, setLeftBookmarksOpen] = React.useState(false);
@@ -600,7 +616,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
             {/* Header Area with Hide Animation in Focus Mode */}
             {/* Header Area with Hide Animation in Focus Mode */}
-            <div className={`transition-all duration-700 ease-[cubic-bezier(0.19,1,0.22,1)] z-50 will-change-[margin-top] ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? '-mt-16 delay-100' : 'mt-0 delay-0'}`}>
+            <div className={`transition-[margin-top] duration-700 ease-[cubic-bezier(0.19,1,0.22,1)] z-50 will-change-[margin-top] ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? '-mt-16 delay-100' : 'mt-0 delay-0'}`}>
                 <TopBar onReturnFocus={() => {
                     // Logic to determine which pane to focus
                     if (isDualView) {
@@ -945,7 +961,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     <ConfigurationPanel />
                 </div>
 
-                <div className={`flex-1 flex flex-col overflow-hidden relative z-0 transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${isFocusMode ? 'pt-0' : 'pt-8'}`}>
+                <div className={`flex-1 flex flex-col overflow-hidden relative z-0 transition-[padding-top] duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${isFocusMode ? 'pt-0' : 'pt-8'}`}>
 
                     {/* Render Tab Bar here (passed from parent) - REMOVED, now global in LogExtractor */}
 
@@ -954,7 +970,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="flex w-full h-full">
                             {/* Left Pane */}
-                            <div className={`flex flex-col h-full min-w-0 transition-all relative ${isDualView ? 'w-1/2' : 'w-full'}`}>
+                            <div className={`flex flex-col h-full min-w-0 ${!isResizing ? 'transition-[width] duration-300 ease-[cubic-bezier(0.2,0,0,1)]' : 'transition-none'} relative ${isDualView ? 'w-1/2' : 'w-full'}`}>
                                 <LoadingOverlay
                                     isVisible={!!leftFileName && !leftWorkerReady && leftIndexingProgress < 100}
                                     fileName={leftFileName || ''}

@@ -443,6 +443,18 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 
     // Key Handler
     const handleKeyDown = (e: React.KeyboardEvent) => {
+        // ✅ Enter Key triggers Double Click Action (e.g. Raw View)
+        if (e.key === 'Enter') {
+            if (activeLineIndex !== undefined && activeLineIndex >= 0 && onLineDoubleClick) {
+                // Don't intercept if user is pressing Enter on a Toolbar button
+                if ((e.target as HTMLElement).tagName === 'BUTTON') return;
+
+                e.preventDefault();
+                onLineDoubleClick(activeLineIndex);
+                return;
+            }
+        }
+
         if (e.code === 'Space') {
             if (activeLineIndex !== undefined && activeLineIndex >= 0) {
                 e.preventDefault();
@@ -683,7 +695,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         <div
             ref={containerRef}
             tabIndex={0}
-            className={`flex-1 flex flex-col relative overflow-hidden transition-all duration-300 outline-none h-full 
+            className={`flex-1 flex flex-col relative overflow-hidden transition-colors duration-300 outline-none h-full 
                 ${dragActive
                     ? 'bg-indigo-500/10 ring-4 ring-inset ring-indigo-500/50'
                     : isRawMode

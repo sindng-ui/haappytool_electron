@@ -509,7 +509,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                                 className={`
                                     group relative flex items-center gap-2 px-4 py-1.5 min-w-[120px] max-w-[200px] h-full
                                     text-xs font-medium cursor-move rounded-t-lg border-t border-l border-r
-                                    transition-all duration-200 ease-out
+                                    transition-colors duration-200 ease-out
                                     ${idx > 0 ? '-ml-3' : ''}
                                     ${isDragging ? 'opacity-40 scale-95' : ''}
                                     ${isActive
