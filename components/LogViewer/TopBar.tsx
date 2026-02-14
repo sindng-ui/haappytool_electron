@@ -20,7 +20,8 @@ const TopBar: React.FC = () => {
         leftFilteredCount, rightFilteredCount,
         tizenSocket, handleTizenDisconnect, findText,
         searchInputRef,
-        isTizenQuickConnect, setIsTizenQuickConnect // Added
+        isTizenQuickConnect, setIsTizenQuickConnect, // Added
+        setIsSearchFocused // ✅ Consumed
     } = useLogContext();
 
     // Quick Connect Handler
@@ -141,6 +142,8 @@ const TopBar: React.FC = () => {
                         ref={searchInputRef}
                         className="bg-transparent border-none text-xs text-slate-300 w-32 focus:outline-none placeholder-slate-600 font-mono"
                         placeholder="Find in logs..."
+                        onFocus={() => setIsSearchFocused && setIsSearchFocused(true)}
+                        onBlur={() => setIsSearchFocused && setIsSearchFocused(false)}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                                 const val = e.currentTarget.value;

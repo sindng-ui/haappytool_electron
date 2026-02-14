@@ -89,6 +89,9 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     const { showContextMenu, ContextMenuComponent } = useContextMenu();
 
 
+    // ✅ Search Focus State (Lifted for Focus Mode Layout)
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
+
     // Default initial state (do not load validation files)
     const [tabs, setTabs] = useState<Tab[]>(() => {
         try {
@@ -574,7 +577,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         <div className="flex h-full flex-col font-sans overflow-hidden bg-[#0b0f19] relative">
             {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
             <div
-                className="absolute top-16 right-0 h-8 z-40 transition-[left] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+                className={`absolute right-0 h-8 z-40 transition-[left,top] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? 'top-0' : 'top-16'}`}
                 style={{
                     left: isPanelOpen ? configPanelWidth : 32
                 }}
@@ -601,6 +604,8 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                         isActive={isActive && tab.id === activeTabId}
                         isPanelOpen={isPanelOpen}
                         setIsPanelOpen={setIsPanelOpen}
+                        isSearchFocused={isSearchFocused} // ✅ Pass Down
+                        setIsSearchFocused={setIsSearchFocused} // ✅ Pass Down
                     >
                         <SessionWrapper
                             isActive={isActive && tab.id === activeTabId}

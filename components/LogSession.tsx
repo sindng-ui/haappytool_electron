@@ -131,6 +131,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         searchInputRef,
         logViewPreferences, // Added
         isPanelOpen, setIsPanelOpen, updateLogViewPreferences, // Added for shortcuts
+        isSearchFocused // Added for Focus Mode
     } = useLogContext();
 
     // Log Archive: Text Selection
@@ -597,7 +598,10 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     return (
         <div className="flex h-full flex-col font-sans overflow-hidden" style={{ display: isActive ? 'flex' : 'none' }}>
 
-            <TopBar />
+            {/* Header Area with Hide Animation in Focus Mode */}
+            <div className={`transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] z-50 ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? '-mt-16' : 'mt-0'}`}>
+                <TopBar />
+            </div>
 
             {/* Main Content Area */}
             {/* Added transition-all to synchronize with header movement */}

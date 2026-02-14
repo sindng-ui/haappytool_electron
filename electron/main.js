@@ -68,7 +68,7 @@ async function createWindow() {
     if (isDev) {
         console.log('[DEBUG] Loading dev URL: http://127.0.0.1:3000');
         await mainWindow.loadURL('http://127.0.0.1:3000');
-        mainWindow.webContents.openDevTools();
+        // mainWindow.webContents.openDevTools();
     } else {
         // Production: Load built files
         const indexPath = path.join(__dirname, '../dist/index.html');

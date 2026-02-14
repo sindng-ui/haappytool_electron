@@ -34,6 +34,8 @@ export interface LogExtractorLogicProps {
     isActive?: boolean;
     isPanelOpen: boolean;
     setIsPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    isSearchFocused?: boolean; // ✅ Lifted State
+    setIsSearchFocused?: (focused: boolean) => void; // ✅ Lifted State Setter
 }
 
 // Segmentation for Large Files (Browser Limit workaround)
@@ -64,8 +66,15 @@ export const useLogExtractorLogic = ({
     configPanelWidth, setConfigPanelWidth,
     tabId, initialFilePath, initialFile, onFileChange,
     isActive = true,
-    isPanelOpen, setIsPanelOpen
+    isPanelOpen, setIsPanelOpen,
+    isSearchFocused: propIsSearchFocused, setIsSearchFocused: propSetIsSearchFocused // ✅ Destructure new props
 }: LogExtractorLogicProps) => {
+
+    // ✅ Search Focus State (Lifted or Local Fallback)
+    const [localSearchFocused, setLocalSearchFocused] = useState(false);
+    const isSearchFocused = propIsSearchFocused !== undefined ? propIsSearchFocused : localSearchFocused;
+    const setIsSearchFocused = propSetIsSearchFocused || setLocalSearchFocused;
+
     // ... (existing state) ...
     const { setAmbientMood } = useHappyTool(); // ✅ Mood Control
     const moodTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -1821,6 +1830,7 @@ export const useLogExtractorLogic = ({
         logViewPreferences,
         updateLogViewPreferences,
         isLogging, setIsLogging,
-        connectionMode
+        connectionMode,
+        isSearchFocused, setIsSearchFocused // ✅ Expose for layout logic
     };
 };
