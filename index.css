@@ -374,7 +374,7 @@ pre {
     width 0.8s cubic-bezier(0.2, 0, 0, 1),
     margin 0.8s cubic-bezier(0.2, 0, 0, 1);
   will-change: transform, opacity, width, margin;
-  contain: layout paint;
+  /* contain property removed to fix sidebar overflow clipping issue */
   /* Optimization hint */
 }
 

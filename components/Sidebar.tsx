@@ -75,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
 
       {/* Floating Animated Sidebar */}
       <div
-        className={`absolute top-0 left-0 h-full glass-morphism text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden transform-gpu backface-hidden outline-none z-50 ${isExpanded ? 'w-56' : 'w-14'
+        className={`absolute top-0 left-0 h-full bg-[#0B0F19] border-r border-white/5 text-slate-400 transition-all duration-300 ease-in-out flex flex-col shadow-2xl overflow-hidden transform-gpu backface-hidden outline-none z-50 ${isExpanded ? 'w-56' : 'w-14'
           }`}
         tabIndex={0}
         onBlur={handleBlur}
