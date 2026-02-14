@@ -645,10 +645,21 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     }, [isShiftDown]);
 
     // Handle Initial Scroll Request safely (Robust Fallback)
+    // Handle Initial Scroll Request safely (Robust Fallback)
+    const hasInitialScrolled = useRef(false);
+
     useEffect(() => {
-        if (workerReady && initialScrollIndex !== undefined && totalMatches > 0) {
+        // Reset scroll tracking when file changes
+        hasInitialScrolled.current = false;
+    }, [fileName]);
+
+    useEffect(() => {
+        if (!hasInitialScrolled.current && workerReady && initialScrollIndex !== undefined && totalMatches > 0) {
             const relative = initialScrollIndex - absoluteOffset;
             if (relative >= 0 && relative < totalMatches) {
+                // Mark as scrolled immediately to prevent re-entry
+                hasInitialScrolled.current = true;
+
                 // Use double-raf or raf+timeout to guarantee Virtuoso is ready
                 requestAnimationFrame(() => {
                     setTimeout(() => {
