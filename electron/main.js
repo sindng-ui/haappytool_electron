@@ -93,6 +93,27 @@ async function createWindow() {
         mainWindow = null;
     });
 
+    // Custom Zoom Handling (Fine-grained control)
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+        if (input.control || input.meta) {
+            const { code, type } = input;
+            if (type === 'keyDown') {
+                if (code === 'Equal' || code === 'NumpadAdd') { // Zoom In
+                    event.preventDefault();
+                    const currentZoom = mainWindow.webContents.getZoomFactor();
+                    mainWindow.webContents.setZoomFactor(Math.min(currentZoom + 0.1, 5.0)); // +10%
+                } else if (code === 'Minus' || code === 'NumpadSubtract') { // Zoom Out
+                    event.preventDefault();
+                    const currentZoom = mainWindow.webContents.getZoomFactor();
+                    mainWindow.webContents.setZoomFactor(Math.max(currentZoom - 0.1, 0.2)); // -10%
+                } else if (code === 'Digit0' || code === 'Numpad0') { // Reset Zoom
+                    event.preventDefault();
+                    mainWindow.webContents.setZoomFactor(1.0);
+                }
+            }
+        }
+    });
+
     // Wait for page to finish loading
     return pageLoadedPromise;
 }
