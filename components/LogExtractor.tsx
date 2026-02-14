@@ -576,8 +576,9 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     return (
         <div className="flex h-full flex-col font-sans overflow-hidden bg-[#0b0f19] relative">
             {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
+            {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
             <div
-                className={`absolute right-0 h-8 z-40 transition-[left,top] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? 'top-0' : 'top-16'}`}
+                className={`absolute right-0 h-8 z-40 transition-[left,transform] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] top-0 ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? 'translate-y-0' : 'translate-y-16'}`}
                 style={{
                     left: isPanelOpen ? configPanelWidth : 32
                 }}

@@ -599,7 +599,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         <div className="flex h-full flex-col font-sans overflow-hidden" style={{ display: isActive ? 'flex' : 'none' }}>
 
             {/* Header Area with Hide Animation in Focus Mode */}
-            <div className={`transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] z-50 ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? '-mt-16' : 'mt-0'}`}>
+            <div className={`transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] z-50 will-change-[margin-top] ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? '-mt-16' : 'mt-0'}`}>
                 <TopBar />
             </div>
 
