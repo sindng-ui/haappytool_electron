@@ -557,9 +557,12 @@ const AppContent: React.FC = () => {
         onChange={onImportFileChange}
       />
 
-      <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0B0F19] font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300">
-        <div className="flex-1 flex overflow-hidden">
-          {!isFocusMode && (
+      <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0B0F19] font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300 relative">
+        {/* Focus Mode Ambient Glow */}
+        {isFocusMode && <div className="focus-ambient-glow animate-fade-in" />}
+
+        <div className="flex-1 flex overflow-hidden z-10 relative">
+          <div className={`sidebar-transition ${isFocusMode ? 'sidebar-hidden w-0 opacity-0 -ml-64' : 'w-64 opacity-100'}`}>
             <Sidebar
               activePluginId={activeTool}
               onSelectPlugin={handleSetActiveTool}
@@ -569,7 +572,7 @@ const AppContent: React.FC = () => {
               plugins={ALL_PLUGINS}
               enabledPlugins={enabledPlugins}
             />
-          )}
+          </div>
 
           <main className="flex-1 overflow-hidden relative bg-slate-50 dark:bg-slate-950 min-h-0 transition-colors duration-300">
             {!isSettingsLoaded ? (

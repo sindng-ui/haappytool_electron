@@ -456,20 +456,17 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     }, [tabs, activeTabId, handleCloseTab]);
 
     // ✅ UI Improvement: Unified title bar with smooth scrolling
-    const headerElement = React.useMemo(() => {
-        if (isFocusMode) return null; // ✅ Hide header in Focus Mode
-
-        return (
+    const headerElement = React.useMemo(() => (
+        <div
+            className={`h-9 flex items-center bg-[#0f172a] border-b border-indigo-500/30 select-none title-drag pr-36 header-transition ${isFocusMode ? 'header-hidden' : ''}`}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleGlobalDrop}
+        >
             <div
-                className="h-9 flex items-center bg-[#0f172a] border-b border-indigo-500/30 select-none title-drag pr-36"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleGlobalDrop}
+                className="flex-1 flex overflow-x-auto items-end h-full px-2 scroll-smooth no-drag"
             >
-                <div
-                    className="flex-1 flex overflow-x-auto items-end h-full px-2 scroll-smooth no-drag"
-                >
-                    {/* Custom scrollbar styling via Tailwind */}
-                    <style>{`
+                {/* Custom scrollbar styling via Tailwind */}
+                <style>{`
                     .tab-container::-webkit-scrollbar {
                         height: 4px;
                     }
@@ -484,91 +481,90 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                         background: rgba(99, 102, 241, 0.5);
                     }
                 `}</style>
-                    <div className="flex items-end h-full gap-0.5 tab-container" style={{ minWidth: 'max-content' }}>
-                        {tabs.map((tab, idx) => {
-                            const isActive = tab.id === activeTabId;
-                            const isDragging = tab.id === draggedTabId;
-                            const isDragOver = tab.id === dragOverTabId;
-                            const tabStyles = getTabStyles(tab.id);
+                <div className="flex items-end h-full gap-0.5 tab-container" style={{ minWidth: 'max-content' }}>
+                    {tabs.map((tab, idx) => {
+                        const isActive = tab.id === activeTabId;
+                        const isDragging = tab.id === draggedTabId;
+                        const isDragOver = tab.id === dragOverTabId;
+                        const tabStyles = getTabStyles(tab.id);
 
-                            const draggedIndex = tabs.findIndex(t => t.id === draggedTabId);
-                            const isLeftValid = draggedIndex !== idx - 1; // Don't show left indicator if dragging immediate previous tab
-                            const isRightValid = draggedIndex !== idx + 1; // Don't show right indicator if dragging immediate next tab
+                        const draggedIndex = tabs.findIndex(t => t.id === draggedTabId);
+                        const isLeftValid = draggedIndex !== idx - 1; // Don't show left indicator if dragging immediate previous tab
+                        const isRightValid = draggedIndex !== idx + 1; // Don't show right indicator if dragging immediate next tab
 
-                            return (
-                                <div
-                                    key={tab.id}
-                                    draggable
-                                    onClick={() => setActiveTabId(tab.id)}
-                                    onContextMenu={(e) => handleTabContextMenu(e, tab.id)}
-                                    onDragStart={(e) => handleTabDragStart(e, tab.id)}
-                                    onDragOver={(e) => handleTabDragOver(e, tab.id)}
-                                    onDragLeave={handleTabDragLeave}
-                                    onDrop={(e) => handleTabDrop(e, tab.id)}
-                                    onDragEnd={handleTabDragEnd}
-                                    className={`
+                        return (
+                            <div
+                                key={tab.id}
+                                draggable
+                                onClick={() => setActiveTabId(tab.id)}
+                                onContextMenu={(e) => handleTabContextMenu(e, tab.id)}
+                                onDragStart={(e) => handleTabDragStart(e, tab.id)}
+                                onDragOver={(e) => handleTabDragOver(e, tab.id)}
+                                onDragLeave={handleTabDragLeave}
+                                onDrop={(e) => handleTabDrop(e, tab.id)}
+                                onDragEnd={handleTabDragEnd}
+                                className={`
                                     group relative flex items-center gap-2 px-4 py-1.5 min-w-[120px] max-w-[200px] h-[36px] 
                                     text-xs font-medium cursor-move rounded-t-lg border-t border-l border-r
                                     transition-all duration-200 ease-out
                                     ${idx > 0 ? '-ml-3' : ''}
                                     ${isDragging ? 'opacity-40 scale-95' : ''}
                                     ${isActive
-                                            ? `bg-slate-900 ${tabStyles.base} text-slate-200 z-20 shadow-lg ${tabStyles.shadow} scale-[1.02]`
-                                            : `bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-900/50 hover:text-slate-300 border-b-indigo-500/30 z-10 hover:z-15 hover:scale-[1.01]`
-                                        }
+                                        ? `bg-slate-900 ${tabStyles.base} text-slate-200 z-20 shadow-lg ${tabStyles.shadow} scale-[1.02]`
+                                        : `bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-900/50 hover:text-slate-300 border-b-indigo-500/30 z-10 hover:z-15 hover:scale-[1.01]`
+                                    }
                                 `}
-                                    style={{
-                                        transform: isActive ? 'translateY(1px)' : 'translateY(0)',
-                                    }}
-                                    title={tab.title}
-                                >
-                                    {/* Drop indicators - Smart hiding */}
-                                    {isDragOver && draggedTabId && dragOverPosition === 'left' && isLeftValid && (
-                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 z-50 rounded-l-lg" />
-                                    )}
-                                    {isDragOver && draggedTabId && dragOverPosition === 'right' && isRightValid && (
-                                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-indigo-500 z-50 rounded-r-lg" />
-                                    )}
+                                style={{
+                                    transform: isActive ? 'translateY(1px)' : 'translateY(0)',
+                                }}
+                                title={tab.title}
+                            >
+                                {/* Drop indicators - Smart hiding */}
+                                {isDragOver && draggedTabId && dragOverPosition === 'left' && isLeftValid && (
+                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 z-50 rounded-l-lg" />
+                                )}
+                                {isDragOver && draggedTabId && dragOverPosition === 'right' && isRightValid && (
+                                    <div className="absolute right-0 top-0 bottom-0 w-1 bg-indigo-500 z-50 rounded-r-lg" />
+                                )}
 
-                                    <FileText
-                                        size={12}
-                                        className={`transition-colors duration-200 ${isActive ? 'text-slate-200' : 'opacity-50 group-hover:opacity-80'}`}
-                                    />
-                                    <span className="truncate flex-1">{tab.title}</span>
-                                    <button
-                                        onClick={(e) => handleCloseTab(e, tab.id)}
-                                        className={`
+                                <FileText
+                                    size={12}
+                                    className={`transition-colors duration-200 ${isActive ? 'text-slate-200' : 'opacity-50 group-hover:opacity-80'}`}
+                                />
+                                <span className="truncate flex-1">{tab.title}</span>
+                                <button
+                                    onClick={(e) => handleCloseTab(e, tab.id)}
+                                    className={`
                                         opacity-0 group-hover:opacity-100 p-0.5 rounded-md transition-all duration-200
                                         ${isActive ? 'hover:bg-slate-700/50 text-slate-300' : 'hover:bg-slate-700 text-slate-400'}
                                     `}
-                                    >
-                                        <X size={12} />
-                                    </button>
+                                >
+                                    <X size={12} />
+                                </button>
 
-                                    {/* Active indicator */}
-                                    {isActive && (
-                                        <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r ${tabStyles.gradient} rounded-t-full`} />
-                                    )}
-                                    {/* Bottom border hider for active tab */}
-                                    {isActive && (
-                                        <div className="absolute -bottom-[1px] left-0 right-0 h-[2px] bg-slate-900 z-30" />
-                                    )}
-                                </div>
-                            );
-                        })}
+                                {/* Active indicator */}
+                                {isActive && (
+                                    <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r ${tabStyles.gradient} rounded-t-full`} />
+                                )}
+                                {/* Bottom border hider for active tab */}
+                                {isActive && (
+                                    <div className="absolute -bottom-[1px] left-0 right-0 h-[2px] bg-slate-900 z-30" />
+                                )}
+                            </div>
+                        );
+                    })}
 
-                        <button
-                            onClick={() => handleAddTab(null)}
-                            className="h-[32px] w-[32px] flex items-center justify-center rounded-lg text-slate-500 hover:text-indigo-400 hover:bg-slate-800/50 transition-all duration-200 ml-2 mb-0.5 z-0 hover:scale-110"
-                            title="New Tab (Ctrl+T)"
-                        >
-                            <Plus size={16} />
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => handleAddTab(null)}
+                        className="h-[32px] w-[32px] flex items-center justify-center rounded-lg text-slate-500 hover:text-indigo-400 hover:bg-slate-800/50 transition-all duration-200 ml-2 mb-0.5 z-0 hover:scale-110"
+                        title="New Tab (Ctrl+T)"
+                    >
+                        <Plus size={16} />
+                    </button>
                 </div>
-            </div >
-        );
-    }, [tabs, activeTabId, handleAddTab, handleCloseTab, handleGlobalDrop, draggedTabId, dragOverTabId, handleTabDragStart, handleTabDragOver, handleTabDragLeave, handleTabDrop, handleTabDragEnd, toggleSidebar, isFocusMode]);
+            </div>
+        </div >
+    ), [tabs, activeTabId, handleAddTab, handleCloseTab, handleGlobalDrop, draggedTabId, dragOverTabId, handleTabDragStart, handleTabDragOver, handleTabDragLeave, handleTabDrop, handleTabDragEnd, toggleSidebar, isFocusMode]);
 
     const handleTitleChange = useCallback((tabId: string, newTitle: string) => {
         setTabs(current => current.map(t => t.id === tabId ? { ...t, title: newTitle } : t));
