@@ -6,7 +6,7 @@ import { useToast } from '../../contexts/ToastContext';
 
 const { Plus, Trash2, Maximize, Columns, Sparkles } = Lucide;
 
-const TopBar: React.FC = () => {
+const TopBar: React.FC<{ onReturnFocus?: () => void }> = ({ onReturnFocus }) => {
     const { addToast } = useToast();
     const {
         rules, selectedRuleId, setSelectedRuleId,
@@ -145,6 +145,15 @@ const TopBar: React.FC = () => {
                         onFocus={() => setIsSearchFocused && setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused && setIsSearchFocused(false)}
                         onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                                e.currentTarget.blur();
+                                return;
+                            }
+                            if (e.key === 'Tab') {
+                                e.preventDefault();
+                                if (onReturnFocus) onReturnFocus();
+                                return;
+                            }
                             if (e.key === 'Enter') {
                                 const val = e.currentTarget.value;
                                 if (val.trim()) {

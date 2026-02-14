@@ -601,7 +601,17 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             {/* Header Area with Hide Animation in Focus Mode */}
             {/* Header Area with Hide Animation in Focus Mode */}
             <div className={`transition-all duration-700 ease-[cubic-bezier(0.19,1,0.22,1)] z-50 will-change-[margin-top] ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? '-mt-16 delay-100' : 'mt-0 delay-0'}`}>
-                <TopBar />
+                <TopBar onReturnFocus={() => {
+                    // Logic to determine which pane to focus
+                    if (isDualView) {
+                        // If Right has selection and Left doesn't, focus Right
+                        if (selectedIndicesRight?.size > 0 && (!selectedIndicesLeft || selectedIndicesLeft.size === 0)) {
+                            handleFocusPaneRequest('right');
+                            return;
+                        }
+                    }
+                    handleFocusPaneRequest('left');
+                }} />
             </div>
 
             {/* Main Content Area */}
