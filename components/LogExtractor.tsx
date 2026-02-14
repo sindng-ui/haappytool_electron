@@ -61,6 +61,27 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         localStorage.setItem('isConfigPanelOpen', String(isPanelOpen));
     }, [isPanelOpen]);
 
+
+    // ✅ Keyboard Shortcut for Configuration Panel Width
+    useEffect(() => {
+        const handleConfigResize = (e: KeyboardEvent) => {
+            if (!isActive) return; // Only if Log Extractor is active tool
+
+            if (e.ctrlKey && e.shiftKey) {
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    setConfigPanelWidth(current => Math.max(150, current - 20)); // Decrease width, min 150px
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    setConfigPanelWidth(current => Math.min(window.innerWidth - 100, current + 20)); // Increase width
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleConfigResize);
+        return () => window.removeEventListener('keydown', handleConfigResize);
+    }, [isActive]);
+
     // ✅ Context Menu for tabs
     const { showContextMenu, ContextMenuComponent } = useContextMenu();
 

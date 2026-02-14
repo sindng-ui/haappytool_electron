@@ -4,6 +4,7 @@ import * as Lucide from 'lucide-react';
 import { useHappyTool } from '../contexts/HappyToolContext';
 import { useToast } from '../contexts/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { extractTimestamp } from '../utils/logTime';
 
 
 const {
@@ -196,16 +197,6 @@ const PerfAnalyzer: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     }
   };
 
-  const parseTimestamp = (line: string): number | null => {
-    const timeMatch = line.match(/(\d{2}:\d{2}:\d{2}[\.,]\d{3})/);
-    if (!timeMatch) return null;
-
-    const timeStr = timeMatch[1].replace(',', '.');
-    const [h, m, s_ms] = timeStr.split(':');
-    const [s, ms] = s_ms.split('.');
-
-    return (parseInt(h) * 3600 + parseInt(m) * 60 + parseInt(s)) * 1000 + parseInt(ms);
-  };
 
   const runAnalysis = useCallback(async () => {
     if (!fileHandle?.path) {
@@ -348,7 +339,7 @@ const PerfAnalyzer: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         detectedEndLine = currentLine;
 
         logCount++;
-        const ts = parseTimestamp(line);
+        const ts = extractTimestamp(line);
         if (ts !== null) {
           if (firstTimestamp === 0) {
             firstTimestamp = ts;
