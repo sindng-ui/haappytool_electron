@@ -249,10 +249,18 @@ const PerfAnalyzer: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     const isHappyCS = selectedRule?.happyCombosCaseSensitive;
     const isBlockCS = selectedRule?.blockListCaseSensitive;
 
+    let streamBuffer = '';
+
     const onChunk = (data: { chunk: string; requestId: string }) => {
       if (data.requestId !== requestId) return;
 
-      const lines = data.chunk.split(/\r?\n/);
+      const fullChunk = streamBuffer + data.chunk;
+      const lines = fullChunk.split(/\r?\n/);
+
+      // Keep the last part (potential incomplete line) in the buffer
+      // unless the chunk ended with a newline (empty string at end of array)
+      streamBuffer = lines.pop() || '';
+
       for (const line of lines) {
         currentLine++;
         const lineLower = isHappyCS ? '' : line.toLowerCase();
@@ -468,14 +476,29 @@ const PerfAnalyzer: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
 
     const onComplete = (data: { requestId: string }) => {
       if (data.requestId !== requestId) return;
+
+      // Flush any remaining partial line
+      if (streamBuffer) {
+        onChunk({ chunk: '\n', requestId });
+      }
+
       cleanup();
+
+      const hasSegments = segments.length > 0;
+      const minSegmentTime = hasSegments ? Math.min(...segments.map(s => s.startTime)) : firstTimestamp;
+      const maxSegmentTime = hasSegments ? Math.max(...segments.map(s => s.endTime)) : lastTimestamp;
+
+      // Use segment range for visualization if available, otherwise full file range
+      // This solves issues where file start time is way off (e.g. 0) or mixed formats distort the view
+      const effectiveStartTime = hasSegments ? minSegmentTime : firstTimestamp;
+      const effectiveEndTime = hasSegments ? maxSegmentTime : lastTimestamp;
 
       const finishedResult: AnalysisResult = {
         fileName: fileHandle.name,
-        totalDuration: lastTimestamp - firstTimestamp,
+        totalDuration: effectiveEndTime - effectiveStartTime,
         segments: segments.sort((a, b) => a.startTime - b.startTime),
-        startTime: firstTimestamp,
-        endTime: lastTimestamp,
+        startTime: effectiveStartTime,
+        endTime: effectiveEndTime,
         logCount,
         passCount: segments.filter(s => s.status === 'pass').length,
         failCount: segments.filter(s => s.status === 'fail').length
@@ -967,17 +990,22 @@ const PerfAnalyzer: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                               const isBottleneck = s.duration > targetTime;
 
                               // Zoom Logic
-                              const viewStart = flameZoom ? flameZoom.startTime : result.startTime;
-                              const viewEnd = flameZoom ? flameZoom.endTime : result.endTime;
+                              const viewStart = flameZoom?.startTime ?? result.startTime;
+                              const viewEnd = flameZoom?.endTime ?? result.endTime;
                               const viewDuration = viewEnd - viewStart;
 
-                              // Skip if completely outside zoom range with buffer
-                              // Buffer is needed because text might be visible even if bar start is just offscreen
-                              const buffer = viewDuration * 0.5;
-                              if (s.endTime < viewStart - buffer || s.startTime > viewEnd + buffer) return null;
+                              // Skip if segment is completely outside the current view
+                              if (s.endTime < viewStart || s.startTime > viewEnd) return null;
 
-                              const left = ((s.startTime - viewStart) / viewDuration) * 100;
-                              const width = ((s.endTime - s.startTime) / viewDuration) * 100;
+                              // Calculate left position relative to view start
+                              const rawLeft = ((s.startTime - viewStart) / viewDuration) * 100;
+
+                              // Calculate width relative to view duration
+                              const rawWidth = (s.duration / Math.max(1, viewDuration)) * 100;
+
+                              // Clamp values for rendering (though usually CSS overflow handles this)
+                              const left = rawLeft;
+                              const width = rawWidth;
 
                               return (
                                 <motion.div
@@ -989,7 +1017,7 @@ const PerfAnalyzer: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                                   }}
                                   onDoubleClick={() => {
                                     // Focus zoom on this segment with some padding
-                                    const padding = s.duration * 0.1;
+                                    const padding = Math.max(s.duration * 0.5, 100);
                                     setFlameZoom({
                                       startTime: Math.max(result.startTime, s.startTime - padding),
                                       endTime: Math.min(result.endTime, s.endTime + padding)
