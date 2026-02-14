@@ -404,7 +404,7 @@ pre {
 
 .header-hidden {
   transform: translateY(-100%);
-  opacity: 0;
+  /* opacity: 0;  <-- Removed to prevent fading out */
   pointer-events: none;
   /* Delay start of hiding to allow OS fullscreen to expand first */
   transition-delay: 0.2s;

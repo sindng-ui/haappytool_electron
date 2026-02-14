@@ -599,6 +599,11 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
             <TopBar />
 
+            {/* Main Content Area */}
+            {/* Added transition-all to synchronize with header movement */}
+            {/* Main Content Area - Placeholder for transition if needed, but real content is below */}
+
+
             {/* Global Shortcut Handler for Ctrl+B */}
             {React.createElement(
                 React.Fragment,
@@ -925,7 +930,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     <ConfigurationPanel />
                 </div>
 
-                <div className={`flex-1 flex flex-col overflow-hidden relative z-0 ${isFocusMode ? '' : 'pt-8'}`}>
+                <div className={`flex-1 flex flex-col overflow-hidden relative z-0 transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${isFocusMode ? 'pt-0' : 'pt-8'}`}>
 
                     {/* Render Tab Bar here (passed from parent) - REMOVED, now global in LogExtractor */}
 

@@ -463,7 +463,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
             onDrop={handleGlobalDrop}
         >
             <div
-                className="flex-1 flex overflow-x-auto items-end h-full px-2 scroll-smooth no-drag"
+                className="flex-1 flex overflow-x-auto overflow-y-hidden items-end h-full px-2 scroll-smooth no-drag"
             >
                 {/* Custom scrollbar styling via Tailwind */}
                 <style>{`
@@ -574,7 +574,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         <div className="flex h-full flex-col font-sans overflow-hidden bg-[#0b0f19] relative">
             {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
             <div
-                className="absolute top-0 right-0 h-8 z-50 transition-[left] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+                className="absolute top-16 right-0 h-8 z-40 transition-[left] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
                 style={{
                     left: isPanelOpen ? configPanelWidth : 32
                 }}
