@@ -68,10 +68,10 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
             if (!isActive) return; // Only if Log Extractor is active tool
 
             if (e.ctrlKey && e.shiftKey) {
-                if (e.key === 'ArrowLeft') {
+                if (e.key === '[') {
                     e.preventDefault();
                     setConfigPanelWidth(current => Math.max(150, current - 20)); // Decrease width, min 150px
-                } else if (e.key === 'ArrowRight') {
+                } else if (e.key === ']') {
                     e.preventDefault();
                     setConfigPanelWidth(current => Math.min(window.innerWidth - 100, current + 20)); // Increase width
                 }

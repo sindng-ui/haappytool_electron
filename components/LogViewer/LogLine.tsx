@@ -208,7 +208,8 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
         prevProps.preferences === nextProps.preferences &&
         prevProps.levelMatchers === nextProps.levelMatchers &&
         prevProps.textHighlights === nextProps.textHighlights &&
-        prevProps.lineHighlights === nextProps.lineHighlights
+        prevProps.lineHighlights === nextProps.lineHighlights &&
+        prevProps.overrideBackgroundColor === nextProps.overrideBackgroundColor
         // ✅ Skip function props comparison (assumed stable from parent)
     );
 });
