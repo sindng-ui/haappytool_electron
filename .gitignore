@@ -47,5 +47,5 @@ RxFlow.Validator.Tests/test_details.txt
 # --------------------
 # C# 빌드 결과물
 # --------------------
-bin/
-obj/
+**/bin/
+**/obj/

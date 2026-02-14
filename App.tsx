@@ -562,7 +562,7 @@ const AppContent: React.FC = () => {
         {isFocusMode && <div className="focus-ambient-glow animate-fade-in" />}
 
         <div className="flex-1 flex overflow-hidden z-10 relative">
-          <div className={`sidebar-transition ${isFocusMode ? 'sidebar-hidden w-0 opacity-0 -ml-64' : 'w-64 opacity-100'}`}>
+          <div className={`sidebar-transition ${isFocusMode ? 'sidebar-hidden w-0 opacity-0 -ml-14' : 'w-14 opacity-100'}`}>
             <Sidebar
               activePluginId={activeTool}
               onSelectPlugin={handleSetActiveTool}
