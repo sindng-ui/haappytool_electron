@@ -572,14 +572,17 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 
 
 
+    // ✅ Performance: Stable empty arrays to prevent unnecessary propagation
+    const EMPTY_ARRAY: any[] = useMemo(() => [], []);
+
     // Memoize split highlights to prevent LogLine/HighlightRenderer re-renders/regex-rebuilds
     const { textHighlights, lineHighlights } = useMemo(() => {
-        if (!highlights) return { textHighlights: [], lineHighlights: [] };
+        if (!highlights || highlights.length === 0) return { textHighlights: EMPTY_ARRAY, lineHighlights: EMPTY_ARRAY };
         return {
             textHighlights: highlights.filter(h => !h.lineEffect),
             lineHighlights: highlights.filter(h => h.lineEffect)
         };
-    }, [highlights]);
+    }, [highlights, EMPTY_ARRAY]);
 
     const itemContent = useCallback((index: number, _data: unknown, context: { preferences?: LogViewPreferences }) => {
         // Use Ref for data access to keep callback stable across data updates

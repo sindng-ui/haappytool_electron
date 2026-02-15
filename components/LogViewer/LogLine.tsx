@@ -22,6 +22,9 @@ interface LogLineProps {
     overrideBackgroundColor?: string;
 }
 
+// ✅ Performance: Move utilities outside component to avoid re-creation
+const isCssColor = (color: string) => /^(#|rgb|hsl)/i.test(color.trim()) || (/^[a-z]+$/i.test(color.trim()) && !color.startsWith('bg-') && !color.startsWith('text-'));
+
 export const LogLine = React.memo(({ index, style, data, isActive, isSelected, hasBookmark, isRawMode = false, textHighlights, lineHighlights, highlightCaseSensitive = false, onClick, onDoubleClick, onMouseDown, onMouseEnter, preferences, levelMatchers, overrideBackgroundColor }: LogLineProps) => {
     const isLoading = !data;
 
@@ -46,21 +49,8 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
         const prefix = decodedContent.substring(0, 100);
 
         if (levelMatchers) {
-            for (const matcher of levelMatchers) {
-                if (matcher.regex.test(prefix)) return matcher.color;
-            }
-            return undefined;
-        }
-
-        if (!preferences) return undefined;
-
-        for (const style of preferences.levelStyles) {
-            if (style.enabled) {
-                // Regex for " Level/" or " Level " or start of line "Level/"
-                const regex = new RegExp(`(^|\\s|/)${style.level}(/|\\s|:)`);
-                if (regex.test(prefix)) {
-                    return style.color;
-                }
+            for (let i = 0; i < levelMatchers.length; i++) {
+                if (levelMatchers[i].regex.test(prefix)) return levelMatchers[i].color;
             }
         }
         return undefined;
@@ -68,14 +58,14 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
 
     const matchingHighlight = React.useMemo(() => {
         if (!lineHighlights || !decodedContent) return undefined;
-        return lineHighlights.find(h =>
-        (highlightCaseSensitive
-            ? decodedContent.includes(h.keyword)
-            : decodedContent.toLowerCase().includes(h.keyword.toLowerCase()))
-        );
-    }, [lineHighlights, decodedContent, highlightCaseSensitive]);
+        // Standardizing to lowerCase once if needed
+        const contentForMatch = highlightCaseSensitive ? decodedContent : decodedContent.toLowerCase();
 
-    const isCssColor = (color: string) => /^(#|rgb|hsl)/i.test(color.trim()) || (/^[a-z]+$/i.test(color.trim()) && !color.startsWith('bg-') && !color.startsWith('text-'));
+        return lineHighlights.find(h => {
+            const keyword = highlightCaseSensitive ? h.keyword : h.keyword.toLowerCase();
+            return contentForMatch.includes(keyword);
+        });
+    }, [lineHighlights, decodedContent, highlightCaseSensitive]);
 
     return (
         <div
@@ -195,8 +185,6 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
         </div>
     );
 }, (prevProps, nextProps) => {
-    // ✅ Performance: Custom comparison function to reduce unnecessary re-renders
-    // Only compare props that actually matter for rendering
     return (
         prevProps.data?.lineNum === nextProps.data?.lineNum &&
         prevProps.data?.content === nextProps.data?.content &&
@@ -205,11 +193,11 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
         prevProps.hasBookmark === nextProps.hasBookmark &&
         prevProps.isRawMode === nextProps.isRawMode &&
         prevProps.highlightCaseSensitive === nextProps.highlightCaseSensitive &&
+        // Shallow check for objects/arrays that are stable
         prevProps.preferences === nextProps.preferences &&
         prevProps.levelMatchers === nextProps.levelMatchers &&
         prevProps.textHighlights === nextProps.textHighlights &&
         prevProps.lineHighlights === nextProps.lineHighlights &&
         prevProps.overrideBackgroundColor === nextProps.overrideBackgroundColor
-        // ✅ Skip function props comparison (assumed stable from parent)
     );
 });
