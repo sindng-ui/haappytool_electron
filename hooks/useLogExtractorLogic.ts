@@ -59,7 +59,7 @@ export interface LogExtractorLogicProps {
 export const MAX_SEGMENT_SIZE = 1_350_000;
 
 
-import { useHappyTool } from '../contexts/HappyToolContext';
+
 
 export const useLogExtractorLogic = ({
     rules, onUpdateRules, onExportSettings, onImportSettings,
@@ -75,8 +75,10 @@ export const useLogExtractorLogic = ({
     const isSearchFocused = propIsSearchFocused !== undefined ? propIsSearchFocused : localSearchFocused;
     const setIsSearchFocused = propSetIsSearchFocused || setLocalSearchFocused;
 
+
     // ... (existing state) ...
-    const { setAmbientMood } = useHappyTool(); // ✅ Mood Control
+    // ... (existing state) ...
+    // Note: AmbientMood removed as per user request
     const moodTimeout = useRef<NodeJS.Timeout | null>(null);
 
     const [leftSegmentIndex, setLeftSegmentIndex] = useState(0); // For pagination/segmentation (Left)
@@ -238,6 +240,14 @@ export const useLogExtractorLogic = ({
 
     // State Restoration Refs
     const pendingScrollTop = useRef<number | null>(null);
+
+    // Quick Filter State (Collect Errors/Exceptions)
+    const [quickFilter, setQuickFilter] = useState<'none' | 'error' | 'exception'>('none');
+
+    // Toast Throttling
+    const lastErrorToastTime = useRef<number>(0);
+
+    // Initialize Left Worker & Load State
 
     // Initialize Left Worker & Load State
     useEffect(() => {
@@ -689,12 +699,15 @@ export const useLogExtractorLogic = ({
                 inc: effectiveIncludes,
                 exc: effectiveExcludes,
                 happyCase: !!currentConfig.happyCombosCaseSensitive,
-                blockCase: !!currentConfig.blockListCaseSensitive
+                blockCase: !!currentConfig.blockListCaseSensitive,
+                quickFilter // ✅ Include quickFilter in hash
             });
 
 
 
             if (payloadHash === lastFilterHashLeft.current) {
+                // If quickFilter changed, we MIGHT need to force update even if hash matches? 
+                // No, hash includes quickFilter now.
                 return;
             }
             lastFilterHashLeft.current = payloadHash;
@@ -702,7 +715,7 @@ export const useLogExtractorLogic = ({
             setLeftWorkerReady(false);
             leftWorkerRef.current.postMessage({
                 type: 'FILTER_LOGS',
-                payload: { ...currentConfig, includeGroups: refinedGroups }
+                payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter } // ✅ Pass quickFilter
             });
             // Don't reset selection during stream to avoid jumps, unless necessary?
             if (!tizenSocket) {
@@ -710,7 +723,7 @@ export const useLogExtractorLogic = ({
                 setSelectedIndicesLeft(new Set());
             }
         }
-    }, [currentConfig, leftWorkerReady, tizenSocket]); // ✅ Removed leftTotalLines to prevent re-calculation on every new log line
+    }, [currentConfig, leftWorkerReady, tizenSocket, quickFilter]); // ✅ Added quickFilter dependency
 
 
 
@@ -759,7 +772,6 @@ export const useLogExtractorLogic = ({
         setLeftIndexingProgress(0);
         setLeftTotalLines(0);
         setLeftFilteredCount(0);
-        setLeftFilteredCount(0);
         setActiveLineIndexLeft(-1);
         setSelectedIndicesLeft(new Set());
         shouldAutoScroll.current = true; // Default to auto-scroll on start
@@ -776,7 +788,7 @@ export const useLogExtractorLogic = ({
         // No need to send it manually here anymore.
 
         if (mode === 'ssh') {
-            console.log('[useLog] SSH Connected. Stream should start automatically via Server.');
+            // console.log('[useLog] SSH Connected. Stream should start automatically via Server.');
         }
 
         // Apply current filter immediately to the worker
@@ -801,7 +813,7 @@ export const useLogExtractorLogic = ({
             }
             leftWorkerRef.current?.postMessage({
                 type: 'FILTER_LOGS',
-                payload: { ...config, includeGroups: refined }
+                payload: { ...config, includeGroups: refined, quickFilter } // Pass quickFilter
             });
         }
 
@@ -809,32 +821,19 @@ export const useLogExtractorLogic = ({
         socket.on('log_data', (data: any) => {
             const chunk = typeof data === 'string' ? data : (data.chunk || data.log || JSON.stringify(data));
 
-            // ✅ Reactive Ambient Lighting Logic
-            if (setAmbientMood) {
-                const lowerChunk = chunk.toLowerCase();
-                const isError = lowerChunk.includes('error') || lowerChunk.includes('exception') || lowerChunk.includes('fail');
+            // ✅ Reactive Ambient Lighting Logic (Optimized)
+            // ✅ Error Detection & Notification (Throttled Toast)
+            const lowerChunk = chunk.toLowerCase();
+            // Broader check including 'E/', 'level: e', etc. if needed, but 'error' is in the simulator msg.
+            const isError = /error|exception|fail|fatal|\be\//i.test(chunk);
 
-                if (isError) {
-                    setAmbientMood('error');
-                    // Keep error mood for 2 seconds
-                    if (moodTimeout.current) clearTimeout(moodTimeout.current);
-                    moodTimeout.current = setTimeout(() => {
-                        setAmbientMood('idle');
-                    }, 2000);
-                } else {
-                    // Only switch to working if not currently in error state (or if we can't easily check state, just set it)
-                    // Optimistic approach: 'working' is fleeting.
-                    // We don't have direct access to 'ambientMood' state value here without adding it to dependency array,
-                    // which might cause re-binds. 
-                    // Let's just set 'working' if we assume we aren't in a sticky error state.
-                    // For simplicity: specific errors override 'working', but general stream sets 'working'.
-                    // To avoid flickering 'working' over 'error', we can just set working if NOT error.
-                    setAmbientMood(prev => prev === 'error' ? prev : 'working');
-
-                    if (moodTimeout.current) clearTimeout(moodTimeout.current);
-                    moodTimeout.current = setTimeout(() => {
-                        setAmbientMood('idle');
-                    }, 1000);
+            if (isError) {
+                const now = Date.now();
+                // Throttle toasts: max 1 every 2 seconds (reduced from 5)
+                if (now - lastErrorToastTime.current > 2000) {
+                    // console.log('[useLog] 🚨 Error detected in stream:', chunk.substring(0, 100));
+                    addToast('Error/Exception Detected!', 'error');
+                    lastErrorToastTime.current = now;
                 }
             }
 
@@ -897,7 +896,7 @@ export const useLogExtractorLogic = ({
 
         socket.on('sdb_status', handleLogicalDisconnect);
         socket.on('ssh_status', handleLogicalDisconnect);
-    }, [rules, selectedRuleId]); // currentRule is derived from rules + selectedRuleId
+    }, [rules, selectedRuleId, quickFilter, addToast]); // currentRule is derived from rules + selectedRuleId
 
     // Auto-scroll effect is now handled by LogViewerPane's smart followOutput prop.
     // We do NOT need to manually specific scrollTo calls here which override user scroll.
@@ -1831,6 +1830,8 @@ export const useLogExtractorLogic = ({
         updateLogViewPreferences,
         isLogging, setIsLogging,
         connectionMode,
-        isSearchFocused, setIsSearchFocused // ✅ Expose for layout logic
+        isSearchFocused, setIsSearchFocused, // ✅ Expose for layout logic
+        quickFilter, // ✅ Export for TopBar
+        setQuickFilter // ✅ Export for TopBar
     };
 };

@@ -6,7 +6,7 @@ import { mergeById } from './utils/settingsHelper';
 import { SettingsModal } from './components/SettingsModal';
 import { ALL_PLUGINS } from './plugins/registry';
 import { HappyToolProvider, HappyToolContextType } from './contexts/HappyToolContext';
-import { ToastProvider } from './contexts/ToastContext';
+import { ToastProvider, useToast, ToastItem } from './contexts/ToastContext';
 import { CommandProvider, useCommand } from './contexts/CommandContext';
 import { LogArchiveProvider, LogArchive, useLogArchiveContext } from './components/LogArchive';
 import PluginContainer from './components/PluginContainer';
@@ -92,6 +92,9 @@ const CommandRegistrar: React.FC<{
 
 const AppContent: React.FC = () => {
   const [activeTool, setActiveTool] = useState<string>(ToolId.LOG_EXTRACTOR);
+  // Toast Integration
+  const { toasts, removeToast } = useToast();
+
   // Loading States
   const [isBackendReady, setIsBackendReady] = useState(false);
   const [isInitialPluginReady, setIsInitialPluginReady] = useState(false);
@@ -567,9 +570,6 @@ const AppContent: React.FC = () => {
       />
 
       <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0B0F19] font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300 relative">
-        {/* Focus Mode Ambient Glow */}
-        {isFocusMode && <div className="focus-ambient-glow animate-fade-in" />}
-
         <div className="flex-1 flex overflow-hidden z-10 relative">
           <div className={`sidebar-transition relative z-[100] ${isFocusMode ? 'sidebar-hidden w-0 opacity-0 -ml-14' : 'w-14 opacity-100'}`}>
             <Sidebar
@@ -617,6 +617,15 @@ const AppContent: React.FC = () => {
             waitForPlugins={!isInitialPluginReady}
           />
         )}
+
+        {/* Toast Container - Explicitly Rendered in App Root */}
+        <div className="fixed bottom-6 right-6 z-[999999] flex flex-col gap-3 pointer-events-none">
+          <div className="flex flex-col gap-3 items-end pointer-events-auto">
+            {toasts.map(toast => (
+              <ToastItem key={toast.id} toast={toast} onDismiss={removeToast} />
+            ))}
+          </div>
+        </div>
       </div>
     </HappyToolProvider>
   );

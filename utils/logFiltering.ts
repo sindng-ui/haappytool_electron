@@ -15,7 +15,21 @@ import { LogRule } from '../types';
  * @param bypassShellFilter - Whether to apply shell output bypass logic (Force Include non-standard logs)
  * @returns true if the line should be included, false if it should be filtered out
  */
-export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilter: boolean): boolean => {
+export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilter: boolean, quickFilter?: 'none' | 'error' | 'exception'): boolean => {
+    // Quick Filter: Error (Level E)
+    if (quickFilter === 'error') {
+        // Simple check for "E/" or "Error" or "Fail" -> actually user asked for "Error Level".
+        // Standard formats: "E/Tag", "Level: E", etc.
+        // Let's be generous but targeted.
+        const isErrorLevel = line.includes(' E/') || line.includes('ERROR') || line.includes('Error') || line.includes('Fail') || line.includes('FATAL');
+        if (!isErrorLevel) return false;
+    }
+
+    // Quick Filter: Exception (Text match)
+    if (quickFilter === 'exception') {
+        const isException = line.toLowerCase().includes('exception');
+        if (!isException) return false;
+    }
     // Force include Simulated Logs (for Tizen Connection Test) regardless of rules
     if (bypassShellFilter && line.includes('[TEST_LOG_')) {
         return true;

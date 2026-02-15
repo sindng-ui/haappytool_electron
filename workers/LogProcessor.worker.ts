@@ -17,6 +17,7 @@ let streamLines: string[] = [];
 let filteredIndices: Int32Array | null = null; // Line numbers (0-based) that match
 let filteredIndicesBuffer: Int32Array | null = null; // Backing buffer for dynamic growth
 let currentRule: LogRule | null = null;
+let currentQuickFilter: 'none' | 'error' | 'exception' = 'none'; // ✅ New State
 
 // Bookmarks (0-based Original Index)
 let originalBookmarks: Set<number> = new Set();
@@ -219,7 +220,7 @@ const processChunk = (chunk: string) => {
 
     const newMatches: number[] = [];
     cleanLines.forEach((line, i) => {
-        if (checkIsMatch(line, currentRule, isLiveStream)) {
+        if (checkIsMatch(line, currentRule, isLiveStream, currentQuickFilter)) { // ✅ Pass quickFilter
             newMatches.push(startIdx + i);
         }
     });
@@ -266,15 +267,17 @@ const processChunk = (chunk: string) => {
 
 
 // --- Handler: Apply Filter ---
-const applyFilter = async (rule: LogRule) => {
-    currentRule = rule;
+const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' | 'exception' }) => {
+    currentRule = payload;
+    currentQuickFilter = payload.quickFilter || 'none'; // ✅ Update state
+
     respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
 
     if (isStreamMode) {
         // Re-filter all stream lines
         const matches: number[] = [];
         streamLines.forEach((line, i) => {
-            if (checkIsMatch(line, rule, isLiveStream)) matches.push(i);
+            if (checkIsMatch(line, currentRule, isLiveStream, currentQuickFilter)) matches.push(i); // ✅ Pass quickFilter
         });
 
         // Re-init buffer with results
@@ -294,10 +297,12 @@ const applyFilter = async (rule: LogRule) => {
 
     // Optimization for empty rule (only if no case sensitive complications)
     // Actually safe to just use empty check
-    const excludes = rule.excludes.filter(e => e.trim());
-    const includes = rule.includeGroups.flat().filter(t => t.trim());
+    // Optimization for empty rule (only if no case sensitive complications)
+    // Actually safe to just use empty check
+    const excludes = currentRule.excludes.filter(e => e.trim());
+    const includes = currentRule.includeGroups.flat().filter(t => t.trim());
 
-    if (excludes.length === 0 && includes.length === 0) {
+    if (excludes.length === 0 && includes.length === 0 && currentQuickFilter === 'none') { // ✅ Check quickFilter too
         const all = new Int32Array(lineOffsets.length);
         for (let i = 0; i < lineOffsets.length; i++) all[i] = i;
         filteredIndices = all;
@@ -327,7 +332,7 @@ const applyFilter = async (rule: LogRule) => {
             buffer = lines.pop() || '';
 
             for (const line of lines) {
-                if (checkIsMatch(line, rule, isLiveStream)) { // isLiveStream should be false here anyway
+                if (checkIsMatch(line, currentRule, isLiveStream, currentQuickFilter)) { // ✅ Pass quickFilter
                     matches.push(globalLineIndex);
                 }
                 globalLineIndex++;
@@ -339,7 +344,7 @@ const applyFilter = async (rule: LogRule) => {
         }
 
         if (buffer) {
-            if (checkIsMatch(buffer, rule, isLiveStream)) matches.push(globalLineIndex);
+            if (checkIsMatch(buffer, currentRule, isLiveStream, currentQuickFilter)) matches.push(globalLineIndex);
         }
 
     } catch (e) { console.error(e); }
@@ -779,7 +784,8 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             processChunk(payload);
             break;
         case 'FILTER_LOGS':
-            applyFilter(payload as LogRule);
+        case 'FILTER_LOGS':
+            applyFilter(payload); // Payload now entails LogRule + quickFilter
             break;
         case 'TOGGLE_BOOKMARK':
             toggleBookmark(payload.visualIndex);

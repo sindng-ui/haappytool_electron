@@ -219,6 +219,8 @@ const handleSocketConnection = (socket, deps = {}) => {
     const spawnProc = deps.spawn || spawn;
     const SSHClient = deps.Client || Client;
 
+    let scrollStreamInterval = null;
+
     // Helper to determine SDB executable
     const getSdbBin = (p) => p || 'sdb';
     // Helper to determine SDB command string (for exec/shell usage) with quoting if needed
@@ -439,6 +441,60 @@ const handleSocketConnection = (socket, deps = {}) => {
         console.log('[SSH] Connection attempt started...');
         logDebug('Attempting to connect...');
         sshConnection = conn;
+    });
+
+    // --- Simulator (Test Mode) Handler ---
+    socket.on('start_scroll_stream', () => {
+        console.log('[Simulator] Starting simulated log stream...');
+        socket.emit('log_data', '[System] Starting simulated log stream (Test Mode) - Verifying Colors...\n');
+
+        if (scrollStreamInterval) clearInterval(scrollStreamInterval);
+
+        scrollStreamInterval = setInterval(() => {
+            const levels = ['D', 'I', 'W', 'E', 'V'];
+            let level = levels[Math.floor(Math.random() * levels.length)];
+            let msg = `This is a simulated log message of level ${level}. Random value: ${Math.random().toFixed(4)}`;
+
+            // 5% chance of Exception
+            if (Math.random() < 0.05) {
+                level = 'E';
+                msg = `java.lang.NullPointerException: Simulated Exception at com.example.app.MainFragment.onCreate(MainFragment.java:${Math.floor(Math.random() * 500)})`;
+            } else if (level === 'E') {
+                msg = `[Error] Critical failure detected! Something went wrong at ${Date.now()}`;
+            } else if (level === 'W') {
+                msg = `[Warning] Potential issue observed. Check configurations.`;
+            }
+
+            // Format: "MM-DD HH:mm:ss.ms PID TID Level Tag: Message"
+            const now = new Date();
+            const time = now.toTimeString().split(' ')[0] + '.' + now.getMilliseconds().toString().padStart(3, '0');
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const day = now.getDate().toString().padStart(2, '0');
+            const pid = Math.floor(Math.random() * 9000) + 1000;
+            const tid = Math.floor(Math.random() * 9000) + 1000;
+            const tag = 'SimulatedApp';
+
+            const logLine = `${month}-${day} ${time} ${pid} ${tid} ${level} ${tag}: ${msg}\n`;
+
+            socket.emit('log_data', logLine);
+        }, 100);
+    });
+
+    socket.on('stop_scroll_stream', () => {
+        if (scrollStreamInterval) {
+            clearInterval(scrollStreamInterval);
+            scrollStreamInterval = null;
+            console.log('[Simulator] Stopped scroll stream');
+        }
+    });
+
+    // Ensure we catch disconnect_sdb (used by Test Mode exit) to stop simulation
+    socket.on('disconnect_sdb', () => {
+        if (scrollStreamInterval) {
+            clearInterval(scrollStreamInterval);
+            scrollStreamInterval = null;
+            console.log('[Simulator] Cleared interval on disconnect_sdb');
+        }
     });
 
     // ...
@@ -2570,6 +2626,10 @@ const handleSocketConnection = (socket, deps = {}) => {
 
     socket.on('disconnect', () => {
         logDebug('User requested disconnect');
+        if (scrollStreamInterval) {
+            clearInterval(scrollStreamInterval);
+            scrollStreamInterval = null;
+        }
         if (sshConnection) {
             sshConnection.end();
             sshConnection = null;
