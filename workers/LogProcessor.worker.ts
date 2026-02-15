@@ -184,43 +184,46 @@ const buildFileIndex = async (file: File) => {
             const chunk: Uint8Array = value;
             const chunkLen = chunk.length;
 
-            for (let i = 0; i < chunkLen; i++) {
-                if (chunk[i] === 10) { // \n
-                    if (lineCount >= capacity) {
-                        // Grow
-                        const newCapacity = capacity * 2;
-                        const newArr = new BigInt64Array(newCapacity);
-                        newArr.set(tempOffsets);
-                        tempOffsets = newArr;
-                        capacity = newCapacity;
-                    }
-                    tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
+            // ✅ Optimization: Native indexOf is significantly faster than JS loop
+            let pos = -1;
+            while ((pos = chunk.indexOf(10, pos + 1)) !== -1) {
+                if (lineCount >= capacity) {
+                    const newCapacity = capacity * 2;
+                    const newArr = new BigInt64Array(newCapacity);
+                    newArr.set(tempOffsets);
+                    tempOffsets = newArr;
+                    capacity = newCapacity;
                 }
+                tempOffsets[lineCount++] = offset + BigInt(pos) + 1n;
             }
+
             offset += BigInt(chunkLen);
             processedBytes += chunkLen;
 
-            if (processedBytes % (50 * 1024 * 1024) === 0) {
-                respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: (processedBytes / fileSize) * 100 } });
+            // Throttle progress updates to avoid message spam
+            const progress = fileSize === 0 ? 100 : (processedBytes / fileSize) * 100;
+            if (processedBytes % (100 * 1024 * 1024) === 0) {
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress } });
             }
         }
+        // Ensure a final 100% progress update is sent after the loop finishes
+        respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 100 } });
     } catch (e) {
         console.error('Indexing failed', e);
         respond({ type: 'ERROR', payload: 'Failed to index file' });
         return;
     }
 
-    lineOffsets = tempOffsets.slice(0, lineCount);
-    respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 100 } });
-    respond({ type: 'INDEX_COMPLETE', payload: { totalLines: lineCount } });
+    // ✅ Optimization: Use subarray to avoid memory copy
+    lineOffsets = tempOffsets.subarray(0, lineCount);
 
-    // Initial Filter (All Pass)
+    // ✅ Order Fix: Initialize filteredIndices BEFORE notifying the UI
     const all = new Int32Array(lineCount);
     for (let i = 0; i < lineCount; i++) all[i] = i;
     filteredIndices = all;
 
-    filteredIndices = all;
-
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 100 } });
+    respond({ type: 'INDEX_COMPLETE', payload: { totalLines: lineCount } });
     respond({ type: 'FILTER_COMPLETE', payload: { matchCount: all.length, totalLines: lineCount, visualBookmarks: getVisualBookmarks() } });
 };
 
@@ -492,57 +495,57 @@ const getLines = async (startFilterIndex: number, count: number, requestId: stri
             }
         }
     } else {
-        // File Mode
-        if (!currentFile || !lineOffsets) {
-            console.warn('[Worker] No currentFile or lineOffsets');
+        if (!currentFile || !lineOffsets || !filteredIndices) {
             respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
             return;
         }
 
-        const readSlice = (blob: Blob): Promise<string> => {
-            return new Promise((resolve) => {
-                const r = new FileReader();
-                r.onload = (e) => resolve(e.target?.result as string);
-                r.onerror = (e) => {
-                    console.error('[Worker] FileReader error', e);
-                    resolve('');
-                };
-                r.readAsText(blob);
-            });
-        };
+        const maxFile = Math.min(startFilterIndex + count, filteredIndices.length);
 
-        for (let i = startFilterIndex; i < max; i++) {
-            const originalIdx = filteredIndices[i];
+        if (startFilterIndex >= maxFile) {
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
+        }
 
-            // Safety Check
-            if (originalIdx >= lineOffsets.length) {
-                console.warn(`[Worker] originalIdx ${originalIdx} out of bounds (offsets: ${lineOffsets.length})`);
-                continue;
-            }
+        // ✅ Batch Reading Optimization:
+        let minByte = -1n;
+        let maxByte = -1n;
+        for (let i = startFilterIndex; i < maxFile; i++) {
+            const idx = filteredIndices[i];
+            const startByte = lineOffsets[idx];
+            const endByte = idx < lineOffsets.length - 1 ? lineOffsets[idx + 1] : BigInt(currentFile.size);
+            if (minByte === -1n || startByte < minByte) minByte = startByte;
+            if (maxByte === -1n || endByte > maxByte) maxByte = endByte;
+        }
 
-            const startByte = Number(lineOffsets[originalIdx]);
-            // If it's the last line, read to end of file
-            const endByte = originalIdx < lineOffsets.length - 1 ? Number(lineOffsets[originalIdx + 1]) : currentFile.size;
+        try {
+            // Read one big chunk
+            const fullBlob = currentFile.slice(Number(minByte), Number(maxByte));
+            const buffer = await fullBlob.arrayBuffer();
+            const decoder = new TextDecoder();
 
-            if (startByte >= endByte) {
-                resultLines.push({ lineNum: originalIdx + 1, content: '' });
-                continue;
-            }
+            for (let i = startFilterIndex; i < max; i++) {
+                const originalIdx = filteredIndices[i];
+                const lineStart = lineOffsets[originalIdx];
+                const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
 
-            try {
-                // Read exact slice for this line
-                const text = await readSlice(currentFile.slice(startByte, endByte));
-                // Remove trailing newline if present (offsets include it)
-                const cleanText = text.replace(/\r?\n$/, '');
+                // Calculate relative position within the chunk
+                const relStart = Number(lineStart - minByte);
+                const relEnd = Number(lineEnd - minByte);
+
+                const lineBuffer = buffer.slice(relStart, relEnd);
+                const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
 
                 resultLines.push({
                     lineNum: originalIdx + 1,
-                    content: cleanText
+                    content: text
                 });
-            } catch (err) {
-                console.error(`[Worker] Error reading line ${originalIdx}`, err);
-                resultLines.push({ lineNum: originalIdx + 1, content: '[Error reading line]' });
             }
+        } catch (err) {
+            console.error('[Worker] Batch read failed', err);
+            // Fallback: If batch fails, return empty to trigger UI retry
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
         }
     }
 

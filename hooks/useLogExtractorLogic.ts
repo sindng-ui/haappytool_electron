@@ -387,7 +387,7 @@ export const useLogExtractorLogic = ({
                     break;
                 case 'INDEX_COMPLETE':
                     setLeftTotalLines(payload.totalLines);
-                    setLeftIndexingProgress(100);
+                    setLeftIndexingProgress(100); // Ensure 100% on completion
                     break;
                 case 'FILTER_COMPLETE':
                     setLeftFilteredCount(payload.matchCount);
@@ -689,28 +689,15 @@ export const useLogExtractorLogic = ({
                 });
             }
 
-            // Optimization: Check if effective filter changed
-            const effectiveIncludes = refinedGroups.map(g =>
-                g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
-            ).filter(g => g.length > 0);
-            const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
+            // Optimization: Fast Change Detection
+            // 형님, 루프 방지를 위해 확실한 비교 키를 생성합니다.
+            const detailedHash = JSON.stringify(currentConfig.happyGroups?.map(g => g.id + g.enabled) || []);
+            const filterVersion = `rule:${selectedRuleId}_happyCase:${!!currentConfig.happyCombosCaseSensitive}_blockCase:${!!currentConfig.blockListCaseSensitive}_q:${quickFilter}_groups:${currentConfig.happyGroups?.length || 0}_exc:${currentConfig.excludes.length}_detailed:${detailedHash}`;
 
-            const payloadHash = JSON.stringify({
-                inc: effectiveIncludes,
-                exc: effectiveExcludes,
-                happyCase: !!currentConfig.happyCombosCaseSensitive,
-                blockCase: !!currentConfig.blockListCaseSensitive,
-                quickFilter // ✅ Include quickFilter in hash
-            });
-
-
-
-            if (payloadHash === lastFilterHashLeft.current) {
-                // If quickFilter changed, we MIGHT need to force update even if hash matches? 
-                // No, hash includes quickFilter now.
+            if (filterVersion === lastFilterHashLeft.current) {
                 return;
             }
-            lastFilterHashLeft.current = payloadHash;
+            lastFilterHashLeft.current = filterVersion;
 
             setLeftWorkerReady(false);
             leftWorkerRef.current.postMessage({

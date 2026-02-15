@@ -148,6 +148,12 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
             try {
                 const lines = await onScrollRequest(batchStart, batchCount);
+                if (!lines || lines.length === 0) {
+                    // ✅ Recovery: If fetch fails or returns empty, allow retry
+                    for (let i = batchStart; i < batchStart + batchCount; i++) pendingIndices.current.delete(i);
+                    return;
+                }
+
                 setCachedLines(prev => {
                     const next = new Map(prev);
                     // Clear all pending indices for this entire batch range immediately to prevent deadlocks
