@@ -538,7 +538,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         // We put baseHighlights FIRST so find() returns manual highlight if both exist 
         // (though we try to filter duplicates, partial matches might still occur)
         return [...baseHighlights, ...autoHighlights];
-    }, [currentConfig?.highlights, currentConfig?.happyGroups, currentConfig?.includeGroups, currentConfig?.colorHighlightsCaseSensitive]);
+    }, [currentConfig?.highlights, currentConfig?.happyGroups, currentConfig?.familyCombos, currentConfig?.includeGroups, currentConfig?.colorHighlightsCaseSensitive]);
 
     // Memoized handlers for Right Pane
     const onLineClickRight = React.useCallback((index: number, isShift?: boolean, isCtrl?: boolean) => handleLineClick('right', index, !!isShift, !!isCtrl), [handleLineClick]);
