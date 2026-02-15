@@ -15,7 +15,7 @@ import { LogRule } from '../types';
  * @param bypassShellFilter - Whether to apply shell output bypass logic (Force Include non-standard logs)
  * @returns true if the line should be included, false if it should be filtered out
  */
-export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilter: boolean, quickFilter?: 'none' | 'error' | 'exception'): boolean => {
+export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilter: boolean, quickFilter?: 'none' | 'error' | 'exception', wasmEngine?: any, wasmMemory?: WebAssembly.Memory, textEncoder?: TextEncoder): boolean => {
     // Lazy Lowercasing
     let lowerLine: string | undefined;
     const getLower = () => lowerLine ?? (lowerLine = line.toLowerCase());
@@ -69,6 +69,26 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
     const meaningfulGroups = groups.filter(g => g.length > 0);
 
     if (meaningfulGroups.length === 0) return true; // No include filters -> Show all
+
+    // ✅ WASM Path: Only use if no AND logic (all groups have 1 term) for maximum speed
+    const isSimpleOrFilter = meaningfulGroups.every(g => g.length === 1);
+    if (wasmEngine && isSimpleOrFilter) {
+        // Zero-copy 지원 버전 (WASM 메모리에 직접 쓰기)
+        if (wasmMemory && textEncoder) {
+            // 한글 등 멀티바이트 고려하여 안전하게 3배 용량 할당
+            const requiredSize = line.length * 3;
+            wasmEngine.reserve_buffer(requiredSize);
+
+            const ptr = wasmEngine.get_buffer_ptr();
+            const view = new Uint8Array(wasmMemory.buffer, ptr, requiredSize);
+            const { written } = textEncoder.encodeInto(line, view);
+
+            return wasmEngine.check_match_ptr(written);
+        }
+
+        // Fallback: 기존 WASM 방식
+        return wasmEngine.check_match(line);
+    }
 
     const lineForHappy = isHappyCaseSensitive ? line : getLower();
 

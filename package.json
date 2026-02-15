@@ -23,7 +23,8 @@
     "test:perf:post": "vitest run --no-color test/performance/post-tool.perf.test.ts",
     "test:sdb": "vitest run --no-color test/sdb_connection.test.js",
     "test:frontend": "vitest run --no-color test/hooks/useLogExtractorLogic.test.tsx",
-    "test:backend": "vitest run --no-color test/server_socket.test.js"
+    "test:backend": "vitest run --no-color test/server_socket.test.js",
+    "build:wasm": "wasm-pack build src-wasm --target web --out-dir ../src/wasm"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
@@ -75,6 +76,8 @@
     "tailwindcss": "^3.4.17",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.5.0",
     "vitest": "^4.0.15",
     "wait-on": "^9.0.3"
   },

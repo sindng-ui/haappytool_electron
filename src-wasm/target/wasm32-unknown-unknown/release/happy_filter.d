@@ -1,0 +1,1 @@
+C:\AntigravityWorkspace\happytool_electron\haappytool_electron\src-wasm\target\wasm32-unknown-unknown\release\happy_filter.wasm: C:\AntigravityWorkspace\happytool_electron\haappytool_electron\src-wasm\src\lib.rs

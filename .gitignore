@@ -49,3 +49,6 @@ RxFlow.Validator.Tests/test_details.txt
 # --------------------
 **/bin/
 **/obj/
+
+# Rust 빌드 결과물 (매우 큼)
+src-wasm/target/

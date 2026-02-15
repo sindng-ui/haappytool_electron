@@ -4,6 +4,57 @@ import { LogRule, LogWorkerMessage, LogWorkerResponse } from '../types';
 const ctx: Worker = self as any;
 
 // --- State ---
+// WASM Filter Engine & Memory
+let wasmEngine: any = null;
+let wasmMemory: WebAssembly.Memory | null = null;
+const textEncoder = new TextEncoder();
+
+// Initialize WASM Engine (Vite handles the loading)
+const initWasm = async () => {
+    try {
+        const wasm = await import('../src/wasm/happy_filter');
+        const instance = await wasm.default(); // Init wasm-bindgen and returns exports
+        wasmMemory = (instance as any).memory;
+        wasmEngine = new wasm.FilterEngine(false);
+        console.log('WASM Filter Engine initialized with Zero-copy & DFA support');
+    } catch (e) {
+        console.warn('WASM initialization failed, falling back to JS filter:', e);
+    }
+};
+
+initWasm();
+
+// --- Parallelism: Worker Pool for Heavy Filtering ---
+const numSubWorkers = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
+const subWorkers: Worker[] = [];
+let subWorkerIdleTimer: any = null;
+const SUB_WORKER_IDLE_TIMEOUT = 30000; // 30초 후 워커 종료
+
+const terminateSubWorkers = () => {
+    if (subWorkers.length === 0) return;
+    console.log('[Worker] Idle timeout reached. Terminating sub-workers to save RAM.');
+    subWorkers.forEach(sw => sw.terminate());
+    subWorkers.length = 0;
+};
+
+const resetSubWorkerIdleTimer = () => {
+    if (subWorkerIdleTimer) clearTimeout(subWorkerIdleTimer);
+    subWorkerIdleTimer = setTimeout(terminateSubWorkers, SUB_WORKER_IDLE_TIMEOUT);
+};
+
+const initSubWorkers = () => {
+    if (subWorkerIdleTimer) clearTimeout(subWorkerIdleTimer); // 일단 작업 시작하면 타이머 해제
+    if (subWorkers.length > 0) return;
+    for (let i = 0; i < numSubWorkers; i++) {
+        try {
+            const sw = new Worker(new URL('./LogFilterSub.worker.ts', import.meta.url), { type: 'module' });
+            subWorkers.push(sw);
+        } catch (e) {
+            console.error('[Worker] Failed to spawn sub-worker', i, e);
+        }
+    }
+};
+
 // File Mode
 let currentFile: File | null = null;
 let lineOffsets: BigInt64Array | null = null; // Map LineNum -> ByteOffset
@@ -220,7 +271,7 @@ const processChunk = (chunk: string) => {
 
     const newMatches: number[] = [];
     cleanLines.forEach((line, i) => {
-        if (checkIsMatch(line, currentRule, isLiveStream, currentQuickFilter)) { // ✅ Pass quickFilter
+        if (checkIsMatch(line, currentRule, isLiveStream, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) { // ✅ Pass Zero-copy params
             newMatches.push(startIdx + i);
         }
     });
@@ -274,10 +325,16 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
 
     if (isStreamMode) {
+        // ✅ Sync WASM Engine keywords if available
+        if (wasmEngine) {
+            const allKeywords = payload.includeGroups.flat().map(t => t.trim()).filter(t => t !== '');
+            wasmEngine.update_keywords(allKeywords);
+        }
+
         // Re-filter all stream lines
         const matches: number[] = [];
         streamLines.forEach((line, i) => {
-            if (checkIsMatch(line, currentRule, isLiveStream, currentQuickFilter)) matches.push(i); // ✅ Pass quickFilter
+            if (checkIsMatch(line, currentRule, isLiveStream, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) matches.push(i); // ✅ Pass Zero-copy params
         });
 
         // Re-init buffer with results
@@ -295,14 +352,16 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     // File Mode
     if (!currentFile || !lineOffsets) return;
 
-    // Optimization for empty rule (only if no case sensitive complications)
-    // Actually safe to just use empty check
-    // Optimization for empty rule (only if no case sensitive complications)
-    // Actually safe to just use empty check
+    // ✅ Sync WASM Engine keywords for the main worker (for getLines etc)
+    if (wasmEngine) {
+        const allKeywords = payload.includeGroups.flat().map(t => t.trim()).filter(t => t !== '');
+        wasmEngine.update_keywords(allKeywords);
+    }
+
+    // Optimization for empty rule
     const excludes = currentRule.excludes.filter(e => e.trim());
     const includes = currentRule.includeGroups.flat().filter(t => t.trim());
-
-    if (excludes.length === 0 && includes.length === 0 && currentQuickFilter === 'none') { // ✅ Check quickFilter too
+    if (excludes.length === 0 && includes.length === 0 && currentQuickFilter === 'none') {
         const all = new Int32Array(lineOffsets.length);
         for (let i = 0; i < lineOffsets.length; i++) all[i] = i;
         filteredIndices = all;
@@ -311,47 +370,69 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
         return;
     }
 
-    const matches: number[] = [];
-    const reader = currentFile.stream().getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let globalLineIndex = 0;
+    // --- High Performance Parallel Filtering ---
+    initSubWorkers(); // Lazy initialization specifically for heavy filtering
+    const totalLines = lineOffsets.length;
+    const numChunks = Math.min(numSubWorkers, Math.ceil(totalLines / 10000)); // 최소 10,000줄당 1개 청크
+    const linesPerChunk = Math.ceil(totalLines / numChunks);
 
-    // ... File reading loop ...
-    // To safe code size, simplified loop logic roughly same as before but using checkIsMatch
+    const chunkResults: any[] = new Array(numChunks);
+    let completedChunks = 0;
 
-    let processedBytes = 0;
-    try {
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+    const onChunkDone = (chunkId: number, matches: number[], lineCount: number) => {
+        chunkResults[chunkId] = { matches, lineCount };
+        completedChunks++;
 
-            const chunkText = decoder.decode(value, { stream: true });
-            buffer += chunkText;
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+        respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (completedChunks / numChunks) * 100 } });
 
-            for (const line of lines) {
-                if (checkIsMatch(line, currentRule, isLiveStream, currentQuickFilter)) { // ✅ Pass quickFilter
-                    matches.push(globalLineIndex);
+        if (completedChunks === numChunks) {
+            // Final assembly
+            const finalMatches: number[] = [];
+            for (let i = 0; i < numChunks; i++) {
+                const res = chunkResults[i];
+                const startLineOfChunk = i * linesPerChunk;
+                for (const relIdx of res.matches) {
+                    finalMatches.push(startLineOfChunk + relIdx);
                 }
-                globalLineIndex++;
             }
-            processedBytes += value.length;
-            if (globalLineIndex % 10000 === 0) {
-                respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (processedBytes / currentFile!.size) * 100 } });
+
+            filteredIndices = new Int32Array(finalMatches);
+            respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+            respond({ type: 'FILTER_COMPLETE', payload: { matchCount: finalMatches.length, totalLines: lineOffsets!.length, visualBookmarks: getVisualBookmarks() } });
+
+            // ✅ Start idle timer after finishing work
+            resetSubWorkerIdleTimer();
+        }
+    };
+
+    for (let i = 0; i < numChunks; i++) {
+        const startLine = i * linesPerChunk;
+        const endLine = Math.min(startLine + linesPerChunk, totalLines);
+
+        const startByte = Number(lineOffsets[startLine]);
+        const endByte = endLine < totalLines ? Number(lineOffsets[endLine]) : currentFile.size;
+
+        const blob = currentFile.slice(startByte, endByte);
+        const sw = subWorkers[i % subWorkers.length];
+
+        const handler = (e: MessageEvent) => {
+            if (e.data.type === 'CHUNK_COMPLETE' && e.data.payload.chunkId === i) {
+                sw.removeEventListener('message', handler);
+                onChunkDone(i, e.data.payload.matches, e.data.payload.lineCount);
             }
-        }
+        };
+        sw.addEventListener('message', handler);
 
-        if (buffer) {
-            if (checkIsMatch(buffer, currentRule, isLiveStream, currentQuickFilter)) matches.push(globalLineIndex);
-        }
-
-    } catch (e) { console.error(e); }
-
-    filteredIndices = new Int32Array(matches);
-    respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
-    respond({ type: 'FILTER_COMPLETE', payload: { matchCount: matches.length, totalLines: lineOffsets.length, visualBookmarks: getVisualBookmarks() } });
+        sw.postMessage({
+            type: 'FILTER_CHUNK',
+            payload: {
+                chunkId: i,
+                blob,
+                rule: currentRule,
+                quickFilter: currentQuickFilter
+            }
+        });
+    }
 };
 
 // --- Handler: Get Lines ---
