@@ -463,7 +463,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         const baseHighlights = currentConfig?.highlights || [];
 
         // Determine case sensitivity for deduplication
-        const isCaseSensitive = currentConfig?.colorHighlightsCaseSensitive ?? false;
+        // 형님, 어느 한 쪽이라도 켜져 있으면 중복 체크할 때 대소문자를 구분합니다.
+        const isCaseSensitive = !!currentConfig?.happyCombosCaseSensitive || !!currentConfig?.colorHighlightsCaseSensitive;
 
         // Only classify highlights with ACTUAL color as "existing/colliding"
         // Deduplicate based on case sensitivity setting
@@ -538,7 +539,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         // We put baseHighlights FIRST so find() returns manual highlight if both exist 
         // (though we try to filter duplicates, partial matches might still occur)
         return [...baseHighlights, ...autoHighlights];
-    }, [currentConfig?.highlights, currentConfig?.happyGroups, currentConfig?.familyCombos, currentConfig?.includeGroups, currentConfig?.colorHighlightsCaseSensitive]);
+    }, [currentConfig?.highlights, currentConfig?.happyGroups, currentConfig?.familyCombos, currentConfig?.includeGroups, currentConfig?.colorHighlightsCaseSensitive, currentConfig?.happyCombosCaseSensitive]);
 
     // Memoized handlers for Right Pane
     const onLineClickRight = React.useCallback((index: number, isShift?: boolean, isCtrl?: boolean) => handleLineClick('right', index, !!isShift, !!isCtrl), [handleLineClick]);
@@ -982,7 +983,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     absoluteOffset={leftSegmentIndex * MAX_SEGMENT_SIZE}
                                     placeholderText={leftFileName || (isDualView ? "Drag log file here" : "Drop a log file to start")}
                                     highlights={effectiveHighlights}
-                                    highlightCaseSensitive={currentConfig?.colorHighlightsCaseSensitive}
+                                    highlightCaseSensitive={!!currentConfig?.happyCombosCaseSensitive || !!currentConfig?.colorHighlightsCaseSensitive}
                                     onLineClick={onLineClickLeft}
                                     onLineDoubleClick={onLineDoubleClickLeft}
                                     activeLineIndex={activeLineIndexLeft}
@@ -1067,7 +1068,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             absoluteOffset={rightSegmentIndex * MAX_SEGMENT_SIZE}
                                             placeholderText={rightFileName || "Drag log file here"}
                                             highlights={effectiveHighlights}
-                                            highlightCaseSensitive={currentConfig?.colorHighlightsCaseSensitive}
+                                            highlightCaseSensitive={!!currentConfig?.happyCombosCaseSensitive || !!currentConfig?.colorHighlightsCaseSensitive}
                                             hotkeyScope="alt"
                                             onLineClick={onLineClickRight}
                                             onLineDoubleClick={onLineDoubleClickRight}

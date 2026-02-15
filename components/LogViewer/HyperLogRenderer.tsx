@@ -195,10 +195,11 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
     // 🔥 Pre-compile Regexes and Colors for Performance
     const compiledTextHighlights = useMemo(() => {
+        // console.log('[HyperLog] Re-compiling highlights with caseSensitive:', highlightCaseSensitive);
         return textHighlights.map(h => ({
             ...h,
             regex: new RegExp(h.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), highlightCaseSensitive ? 'g' : 'gi'),
-            canvasColor: mapColor(h.color, 0.5)
+            canvasColor: mapColor(h.color, 0.8)
         }));
     }, [textHighlights, highlightCaseSensitive]);
 
@@ -332,26 +333,57 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 }
             }
 
-            // Level Based Text Color
-            // Level Based Text Color (Now pre-calculated!)
+            // 3. Main Text (Base layer)
+            // 🔥 이 글씨를 먼저 깔아야 하이라이트가 번짐 없이 덮어씌워집니다.
+            ctx.font = mainFont;
             ctx.fillStyle = lineData.levelColor || defaultTextColor;
             const displayContent = lineData.decodedContent;
             ctx.fillText(displayContent, 180, centerY);
 
-            // PASS 4: KEYWORD HIGHLIGHTS (In-line)
+            // 4. Word Highlights & High-Contrast Overlay (Top layer)
             if (compiledTextHighlights.length > 0) {
-                const charWidth = charWidthRef.current;
                 for (const h of compiledTextHighlights) {
                     h.regex.lastIndex = 0;
                     let match;
                     while ((match = h.regex.exec(displayContent)) !== null) {
                         const matchStr = match[0];
+                        const prefix = displayContent.substring(0, match.index);
+                        const prefixWidth = ctx.measureText(prefix).width;
+                        const matchWidth = ctx.measureText(matchStr).width;
+
+                        const paddingX = 1.5;
+                        const boxX = 180 + prefixWidth - paddingX;
+                        const boxY = y + 2;
+                        const boxW = matchWidth + (paddingX * 2);
+                        const boxH = rowHeight - 4;
+
                         ctx.fillStyle = h.canvasColor;
-                        // 🔥 NO measureText inside hot loop! Use monospaced math.
-                        ctx.fillRect(180 + (match.index * charWidth), y + 2, matchStr.length * charWidth, rowHeight - 4);
+                        if (ctx.roundRect) {
+                            ctx.beginPath();
+                            ctx.roundRect(boxX, boxY, boxW, boxH, 4);
+                            ctx.fill();
+                        } else {
+                            ctx.fillRect(boxX, boxY, boxW, boxH);
+                        }
+
+                        // 🔥 분신술 & 가독성 해결: shadowBlur 번짐 대신 선명한 Halo(광채) 효과
+                        ctx.save();
+                        ctx.font = `bold ${fontSize}px ${fontFamily}`;
+
+                        // 흰색 광채를 4방향으로 0.5px씩 줘서 선명한 외곽선 형성
+                        ctx.fillStyle = '#ffffff';
+                        const haloOffset = 0.5;
+                        ctx.fillText(matchStr, 180 + prefixWidth - haloOffset, centerY - haloOffset);
+                        ctx.fillText(matchStr, 180 + prefixWidth + haloOffset, centerY - haloOffset);
+                        ctx.fillText(matchStr, 180 + prefixWidth - haloOffset, centerY + haloOffset);
+                        ctx.fillText(matchStr, 180 + prefixWidth + haloOffset, centerY + haloOffset);
+
+                        // 본체 글씨 (진한 네이비)
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fillText(matchStr, 180 + prefixWidth, centerY);
+                        ctx.restore();
                     }
                 }
-                ctx.fillStyle = lineData.levelColor || defaultTextColor;
             }
         }
     }, [stableScrollTop, cachedLines, totalCount, rowHeight, preferences, levelMatchers, selectedIndices, activeLineIndex, bookmarks, loadVisibleLines, compiledTextHighlights, compiledLineHighlights, highlightCaseSensitive, compiledLineHighlightRanges]);

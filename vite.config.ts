@@ -24,6 +24,13 @@ export default defineConfig(({ mode }) => {
       wasm(),
       topLevelAwait()
     ],
+    worker: {
+      format: 'es',
+      plugins: () => [
+        wasm(),
+        topLevelAwait()
+      ]
+    },
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),

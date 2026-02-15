@@ -8,9 +8,12 @@ let wasmEngine: any = null;
 let wasmMemory: WebAssembly.Memory | null = null;
 const textEncoder = new TextEncoder();
 
+// Initialize WASM Engine (Vite handles the loading)
+let wasmModule: any = null;
 const initWasm = async () => {
     try {
         const wasm = await import('../src/wasm/happy_filter');
+        wasmModule = wasm;
         const instance = await wasm.default();
         wasmMemory = (instance as any).memory;
         wasmEngine = new wasm.FilterEngine(false);
@@ -28,7 +31,10 @@ ctx.onmessage = async (e) => {
         const { blob, rule, quickFilter, chunkId } = payload;
 
         // WASM 엔진 키워드 동기화
-        if (wasmEngine) {
+        if (wasmEngine && wasmModule) {
+            const isCaseSensitive = !!rule.happyCombosCaseSensitive;
+            wasmEngine = new wasmModule.FilterEngine(isCaseSensitive);
+
             const allKeywords = (rule.includeGroups as string[][]).flat().map(t => t.trim()).filter(t => t !== '');
             wasmEngine.update_keywords(allKeywords);
         }

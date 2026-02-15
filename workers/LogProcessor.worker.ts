@@ -10,9 +10,11 @@ let wasmMemory: WebAssembly.Memory | null = null;
 const textEncoder = new TextEncoder();
 
 // Initialize WASM Engine (Vite handles the loading)
+let wasmModule: any = null;
 const initWasm = async () => {
     try {
         const wasm = await import('../src/wasm/happy_filter');
+        wasmModule = wasm;
         const instance = await wasm.default(); // Init wasm-bindgen and returns exports
         wasmMemory = (instance as any).memory;
         wasmEngine = new wasm.FilterEngine(false);
@@ -326,7 +328,11 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
 
     if (isStreamMode) {
         // ✅ Sync WASM Engine keywords if available
-        if (wasmEngine) {
+        if (wasmEngine && wasmModule) {
+            const isCaseSensitive = !!payload.happyCombosCaseSensitive;
+            // Always recreate FilterEngine to ensure case sensitivity is updated
+            wasmEngine = new wasmModule.FilterEngine(isCaseSensitive);
+
             const allKeywords = payload.includeGroups.flat().map(t => t.trim()).filter(t => t !== '');
             wasmEngine.update_keywords(allKeywords);
         }
@@ -353,7 +359,10 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     if (!currentFile || !lineOffsets) return;
 
     // ✅ Sync WASM Engine keywords for the main worker (for getLines etc)
-    if (wasmEngine) {
+    if (wasmEngine && wasmModule) {
+        const isCaseSensitive = !!payload.happyCombosCaseSensitive;
+        wasmEngine = new wasmModule.FilterEngine(isCaseSensitive);
+
         const allKeywords = payload.includeGroups.flat().map(t => t.trim()).filter(t => t !== '');
         wasmEngine.update_keywords(allKeywords);
     }
@@ -864,7 +873,6 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
         case 'PROCESS_CHUNK':
             processChunk(payload);
             break;
-        case 'FILTER_LOGS':
         case 'FILTER_LOGS':
             applyFilter(payload); // Payload now entails LogRule + quickFilter
             break;
