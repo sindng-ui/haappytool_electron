@@ -879,11 +879,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     // 1. Check native text selection first
                                     const selection = window.getSelection()?.toString();
                                     if (selection && selection.length > 0) {
-                                        // Allow native copy (or explicitly execCommand)
-                                        // If we don't preventDefault, browser native copy handles it.
-                                        // But if Electron menu is intercepting, we might need manual copy.
-                                        // Let's try explicit clipboard write to be safe.
-                                        navigator.clipboard.writeText(selection);
+                                        // 🔥 Log Copy Precision: Remove trailing newline from native selection
+                                        navigator.clipboard.writeText(selection.replace(/\r?\n$/, ''));
                                         e.preventDefault();
                                         e.stopPropagation();
                                         return;

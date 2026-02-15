@@ -262,9 +262,9 @@ const processChunk = (chunk: string) => {
 
     if (lines.length === 0) return;
 
-    // Clean ANSI codes from lines
+    // Clean ANSI codes from lines and remove trailing carriage returns
     // eslint-disable-next-line no-control-regex
-    const cleanLines = lines.map(line => line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, ''));
+    const cleanLines = lines.map(line => line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').replace(/\r$/, ''));
 
     const startIdx = streamLines.length;
     streamLines.push(...cleanLines);

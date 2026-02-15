@@ -1368,6 +1368,9 @@ export const useLogExtractorLogic = ({
             }
             console.timeEnd('copy-fetch');
 
+            // 🔥 Log Copy Precision: Remove trailing newline to prevent extra line breaks on paste
+            content = content.replace(/\r?\n$/, '');
+
             if (!content) {
                 showToast('Failed to retrieve log content.', 'error');
                 return;
