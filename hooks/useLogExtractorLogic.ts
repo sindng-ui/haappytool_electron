@@ -823,7 +823,6 @@ export const useLogExtractorLogic = ({
 
             // ✅ Reactive Ambient Lighting Logic (Optimized)
             // ✅ Error Detection & Notification (Throttled Toast)
-            const lowerChunk = chunk.toLowerCase();
             // Broader check including 'E/', 'level: e', etc. if needed, but 'error' is in the simulator msg.
             const isError = /error|exception|fail|fatal|\be\//i.test(chunk);
 
