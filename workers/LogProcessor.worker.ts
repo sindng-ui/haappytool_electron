@@ -327,21 +327,34 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
 
     if (isStreamMode) {
+        // --- Optimization: Pre-normalize Rule Keywords ---
+        const isHappyCase = !!payload.happyCombosCaseSensitive;
+        const normalizedGroups = payload.includeGroups.map(group =>
+            group.map(t => t.trim()).filter(t => t !== '').map(t => isHappyCase ? t : t.toLowerCase())
+        ).filter(g => g.length > 0);
+
+        const normalizedRule: LogRule = {
+            ...payload,
+            excludes: payload.excludes.map(e => e.trim()).filter(e => e !== '').map(e => !!payload.blockListCaseSensitive ? e : e.toLowerCase()),
+            includeGroups: normalizedGroups
+        };
+
+        currentRule = normalizedRule;
+
         // ✅ Sync WASM Engine keywords if available
         if (wasmEngine && wasmModule) {
-            const isCaseSensitive = !!payload.happyCombosCaseSensitive;
-            // Always recreate FilterEngine to ensure case sensitivity is updated
-            wasmEngine = new wasmModule.FilterEngine(isCaseSensitive);
-
-            const allKeywords = payload.includeGroups.flat().map(t => t.trim()).filter(t => t !== '');
+            wasmEngine = new wasmModule.FilterEngine(isHappyCase);
+            const allKeywords = normalizedGroups.flat();
             wasmEngine.update_keywords(allKeywords);
         }
 
         // Re-filter all stream lines
         const matches: number[] = [];
-        streamLines.forEach((line, i) => {
-            if (checkIsMatch(line, currentRule, isLiveStream, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) matches.push(i); // ✅ Pass Zero-copy params
-        });
+        for (let i = 0; i < streamLines.length; i++) {
+            if (checkIsMatch(streamLines[i], currentRule, isLiveStream, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+                matches.push(i);
+            }
+        }
 
         // Re-init buffer with results
         const requiredLen = matches.length;
@@ -358,19 +371,29 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     // File Mode
     if (!currentFile || !lineOffsets) return;
 
+    // --- Optimization: Pre-normalize Rule Keywords ---
+    const isHappyCase = !!payload.happyCombosCaseSensitive;
+    const isBlockCase = !!payload.blockListCaseSensitive;
+
+    const normalizedRule: LogRule = {
+        ...payload,
+        excludes: payload.excludes.map(e => e.trim()).filter(e => e !== '').map(e => isBlockCase ? e : e.toLowerCase()),
+        includeGroups: payload.includeGroups.map(group =>
+            group.map(t => t.trim()).filter(t => t !== '').map(t => isHappyCase ? t : t.toLowerCase())
+        ).filter(g => g.length > 0)
+    };
+
+    currentRule = normalizedRule;
+
     // ✅ Sync WASM Engine keywords for the main worker (for getLines etc)
     if (wasmEngine && wasmModule) {
-        const isCaseSensitive = !!payload.happyCombosCaseSensitive;
-        wasmEngine = new wasmModule.FilterEngine(isCaseSensitive);
-
-        const allKeywords = payload.includeGroups.flat().map(t => t.trim()).filter(t => t !== '');
+        wasmEngine = new wasmModule.FilterEngine(isHappyCase);
+        const allKeywords = normalizedRule.includeGroups.flat();
         wasmEngine.update_keywords(allKeywords);
     }
 
     // Optimization for empty rule
-    const excludes = currentRule.excludes.filter(e => e.trim());
-    const includes = currentRule.includeGroups.flat().filter(t => t.trim());
-    if (excludes.length === 0 && includes.length === 0 && currentQuickFilter === 'none') {
+    if (normalizedRule.excludes.length === 0 && normalizedRule.includeGroups.length === 0 && currentQuickFilter === 'none') {
         const all = new Int32Array(lineOffsets.length);
         for (let i = 0; i < lineOffsets.length; i++) all[i] = i;
         filteredIndices = all;
@@ -395,17 +418,21 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
         respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (completedChunks / numChunks) * 100 } });
 
         if (completedChunks === numChunks) {
-            // Final assembly
-            const finalMatches: number[] = [];
+            // Final assembly using TypedArray for maximum performance
+            const totalMatches = chunkResults.reduce((sum, res) => sum + res.matches.length, 0);
+            const finalMatches = new Int32Array(totalMatches);
+
+            let currentIdx = 0;
             for (let i = 0; i < numChunks; i++) {
                 const res = chunkResults[i];
                 const startLineOfChunk = i * linesPerChunk;
-                for (const relIdx of res.matches) {
-                    finalMatches.push(startLineOfChunk + relIdx);
+                const matches = res.matches;
+                for (let j = 0; j < matches.length; j++) {
+                    finalMatches[currentIdx++] = startLineOfChunk + matches[j];
                 }
             }
 
-            filteredIndices = new Int32Array(finalMatches);
+            filteredIndices = finalMatches;
             respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
             respond({ type: 'FILTER_COMPLETE', payload: { matchCount: finalMatches.length, totalLines: lineOffsets!.length, visualBookmarks: getVisualBookmarks() } });
 

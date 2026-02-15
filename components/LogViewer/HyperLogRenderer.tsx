@@ -93,6 +93,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const bgCanvasRef = useRef<HTMLCanvasElement>(null); // ✅ NEW: Background Layer
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const [stableScrollTop, setStableScrollTop] = useState(0);
@@ -225,6 +226,8 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
     // 🔥 Monospaced Font Metrics Cache
     const charWidthRef = useRef<number>(8); // Default fallback
+    const measureCache = useRef<Map<string, number>>(new Map());
+
     useLayoutEffect(() => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -233,24 +236,43 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             const fontFamily = preferences?.fontFamily || "'JetBrains Mono', monospace";
             ctx.font = `${fontSize}px ${fontFamily}`;
             charWidthRef.current = ctx.measureText('M').width;
+            measureCache.current.clear(); // Clear cache when font changes
         }
     }, [preferences?.fontSize, preferences?.fontFamily]);
+
+    // Fast width calculator
+    const getCachedWidth = useCallback((ctx: CanvasRenderingContext2D, text: string) => {
+        // High Speed Path for Monospaced
+        if (preferences?.fontFamily?.toLowerCase().includes('mono')) {
+            return charWidthRef.current * text.length;
+        }
+
+        const key = `${ctx.font}_${text}`;
+        let width = measureCache.current.get(key);
+        if (width === undefined) {
+            width = ctx.measureText(text).width;
+            measureCache.current.set(key, width);
+            if (measureCache.current.size > 2000) {
+                const firstKey = measureCache.current.keys().next().value;
+                if (firstKey) measureCache.current.delete(firstKey);
+            }
+        }
+        return width;
+    }, [preferences?.fontFamily]);
 
     // Rendering Logic (Canvas)
     const render = useCallback(() => {
         const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d', { alpha: false }); // 🔥 Performance: Disable alpha if possible (actually we need it for overlays, but let's keep it default if unsure)
-        if (!ctx) return;
+        const bgCanvas = bgCanvasRef.current;
+        if (!canvas || !bgCanvas) return;
+
+        const ctx = canvas.getContext('2d', { alpha: true }); // Need alpha for text layer
+        const bgCtx = bgCanvas.getContext('2d', { alpha: false }); // Background can be opaque
+        if (!ctx || !bgCtx) return;
 
         const dpr = window.devicePixelRatio || 1;
         const width = canvas.width / dpr;
         const height = canvas.height / dpr;
-
-        // Reset Transform and Clear
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.fillStyle = '#020617'; // Hardcoded dark theme for slate-950 compatibility
-        ctx.fillRect(0, 0, width, height);
 
         const currentScrollTop = scrollTopRef.current;
         const visibleStart = Math.floor(currentScrollTop / rowHeight);
@@ -265,15 +287,15 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         const fontFamily = preferences?.fontFamily || "'JetBrains Mono', monospace";
         const gutterFont = `10px ${fontFamily}`;
         const mainFont = `${fontSize}px ${fontFamily}`;
-        const hasLetterSpacing = 'letterSpacing' in ctx;
 
-        ctx.textBaseline = 'middle';
-        ctx.textAlign = 'left';
+        // --- 1. RENDER BACKGROUND LAYER ---
+        bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        bgCtx.fillStyle = '#020617'; // Slate-950
+        bgCtx.fillRect(0, 0, width, height);
 
-        // --- PASS 1: BACKGROUNDS ---
         for (let i = startIdx; i <= endIdx; i++) {
             const y = (i * rowHeight) - currentScrollTop;
-            if (y + rowHeight < 0 || y > height) continue; // Early exit for far-out lines
+            if (y + rowHeight < 0 || y > height) continue;
 
             let bgColor: string | null = null;
             if (selectedIndices?.has(i)) bgColor = selectionColor;
@@ -284,109 +306,103 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 if (rangeMatch) bgColor = rangeMatch.canvasColor;
             }
 
+            // Keyword Line Background (Fallback)
+            if (!bgColor && compiledLineHighlights.length > 0) {
+                const lineData = cachedLinesRef.current.get(i);
+                if (lineData) {
+                    const lineContent = lineData.content;
+                    const lowerContent = highlightCaseSensitive ? '' : lineContent.toLowerCase();
+                    for (const h of compiledLineHighlights) {
+                        const match = highlightCaseSensitive ? lineContent.includes(h.keyword) : lowerContent.includes(h.keyword.toLowerCase());
+                        if (match) {
+                            bgColor = h.canvasColor;
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (bgColor) {
-                ctx.fillStyle = bgColor;
-                ctx.fillRect(0, y, width, rowHeight);
+                bgCtx.fillStyle = bgColor;
+                bgCtx.fillRect(0, y, width, rowHeight);
             }
         }
 
-        // --- PASS 2: GUTTERS ---
+        // --- 2. RENDER TEXT LAYER ---
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height); // Clear transparent layer
+
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+
+        // Gutter Styling
         ctx.font = gutterFont;
         ctx.fillStyle = gutterColor;
-        for (let i = startIdx; i <= endIdx; i++) {
-            const lineData = cachedLinesRef.current.get(i);
-            if (!lineData) continue;
-            const y = (i * rowHeight) - currentScrollTop;
-            if (y + rowHeight < 0 || y > height) continue;
 
-            const centerY = y + (rowHeight / 2);
-            ctx.fillText(`#${(i + 1).toLocaleString()}`, 5, centerY);
-            ctx.fillText(String(lineData.lineNum), 80, centerY);
-        }
-
-        // --- PASS 3: MAIN TEXT & KEYWORD LINE HIGHLIGHTS ---
-        ctx.font = mainFont;
         for (let i = startIdx; i <= endIdx; i++) {
             const lineData = cachedLinesRef.current.get(i);
             const y = (i * rowHeight) - currentScrollTop;
             if (y + rowHeight < 0 || y > height) continue;
             const centerY = y + (rowHeight / 2);
 
-            if (!lineData) {
+            // Draw Gutters
+            if (lineData) {
+                ctx.font = gutterFont;
+                ctx.fillStyle = gutterColor;
+                ctx.fillText(`#${(i + 1).toLocaleString()}`, 5, centerY);
+                ctx.fillText(String(lineData.lineNum), 80, centerY);
+
+                // Draw Main Text
+                ctx.font = mainFont;
+                ctx.fillStyle = lineData.levelColor || defaultTextColor;
+                const displayContent = lineData.decodedContent;
+                ctx.fillText(displayContent, 180, centerY);
+
+                // Word Highlights
+                if (compiledTextHighlights.length > 0) {
+                    for (const h of compiledTextHighlights) {
+                        h.regex.lastIndex = 0;
+                        let match;
+                        while ((match = h.regex.exec(displayContent)) !== null) {
+                            const matchStr = match[0];
+                            const prefix = displayContent.substring(0, match.index);
+                            const prefixWidth = getCachedWidth(ctx, prefix);
+                            const matchWidth = getCachedWidth(ctx, matchStr);
+
+                            const paddingX = 1.5;
+                            const boxX = 180 + prefixWidth - paddingX;
+                            const boxY = y + 2;
+                            const boxW = matchWidth + (paddingX * 2);
+                            const boxH = rowHeight - 4;
+
+                            ctx.fillStyle = h.canvasColor;
+                            if (ctx.roundRect) {
+                                ctx.beginPath();
+                                ctx.roundRect(boxX, boxY, boxW, boxH, 4);
+                                ctx.fill();
+                            } else {
+                                ctx.fillRect(boxX, boxY, boxW, boxH);
+                            }
+
+                            // Halo Effect
+                            ctx.save();
+                            ctx.font = `bold ${fontSize}px ${fontFamily}`;
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.lineWidth = 1.2;
+                            ctx.strokeText(matchStr, 180 + prefixWidth, centerY);
+                            ctx.fillStyle = '#0f172a';
+                            ctx.fillText(matchStr, 180 + prefixWidth, centerY);
+                            ctx.restore();
+                        }
+                    }
+                }
+            } else {
+                // Loading Placeholder
                 ctx.fillStyle = 'rgba(51, 65, 85, 0.3)';
                 ctx.fillRect(180, centerY - (fontSize / 4), 300, fontSize / 2);
-                continue;
-            }
-
-            // Keyword Line Background (if no primary BG)
-            const isDecorated = selectedIndices?.has(i) || activeLineIndex === i || bookmarks.has(i);
-            if (!isDecorated && compiledLineHighlights.length > 0) {
-                for (const h of compiledLineHighlights) {
-                    const match = highlightCaseSensitive
-                        ? lineData.content.includes(h.keyword)
-                        : lineData.content.toLowerCase().includes(h.keyword.toLowerCase());
-                    if (match) {
-                        ctx.fillStyle = h.canvasColor;
-                        ctx.fillRect(0, y, width, rowHeight);
-                        break;
-                    }
-                }
-            }
-
-            // 3. Main Text (Base layer)
-            // 🔥 이 글씨를 먼저 깔아야 하이라이트가 번짐 없이 덮어씌워집니다.
-            ctx.font = mainFont;
-            ctx.fillStyle = lineData.levelColor || defaultTextColor;
-            const displayContent = lineData.decodedContent;
-            ctx.fillText(displayContent, 180, centerY);
-
-            // 4. Word Highlights & High-Contrast Overlay (Top layer)
-            if (compiledTextHighlights.length > 0) {
-                for (const h of compiledTextHighlights) {
-                    h.regex.lastIndex = 0;
-                    let match;
-                    while ((match = h.regex.exec(displayContent)) !== null) {
-                        const matchStr = match[0];
-                        const prefix = displayContent.substring(0, match.index);
-                        const prefixWidth = ctx.measureText(prefix).width;
-                        const matchWidth = ctx.measureText(matchStr).width;
-
-                        const paddingX = 1.5;
-                        const boxX = 180 + prefixWidth - paddingX;
-                        const boxY = y + 2;
-                        const boxW = matchWidth + (paddingX * 2);
-                        const boxH = rowHeight - 4;
-
-                        ctx.fillStyle = h.canvasColor;
-                        if (ctx.roundRect) {
-                            ctx.beginPath();
-                            ctx.roundRect(boxX, boxY, boxW, boxH, 4);
-                            ctx.fill();
-                        } else {
-                            ctx.fillRect(boxX, boxY, boxW, boxH);
-                        }
-
-                        // 🔥 분신술 & 가독성 해결: shadowBlur 번짐 대신 선명한 Halo(광채) 효과
-                        ctx.save();
-                        ctx.font = `bold ${fontSize}px ${fontFamily}`;
-
-                        // 흰색 광채를 4방향으로 0.5px씩 줘서 선명한 외곽선 형성
-                        ctx.fillStyle = '#ffffff';
-                        const haloOffset = 0.5;
-                        ctx.fillText(matchStr, 180 + prefixWidth - haloOffset, centerY - haloOffset);
-                        ctx.fillText(matchStr, 180 + prefixWidth + haloOffset, centerY - haloOffset);
-                        ctx.fillText(matchStr, 180 + prefixWidth - haloOffset, centerY + haloOffset);
-                        ctx.fillText(matchStr, 180 + prefixWidth + haloOffset, centerY + haloOffset);
-
-                        // 본체 글씨 (진한 네이비)
-                        ctx.fillStyle = '#0f172a';
-                        ctx.fillText(matchStr, 180 + prefixWidth, centerY);
-                        ctx.restore();
-                    }
-                }
             }
         }
-    }, [stableScrollTop, cachedLines, totalCount, rowHeight, preferences, levelMatchers, selectedIndices, activeLineIndex, bookmarks, loadVisibleLines, compiledTextHighlights, compiledLineHighlights, highlightCaseSensitive, compiledLineHighlightRanges]);
+    }, [stableScrollTop, cachedLines, totalCount, rowHeight, preferences, levelMatchers, selectedIndices, activeLineIndex, bookmarks, loadVisibleLines, compiledTextHighlights, compiledLineHighlights, highlightCaseSensitive, compiledLineHighlightRanges, getCachedWidth]);
 
     useEffect(() => {
         const handleGlobalMouseUp = () => {
@@ -403,6 +419,17 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 const dpr = window.devicePixelRatio || 1;
                 const { width, height } = entry.contentRect;
                 setViewportHeight(height);
+                if (bgCanvasRef.current) {
+                    bgCanvasRef.current.width = width * dpr;
+                    bgCanvasRef.current.height = height * dpr;
+                    bgCanvasRef.current.style.width = width + 'px';
+                    bgCanvasRef.current.style.height = height + 'px';
+                    const bgCtx = bgCanvasRef.current.getContext('2d');
+                    if (bgCtx) {
+                        bgCtx.setTransform(1, 0, 0, 1, 0, 0);
+                        bgCtx.scale(dpr, dpr);
+                    }
+                }
                 if (canvasRef.current) {
                     canvasRef.current.width = width * dpr;
                     canvasRef.current.height = height * dpr;
@@ -516,37 +543,46 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     text-indent: 0px !important; /* 👈 들여쓰기 오차 방지 */
                 }
             `}</style>
-            {/* 1. Background Canvas (z-0) */}
-            <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" />
+            {/* 🎨 Double Layered Canvas Architecture */}
+            {/* Layer 1: Backgrounds & Highlights */}
+            <canvas
+                ref={bgCanvasRef}
+                className="absolute inset-0 pointer-events-none"
+                style={{ zIndex: 1 }}
+            />
+            {/* Layer 2: Main Text & Overlays */}
+            <canvas
+                ref={canvasRef}
+                className="absolute inset-0 pointer-events-none"
+                style={{ zIndex: 2 }}
+            />
 
-            {/* 2. Unified Scroll & Interaction Layer (z-10) */}
+            {/* 3. Unified Scroll & Interaction Layer (z-10) */}
             <div
                 ref={scrollContainerRef}
-                className="absolute inset-0 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-600 z-10"
+                className="absolute inset-0 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-600 interaction-scroll-layer"
+                style={{ zIndex: 10 }}
                 onScroll={handleScroll}
             >
                 <div style={{ height: totalCount * rowHeight, position: 'relative' }}>
-
                     {/* Interaction Items (Each line positioned absolutely for perfect alignment) */}
                     {visibleLines.map(({ index, line }) => {
                         const fontSize = preferences?.fontSize || 13;
                         const fontFamily = preferences?.fontFamily || "'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace";
 
-                        // 형님, 글자가 겹쳐 보이는 '분신술'은 style 객체 안에 무효한 !important가 있어서 
-                        // transparent가 무시되었기 때문입니다. 이를 표준 방식으로 수정합니다.
                         return (
                             <div
                                 key={index}
                                 className="absolute select-text whitespace-pre overflow-hidden pointer-events-auto active:bg-indigo-500/5 hover:bg-slate-500/5 interaction-line"
                                 style={{
                                     top: index * rowHeight,
-                                    left: 180, // 👈 텍스트 시작점으로 정확히 이동
-                                    width: 'calc(100% - 180px)', // 👈 남은 너비 전체 차지
+                                    left: 180,
+                                    width: 'calc(100% - 180px)',
                                     height: rowHeight,
                                     lineHeight: `${rowHeight}px`,
                                     fontSize: `${fontSize}px`,
                                     fontFamily: fontFamily,
-                                    paddingLeft: 0, // 👈 padding 대신 left 사용
+                                    paddingLeft: 0,
                                     boxSizing: 'border-box',
                                     WebkitFontSmoothing: 'antialiased',
                                     MozOsxFontSmoothing: 'grayscale',

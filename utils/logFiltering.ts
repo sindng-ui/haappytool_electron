@@ -16,21 +16,16 @@ import { LogRule } from '../types';
  * @returns true if the line should be included, false if it should be filtered out
  */
 export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilter: boolean, quickFilter?: 'none' | 'error' | 'exception', wasmEngine?: any, wasmMemory?: WebAssembly.Memory, textEncoder?: TextEncoder): boolean => {
-    // Lazy Lowercasing
-    let lowerLine: string | undefined;
-    const getLower = () => lowerLine ?? (lowerLine = line.toLowerCase());
-
-    // Quick Filter: Error (Level E)
+    // 1. Quick Filters (Highly optimized, minimal overhead)
     if (quickFilter === 'error') {
         const isErrorLevel = line.includes(' E/') || line.includes('ERROR') || line.includes('Error') || line.includes('Fail') || line.includes('FATAL');
         if (!isErrorLevel) return false;
     }
 
-    // Quick Filter: Exception (Text match)
     if (quickFilter === 'exception') {
-        const isException = getLower().includes('exception');
-        if (!isException) return false;
+        if (!line.toLowerCase().includes('exception')) return false;
     }
+
     // Force include Simulated Logs (for Tizen Connection Test) regardless of rules
     if (bypassShellFilter && line.includes('[TEST_LOG_')) {
         return true;
@@ -38,45 +33,33 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
 
     if (!rule) return true;
 
-    // "Show Shell/Raw Text Always" Bypass Logic
+    // 2. Bypass Logic for Stream Mode
     if (bypassShellFilter && rule.showRawLogLines !== false) {
-        // Strict Log Detection for Stream Mode
-        const isStandardLog = (inputLine: string) => {
-            if (/\d{1,2}:\d{2}:\d{2}/.test(inputLine)) return true;
-            if (/^\s*\[?\s*\d+\.\d+\s*\]?/.test(inputLine)) return true;
-            if (/^[A-Z]\//.test(inputLine.trim())) return true;
-            return false;
-        };
+        // Optimized standard log detection (avoiding complex regex if possible)
+        const isStandard = line.includes(' /') || (line.length > 10 && (line[2] === ':' || line[4] === '-'));
+        if (!isStandard) return true;
+    }
 
-        if (!isStandardLog(line)) {
-            return true;
+    // 3. Excludes (Block List)
+    const excludes = rule.excludes; // Assumed to be normalized by the caller
+    if (excludes.length > 0) {
+        const isBlockCaseSensitive = rule.blockListCaseSensitive;
+        const lineForBlock = isBlockCaseSensitive ? line : line.toLowerCase();
+        for (let i = 0; i < excludes.length; i++) {
+            if (lineForBlock.includes(excludes[i])) return false;
         }
     }
 
-    // 1. Excludes
-    const isBlockCaseSensitive = rule.blockListCaseSensitive;
-    const excludes = rule.excludes.map(e => e.trim()).filter(e => e !== '');
-
-    if (excludes.length > 0) {
-        const lineForBlock = isBlockCaseSensitive ? line : getLower();
-        const effectiveExcludes = isBlockCaseSensitive ? excludes : excludes.map(e => e.toLowerCase());
-        if (effectiveExcludes.some(exc => lineForBlock.includes(exc))) return false;
-    }
-
-    // 2. Includes
-    const isHappyCaseSensitive = rule.happyCombosCaseSensitive;
-    const groups = rule.includeGroups.map(g => g.map(t => t.trim()).filter(t => t !== ''));
-    const meaningfulGroups = groups.filter(g => g.length > 0);
-
-    if (meaningfulGroups.length === 0) return true; // No include filters -> Show all
+    // 4. Includes (Happy Combos)
+    const groups = rule.includeGroups; // Assumed to be normalized [ [word, word], [word] ]
+    if (groups.length === 0) return true;
 
     // ✅ WASM Path: Only use if no AND logic (all groups have 1 term) for maximum speed
-    const isSimpleOrFilter = meaningfulGroups.every(g => g.length === 1);
+    const isSimpleOrFilter = groups.every(g => g.length === 1);
     if (wasmEngine && isSimpleOrFilter) {
         // Zero-copy 지원 버전 (WASM 메모리에 직접 쓰기)
         if (wasmMemory && textEncoder) {
-            // 한글 등 멀티바이트 고려하여 안전하게 3배 용량 할당
-            const requiredSize = line.length * 3;
+            const requiredSize = line.length * 3; // Safe UTF-8 upper bound
             wasmEngine.reserve_buffer(requiredSize);
 
             const ptr = wasmEngine.get_buffer_ptr();
@@ -85,15 +68,24 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
 
             return wasmEngine.check_match_ptr(written);
         }
-
-        // Fallback: 기존 WASM 방식
         return wasmEngine.check_match(line);
     }
 
-    const lineForHappy = isHappyCaseSensitive ? line : getLower();
+    // JS Fallback: OR of ANDs
+    const isHappyCaseSensitive = rule.happyCombosCaseSensitive;
+    const lineForHappy = isHappyCaseSensitive ? line : line.toLowerCase();
 
-    return meaningfulGroups.some(group => group.every(term => {
-        const effectiveTerm = isHappyCaseSensitive ? term : term.toLowerCase();
-        return lineForHappy.includes(effectiveTerm);
-    }));
+    for (let i = 0; i < groups.length; i++) {
+        const group = groups[i];
+        let allTermsInGroupMatch = true;
+        for (let j = 0; j < group.length; j++) {
+            if (!lineForHappy.includes(group[j])) {
+                allTermsInGroupMatch = false;
+                break;
+            }
+        }
+        if (allTermsInGroupMatch) return true;
+    }
+
+    return false;
 };

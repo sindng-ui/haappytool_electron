@@ -35,7 +35,8 @@ ctx.onmessage = async (e) => {
             const isCaseSensitive = !!rule.happyCombosCaseSensitive;
             wasmEngine = new wasmModule.FilterEngine(isCaseSensitive);
 
-            const allKeywords = (rule.includeGroups as string[][]).flat().map(t => t.trim()).filter(t => t !== '');
+            // ✅ Optimization: Use already normalized keywords from main worker
+            const allKeywords = (rule.includeGroups as string[][]).flat();
             wasmEngine.update_keywords(allKeywords);
         }
 
@@ -43,7 +44,7 @@ ctx.onmessage = async (e) => {
         const decoder = new TextDecoder();
         let buffer = '';
         let relativeLineIndex = 0;
-        const matches: number[] = [];
+        const matchesList: number[] = [];
 
         try {
             while (true) {
@@ -57,14 +58,14 @@ ctx.onmessage = async (e) => {
 
                 for (const line of lines) {
                     if (checkIsMatch(line, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
-                        matches.push(relativeLineIndex);
+                        matchesList.push(relativeLineIndex);
                     }
                     relativeLineIndex++;
                 }
             }
             if (buffer) {
                 if (checkIsMatch(buffer, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
-                    matches.push(relativeLineIndex);
+                    matchesList.push(relativeLineIndex);
                 }
                 relativeLineIndex++;
             }
@@ -72,6 +73,8 @@ ctx.onmessage = async (e) => {
             console.error(`[SubWorker ${chunkId}] Error`, err);
         }
 
+        // ✅ Optimization: Use Int32Array for Zero-copy transfer to main worker
+        const matches = new Int32Array(matchesList);
         ctx.postMessage({
             type: 'CHUNK_COMPLETE',
             payload: {
@@ -79,6 +82,6 @@ ctx.onmessage = async (e) => {
                 matches,
                 lineCount: relativeLineIndex
             }
-        });
+        }, [matches.buffer] as any);
     }
 };
