@@ -524,7 +524,7 @@ const getLines = async (startFilterIndex: number, count: number, requestId: stri
             const buffer = await fullBlob.arrayBuffer();
             const decoder = new TextDecoder();
 
-            for (let i = startFilterIndex; i < max; i++) {
+            for (let i = startFilterIndex; i < maxFile; i++) {
                 const originalIdx = filteredIndices[i];
                 const lineStart = lineOffsets[originalIdx];
                 const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
