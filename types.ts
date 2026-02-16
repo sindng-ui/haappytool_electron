@@ -198,7 +198,7 @@ export interface PerfResponse {
 export type WorkerStatus = 'idle' | 'indexing' | 'filtering' | 'ready' | 'error';
 
 export interface LogWorkerMessage {
-  type: 'INIT_FILE' | 'FILTER_LOGS' | 'GET_LINES' | 'GET_SURROUNDING_LINES' | 'GET_RAW_LINES' | 'INIT_STREAM' | 'PROCESS_CHUNK' | 'UPDATE_RULES' | 'FIND_HIGHLIGHT' | 'GET_LINES_BY_INDICES' | 'TOGGLE_BOOKMARK' | 'CLEAR_BOOKMARKS';
+  type: 'INIT_FILE' | 'FILTER_LOGS' | 'GET_LINES' | 'GET_SURROUNDING_LINES' | 'GET_RAW_LINES' | 'INIT_STREAM' | 'PROCESS_CHUNK' | 'UPDATE_RULES' | 'FIND_HIGHLIGHT' | 'GET_LINES_BY_INDICES' | 'TOGGLE_BOOKMARK' | 'CLEAR_BOOKMARKS' | 'ANALYZE_TRANSACTION';
   payload?: any;
   requestId?: string;
 }

@@ -1752,6 +1752,50 @@ export const useLogExtractorLogic = ({
         findText(keyword, 'next', paneId, undefined, false, true);
     }, [currentConfig, findText]);
 
+    // --- Transaction Analysis ---
+    const [transactionResults, setTransactionResults] = useState<{ lineNum: number, content: string, visualIndex: number }[]>([]);
+    const [transactionIdentity, setTransactionIdentity] = useState<{ type: string, value: string } | null>(null);
+    const [transactionSourcePane, setTransactionSourcePane] = useState<'left' | 'right'>('left');
+    const [isAnalyzingTransaction, setIsAnalyzingTransaction] = useState(false);
+    const [isTransactionDrawerOpen, setIsTransactionDrawerOpen] = useState(false);
+
+    const analyzeTransactionAction = useCallback(async (identity: { type: string, value: string }, paneId: 'left' | 'right') => {
+        const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
+        const requestMap = paneId === 'left' ? leftPendingRequests : rightPendingRequests;
+        if (!worker) return;
+
+        setTransactionIdentity(identity);
+        setTransactionSourcePane(paneId);
+        setIsTransactionDrawerOpen(true);
+        setIsAnalyzingTransaction(true);
+        setTransactionResults([]);
+
+        const reqId = Math.random().toString(36).substring(7);
+        console.log(`[TransactionAction] Sending ANALYZE_TRANSACTION to ${paneId} worker:`, { identity, reqId });
+
+        const result: any = await new Promise((resolve) => {
+            requestMap.current.set(reqId, resolve);
+            worker.postMessage({
+                type: 'ANALYZE_TRANSACTION',
+                payload: { identity },
+                requestId: reqId
+            });
+        });
+
+        console.log(`[TransactionAction] Received response from worker:`, {
+            foundCount: Array.isArray(result) ? result.length : 0,
+            reqId
+        });
+
+        if (Array.isArray(result)) {
+            // 워커에서 이미 MAX_RESULTS(10,000)로 제한하여 보내주며, UI는 Virtuoso로 가상화되어 있어 안전합니다.
+            setTransactionResults(result);
+        } else {
+            console.warn(`[TransactionAction] Worker returned unexpected result format:`, result);
+        }
+        setIsAnalyzingTransaction(false);
+    }, []);
+
     // Segmentation Derived Values (Left)
     const leftTotalSegments = Math.ceil(leftFilteredCount / MAX_SEGMENT_SIZE) || 1;
     const leftCurrentSegmentLines = Math.min(MAX_SEGMENT_SIZE, Math.max(0, leftFilteredCount - (leftSegmentIndex * MAX_SEGMENT_SIZE)));
@@ -1821,6 +1865,9 @@ export const useLogExtractorLogic = ({
         connectionMode,
         isSearchFocused, setIsSearchFocused, // ✅ Expose for layout logic
         quickFilter, // ✅ Export for TopBar
-        setQuickFilter // ✅ Export for TopBar
+        setQuickFilter, // ✅ Export for TopBar
+        // Transaction Analyzer
+        transactionResults, transactionIdentity, transactionSourcePane, isAnalyzingTransaction, isTransactionDrawerOpen,
+        setIsTransactionDrawerOpen, analyzeTransactionAction
     };
 };

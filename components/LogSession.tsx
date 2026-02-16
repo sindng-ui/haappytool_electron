@@ -14,6 +14,8 @@ import { useLogSelection } from './LogArchive/hooks/useLogSelection';
 import { useLogArchiveContext } from './LogArchive/LogArchiveProvider';
 import { useContextMenu } from './ContextMenu';
 import { useHappyTool } from '../contexts/HappyToolContext';
+import TransactionDrawer from './LogViewer/TransactionDrawer';
+import { extractTransactionIds } from '../utils/transactionAnalysis';
 
 const { X, Eraser, ChevronLeft, ChevronRight } = Lucide;
 
@@ -147,7 +149,10 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         searchInputRef,
         logViewPreferences, // Added
         isPanelOpen, setIsPanelOpen, updateLogViewPreferences, // Added for shortcuts
-        isSearchFocused // Added for Focus Mode
+        isSearchFocused, // Added for Focus Mode
+        // Transaction Analyzer
+        transactionResults, transactionIdentity, transactionSourcePane, isAnalyzingTransaction, isTransactionDrawerOpen,
+        setIsTransactionDrawerOpen, analyzeTransactionAction
     } = useLogContext();
 
     // Log Archive: Text Selection
@@ -235,21 +240,70 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         }
     };
 
-    const handleContextMenu = React.useCallback((e: React.MouseEvent) => {
+    const handleContextMenu = React.useCallback(async (e: React.MouseEvent) => {
+        // ✅ Prevent default immediately to ensure custom menu works correctly even with async logic
+        e.preventDefault();
+
         const hasNative = nativeSelection || (window.getSelection() && !window.getSelection()?.isCollapsed && window.getSelection()?.toString().trim());
         const hasLeftLine = selectedIndicesLeft && selectedIndicesLeft.size > 0;
         const hasRightLine = isDualView && selectedIndicesRight && selectedIndicesRight.size > 0;
 
+        const menuItems = [];
+
+        // Determine which pane we are clicking on (best effort)
+        const targetPane: 'left' | 'right' = (e.currentTarget as HTMLElement).closest('[data-pane-id="right"]') ? 'right' : 'left';
+
+        const hasSelectionInTarget = targetPane === 'left' ? hasLeftLine : hasRightLine;
+
         if (hasNative || hasLeftLine || hasRightLine) {
-            showContextMenu(e, [
-                {
-                    label: 'Save Selection to Archive',
-                    icon: <Lucide.Archive size={16} />,
-                    action: handleUnifiedSave
-                }
-            ]);
+            menuItems.push({
+                label: 'Save Selection to Archive',
+                icon: <Lucide.Archive size={16} />,
+                action: handleUnifiedSave
+            });
         }
-    }, [nativeSelection, selectedIndicesLeft, selectedIndicesRight, isDualView, showContextMenu]);
+
+        // --- Transaction Analysis Entry Point ---
+        try {
+            const indices = targetPane === 'left' ? selectedIndicesLeft : selectedIndicesRight;
+            console.log(`[ContextMenu] Checking selection for ${targetPane}:`, {
+                indicesCount: indices?.size || 0,
+                indices: Array.from(indices || [])
+            });
+
+            if (indices && indices.size >= 1) {
+                const activeIdx = targetPane === 'left' ? activeLineIndexLeft : activeLineIndexRight;
+                const lineIdx = indices.has(activeIdx) ? activeIdx : Array.from(indices)[0];
+                const requestFn = targetPane === 'left' ? requestLeftLines : requestRightLines;
+
+                const lines = await requestFn(lineIdx, 1);
+                console.log(`[ContextMenu] Requested line content for idx ${lineIdx}:`, lines?.[0]?.content);
+
+                if (lines && lines.length > 0) {
+                    const content = lines[0].content;
+                    const extractedIds = extractTransactionIds(content);
+                    console.log(`[ContextMenu] IDs extracted from line:`, extractedIds);
+
+                    if (extractedIds.length > 0) {
+                        menuItems.push({ type: 'separator' });
+                        extractedIds.forEach(id => {
+                            menuItems.push({
+                                label: `Analyze Transaction: ${id.type.toUpperCase()} (${id.value})`,
+                                icon: <Lucide.Activity size={16} />,
+                                action: () => analyzeTransactionAction(id, targetPane)
+                            });
+                        });
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('[LogSession] Context menu analysis check failed', err);
+        }
+
+        if (menuItems.length > 0) {
+            showContextMenu(e, menuItems);
+        }
+    }, [nativeSelection, selectedIndicesLeft, selectedIndicesRight, activeLineIndexLeft, activeLineIndexRight, isDualView, showContextMenu, requestLeftLines, requestRightLines, analyzeTransactionAction]);
 
     // --- Line Selection Logic (Fallback for when native selection is blocked) ---
     const mousePosRef = React.useRef({ x: 0, y: 0 });
@@ -644,8 +698,21 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 (() => {
                     React.useEffect(() => {
                         const handleGlobalKeyDown = (e: KeyboardEvent) => {
+                            // 1. ESC: Close Transaction Drawer (Highest priority, works even if not "active" tab context)
+                            if (e.key === 'Escape') {
+                                if (isTransactionDrawerOpen) {
+                                    setIsTransactionDrawerOpen(false);
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    return;
+                                }
+                            }
+
                             // If Save Dialog or Archive Viewer is open, disable all shortcuts to allow typing/local shortcuts
                             if (isSaveDialogOpen || isViewerOpen) return;
+
+                            // All other shortcuts require the session to be active
+                            if (!isActive) return;
 
                             // F3: Next Bookmark, F4 (or Shift+F3): Prev Bookmark
                             if (e.key === 'F3' || e.key === 'F4') {
@@ -911,7 +978,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                         };
                         window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
                         return () => window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, isSaveDialogOpen, isViewerOpen, tizenSocket, handleClearLogs]);
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, isSaveDialogOpen, isViewerOpen, tizenSocket, handleClearLogs, isTransactionDrawerOpen, setIsTransactionDrawerOpen]);
                     return null;
                 })()
             )}
@@ -1215,6 +1282,19 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
 
             {ContextMenuComponent}
+
+            {/* Transaction Analysis Drawer */}
+            <TransactionDrawer
+                isOpen={isTransactionDrawerOpen}
+                onClose={() => setIsTransactionDrawerOpen(false)}
+                identity={transactionIdentity}
+                logs={transactionResults}
+                isLoading={isAnalyzingTransaction}
+                onJumpToLine={(lineNum, visualIndex) => {
+                    handleFocusPaneRequest(transactionSourcePane);
+                    jumpToGlobalLine(visualIndex, transactionSourcePane);
+                }}
+            />
         </div>
     );
 };

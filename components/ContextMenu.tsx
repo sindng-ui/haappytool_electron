@@ -4,9 +4,10 @@ import * as Lucide from 'lucide-react';
 const { Copy, XCircle, X, Trash2 } = Lucide;
 
 interface ContextMenuItem {
-    label: string;
-    icon: React.ReactNode;
-    action: () => void;
+    type?: 'item' | 'separator';
+    label?: string;
+    icon?: React.ReactNode;
+    action?: () => void;
     variant?: 'default' | 'danger';
     disabled?: boolean;
 }
@@ -80,32 +81,38 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
                 top: `${adjustedPosition.y}px`,
             }}
         >
-            {items.map((item, idx) => (
-                <button
-                    key={idx}
-                    onClick={() => {
-                        if (!item.disabled) {
-                            item.action();
-                            onClose();
-                        }
-                    }}
-                    disabled={item.disabled}
-                    className={`
-                        w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group
-                        ${item.disabled
-                            ? 'opacity-40 cursor-not-allowed'
-                            : item.variant === 'danger'
-                                ? 'hover:bg-red-500/10 text-red-400 hover:text-red-300'
-                                : 'text-slate-300 hover:bg-gradient-to-r hover:from-indigo-600 hover:to-blue-600 hover:text-white hover:shadow-lg hover:shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98]'
-                        }
-                    `}
-                >
-                    <span className="w-4 h-4 flex items-center justify-center">
-                        {item.icon}
-                    </span>
-                    <span className="flex-1 text-left">{item.label}</span>
-                </button>
-            ))}
+            {items.map((item, idx) => {
+                if (item.type === 'separator') {
+                    return <div key={idx} className="h-px bg-white/10 my-1 mx-2" />;
+                }
+
+                return (
+                    <button
+                        key={idx}
+                        onClick={() => {
+                            if (!item.disabled && item.action) {
+                                item.action();
+                                onClose();
+                            }
+                        }}
+                        disabled={item.disabled}
+                        className={`
+                            w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 group
+                            ${item.disabled
+                                ? 'opacity-40 cursor-not-allowed'
+                                : item.variant === 'danger'
+                                    ? 'hover:bg-red-500/10 text-red-400 hover:text-red-300'
+                                    : 'text-slate-300 hover:bg-gradient-to-r hover:from-indigo-600 hover:to-blue-600 hover:text-white hover:shadow-lg hover:shadow-indigo-500/30 active:scale-[0.98]'
+                            }
+                        `}
+                    >
+                        <span className="w-4 h-4 flex items-center justify-center opacity-70 group-hover:opacity-100">
+                            {item.icon}
+                        </span>
+                        <span className="flex-1 text-left">{item.label}</span>
+                    </button>
+                );
+            })}
         </div>
     );
 };

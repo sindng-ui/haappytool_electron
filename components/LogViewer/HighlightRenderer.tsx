@@ -49,8 +49,8 @@ export const HighlightRenderer = React.memo(({ text, highlights, caseSensitive =
 
                 if (highlight) {
                     const isCss = isCssColor(highlight.color);
-                    const style = isCss ? { backgroundColor: highlight.color, color: '#0f172a', textShadow: '0 0 1px rgba(255,255,255,0.5)' } : undefined;
-                    const className = `rounded-sm px-0.5 font-bold ${!isCss ? highlight.color + ' text-slate-900' : ''}`;
+                    const style = isCss ? { backgroundColor: highlight.color, color: '#0f172a' } : undefined;
+                    const className = `rounded-sm px-0 py-[1px] font-bold ${!isCss ? highlight.color + ' text-slate-900' : ''}`;
                     return <span key={i} className={className} style={style}>{part}</span>;
                 }
                 return part;

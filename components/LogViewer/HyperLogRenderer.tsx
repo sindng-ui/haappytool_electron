@@ -247,12 +247,8 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     }, [preferences?.fontSize, preferences?.fontFamily]);
 
     // Fast width calculator
+    // Fast width calculator
     const getCachedWidth = useCallback((ctx: CanvasRenderingContext2D, text: string) => {
-        // High Speed Path for Monospaced
-        if (preferences?.fontFamily?.toLowerCase().includes('mono')) {
-            return charWidthRef.current * text.length;
-        }
-
         const key = `${ctx.font}_${text}`;
         let width = measureCache.current.get(key);
         if (width === undefined) {
@@ -264,7 +260,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             }
         }
         return width;
-    }, [preferences?.fontFamily]);
+    }, []);
 
     // Rendering Logic (Canvas)
     const render = useCallback(() => {
@@ -358,49 +354,63 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 ctx.fillText(`#${(i + 1).toLocaleString()}`, 5, centerY);
                 ctx.fillText(String(lineData.lineNum), 80, centerY);
 
-                // Draw Main Text
+                // --- 🛡 분신술(Ghosting) 방지를 위한 세그먼트 기반 렌더링 ---
                 ctx.font = mainFont;
-                ctx.fillStyle = lineData.levelColor || defaultTextColor;
                 const displayContent = lineData.decodedContent;
-                ctx.fillText(displayContent, 180, centerY);
 
-                // Word Highlights
+                // 하이라이트 구간 찾기
+                const segments: { start: number, end: number, color: string | null }[] = [];
                 if (compiledTextHighlights.length > 0) {
                     for (const h of compiledTextHighlights) {
                         h.regex.lastIndex = 0;
                         let match;
                         while ((match = h.regex.exec(displayContent)) !== null) {
-                            const matchStr = match[0];
-                            const prefix = displayContent.substring(0, match.index);
-                            const prefixWidth = getCachedWidth(ctx, prefix);
-                            const matchWidth = getCachedWidth(ctx, matchStr);
-
-                            const paddingX = 1.5;
-                            const boxX = 180 + prefixWidth - paddingX;
-                            const boxY = y + 2;
-                            const boxW = matchWidth + (paddingX * 2);
-                            const boxH = rowHeight - 4;
-
-                            ctx.fillStyle = h.canvasColor;
-                            if (ctx.roundRect) {
-                                ctx.beginPath();
-                                ctx.roundRect(boxX, boxY, boxW, boxH, 4);
-                                ctx.fill();
-                            } else {
-                                ctx.fillRect(boxX, boxY, boxW, boxH);
-                            }
-
-                            // Halo Effect
-                            ctx.save();
-                            ctx.font = `bold ${fontSize}px ${fontFamily}`;
-                            ctx.strokeStyle = '#ffffff';
-                            ctx.lineWidth = 1.2;
-                            ctx.strokeText(matchStr, 180 + prefixWidth, centerY);
-                            ctx.fillStyle = '#0f172a';
-                            ctx.fillText(matchStr, 180 + prefixWidth, centerY);
-                            ctx.restore();
+                            segments.push({
+                                start: match.index,
+                                end: match.index + match[0].length,
+                                color: h.canvasColor
+                            });
                         }
                     }
+                }
+
+                // 겹치는 구간 병합 및 정렬
+                segments.sort((a, b) => a.start - b.start);
+
+                let currentX = 180;
+                let lastIndex = 0;
+
+                const drawSegment = (text: string, isHighlight: boolean, color: string | null) => {
+                    const width = getCachedWidth(ctx, text);
+                    if (isHighlight && color) {
+                        ctx.fillStyle = color;
+                        if (ctx.roundRect) {
+                            ctx.beginPath();
+                            ctx.roundRect(currentX, y + 1, width, rowHeight - 2, 4);
+                            ctx.fill();
+                        } else {
+                            ctx.fillRect(currentX, y + 1, width, rowHeight - 2);
+                        }
+                        ctx.fillStyle = '#0f172a';
+                    } else {
+                        ctx.fillStyle = lineData.levelColor || defaultTextColor;
+                    }
+                    ctx.fillText(text, currentX, centerY);
+                    currentX += width;
+                };
+
+                for (const seg of segments) {
+                    if (seg.start > lastIndex) {
+                        drawSegment(displayContent.substring(lastIndex, seg.start), false, null);
+                    }
+                    if (seg.start >= lastIndex) {
+                        drawSegment(displayContent.substring(seg.start, seg.end), true, seg.color);
+                        lastIndex = seg.end;
+                    }
+                }
+
+                if (lastIndex < displayContent.length) {
+                    drawSegment(displayContent.substring(lastIndex), false, null);
                 }
             } else {
                 // Loading Placeholder

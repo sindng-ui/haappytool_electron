@@ -890,6 +890,110 @@ const clearBookmarks = () => {
     respond({ type: 'BOOKMARKS_UPDATED', payload: { visualBookmarks: [] }, requestId: '' });
 };
 
+// --- Handler: Analyze Transaction ---
+const analyzeTransaction = async (identity: { type: 'pid' | 'tid' | 'tag', value: string }, requestId: string) => {
+    const results: { lineNum: number, content: string, visualIndex: number }[] = [];
+    const val = identity.value;
+    const isFile = !!currentFile && !!lineOffsets;
+
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
+
+    if (!filteredIndices) {
+        respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+        respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+        return;
+    }
+
+    const lowerVal = val.toLowerCase();
+    const regex = (identity.type === 'pid' || identity.type === 'tid')
+        ? new RegExp(`(?:^|[^0-9])${val}(?:$|[^0-9])`)
+        : null;
+
+    const MAX_RESULTS = 10000;
+
+    if (isStreamMode) {
+        for (let idx = 0; idx < filteredIndices.length; idx++) {
+            if (results.length >= MAX_RESULTS) break;
+
+            const i = filteredIndices[idx];
+            const line = streamLines[i];
+            if (!line) continue;
+
+            let match = false;
+            if (regex) match = regex.test(line);
+            else match = line.toLowerCase().includes(lowerVal);
+
+            if (match) {
+                results.push({
+                    lineNum: i + 1,
+                    content: line,
+                    visualIndex: idx
+                });
+            }
+        }
+    } else if (isFile) {
+        const reader = new FileReaderSync();
+        const totalFiltered = filteredIndices.length;
+        const BATCH_SIZE = 5000;
+
+        for (let idx = 0; idx < totalFiltered; idx += BATCH_SIZE) {
+            if (results.length >= MAX_RESULTS) break;
+
+            const maxBatch = Math.min(idx + BATCH_SIZE, totalFiltered);
+
+            // Get range of bytes for this batch to optimize IO
+            let minByte = -1n;
+            let maxByte = -1n;
+            for (let k = idx; k < maxBatch; k++) {
+                const i = filteredIndices[k];
+                const start = lineOffsets![i];
+                const end = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(currentFile!.size);
+                if (minByte === -1n || start < minByte) minByte = start;
+                if (maxByte === -1n || end > maxByte) maxByte = end;
+            }
+
+            if (minByte !== -1n) {
+                const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
+                const buffer = reader.readAsArrayBuffer(fullBlob);
+                const decoder = new TextDecoder();
+
+                for (let k = idx; k < maxBatch; k++) {
+                    if (results.length >= MAX_RESULTS) break;
+
+                    const i = filteredIndices[k];
+                    const lineStart = lineOffsets![i];
+                    const lineEnd = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(currentFile!.size);
+
+                    const relStart = Number(lineStart - minByte);
+                    const relEnd = Number(lineEnd - minByte);
+                    const lineBuffer = buffer.slice(relStart, relEnd);
+                    const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
+
+                    let match = false;
+                    if (regex) match = regex.test(text);
+                    else match = text.toLowerCase().includes(lowerVal);
+
+                    if (match) {
+                        results.push({
+                            lineNum: i + 1,
+                            content: text,
+                            visualIndex: k // current index in filteredIndices
+                        });
+                    }
+                }
+            }
+
+            if (idx % (BATCH_SIZE * 2) === 0) {
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (idx / totalFiltered) * 100 } });
+            }
+        }
+    }
+
+    console.log(`[Worker] Analysis complete. Found ${results.length} lines.`);
+    respond({ type: 'LINES_DATA', payload: { lines: results }, requestId });
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+};
+
 // --- Message Listener ---
 ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
     const { type, payload, requestId } = evt.data;
@@ -926,6 +1030,9 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             break;
         case 'GET_FULL_TEXT' as any: // Cast for now until types updated
             getFullText(requestId || '');
+            break;
+        case 'ANALYZE_TRANSACTION':
+            analyzeTransaction(payload.identity, requestId || '');
             break;
     }
 };
