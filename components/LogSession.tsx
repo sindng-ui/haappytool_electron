@@ -13,6 +13,7 @@ import { useLogSelection } from './LogArchive/hooks/useLogSelection';
 // FloatingActionButton removed
 import { useLogArchiveContext } from './LogArchive/LogArchiveProvider';
 import { useContextMenu } from './ContextMenu';
+import { useToast } from '../contexts/ToastContext';
 import { useHappyTool } from '../contexts/HappyToolContext';
 import TransactionDrawer from './LogViewer/TransactionDrawer';
 import { extractTransactionIds } from '../utils/transactionAnalysis';
@@ -161,6 +162,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     // Log Archive: Text Selection & Line Selection
     const { openSaveDialog, isSaveDialogOpen, isViewerOpen } = useLogArchiveContext();
     const { showContextMenu, ContextMenuComponent } = useContextMenu();
+    const { addToast } = useToast(); // ✅ Use Toast for copy feedback
     const logContentRef = React.useRef<HTMLDivElement>(null);
     const { selection: nativeSelection, handleSave: handleNativeSave } = useLogSelection(
         logContentRef,
@@ -955,6 +957,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     if (selection && selection.length > 0) {
                                         // 🔥 Log Copy Precision: Remove trailing newline from native selection
                                         navigator.clipboard.writeText(selection.replace(/\r?\n$/, ''));
+                                        addToast('Selection copied!', 'success'); // ✅ 형님, Alt+드래그 복사 피드백 추가했습니다!
                                         e.preventDefault();
                                         e.stopPropagation();
                                         return;
@@ -982,9 +985,29 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 }
                             }
                         };
+
+                        // ✅ 글로벌 복사 이벤트 감지 (우클릭 등 앱 전역 복사 피드백 보강)
+                        const handleGlobalCopy = () => {
+                            const selection = window.getSelection()?.toString();
+                            if (selection && selection.length > 0) {
+                                // 단, Ctrl+C 핸들러에서 이미 toast를 띄우므로 중복 방지를 위해 
+                                // activeElement가 input이나 textarea인 경우는 제외하거나 로직 고민 가능.
+                                // 여기서는 단순 텍스트 선택이 있는 경우에만 띄웁니다.
+                                // (Ctrl+C 핸들러에서 preventDefault를 하므로 이 이벤트는 trigger 되지 않을 수도 있음)
+                                console.log('[LogSession] Native copy detected');
+                                if (!document.activeElement?.matches('input, textarea')) {
+                                    addToast('Selection copied to clipboard!', 'success'); // ✅ 우클릭 복사 시에도 피드백 제공
+                                }
+                            }
+                        };
+
                         window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
-                        return () => window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, isSaveDialogOpen, isViewerOpen, tizenSocket, handleClearLogs, isTransactionDrawerOpen, setIsTransactionDrawerOpen]);
+                        window.addEventListener('copy', handleGlobalCopy);
+                        return () => {
+                            window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
+                            window.removeEventListener('copy', handleGlobalCopy);
+                        };
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, isSaveDialogOpen, isViewerOpen, tizenSocket, handleClearLogs, isTransactionDrawerOpen, setIsTransactionDrawerOpen, addToast]);
                     return null;
                 })()
             )}

@@ -1371,7 +1371,7 @@ export const useLogExtractorLogic = ({
         }
 
         const isSelectionCopy = selectedIndices.size > 0;
-        showToast(isSelectionCopy ? 'Copying selected lines...' : 'Copying all logs...', 'info');
+        // 안내 토스트 제거 (사용자 요청: 중복 방지)
 
         try {
             console.time('copy-fetch');

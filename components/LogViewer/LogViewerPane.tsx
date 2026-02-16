@@ -671,12 +671,37 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     // When the user is at the bottom, followOutput="auto" keeps them there.
     // When they scroll up, 'atBottom' becomes false, and followOutput turns off.
 
-    const scrollerRef = useRef<HTMLElement | null>(null);
+    // ✅ 형님, Alt 키를 누르고 있을 때만 브라우저 기본 텍스트 선택을 허용하고, 평소에는 차단합니다.
+    const [isAltPressed, setIsAltPressed] = useState(false);
+    useEffect(() => {
+        const handleAltKey = (e: KeyboardEvent) => {
+            if (e.key === 'Alt') {
+                const nextState = e.type === 'keydown';
+                if (isAltPressed !== nextState) {
+                    console.log(`[LogViewerPane] ⌨️ Alt Key ${nextState ? 'PRESSED' : 'RELEASED'}`);
+                }
+                setIsAltPressed(nextState);
+            }
+        };
+        const handleBlur = () => {
+            if (isAltPressed) console.log('[LogViewerPane] ⌨️ Alt Key RELEASED (Blur)');
+            setIsAltPressed(false);
+        };
+        window.addEventListener('keydown', handleAltKey);
+        window.addEventListener('keyup', handleAltKey);
+        window.addEventListener('blur', handleBlur);
+        return () => {
+            window.removeEventListener('keydown', handleAltKey);
+            window.removeEventListener('keyup', handleAltKey);
+            window.removeEventListener('blur', handleBlur);
+        };
+    }, []);
 
     return (
         <div
             ref={containerRef}
             className={`flex-1 flex flex-col relative overflow-hidden transition-colors duration-300 outline-none h-full 
+                ${!isAltPressed ? 'select-none' : ''}
                 ${dragActive
                     ? 'bg-indigo-500/10 ring-4 ring-inset ring-indigo-500/50'
                     : isRawMode

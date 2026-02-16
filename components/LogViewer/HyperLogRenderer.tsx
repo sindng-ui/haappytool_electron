@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo, useLayoutEffect } from 'react';
 import { LogHighlight, LogViewPreferences } from '../../types';
+import { LOG_VIEW_CONFIG } from '../../constants/logViewUI';
 
 interface HyperLogRendererProps {
     totalCount: number;
@@ -39,12 +40,9 @@ export interface HyperLogHandle {
     focus: () => void;
 }
 
-// --- 🌟 Layout Constants ---
-const GUTTER_STAR_WIDTH = 24;
-const GUTTER_INDEX_WIDTH = 65; // Wide enough for #1,234,567
-const GUTTER_LINENUM_WIDTH = 60; // Wide enough for 1,234,567
-const GUTTER_TOTAL_WIDTH = GUTTER_STAR_WIDTH + GUTTER_INDEX_WIDTH + GUTTER_LINENUM_WIDTH;
-const CONTENT_X_OFFSET = GUTTER_TOTAL_WIDTH + 8; // Total ~157px
+// ✅ 형님, Canvas와 DOM 레이어의 폰트 렌더링을 100% 일치시키기 위한 공통 폰트 스택입니다.
+const MONO_FONT_STACK = "'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace";
+const DEFAULT_FONT_WEIGHT = '400';
 
 // Helper to map tailwind bg classes to canvas colors
 const mapColor = (color: string, opacity = 0.3) => {
@@ -69,6 +67,7 @@ const mapColor = (color: string, opacity = 0.3) => {
 };
 
 // 형님, HTML 엔터티를 디코딩해야 폰트 너비 계산 시 오차가 생기지 않습니다.
+// 형님, HTML 엔터티를 완벽하게 디코딩해야 폰트 너비 계산 시 오차가 생기지 않습니다.
 const decodeHTMLEntities = (text: string) => {
     if (!text) return '';
     return text
@@ -78,6 +77,8 @@ const decodeHTMLEntities = (text: string) => {
         .replace(/&gt;/g, '>')
         .replace(/&apos;/g, "'")
         .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, ' ') // 👈 nbsp 처리 추가
+        .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(dec)) // 👈 숫자형 엔터티 처리 추가
         .replace(/\t/g, '    '); // 👈 탭 문자를 공백으로 치환하여 Canvas/DOM 일치
 };
 
@@ -103,6 +104,28 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     performanceHeatmap = [],
     onKeyDown,
 }, ref) => {
+    // ✅ 형님, 레이아웃 상수들을 컴포넌트 내부에서 계산하여 HMR이나 설정 변경에 즉각 대응하게 합니다.
+    const {
+        GUTTER_STAR_WIDTH,
+        GUTTER_INDEX_WIDTH,
+        GUTTER_LINENUM_WIDTH,
+        GUTTER_TOTAL_WIDTH,
+        CONTENT_X_OFFSET
+    } = useMemo(() => {
+        const star = LOG_VIEW_CONFIG.COLUMN_WIDTHS.BOOKMARK;
+        const index = LOG_VIEW_CONFIG.COLUMN_WIDTHS.INDEX;
+        const lineNum = LOG_VIEW_CONFIG.COLUMN_WIDTHS.LINE_NUMBER;
+        const total = star + index + lineNum;
+        const offset = total + LOG_VIEW_CONFIG.SPACING.CONTENT_LEFT_OFFSET;
+        return {
+            GUTTER_STAR_WIDTH: star,
+            GUTTER_INDEX_WIDTH: index,
+            GUTTER_LINENUM_WIDTH: lineNum,
+            GUTTER_TOTAL_WIDTH: total,
+            CONTENT_X_OFFSET: offset
+        };
+    }, []);
+
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const bgCanvasRef = useRef<HTMLCanvasElement>(null); // ✅ NEW: Background Layer
@@ -218,7 +241,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 for (let i = batchStart; i < batchStart + batchCount; i++) pendingIndices.current.delete(i);
             }
         }
-    }, [onScrollRequest, totalCount, levelMatchers]);
+    }, [onScrollRequest, totalCount, levelMatchers, CONTENT_X_OFFSET]);
 
     // 🔥 Pre-compile Regexes and Colors for Performance
     const compiledTextHighlights = useMemo(() => {
@@ -254,13 +277,40 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     const charWidthRef = useRef<number>(8); // Default fallback
     const measureCache = useRef<Map<string, number>>(new Map());
 
+    // ✅ 형님, 폰트가 늦게 로드되어 너비 계산이 틀어지는 현상을 방지합니다.
+    useEffect(() => {
+        const handleFontsReady = () => {
+            console.log('[HyperLog] 🖋️ Fonts loaded, clearing measure cache...');
+            measureCache.current.clear();
+
+            // 폰트가 로드되었으니 기본 글자 너비도 다시 재줍니다.
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                const fontSize = preferences?.fontSize || 13;
+                const fontFamily = preferences?.fontFamily || MONO_FONT_STACK;
+                ctx.font = `${DEFAULT_FONT_WEIGHT} ${fontSize}px ${fontFamily}`;
+                charWidthRef.current = ctx.measureText('M').width;
+                console.log(` - Re-measured char width: ${charWidthRef.current}px`);
+            }
+            render(); // Canvas 다시 그리기
+        };
+
+        if ('fonts' in document) {
+            document.fonts.ready.then(handleFontsReady);
+        }
+
+        // 초기 로드 시에도 한번 더 확인
+        handleFontsReady();
+    }, [preferences?.fontSize, preferences?.fontFamily]);
+
     useLayoutEffect(() => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (ctx) {
             const fontSize = preferences?.fontSize || 13;
-            const fontFamily = preferences?.fontFamily || "'JetBrains Mono', monospace";
-            ctx.font = `${fontSize}px ${fontFamily}`;
+            const fontFamily = preferences?.fontFamily || MONO_FONT_STACK;
+            ctx.font = `${DEFAULT_FONT_WEIGHT} ${fontSize}px ${fontFamily}`;
             charWidthRef.current = ctx.measureText('M').width;
             measureCache.current.clear(); // Clear cache when font changes
         }
@@ -272,6 +322,10 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         const key = `${ctx.font}_${text}`;
         let width = measureCache.current.get(key);
         if (width === undefined) {
+            // ✅ Ensure settings match DOM precisely
+            (ctx as any).fontVariantLigatures = 'none';
+            (ctx as any).fontKerning = 'none';
+
             width = ctx.measureText(text).width;
             measureCache.current.set(key, width);
             if (measureCache.current.size > 2000) {
@@ -292,6 +346,12 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         const bgCtx = bgCanvas.getContext('2d', { alpha: false }); // Background can be opaque
         if (!ctx || !bgCtx) return;
 
+        // ✅ 형님, DOM과 100% 일치시키기 위해 리게이처와 커닝을 명시적으로 끕니다.
+        (ctx as any).fontVariantLigatures = 'none';
+        (ctx as any).fontKerning = 'none';
+        (bgCtx as any).fontVariantLigatures = 'none';
+        (bgCtx as any).fontKerning = 'none';
+
         const dpr = window.devicePixelRatio || 1;
         const width = canvas.width / dpr;
         const height = canvas.height / dpr;
@@ -307,9 +367,9 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         loadVisibleLines(startIdx, endIdx);
 
         const fontSize = preferences?.fontSize || 13;
-        const fontFamily = preferences?.fontFamily || "'JetBrains Mono', monospace";
-        const gutterFont = `10px ${fontFamily}`;
-        const mainFont = `${fontSize}px ${fontFamily}`;
+        const fontFamily = preferences?.fontFamily || MONO_FONT_STACK;
+        const gutterFont = `${DEFAULT_FONT_WEIGHT} 10px ${fontFamily}`;
+        const mainFont = `${DEFAULT_FONT_WEIGHT} ${fontSize}px ${fontFamily}`;
 
         // --- 1. RENDER BACKGROUND LAYER ---
         bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -501,7 +561,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         }
 
         ctx.restore(); // [C] Restore state (clipping ends here)
-    }, [stableScrollTop, cachedLines, totalCount, rowHeight, preferences, levelMatchers, selectedIndices, activeLineIndex, bookmarks, loadVisibleLines, compiledTextHighlights, compiledLineHighlights, highlightCaseSensitive, compiledLineHighlightRanges, getCachedWidth, performanceHeatmap]);
+    }, [stableScrollTop, cachedLines, totalCount, rowHeight, preferences, levelMatchers, selectedIndices, activeLineIndex, bookmarks, loadVisibleLines, compiledTextHighlights, compiledLineHighlights, highlightCaseSensitive, compiledLineHighlightRanges, getCachedWidth, performanceHeatmap, CONTENT_X_OFFSET, GUTTER_STAR_WIDTH, GUTTER_INDEX_WIDTH]);
 
     const renderHeatmap = useCallback(() => {
         render(); // 히트맵 렌더링은 이제 render 함수 통합됨
@@ -566,7 +626,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        ctx.font = `${preferences?.fontSize || 13}px ${preferences?.fontFamily || "'JetBrains Mono', monospace"}`;
+        ctx.font = `${DEFAULT_FONT_WEIGHT} ${preferences?.fontSize || 13}px ${preferences?.fontFamily || MONO_FONT_STACK}`;
 
         let maxW = 0;
         const lineCount = cachedLines.size;
@@ -622,12 +682,30 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             res.push({ index: i, line: cachedLines.get(i) });
         }
         return res;
-    }, [stableScrollTop, stableScrollLeft, viewportHeight, rowHeight, totalCount, cachedLines]);
+    }, [stableScrollTop, viewportHeight, rowHeight, totalCount, cachedLines]);
     const handleLineAction = (e: React.MouseEvent, index: number, type: 'click' | 'dbclick' | 'enter') => {
         if (e.altKey) {
+            if (type === 'click') {
+                const rect = scrollContainerRef.current?.getBoundingClientRect();
+                console.log(`[HyperLog] 🖱️ Alt+Drag Start: line=${index}`);
+                console.log(` - Screen (clientX/Y): ${e.clientX}, ${e.clientY}`);
+                console.log(` - Container (left/top): ${rect?.left}, ${rect?.top}`);
+                console.log(` - Scroll (left/top): ${scrollLeftRef.current}, ${scrollTopRef.current}`);
+                console.log(` - Constants: CONTENT_X_OFFSET=${CONTENT_X_OFFSET}, RowHeight=${rowHeight}`);
+                // Calc relative X to check if it matches CONTENT_X_OFFSET
+                if (rect) {
+                    const relativeX = e.clientX - rect.left + scrollLeftRef.current;
+                    console.log(` - RelativeX (Click X relative to scrollable start): ${relativeX.toFixed(2)}px`);
+                    console.log(` - Offset from Text Start: ${(relativeX - CONTENT_X_OFFSET).toFixed(2)}px`);
+                }
+            }
             // Alt 모드일 때는 브라우저 기본 텍스트 선택을 위해 아무것도 하지 않습니다.
             return;
         }
+
+        // ✅ 형님, Alt를 누르지 않고 클릭했을 때는 브라우저의 기본 텍스트 선택 영역을 강제로 지워줍니다.
+        // 이렇게 해야 의도치 않은 파란색 선택 영역이 남지 않습니다.
+        window.getSelection()?.removeAllRanges();
 
         // 형님, 클릭 시 즉시 스크롤 컨테이너에 포커스를 줘서 키보드 이벤트를 받을 수 있게 합니다.
         if (type === 'click' && scrollContainerRef.current) {
@@ -640,10 +718,19 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
         if (type === 'click') {
             if (onLineClick) {
+                const globalIndex = lineIndex + (absoluteOffset || 0);
+
+                // ✅ 형님, 우클릭 시 이미 선택된 라인이라면 선택을 해제하지 않고 컨텍스트 메뉴를 보여줍니다.
+                if (e.button === 2 && selectedIndices?.has(globalIndex)) {
+                    return;
+                }
+
                 // 형님, 일반 드래그 시에는 브라우저 선택을 막아야 깔끔한 줄 선택이 됩니다.
-                e.preventDefault();
-                setIsDragging(true);
-                onLineClick(lineIndex + (absoluteOffset || 0), e.shiftKey, e.ctrlKey || e.metaKey);
+                if (e.button === 0) {
+                    e.preventDefault();
+                    setIsDragging(true);
+                }
+                onLineClick(globalIndex, e.shiftKey, e.ctrlKey || e.metaKey);
             }
         } else if (type === 'enter' && isDragging && onLineClick) {
             // 드래그 중인 라인에 마우스가 들어오면 자동으로 선택 범위를 확장합니다.
@@ -716,7 +803,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     height: 100%;
                     background: #020617; /* match bg */
                     z-index: 20;
-                    pointer-events: none;
+                    pointer-events: auto; /* ✅ Block selection behind gutter */
                 }
                 /* ✅ 히트맵 영역 마우스 포인터 표시 (스크롤바 왼쪽) */
                 .hyper-log-container::after {
@@ -765,7 +852,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     {/* Interaction Items (Each line positioned absolutely for perfect alignment) */}
                     {visibleLines.map(({ index, line }) => {
                         const fontSize = preferences?.fontSize || 13;
-                        const fontFamily = preferences?.fontFamily || "'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace";
+                        const fontFamily = preferences?.fontFamily || MONO_FONT_STACK;
 
                         return (
                             <div
@@ -773,12 +860,15 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                                 className="absolute select-text whitespace-pre overflow-hidden pointer-events-auto active:bg-indigo-500/5 hover:bg-slate-500/5 interaction-line"
                                 style={{
                                     top: index * rowHeight,
-                                    left: CONTENT_X_OFFSET - stableScrollLeft,
+                                    left: CONTENT_X_OFFSET, // ✅ Fixed: Horizontal scroll handled by browser
                                     width: stableScrollWidth ? stableScrollWidth - CONTENT_X_OFFSET : '100%',
                                     height: rowHeight,
                                     lineHeight: `${rowHeight}px`,
                                     fontSize: `${fontSize}px`,
                                     fontFamily: fontFamily,
+                                    fontWeight: DEFAULT_FONT_WEIGHT,
+                                    letterSpacing: '0px',
+                                    wordSpacing: '0px',
                                     paddingLeft: 0,
                                     boxSizing: 'border-box',
                                     WebkitFontSmoothing: 'antialiased',
@@ -791,9 +881,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                                 onMouseDown={(e) => handleLineAction(e, index, 'click')}
                                 onMouseEnter={(e) => handleLineAction(e, index, 'enter')}
                                 onDoubleClick={(e) => handleLineAction(e, index, 'dbclick')}
-                            >
-                                {line?.decodedContent || decodeHTMLEntities(line?.content || '')}
-                            </div>
+                            >{line?.decodedContent || decodeHTMLEntities(line?.content || '')}</div>
                         );
                     })}
                 </div>
