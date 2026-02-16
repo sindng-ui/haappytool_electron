@@ -51,6 +51,7 @@ interface LogViewerPaneProps {
     onArchiveSave?: () => void;
     isArchiveSaveEnabled?: boolean;
     lineHighlightRanges?: { start: number; end: number; color: string }[];
+    performanceHeatmap?: number[];
 }
 
 export interface LogViewerHandle {
@@ -102,6 +103,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     onArchiveSave,
     isArchiveSaveEnabled = false,
     lineHighlightRanges,
+    performanceHeatmap,
 }, ref) => {
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
 
@@ -766,6 +768,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             }}
                             absoluteOffset={absoluteOffset}
                             isRawMode={isRawMode}
+                            performanceHeatmap={performanceHeatmap}
                             onScroll={(top) => {
                                 scrollTopRef.current = top;
 

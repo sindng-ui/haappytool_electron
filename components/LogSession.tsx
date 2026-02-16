@@ -150,6 +150,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         logViewPreferences, // Added
         isPanelOpen, setIsPanelOpen, updateLogViewPreferences, // Added for shortcuts
         isSearchFocused, // Added for Focus Mode
+        leftPerformanceHeatmap,
+        rightPerformanceHeatmap,
         // Transaction Analyzer
         transactionResults, transactionIdentity, transactionSourcePane, isAnalyzingTransaction, isTransactionDrawerOpen,
         setIsTransactionDrawerOpen, analyzeTransactionAction
@@ -1075,7 +1077,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onContextMenu={handleContextMenu}
                                     onArchiveSave={onArchiveSaveLeft}
                                     isArchiveSaveEnabled={isLeftArchiveEnabled}
-
+                                    performanceHeatmap={leftPerformanceHeatmap}
                                 />
                                 {(leftTotalSegments > 1 || leftSelectionDuration) && (
                                     <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
@@ -1161,6 +1163,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onContextMenu={handleContextMenu}
                                             onArchiveSave={onArchiveSaveRight}
                                             isArchiveSaveEnabled={isRightArchiveEnabled}
+                                            performanceHeatmap={rightPerformanceHeatmap}
 
                                         />
                                         {(rightTotalSegments > 1 || rightSelectionDuration) && (

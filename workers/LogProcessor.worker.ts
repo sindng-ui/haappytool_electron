@@ -75,6 +75,9 @@ let currentQuickFilter: 'none' | 'error' | 'exception' = 'none'; // ✅ New Stat
 // Bookmarks (0-based Original Index)
 let originalBookmarks: Set<number> = new Set();
 
+// Performance Heatmap State
+let isCalculatingHeatmap = false;
+
 // --- Constants ---
 const CHUNK_SIZE = 10 * 1024 * 1024;
 
@@ -148,6 +151,7 @@ const getVisualBookmarks = (): number[] => {
 // --- Helper: Match Logic ---
 // NOTE: Extracted to utils/logFiltering.ts for testability and reusability
 import { checkIsMatch } from '../utils/logFiltering';
+import { extractTimestamp } from '../utils/logTime';
 
 
 // ... (omitted file indexing / stream handlers)
@@ -159,6 +163,7 @@ const buildFileIndex = async (file: File) => {
     currentFile = file;
     streamLines = []; // Clear stream data
     originalBookmarks.clear(); // Clear bookmarks for new file
+    isCalculatingHeatmap = false; // Reset heatmap state for new file
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 0 } });
 
@@ -998,6 +1003,94 @@ const analyzeTransaction = async (identity: { type: 'pid' | 'tid' | 'tag', value
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
 };
 
+// --- Helper: Get Performance Heatmap ---
+const getPerformanceHeatmap = async (points: number, requestId: string) => {
+    if (isCalculatingHeatmap) {
+        console.log(`[Worker] Heatmap calculation skipped: Already calculating. (req: ${requestId})`);
+        return;
+    }
+
+    // ✅ State Check: Support both File Mode and Stream Mode
+    const hasFileData = !isStreamMode && currentFile && lineOffsets;
+    const hasStreamData = isStreamMode && streamLines.length > 0;
+
+    if (!filteredIndices || (!hasFileData && !hasStreamData)) {
+        console.log(`[Worker] Heatmap calculation skipped: Missing required data.`, {
+            isStreamMode,
+            hasFilteredIndices: !!filteredIndices,
+            hasFileData,
+            hasStreamData,
+            req: requestId
+        });
+        return;
+    }
+
+    const totalLines = filteredIndices.length;
+    if (totalLines < 2) {
+        respond({ type: 'HEATMAP_DATA', payload: { heatmap: [] }, requestId });
+        return;
+    }
+
+    isCalculatingHeatmap = true;
+    try {
+        const heatmap = new Float32Array(points);
+        const sampleSize = Math.max(1, Math.floor(totalLines / points));
+        const decoder = new TextDecoder();
+
+        for (let i = 0; i < points; i++) {
+            const startIdx = i * sampleSize;
+            if (startIdx >= totalLines - 1) break;
+
+            try {
+                const idx1 = filteredIndices[startIdx];
+                const idx2 = filteredIndices[startIdx + 1];
+
+                let t1: number | null = null;
+                let t2: number | null = null;
+
+                if (isStreamMode) {
+                    // ✅ Stream Mode: Direct access from memory
+                    t1 = extractTimestamp(streamLines[idx1]);
+                    t2 = extractTimestamp(streamLines[idx2]);
+                } else if (currentFile && lineOffsets) {
+                    // ✅ File Mode: Read chunks from file handles
+                    const startByte1 = lineOffsets[idx1];
+                    const endByte1 = idx1 < lineOffsets.length - 1 ? lineOffsets[idx1 + 1] : BigInt(currentFile.size);
+                    const startByte2 = lineOffsets[idx2];
+                    const endByte2 = idx2 < lineOffsets.length - 1 ? lineOffsets[idx2 + 1] : BigInt(currentFile.size);
+
+                    const minByte = startByte1;
+                    const maxByte = endByte2;
+
+                    if (maxByte - minByte > 1024 * 1024) {
+                        heatmap[i] = 0;
+                        continue;
+                    }
+
+                    const chunk = await currentFile.slice(Number(minByte), Number(maxByte)).arrayBuffer();
+                    const text1 = decoder.decode(chunk.slice(0, Number(endByte1 - minByte))).replace(/\r?\n$/, '');
+                    const text2 = decoder.decode(chunk.slice(Number(startByte2 - minByte))).replace(/\r?\n$/, '');
+
+                    t1 = extractTimestamp(text1);
+                    t2 = extractTimestamp(text2);
+                }
+
+                if (t1 !== null && t2 !== null) {
+                    const diff = Math.abs(t2 - t1);
+                    heatmap[i] = Math.min(1.0, diff / 1000);
+                }
+            } catch (e) {
+                // Skip failed samples
+            }
+        }
+
+        console.log(`[Worker] Heatmap generated: ${points} points, requestId: ${requestId}`);
+        respond({ type: 'HEATMAP_DATA', payload: { heatmap: Array.from(heatmap) }, requestId });
+    } finally {
+        isCalculatingHeatmap = false;
+    }
+};
+
 // --- Message Listener ---
 ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
     const { type, payload, requestId } = evt.data;
@@ -1037,6 +1130,9 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             break;
         case 'ANALYZE_TRANSACTION':
             analyzeTransaction(payload.identity, requestId || '');
+            break;
+        case 'GET_PERFORMANCE_HEATMAP':
+            getPerformanceHeatmap(payload.points || 500, requestId || '');
             break;
     }
 };

@@ -198,6 +198,8 @@ export const useLogExtractorLogic = ({
 
     const [leftBookmarks, setLeftBookmarks] = useState<Set<number>>(new Set());
     const [rightBookmarks, setRightBookmarks] = useState<Set<number>>(new Set());
+    const [leftPerformanceHeatmap, setLeftPerformanceHeatmap] = useState<number[]>([]);
+    const [rightPerformanceHeatmap, setRightPerformanceHeatmap] = useState<number[]>([]);
 
     const toggleLeftBookmark = useCallback((lineIndex: number) => {
         // Delegate to worker
@@ -396,6 +398,15 @@ export const useLogExtractorLogic = ({
                         setLeftBookmarks(new Set(payload.visualBookmarks));
                     }
                     setLeftWorkerReady(true);
+                    // 💡 성능 히트맵 요청 (500 포인트)
+                    leftWorkerRef.current?.postMessage({ type: 'GET_PERFORMANCE_HEATMAP', payload: { points: 500 } });
+                    break;
+                case 'HEATMAP_DATA':
+                    console.log(`[useLog] Received HEATMAP_DATA:`, {
+                        points: payload.heatmap?.length,
+                        hasData: payload.heatmap?.some((v: number) => v > 0)
+                    });
+                    setLeftPerformanceHeatmap(payload.heatmap || []);
                     break;
                 case 'BOOKMARKS_UPDATED':
                     if (payload.visualBookmarks) {
@@ -469,6 +480,15 @@ export const useLogExtractorLogic = ({
                     setRightWorkerReady(true);
                     setActiveLineIndexRight(-1);
                     setSelectedIndicesRight(new Set());
+                    // 💡 성능 히트맵 요청 (500 포인트)
+                    rightWorkerRef.current?.postMessage({ type: 'GET_PERFORMANCE_HEATMAP', payload: { points: 500 } });
+                    break;
+                case 'HEATMAP_DATA':
+                    console.log(`[useLog-Right] Received HEATMAP_DATA:`, {
+                        points: payload.heatmap?.length,
+                        hasData: payload.heatmap?.some((v: number) => v > 0)
+                    });
+                    setRightPerformanceHeatmap(payload.heatmap || []);
                     break;
                 case 'BOOKMARKS_UPDATED':
                     if (payload.visualBookmarks) {
@@ -1887,6 +1907,8 @@ export const useLogExtractorLogic = ({
         setQuickFilter, // ✅ Export for TopBar
         // Transaction Analyzer
         transactionResults, transactionIdentity, transactionSourcePane, isAnalyzingTransaction, isTransactionDrawerOpen,
-        setIsTransactionDrawerOpen, analyzeTransactionAction
+        setIsTransactionDrawerOpen, analyzeTransactionAction,
+        // Performance Heatmap
+        leftPerformanceHeatmap, rightPerformanceHeatmap
     };
 };
