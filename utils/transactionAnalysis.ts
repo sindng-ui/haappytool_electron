@@ -39,27 +39,21 @@ export const extractTransactionIds = (line: string): TransactionIdentity[] => {
         }
     }
 
-    // 3. Simple Tag Pattern: "V/TagName( 1234): Message" or "V/TagName (P111, T111) SimulatedApp:"
-    const simpleTagMatch = line.match(/([VDIWE])\/([^(: \t]+)\s*(?:\(\s*(\d+)\s*\)|\((P\d+),\s*(T\d+)\))?\s*([^:]+)?/);
+    // 3. Simple Tag Pattern: "V/TagName( 1234): Message" or "V/TagName (P 123, T 333) Message"
+    const simpleTagMatch = line.match(/([VDIWE])\/([^(: \t]+)\s*(?:\(\s*(\d+)\s*\)|\((P\s*\d+),\s*(T\s*\d+)\))?/);
     if (simpleTagMatch) {
         identities.push({ type: 'tag', value: simpleTagMatch[2].trim() });
         if (simpleTagMatch[3]) identities.push({ type: 'pid', value: simpleTagMatch[3].trim() });
-        if (simpleTagMatch[4]) identities.push({ type: 'pid', value: simpleTagMatch[4].trim() });
-        if (simpleTagMatch[5]) identities.push({ type: 'tid', value: simpleTagMatch[5].trim() });
-        if (simpleTagMatch[6]) {
-            const extraTag = simpleTagMatch[6].trim();
-            if (extraTag && !extraTag.includes(' ') && extraTag.length > 2) {
-                identities.push({ type: 'tag', value: extraTag });
-            }
-        }
+        if (simpleTagMatch[4]) identities.push({ type: 'pid', value: simpleTagMatch[4].replace(/\s+/g, '') });
+        if (simpleTagMatch[5]) identities.push({ type: 'tid', value: simpleTagMatch[5].replace(/\s+/g, '') });
     }
 
-    // 4. Numeric or Alphanumeric brackets anywhere: "[22]" or "(P111, T111)"
-    const bracketMatches = line.matchAll(/[(\[]\s*(P?\d+|T?\d+|[a-zA-Z0-9_-]{3,})\s*[)\]]/g);
+    // 4. Numeric or Alphanumeric brackets anywhere: "[22]" or "(P 123, T 333)"
+    const bracketMatches = line.matchAll(/[(\[]\s*(P\s*\d+|T\s*\d+|[a-zA-Z0-9_-]{3,})\s*[)\]]/g);
     for (const match of bracketMatches) {
         const val = match[1].trim();
-        if (val.startsWith('P')) identities.push({ type: 'pid', value: val });
-        else if (val.startsWith('T')) identities.push({ type: 'tid', value: val });
+        if (val.startsWith('P')) identities.push({ type: 'pid', value: val.replace(/\s+/g, '') });
+        else if (val.startsWith('T')) identities.push({ type: 'tid', value: val.replace(/\s+/g, '') });
         else if (/^\d+$/.test(val) && val.length >= 2) identities.push({ type: 'tid', value: val });
     }
 

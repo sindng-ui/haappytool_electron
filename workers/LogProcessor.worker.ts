@@ -905,9 +905,13 @@ const analyzeTransaction = async (identity: { type: 'pid' | 'tid' | 'tag', value
     }
 
     const lowerVal = val.toLowerCase();
-    const regex = (identity.type === 'pid' || identity.type === 'tid')
-        ? new RegExp(`(?:^|[^0-9])${val}(?:$|[^0-9])`)
-        : null;
+    let regex: RegExp | null = null;
+
+    if (identity.type === 'pid' || identity.type === 'tid') {
+        // P123 -> P\s*123, T456 -> T\s*456 변환하여 공백 허용
+        const regexVal = val.replace(/^(P|T)(\d+)$/i, '$1\\s*$2');
+        regex = new RegExp(`(?:^|[^0-9a-zA-Z])${regexVal}(?:$|[^0-9a-zA-Z])`, 'i');
+    }
 
     const MAX_RESULTS = 10000;
 
