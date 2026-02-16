@@ -207,23 +207,28 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 
     useImperativeHandle(ref, () => ({
         focus: () => {
-            containerRef.current?.focus({ preventScroll: true });
+            hyperRef.current?.focus();
         },
         getScrollTop: () => hyperRef.current?.getScrollTop() || 0,
         scrollBy: (deltaY: number) => {
+            ignoreSyncRef.current = true;
             hyperRef.current?.scrollBy({ top: deltaY });
         },
         scrollByLines: (count: number) => {
+            ignoreSyncRef.current = true;
             hyperRef.current?.scrollBy({ top: count * rowHeight });
         },
         scrollByPage: (direction: number) => {
+            ignoreSyncRef.current = true;
             const pageHeight = containerRef.current?.clientHeight || 800;
             hyperRef.current?.scrollBy({ top: direction * pageHeight });
         },
         scrollTo: (top: number) => {
+            ignoreSyncRef.current = true;
             hyperRef.current?.scrollTo({ top });
         },
         scrollToIndex: (index: number, options?: { align: 'start' | 'center' | 'end' }) => {
+            ignoreSyncRef.current = true;
             hyperRef.current?.scrollToIndex(index, options);
         },
         jumpToNextBookmark: () => {
@@ -416,7 +421,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     }, [onDrop]);
 
     // Key Handler
-    const handleKeyDown = (e: React.KeyboardEvent) => {
+    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         // ✅ Enter Key triggers Double Click Action (e.g. Raw View)
         if (e.key === 'Enter') {
             if (activeLineIndex !== undefined && activeLineIndex >= 0 && onLineDoubleClick) {
@@ -541,7 +546,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 hyperRef.current?.scrollToIndex(targetRel, { align: 'center' });
             }
         }
-    };
+    }, [activeLineIndex, onLineDoubleClick, toggleBookmark, onCopy, cachedLines, onShowBookmarks, rowHeight, onFocusPaneRequest, absoluteOffset, totalMatches, onLineClick]);
 
 
 
@@ -671,7 +676,6 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     return (
         <div
             ref={containerRef}
-            tabIndex={0}
             className={`flex-1 flex flex-col relative overflow-hidden transition-colors duration-300 outline-none h-full 
                 ${dragActive
                     ? 'bg-indigo-500/10 ring-4 ring-inset ring-indigo-500/50'
@@ -684,7 +688,6 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             // REMOVED: style={{ overflowAnchor: 'none' }} - We want native anchoring behavior!
             // REMOVED: style={{ overflowAnchor: 'none' }} - We want native anchoring behavior!
             onDragEnter={handleDrag} onDragOver={handleDrag} onDragLeave={handleDrag} onDrop={handleDropEvent}
-            onKeyDown={handleKeyDown}
             onContextMenu={onContextMenu}
         >
             {/* Toolbar */}
@@ -769,6 +772,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             absoluteOffset={absoluteOffset}
                             isRawMode={isRawMode}
                             performanceHeatmap={performanceHeatmap}
+                            onKeyDown={handleKeyDown}
                             onScroll={(top) => {
                                 scrollTopRef.current = top;
 

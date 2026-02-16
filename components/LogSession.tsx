@@ -467,7 +467,11 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         if (!isDualView) return;
         const targetRef = source === 'left' ? rightViewerRef : leftViewerRef;
         if (targetRef.current) {
-            targetRef.current.scrollTo(scrollTop);
+            // ✅ Only sync if the difference is significant (> 1px) to avoid jitter/rounding loops
+            const currentTop = targetRef.current.getScrollTop();
+            if (Math.abs(currentTop - scrollTop) >= 1) {
+                targetRef.current.scrollTo(scrollTop);
+            }
         }
     }, [isDualView]);
 

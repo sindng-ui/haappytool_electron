@@ -21,6 +21,7 @@ interface HyperLogRendererProps {
     absoluteOffset?: number;
     isRawMode?: boolean;
     performanceHeatmap?: number[];
+    onKeyDown?: (e: React.KeyboardEvent) => void;
 }
 
 interface CachedLine {
@@ -35,6 +36,7 @@ export interface HyperLogHandle {
     scrollBy: (options: { top: number }) => void;
     scrollTo: (options: { top: number }) => void;
     getScrollTop: () => number;
+    focus: () => void;
 }
 
 // --- 🌟 Layout Constants ---
@@ -99,6 +101,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     absoluteOffset,
     isRawMode,
     performanceHeatmap = [],
+    onKeyDown,
 }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -136,7 +139,12 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         scrollTo: (options: { top: number }) => {
             if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = options.top;
         },
-        getScrollTop: () => scrollTopRef.current
+        getScrollTop: () => scrollTopRef.current,
+        focus: () => {
+            if (scrollContainerRef.current) {
+                scrollContainerRef.current.focus({ preventScroll: true });
+            }
+        }
     }));
 
     // Data Fetching Logic
@@ -621,9 +629,14 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             return;
         }
 
-        const rect = scrollContainerRef.current.getBoundingClientRect();
-        const y = e.clientY - rect.top;
-        const lineIndex = Math.floor((scrollTopRef.current + y) / rowHeight);
+        // 형님, 클릭 시 즉시 스크롤 컨테이너에 포커스를 줘서 키보드 이벤트를 받을 수 있게 합니다.
+        if (type === 'click' && scrollContainerRef.current) {
+            scrollContainerRef.current.focus({ preventScroll: true });
+        }
+
+        // 👈 Use provided index directly instead of recalculating from Y coordinate
+        // This is much more accurate as it matches the rendered interactive element.
+        const lineIndex = index;
 
         if (type === 'click') {
             if (onLineClick) {
@@ -737,9 +750,11 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             {/* 3. Unified Scroll & Interaction Layer (z-10) */}
             <div
                 ref={scrollContainerRef}
-                className="absolute inset-0 overflow-auto scrollbar-thin scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-600 interaction-scroll-layer custom-scrollbar"
+                tabIndex={0}
+                className="absolute inset-0 overflow-auto scrollbar-thin scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-600 interaction-scroll-layer custom-scrollbar outline-none"
                 style={{ zIndex: 10 }}
                 onScroll={handleScroll}
+                onKeyDown={onKeyDown}
             >
                 <div style={{
                     height: totalCount * rowHeight,
