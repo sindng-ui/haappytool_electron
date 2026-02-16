@@ -913,7 +913,7 @@ const analyzeTransaction = async (identity: { type: 'pid' | 'tid' | 'tag', value
         regex = new RegExp(`(?:^|[^0-9a-zA-Z])${regexVal}(?:$|[^0-9a-zA-Z])`, 'i');
     }
 
-    const MAX_RESULTS = 10000;
+    const MAX_RESULTS = 100000; // ✅ 대폭 상향: 가상화 신뢰하고 10만 개까지 허용
 
     if (isStreamMode) {
         for (let idx = 0; idx < filteredIndices.length; idx++) {
