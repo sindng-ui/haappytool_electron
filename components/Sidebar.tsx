@@ -94,12 +94,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                 </span>
               </div>
             ) : (
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 animate-gradient-xy flex items-center justify-center shadow-lg shadow-indigo-500/40 ring-1 ring-white/20 group-hover:scale-110 transition-transform cursor-pointer relative overflow-hidden">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/40 ring-1 ring-white/20 group-hover:scale-110 transition-transform cursor-pointer relative overflow-hidden">
                 {/* Shine Effect */}
                 <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full group-hover:animate-[shimmer_1s_infinite]"></div>
 
                 {/* Dynamic Icon */}
-                <Activity className="text-white w-6 h-6 animate-pulse-fast drop-shadow-md" strokeWidth={3} />
+                <Activity className="text-white w-6 h-6 group-hover:animate-pulse drop-shadow-md" strokeWidth={3} />
               </div>
             )}
           </div>

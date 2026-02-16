@@ -9,10 +9,12 @@ const { Upload, X, Zap, Split, Copy, Download, Bookmark, ArrowDown, Archive } = 
 
 // ✅ ElectronAPI types moved to vite-env.d.ts for consistency
 
+import { LOG_VIEW_CONFIG } from '../../constants/logViewUI';
+
 // Default fallback if preferences are missing
-const DEFAULT_ROW_HEIGHT = 24;
-const OVERSCAN_COUNT = 120; // Default overscan
-const OVERSCAN_COUNT_LOW = 50; // ✅ Performance: Reduced overscan for real-time streaming
+const DEFAULT_ROW_HEIGHT = LOG_VIEW_CONFIG.DEFAULT_ROW_HEIGHT;
+const OVERSCAN_COUNT = LOG_VIEW_CONFIG.OVERSCAN_COUNT; // Default overscan
+const OVERSCAN_COUNT_LOW = LOG_VIEW_CONFIG.OVERSCAN_COUNT_LOW; // ✅ Performance: Reduced overscan for real-time streaming
 
 interface LogViewerPaneProps {
     workerReady: boolean;
@@ -487,7 +489,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                     const newState = !prev;
                     // If resuming (pausing -> unpaused), jump to bottom immediately
                     if (!newState) {
-                        virtuosoRef.current?.scrollToIndex({ index: totalMatches - 1, align: 'end', behavior: 'auto' });
+                        hyperRef.current?.scrollToIndex(totalMatches - 1, { align: 'end' });
                     }
                     return newState;
                 });

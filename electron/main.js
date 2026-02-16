@@ -31,8 +31,7 @@ async function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            preload: path.join(__dirname, 'preload.js'),
-            backgroundThrottling: false
+            preload: path.join(__dirname, 'preload.js')
         },
         autoHideMenuBar: true,
         backgroundColor: '#0f172a',

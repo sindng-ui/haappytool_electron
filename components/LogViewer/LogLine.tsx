@@ -1,6 +1,7 @@
 import React from 'react';
 import { LogHighlight, LogViewPreferences } from '../../types';
 import { HighlightRenderer } from './HighlightRenderer';
+import { LOG_VIEW_CONFIG } from '../../constants/logViewUI';
 
 interface LogLineProps {
     index: number;
@@ -115,7 +116,10 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
             }}
         >
             {/* Sticky Bookmark Column */}
-            <div className="sticky left-0 z-10 w-[20px] h-full shrink-0 flex items-center justify-center border-r border-slate-200 dark:border-white/5">
+            <div
+                className="sticky left-0 z-10 h-full shrink-0 flex items-center justify-center border-r border-slate-200 dark:border-white/5"
+                style={{ width: LOG_VIEW_CONFIG.COLUMN_WIDTHS.BOOKMARK }}
+            >
                 {/* Background Blocker (matches pane bg but opaque for scrolling content underneath) */}
                 <div className="absolute inset-0 bg-slate-50 dark:bg-[#020617]" />
 
@@ -149,27 +153,39 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
             {/* Item Index # */}
             {!isRawMode && (
                 <div
-                    className={`log-line-index min-w-[70px] w-[70px] shrink-0 text-right pr-2 select-none border-r border-slate-200 dark:border-white/5 mr-2 flex items-center justify-end font-mono text-[11px]
-                    ${matchingHighlight ? 'text-slate-900/70 dark:text-slate-400 border-slate-900/10 dark:border-white/5' : 'text-slate-400 dark:text-slate-600'}`}
+                    className="log-line-index shrink-0 text-right pr-2 select-none border-r border-slate-200 dark:border-white/5 mr-2 flex items-center justify-end font-mono"
+                    style={{
+                        minWidth: LOG_VIEW_CONFIG.COLUMN_WIDTHS.INDEX,
+                        width: LOG_VIEW_CONFIG.COLUMN_WIDTHS.INDEX,
+                        fontSize: LOG_VIEW_CONFIG.FONT_SIZES.INDEX
+                    }}
                     data-content={`#${index + 1}`}
                 />
             )}
 
             {/* Line Number */}
             <div
-                className={`log-line-number min-w-[90px] w-[90px] shrink-0 text-right pr-3 select-none flex justify-end gap-1 items-center font-mono text-[11px] 
+                className={`log-line-number shrink-0 text-right pr-3 select-none flex justify-end gap-1 items-center font-mono 
                 ${matchingHighlight
                         ? 'text-slate-900 dark:text-slate-100 font-bold'
                         : hasBookmark ? 'text-yellow-600 dark:text-yellow-400 font-bold' : 'text-slate-400 dark:text-slate-600'}`}
+                style={{
+                    minWidth: LOG_VIEW_CONFIG.COLUMN_WIDTHS.LINE_NUMBER,
+                    width: LOG_VIEW_CONFIG.COLUMN_WIDTHS.LINE_NUMBER,
+                    fontSize: LOG_VIEW_CONFIG.FONT_SIZES.LINE_NUMBER
+                }}
                 data-content={isLoading ? '' : String(data?.lineNum || '')}
             />
 
             {/* Content */}
-            <div className={`min-w-0 flex-1 px-2 ${isActive
-                ? 'text-slate-900 dark:text-slate-100'
-                : matchingHighlight
-                    ? 'text-slate-900 dark:text-slate-100 font-medium' // High contrast text for both modes
-                    : 'text-slate-600 dark:text-slate-300'}`}>
+            <div
+                className={`min-w-0 flex-1 ${isActive
+                    ? 'text-slate-900 dark:text-slate-100'
+                    : matchingHighlight
+                        ? 'text-slate-900 dark:text-slate-100 font-medium' // High contrast text for both modes
+                        : 'text-slate-600 dark:text-slate-300'}`}
+                style={{ paddingLeft: LOG_VIEW_CONFIG.SPACING.CONTENT_LEFT_OFFSET, paddingRight: LOG_VIEW_CONFIG.SPACING.CONTENT_LEFT_OFFSET }}
+            >
                 {isLoading ? (
                     <div className="h-3 w-48 bg-slate-200 dark:bg-slate-800/50 rounded animate-pulse mt-1" />
                 ) : (

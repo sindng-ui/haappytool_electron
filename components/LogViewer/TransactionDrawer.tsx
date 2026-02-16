@@ -4,6 +4,7 @@ import * as Lucide from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import { formatTransactionFlow } from '../../utils/transactionAnalysis';
 import { extractTimestamp, formatDuration } from '../../utils/logTime';
+import { LOG_VIEW_CONFIG } from '../../constants/logViewUI';
 
 interface TransactionLogItem {
     lineNum: number;
@@ -67,8 +68,9 @@ const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
 
     return (
         <div
-            className={`fixed top-[48px] bottom-0 right-0 w-[500px] bg-white dark:bg-slate-900 shadow-2xl z-[150] border-l border-slate-200 dark:border-slate-800 flex flex-col transform transition-all duration-300 ease-in-out ${isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none'
+            className={`fixed top-[48px] bottom-0 right-0 bg-white dark:bg-slate-900 shadow-2xl z-[150] border-l border-slate-200 dark:border-slate-800 flex flex-col transform transition-all duration-300 ease-in-out ${isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none'
                 }`}
+            style={{ width: LOG_VIEW_CONFIG.DRAWER.WIDTH }}
         >
             {/* Header */}
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
@@ -81,11 +83,17 @@ const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
                             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">Transaction Analyzer</h3>
                             {!isLoading && logs.length > 0 && (
                                 <div className="flex items-center gap-1.5 shrink-0">
-                                    <span className="text-[10px] font-bold bg-indigo-500 text-white px-1.5 py-0.5 rounded-full shadow-sm min-w-[24px] text-center">
+                                    <span
+                                        className="font-bold bg-indigo-500 text-white px-1.5 py-0.5 rounded-full shadow-sm min-w-[24px] text-center"
+                                        style={{ fontSize: LOG_VIEW_CONFIG.FONT_SIZES.DURATION_TAG }}
+                                    >
                                         {selectedIndex !== -1 ? `${selectedIndex + 1} / ${logs.length}` : logs.length}
                                     </span>
                                     {totalDuration && (
-                                        <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-800/30 whitespace-nowrap">
+                                        <span
+                                            className="font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-800/30 whitespace-nowrap"
+                                            style={{ fontSize: LOG_VIEW_CONFIG.FONT_SIZES.DURATION_TAG }}
+                                        >
                                             {totalDuration}
                                         </span>
                                     )}
@@ -144,8 +152,8 @@ const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
                                         onJumpToLine(log.lineNum, log.visualIndex);
                                     }}
                                     className={`p-3 border rounded-lg cursor-pointer transition-all hover:shadow-md group active:scale-[0.98] ${selectedIndex === index
-                                            ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-400 dark:border-indigo-400/50'
-                                            : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50 hover:border-indigo-500/50'
+                                        ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-400 dark:border-indigo-400/50'
+                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50 hover:border-indigo-500/50'
                                         }`}
                                 >
                                     <div className="flex justify-between items-start mb-1">

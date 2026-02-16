@@ -552,6 +552,10 @@ export const useLogExtractorLogic = ({
                     e.preventDefault();
                     setRawContextOpen(false);
                 }
+                if (isTransactionDrawerOpen) {
+                    e.preventDefault();
+                    setIsTransactionDrawerOpen(false);
+                }
             }
 
             // Custom Zoom Handling

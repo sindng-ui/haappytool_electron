@@ -2630,6 +2630,30 @@ const handleSocketConnection = (socket, deps = {}) => {
             clearInterval(scrollStreamInterval);
             scrollStreamInterval = null;
         }
+        if (cpuMonitorInterval) {
+            clearInterval(cpuMonitorInterval);
+            cpuMonitorInterval = null;
+        }
+        if (cpuMonitorProcess) {
+            cpuMonitorProcess.kill();
+            cpuMonitorProcess = null;
+        }
+        if (threadMonitorInterval) {
+            clearInterval(threadMonitorInterval);
+            threadMonitorInterval = null;
+        }
+        if (threadMonitorProcess) {
+            threadMonitorProcess.kill();
+            threadMonitorProcess = null;
+        }
+        if (memoryMonitorInterval) {
+            clearInterval(memoryMonitorInterval);
+            memoryMonitorInterval = null;
+        }
+        if (memoryMonitorProcess) {
+            memoryMonitorProcess.kill();
+            memoryMonitorProcess = null;
+        }
         if (sshConnection) {
             sshConnection.end();
             sshConnection = null;

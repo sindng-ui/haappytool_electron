@@ -531,8 +531,6 @@ const AppContent: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-    window.addEventListener('keydown', handleKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, []);
 
   // Focus Mode Shortcut (F11)

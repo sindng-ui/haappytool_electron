@@ -592,33 +592,35 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
 
             <div className="flex-1 overflow-hidden relative">
                 {tabs.map((tab) => (
-                    <LogProvider
-                        key={tab.id}
-                        rules={rules}
-                        onUpdateRules={onUpdateRules}
-                        onExportSettings={onExportSettings}
-                        onImportSettings={onImportSettings}
-                        configPanelWidth={configPanelWidth}
-                        setConfigPanelWidth={setConfigPanelWidth}
-                        tabId={tab.id}
-                        initialFilePath={tab.filePath}
-                        initialFile={tab.initialFile} // ✅ Pass the File object
-                        onFileChange={(newPath) => {
-                            setTabs(current => current.map(t => t.id === tab.id ? { ...t, filePath: newPath } : t));
-                        }}
-                        isActive={isActive && tab.id === activeTabId}
-                        isPanelOpen={isPanelOpen}
-                        setIsPanelOpen={setIsPanelOpen}
-                        isSearchFocused={isSearchFocused} // ✅ Pass Down
-                        setIsSearchFocused={setIsSearchFocused} // ✅ Pass Down
-                    >
-                        <SessionWrapper
-                            isActive={isActive && tab.id === activeTabId}
-                            title={tab.title}
+                    isActive && tab.id === activeTabId && (
+                        <LogProvider
+                            key={tab.id}
+                            rules={rules}
+                            onUpdateRules={onUpdateRules}
+                            onExportSettings={onExportSettings}
+                            onImportSettings={onImportSettings}
+                            configPanelWidth={configPanelWidth}
+                            setConfigPanelWidth={setConfigPanelWidth}
                             tabId={tab.id}
-                            onTitleChange={handleTitleChange}
-                        />
-                    </LogProvider>
+                            initialFilePath={tab.filePath}
+                            initialFile={tab.initialFile} // ✅ Pass the File object
+                            onFileChange={(newPath) => {
+                                setTabs(current => current.map(t => t.id === tab.id ? { ...t, filePath: newPath } : t));
+                            }}
+                            isActive={isActive && tab.id === activeTabId}
+                            isPanelOpen={isPanelOpen}
+                            setIsPanelOpen={setIsPanelOpen}
+                            isSearchFocused={isSearchFocused} // ✅ Pass Down
+                            setIsSearchFocused={setIsSearchFocused} // ✅ Pass Down
+                        >
+                            <SessionWrapper
+                                isActive={isActive && tab.id === activeTabId}
+                                title={tab.title}
+                                tabId={tab.id}
+                                onTitleChange={handleTitleChange}
+                            />
+                        </LogProvider>
+                    )
                 ))}
             </div>
 

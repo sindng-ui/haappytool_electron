@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { LogHighlight } from '../../types';
 
+import { LOG_VIEW_CONFIG } from '../../constants/logViewUI';
+
 interface HighlightRendererProps {
     text: string;
     highlights?: LogHighlight[];
@@ -49,9 +51,15 @@ export const HighlightRenderer = React.memo(({ text, highlights, caseSensitive =
 
                 if (highlight) {
                     const isCss = isCssColor(highlight.color);
-                    const style = isCss ? { backgroundColor: highlight.color, color: '#0f172a' } : undefined;
-                    const className = `rounded-sm px-0 py-[1px] font-bold ${!isCss ? highlight.color + ' text-slate-900' : ''}`;
-                    return <span key={i} className={className} style={style}>{part}</span>;
+                    const style = {
+                        ...(isCss ? { backgroundColor: highlight.color, color: '#0f172a' } : {}),
+                        paddingTop: LOG_VIEW_CONFIG.SPACING.HIGHLIGHT_PADDING_Y,
+                        paddingBottom: LOG_VIEW_CONFIG.SPACING.HIGHLIGHT_PADDING_Y,
+                        paddingLeft: LOG_VIEW_CONFIG.SPACING.HIGHLIGHT_PADDING_X,
+                        paddingRight: LOG_VIEW_CONFIG.SPACING.HIGHLIGHT_PADDING_X,
+                    };
+                    const className = `rounded-sm font-bold ${!isCss ? highlight.color + ' text-slate-900' : ''}`;
+                    return <span key={i} className={className} style={style as any}>{part}</span>;
                 }
                 return part;
             })}
