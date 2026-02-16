@@ -689,10 +689,17 @@ export const useLogExtractorLogic = ({
                 });
             }
 
-            // Optimization: Fast Change Detection
-            // 형님, 루프 방지를 위해 확실한 비교 키를 생성합니다.
-            const detailedHash = JSON.stringify(currentConfig.happyGroups?.map(g => g.id + g.enabled) || []);
-            const filterVersion = `rule:${selectedRuleId}_happyCase:${!!currentConfig.happyCombosCaseSensitive}_blockCase:${!!currentConfig.blockListCaseSensitive}_q:${quickFilter}_groups:${currentConfig.happyGroups?.length || 0}_exc:${currentConfig.excludes.length}_detailed:${detailedHash}`;
+            // Optimization: Fast Change Detection (형님, 단어 내용물 변화까지 감지하도록 JSON.stringify로 묶었습니다)
+            const detailedHash = JSON.stringify({
+                happyGroups: currentConfig.happyGroups?.map(g => ({ id: g.id, enabled: g.enabled, tags: g.tags })),
+                excludes: currentConfig.excludes,
+                quickFilter: quickFilter,
+                caseSensitive: {
+                    happy: !!currentConfig.happyCombosCaseSensitive,
+                    block: !!currentConfig.blockListCaseSensitive
+                }
+            });
+            const filterVersion = `rule:${selectedRuleId}_hash:${detailedHash}`;
 
             if (filterVersion === lastFilterHashLeft.current) {
                 return;
@@ -1758,6 +1765,14 @@ export const useLogExtractorLogic = ({
     const [transactionSourcePane, setTransactionSourcePane] = useState<'left' | 'right'>('left');
     const [isAnalyzingTransaction, setIsAnalyzingTransaction] = useState(false);
     const [isTransactionDrawerOpen, setIsTransactionDrawerOpen] = useState(false);
+
+    // 💡 Performance: Clear results when drawer is closed to free memory
+    useEffect(() => {
+        if (!isTransactionDrawerOpen) {
+            setTransactionResults([]);
+            setTransactionIdentity(null);
+        }
+    }, [isTransactionDrawerOpen]);
 
     const analyzeTransactionAction = useCallback(async (identity: { type: string, value: string }, paneId: 'left' | 'right') => {
         const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
