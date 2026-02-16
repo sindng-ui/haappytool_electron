@@ -1,3 +1,4 @@
+
 import React, { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Trash2, FileText, Calendar, Folder } from 'lucide-react';
@@ -35,13 +36,27 @@ interface ArchiveCardProps {
      * @default true
      */
     showPreview?: boolean;
+
+    /**
+     * 리스트에서의 인덱스 (애니메이션 딜레이용)
+     */
+    index?: number;
+
+    /**
+     * 사이드바 준비 완료 여부
+     */
+    isSidebarReady?: boolean;
+
+    /**
+     * 초기 등장 애니메이션 완료 여부
+     */
+    isEntranceDone?: boolean;
 }
 
 /**
  * Archive Card
  * 
  * 개별 아카이브 항목을 표시하는 카드 컴포넌트
- * Compact Layout: Actions moved to header
  */
 export const ArchiveCard = memo(function ArchiveCard({
     archive,
@@ -50,16 +65,28 @@ export const ArchiveCard = memo(function ArchiveCard({
     onDelete,
     isSelected = false,
     showPreview = true,
+    index = 0,
+    isSidebarReady = false,
+    isEntranceDone = false,
 }: ArchiveCardProps) {
     const lineCount = countLines(archive.content);
 
+    // ✅ Performance & UX: 
+    // 1. 첫 화면(index < 12)이면서 아직 초기 등장이 안 끝났을 때만 애니메이션 적용 (shouldAnimate)
+    // 2. 초기 등장이 끝났거나(isEntranceDone) 인덱스가 큰 경우 애니메이션 없이 즉시 렌더링 (No Invisible Area)
+    const shouldAnimate = isSidebarReady && !isEntranceDone && index < 12;
+
     return (
         <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={shouldAnimate ? { opacity: 0, y: 15 } : false}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            whileHover={{ scale: 1.02 }}
-            transition={{ duration: 0.15 }}
+            exit={{ opacity: 0, y: -20 }}
+            whileHover={{ scale: 1.01 }}
+            transition={{
+                duration: 0.3,
+                delay: shouldAnimate ? index * 0.03 : 0,
+                ease: "easeOut"
+            }}
             className={`archive-card ${isSelected ? 'selected' : ''}`}
             onClick={() => onView(archive)}
             style={{ position: 'relative' }}
@@ -81,7 +108,7 @@ export const ArchiveCard = memo(function ArchiveCard({
                         <span className="font-medium text-slate-200 truncate">{decodeHtmlEntities(archive.title)}</span>
                     </h3>
 
-                    {/* Folder Badge in Header (Optional: or below title) */}
+                    {/* Folder Badge in Header */}
                     {archive.metadata?.folder && (
                         <div className="archive-folder-badge mt-1 inline-flex items-center" title={`Folder: ${archive.metadata.folder}`}>
                             <Folder size={10} className="mr-1" />
@@ -154,9 +181,6 @@ export const ArchiveCard = memo(function ArchiveCard({
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 to-transparent pointer-events-none" />
                     </div>
                 )}
-
-
-            {/* No Bottom Actions Bar anymore */}
         </motion.div>
     );
 });

@@ -57,6 +57,9 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
         }
     }, []);
 
+    const [isContentVisible, setIsContentVisible] = useState(false);
+    const [isEntranceDone, setIsEntranceDone] = useState(false);
+
     /**
      * 초기 로드 및 전체 개수 조회
      */
@@ -65,6 +68,20 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
             search({});
             getTotalCount().then(setTotalCount);
             loadStorageInfo();
+
+            // ✅ Performance: 사이드바 애니메이션(300ms)이 끝난 후 리스트를 보여줌으로써 렉 줄임
+            const timer = setTimeout(() => setIsContentVisible(true), 350);
+
+            // ✅ Entrance Done: 초기 뿅뿅뿅 애니메이션이 끝난 후 상태 변경 (1초)
+            const doneTimer = setTimeout(() => setIsEntranceDone(true), 1000);
+
+            return () => {
+                clearTimeout(timer);
+                clearTimeout(doneTimer);
+            };
+        } else {
+            setIsContentVisible(false);
+            setIsEntranceDone(false);
         }
     }, [isOpen, search, getTotalCount, loadStorageInfo]);
 
@@ -431,20 +448,28 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
 
                         {/* Archive List */}
                         <div className="sidebar-content">
-                            <ArchiveList
-                                archives={results}
-                                selectedId={selectedArchive?.id}
-                                onView={handleView}
-                                onDelete={() => {
-                                    // 삭제 후 즉시 목록 새로고침 (debounce 없이)
-                                    search({}, true);
-                                    getTotalCount().then(setTotalCount);
-                                }}
-                                onLoadMore={loadMore}
-                                hasMore={hasMore}
-                                isLoading={isSearching}
-                                showPreview={showPreview}
-                            />
+                            {isContentVisible ? (
+                                <ArchiveList
+                                    archives={results}
+                                    selectedId={selectedArchive?.id}
+                                    onView={handleView}
+                                    onDelete={() => {
+                                        // 삭제 후 즉시 목록 새로고침 (debounce 없이)
+                                        search({}, true);
+                                        getTotalCount().then(setTotalCount);
+                                    }}
+                                    onLoadMore={loadMore}
+                                    hasMore={hasMore}
+                                    isLoading={isSearching}
+                                    showPreview={showPreview}
+                                    isSidebarReady={true}
+                                    isEntranceDone={isEntranceDone}
+                                />
+                            ) : (
+                                <div className="h-full flex items-center justify-center">
+                                    <Loader2 size={24} className="spinning text-indigo-500/50" />
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 </>

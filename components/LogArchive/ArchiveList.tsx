@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect } from 'react';
+
+import React, { useCallback } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { Loader2, PackageX } from 'lucide-react';
 import { ArchivedLog } from './db/LogArchiveDB';
@@ -51,6 +52,16 @@ interface ArchiveListProps {
      * @default true
      */
     showPreview?: boolean;
+
+    /**
+     * 사이드바 준비 완료 여부 (애니메이션 트리거용)
+     */
+    isSidebarReady?: boolean;
+
+    /**
+     * 초기 등장 애니메이션 완료 여부
+     */
+    isEntranceDone?: boolean;
 }
 
 /**
@@ -68,6 +79,8 @@ export function ArchiveList({
     hasMore = false,
     isLoading = false,
     showPreview = true,
+    isSidebarReady = false,
+    isEntranceDone = false,
 }: ArchiveListProps) {
     const { deleteArchive } = useLogArchive();
 
@@ -136,7 +149,7 @@ export function ArchiveList({
             <Virtuoso
                 data={archives}
                 endReached={handleEndReached}
-                overscan={10}
+                overscan={40} // ✅ Performance: 미리 더 많은 아이템을 그려두어 스크롤 시 빈 공간 방지
                 itemContent={(index, archive) => (
                     <div className="archive-list-item" key={archive.id}>
                         <ArchiveCard
@@ -146,6 +159,9 @@ export function ArchiveList({
                             onDelete={handleDelete}
                             isSelected={archive.id === selectedId}
                             showPreview={showPreview}
+                            index={index}
+                            isSidebarReady={isSidebarReady}
+                            isEntranceDone={isEntranceDone}
                         />
                     </div>
                 )}
