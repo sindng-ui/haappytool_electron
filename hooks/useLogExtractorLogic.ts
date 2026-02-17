@@ -763,24 +763,7 @@ export const useLogExtractorLogic = ({
 
         const refinedGroups = refineGroups(sourceGroups);
 
-        // Add Family Combo Groups (After refinement to avoid root-suppression)
-        if (config.familyCombos) {
-            config.familyCombos.filter(f => f.enabled).forEach(f => {
-                // 🛡️ Guard against empty tags which would cause match-all (OR logic)
-                const cleanStart = f.startTags.filter(t => t.trim() !== '');
-                const cleanEnd = f.endTags.filter(t => t.trim() !== '');
 
-                if (cleanStart.length > 0) refinedGroups.push(cleanStart);
-                if (cleanEnd.length > 0) refinedGroups.push(cleanEnd);
-
-                if (f.middleTags.length > 0) {
-                    f.middleTags.forEach(branch => {
-                        const cleanBranch = branch.filter(t => t.trim() !== '');
-                        if (cleanBranch.length > 0) refinedGroups.push(cleanBranch);
-                    });
-                }
-            });
-        }
         return refinedGroups;
     };
 
@@ -1034,7 +1017,7 @@ export const useLogExtractorLogic = ({
                 exc: effectiveExcludes,
                 happyCase: !!currentConfig.happyCombosCaseSensitive,
                 blockCase: !!currentConfig.blockListCaseSensitive,
-                familyHash: currentConfig.familyCombos?.map(f => `${f.id}:${f.enabled}`).join(',')
+
             });
 
             if (payloadHash === lastFilterHashRight.current) {
@@ -1660,7 +1643,7 @@ export const useLogExtractorLogic = ({
             updateCurrentRule({
                 happyGroups: newHappyGroups,
                 includeGroups: [],
-                familyCombos: []
+
             });
         } else {
             // Legacy Logic

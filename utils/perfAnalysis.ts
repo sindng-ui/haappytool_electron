@@ -1,4 +1,4 @@
-import { LogRule, FamilyCombo, HappyGroup } from '../types';
+import { LogRule, HappyGroup } from '../types';
 import { extractTimestamp } from './logTime';
 
 export interface AnalysisSegment {
@@ -12,7 +12,7 @@ export interface AnalysisSegment {
     originalStartLine: number;
     originalEndLine: number;
     type: 'combo' | 'manual' | 'step';
-    familyId?: string;
+
     status: 'pass' | 'fail';
     logs: string[]; // Stores [startLineContent, endLineContent] for combos
     lane?: number;

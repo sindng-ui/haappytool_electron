@@ -585,27 +585,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             });
         }
 
-        // Family Combos Support
-        if (currentConfig?.familyCombos) {
-            currentConfig.familyCombos.forEach(combo => {
-                if (combo.enabled !== false) {
-                    // Add Start Tags
-                    combo.startTags.forEach(tag => {
-                        if (tag && tag.trim()) termsToHighlight.add(tag.trim());
-                    });
-                    // Add End Tags
-                    combo.endTags.forEach(tag => {
-                        if (tag && tag.trim()) termsToHighlight.add(tag.trim());
-                    });
-                    // Add Middle Tags (Branches)
-                    combo.middleTags.forEach(branch => {
-                        branch.forEach(tag => {
-                            if (tag && tag.trim()) termsToHighlight.add(tag.trim());
-                        });
-                    });
-                }
-            });
-        }
+
 
         termsToHighlight.forEach(term => {
             const checkTerm = isCaseSensitive ? term : term.toLowerCase();
@@ -626,7 +606,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         // We put baseHighlights FIRST so find() returns manual highlight if both exist 
         // (though we try to filter duplicates, partial matches might still occur)
         return [...baseHighlights, ...autoHighlights];
-    }, [currentConfig?.highlights, currentConfig?.happyGroups, currentConfig?.familyCombos, currentConfig?.includeGroups, currentConfig?.colorHighlightsCaseSensitive, currentConfig?.happyCombosCaseSensitive]);
+    }, [currentConfig?.highlights, currentConfig?.happyGroups, currentConfig?.includeGroups, currentConfig?.colorHighlightsCaseSensitive, currentConfig?.happyCombosCaseSensitive]);
 
     // Memoized handlers for Right Pane
     const onLineClickRight = React.useCallback((index: number, isShift?: boolean, isCtrl?: boolean) => handleLineClick('right', index, !!isShift, !!isCtrl), [handleLineClick]);
