@@ -267,8 +267,8 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         }));
     }, [lineHighlightRanges]);
 
-    const selectionColor = 'rgba(79, 70, 229, 0.4)';
-    const activeColor = 'rgba(79, 70, 229, 0.2)';
+    const selectionColor = 'rgba(79, 70, 229, 0.55)'; // 👈 0.4 -> 0.55 상향
+    const activeColor = 'rgba(79, 70, 229, 0.35)';    // 👈 0.2 -> 0.35 상향
     const bookmarkColor = 'rgba(234, 179, 8, 0.2)';
     const gutterColor = '#64748b';
     const defaultTextColor = '#ccc';

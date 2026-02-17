@@ -13,6 +13,8 @@ interface EditableTagProps {
     onDelete: () => void;
     onNavigate: (key: string, empty: boolean) => void;
     isLast: boolean;
+    groupIdx: number;
+    termIdx: number;
 }
 
 export const EditableTag = memo(({
@@ -24,6 +26,8 @@ export const EditableTag = memo(({
     onDelete,
     onNavigate,
     isLast,
+    groupIdx,
+    termIdx,
 }: EditableTagProps) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const [localValue, setLocalValue] = useState(value);
@@ -50,18 +54,19 @@ export const EditableTag = memo(({
                     if (e.key === 'Enter') {
                         e.preventDefault();
                         onCommit(localValue);
-                        if (isLast) onNavigate('NextInput', false); // Special handling to jump to + tag
+                        onNavigate('NextInput', false);
                     } else if (e.key === 'Escape') {
                         onCommit(value); // Revert
                     } else if (e.key === 'Backspace') {
                         if (!localValue) {
                             e.preventDefault();
                             onDelete();
+                            onNavigate('Backspace', true);
                         } else if (e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0) {
                             // Jump to previous item if at start
                             e.preventDefault();
                             onCommit(localValue);
-                            onNavigate('Backspace', false);
+                            onNavigate('Left', false);
                         }
                     } else if (e.key === 'ArrowUp') {
                         e.preventDefault();

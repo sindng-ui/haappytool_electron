@@ -1,15 +1,15 @@
-import React, { useState, useRef, useEffect, memo } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import * as Lucide from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { IconButton } from '../../ui/IconButton';
-import { LogRule } from '../../../types';
+import { LogRule, HappyGroup } from '../../../types';
 
-const { Zap, X, Folder, FolderOpen, Plus } = Lucide;
+const { Zap, X, Folder, FolderOpen, Plus, Activity, PlayCircle, StopCircle, MinusCircle } = Lucide;
 
 interface HappyComboSectionProps {
     currentConfig: LogRule;
     updateCurrentRule: (updates: Partial<LogRule>) => void;
-    groupedRoots: { root: string; isRootEnabled: boolean; items: { group: string[]; active: boolean; originalIdx: number, id?: string }[] }[];
+    groupedRoots: { root: string; isRootEnabled: boolean; items: { group: string[]; active: boolean; originalIdx: number, id?: string, alias?: string }[] }[];
     collapsedRoots: Set<string>;
     onToggleRootCollapse: (root: string) => void;
     handleToggleRoot: (root: string, enabled: boolean) => void;
@@ -34,13 +34,22 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
 }) => {
     // editingTarget only stores COORDINATES. Value is local to EditableTag.
     const [editingTarget, setEditingTarget] = useState<{ groupIdx: number, termIdx: number, isActive: boolean, value?: string } | null>(null);
-    const [newRootName, setNewRootName] = useState('');
-    const [isCreatingRoot, setIsCreatingRoot] = useState(false);
+    const [isPerfMode, setIsPerfMode] = useState(false); // ✅ Perf Mode Checkbox State
 
     // Ref to handle auto-focus on new branch creation
     const pendingBranchFocus = useRef<{ rootIdx: number, branchIdx: number } | null>(null);
     // Ref to handle auto-focus on new root creation
     const pendingRootFocus = useRef<string | null>(null);
+
+    // ✅ Suggestions logic for Alias
+    const [focusedAliasId, setFocusedAliasId] = useState<string | null>(null);
+    const allAliases = useMemo(() => {
+        const set = new Set<string>();
+        currentConfig.happyGroups?.forEach(g => {
+            if (g.alias?.trim()) set.add(g.alias.trim());
+        });
+        return Array.from(set).sort();
+    }, [currentConfig.happyGroups]);
 
     useEffect(() => {
         if (pendingBranchFocus.current) {
@@ -62,15 +71,25 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
     }, [groupedRoots]);
 
     // Helper to update groups
-    const handleUpdateGroup = (originalIdx: number, newGroup: string[], isActive: boolean, id?: string) => {
+    const handleUpdateGroup = (originalIdx: number, newGroup: string[], isActive: boolean, id?: string, alias?: string) => {
         if (currentConfig.happyGroups) {
             // New Logic
             const newHappyGroups = [...currentConfig.happyGroups];
             const targetIndex = id ? newHappyGroups.findIndex(g => g.id === id) : originalIdx;
 
             if (targetIndex > -1) {
-                newHappyGroups[targetIndex] = { ...newHappyGroups[targetIndex], tags: newGroup };
-                updateCurrentRule({ happyGroups: newHappyGroups });
+                newHappyGroups[targetIndex] = {
+                    ...newHappyGroups[targetIndex],
+                    tags: newGroup,
+                    alias: alias !== undefined ? alias : newHappyGroups[targetIndex].alias
+                };
+
+                // 💡 Unified Happy Combos: Clear legacy fields to prevent ghost filtering
+                updateCurrentRule({
+                    happyGroups: newHappyGroups,
+                    includeGroups: [], // Clear legacy OR/AND groups
+                    familyCombos: []   // Clear legacy Family Combos
+                });
             }
         } else {
             // Legacy Logic
@@ -86,11 +105,91 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
     const handleDeleteRoot = (root: string) => {
         if (currentConfig.happyGroups) {
             const newHappyGroups = currentConfig.happyGroups.filter(h => (h.tags[0] || '').trim() !== root);
-            updateCurrentRule({ happyGroups: newHappyGroups });
+            updateCurrentRule({
+                happyGroups: newHappyGroups,
+                includeGroups: [],
+                familyCombos: []
+            });
         } else {
             const newIncludes = currentConfig.includeGroups.filter(g => (g[0] || '').trim() !== root);
             const newDisabled = (currentConfig.disabledGroups || []).filter(g => (g[0] || '').trim() !== root);
             updateCurrentRule({ includeGroups: newIncludes, disabledGroups: newDisabled });
+        }
+    };
+
+    const handleDeleteBranch = (item: any, itemsLength: number, root: string, rootIdx: number, itemIdx: number) => {
+        if (itemsLength === 1) {
+            const newGroup = [root];
+            handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
+            // Stay focused on current + tag (which is now cleaned)
+        } else {
+            if (currentConfig.happyGroups && item.id) {
+                const newHappy = currentConfig.happyGroups.filter(h => h.id !== item.id);
+                updateCurrentRule({ happyGroups: newHappy });
+            } else {
+                const sourceArray = item.active ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
+                const newGroups = sourceArray.filter((_, i) => i !== item.originalIdx);
+                if (item.active) updateCurrentRule({ includeGroups: newGroups });
+                else updateCurrentRule({ disabledGroups: newGroups });
+            }
+
+            // Move Focus
+            if (itemIdx > 0) {
+                // Focus previous branch's + tag
+                setTimeout(() => {
+                    const prevInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx - 1}"]`) as HTMLInputElement;
+                    prevInput?.focus();
+                }, 50);
+            } else {
+                // Focus root tag
+                setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root } as any);
+            }
+        }
+    };
+
+    const handleCreateBranch = (rootIdx: number, rootTag: string, existingItemCount: number) => {
+        const newId = Math.random().toString(36).substring(7);
+        if (currentConfig.happyGroups) {
+            updateCurrentRule({ happyGroups: [...currentConfig.happyGroups, { id: newId, tags: [rootTag], enabled: true }] });
+        } else {
+            updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [rootTag]] });
+        }
+        pendingBranchFocus.current = { rootIdx, branchIdx: existingItemCount };
+    };
+
+    const handleNavigate = (key: string, rootIdx: number, itemIdx: number, tIdx: number, root: string, itemsLength: number, branchTagsLength: number, itemOriginalIdx?: number, itemActive?: boolean) => {
+        if (key === 'Down') {
+            if (itemIdx < itemsLength - 1) {
+                const nextInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx + 1}"]`) as HTMLInputElement;
+                nextInput?.focus();
+            } else {
+                handleCreateBranch(rootIdx, root, itemsLength);
+            }
+        } else if (key === 'Up') {
+            if (itemIdx > 0) {
+                const prevInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx - 1}"]`) as HTMLInputElement;
+                prevInput?.focus();
+            } else {
+                setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root } as any);
+            }
+        } else if (key === 'Left' || key === 'Backspace') {
+            if (tIdx > 1) {
+                setEditingTarget({ groupIdx: itemOriginalIdx!, termIdx: tIdx - 1, isActive: itemActive! });
+            } else if (tIdx === 1) {
+                // Do nothing: Stay on the first tag (Remove Root jump)
+            } else if (tIdx === 0) { // Coming from + tag
+                if (branchTagsLength > 0) {
+                    setEditingTarget({ groupIdx: itemOriginalIdx!, termIdx: branchTagsLength, isActive: itemActive! });
+                }
+                // If branchTagsLength === 0, stay on + tag (Remove Root jump)
+            }
+        } else if (key === 'Right' || key === 'NextInput') {
+            if (tIdx < branchTagsLength) {
+                setEditingTarget({ groupIdx: itemOriginalIdx!, termIdx: tIdx + 1, isActive: itemActive! });
+            } else {
+                const nextTagInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx}"]`) as HTMLInputElement;
+                nextTagInput?.focus();
+            }
         }
     };
 
@@ -101,10 +200,22 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                     <Zap size={16} className="text-yellow-400 fill-yellow-400 icon-glow" />
                     Happy Combos
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer text-[10px] text-slate-500 hover:text-indigo-400 transition-colors uppercase font-bold tracking-wider">
-                    <input type="checkbox" checked={happyCombosCaseSensitive ?? false} onChange={(e) => updateCurrentRule({ happyCombosCaseSensitive: e.target.checked })} className="accent-indigo-500 rounded-sm w-3 h-3" />
-                    <span>Case Sensitive</span>
-                </label>
+
+                <div className="flex items-center gap-4">
+                    {/* ✅ Perf Mode Toggle */}
+                    <label className={`flex items-center gap-2 cursor-pointer text-[10px] uppercase font-bold tracking-wider transition-colors ${isPerfMode ? 'text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}>
+                        <input type="checkbox" checked={isPerfMode} onChange={(e) => setIsPerfMode(e.target.checked)} className="accent-amber-500 rounded-sm w-3 h-3" />
+                        <span className="flex items-center gap-1">
+                            <Activity size={12} />
+                            Performance Mode
+                        </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer text-[10px] text-slate-500 hover:text-indigo-400 transition-colors uppercase font-bold tracking-wider">
+                        <input type="checkbox" checked={happyCombosCaseSensitive ?? false} onChange={(e) => updateCurrentRule({ happyCombosCaseSensitive: e.target.checked })} className="accent-indigo-500 rounded-sm w-3 h-3" />
+                        <span>Case Sensitive</span>
+                    </label>
+                </div>
             </div>
 
             <div className="space-y-4">
@@ -150,18 +261,19 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                         setEditingTarget(null);
                                     }}
                                     onKeyDown={(e) => {
-                                        if (e.key === 'Enter') e.currentTarget.blur();
-                                        else if (e.key === 'ArrowDown') {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            e.currentTarget.blur();
+                                            // Focus first branch's + tag
+                                            if (items.length > 0) {
+                                                const firstBranchPlusInput = document.querySelector(`input[data-add-tag="${rootIdx}-0"]`) as HTMLInputElement;
+                                                firstBranchPlusInput?.focus();
+                                            }
+                                        } else if (e.key === 'ArrowDown') {
                                             e.preventDefault();
                                             if (items.length > 0) {
-                                                if (items[0].group.length > 1) {
-                                                    // Focus first tag of first branch
-                                                    setEditingTarget({ groupIdx: items[0].originalIdx, termIdx: 1, isActive: items[0].active });
-                                                } else {
-                                                    // Focus +tag of first branch
-                                                    const input = document.querySelector(`input[data-add-tag="${rootIdx}-0"]`) as HTMLInputElement;
-                                                    input?.focus();
-                                                }
+                                                const firstBranchPlusInput = document.querySelector(`input[data-add-tag="${rootIdx}-0"]`) as HTMLInputElement;
+                                                firstBranchPlusInput?.focus();
                                             }
                                         }
                                     }}
@@ -193,7 +305,7 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                     const branchTags = item.group.slice(1);
 
                                     return (
-                                        <div key={item.originalIdx} className="relative group/branch flex items-center">
+                                        <div key={item.originalIdx} className="relative group/branch flex items-center pr-2">
                                             {/* Branch Line */}
                                             <div className="absolute -left-4 top-[14px] w-4 h-px bg-slate-800" />
 
@@ -206,11 +318,13 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                             value={term}
                                                             isActive={item.active}
                                                             isLast={tIdx === branchTags.length - 1}
+                                                            groupIdx={item.originalIdx}
+                                                            termIdx={tIdx + 1}
                                                             onStartEdit={() => setEditingTarget({ groupIdx: item.originalIdx, termIdx: tIdx + 1, isActive: item.active })}
                                                             onCommit={(newVal) => {
                                                                 const newGroup = [...item.group];
                                                                 if (newVal.trim()) newGroup[tIdx + 1] = newVal.trim();
-                                                                else newGroup.splice(tIdx + 1, 1); // Delete if empty
+                                                                else newGroup.splice(tIdx + 1, 1);
                                                                 handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
                                                                 setEditingTarget(null);
                                                             }}
@@ -219,68 +333,7 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                                 newGroup.splice(tIdx + 1, 1);
                                                                 handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
                                                             }}
-                                                            onNavigate={(key) => {
-                                                                // Handle Input Focus (Next/Add Tag)
-                                                                if (key === 'NextInput' || key === 'Right') {
-                                                                    if (tIdx < branchTags.length - 1 && key === 'Right') {
-                                                                        // Go to next tag
-                                                                        setEditingTarget({ groupIdx: item.originalIdx, termIdx: tIdx + 2, isActive: item.active });
-                                                                    } else {
-                                                                        // Go to input
-                                                                        const input = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx}"]`) as HTMLInputElement;
-                                                                        input?.focus();
-                                                                    }
-                                                                } else if (key === 'Left' || key === 'Backspace') {
-                                                                    if (tIdx > 0) {
-                                                                        setEditingTarget({ groupIdx: item.originalIdx, termIdx: tIdx, isActive: item.active });
-                                                                    }
-                                                                } else if (key === 'Up') {
-                                                                    if (itemIdx > 0) {
-                                                                        const targetItem = items[itemIdx - 1];
-                                                                        // Try to maintain column index
-                                                                        const targetLen = targetItem.group.length - 1;
-                                                                        const targetTermIdx = Math.min(tIdx, targetLen - 1);
-
-                                                                        if (targetTermIdx >= 0) {
-                                                                            setEditingTarget({ groupIdx: targetItem.originalIdx, termIdx: targetTermIdx + 1, isActive: targetItem.active });
-                                                                        } else {
-                                                                            // If target branch has no tags (just root), focus its add-tag logic? 
-                                                                            // Or if we are at index 0 and target has none...
-                                                                            // Let's just focus the input if no tags match
-                                                                            const input = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx - 1}"]`) as HTMLInputElement;
-                                                                            input?.focus();
-                                                                        }
-                                                                    } else {
-                                                                        // Focus Root
-                                                                        setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root });
-                                                                    }
-                                                                } else if (key === 'Down') {
-                                                                    if (itemIdx < items.length - 1) {
-                                                                        const targetItem = items[itemIdx + 1];
-                                                                        const targetLen = targetItem.group.length - 1;
-                                                                        const targetTermIdx = Math.min(tIdx, targetLen - 1);
-
-                                                                        if (targetTermIdx >= 0) {
-                                                                            setEditingTarget({ groupIdx: targetItem.originalIdx, termIdx: targetTermIdx + 1, isActive: targetItem.active });
-                                                                        } else {
-                                                                            const input = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx + 1}"]`) as HTMLInputElement;
-                                                                            input?.focus();
-                                                                        }
-                                                                    } else {
-                                                                        // Create Branch
-                                                                        if (currentConfig.happyGroups) {
-                                                                            const newId = Math.random().toString(36).substring(7);
-                                                                            updateCurrentRule({ happyGroups: [...currentConfig.happyGroups, { id: newId, tags: [root], enabled: true }] });
-                                                                        } else {
-                                                                            updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] });
-                                                                        }
-                                                                        setTimeout(() => {
-                                                                            const input = document.querySelector(`input[data-add-tag="${rootIdx}-${items.length}"]`) as HTMLInputElement;
-                                                                            input?.focus();
-                                                                        }, 50);
-                                                                    }
-                                                                }
-                                                            }}
+                                                            onNavigate={(key) => handleNavigate(key, rootIdx, itemIdx, tIdx + 1, root, items.length, branchTags.length, item.originalIdx, item.active)}
                                                         />
                                                     </React.Fragment>
                                                 ))}
@@ -296,93 +349,81 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                             const newGroup = [...item.group, e.currentTarget.value.trim()];
                                                             handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
                                                             e.currentTarget.value = '';
-                                                        } else if (e.key === 'Backspace' && !e.currentTarget.value) {
-                                                            // Backspace empty input
-                                                            if (branchTags.length > 0) {
-                                                                e.preventDefault();
-                                                                setEditingTarget({ groupIdx: item.originalIdx, termIdx: branchTags.length, isActive: item.active });
-                                                            } else if (items.length > 1) {
-                                                                // Delete Branch if empty and not the only one
-                                                                e.preventDefault();
-                                                                if (currentConfig.happyGroups && item.id) {
-                                                                    const newHappy = currentConfig.happyGroups.filter(h => h.id !== item.id);
-                                                                    updateCurrentRule({ happyGroups: newHappy });
-                                                                } else {
-                                                                    const sourceArray = item.active ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
-                                                                    const newGroups = sourceArray.filter((_, i) => i !== item.originalIdx);
-                                                                    if (item.active) updateCurrentRule({ includeGroups: newGroups });
-                                                                    else updateCurrentRule({ disabledGroups: newGroups });
-                                                                }
-
-                                                                // Focus Previous
-                                                                if (itemIdx > 0) {
-                                                                    setTimeout(() => {
-                                                                        const prevInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx - 1}"]`) as HTMLInputElement;
-                                                                        prevInput?.focus();
-                                                                    }, 50);
-                                                                }
-                                                            }
                                                         } else if (e.key === 'ArrowDown') {
-                                                            if (itemIdx < items.length - 1) {
-                                                                // Focus next branch add-tag
-                                                                const nextInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx + 1}"]`) as HTMLInputElement;
-                                                                if (nextInput) nextInput.focus();
-                                                            } else {
-                                                                // Create Branch
-                                                                if (currentConfig.happyGroups) {
-                                                                    const newId = Math.random().toString(36).substring(7);
-                                                                    updateCurrentRule({ happyGroups: [...currentConfig.happyGroups, { id: newId, tags: [root], enabled: true }] });
-                                                                } else {
-                                                                    updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] });
-                                                                }
-                                                                setTimeout(() => {
-                                                                    const input = document.querySelector(`input[data-add-tag="${rootIdx}-${items.length}"]`) as HTMLInputElement;
-                                                                    input?.focus();
-                                                                }, 50);
-                                                            }
+                                                            e.preventDefault();
+                                                            handleNavigate('Down', rootIdx, itemIdx, branchTags.length, root, items.length, branchTags.length, item.originalIdx, item.active);
                                                         } else if (e.key === 'ArrowUp') {
-                                                            if (itemIdx > 0) {
-                                                                const prevInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx - 1}"]`) as HTMLInputElement;
-                                                                if (prevInput) prevInput.focus();
-                                                            } else {
-                                                                // Focus Root
-                                                                setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root });
-                                                            }
-                                                        } else if (e.key === 'ArrowLeft') {
-                                                            if (!e.currentTarget.value || e.currentTarget.selectionStart === 0) {
-                                                                if (branchTags.length > 0) {
-                                                                    e.preventDefault();
-                                                                    setEditingTarget({ groupIdx: item.originalIdx, termIdx: branchTags.length, isActive: item.active });
-                                                                }
-                                                            }
+                                                            e.preventDefault();
+                                                            handleNavigate('Up', rootIdx, itemIdx, branchTags.length, root, items.length, branchTags.length, item.originalIdx, item.active);
+                                                        } else if (e.key === 'ArrowLeft' && e.currentTarget.selectionStart === 0) {
+                                                            e.preventDefault();
+                                                            handleNavigate('Left', rootIdx, itemIdx, 0, root, items.length, branchTags.length, item.originalIdx, item.active);
+                                                        } else if (e.key === 'Backspace' && !e.currentTarget.value) {
+                                                            e.preventDefault();
+                                                            handleNavigate('Backspace', rootIdx, itemIdx, 0, root, items.length, branchTags.length, item.originalIdx, item.active);
+                                                        } else if (e.key === 'Delete' && !e.currentTarget.value) {
+                                                            e.preventDefault();
+                                                            handleDeleteBranch(item, items.length, root, rootIdx, itemIdx);
                                                         }
                                                     }}
                                                 />
                                             </div>
+
+                                            {/* ✅ Perf Mode UI */}
+                                            {isPerfMode && (
+                                                <div className="flex items-center gap-2 ml-3 animate-in fade-in slide-in-from-right-4 duration-300">
+                                                    <div className="h-4 w-px bg-slate-700/50" />
+
+                                                    {/* Alias Input */}
+                                                    <div className="relative group/alias">
+                                                        <input
+                                                            className={`text-[10px] bg-slate-900/50 border border-slate-700 rounded px-2 py-1 w-24 text-slate-300 placeholder-slate-600 focus:border-amber-500/50 focus:outline-none transition-all ${item.alias ? 'text-amber-300 border-amber-500/30 bg-amber-500/5' : ''}`}
+                                                            placeholder="Alias"
+                                                            value={item.alias || ''}
+                                                            onFocus={() => setFocusedAliasId(item.id || item.originalIdx.toString())}
+                                                            onBlur={() => setTimeout(() => setFocusedAliasId(null), 200)}
+                                                            onChange={(e) => handleUpdateGroup(item.originalIdx, item.group, item.active, item.id, e.target.value)}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                                        />
+                                                        {item.alias && (
+                                                            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-amber-500 rounded-full flex items-center justify-center shadow-lg shadow-amber-900/50">
+                                                                <Activity size={8} className="text-black" />
+                                                            </div>
+                                                        )}
+
+                                                        {/* Alias Suggestions */}
+                                                        {focusedAliasId === (item.id || item.originalIdx.toString()) && allAliases.length > 0 && (
+                                                            <div className="absolute top-full left-0 mt-1 w-40 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                                                <div className="px-2 py-1 text-[8px] uppercase text-slate-500 font-bold border-b border-slate-800 mb-1">Suggestions</div>
+                                                                <div className="max-h-32 overflow-y-auto custom-scrollbar">
+                                                                    {allAliases
+                                                                        .filter(a => !item.alias || a.toLowerCase().includes(item.alias.toLowerCase()))
+                                                                        .map((a, i) => (
+                                                                            <div
+                                                                                key={i}
+                                                                                className="px-2 py-1.5 text-[10px] text-slate-300 hover:bg-amber-500/10 hover:text-amber-400 cursor-pointer transition-colors flex items-center gap-2"
+                                                                                onClick={() => handleUpdateGroup(item.originalIdx, item.group, item.active, item.id, a)}
+                                                                            >
+                                                                                <Activity size={10} className="text-amber-500/50" />
+                                                                                {a}
+                                                                            </div>
+                                                                        ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Removed Role Badges as per request */}
+
+
                                             <IconButton
                                                 variant="ghost"
                                                 size="xs"
                                                 icon={<X size={12} />}
-                                                className="ml-auto opacity-0 group-hover/branch:opacity-100 transition-opacity text-slate-600 hover:text-red-400"
-                                                title="Remove Branch"
-                                                onClick={() => {
-                                                    if (items.length === 1) {
-                                                        // If last branch, reset to root only
-                                                        const newGroup = [root];
-                                                        handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
-                                                    } else {
-                                                        // Remove completely
-                                                        if (currentConfig.happyGroups && item.id) {
-                                                            const newHappy = currentConfig.happyGroups.filter(h => h.id !== item.id);
-                                                            updateCurrentRule({ happyGroups: newHappy });
-                                                        } else {
-                                                            const sourceArray = item.active ? currentConfig.includeGroups : (currentConfig.disabledGroups || []);
-                                                            const newGroups = sourceArray.filter((_, i) => i !== item.originalIdx);
-                                                            if (item.active) updateCurrentRule({ includeGroups: newGroups });
-                                                            else updateCurrentRule({ disabledGroups: newGroups });
-                                                        }
-                                                    }
-                                                }}
+                                                className="ml-2 opacity-0 group-hover/branch:opacity-100 transition-opacity text-slate-600 hover:text-red-400"
+                                                onClick={() => handleDeleteBranch(item, items.length, root, rootIdx, itemIdx)}
                                             />
                                         </div>
                                     );
@@ -391,15 +432,7 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                 <div className="relative pl-4 pt-1">
                                     <div className="absolute left-[11px] top-4 w-4 h-px bg-slate-800" />
                                     <button
-                                        onClick={() => {
-                                            if (currentConfig.happyGroups) {
-                                                const newId = Math.random().toString(36).substring(7);
-                                                updateCurrentRule({ happyGroups: [...currentConfig.happyGroups, { id: newId, tags: [root], enabled: true }] });
-                                            } else {
-                                                updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [root]] });
-                                            }
-                                            pendingBranchFocus.current = { rootIdx, branchIdx: items.length };
-                                        }}
+                                        onClick={() => handleCreateBranch(rootIdx, root, items.length)}
                                         className="text-[10px] font-bold text-indigo-400/70 hover:text-indigo-300 flex items-center gap-1 py-1 px-2 rounded hover:bg-indigo-500/10 transition-colors uppercase tracking-wider"
                                     >
                                         <Plus size={10} /> Add Branch

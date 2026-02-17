@@ -3,6 +3,7 @@ import { useToast } from '../contexts/ToastContext';
 import { getStoredValue, setStoredValue } from '../utils/db';
 import { LogRule, AppSettings, LogWorkerResponse, LogViewPreferences } from '../types';
 import { LogViewerHandle } from '../components/LogViewer/LogViewerPane';
+import { AnalysisResult } from '../utils/perfAnalysis';
 import { Socket } from 'socket.io-client';
 
 const defaultLogViewPreferences: LogViewPreferences = {
@@ -200,6 +201,12 @@ export const useLogExtractorLogic = ({
     const [rightBookmarks, setRightBookmarks] = useState<Set<number>>(new Set());
     const [leftPerformanceHeatmap, setLeftPerformanceHeatmap] = useState<number[]>([]);
     const [rightPerformanceHeatmap, setRightPerformanceHeatmap] = useState<number[]>([]);
+
+    // Performance Analysis States
+    const [leftPerfAnalysisResult, setLeftPerfAnalysisResult] = useState<AnalysisResult | null>(null);
+    const [rightPerfAnalysisResult, setRightPerfAnalysisResult] = useState<AnalysisResult | null>(null);
+    const [isAnalyzingPerformanceLeft, setIsAnalyzingPerformanceLeft] = useState(false);
+    const [isAnalyzingPerformanceRight, setIsAnalyzingPerformanceRight] = useState(false);
 
     const toggleLeftBookmark = useCallback((lineIndex: number) => {
         // Delegate to worker
@@ -416,6 +423,10 @@ export const useLogExtractorLogic = ({
                 case 'ERROR':
                     console.error('Left Worker Error:', payload.error);
                     break;
+                case 'PERF_ANALYSIS_RESULT':
+                    setLeftPerfAnalysisResult(payload);
+                    setIsAnalyzingPerformanceLeft(false);
+                    break;
             }
         };
 
@@ -494,6 +505,10 @@ export const useLogExtractorLogic = ({
                     if (payload.visualBookmarks) {
                         setRightBookmarks(new Set(payload.visualBookmarks));
                     }
+                    break;
+                case 'PERF_ANALYSIS_RESULT':
+                    setRightPerfAnalysisResult(payload);
+                    setIsAnalyzingPerformanceRight(false);
                     break;
             }
         };
@@ -688,34 +703,47 @@ export const useLogExtractorLogic = ({
         return refinedGroups;
     };
 
+    const assembleIncludeGroups = (config: LogRule) => {
+        // Use happyGroups if available, otherwise fallback to includeGroups (legacy)
+        const sourceGroups = config.happyGroups
+            ? config.happyGroups.filter(h => h.enabled).map(h => h.tags)
+            : config.includeGroups;
+
+        const refinedGroups = refineGroups(sourceGroups);
+
+        // Add Family Combo Groups (After refinement to avoid root-suppression)
+        if (config.familyCombos) {
+            config.familyCombos.filter(f => f.enabled).forEach(f => {
+                // 🛡️ Guard against empty tags which would cause match-all (OR logic)
+                const cleanStart = f.startTags.filter(t => t.trim() !== '');
+                const cleanEnd = f.endTags.filter(t => t.trim() !== '');
+
+                if (cleanStart.length > 0) refinedGroups.push(cleanStart);
+                if (cleanEnd.length > 0) refinedGroups.push(cleanEnd);
+
+                if (f.middleTags.length > 0) {
+                    f.middleTags.forEach(branch => {
+                        const cleanBranch = branch.filter(t => t.trim() !== '');
+                        if (cleanBranch.length > 0) refinedGroups.push(cleanBranch);
+                    });
+                }
+            });
+        }
+        return refinedGroups;
+    };
+
     // Auto-Apply Filter (Left)
     // Auto-Apply Filter (Left)
     useEffect(() => {
         // We use leftWorkerReady instead of leftTotalLines to check availability, avoiding re-runs on every log line
         if (leftWorkerRef.current && currentConfig && (leftWorkerReady || tizenSocket)) {
-            // Use happyGroups if available, otherwise fallback to includeGroups (legacy)
-            const sourceGroups = currentConfig.happyGroups
-                ? currentConfig.happyGroups.filter(h => h.enabled).map(h => h.tags)
-                : currentConfig.includeGroups;
+            const refinedGroups = assembleIncludeGroups(currentConfig);
 
-            const refinedGroups = refineGroups(sourceGroups);
-
-            // Add Family Combo Groups (After refinement to avoid root-suppression)
-            if (currentConfig.familyCombos) {
-                currentConfig.familyCombos.filter(f => f.enabled).forEach(f => {
-                    if (f.startTags.length > 0) refinedGroups.push(f.startTags);
-                    if (f.endTags.length > 0) refinedGroups.push(f.endTags);
-                    if (f.middleTags.length > 0) {
-                        f.middleTags.forEach(branch => {
-                            if (branch.length > 0) refinedGroups.push(branch);
-                        });
-                    }
-                });
-            }
 
             // Optimization: Fast Change Detection (형님, 단어 내용물 변화까지 감지하도록 JSON.stringify로 묶었습니다)
             const detailedHash = JSON.stringify({
                 happyGroups: currentConfig.happyGroups?.map(g => ({ id: g.id, enabled: g.enabled, tags: g.tags })),
+                familyCombos: currentConfig.familyCombos?.map(f => ({ id: f.id, enabled: f.enabled, startTags: f.startTags, endTags: f.endTags, middleTags: f.middleTags })),
                 excludes: currentConfig.excludes,
                 quickFilter: quickFilter,
                 caseSensitive: {
@@ -723,6 +751,7 @@ export const useLogExtractorLogic = ({
                     block: !!currentConfig.blockListCaseSensitive
                 }
             });
+
             const filterVersion = `rule:${selectedRuleId}_hash:${detailedHash}`;
 
             if (filterVersion === lastFilterHashLeft.current) {
@@ -731,6 +760,9 @@ export const useLogExtractorLogic = ({
             lastFilterHashLeft.current = filterVersion;
 
             setLeftWorkerReady(false);
+            // 🔍 DEBUG: Check what is being sent to the worker
+            console.log('[FilterDebug] Sending includeGroups:', JSON.stringify(refinedGroups));
+
             leftWorkerRef.current.postMessage({
                 type: 'FILTER_LOGS',
                 payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter } // ✅ Pass quickFilter
@@ -812,23 +844,11 @@ export const useLogExtractorLogic = ({
         // Apply current filter immediately to the worker
         const config = rules.find(r => r.id === selectedRuleId);
         if (config) {
-            const sourceGroups = config.happyGroups
-                ? config.happyGroups.filter(h => h.enabled).map(h => h.tags)
-                : config.includeGroups;
+            const refined = assembleIncludeGroups(config);
 
-            const refined = refineGroups(sourceGroups);
+            // 🔍 DEBUG: Check what is being sent to the worker
+            console.log('[FilterDebug] (StreamStart) Sending includeGroups:', JSON.stringify(refined));
 
-            if (config.familyCombos) {
-                config.familyCombos.filter(f => f.enabled).forEach(f => {
-                    if (f.startTags.length > 0) refined.push(f.startTags);
-                    if (f.endTags.length > 0) refined.push(f.endTags);
-                    if (f.middleTags.length > 0) {
-                        f.middleTags.forEach(branch => {
-                            if (branch.length > 0) refined.push(branch);
-                        });
-                    }
-                });
-            }
             leftWorkerRef.current?.postMessage({
                 type: 'FILTER_LOGS',
                 payload: { ...config, includeGroups: refined, quickFilter } // Pass quickFilter
@@ -959,10 +979,7 @@ export const useLogExtractorLogic = ({
     // Auto-Apply Filter (Right)
     useEffect(() => {
         if (isDualView && rightWorkerRef.current && currentConfig && rightTotalLines > 0) {
-            const sourceGroups = currentConfig.happyGroups
-                ? currentConfig.happyGroups.filter(h => h.enabled).map(h => h.tags)
-                : currentConfig.includeGroups;
-            const refinedGroups = refineGroups(sourceGroups);
+            const refinedGroups = assembleIncludeGroups(currentConfig);
 
             // Optimization: Check if effective filter changed
             // Optimization: Check if effective filter changed
@@ -975,13 +992,15 @@ export const useLogExtractorLogic = ({
                 inc: effectiveIncludes,
                 exc: effectiveExcludes,
                 happyCase: !!currentConfig.happyCombosCaseSensitive,
-                blockCase: !!currentConfig.blockListCaseSensitive
+                blockCase: !!currentConfig.blockListCaseSensitive,
+                familyHash: currentConfig.familyCombos?.map(f => `${f.id}:${f.enabled}`).join(',') // 추가 방어막
             });
 
             if (payloadHash === lastFilterHashRight.current) {
                 return;
             }
             lastFilterHashRight.current = payloadHash;
+
 
             setRightWorkerReady(false);
             rightWorkerRef.current.postMessage({
@@ -1535,7 +1554,11 @@ export const useLogExtractorLogic = ({
                 }
                 return group;
             });
-            updateCurrentRule({ happyGroups: newHappyGroups });
+            updateCurrentRule({
+                happyGroups: newHappyGroups,
+                includeGroups: [],
+                familyCombos: []
+            });
         } else {
             // Legacy Logic
             const newIncludes = [...currentConfig.includeGroups];
@@ -1559,14 +1582,20 @@ export const useLogExtractorLogic = ({
 
     const groupedRoots = useMemo(() => {
         if (!currentConfig) return [];
-        const groups = new Map<string, { group: string[], active: boolean, originalIdx: number, id?: string }[]>();
+        const groups = new Map<string, { group: string[], active: boolean, originalIdx: number, id?: string, alias?: string }[]>();
 
         if (currentConfig.happyGroups) {
             currentConfig.happyGroups.forEach((hGroup, idx) => {
                 const root = (hGroup.tags[0] || '').trim();
                 if (!root) return;
                 if (!groups.has(root)) groups.set(root, []);
-                groups.get(root)!.push({ group: hGroup.tags, active: hGroup.enabled, originalIdx: idx, id: hGroup.id });
+                groups.get(root)!.push({
+                    group: hGroup.tags,
+                    active: hGroup.enabled,
+                    originalIdx: idx,
+                    id: hGroup.id,
+                    alias: hGroup.alias
+                });
             });
         } else {
             // Legacy Fallback
@@ -1855,8 +1884,47 @@ export const useLogExtractorLogic = ({
         if (rightSegmentIndex > maxSeg) setRightSegmentIndex(maxSeg);
     }, [rightFilteredCount, rightSegmentIndex]);
 
+    const handleAnalyzePerformanceLeft = useCallback(() => {
+        if (leftPerfAnalysisResult || isAnalyzingPerformanceLeft) {
+            setLeftPerfAnalysisResult(null);
+            setIsAnalyzingPerformanceLeft(false);
+            return;
+        }
+        setIsAnalyzingPerformanceLeft(true);
+        leftWorkerRef.current?.postMessage({ type: 'PERF_ANALYSIS', payload: { targetTime: 1000 } });
+    }, [leftPerfAnalysisResult, isAnalyzingPerformanceLeft]);
+
+    const handleAnalyzePerformanceRight = useCallback(() => {
+        if (rightPerfAnalysisResult || isAnalyzingPerformanceRight) {
+            setRightPerfAnalysisResult(null);
+            setIsAnalyzingPerformanceRight(false);
+            return;
+        }
+        setIsAnalyzingPerformanceRight(true);
+        rightWorkerRef.current?.postMessage({ type: 'PERF_ANALYSIS', payload: { targetTime: 1000 } });
+    }, [rightPerfAnalysisResult, isAnalyzingPerformanceRight]);
+
+    const handleJumpToLineLeft = useCallback((lineNum: number) => {
+        // Line number from analyzer is 0-indexed in the worker logic or 1-indexed?
+        // perfAnalysis.ts uses currentLine which is lineIndices[idx]
+        // lineIndices are original line indices (0-indexed)
+        // scrollTo index in LogViewerPane expects relative index to segment or absolute?
+        // Let's assume absolute line index.
+        leftViewerRef.current?.scrollToIndex(lineNum, { align: 'center' });
+        setActiveLineIndexLeft(lineNum);
+        setSelectedIndicesLeft(new Set([lineNum]));
+    }, []);
+
+    const handleJumpToLineRight = useCallback((lineNum: number) => {
+        rightViewerRef.current?.scrollToIndex(lineNum, { align: 'center' });
+        setActiveLineIndexRight(lineNum);
+        setSelectedIndicesRight(new Set([lineNum]));
+    }, []);
+
     return {
-        rules, onExportSettings,
+        rules,
+        tabId,
+        onExportSettings,
         selectedRuleId, setSelectedRuleId,
         currentConfig,
         groupedRoots, collapsedRoots, setCollapsedRoots,
@@ -1909,6 +1977,11 @@ export const useLogExtractorLogic = ({
         transactionResults, transactionIdentity, transactionSourcePane, isAnalyzingTransaction, isTransactionDrawerOpen,
         setIsTransactionDrawerOpen, analyzeTransactionAction,
         // Performance Heatmap
-        leftPerformanceHeatmap, rightPerformanceHeatmap
+        leftPerformanceHeatmap, rightPerformanceHeatmap,
+        // Performance Analysis (New)
+        leftPerfAnalysisResult, rightPerfAnalysisResult,
+        isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight,
+        handleAnalyzePerformanceLeft, handleAnalyzePerformanceRight,
+        handleJumpToLineLeft, handleJumpToLineRight,
     };
 };

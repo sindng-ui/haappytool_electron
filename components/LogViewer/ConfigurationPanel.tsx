@@ -4,7 +4,7 @@ import { useLogContext } from './LogContext';
 import { Button } from '../ui/Button';
 import { ConfigHeader } from './ConfigSections/ConfigHeader';
 import { HappyComboSection } from './ConfigSections/HappyComboSection';
-import { FamilyComboSection } from './ConfigSections/FamilyComboSection';
+
 import { BlockListSection } from './ConfigSections/BlockListSection';
 import { HighlightSection } from './ConfigSections/HighlightSection';
 import { LogSettingsSection } from './ConfigSections/LogSettingsSection';
@@ -120,12 +120,7 @@ const ConfigurationPanel: React.FC = () => {
                         />
                     </div>
 
-                    <div className="card-gradient p-1">
-                        <FamilyComboSection
-                            currentConfig={currentConfig}
-                            updateCurrentRule={updateCurrentRule}
-                        />
-                    </div>
+
 
                     <div className="card-gradient p-1">
                         <BlockListSection

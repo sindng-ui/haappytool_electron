@@ -152,6 +152,7 @@ const getVisualBookmarks = (): number[] => {
 // NOTE: Extracted to utils/logFiltering.ts for testability and reusability
 import { checkIsMatch } from '../utils/logFiltering';
 import { extractTimestamp } from '../utils/logTime';
+import { analyzePerfSegments } from '../utils/perfAnalysis';
 
 
 // ... (omitted file indexing / stream handlers)
@@ -329,16 +330,21 @@ const processChunk = (chunk: string) => {
 
 // --- Handler: Apply Filter ---
 const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' | 'exception' }) => {
-    currentRule = payload;
-    currentQuickFilter = payload.quickFilter || 'none'; // ✅ Update state
+    // 💡 Unified Happy Combos: If happyGroups exist (even if empty), prioritize them over legacy includeGroups
+    const rawIncludeGroups = (payload.happyGroups !== undefined)
+        ? payload.happyGroups.filter(g => g.enabled).map(g => g.tags.map(t => t.trim()).filter(t => t !== ''))
+        : payload.includeGroups;
+
+    const currentQuickFilterVal = payload.quickFilter || 'none';
+    currentQuickFilter = currentQuickFilterVal;
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
 
     if (isStreamMode) {
         // --- Optimization: Pre-normalize Rule Keywords ---
         const isHappyCase = !!payload.happyCombosCaseSensitive;
-        const normalizedGroups = payload.includeGroups.map(group =>
-            group.map(t => t.trim()).filter(t => t !== '').map(t => isHappyCase ? t : t.toLowerCase())
+        const normalizedGroups = rawIncludeGroups.map(group =>
+            group.map(t => isHappyCase ? t : t.toLowerCase())
         ).filter(g => g.length > 0);
 
         const normalizedRule: LogRule = {
@@ -386,8 +392,8 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     const normalizedRule: LogRule = {
         ...payload,
         excludes: payload.excludes.map(e => e.trim()).filter(e => e !== '').map(e => isBlockCase ? e : e.toLowerCase()),
-        includeGroups: payload.includeGroups.map(group =>
-            group.map(t => t.trim()).filter(t => t !== '').map(t => isHappyCase ? t : t.toLowerCase())
+        includeGroups: rawIncludeGroups.map(group =>
+            group.map(t => isHappyCase ? t : t.toLowerCase())
         ).filter(g => g.length > 0)
     };
 
@@ -1003,6 +1009,93 @@ const analyzeTransaction = async (identity: { type: 'pid' | 'tid' | 'tag', value
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
 };
 
+// --- Handler: Analyze Performance (New) ---
+const analyzePerformance = async (payload: { targetTime: number }, requestId: string) => {
+    if (!filteredIndices || !currentRule) {
+        respond({ type: 'PERF_ANALYSIS_RESULT', payload: null, requestId });
+        return;
+    }
+
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
+
+    const results: string[] = [];
+    const absoluteIndices: number[] = [];
+    const isFile = !!currentFile && !!lineOffsets;
+    const isHappyCS = !!currentRule.happyCombosCaseSensitive;
+
+    if (isStreamMode) {
+        for (let idx = 0; idx < filteredIndices.length; idx++) {
+            const i = filteredIndices[idx];
+            results.push(streamLines[i]);
+            absoluteIndices.push(i);
+        }
+    } else if (isFile) {
+        const reader = new FileReaderSync();
+        const total = filteredIndices.length;
+        const BATCH_SIZE = 5000;
+
+        for (let idx = 0; idx < total; idx += BATCH_SIZE) {
+            const maxBatch = Math.min(idx + BATCH_SIZE, total);
+            let minByte = -1n;
+            let maxByte = -1n;
+
+            for (let k = idx; k < maxBatch; k++) {
+                const i = filteredIndices[k];
+                const start = lineOffsets![i];
+                const end = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(currentFile!.size);
+                if (minByte === -1n || start < minByte) minByte = start;
+                if (maxByte === -1n || end > maxByte) maxByte = end;
+            }
+
+            if (minByte !== -1n) {
+                const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
+                const buffer = reader.readAsArrayBuffer(fullBlob);
+                const decoder = new TextDecoder();
+
+                for (let k = idx; k < maxBatch; k++) {
+                    const i = filteredIndices[k];
+                    const lineStart = lineOffsets![i];
+                    const lineEnd = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(currentFile!.size);
+
+                    const relStart = Number(lineStart - minByte);
+                    const relEnd = Number(lineEnd - minByte);
+                    const lineBuffer = buffer.slice(relStart, relEnd);
+                    const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
+
+                    results.push(text);
+                    absoluteIndices.push(i);
+                }
+            }
+
+            if (idx % (BATCH_SIZE * 2) === 0) {
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (idx / total) * 100 } });
+            }
+        }
+    }
+
+    // Now run the actual segment analysis
+    const segments = analyzePerfSegments(results, absoluteIndices, currentRule, payload.targetTime, isHappyCS);
+
+    // Calculate full result
+    const hasSegments = segments.length > 0;
+    const firstTs = hasSegments ? Math.min(...segments.map(s => s.startTime)) : 0;
+    const lastTs = hasSegments ? Math.max(...segments.map(s => s.endTime)) : 0;
+
+    const analysisResult = {
+        fileName: isFile ? currentFile!.name : 'Live Stream',
+        totalDuration: lastTs - firstTs,
+        segments: segments.sort((a, b) => a.startTime - b.startTime),
+        startTime: firstTs,
+        endTime: lastTs,
+        logCount: results.length,
+        passCount: segments.filter(s => s.status === 'pass').length,
+        failCount: segments.filter(s => s.status === 'fail').length
+    };
+
+    respond({ type: 'PERF_ANALYSIS_RESULT', payload: analysisResult, requestId });
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+};
+
 // --- Helper: Get Performance Heatmap ---
 const getPerformanceHeatmap = async (points: number, requestId: string) => {
     if (isCalculatingHeatmap) {
@@ -1133,6 +1226,9 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             break;
         case 'GET_PERFORMANCE_HEATMAP':
             getPerformanceHeatmap(payload.points || 500, requestId || '');
+            break;
+        case 'PERF_ANALYSIS':
+            analyzePerformance(payload, requestId || '');
             break;
     }
 };

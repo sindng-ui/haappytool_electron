@@ -36,8 +36,13 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
     // 2. Bypass Logic for Stream Mode
     if (bypassShellFilter && rule.showRawLogLines !== false) {
         // Optimized standard log detection (avoiding complex regex if possible)
-        const isStandard = line.includes(' /') || (line.length > 10 && (line[2] === ':' || line[4] === '-'));
-        if (!isStandard) return true;
+        // Supported: "23:00:00", "2024-02-16", "02-16"
+        const isStandard = line.includes(' /') || (line.length > 10 && (line[2] === ':' || line[4] === '-' || line[2] === '-'));
+        if (!isStandard) {
+            // DEBUG: Only log if it contains target keyword but bypassed
+            if (line.includes('ST_APP')) console.log('[FilterTrace] Bypassing ST_APP line (Non-Standard):', line.substring(0, 100));
+            return true;
+        }
     }
 
     // 3. Excludes (Block List)
@@ -85,6 +90,11 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
             }
         }
         if (allTermsInGroupMatch) return true;
+    }
+
+    // DEBUG: Only log if it contains target but failed to match rule groups
+    if (line.includes('ST_APP')) {
+        console.log('[FilterTrace] ST_APP line REJECTED. Groups:', JSON.stringify(groups));
     }
 
     return false;

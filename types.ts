@@ -31,6 +31,7 @@ export interface HappyGroup {
   id: string;
   tags: string[];
   enabled: boolean;
+  alias?: string; // For grouping performance segments
 }
 
 export interface FamilyCombo {
@@ -198,13 +199,13 @@ export interface PerfResponse {
 export type WorkerStatus = 'idle' | 'indexing' | 'filtering' | 'ready' | 'error';
 
 export interface LogWorkerMessage {
-  type: 'INIT_FILE' | 'FILTER_LOGS' | 'GET_LINES' | 'GET_SURROUNDING_LINES' | 'GET_RAW_LINES' | 'INIT_STREAM' | 'PROCESS_CHUNK' | 'UPDATE_RULES' | 'FIND_HIGHLIGHT' | 'GET_LINES_BY_INDICES' | 'TOGGLE_BOOKMARK' | 'CLEAR_BOOKMARKS' | 'ANALYZE_TRANSACTION' | 'GET_PERFORMANCE_HEATMAP';
+  type: 'INIT_FILE' | 'FILTER_LOGS' | 'GET_LINES' | 'GET_SURROUNDING_LINES' | 'GET_RAW_LINES' | 'INIT_STREAM' | 'PROCESS_CHUNK' | 'UPDATE_RULES' | 'FIND_HIGHLIGHT' | 'GET_LINES_BY_INDICES' | 'TOGGLE_BOOKMARK' | 'CLEAR_BOOKMARKS' | 'ANALYZE_TRANSACTION' | 'GET_PERFORMANCE_HEATMAP' | 'PERF_ANALYSIS';
   payload?: any;
   requestId?: string;
 }
 
 export interface LogWorkerResponse {
-  type: 'STATUS_UPDATE' | 'INDEX_COMPLETE' | 'FILTER_COMPLETE' | 'LINES_DATA' | 'ERROR' | 'STREAM_FLUSH' | 'FIND_RESULT' | 'FULL_TEXT_DATA' | 'BOOKMARKS_UPDATED' | 'HEATMAP_DATA';
+  type: 'STATUS_UPDATE' | 'INDEX_COMPLETE' | 'FILTER_COMPLETE' | 'LINES_DATA' | 'ERROR' | 'STREAM_FLUSH' | 'FIND_RESULT' | 'FULL_TEXT_DATA' | 'BOOKMARKS_UPDATED' | 'HEATMAP_DATA' | 'PERF_ANALYSIS_RESULT';
   payload?: any;
   requestId?: string;
 }

@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import { VirtuosoHandle } from 'react-virtuoso';
 import { LogHighlight, LogViewPreferences } from '../../types';
 import { LogLine } from './LogLine';
 import { HyperLogRenderer, HyperLogHandle } from './HyperLogRenderer';
+import { PerfAnalyzerOverlay } from './PerfAnalyzerOverlay';
+import { AnalysisResult } from '../../utils/perfAnalysis';
 
-const { Upload, X, Zap, Split, Copy, Download, Bookmark, ArrowDown, Archive } = Lucide;
+const { Upload, X, Zap, Split, Copy, Download, Bookmark, ArrowDown, Archive, BarChart3 } = Lucide;
 
 // ✅ ElectronAPI types moved to vite-env.d.ts for consistency
 
@@ -52,6 +55,10 @@ interface LogViewerPaneProps {
     isArchiveSaveEnabled?: boolean;
     lineHighlightRanges?: { start: number; end: number; color: string }[];
     performanceHeatmap?: number[];
+    onAnalyzePerformance?: () => void;
+    perfAnalysisResult?: AnalysisResult | null;
+    isAnalyzingPerformance?: boolean;
+    onJumpToLine?: (lineNum: number) => void;
 }
 
 export interface LogViewerHandle {
@@ -104,6 +111,10 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     isArchiveSaveEnabled = false,
     lineHighlightRanges,
     performanceHeatmap,
+    onAnalyzePerformance,
+    perfAnalysisResult,
+    isAnalyzingPerformance = false,
+    onJumpToLine,
 }, ref) => {
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
 
@@ -759,6 +770,16 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             </button>
                         )}
 
+                        {workerReady && !isRawMode && onAnalyzePerformance && (
+                            <button
+                                onClick={onAnalyzePerformance}
+                                className={`p-1.5 rounded-lg transition-colors ${perfAnalysisResult || isAnalyzingPerformance ? 'bg-indigo-500/10 text-indigo-500' : 'text-slate-400 hover:text-indigo-500 hover:bg-slate-200 dark:hover:bg-white/10'}`}
+                                title="Analyze Performance (Flame Map)"
+                            >
+                                <BarChart3 size={14} className={isAnalyzingPerformance ? 'animate-pulse' : ''} />
+                            </button>
+                        )}
+
                         {fileName && onReset && !isRawMode && (
                             <button onClick={onReset} className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors" title="Reset File">
                                 <X size={14} />
@@ -827,6 +848,26 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                 <ArrowDown size={20} />
                             </button>
                         )}
+
+                        {/* Performance Analyzer Overlay */}
+                        <AnimatePresence>
+                            {(perfAnalysisResult || isAnalyzingPerformance) && (
+                                <PerfAnalyzerOverlay
+                                    isOpen={true}
+                                    result={perfAnalysisResult || null}
+                                    isAnalyzing={isAnalyzingPerformance}
+                                    onClose={() => {
+                                        // Trigger closure by calling analyze with null or a specific clear state
+                                        // In our implementation, we'll make onAnalyzePerformance handle toggle/clear
+                                        if (onAnalyzePerformance) onAnalyzePerformance();
+                                    }}
+                                    targetTime={1000} // Default or from context?
+                                    onJumpToLine={(lineNum) => {
+                                        if (onJumpToLine) onJumpToLine(lineNum);
+                                    }}
+                                />
+                            )}
+                        </AnimatePresence>
                     </>
                 ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-slate-400 pointer-events-none">

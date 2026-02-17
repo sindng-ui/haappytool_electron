@@ -153,6 +153,11 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         isSearchFocused, // Added for Focus Mode
         leftPerformanceHeatmap,
         rightPerformanceHeatmap,
+        // Performance Analysis (New)
+        leftPerfAnalysisResult, rightPerfAnalysisResult,
+        isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight,
+        handleAnalyzePerformanceLeft, handleAnalyzePerformanceRight,
+        handleJumpToLineLeft, handleJumpToLineRight,
         // Transaction Analyzer
         transactionResults, transactionIdentity, transactionSourcePane, isAnalyzingTransaction, isTransactionDrawerOpen,
         setIsTransactionDrawerOpen, analyzeTransactionAction
@@ -1098,13 +1103,17 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onHighlightJump={onHighlightJumpLeft}
 
                                     onShowBookmarks={onShowBookmarksLeft}
+                                    performanceHeatmap={leftPerformanceHeatmap}
+                                    onAnalyzePerformance={handleAnalyzePerformanceLeft}
+                                    perfAnalysisResult={leftPerfAnalysisResult}
+                                    isAnalyzingPerformance={isAnalyzingPerformanceLeft}
+                                    onJumpToLine={handleJumpToLineLeft}
                                     onPageNavRequest={handlePageNavRequestLeft}
                                     onScrollToBottomRequest={handleScrollToBottomRequestLeft}
                                     preferences={logViewPreferences}
                                     onContextMenu={handleContextMenu}
                                     onArchiveSave={onArchiveSaveLeft}
                                     isArchiveSaveEnabled={isLeftArchiveEnabled}
-                                    performanceHeatmap={leftPerformanceHeatmap}
                                 />
                                 {(leftTotalSegments > 1 || leftSelectionDuration) && (
                                     <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
@@ -1184,14 +1193,17 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onHighlightJump={onHighlightJumpRight}
 
                                             onShowBookmarks={onShowBookmarksRight}
+                                            performanceHeatmap={rightPerformanceHeatmap}
+                                            onAnalyzePerformance={handleAnalyzePerformanceRight}
+                                            perfAnalysisResult={rightPerfAnalysisResult}
+                                            isAnalyzingPerformance={isAnalyzingPerformanceRight}
+                                            onJumpToLine={handleJumpToLineRight}
                                             onPageNavRequest={handlePageNavRequestRight}
                                             onScrollToBottomRequest={handleScrollToBottomRequestRight}
                                             preferences={logViewPreferences}
                                             onContextMenu={handleContextMenu}
                                             onArchiveSave={onArchiveSaveRight}
                                             isArchiveSaveEnabled={isRightArchiveEnabled}
-                                            performanceHeatmap={rightPerformanceHeatmap}
-
                                         />
                                         {(rightTotalSegments > 1 || rightSelectionDuration) && (
                                             <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
