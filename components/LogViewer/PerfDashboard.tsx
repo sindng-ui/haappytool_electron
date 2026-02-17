@@ -206,19 +206,10 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                     onClick={() => setViewMode('list')}
                                     className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center justify-center gap-1.5 ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                                 >
-                                    <AlignLeft size={12} /> Bottlenecks
+                                    <AlignLeft size={12} /> Full List
                                 </button>
                             </div>
 
-                            {/* Reset Zoom */}
-                            {flameZoom && (
-                                <button
-                                    onClick={() => setFlameZoom(null)}
-                                    className="py-1.5 text-[10px] font-bold uppercase rounded-md flex items-center justify-center gap-1.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors border border-white/5"
-                                >
-                                    <Maximize2 size={12} /> Reset Zoom
-                                </button>
-                            )}
 
                             {/* Selected Info */}
                             {selectedSegmentId && (
@@ -261,9 +252,23 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
                         {/* Main View Area (Right) */}
                         <div className="flex-1 bg-black/20 relative overflow-hidden flex flex-col">
+                            {viewMode === 'chart' && flameZoom && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFlameZoom(null);
+                                    }}
+                                    className="absolute bottom-6 right-8 z-[60] px-3.5 py-1.5 bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold text-indigo-400 hover:text-white hover:bg-indigo-600 shadow-2xl transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
+                                    title="Reset View"
+                                >
+                                    <Maximize2 size={12} />
+                                    <span>RESET VIEW</span>
+                                </button>
+                            )}
+
                             {viewMode === 'chart' ? (
                                 <div
-                                    className="flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar p-4 relative select-none cursor-grab active:cursor-grabbing"
+                                    className="flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar p-4 relative select-none cursor-grab active:cursor-grabbing group/chart"
                                     onWheel={(e) => {
                                         if (!result) return;
                                         e.preventDefault();
@@ -374,6 +379,10 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                         setSelectedSegmentId(s.id);
                                                         onJumpToRange?.(s.startLine, s.endLine);
                                                     }}
+                                                    onDoubleClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine);
+                                                    }}
                                                     className={`absolute h-5 rounded flex items-center px-1.5 cursor-pointer transition-all border group/item ${isSelected ? 'z-30 border-white shadow-lg brightness-110' : 'z-10 border-transparent hover:border-white/20 hover:brightness-105'
                                                         } ${isGroup ? 'border-2 border-white/30 shadow-sm' : ''} ${isInterval ? 'opacity-70' : ''}`}
                                                     style={{
@@ -428,22 +437,25 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                             setSelectedSegmentId(s.id);
                                                             onJumpToRange?.(s.startLine, s.endLine);
                                                         }}
+                                                        onDoubleClick={() => {
+                                                            onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine);
+                                                        }}
                                                         className={`border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors ${selectedSegmentId === s.id ? 'bg-indigo-500/10' : ''} ${isInterval ? 'opacity-60' : ''}`}
                                                     >
                                                         <td className="p-2">
                                                             <div className={`w-1.5 h-1.5 rounded-full ${isBottleneck ? 'bg-rose-500' : 'bg-emerald-500'} ${isGroup ? 'ring-2 ring-emerald-500/50' : ''}`}
-                                                                style={{ backgroundColor: s.dangerColor && isBottleneck ? s.dangerColor : undefined }} />
+                                                                style={{ backgroundColor: s.dangerColor || undefined }} />
                                                         </td>
                                                         <td className={`p-2 text-[10px] font-medium truncate max-w-[200px] ${isGroup ? 'text-white font-bold' : 'text-slate-300'}`}>
                                                             {s.name}
                                                             {isGroup && <span className="ml-2 text-[8px] bg-emerald-500/20 text-emerald-400 px-1 rounded">GROUP</span>}
                                                         </td>
                                                         <td className={`p-2 text-[10px] font-mono font-bold text-right ${isBottleneck ? 'text-rose-400' : 'text-slate-400'}`}
-                                                            style={{ color: s.dangerColor && isBottleneck ? s.dangerColor : undefined }}>
+                                                            style={{ color: s.dangerColor || undefined }}>
                                                             {s.duration}ms
                                                         </td>
                                                         <td className="p-2 text-[10px] font-mono text-slate-500 text-right">
-                                                            L{s.startLine === s.endLine ? s.startLine : `${s.startLine}-${s.endLine}`}
+                                                            L{(s.originalStartLine || s.startLine) === (s.originalEndLine || s.endLine) ? (s.originalStartLine || s.startLine) : `${(s.originalStartLine || s.startLine)}-${(s.originalEndLine || s.endLine)}`}
                                                         </td>
                                                     </tr>
                                                 );

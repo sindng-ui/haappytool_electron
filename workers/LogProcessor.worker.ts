@@ -1104,11 +1104,10 @@ const analyzePerformance = async (payload: { targetTime: number, updatedRule?: L
     const firstTs = hasSegments ? Math.min(...segments.map(s => s.startTime)) : 0;
     const lastTs = hasSegments ? Math.max(...segments.map(s => s.endTime)) : 0;
 
-    // ✅ TOP 50 Bottlenecks
-    const bottlenecks = segments
-        .filter(s => s.status === 'fail')
+    // ✅ TOP 100 Segments (Sorted by duration DESC for analysis)
+    const bottlenecks = [...segments]
         .sort((a, b) => b.duration - a.duration)
-        .slice(0, 50);
+        .slice(0, 100);
 
     const analysisResult = {
         fileName: isFile ? currentFile!.name : 'Live Stream',

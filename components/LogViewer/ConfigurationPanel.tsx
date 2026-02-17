@@ -152,16 +152,16 @@ const ConfigurationPanel: React.FC = () => {
                     </div>
 
                     <div className="card-gradient p-1">
-                        <PerfSettingsSection
-                            currentConfig={currentConfig}
-                            updateCurrentRule={updateCurrentRule}
+                        <ViewSettingsSection
+                            preferences={logViewPreferences}
+                            onUpdate={updateLogViewPreferences}
                         />
                     </div>
 
                     <div className="card-gradient p-1">
-                        <ViewSettingsSection
-                            preferences={logViewPreferences}
-                            onUpdate={updateLogViewPreferences}
+                        <PerfSettingsSection
+                            currentConfig={currentConfig}
+                            updateCurrentRule={updateCurrentRule}
                         />
                     </div>
 

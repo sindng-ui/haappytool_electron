@@ -98,24 +98,28 @@ export const analyzePerfSegments = (
     });
 
     groupsByAlias.forEach((logs, alias) => {
+        if (logs.length < 2) return; // ✅ Skip single-hit aliases as they don't form a duration/range
+
         const start = logs[0];
         const end = logs[logs.length - 1];
         const duration = end.timestamp - start.timestamp;
 
         segments.push({
             id: `group-${alias}-${Math.random().toString(36).substring(7)}`,
-            name: logs.length > 1 ? `${alias} (Group)` : alias,
+            name: `${alias} (Group)`,
             startTime: start.timestamp,
             endTime: end.timestamp,
             duration: duration,
             startLine: start.lineIndex,
             endLine: end.lineIndex,
-            originalStartLine: start.lineIndex, // Use visual index as fallback
-            originalEndLine: end.lineIndex,     // Use visual index as fallback
+            originalStartLine: start.lineIndex,
+            originalEndLine: end.lineIndex,
             type: 'step',
             status: duration > targetTime ? 'fail' : 'pass',
-            logs: logs.length > 1 ? [start.content, end.content] : [start.content],
-            dangerColor: rule.dangerThresholds?.find(d => duration >= d.ms)?.color
+            logs: [start.content, end.content],
+            dangerColor: rule.dangerThresholds?.[0]
+                ? [...rule.dangerThresholds].sort((a, b) => b.ms - a.ms).find(d => duration >= d.ms)?.color
+                : undefined
         });
     });
 

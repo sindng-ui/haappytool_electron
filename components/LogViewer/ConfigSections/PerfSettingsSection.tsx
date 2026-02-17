@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as Lucide from 'lucide-react';
 import { LogRule } from '../../../types';
 
-const { Activity, Plus, Trash2, Palette, Clock } = Lucide;
+const { Activity, Plus, Trash2, Palette, Clock, SortDesc } = Lucide;
 
 interface PerfSettingsSectionProps {
     currentConfig: LogRule;
@@ -43,8 +43,14 @@ export const PerfSettingsSection: React.FC<PerfSettingsSectionProps> = ({ curren
     };
 
     const addDangerLevel = () => {
-        if (dangerLevels.length >= 5) return;
+        if (dangerLevels.length >= 8) return;
         const next = [...dangerLevels, { ms: 3000, color: '#ef4444', label: 'Critical' }];
+        setDangerLevels(next);
+        updateCurrentRule({ dangerThresholds: next });
+    };
+
+    const sortDangerLevels = () => {
+        const next = [...dangerLevels].sort((a, b) => b.ms - a.ms);
         setDangerLevels(next);
         updateCurrentRule({ dangerThresholds: next });
     };
@@ -92,13 +98,23 @@ export const PerfSettingsSection: React.FC<PerfSettingsSectionProps> = ({ curren
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                             <Palette size={12} /> Risk Levels (Visual)
                         </label>
-                        <button
-                            onClick={addDangerLevel}
-                            className="p-1 text-slate-500 hover:text-indigo-400 transition-colors"
-                            title="Add Level"
-                        >
-                            <Plus size={14} />
-                        </button>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={sortDangerLevels}
+                                className="p-1 px-1.5 text-slate-500 hover:text-indigo-400 transition-colors flex items-center gap-1 group/sort"
+                                title="Sort by ms (Desc)"
+                            >
+                                <SortDesc size={14} className="group-hover/sort:scale-110 transition-transform" />
+                                <span className="text-[8px] font-bold opacity-0 group-hover/sort:opacity-100 transition-opacity">SORT</span>
+                            </button>
+                            <button
+                                onClick={addDangerLevel}
+                                className="p-1 text-slate-500 hover:text-indigo-400 transition-colors"
+                                title="Add Level"
+                            >
+                                <Plus size={14} />
+                            </button>
+                        </div>
                     </div>
 
                     <div className="space-y-3">
