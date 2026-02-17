@@ -55,6 +55,14 @@ export const EditableTag = memo(({
                         e.preventDefault();
                         onCommit(localValue);
                         onNavigate('NextInput', false);
+                    } else if (e.key === 'Tab') {
+                        e.preventDefault();
+                        onCommit(localValue);
+                        if (e.shiftKey) {
+                            onNavigate('PreviousInput', false);
+                        } else {
+                            onNavigate('NextInput', false);
+                        }
                     } else if (e.key === 'Escape') {
                         onCommit(value); // Revert
                     } else if (e.key === 'Backspace') {

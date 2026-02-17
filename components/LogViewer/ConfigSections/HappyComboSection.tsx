@@ -88,7 +88,7 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                 updateCurrentRule({
                     happyGroups: newHappyGroups,
                     includeGroups: [], // Clear legacy OR/AND groups
-                    familyCombos: []   // Clear legacy Family Combos
+
                 });
             }
         } else {
@@ -108,7 +108,7 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
             updateCurrentRule({
                 happyGroups: newHappyGroups,
                 includeGroups: [],
-                familyCombos: []
+
             });
         } else {
             const newIncludes = currentConfig.includeGroups.filter(g => (g[0] || '').trim() !== root);
@@ -182,6 +182,13 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                     setEditingTarget({ groupIdx: itemOriginalIdx!, termIdx: branchTagsLength, isActive: itemActive! });
                 }
                 // If branchTagsLength === 0, stay on + tag (Remove Root jump)
+            }
+        } else if (key === 'PreviousInput') {
+            if (tIdx > 1) {
+                setEditingTarget({ groupIdx: itemOriginalIdx!, termIdx: tIdx - 1, isActive: itemActive! });
+            } else {
+                // Jump to Root
+                setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root } as any);
             }
         } else if (key === 'Right' || key === 'NextInput') {
             if (tIdx < branchTagsLength) {
@@ -261,13 +268,17 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                         setEditingTarget(null);
                                     }}
                                     onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
+                                        if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
                                             e.preventDefault();
                                             e.currentTarget.blur();
-                                            // Focus first branch's + tag
+                                            // Focus first branch's + tag or first tag
                                             if (items.length > 0) {
-                                                const firstBranchPlusInput = document.querySelector(`input[data-add-tag="${rootIdx}-0"]`) as HTMLInputElement;
-                                                firstBranchPlusInput?.focus();
+                                                if (items[0].group.length > 1) {
+                                                    setEditingTarget({ groupIdx: items[0].originalIdx, termIdx: 1, isActive: items[0].active });
+                                                } else {
+                                                    const firstBranchPlusInput = document.querySelector(`input[data-add-tag="${rootIdx}-0"]`) as HTMLInputElement;
+                                                    firstBranchPlusInput?.focus();
+                                                }
                                             }
                                         } else if (e.key === 'ArrowDown') {
                                             e.preventDefault();
@@ -364,6 +375,23 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
                                                         } else if (e.key === 'Delete' && !e.currentTarget.value) {
                                                             e.preventDefault();
                                                             handleDeleteBranch(item, items.length, root, rootIdx, itemIdx);
+                                                        } else if (e.key === 'Tab') {
+                                                            if (e.shiftKey) {
+                                                                e.preventDefault();
+                                                                handleNavigate('Left', rootIdx, itemIdx, 0, root, items.length, branchTags.length, item.originalIdx, item.active);
+                                                            } else {
+                                                                if (itemIdx < items.length - 1) {
+                                                                    e.preventDefault();
+                                                                    const nextBranch = items[itemIdx + 1];
+                                                                    const nextBranchTags = nextBranch.group.slice(1);
+                                                                    if (nextBranchTags.length > 0) {
+                                                                        setEditingTarget({ groupIdx: nextBranch.originalIdx, termIdx: 1, isActive: nextBranch.active });
+                                                                    } else {
+                                                                        const nextInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx + 1}"]`) as HTMLInputElement;
+                                                                        nextInput?.focus();
+                                                                    }
+                                                                }
+                                                            }
                                                         }
                                                     }}
                                                 />
