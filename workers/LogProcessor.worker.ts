@@ -1010,7 +1010,11 @@ const analyzeTransaction = async (identity: { type: 'pid' | 'tid' | 'tag', value
 };
 
 // --- Handler: Analyze Performance (New) ---
-const analyzePerformance = async (payload: { targetTime: number }, requestId: string) => {
+const analyzePerformance = async (payload: { targetTime: number, updatedRule?: LogRule }, requestId: string) => {
+    if (payload.updatedRule) {
+        currentRule = payload.updatedRule;
+    }
+
     if (!filteredIndices || !currentRule) {
         respond({ type: 'PERF_ANALYSIS_RESULT', payload: null, requestId });
         return;
@@ -1019,23 +1023,31 @@ const analyzePerformance = async (payload: { targetTime: number }, requestId: st
     respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
 
     const results: string[] = [];
-    const absoluteIndices: number[] = [];
+    const lineIndices: number[] = [];
     const isFile = !!currentFile && !!lineOffsets;
     const isHappyCS = !!currentRule.happyCombosCaseSensitive;
 
+    const MAX_ANALYSIS_LINES = 100000;
+    let limit = filteredIndices.length;
+
+    if (limit > MAX_ANALYSIS_LINES) {
+        console.warn(`[Worker] Performance analysis limited to first ${MAX_ANALYSIS_LINES} lines to prevent OOM.`);
+        limit = MAX_ANALYSIS_LINES;
+        respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0, message: 'Analysis limited to 100k lines' } }); // Optional feedback
+    }
+
     if (isStreamMode) {
-        for (let idx = 0; idx < filteredIndices.length; idx++) {
+        for (let idx = 0; idx < limit; idx++) {
             const i = filteredIndices[idx];
             results.push(streamLines[i]);
-            absoluteIndices.push(i);
+            lineIndices.push(idx); // Use visual index for jumping/highlighting
         }
     } else if (isFile) {
         const reader = new FileReaderSync();
-        const total = filteredIndices.length;
         const BATCH_SIZE = 5000;
 
-        for (let idx = 0; idx < total; idx += BATCH_SIZE) {
-            const maxBatch = Math.min(idx + BATCH_SIZE, total);
+        for (let idx = 0; idx < limit; idx += BATCH_SIZE) {
+            const maxBatch = Math.min(idx + BATCH_SIZE, limit);
             let minByte = -1n;
             let maxByte = -1n;
 
@@ -1063,23 +1075,40 @@ const analyzePerformance = async (payload: { targetTime: number }, requestId: st
                     const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
 
                     results.push(text);
-                    absoluteIndices.push(i);
+                    lineIndices.push(k); // Use visual index
                 }
             }
 
             if (idx % (BATCH_SIZE * 2) === 0) {
-                respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (idx / total) * 100 } });
+                if (idx % (BATCH_SIZE * 2) === 0) {
+                    respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (idx / limit) * 100 } });
+                }
             }
         }
     }
 
     // Now run the actual segment analysis
-    const segments = analyzePerfSegments(results, absoluteIndices, currentRule, payload.targetTime, isHappyCS);
+    const targetThreshold = currentRule.perfThreshold ?? payload.targetTime ?? 1000;
+    const segments = analyzePerfSegments(results, lineIndices, currentRule, targetThreshold, isHappyCS);
+
+    // ✅ Map back to absolute line numbers for Raw View
+    if (filteredIndices) {
+        segments.forEach(s => {
+            s.originalStartLine = (filteredIndices![s.startLine] ?? 0) + 1;
+            s.originalEndLine = (filteredIndices![s.endLine] ?? 0) + 1;
+        });
+    }
 
     // Calculate full result
     const hasSegments = segments.length > 0;
     const firstTs = hasSegments ? Math.min(...segments.map(s => s.startTime)) : 0;
     const lastTs = hasSegments ? Math.max(...segments.map(s => s.endTime)) : 0;
+
+    // ✅ TOP 50 Bottlenecks
+    const bottlenecks = segments
+        .filter(s => s.status === 'fail')
+        .sort((a, b) => b.duration - a.duration)
+        .slice(0, 50);
 
     const analysisResult = {
         fileName: isFile ? currentFile!.name : 'Live Stream',
@@ -1089,11 +1118,18 @@ const analyzePerformance = async (payload: { targetTime: number }, requestId: st
         endTime: lastTs,
         logCount: results.length,
         passCount: segments.filter(s => s.status === 'pass').length,
-        failCount: segments.filter(s => s.status === 'fail').length
+        failCount: segments.filter(s => s.status === 'fail').length,
+        bottlenecks,
+        perfThreshold: targetThreshold
     };
 
     respond({ type: 'PERF_ANALYSIS_RESULT', payload: analysisResult, requestId });
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+
+    // ✅ Memory Cleanup
+    results.length = 0;
+    lineIndices.length = 0;
+    segments.length = 0;
 };
 
 // --- Helper: Get Performance Heatmap ---

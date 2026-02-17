@@ -8,6 +8,7 @@ import { HappyComboSection } from './ConfigSections/HappyComboSection';
 import { BlockListSection } from './ConfigSections/BlockListSection';
 import { HighlightSection } from './ConfigSections/HighlightSection';
 import { LogSettingsSection } from './ConfigSections/LogSettingsSection';
+import { PerfSettingsSection } from './ConfigSections/PerfSettingsSection';
 
 import { ViewSettingsSection } from './ConfigSections/ViewSettingsSection';
 
@@ -147,6 +148,13 @@ const ConfigurationPanel: React.FC = () => {
                             connectionMode={connectionMode}
                             hasEverConnected={hasEverConnected}
                             onReconnect={handleReconnect}
+                        />
+                    </div>
+
+                    <div className="card-gradient p-1">
+                        <PerfSettingsSection
+                            currentConfig={currentConfig}
+                            updateCurrentRule={updateCurrentRule}
                         />
                     </div>
 

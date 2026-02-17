@@ -18,7 +18,7 @@ import { useHappyTool } from '../contexts/HappyToolContext';
 import TransactionDrawer from './LogViewer/TransactionDrawer';
 import { extractTransactionIds } from '../utils/transactionAnalysis';
 
-const { X, Eraser, ChevronLeft, ChevronRight } = Lucide;
+const { X, Eraser, ChevronLeft, ChevronRight, GripHorizontal } = Lucide;
 
 interface RawContextViewerProps {
     sourcePane: 'left' | 'right';
@@ -32,12 +32,14 @@ interface RawContextViewerProps {
     rightTotalLines: number;
     requestLeftRawLines: (start: number, count: number) => Promise<any>;
     requestRightRawLines: (start: number, count: number) => Promise<any>;
-    preferences?: any; // Avoiding circular import or strict type for now, or use LogViewPreferences if imported
+    preferences?: any;
+    highlightRange?: { start: number; end: number } | null; // Added
 }
 
 const RawContextViewer: React.FC<RawContextViewerProps> = ({
     sourcePane, leftFileName, rightFileName, targetLine, onClose, heightPercent, onResizeStart,
-    leftTotalLines, rightTotalLines, requestLeftRawLines, requestRightRawLines, preferences
+    leftTotalLines, rightTotalLines, requestLeftRawLines, requestRightRawLines, preferences,
+    highlightRange // Added
 }) => {
     const rawViewerRef = React.useRef<LogViewerHandle>(null);
     const rawTotalLines = sourcePane === 'left' ? leftTotalLines : rightTotalLines;
@@ -54,7 +56,7 @@ const RawContextViewer: React.FC<RawContextViewerProps> = ({
 
     return (
         <div className="absolute left-0 right-0 top-16 bottom-0 z-40 flex flex-col pointer-events-none">
-            <div className="flex flex-col bg-slate-950 pointer-events-auto border-b-2 border-indigo-500 shadow-2xl" style={{ height: `${heightPercent}%` }}>
+            <div className="flex flex-col bg-slate-950 pointer-events-auto border-b-2 border-indigo-500 shadow-2xl relative" style={{ height: `${heightPercent}%` }}>
                 <div className="bg-indigo-950/80 px-4 py-1 flex justify-between items-center border-b border-indigo-500/30 backdrop-blur">
                     <span className="text-xs font-bold text-indigo-300">
                         Raw View ({sourcePane === 'left' ? leftFileName : rightFileName})
@@ -77,12 +79,24 @@ const RawContextViewer: React.FC<RawContextViewerProps> = ({
                     activeLineIndex={rawTargetLineIndex}
                     initialScrollIndex={rawTargetLineIndex - rawSegmentOffset}
                     preferences={preferences}
+                    lineHighlightRanges={highlightRange ? [{
+                        start: highlightRange.start - 1,
+                        end: highlightRange.end - 1,
+                        color: 'rgba(99, 102, 241, 0.3)'
+                    }] : []}
                 />
+                {/* Resizer Handle (Bottom) - Refined Pill Design */}
                 <div
-                    className="h-1 bg-indigo-500/50 hover:bg-indigo-400 cursor-ns-resize flex items-center justify-center group"
+                    className="absolute -bottom-2 left-0 right-0 h-4 cursor-ns-resize z-[100] flex justify-end px-12 group/resizer"
                     onMouseDown={onResizeStart}
                 >
-                    <div className="w-12 h-1 bg-indigo-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="w-10 h-3 bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-b-full flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.5)] border-x border-b border-white/20 group-hover/resizer:h-4 group-hover/resizer:from-indigo-400 group-hover/resizer:to-indigo-600 transition-all duration-200 origin-top">
+                        <div className="flex gap-0.5">
+                            <div className="w-0.5 h-0.5 bg-white/80 rounded-full shadow-sm" />
+                            <div className="w-0.5 h-0.5 bg-white/80 rounded-full shadow-sm" />
+                            <div className="w-0.5 h-0.5 bg-white/80 rounded-full shadow-sm" />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -158,6 +172,12 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight,
         handleAnalyzePerformanceLeft, handleAnalyzePerformanceRight,
         handleJumpToLineLeft, handleJumpToLineRight,
+        leftLineHighlightRanges, rightLineHighlightRanges,
+        handleJumpToRangeLeft, handleJumpToRangeRight,
+        handleViewRawRangeLeft, handleViewRawRangeRight,
+        handleCopyRawRangeLeft, handleCopyRawRangeRight,
+        rawViewHighlightRange,
+        perfDashboardHeight, setPerfDashboardHeight,
         // Transaction Analyzer
         transactionResults, transactionIdentity, transactionSourcePane, isAnalyzingTransaction, isTransactionDrawerOpen,
         setIsTransactionDrawerOpen, analyzeTransactionAction
@@ -1051,6 +1071,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     requestLeftRawLines={requestLeftRawLines}
                     requestRightRawLines={requestRightRawLines}
                     preferences={logViewPreferences}
+                    highlightRange={rawViewHighlightRange}
                 />
             )}
 
@@ -1108,6 +1129,12 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     perfAnalysisResult={leftPerfAnalysisResult}
                                     isAnalyzingPerformance={isAnalyzingPerformanceLeft}
                                     onJumpToLine={handleJumpToLineLeft}
+                                    onJumpToRange={handleJumpToRangeLeft}
+                                    onViewRawRange={handleViewRawRangeLeft}
+                                    onCopyRawRange={handleCopyRawRangeLeft}
+                                    dashboardHeight={perfDashboardHeight}
+                                    onDashboardHeightChange={setPerfDashboardHeight}
+                                    lineHighlightRanges={leftLineHighlightRanges}
                                     onPageNavRequest={handlePageNavRequestLeft}
                                     onScrollToBottomRequest={handleScrollToBottomRequestLeft}
                                     preferences={logViewPreferences}
@@ -1198,6 +1225,9 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             perfAnalysisResult={rightPerfAnalysisResult}
                                             isAnalyzingPerformance={isAnalyzingPerformanceRight}
                                             onJumpToLine={handleJumpToLineRight}
+                                            onJumpToRange={handleJumpToRangeRight}
+                                            onViewRawRange={handleViewRawRangeRight}
+                                            lineHighlightRanges={rightLineHighlightRanges}
                                             onPageNavRequest={handlePageNavRequestRight}
                                             onScrollToBottomRequest={handleScrollToBottomRequestRight}
                                             preferences={logViewPreferences}

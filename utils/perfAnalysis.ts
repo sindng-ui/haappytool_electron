@@ -9,10 +9,14 @@ export interface AnalysisSegment {
     duration: number;
     startLine: number;
     endLine: number;
+    originalStartLine: number;
+    originalEndLine: number;
     type: 'combo' | 'manual' | 'step';
     familyId?: string;
     status: 'pass' | 'fail';
     logs: string[]; // Stores [startLineContent, endLineContent] for combos
+    lane?: number;
+    dangerColor?: string; // Color based on danger thresholds
 }
 
 export interface AnalysisResult {
@@ -24,6 +28,8 @@ export interface AnalysisResult {
     logCount: number;
     passCount: number;
     failCount: number;
+    bottlenecks: AnalysisSegment[];
+    perfThreshold: number;
 }
 
 /**
@@ -38,141 +44,118 @@ export const analyzePerfSegments = (
     isHappyCS: boolean
 ): AnalysisSegment[] => {
     const segments: AnalysisSegment[] = [];
-    const activeCombos: Map<string, { start: number; line: number; content: string; startName: string }> = new Map();
 
-    let lastEventTimestamp = 0;
-    let lastEventContent = '';
-    let lastEventLine = 0;
-    let lastEventName = '';
+    // 1. Filter Aliased Groups
+    const validGroups = rule.happyGroups?.filter(g => g.enabled && g.alias && g.tags.length > 0) || [];
+
+    if (validGroups.length === 0) return [];
+
+    // 2. Collection Phase
+    interface MatchedLog {
+        timestamp: number;
+        lineIndex: number;
+        content: string;
+        alias: string;
+        tag: string;
+    }
+
+    const matchedLogs: MatchedLog[] = [];
 
     for (let idx = 0; idx < lines.length; idx++) {
         const line = lines[idx];
-        const currentLine = lineIndices[idx];
         const lineLower = isHappyCS ? '' : line.toLowerCase();
-        const ts = extractTimestamp(line);
 
+        let foundGroup: HappyGroup | null = null;
+        for (const g of validGroups) {
+            const matched = g.tags.every(tag => isHappyCS ? line.includes(tag) : lineLower.includes(tag.toLowerCase()));
+            if (matched) {
+                foundGroup = g;
+                break;
+            }
+        }
+
+        if (!foundGroup) continue;
+
+        const ts = extractTimestamp(line);
         if (ts === null) continue;
 
-        if (lastEventTimestamp === 0) {
-            lastEventTimestamp = ts;
-            lastEventContent = line;
-            lastEventLine = currentLine;
-        }
-
-        let eventProcessed = false;
-
-        // 2. Happy Groups Analysis (Types: Step & Unified Combo)
-        if (rule.happyGroups) {
-            for (const g of rule.happyGroups) {
-                if (!g.enabled || g.tags.length === 0) continue;
-
-                // Check Match
-                const matched = g.tags.every(tag => isHappyCS ? line.includes(tag) : lineLower.includes(tag.toLowerCase()));
-
-                if (matched) {
-                    // Logic A: Unified Combo Analysis (Alias Based Sequencing)
-                    if (g.alias) {
-                        const alias = g.alias.trim();
-
-                        // If there's a previous marker for this alias, create a segment
-                        if (activeCombos.has(alias)) {
-                            const startData = activeCombos.get(alias)!;
-                            const duration = ts - startData.start;
-
-                            segments.push({
-                                id: Math.random().toString(36).substring(7),
-                                name: `${alias} (${startData.startName} → ${g.tags[0]})`,
-                                startTime: startData.start,
-                                endTime: ts,
-                                duration,
-                                startLine: startData.line,
-                                endLine: currentLine,
-                                type: 'combo',
-                                familyId: alias,
-                                status: duration > targetTime ? 'fail' : 'pass',
-                                logs: [startData.content, line]
-                            });
-                        }
-
-                        // Set current hit as the new start marker for this alias
-                        activeCombos.set(alias, { start: ts, line: currentLine, content: line, startName: g.tags[0] });
-
-                        // Update last event for step continuity
-                        lastEventTimestamp = ts;
-                        lastEventContent = line;
-                        lastEventLine = currentLine;
-                        lastEventName = g.tags[0];
-                    }
-
-                    // Logic B: Step Analysis (Legacy + Default)
-                    // Always record as a step regardless of role, or maybe only if NOT consumed by combo?
-                    // For now, let's keep step analysis parallel to allow detailed view
-                    const duration = lastEventTimestamp > 0 ? ts - lastEventTimestamp : 0;
-                    const hasPrevLog = lastEventTimestamp > 0 && lastEventLine !== currentLine;
-                    const currentName = g.tags[0] || 'Event';
-
-                    segments.push({
-                        id: Math.random().toString(36).substring(7),
-                        name: hasPrevLog && lastEventName ? `${lastEventName} ~ ${currentName}` : currentName,
-                        startTime: hasPrevLog ? lastEventTimestamp : ts,
-                        endTime: ts,
-                        duration: duration,
-                        startLine: hasPrevLog ? lastEventLine : currentLine,
-                        endLine: currentLine,
-                        type: 'step',
-                        status: duration > targetTime ? 'fail' : 'pass',
-                        logs: hasPrevLog ? [lastEventContent, line] : [line]
-                    });
-
-                    lastEventTimestamp = ts;
-                    lastEventContent = line;
-                    lastEventLine = currentLine;
-                    lastEventName = currentName;
-
-                    // Break loop after first match in Happy Groups to avoid double counting same line?
-                    // Usually lines match only one group, but if strictly, break might be safer.
-                    // But if a line matches multiple groups, maybe we want multiple events? 
-                    // Let's stick to existing behavior: break inner loop (this line is processed)
-                    break;
-                }
-            }
-        }
-
-        // fallback for legacy includeGroups
-        if (!eventProcessed && rule.includeGroups) {
-            for (const g of rule.includeGroups) {
-                if (eventProcessed) break;
-                const tags = g.filter(t => t.trim());
-                if (tags.length === 0) continue;
-
-                const matched = tags.every(tag => isHappyCS ? line.includes(tag) : lineLower.includes(tag.toLowerCase()));
-                if (matched) {
-                    const duration = lastEventTimestamp > 0 ? ts - lastEventTimestamp : 0;
-                    const hasPrevLog = lastEventTimestamp > 0 && lastEventLine !== currentLine;
-                    const currentName = tags[0];
-
-                    segments.push({
-                        id: Math.random().toString(36).substring(7),
-                        name: hasPrevLog && lastEventName ? `${lastEventName} ~ ${currentName}` : currentName,
-                        startTime: hasPrevLog ? lastEventTimestamp : ts,
-                        endTime: ts,
-                        duration: duration,
-                        startLine: hasPrevLog ? lastEventLine : currentLine,
-                        endLine: currentLine,
-                        type: 'step',
-                        status: duration > targetTime ? 'fail' : 'pass',
-                        logs: hasPrevLog ? [lastEventContent, line] : [line]
-                    });
-
-                    lastEventTimestamp = ts;
-                    lastEventContent = line;
-                    lastEventLine = currentLine;
-                    lastEventName = currentName;
-                    eventProcessed = true;
-                }
-            }
-        }
+        matchedLogs.push({
+            timestamp: ts,
+            lineIndex: lineIndices[idx],
+            content: line,
+            alias: foundGroup.alias!.trim(),
+            tag: foundGroup.tags[0]
+        });
     }
+
+    if (matchedLogs.length === 0) return [];
+
+    // 3. Global Grouping by Alias (User Request: "OnCreate group section")
+    const groupsByAlias = new Map<string, MatchedLog[]>();
+    matchedLogs.forEach(log => {
+        if (!groupsByAlias.has(log.alias)) groupsByAlias.set(log.alias, []);
+        groupsByAlias.get(log.alias)!.push(log);
+    });
+
+    groupsByAlias.forEach((logs, alias) => {
+        const start = logs[0];
+        const end = logs[logs.length - 1];
+        const duration = end.timestamp - start.timestamp;
+
+        segments.push({
+            id: `group-${alias}-${Math.random().toString(36).substring(7)}`,
+            name: logs.length > 1 ? `${alias} (Group)` : alias,
+            startTime: start.timestamp,
+            endTime: end.timestamp,
+            duration: duration,
+            startLine: start.lineIndex,
+            endLine: end.lineIndex,
+            originalStartLine: start.lineIndex, // Use visual index as fallback
+            originalEndLine: end.lineIndex,     // Use visual index as fallback
+            type: 'step',
+            status: duration > targetTime ? 'fail' : 'pass',
+            logs: logs.length > 1 ? [start.content, end.content] : [start.content],
+            dangerColor: rule.dangerThresholds?.find(d => duration >= d.ms)?.color
+        });
+    });
+
+    // 4. Interval Segments: Flow between every consecutive match (A -> B, B -> C...)
+    // This provides the "Transitions" the user asked for.
+    for (let i = 0; i < matchedLogs.length - 1; i++) {
+        const current = matchedLogs[i];
+        const next = matchedLogs[i + 1];
+        const duration = next.timestamp - current.timestamp;
+
+        segments.push({
+            id: `interval-${i}-${Math.random().toString(36).substring(7)}`,
+            name: `${current.alias} → ${next.alias}`,
+            startTime: current.timestamp,
+            endTime: next.timestamp,
+            duration: duration,
+            startLine: current.lineIndex,
+            endLine: next.lineIndex,
+            originalStartLine: current.lineIndex, // Use visual index as fallback
+            originalEndLine: next.lineIndex,     // Use visual index as fallback
+            type: 'combo',
+            status: duration > targetTime ? 'fail' : 'pass',
+            logs: [current.content, next.content],
+            dangerColor: rule.dangerThresholds?.[0] ? [...rule.dangerThresholds].sort((a, b) => b.ms - a.ms).find(d => duration >= d.ms)?.color : undefined
+        });
+    }
+
+    // 5. Lane Assignment (for Flame Chart)
+    const laneList: { endTime: number }[] = [];
+    // Sort by startTime, then duration (larger first) to make layout more stable
+    segments.sort((a, b) => a.startTime - b.startTime || b.duration - a.duration).forEach(s => {
+        let laneIndex = laneList.findIndex(l => l.endTime <= s.startTime);
+        if (laneIndex === -1) {
+            laneIndex = laneList.length;
+            laneList.push({ endTime: s.endTime });
+        } else {
+            laneList[laneIndex].endTime = s.endTime;
+        }
+        s.lane = laneIndex;
+    });
 
     return segments;
 };

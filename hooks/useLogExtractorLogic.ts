@@ -90,8 +90,14 @@ export const useLogExtractorLogic = ({
 
     const [logViewPreferences, setLogViewPreferences] = useState<LogViewPreferences>(defaultLogViewPreferences);
 
+    const [perfDashboardHeight, setPerfDashboardHeight] = useState(320);
+
     // Load preferences
     useEffect(() => {
+        getStoredValue('perfDashboardHeight').then(saved => {
+            if (saved) setPerfDashboardHeight(parseInt(saved) || 320);
+        });
+
         getStoredValue('logViewPreferences').then(saved => {
             if (saved) {
                 try {
@@ -207,6 +213,10 @@ export const useLogExtractorLogic = ({
     const [rightPerfAnalysisResult, setRightPerfAnalysisResult] = useState<AnalysisResult | null>(null);
     const [isAnalyzingPerformanceLeft, setIsAnalyzingPerformanceLeft] = useState(false);
     const [isAnalyzingPerformanceRight, setIsAnalyzingPerformanceRight] = useState(false);
+
+    const [leftLineHighlightRanges, setLeftLineHighlightRanges] = useState<{ start: number; end: number; color: string }[]>([]);
+    const [rightLineHighlightRanges, setRightLineHighlightRanges] = useState<{ start: number; end: number; color: string }[]>([]);
+    const [rawViewHighlightRange, setRawViewHighlightRange] = useState<{ start: number; end: number } | null>(null);
 
     const toggleLeftBookmark = useCallback((lineIndex: number) => {
         // Delegate to worker
@@ -436,6 +446,48 @@ export const useLogExtractorLogic = ({
             cleanupListeners.forEach(cleanup => cleanup());
         };
     }, []); // Run once on mount
+
+    const handleJumpToRangeLeft = useCallback((start: number, end: number) => {
+        setLeftLineHighlightRanges([{ start, end, color: 'rgba(99, 102, 241, 0.3)' }]);
+
+        const seg = Math.floor(start / MAX_SEGMENT_SIZE);
+        const rel = start % MAX_SEGMENT_SIZE;
+
+        if (seg !== leftSegmentIndex) {
+            setLeftSegmentIndex(seg);
+            pendingJumpLineLeft.current = { index: rel, align: 'start' };
+        } else {
+            leftViewerRef.current?.scrollToIndex(rel, { align: 'start' });
+        }
+
+        const newSelection = new Set<number>();
+        for (let i = start; i <= end; i++) {
+            newSelection.add(i);
+        }
+        setSelectedIndicesLeft(newSelection);
+        setActiveLineIndexLeft(start);
+    }, [leftSegmentIndex]);
+
+    const handleJumpToRangeRight = useCallback((start: number, end: number) => {
+        setRightLineHighlightRanges([{ start, end, color: 'rgba(99, 102, 241, 0.3)' }]);
+
+        const seg = Math.floor(start / MAX_SEGMENT_SIZE);
+        const rel = start % MAX_SEGMENT_SIZE;
+
+        if (seg !== rightSegmentIndex) {
+            setRightSegmentIndex(seg);
+            pendingJumpLineRight.current = { index: rel, align: 'start' };
+        } else {
+            rightViewerRef.current?.scrollToIndex(rel, { align: 'start' });
+        }
+
+        const newSelection = new Set<number>();
+        for (let i = start; i <= end; i++) {
+            newSelection.add(i);
+        }
+        setSelectedIndicesRight(newSelection);
+        setActiveLineIndexRight(start);
+    }, [rightSegmentIndex]);
 
     // Restore scroll position
     useEffect(() => {
@@ -740,18 +792,7 @@ export const useLogExtractorLogic = ({
             const refinedGroups = assembleIncludeGroups(currentConfig);
 
 
-            // Optimization: Fast Change Detection (형님, 단어 내용물 변화까지 감지하도록 JSON.stringify로 묶었습니다)
-            const detailedHash = JSON.stringify({
-                happyGroups: currentConfig.happyGroups?.map(g => ({ id: g.id, enabled: g.enabled, tags: g.tags })),
-                familyCombos: currentConfig.familyCombos?.map(f => ({ id: f.id, enabled: f.enabled, startTags: f.startTags, endTags: f.endTags, middleTags: f.middleTags })),
-                excludes: currentConfig.excludes,
-                quickFilter: quickFilter,
-                caseSensitive: {
-                    happy: !!currentConfig.happyCombosCaseSensitive,
-                    block: !!currentConfig.blockListCaseSensitive
-                }
-            });
-
+            const detailedHash = assembleIncludeGroups(currentConfig).map(g => g.join(',')).join('|');
             const filterVersion = `rule:${selectedRuleId}_hash:${detailedHash}`;
 
             if (filterVersion === lastFilterHashLeft.current) {
@@ -993,7 +1034,7 @@ export const useLogExtractorLogic = ({
                 exc: effectiveExcludes,
                 happyCase: !!currentConfig.happyCombosCaseSensitive,
                 blockCase: !!currentConfig.blockListCaseSensitive,
-                familyHash: currentConfig.familyCombos?.map(f => `${f.id}:${f.enabled}`).join(',') // 추가 방어막
+                familyHash: currentConfig.familyCombos?.map(f => `${f.id}:${f.enabled}`).join(',')
             });
 
             if (payloadHash === lastFilterHashRight.current) {
@@ -1284,6 +1325,68 @@ export const useLogExtractorLogic = ({
             rightWorkerRef.current.postMessage({ type: 'GET_RAW_LINES', payload: { startLine, count }, requestId: reqId });
         });
     }, []);
+
+    const handleViewRawRangeLeft = useCallback(async (start: number, end: number) => {
+        const relativeIndex = start - 1;
+        try {
+            const lines = await requestLeftRawLines(relativeIndex, 1);
+            if (lines && lines.length > 0) {
+                setRawContextTargetLine({ ...lines[0], formattedLineIndex: '?' } as any);
+                setRawContextSourcePane('left');
+                setRawViewHighlightRange({ start, end });
+                setRawContextOpen(true);
+            }
+        } catch (e) {
+            console.error('[Perf] Failed to view raw range', e);
+        }
+    }, [requestLeftRawLines]);
+
+    const handleViewRawRangeRight = useCallback(async (start: number, end: number) => {
+        const relativeIndex = start - 1;
+        try {
+            const lines = await requestRightRawLines(relativeIndex, 1);
+            if (lines && lines.length > 0) {
+                setRawContextTargetLine({ ...lines[0], formattedLineIndex: '?' } as any);
+                setRawContextSourcePane('right');
+                setRawViewHighlightRange({ start, end });
+                setRawContextOpen(true);
+            }
+        } catch (e) {
+            console.error('[Perf] Failed to view raw range', e);
+        }
+    }, [requestRightRawLines]);
+
+    const handleCopyRawRangeLeft = useCallback(async (start: number, end: number) => {
+        const count = end - start + 1;
+        if (count <= 0) return;
+        try {
+            const lines = await requestLeftRawLines(start - 1, count);
+            if (lines && lines.length > 0) {
+                const text = lines.map(l => l.content).join('\n');
+                await navigator.clipboard.writeText(text);
+                showToast(`${lines.length} lines copied to clipboard!`, 'success');
+            }
+        } catch (e) {
+            console.error('[Perf] Failed to copy logs', e);
+            showToast('Failed to copy logs.', 'error');
+        }
+    }, [requestLeftRawLines, showToast]);
+
+    const handleCopyRawRangeRight = useCallback(async (start: number, end: number) => {
+        const count = end - start + 1;
+        if (count <= 0) return;
+        try {
+            const lines = await requestRightRawLines(start - 1, count);
+            if (lines && lines.length > 0) {
+                const text = lines.map(l => l.content).join('\n');
+                await navigator.clipboard.writeText(text);
+                showToast(`${lines.length} lines copied to clipboard!`, 'success');
+            }
+        } catch (e) {
+            console.error('[Perf] Failed to copy logs', e);
+            showToast('Failed to copy logs.', 'error');
+        }
+    }, [requestRightRawLines, showToast]);
 
     const requestLeftFullText = useCallback(() => {
         return new Promise<string>((resolve) => {
@@ -1653,6 +1756,7 @@ export const useLogExtractorLogic = ({
             const lines = await requestLines(relativeIndex, 1);
             if (lines && lines.length > 0) {
                 console.log(`[Double Click Debug] Worker Returned Original Line Num: ${lines[0].lineNum}`);
+                setRawViewHighlightRange(null); // Clear range when viewing single line
                 setRawContextTargetLine({ ...lines[0], formattedLineIndex: index + 1 } as any);
                 setRawContextSourcePane(paneId);
                 setRawContextOpen(true);
@@ -1891,8 +1995,15 @@ export const useLogExtractorLogic = ({
             return;
         }
         setIsAnalyzingPerformanceLeft(true);
-        leftWorkerRef.current?.postMessage({ type: 'PERF_ANALYSIS', payload: { targetTime: 1000 } });
-    }, [leftPerfAnalysisResult, isAnalyzingPerformanceLeft]);
+        const threshold = currentConfig?.perfThreshold ?? 1000;
+        leftWorkerRef.current?.postMessage({
+            type: 'PERF_ANALYSIS',
+            payload: {
+                targetTime: threshold,
+                updatedRule: currentConfig // ✅ Ensure worker has latest settings (thresholds, colors) only when button is clicked
+            }
+        });
+    }, [leftPerfAnalysisResult, isAnalyzingPerformanceLeft, currentConfig]);
 
     const handleAnalyzePerformanceRight = useCallback(() => {
         if (rightPerfAnalysisResult || isAnalyzingPerformanceRight) {
@@ -1901,25 +2012,23 @@ export const useLogExtractorLogic = ({
             return;
         }
         setIsAnalyzingPerformanceRight(true);
-        rightWorkerRef.current?.postMessage({ type: 'PERF_ANALYSIS', payload: { targetTime: 1000 } });
-    }, [rightPerfAnalysisResult, isAnalyzingPerformanceRight]);
+        const threshold = currentConfig?.perfThreshold ?? 1000;
+        rightWorkerRef.current?.postMessage({
+            type: 'PERF_ANALYSIS',
+            payload: {
+                targetTime: threshold,
+                updatedRule: currentConfig // ✅ Ensure worker has latest settings only when button is clicked
+            }
+        });
+    }, [rightPerfAnalysisResult, isAnalyzingPerformanceRight, currentConfig]);
 
     const handleJumpToLineLeft = useCallback((lineNum: number) => {
-        // Line number from analyzer is 0-indexed in the worker logic or 1-indexed?
-        // perfAnalysis.ts uses currentLine which is lineIndices[idx]
-        // lineIndices are original line indices (0-indexed)
-        // scrollTo index in LogViewerPane expects relative index to segment or absolute?
-        // Let's assume absolute line index.
-        leftViewerRef.current?.scrollToIndex(lineNum, { align: 'center' });
-        setActiveLineIndexLeft(lineNum);
-        setSelectedIndicesLeft(new Set([lineNum]));
-    }, []);
+        jumpToGlobalLine(lineNum, 'left', 'center');
+    }, [jumpToGlobalLine]);
 
     const handleJumpToLineRight = useCallback((lineNum: number) => {
-        rightViewerRef.current?.scrollToIndex(lineNum, { align: 'center' });
-        setActiveLineIndexRight(lineNum);
-        setSelectedIndicesRight(new Set([lineNum]));
-    }, []);
+        jumpToGlobalLine(lineNum, 'right', 'center');
+    }, [jumpToGlobalLine]);
 
     return {
         rules,
@@ -1983,5 +2092,15 @@ export const useLogExtractorLogic = ({
         isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight,
         handleAnalyzePerformanceLeft, handleAnalyzePerformanceRight,
         handleJumpToLineLeft, handleJumpToLineRight,
+        leftLineHighlightRanges, rightLineHighlightRanges,
+        handleJumpToRangeLeft, handleJumpToRangeRight,
+        handleViewRawRangeLeft, handleViewRawRangeRight,
+        handleCopyRawRangeLeft, handleCopyRawRangeRight,
+        rawViewHighlightRange,
+        perfDashboardHeight,
+        setPerfDashboardHeight: (h: number) => {
+            setPerfDashboardHeight(h);
+            setStoredValue('perfDashboardHeight', h.toString());
+        },
     };
 };

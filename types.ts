@@ -58,6 +58,8 @@ export interface LogRule {
   blockListCaseSensitive?: boolean;
   colorHighlightsCaseSensitive?: boolean;
   showRawLogLines?: boolean;
+  perfThreshold?: number; // Pass/Fail threshold in ms
+  dangerThresholds?: { ms: number; color: string; label: string }[];
 }
 
 export type LogLevel = 'V' | 'D' | 'I' | 'W' | 'E';

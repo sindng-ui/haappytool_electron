@@ -5,7 +5,7 @@ import { VirtuosoHandle } from 'react-virtuoso';
 import { LogHighlight, LogViewPreferences } from '../../types';
 import { LogLine } from './LogLine';
 import { HyperLogRenderer, HyperLogHandle } from './HyperLogRenderer';
-import { PerfAnalyzerOverlay } from './PerfAnalyzerOverlay';
+import { PerfDashboard } from './PerfDashboard';
 import { AnalysisResult } from '../../utils/perfAnalysis';
 
 const { Upload, X, Zap, Split, Copy, Download, Bookmark, ArrowDown, Archive, BarChart3 } = Lucide;
@@ -59,6 +59,11 @@ interface LogViewerPaneProps {
     perfAnalysisResult?: AnalysisResult | null;
     isAnalyzingPerformance?: boolean;
     onJumpToLine?: (lineNum: number) => void;
+    onJumpToRange?: (start: number, end: number) => void;
+    onViewRawRange?: (originalStart: number, originalEnd: number) => void;
+    onCopyRawRange?: (start: number, end: number) => void;
+    dashboardHeight?: number;
+    onDashboardHeightChange?: (height: number) => void;
 }
 
 export interface LogViewerHandle {
@@ -115,8 +120,16 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     perfAnalysisResult,
     isAnalyzingPerformance = false,
     onJumpToLine,
+    onJumpToRange,
+    onViewRawRange,
+    onCopyRawRange,
+    dashboardHeight: propDashboardHeight,
+    onDashboardHeightChange,
 }, ref) => {
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
+    const [localDashboardHeight, setLocalDashboardHeight] = useState(320);
+    const dashboardHeight = propDashboardHeight !== undefined ? propDashboardHeight : localDashboardHeight;
+    const setDashboardHeight = onDashboardHeightChange || setLocalDashboardHeight;
 
     const containerRef = useRef<HTMLDivElement>(null);
     const hyperRef = useRef<HyperLogHandle>(null);
@@ -789,85 +802,86 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 </div>
             )}
 
-            {/* Content */}
+            {/* Content area: Removed overflow-hidden to allow dashboard resizer tab to stick out */}
             <div
-                className="flex-1 relative overflow-hidden"
-            // Keydown handling moved to LogSession for global scope
+                className="flex-1 relative flex flex-col"
             >
                 {workerReady ? (
                     <>
-                        <HyperLogRenderer
-                            ref={hyperRef}
-                            totalCount={totalMatches || 0}
-                            rowHeight={rowHeight}
-                            onScrollRequest={onScrollRequest}
-                            preferences={preferences}
-                            activeLineIndex={activeLineIndex}
-                            selectedIndices={selectedIndices}
-                            bookmarks={bookmarks}
-                            textHighlights={textHighlights}
-                            lineHighlights={lineHighlights}
-                            lineHighlightRanges={lineHighlightRanges}
-                            highlightCaseSensitive={highlightCaseSensitive}
-                            levelMatchers={levelMatchers}
-                            onLineClick={onLineClick}
-                            onLineDoubleClick={onLineDoubleClick}
-                            onAtBottomChange={(isAtBottom) => {
-                                setAtBottom(isAtBottom);
-                            }}
-                            absoluteOffset={absoluteOffset}
-                            isRawMode={isRawMode}
-                            performanceHeatmap={performanceHeatmap}
-                            onKeyDown={handleKeyDown}
-                            onScroll={(top) => {
-                                scrollTopRef.current = top;
-
-                                // Helper specifically for Sync Scrolling feature
-                                if (onSyncScroll && shiftPressedRef.current) {
-                                    if (ignoreSyncRef.current) {
-                                        ignoreSyncRef.current = false;
-                                        return;
-                                    }
-                                    onSyncScroll(top);
-                                }
-                            }}
-                        />
-                        {showScrollToBottom && (
-                            <button
-                                className="absolute bottom-6 right-8 z-40 p-3 bg-indigo-600 text-white rounded-full shadow-xl hover:bg-indigo-500 transition-all animate-in fade-in zoom-in duration-200 hover:scale-110 border border-white/10"
-                                onClick={() => {
-                                    if (onScrollToBottomRequest) {
-                                        onScrollToBottomRequest();
-                                    } else {
-                                        setIsAutoScrollPaused(false); // Enable auto-scroll (stick)
-                                        hyperRef.current?.scrollToIndex(totalMatches - 1, { align: 'end' });
-                                    }
-                                }}
-                                title="Scroll to Bottom"
-                            >
-                                <ArrowDown size={20} />
-                            </button>
-                        )}
-
-                        {/* Performance Analyzer Overlay */}
                         <AnimatePresence>
                             {(perfAnalysisResult || isAnalyzingPerformance) && (
-                                <PerfAnalyzerOverlay
+                                <PerfDashboard
                                     isOpen={true}
                                     result={perfAnalysisResult || null}
                                     isAnalyzing={isAnalyzingPerformance}
                                     onClose={() => {
-                                        // Trigger closure by calling analyze with null or a specific clear state
-                                        // In our implementation, we'll make onAnalyzePerformance handle toggle/clear
                                         if (onAnalyzePerformance) onAnalyzePerformance();
                                     }}
-                                    targetTime={1000} // Default or from context?
-                                    onJumpToLine={(lineNum) => {
-                                        if (onJumpToLine) onJumpToLine(lineNum);
-                                    }}
+                                    targetTime={1000}
+                                    onJumpToLine={onJumpToLine}
+                                    onJumpToRange={onJumpToRange}
+                                    onViewRawRange={onViewRawRange}
+                                    onCopyRawRange={onCopyRawRange}
+                                    height={dashboardHeight}
+                                    onHeightChange={onDashboardHeightChange}
                                 />
                             )}
                         </AnimatePresence>
+
+                        <div className="flex-1 relative overflow-hidden">
+                            <HyperLogRenderer
+                                ref={hyperRef}
+                                totalCount={totalMatches || 0}
+                                rowHeight={rowHeight}
+                                onScrollRequest={onScrollRequest}
+                                preferences={preferences}
+                                activeLineIndex={activeLineIndex}
+                                selectedIndices={selectedIndices}
+                                bookmarks={bookmarks}
+                                textHighlights={textHighlights}
+                                lineHighlights={lineHighlights}
+                                lineHighlightRanges={lineHighlightRanges}
+                                highlightCaseSensitive={highlightCaseSensitive}
+                                levelMatchers={levelMatchers}
+                                onLineClick={onLineClick}
+                                onLineDoubleClick={onLineDoubleClick}
+                                onAtBottomChange={(isAtBottom) => {
+                                    setAtBottom(isAtBottom);
+                                }}
+                                absoluteOffset={absoluteOffset}
+                                isRawMode={isRawMode}
+                                performanceHeatmap={performanceHeatmap}
+                                onKeyDown={handleKeyDown}
+                                onScroll={(top) => {
+                                    scrollTopRef.current = top;
+
+                                    // Helper specifically for Sync Scrolling feature
+                                    if (onSyncScroll && shiftPressedRef.current) {
+                                        if (ignoreSyncRef.current) {
+                                            ignoreSyncRef.current = false;
+                                            return;
+                                        }
+                                        onSyncScroll(top);
+                                    }
+                                }}
+                            />
+                            {showScrollToBottom && (
+                                <button
+                                    className="absolute bottom-6 right-8 z-40 p-3 bg-indigo-600 text-white rounded-full shadow-xl hover:bg-indigo-500 transition-all animate-in fade-in zoom-in duration-200 hover:scale-110 border border-white/10"
+                                    onClick={() => {
+                                        if (onScrollToBottomRequest) {
+                                            onScrollToBottomRequest();
+                                        } else {
+                                            setIsAutoScrollPaused(false); // Enable auto-scroll (stick)
+                                            hyperRef.current?.scrollToIndex(totalMatches - 1, { align: 'end' });
+                                        }
+                                    }}
+                                    title="Scroll to Bottom"
+                                >
+                                    <ArrowDown size={20} />
+                                </button>
+                            )}
+                        </div>
                     </>
                 ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-slate-400 pointer-events-none">
