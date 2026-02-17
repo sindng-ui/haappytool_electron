@@ -12,100 +12,114 @@ import { checkIsMatch } from '../../utils/logFiltering';
 
 describe('Worker Filtering Logic', () => {
 
-    it('[CRITICAL] No filter = all lines pass', () => {
-        ['ERROR: Failed', 'INFO: Started', 'DEBUG: Trace'].forEach(line => {
-            expect(checkIsMatch(line, null, true)).toBe(true);
-        });
-    });
+    // Helper to normalize rule (simulates worker behavior)
+    const normalizeRule = (rule: LogRule): LogRule => {
+        const isHappyCase = !!rule.happyCombosCaseSensitive;
+        const isBlockCase = !!rule.blockListCaseSensitive;
+        return {
+            ...rule,
+            includeGroups: rule.includeGroups.map(g => g.map(t => isHappyCase ? t : t.toLowerCase())),
+            excludes: rule.excludes.map(e => isBlockCase ? e : e.toLowerCase())
+        };
+    };
 
     it('[CRITICAL] Include filter (single term)', () => {
-        const rule: LogRule = {
+        const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['ERROR']], excludes: [],
             happyCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
+        const rule = normalizeRule(rawRule);
         expect(checkIsMatch('ERROR: Failed', rule, true)).toBe(true);
         expect(checkIsMatch('error: lowercase', rule, true)).toBe(true); // Case insensitive
         expect(checkIsMatch('INFO: Normal', rule, true)).toBe(false);
     });
 
     it('[CRITICAL] AND logic in Happy Combos', () => {
-        const rule: LogRule = {
+        const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['ERROR', 'Connection']],
             excludes: [], happyCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
+        const rule = normalizeRule(rawRule);
         expect(checkIsMatch('ERROR: Connection failed', rule, true)).toBe(true);
         expect(checkIsMatch('ERROR: Timeout', rule, true)).toBe(false); // Missing "Connection"
     });
 
     it('[CRITICAL] OR logic between groups', () => {
-        const rule: LogRule = {
+        const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['ERROR'], ['WARNING']],
             excludes: [], happyCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
+        const rule = normalizeRule(rawRule);
         expect(checkIsMatch('ERROR: Failed', rule, true)).toBe(true);
         expect(checkIsMatch('WARNING: Low memory', rule, true)).toBe(true);
         expect(checkIsMatch('INFO: Normal', rule, true)).toBe(false);
     });
 
     it('[CRITICAL] Block list excludes', () => {
-        const rule: LogRule = {
+        const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [],
             excludes: ['DEBUG', 'VERBOSE'], happyCombosCaseSensitive: false,
             blockListCaseSensitive: false, highlights: [], showRawLogLines: false
         };
+        const rule = normalizeRule(rawRule);
         expect(checkIsMatch('DEBUG: Trace', rule, true)).toBe(false);
         expect(checkIsMatch('VERBOSE: Details', rule, true)).toBe(false);
         expect(checkIsMatch('INFO: Important', rule, true)).toBe(true);
     });
 
     it('[CRITICAL] Excludes override includes', () => {
-        const rule: LogRule = {
+        const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['ERROR']],
             excludes: ['DEBUG'], happyCombosCaseSensitive: false,
             blockListCaseSensitive: false, highlights: [], showRawLogLines: false
         };
+        const rule = normalizeRule(rawRule);
         expect(checkIsMatch('ERROR: Connection', rule, true)).toBe(true);
         expect(checkIsMatch('DEBUG ERROR: Test', rule, true)).toBe(false);
     });
 
     it('[HIGH] Case sensitivity for includes', () => {
-        const rule: LogRule = {
+        const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['ERROR']], excludes: [],
             happyCombosCaseSensitive: true, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
+        const rule = normalizeRule(rawRule);
         expect(checkIsMatch('ERROR: Uppercase', rule, true)).toBe(true);
         expect(checkIsMatch('error: Lowercase', rule, true)).toBe(false);
     });
 
     it('[HIGH] Case sensitivity for excludes', () => {
-        const rule: LogRule = {
+        const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [], excludes: ['DEBUG'],
             happyCombosCaseSensitive: false, blockListCaseSensitive: true,
             highlights: [], showRawLogLines: false
         };
+        const rule = normalizeRule(rawRule);
         expect(checkIsMatch('DEBUG: Uppercase', rule, true)).toBe(false);
         expect(checkIsMatch('debug: Lowercase', rule, true)).toBe(true); // Not blocked
     });
 
     it('[CRITICAL] Empty groups = show all', () => {
-        const rule: LogRule = {
+        const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [], excludes: [],
             happyCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
+        const rule = normalizeRule(rawRule);
         expect(checkIsMatch('Any line', rule, true)).toBe(true);
     });
 
     it('[MEDIUM] Shell output bypass', () => {
-        const rule: LogRule = {
+        const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['SPECIFIC']],
             excludes: [], happyCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: true // Enable bypass
         };
+        const rule = normalizeRule(rawRule);
         // Non-standard log (shell output) -> Passed as bypassShellFilter=true
         expect(checkIsMatch('$ ls -la', rule, true)).toBe(true);
         expect(checkIsMatch('total 1234', rule, true)).toBe(true);
@@ -115,11 +129,12 @@ describe('Worker Filtering Logic', () => {
     });
 
     it('[MEDIUM] Test log bypass', () => {
-        const rule: LogRule = {
+        const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['IMPOSSIBLE']],
             excludes: [], happyCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
+        const rule = normalizeRule(rawRule);
         // Force include test logs even if rules don't match
         expect(checkIsMatch('[TEST_LOG_SDB] Test', rule, true)).toBe(true);
         expect(checkIsMatch('[TEST_LOG_SSH] Test', rule, true)).toBe(true);

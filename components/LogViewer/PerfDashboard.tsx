@@ -94,6 +94,8 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         return Math.max(4, ...flameSegments.map(s => s.lane));
     }, [flameSegments]);
 
+
+
     if (!isOpen) return null;
 
     return (
@@ -195,23 +197,20 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                             </div>
 
                             {/* View Toggles */}
-                            <div className="flex p-1 bg-slate-950 rounded-lg border border-white/5">
+                            <div className="flex p-1 bg-slate-950 rounded-lg border border-white/5 gap-0.5">
                                 <button
                                     onClick={() => setViewMode('chart')}
                                     className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center justify-center gap-1.5 ${viewMode === 'chart' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                                 >
-                                    <Activity size={12} /> Flame Chart
+                                    <Activity size={12} /> Chart
                                 </button>
                                 <button
                                     onClick={() => setViewMode('list')}
                                     className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center justify-center gap-1.5 ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                                 >
-                                    <AlignLeft size={12} /> Full List
+                                    <AlignLeft size={12} /> Bottlenecks
                                 </button>
                             </div>
-
-
-                            {/* Selected Info */}
                             {selectedSegmentId && (
                                 <div className="mt-auto bg-slate-800/80 rounded-xl p-3 border border-white/10 animate-in fade-in slide-in-from-bottom-2">
                                     {(() => {
@@ -266,7 +265,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 </button>
                             )}
 
-                            {viewMode === 'chart' ? (
+                            {viewMode === 'chart' && (
                                 <div
                                     className="flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar p-4 relative select-none cursor-grab active:cursor-grabbing group/chart"
                                     onWheel={(e) => {
@@ -413,7 +412,9 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                         </div>
                                     )}
                                 </div>
-                            ) : (
+                            )}
+
+                            {viewMode === 'list' && (
                                 <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
                                     <table className="w-full text-left border-collapse">
                                         <thead className="sticky top-0 bg-slate-900 shadow-sm z-10">
@@ -464,19 +465,23 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                     </table>
                                 </div>
                             )}
+
+
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {!result && !minimized && (
-                <div className="flex-1 flex items-center justify-center text-slate-600 gap-2">
-                    <Activity size={20} className="animate-bounce opacity-20" />
-                    <span className="text-xs font-bold uppercase tracking-widest opacity-50">
-                        {isAnalyzing ? 'Analyzing Performance...' : 'Ready to Analyze'}
-                    </span>
-                </div>
-            )}
-        </div>
+            {
+                !result && !minimized && (
+                    <div className="flex-1 flex items-center justify-center text-slate-600 gap-2">
+                        <Activity size={20} className="animate-bounce opacity-20" />
+                        <span className="text-xs font-bold uppercase tracking-widest opacity-50">
+                            {isAnalyzing ? 'Analyzing Performance...' : 'Ready to Analyze'}
+                        </span>
+                    </div>
+                )
+            }
+        </div >
     );
 };

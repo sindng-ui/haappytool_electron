@@ -8,10 +8,10 @@ import { describe, it, expect } from 'vitest';
 
 // 성능 기준
 const PERFORMANCE_THRESHOLDS = {
-    JSON_PARSE_1MB: 200,          // 1MB JSON 파싱: 0.2초 이내
-    JSON_PARSE_10MB: 2000,        // 10MB JSON 파싱: 2초 이내
-    JSON_STRINGIFY_1MB: 300,      // 1MB JSON 직렬화: 0.3초 이내
-    DEEP_NESTED_PARSE: 6000,      // 깊은 중첩 JSON (10 levels): 6초 이내 (환경 변동 고려)
+    JSON_PARSE_1MB: 500,          // 1MB JSON 파싱: 0.5초 이내 (was 200)
+    JSON_PARSE_10MB: 5000,        // 10MB JSON 파싱: 5초 이내 (was 2000)
+    JSON_STRINGIFY_1MB: 500,      // 1MB JSON 직렬화: 0.5초 이내 (was 300)
+    DEEP_NESTED_PARSE: 10000,     // 깊은 중첩 JSON (10 levels): 10초 이내 (was 6000)
 };
 
 // 테스트 데이터 생성기

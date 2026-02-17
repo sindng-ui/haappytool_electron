@@ -793,11 +793,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             </button>
                         )}
 
-                        {fileName && onReset && !isRawMode && (
-                            <button onClick={onReset} className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors" title="Reset File">
-                                <X size={14} />
-                            </button>
-                        )}
+                        {/* 'X' (Reset) Button REMOVED per user request (2024-02-17) - Use Tab Close or Ctrl+W instead */}
                     </div>
                 </div>
             )}
