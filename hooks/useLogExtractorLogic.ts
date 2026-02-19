@@ -114,6 +114,17 @@ export const useLogExtractorLogic = ({
     const updateLogViewPreferences = useCallback((updates: Partial<LogViewPreferences>) => {
         setLogViewPreferences(prev => {
             const next = { ...prev, ...updates };
+
+            // ✅ 형님, 수동으로 폰트나 줄간격을 바꿨을 때의 "취향 차이값(Offset)"을 갱신합니다.
+            const standardFormula = (fs: number) => 20 + (fs - 11) * 2;
+            const currentFS = next.fontSize || 11;
+            const currentRH = next.rowHeight || standardFormula(currentFS);
+
+            // 만약 업데이트에 rowHeight나 fontSize가 포함되어 있다면 오프셋을 새로 계산해서 저장합니다.
+            if ('rowHeight' in updates || 'fontSize' in updates) {
+                next.rowHeightOffset = currentRH - standardFormula(currentFS);
+            }
+
             setStoredValue('logViewPreferences', JSON.stringify(next));
             return next;
         });
@@ -645,7 +656,7 @@ export const useLogExtractorLogic = ({
                 }
             }
 
-            // Custom Zoom Handling
+            // Custom Zoom Handling (Electron Window Zoom)
             if (e.ctrlKey) {
                 if (e.shiftKey) {
                     if (e.key === '+' || e.key === '=') {
@@ -668,12 +679,90 @@ export const useLogExtractorLogic = ({
                     e.preventDefault();
                     window.electronAPI?.setZoomFactor && window.electronAPI.setZoomFactor(1);
                 }
+
+                // Font Size Zoom (Ctrl + [ / ])
+                if (e.key === ']' || e.key === 'BracketRight') {
+                    e.preventDefault();
+                    handleZoomIn('keyboard');
+                }
+                if (e.key === '[' || e.key === 'BracketLeft') {
+                    e.preventDefault();
+                    handleZoomOut('keyboard');
+                }
             }
         };
-
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [isDualView, rawContextOpen, activeLineIndexRight, activeLineIndexLeft]);
+    }, [isDualView, rawContextOpen, activeLineIndexRight, activeLineIndexLeft, logViewPreferences]); // Added dependency
+
+    const handleZoomIn = useCallback((source: 'mouse' | 'keyboard' = 'keyboard') => {
+        // Enforce Zoom Factor reset to 1.0
+        const currentZoomFactor = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
+        if (window.electronAPI?.setZoomFactor) window.electronAPI.setZoomFactor(1);
+
+        setLogViewPreferences(prev => {
+            const currentFontSize = prev.fontSize || 11;
+            const newFontSize = Math.min(30, currentFontSize + 1);
+
+            // ✅ 형님, 수동으로 조정한 줄간격 느낌(Offset)을 유지합니다.
+            const standardFormula = (fs: number) => 20 + (fs - 11) * 2;
+            // ✅ 영구 저장된 오프셋을 사용합니다. (없으면 현재 상태에서 계산)
+            const currentStandardRowHeight = standardFormula(currentFontSize);
+            const rowHeightOffset = prev.rowHeightOffset !== undefined
+                ? prev.rowHeightOffset
+                : (prev.rowHeight || currentStandardRowHeight) - currentStandardRowHeight;
+
+            // 새로운 폰트에 맞는 표준 높이에 기존 오프셋 적용
+            const newRowHeight = Math.max(12, standardFormula(newFontSize) + rowHeightOffset);
+
+            console.log(`[Zoom Debug] ${source} IN: Font ${prev.fontSize} -> ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight} (Persistent Offset: ${rowHeightOffset}), ZF: ${currentZoomFactor}, DPR: ${window.devicePixelRatio}`);
+
+            if (newFontSize !== currentFontSize || (prev.rowHeight !== newRowHeight)) {
+                const next = { ...prev, fontSize: newFontSize, rowHeight: newRowHeight, rowHeightOffset };
+                setStoredValue('logViewPreferences', JSON.stringify(next));
+                return next;
+            }
+            return prev;
+        });
+    }, []);
+
+    const handleZoomOut = useCallback((source: 'mouse' | 'keyboard' = 'keyboard') => {
+        // Enforce Zoom Factor reset to 1.0
+        const currentZoomFactor = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
+        if (window.electronAPI?.setZoomFactor) window.electronAPI.setZoomFactor(1);
+
+        setLogViewPreferences(prev => {
+            const currentFontSize = prev.fontSize || 11;
+            const newFontSize = Math.max(8, currentFontSize - 1);
+
+            const standardFormula = (fs: number) => 20 + (fs - 11) * 2;
+
+            // ✅ 영구 저장된 오프셋을 사용합니다. (없으면 현재 상태에서 계산)
+            const currentStandardRowHeight = standardFormula(currentFontSize);
+            const rowHeightOffset = prev.rowHeightOffset !== undefined
+                ? prev.rowHeightOffset
+                : (prev.rowHeight || currentStandardRowHeight) - currentStandardRowHeight;
+
+            // 새로운 폰트에 맞는 표준 높이에 "지워지지 않는" 기존 오프셋 적용
+            const newRowHeight = Math.max(12, standardFormula(newFontSize) + rowHeightOffset);
+
+            console.log(`[Zoom Debug] ${source} OUT: Font ${prev.fontSize} -> ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight} (Persistent Offset: ${rowHeightOffset}), ZF: ${currentZoomFactor}, DPR: ${window.devicePixelRatio}`);
+
+            if (newFontSize !== currentFontSize || (prev.rowHeight !== newRowHeight)) {
+                const next = { ...prev, fontSize: newFontSize, rowHeight: newRowHeight, rowHeightOffset };
+                setStoredValue('logViewPreferences', JSON.stringify(next));
+                return next;
+            }
+            // Self-Correction at Limit: Ensure Row Height is correct even if Font is already min
+            if (prev.rowHeight !== newRowHeight) {
+                console.log(`[Zoom Debug] ${source} FIX: Font ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight}`);
+                const next = { ...prev, rowHeight: newRowHeight, rowHeightOffset };
+                setStoredValue('logViewPreferences', JSON.stringify(next));
+                return next;
+            }
+            return prev;
+        });
+    }, []);
 
     const currentConfig = rules.find(r => r.id === selectedRuleId);
 
@@ -889,14 +978,15 @@ export const useLogExtractorLogic = ({
             const isError = /error|exception|fail|fatal|\be\//i.test(chunk);
 
             if (isError) {
-                const now = Date.now();
-                // Throttle toasts: max 1 every 2 seconds (reduced from 5)
-                if (now - lastErrorToastTime.current > 2000) {
-                    // console.log('[useLog] 🚨 Error detected in stream:', chunk.substring(0, 100));
-                    addToast('Error/Exception Detected!', 'error');
-                    lastErrorToastTime.current = now;
-                }
+                // const now = Date.now();
+                // // Throttle toasts: max 1 every 2 seconds (reduced from 5)
+                // if (now - lastErrorToastTime.current > 2000) {
+                //     // console.log('[useLog] 🚨 Error detected in stream:', chunk.substring(0, 100));
+                //     addToast('Error/Exception Detected!', 'error');
+                //     lastErrorToastTime.current = now;
+                // }
             }
+
 
             tizenBuffer.current.push(chunk);
 
@@ -2085,5 +2175,6 @@ export const useLogExtractorLogic = ({
             setPerfDashboardHeight(h);
             setStoredValue('perfDashboardHeight', h.toString());
         },
+        handleZoomIn, handleZoomOut // ✅ Exposed
     };
 };

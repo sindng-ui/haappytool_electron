@@ -180,7 +180,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         perfDashboardHeight, setPerfDashboardHeight,
         // Transaction Analyzer
         transactionResults, transactionIdentity, transactionSourcePane, isAnalyzingTransaction, isTransactionDrawerOpen,
-        setIsTransactionDrawerOpen, analyzeTransactionAction
+        setIsTransactionDrawerOpen, analyzeTransactionAction,
+        handleZoomIn, handleZoomOut // ✅ Consumed
     } = useLogContext();
 
     // Log Archive: Text Selection
@@ -679,8 +680,51 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         }
     }, [rightFilteredCount, jumpToGlobalLine]);
 
+    // ✅ Ctrl + Wheel Zoom Support (Uses shared logic)
+    // We use a native Ref and event listener because React's onWheel is passive by default in some browsers/versions
+    // and might not reliably prevent the native browser zoom (Ctrl+Wheel).
+    const containerRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        if (!isActive) return;
+
+        const onWheel = (e: WheelEvent) => {
+            if (e.ctrlKey) {
+                // ✅ Aggressively prevent default at the window level during capture phase
+                e.preventDefault();
+                e.stopPropagation();
+
+                // 🛑 IMMEDIATE HARD RESET: Stop Browser Zoom Dead in its Tracks
+                // This ensures the render engine sees 1.0 even if the OS sent a zoom signal
+                if (window.electronAPI?.setZoomFactor) {
+                    window.electronAPI.setZoomFactor(1);
+                }
+
+                const delta = e.deltaY; // Negative is UP (Zoom In), Positive is DOWN (Zoom Out)
+
+                if (delta < 0) {
+                    handleZoomIn('mouse');
+                } else {
+                    handleZoomOut('mouse');
+                }
+            }
+        };
+
+        // ✅ Use 'capture: true' to intercept the event before it reaches any children or the browser
+        window.addEventListener('wheel', onWheel, { passive: false, capture: true });
+
+        return () => {
+            window.removeEventListener('wheel', onWheel, { capture: true });
+        };
+    }, [isActive, handleZoomIn, handleZoomOut]);
+
     return (
-        <div className="flex h-full flex-col font-sans overflow-hidden" style={{ display: isActive ? 'flex' : 'none' }}>
+        <div
+            ref={containerRef}
+            className="flex h-full flex-col font-sans overflow-hidden"
+            style={{ display: isActive ? 'flex' : 'none' }}
+        // onWheel={handleWheel} // Removed in favor of native listener
+        >
 
             {/* Header Area with Hide Animation in Focus Mode */}
             {/* Header Area with Hide Animation in Focus Mode */}
@@ -874,34 +918,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setIsPanelOpen(prev => !prev);
-                                    return;
-                                }
-
-                                // Ctrl + [ : Font Size Down
-                                if (e.key === '[' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    const currentSize = logViewPreferences?.fontSize || 12;
-                                    const newSize = Math.max(8, currentSize - 1);
-                                    const newRowHeight = Math.ceil(newSize * 1.5);
-                                    updateLogViewPreferences({
-                                        fontSize: newSize,
-                                        rowHeight: newRowHeight
-                                    });
-                                    return;
-                                }
-
-                                // Ctrl + ] : Font Size Up
-                                if (e.key === ']' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    const currentSize = logViewPreferences?.fontSize || 12;
-                                    const newSize = Math.min(24, currentSize + 1);
-                                    const newRowHeight = Math.ceil(newSize * 1.5);
-                                    updateLogViewPreferences({
-                                        fontSize: newSize,
-                                        rowHeight: newRowHeight
-                                    });
                                     return;
                                 }
 

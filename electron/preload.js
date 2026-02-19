@@ -53,3 +53,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return webUtils.getPathForFile(file);
     }
 });
+
+// ✅ Enforce Strict Zoom Limits globally to prevent native browser zoom from interfering with custom UI scaling
+// This ensures that Ctrl+Wheel DOES NOT change the browser's viewport scale (which affects kerning/tracking),
+// but allows our custom application logic to handle font size changes.
+require('electron').webFrame.setVisualZoomLevelLimits(1, 1);

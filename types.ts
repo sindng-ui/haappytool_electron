@@ -67,6 +67,7 @@ export interface LogViewPreferences {
   fontFamily?: string;
   levelStyles: LogLevelStyle[];
   logLevelOpacity?: number; // 0-100 percentage
+  rowHeightOffset?: number; // ✅ NEW: Tracks manual deviation from standard formula
 }
 
 export interface PostGlobalVariable {

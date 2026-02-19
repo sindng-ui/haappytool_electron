@@ -86,7 +86,7 @@ export const ViewSettingsSection: React.FC<ViewSettingsSectionProps> = ({ prefer
                     <div className="flex items-center gap-2">
                         <input
                             type="range"
-                            min="16"
+                            min="12"
                             max="60"
                             value={preferences.rowHeight}
                             onChange={handleRowHeightChange}

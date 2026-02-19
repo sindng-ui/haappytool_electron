@@ -45,6 +45,11 @@ async function createWindow() {
         mainWindow.maximize();
     }
 
+    // ✅ Enforce Strict Zoom Limits (Main Process Side) - Double protection against native zoom
+    // This ensures that even if preload.js fails or is delayed, the main process locks zoom to 1.0.
+    mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
+    mainWindow.webContents.setZoomFactor(1.0);
+
 
 
     const isDev = !app.isPackaged;
@@ -92,26 +97,28 @@ async function createWindow() {
         mainWindow = null;
     });
 
-    // Custom Zoom Handling (Fine-grained control)
+    /* 
+    // Custom Zoom Handling (Fine-grained control) - DISABLED to enforce font-size only zoom
     mainWindow.webContents.on('before-input-event', (event, input) => {
         if (input.control || input.meta) {
             const { code, type } = input;
             if (type === 'keyDown') {
                 if (code === 'Equal' || code === 'NumpadAdd') { // Zoom In
-                    event.preventDefault();
-                    const currentZoom = mainWindow.webContents.getZoomFactor();
-                    mainWindow.webContents.setZoomFactor(Math.min(currentZoom + 0.1, 5.0)); // +10%
+                    // event.preventDefault();
+                    // const currentZoom = mainWindow.webContents.getZoomFactor();
+                    // mainWindow.webContents.setZoomFactor(Math.min(currentZoom + 0.1, 5.0)); // +10%
                 } else if (code === 'Minus' || code === 'NumpadSubtract') { // Zoom Out
-                    event.preventDefault();
-                    const currentZoom = mainWindow.webContents.getZoomFactor();
-                    mainWindow.webContents.setZoomFactor(Math.max(currentZoom - 0.1, 0.2)); // -10%
+                    // event.preventDefault();
+                    // const currentZoom = mainWindow.webContents.getZoomFactor();
+                    // mainWindow.webContents.setZoomFactor(Math.max(currentZoom - 0.1, 0.2)); // -10%
                 } else if (code === 'Digit0' || code === 'Numpad0') { // Reset Zoom
-                    event.preventDefault();
-                    mainWindow.webContents.setZoomFactor(1.0);
+                    // event.preventDefault();
+                    // mainWindow.webContents.setZoomFactor(1.0);
                 }
             }
         }
     });
+    */
 
     // Wait for page to finish loading
     return pageLoadedPromise;
