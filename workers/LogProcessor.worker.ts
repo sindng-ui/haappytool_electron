@@ -14,28 +14,27 @@ const textEncoder = new TextEncoder();
 let wasmModule: any = null;
 const initWasm = async () => {
     try {
-        // 1. Try importing from src (if available locally)
-        // @ts-ignore
-        // const wasm = await import('../src/wasm/happy_filter');
-        // wasmModule = wasm;
-        // const instance = await wasm.default(); // Init wasm-bindgen and returns exports
-        // wasmMemory = (instance as any).memory;
-        // wasmEngine = new wasm.FilterEngine(false);
-        // console.log('WASM Filter Engine initialized from src (Zero-copy & DFA support)');
-        throw new Error('Local WASM not found'); // Force fallback
+        // 1. Try loading from public/wasm (Default for all PCs)
+        // Vite interprets absolute paths starting with / as public directory assets
+        const wasmPath = '/wasm/happy_filter.js';
+        const wasm = await import(/* @vite-ignore */ wasmPath);
+        wasmModule = wasm;
+        const instance = await wasm.default();
+        wasmMemory = (instance as any).memory;
+        wasmEngine = new wasm.FilterEngine(false);
+        console.log('WASM Filter Engine initialized from public/wasm');
     } catch (e) {
         try {
-            // 2. Fallback: Try loading from public/wasm (for other PCs)
-            // Use variable for path to bypass Vite's static analysis
-            const wasmPath = '/wasm/happy_filter.js';
-            const wasm = await import(/* @vite-ignore */ wasmPath);
+            // 2. Fallback: Try importing from src (Local dev environment)
+            // @ts-ignore
+            const wasm = await import('../src/wasm/happy_filter');
             wasmModule = wasm;
             const instance = await wasm.default();
             wasmMemory = (instance as any).memory;
             wasmEngine = new wasm.FilterEngine(false);
-            console.log('WASM Filter Engine initialized from public/wasm');
+            console.log('WASM Filter Engine initialized from src');
         } catch (e2) {
-            console.warn('WASM initialization failed (both src and public), falling back to JS filter.');
+            console.warn('WASM initialization failed (both public and src), falling back to JS filter.', e2);
         }
     }
 };
