@@ -9,16 +9,30 @@ let wasmMemory: WebAssembly.Memory | null = null;
 const textEncoder = new TextEncoder();
 
 // Initialize WASM Engine (Vite handles the loading)
+// Initialize WASM Engine (Vite handles the loading)
 let wasmModule: any = null;
 const initWasm = async () => {
     try {
-        const wasm = await import('../src/wasm/happy_filter');
-        wasmModule = wasm;
-        const instance = await wasm.default();
-        wasmMemory = (instance as any).memory;
-        wasmEngine = new wasm.FilterEngine(false);
+        // 1. Try importing from src
+        // @ts-ignore
+        // const wasm = await import('../src/wasm/happy_filter');
+        // wasmModule = wasm;
+        // const instance = await wasm.default();
+        // wasmMemory = (instance as any).memory;
+        // wasmEngine = new wasm.FilterEngine(false);
+        throw new Error('Local WASM not found');
     } catch (e) {
-        console.error('[SubWorker] WASM init failed', e);
+        try {
+            // 2. Fallback: Try loading from public/wasm
+            const wasmPath = '/wasm/happy_filter.js';
+            const wasm = await import(/* @vite-ignore */ wasmPath);
+            wasmModule = wasm;
+            const instance = await wasm.default();
+            wasmMemory = (instance as any).memory;
+            wasmEngine = new wasm.FilterEngine(false);
+        } catch (e2) {
+            console.error('[SubWorker] WASM init failed', e2);
+        }
     }
 };
 

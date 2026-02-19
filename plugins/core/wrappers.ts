@@ -139,16 +139,7 @@ export const AiAssistantPlugin: HappyPlugin = {
     order: 12,
 };
 
-const RxFlowVisualizer = React.lazy(() => import('../../components/RxFlow'));
-// const { Workflow } = Lucide; // Removed duplicate
 
-export const RxFlowVisualizerPlugin: HappyPlugin = {
-    id: ToolId.RXFLOW_VISUALIZER,
-    name: 'RxFlow Visualizer',
-    icon: Activity,
-    component: RxFlowVisualizer,
-    order: 13,
-};
 
 export const TizenLabPluginWrapper: HappyPlugin = {
     id: ToolId.TIZEN_LAB,

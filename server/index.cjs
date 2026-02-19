@@ -1510,6 +1510,10 @@ const handleSocketConnection = (socket, deps = {}) => {
             const screenImg = await jimp.read(realScreenPath);
             const templImg = await jimp.read(templatePath); // templatePath can be data:image/png;base64,...
 
+            if (!cv) {
+                throw new Error('OpenCV (WASM) is not loaded on the server. Please check server logs.');
+            }
+
             // Convert to Mat
             // Jimp image has bitmap.data which is RGBA buffer.
             const src = cv.matFromImageData(screenImg.bitmap);

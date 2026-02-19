@@ -12,7 +12,6 @@ import {
     SmartHomeDashboardPlugin,
     ScreenMatcherPlugin,
     AiAssistantPlugin,
-    RxFlowVisualizerPlugin,
     SmartThingsLabPluginWrapper,
     TizenLabPluginWrapper,
     EasyPostPlugin,
@@ -21,7 +20,7 @@ import {
 
 // Registry array to hold all registered plugins
 export const ALL_PLUGINS: HappyPlugin[] = [
-    //RxFlowVisualizerPlugin,
+
     LogExtractorPlugin,
     PostToolPlugin,
     JsonToolsPlugin,

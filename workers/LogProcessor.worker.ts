@@ -10,17 +10,33 @@ let wasmMemory: WebAssembly.Memory | null = null;
 const textEncoder = new TextEncoder();
 
 // Initialize WASM Engine (Vite handles the loading)
+// Initialize WASM Engine (Vite handles the loading)
 let wasmModule: any = null;
 const initWasm = async () => {
     try {
-        const wasm = await import('../src/wasm/happy_filter');
-        wasmModule = wasm;
-        const instance = await wasm.default(); // Init wasm-bindgen and returns exports
-        wasmMemory = (instance as any).memory;
-        wasmEngine = new wasm.FilterEngine(false);
-        console.log('WASM Filter Engine initialized with Zero-copy & DFA support');
+        // 1. Try importing from src (if available locally)
+        // @ts-ignore
+        // const wasm = await import('../src/wasm/happy_filter');
+        // wasmModule = wasm;
+        // const instance = await wasm.default(); // Init wasm-bindgen and returns exports
+        // wasmMemory = (instance as any).memory;
+        // wasmEngine = new wasm.FilterEngine(false);
+        // console.log('WASM Filter Engine initialized from src (Zero-copy & DFA support)');
+        throw new Error('Local WASM not found'); // Force fallback
     } catch (e) {
-        console.warn('WASM initialization failed, falling back to JS filter:', e);
+        try {
+            // 2. Fallback: Try loading from public/wasm (for other PCs)
+            // Use variable for path to bypass Vite's static analysis
+            const wasmPath = '/wasm/happy_filter.js';
+            const wasm = await import(/* @vite-ignore */ wasmPath);
+            wasmModule = wasm;
+            const instance = await wasm.default();
+            wasmMemory = (instance as any).memory;
+            wasmEngine = new wasm.FilterEngine(false);
+            console.log('WASM Filter Engine initialized from public/wasm');
+        } catch (e2) {
+            console.warn('WASM initialization failed (both src and public), falling back to JS filter.');
+        }
     }
 };
 
