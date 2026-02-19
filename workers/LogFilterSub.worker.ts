@@ -13,26 +13,17 @@ const textEncoder = new TextEncoder();
 let wasmModule: any = null;
 const initWasm = async () => {
     try {
-        // 1. Try importing from src
+        // public/wasm에서 WASM 로드
+        const wasmPath = `${self.location.origin}/wasm/happy_filter.js`;
         // @ts-ignore
-        // const wasm = await import('../src/wasm/happy_filter');
-        // wasmModule = wasm;
-        // const instance = await wasm.default();
-        // wasmMemory = (instance as any).memory;
-        // wasmEngine = new wasm.FilterEngine(false);
-        throw new Error('Local WASM not found');
+        const wasm = await import(/* @vite-ignore */ wasmPath);
+        wasmModule = wasm;
+        const instance = await wasm.default();
+        wasmMemory = (instance as any).memory;
+        wasmEngine = new wasm.FilterEngine(false);
+        console.log('[SubWorker] WASM Filter Engine initialized');
     } catch (e) {
-        try {
-            // 2. Fallback: Try loading from public/wasm
-            const wasmPath = '/wasm/happy_filter.js';
-            const wasm = await import(/* @vite-ignore */ wasmPath);
-            wasmModule = wasm;
-            const instance = await wasm.default();
-            wasmMemory = (instance as any).memory;
-            wasmEngine = new wasm.FilterEngine(false);
-        } catch (e2) {
-            console.error('[SubWorker] WASM init failed', e2);
-        }
+        console.error('[SubWorker] WASM init failed, using JS fallback', e);
     }
 };
 
