@@ -214,6 +214,17 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         setAtBottom(isAtBottom);
     }, []);
 
+    // ✅ 스마트 자동 스크롤 (Smart Auto-Scroll)
+    // 형님, 사용자가 이미 바닥에 있고 일시정지 상태가 아니라면 새 로그가 들어올 때 자동으로 바닥을 유지해줍니다.
+    useEffect(() => {
+        if (!isAutoScrollPaused && atBottom && totalMatches > 0) {
+            // requestAnimationFrame을 사용하여 렌더링 후 스크롤이 수행되도록 보장합니다.
+            requestAnimationFrame(() => {
+                hyperRef.current?.scrollToIndex(totalMatches - 1, { align: 'end' });
+            });
+        }
+    }, [totalMatches, isAutoScrollPaused, atBottom]);
+
     const handleScroll = useCallback((top: number) => {
         scrollTopRef.current = top;
 
