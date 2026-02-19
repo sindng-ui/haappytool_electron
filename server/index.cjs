@@ -966,6 +966,7 @@ const handleSocketConnection = (socket, deps = {}) => {
             await new Promise((resolve) => {
                 const child = safeSpawn(getSdbBin(sdbPath), ['disconnect'], {}, '[SDB Remote/Dis]');
                 child.on('close', resolve);
+                child.on('error', () => resolve()); // Ignore error
             });
 
             // 2. sdb connect IP
@@ -975,12 +976,14 @@ const handleSocketConnection = (socket, deps = {}) => {
                     if (code === 0) resolve();
                     else reject(new Error(`Connect failed with code ${code}`));
                 });
+                child.on('error', (err) => reject(err));
             });
 
             // 3. sdb root on
             await new Promise((resolve) => {
                 const child = safeSpawn(getSdbBin(sdbPath), ['root', 'on'], {}, '[SDB Remote/Root]');
                 child.on('close', resolve);
+                child.on('error', () => resolve()); // Ignore error
             });
 
             socket.emit('sdb_remote_result', { success: true, message: 'Connected and Rooted' });
@@ -1504,6 +1507,13 @@ const handleSocketConnection = (socket, deps = {}) => {
 
         const captureProcess = safeSpawn(getSdbBin(sdbPath), sdbArgs, {}, '[Capture/Cap]');
 
+        const handleCaptureError = (err) => {
+            console.error('[ScreenMatcher] Capture spawn error:', err);
+            socket.emit('capture_result', { success: false, message: `Capture failed: ${err.message}` });
+        };
+
+        captureProcess.on('error', handleCaptureError);
+
         captureProcess.on('close', (code) => {
             if (code !== 0) {
                 // Try fallback logic if needed, but for now report error
@@ -1516,6 +1526,11 @@ const handleSocketConnection = (socket, deps = {}) => {
             // sdb -s [id] pull [remote] [local]
             const pullArgs = deviceId ? ['-s', deviceId, 'pull', tempRemotePath, localPath] : ['pull', tempRemotePath, localPath];
             const pullProcess = safeSpawn(getSdbBin(sdbPath), pullArgs, {}, '[Capture/Pull]');
+
+            pullProcess.on('error', (err) => {
+                console.error('[ScreenMatcher] Pull spawn error:', err);
+                socket.emit('capture_result', { success: false, message: `Pull failed: ${err.message}` });
+            });
 
             pullProcess.on('close', (pullCode) => {
                 if (pullCode === 0 && fs.existsSync(localPath)) {
