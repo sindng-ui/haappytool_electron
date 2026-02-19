@@ -234,9 +234,23 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
     // === NEW CONTEXT MENU LOGIC === //
     const handleUnifiedSave = async () => {
-        if (nativeSelection) {
-            handleNativeSave();
+        // 1. 브라우저의 현재 텍스트 선택 영역을 최우선으로 확인합니다 (Alt+Drag 대응)
+        const currentSel = window.getSelection();
+        const browserText = currentSel && !currentSel.isCollapsed ? currentSel.toString().trim() : null;
+
+        if (browserText || nativeSelection) {
+            const content = browserText || nativeSelection?.text || '';
+            const sourceFile = isDualView ? undefined : (leftFileName || undefined);
+
+            openSaveDialog({
+                content,
+                sourceFile,
+                // 텍스트 선택의 경우 정확한 라인 번호를 알기 어려우므로 undefined로 유지
+                startLine: undefined,
+                endLine: undefined,
+            });
         } else {
+            // 2. 라인 단위 선택(클릭/드래그) 저장 로직
             const targetIsLeft = (selectedIndicesLeft && selectedIndicesLeft.size > 0);
             const indices = targetIsLeft ? selectedIndicesLeft : selectedIndicesRight;
             const requestFn = targetIsLeft ? requestLeftLines : requestRightLines;
@@ -274,7 +288,11 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         // ✅ Prevent default immediately to ensure custom menu works correctly even with async logic
         e.preventDefault();
 
-        const hasNative = nativeSelection || (window.getSelection() && !window.getSelection()?.isCollapsed && window.getSelection()?.toString().trim());
+        // 브라우저의 실시간 선택 영역을 확인합니다.
+        const currentSelection = window.getSelection();
+        const hasTextSelection = currentSelection && !currentSelection.isCollapsed && currentSelection.toString().trim().length > 0;
+
+        const hasNative = !!nativeSelection || hasTextSelection;
         const hasLeftLine = selectedIndicesLeft && selectedIndicesLeft.size > 0;
         const hasRightLine = isDualView && selectedIndicesRight && selectedIndicesRight.size > 0;
 

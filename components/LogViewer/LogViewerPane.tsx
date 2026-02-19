@@ -187,7 +187,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         // (Since we removed 'select-none' from LogLine, we must manually prevent it)
         e.preventDefault();
 
-        // ✅ If starting a Line Selection (Drag), clear any existing Text Selection
+        // ✅ 일반 줄 선택 시에는 기존 텍스트 선택 영역을 지워줍니다. (Alt 미동반 시)
         if (window.getSelection) {
             window.getSelection()?.removeAllRanges();
         }
@@ -208,6 +208,24 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     }, [onLineClick]);
     const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
     const showScrollToBottom = (!atBottom || isAutoScrollPaused) && totalMatches > 0;
+
+    // ✅ HyperLogRenderer의 Props 안정성을 위해 콜백을 메모이제이션합니다.
+    const handleAtBottomChange = useCallback((isAtBottom: boolean) => {
+        setAtBottom(isAtBottom);
+    }, []);
+
+    const handleScroll = useCallback((top: number) => {
+        scrollTopRef.current = top;
+
+        // Helper specifically for Sync Scrolling feature
+        if (onSyncScroll && shiftPressedRef.current) {
+            if (ignoreSyncRef.current) {
+                ignoreSyncRef.current = false;
+                return;
+            }
+            onSyncScroll(top);
+        }
+    }, [onSyncScroll]);
 
     // Cache for lines
     const [cachedLines, setCachedLines] = useState<Map<number, { lineNum: number, content: string }>>(new Map());
@@ -695,21 +713,16 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     // When the user is at the bottom, followOutput="auto" keeps them there.
     // When they scroll up, 'atBottom' becomes false, and followOutput turns off.
 
-    // ✅ 형님, Alt 키를 누르고 있을 때만 브라우저 기본 텍스트 선택을 허용하고, 평소에는 차단합니다.
-    const [isAltPressed, setIsAltPressed] = useState(false);
+    // ✅ 영구적인 텍스트 선택을 위해 Alt 키 상태를 Ref로 관리하거나 상태에서 제거합니다.
+    // 현재는 렌더링에 영향을 주지 않아야 하므로 상태를 제거합니다.
     useEffect(() => {
         const handleAltKey = (e: KeyboardEvent) => {
             if (e.key === 'Alt') {
-                const nextState = e.type === 'keydown';
-                if (isAltPressed !== nextState) {
-                    console.log(`[LogViewerPane] ⌨️ Alt Key ${nextState ? 'PRESSED' : 'RELEASED'}`);
-                }
-                setIsAltPressed(nextState);
+                // 더 이상 상태를 업데이트하지 않아 재렌더링을 방지합니다.
             }
         };
         const handleBlur = () => {
-            if (isAltPressed) console.log('[LogViewerPane] ⌨️ Alt Key RELEASED (Blur)');
-            setIsAltPressed(false);
+            // isAltPressed 제거됨
         };
         window.addEventListener('keydown', handleAltKey);
         window.addEventListener('keyup', handleAltKey);
@@ -725,7 +738,6 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         <div
             ref={containerRef}
             className={`flex-1 flex flex-col relative overflow-hidden transition-colors duration-300 outline-none h-full 
-                ${!isAltPressed ? 'select-none' : ''}
                 ${dragActive
                     ? 'bg-indigo-500/10 ring-4 ring-inset ring-indigo-500/50'
                     : isRawMode
@@ -841,25 +853,12 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                 levelMatchers={levelMatchers}
                                 onLineClick={onLineClick}
                                 onLineDoubleClick={onLineDoubleClick}
-                                onAtBottomChange={(isAtBottom) => {
-                                    setAtBottom(isAtBottom);
-                                }}
+                                onAtBottomChange={handleAtBottomChange}
                                 absoluteOffset={absoluteOffset}
                                 isRawMode={isRawMode}
                                 performanceHeatmap={performanceHeatmap}
                                 onKeyDown={handleKeyDown}
-                                onScroll={(top) => {
-                                    scrollTopRef.current = top;
-
-                                    // Helper specifically for Sync Scrolling feature
-                                    if (onSyncScroll && shiftPressedRef.current) {
-                                        if (ignoreSyncRef.current) {
-                                            ignoreSyncRef.current = false;
-                                            return;
-                                        }
-                                        onSyncScroll(top);
-                                    }
-                                }}
+                                onScroll={handleScroll}
                             />
                             {showScrollToBottom && (
                                 <button

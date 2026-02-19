@@ -137,7 +137,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     const [viewportHeight, setViewportHeight] = useState(0);
     const [cachedLines, setCachedLines] = useState<Map<number, CachedLine>>(new Map());
     const pendingIndices = useRef<Set<number>>(new Set());
-    const [isDragging, setIsDragging] = useState(false);
+    const isDraggingRef = useRef(false); // ✅ 상태가 아닌 Ref로 관리하여 재렌더링 방지
     const scrollTopRef = useRef(0);
     const scrollLeftRef = useRef(0); // ✅ NEW: Horizontal Scroll Ref
     const frameId = useRef<number | null>(null);
@@ -569,7 +569,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
     useEffect(() => {
         const handleGlobalMouseUp = () => {
-            setIsDragging(false);
+            isDraggingRef.current = false;
         };
         window.addEventListener('mouseup', handleGlobalMouseUp);
         return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
@@ -685,27 +685,19 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     }, [stableScrollTop, viewportHeight, rowHeight, totalCount, cachedLines]);
     const handleLineAction = (e: React.MouseEvent, index: number, type: 'click' | 'dbclick' | 'enter') => {
         if (e.altKey) {
-            if (type === 'click') {
-                const rect = scrollContainerRef.current?.getBoundingClientRect();
-                console.log(`[HyperLog] 🖱️ Alt+Drag Start: line=${index}`);
-                console.log(` - Screen (clientX/Y): ${e.clientX}, ${e.clientY}`);
-                console.log(` - Container (left/top): ${rect?.left}, ${rect?.top}`);
-                console.log(` - Scroll (left/top): ${scrollLeftRef.current}, ${scrollTopRef.current}`);
-                console.log(` - Constants: CONTENT_X_OFFSET=${CONTENT_X_OFFSET}, RowHeight=${rowHeight}`);
-                // Calc relative X to check if it matches CONTENT_X_OFFSET
-                if (rect) {
-                    const relativeX = e.clientX - rect.left + scrollLeftRef.current;
-                    console.log(` - RelativeX (Click X relative to scrollable start): ${relativeX.toFixed(2)}px`);
-                    console.log(` - Offset from Text Start: ${(relativeX - CONTENT_X_OFFSET).toFixed(2)}px`);
-                }
+            // ✅ Alt 클릭으로 텍스트 선택을 시작하면 기존 라인 선택(파란 줄)을 지워줍니다.
+            if (type === 'click' && onLineClick) {
+                onLineClick(-1, false, false);
             }
             // Alt 모드일 때는 브라우저 기본 텍스트 선택을 위해 아무것도 하지 않습니다.
             return;
         }
 
-        // ✅ 형님, Alt를 누르지 않고 클릭했을 때는 브라우저의 기본 텍스트 선택 영역을 강제로 지워줍니다.
-        // 이렇게 해야 의도치 않은 파란색 선택 영역이 남지 않습니다.
-        window.getSelection()?.removeAllRanges();
+        // ✅ 실제 왼쪽 클릭(button 0)이거나 줄 선택 드래그 중인 경우에만 기존 텍스트 선택을 지워줍니다.
+        // 단순히 마우스가 줄 위로 올라가는(enter) 상황이나 우클릭 시에는 지우지 않습니다.
+        if (e.button === 0 && (type !== 'enter' || isDraggingRef.current)) {
+            window.getSelection()?.removeAllRanges();
+        }
 
         // 형님, 클릭 시 즉시 스크롤 컨테이너에 포커스를 줘서 키보드 이벤트를 받을 수 있게 합니다.
         if (type === 'click' && scrollContainerRef.current) {
@@ -720,19 +712,22 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             if (onLineClick) {
                 const globalIndex = lineIndex + (absoluteOffset || 0);
 
-                // ✅ 형님, 우클릭 시 이미 선택된 라인이라면 선택을 해제하지 않고 컨텍스트 메뉴를 보여줍니다.
-                if (e.button === 2 && selectedIndices?.has(globalIndex)) {
+                // ✅ 텍스트 선택 영역이 있거나, 이미 선택된 라인이라면 우클릭 시 라인 선택을 새로 하지 않습니다.
+                const sel = window.getSelection();
+                const hasText = sel && !sel.isCollapsed && sel.toString().trim().length > 0;
+
+                if (e.button === 2 && (hasText || selectedIndices?.has(globalIndex))) {
                     return;
                 }
 
                 // 형님, 일반 드래그 시에는 브라우저 선택을 막아야 깔끔한 줄 선택이 됩니다.
                 if (e.button === 0) {
                     e.preventDefault();
-                    setIsDragging(true);
+                    isDraggingRef.current = true;
                 }
                 onLineClick(globalIndex, e.shiftKey, e.ctrlKey || e.metaKey);
             }
-        } else if (type === 'enter' && isDragging && onLineClick) {
+        } else if (type === 'enter' && isDraggingRef.current && onLineClick) {
             // 드래그 중인 라인에 마우스가 들어오면 자동으로 선택 범위를 확장합니다.
             onLineClick(lineIndex + (absoluteOffset || 0), true, false);
         } else if (type === 'dbclick' && onLineDoubleClick) {
@@ -881,7 +876,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                                 onMouseDown={(e) => handleLineAction(e, index, 'click')}
                                 onMouseEnter={(e) => handleLineAction(e, index, 'enter')}
                                 onDoubleClick={(e) => handleLineAction(e, index, 'dbclick')}
-                            >{line?.decodedContent || decodeHTMLEntities(line?.content || '')}</div>
+                            >{(line?.decodedContent || decodeHTMLEntities(line?.content || '')) + '\n'}</div>
                         );
                     })}
                 </div>
