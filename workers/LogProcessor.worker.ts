@@ -14,27 +14,35 @@ const textEncoder = new TextEncoder();
 let wasmModule: any = null;
 const initWasm = async () => {
     try {
-        // 1. Try loading from public/wasm (Default for all PCs)
-        // Vite interprets absolute paths starting with / as public directory assets
-        const wasmPath = '/wasm/happy_filter.js';
-        const wasm = await import(/* @vite-ignore */ wasmPath);
+        // 1. Try importing from src/wasm (Standard Vite way)
+        // Since we committed the build artifacts to src/wasm, we can import them directly.
+        // This allows Vite to process the file and handle the WASM asset correctly.
+        // @ts-ignore
+        const wasm = await import('../src/wasm/happy_filter');
         wasmModule = wasm;
         const instance = await wasm.default();
         wasmMemory = (instance as any).memory;
         wasmEngine = new wasm.FilterEngine(false);
-        console.log('WASM Filter Engine initialized from public/wasm');
+        console.log('WASM Filter Engine initialized from src/wasm');
     } catch (e) {
+        console.warn('Failed to load WASM from src. Trying public fallback...', e);
         try {
-            // 2. Fallback: Try importing from src (Local dev environment)
-            // @ts-ignore
-            const wasm = await import('../src/wasm/happy_filter');
+            // 2. Fallback: Try loading from public/wasm (compiled string path to bypass Vite check?)
+            // If src import fails, we might try to fetch it manally or use a different strategy,
+            // but for now let's just log the error as the src method is the correct one for Vite.
+            const wasmPath = '/wasm/happy_filter.js';
+            // Note: Direct import of public file might still be blocked by strict Vite config,
+            // but if src fails, we are in trouble anyway.
+            // We use a dynamic import with a variable to hopefully bypass static analysis if needed,
+            // but correct solution is src import.
+            const wasm = await import(/* @vite-ignore */ wasmPath);
             wasmModule = wasm;
             const instance = await wasm.default();
             wasmMemory = (instance as any).memory;
             wasmEngine = new wasm.FilterEngine(false);
-            console.log('WASM Filter Engine initialized from src');
+            console.log('WASM Filter Engine initialized from public/wasm fallback');
         } catch (e2) {
-            console.warn('WASM initialization failed (both public and src), falling back to JS filter.', e2);
+            console.warn('WASM initialization failed (both src and public), falling back to JS filter.', e2);
         }
     }
 };
