@@ -216,8 +216,30 @@ function logDebug(msg) {
 }
 
 const handleSocketConnection = (socket, deps = {}) => {
-    const spawnProc = deps.spawn || spawn;
+    const internalSpawn = deps.spawn || spawn;
     const SSHClient = deps.Client || Client;
+
+    /**
+     * ✅ Safe Spawn Wrapper for Socket Session
+     * Prevents server crashes by always attaching an 'error' listener.
+     */
+    const safeSpawn = (cmd, args, options = {}, logLabel = '[Process]') => {
+        try {
+            const p = internalSpawn(cmd, args, options);
+            if (p && typeof p.on === 'function') {
+                p.on('error', (err) => {
+                    console.error(`${logLabel} Spawn Error (${cmd}):`, err);
+                });
+            }
+            return p;
+        } catch (e) {
+            console.error(`${logLabel} Synchronous Spawn Exception (${cmd}):`, e);
+            return {
+                on: (n, cb) => { if (n === 'error') cb(e); return this; },
+                stdout: { on: () => { } }, stderr: { on: () => { } }, kill: () => { }
+            };
+        }
+    };
 
     let scrollStreamInterval = null;
 
@@ -647,7 +669,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                 const checkArgs = deviceId && deviceId !== 'auto-detect' ? ['-s', deviceId, 'shell', 'echo', 'READY'] : ['shell', 'echo', 'READY'];
                 console.log(`[SDB] Verifying device with: ${getSdbBin(sdbPath)} ${checkArgs.join(' ')}`);
 
-                const checker = spawnProc(getSdbBin(sdbPath), checkArgs);
+                const checker = safeSpawn(getSdbBin(sdbPath), checkArgs, {}, '[SDB Verify]');
                 let checkerOutput = '';
                 let checkerError = '';
                 let checkerKilled = false;
@@ -664,6 +686,23 @@ const handleSocketConnection = (socket, deps = {}) => {
 
                 checker.stdout.on('data', d => checkerOutput += d.toString());
                 checker.stderr.on('data', d => checkerError += d.toString());
+
+                // ✅ Add Error Handler to prevent crash on spawn failure
+                checker.on('error', (err) => {
+                    console.error('[SDB] Verification spawn error:', err);
+                    checkerError += `Spawn Error: ${err.message}`;
+                    // The 'close' event usually fires after 'error' with a non-zero code, 
+                    // or we can manually handle it here if 'close' doesn't fire. 
+                    // But typically for spawn ENOENT, 'error' fires and 'close' might not.
+                    // Let's ensure we clean up.
+                    clearTimeout(checkerTimeout);
+                    if (!checkerKilled) {
+                        socket.emit('sdb_error', { message: `SDB Start Error: ${err.message}. Check path.` });
+                        if (debugStream) { debugStream.end(); debugStream = null; }
+                        if (logFileStream) { logFileStream.end(); logFileStream = null; }
+                        checkerKilled = true;
+                    }
+                });
 
                 checker.on('close', (code) => {
                     clearTimeout(checkerTimeout);
@@ -684,9 +723,16 @@ const handleSocketConnection = (socket, deps = {}) => {
                                     message: `Device not found. Attempting auto-reconnect to ${fixedIp}...`
                                 });
 
-                                const dis = spawnProc(getSdbBin(sdbPath), ['disconnect', fixedIp]);
+                                const dis = safeSpawn(getSdbBin(sdbPath), ['disconnect', fixedIp], {}, '[SDB Recovery/Dis]');
+
                                 dis.on('close', () => {
-                                    const con = spawnProc(getSdbBin(sdbPath), ['connect', fixedIp]);
+                                    const con = safeSpawn(getSdbBin(sdbPath), ['connect', fixedIp], {}, '[SDB Recovery/Con]');
+
+                                    // Handle con errors specifically if needed for UI feedback
+                                    con.on('error', (err) => {
+                                        clearTimeout(conTimeout);
+                                        socket.emit('sdb_error', { message: `Auto-reconnect spawn failed: ${err.message}` });
+                                    });
 
                                     let conOutput = '';
                                     let conError = '';
@@ -753,7 +799,17 @@ const handleSocketConnection = (socket, deps = {}) => {
                         console.log('[SDB] ✓ Device verified, starting log stream...');
                         logDebug('Device verified, spawning log process...');
 
-                        sdbProcess = spawnProc(getSdbBin(sdbPath), args);
+                        sdbProcess = safeSpawn(getSdbBin(sdbPath), args, {}, '[SDB Main]');
+
+                        // ✅ Add Error Handler for Main Process
+                        sdbProcess.on('error', (err) => {
+                            console.error('[SDB] Main process spawn error:', err);
+                            logDebug(`Main process spawn error: ${err.message}`);
+                            socket.emit('sdb_error', { message: `SDB Execution Failed: ${err.message}` });
+                            sdbProcess = null;
+                            if (debugStream) { debugStream.end(); debugStream = null; }
+                            if (logFileStream) { logFileStream.end(); logFileStream = null; }
+                        });
 
                         if (sdbProcess && sdbProcess.pid) {
                             console.log('[SDB] ✓ Process spawned successfully, PID:', sdbProcess.pid);
@@ -881,7 +937,7 @@ const handleSocketConnection = (socket, deps = {}) => {
         }
         args.push('shell', 'dlogutil', '-c');
 
-        const clearProc = spawnProc(bin, args);
+        const clearProc = safeSpawn(bin, args, {}, '[SDB Clear]');
 
         clearProc.on('close', (code) => {
             if (code === 0) {
@@ -908,13 +964,13 @@ const handleSocketConnection = (socket, deps = {}) => {
         try {
             // 1. sdb disconnect
             await new Promise((resolve) => {
-                const child = spawnProc(getSdbBin(sdbPath), ['disconnect']);
+                const child = safeSpawn(getSdbBin(sdbPath), ['disconnect'], {}, '[SDB Remote/Dis]');
                 child.on('close', resolve);
             });
 
             // 2. sdb connect IP
             await new Promise((resolve, reject) => {
-                const child = spawnProc(getSdbBin(sdbPath), ['connect', ip]);
+                const child = safeSpawn(getSdbBin(sdbPath), ['connect', ip], {}, '[SDB Remote/Con]');
                 child.on('close', (code) => {
                     if (code === 0) resolve();
                     else reject(new Error(`Connect failed with code ${code}`));
@@ -923,14 +979,14 @@ const handleSocketConnection = (socket, deps = {}) => {
 
             // 3. sdb root on
             await new Promise((resolve) => {
-                const child = spawnProc(getSdbBin(sdbPath), ['root', 'on']);
+                const child = safeSpawn(getSdbBin(sdbPath), ['root', 'on'], {}, '[SDB Remote/Root]');
                 child.on('close', resolve);
             });
 
             socket.emit('sdb_remote_result', { success: true, message: 'Connected and Rooted' });
 
             // Refresh list
-            const listChild = spawnProc(getSdbBin(sdbPath), ['devices']);
+            const listChild = safeSpawn(getSdbBin(sdbPath), ['devices'], {}, '[SDB Remote/List]');
             let listData = '';
             listChild.stdout.on('data', d => listData += d.toString());
             listChild.on('close', () => {
@@ -1277,7 +1333,7 @@ const handleSocketConnection = (socket, deps = {}) => {
 
                 // Synchronous-like spawn wrapper for cleaner loop? using promise
                 await new Promise((resolve, reject) => {
-                    const child = spawnProc(getSdbBin(sdbPath), sdbArgs);
+                    const child = safeSpawn(getSdbBin(sdbPath), sdbArgs, {}, '[Wait Match/Cap]');
                     child.on('close', resolve);
                     child.on('error', reject);
                 });
@@ -1285,7 +1341,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                 // Pull
                 const pullArgs = deviceId ? ['-s', deviceId, 'pull', tempRemotePath, localPath] : ['pull', tempRemotePath, localPath];
                 await new Promise((resolve, reject) => {
-                    const child = spawnProc(getSdbBin(sdbPath), pullArgs);
+                    const child = safeSpawn(getSdbBin(sdbPath), pullArgs, {}, '[Wait Match/Pull]');
                     child.on('close', resolve);
                     child.on('error', reject);
                 });
@@ -1365,7 +1421,7 @@ const handleSocketConnection = (socket, deps = {}) => {
             // We need to handle shell commands properly.
             // sdb dlogutil -v kerneltime might need shell=true or split args.
             // Using spawn with shell option is safest for "command" strings.
-            const child = spawnProc(command, { shell: true });
+            const child = safeSpawn(command, [], { shell: true }, '[Background Log/Start]');
 
             child.stdout.on('data', (data) => {
                 fileStream.write(data);
@@ -1403,7 +1459,7 @@ const handleSocketConnection = (socket, deps = {}) => {
 
         // 1. If stopCommand provided, execute it (e.g. sdb shell killall dlog)
         if (stopCommand) {
-            const stopProc = spawnProc(stopCommand, { shell: true });
+            const stopProc = safeSpawn(stopCommand, [], { shell: true }, '[Background Log/Stop]');
             stopProc.on('close', (code) => {
                 console.log(`[BackgroundLog] Stop command exited with ${code}`);
             });
@@ -1446,7 +1502,7 @@ const handleSocketConnection = (socket, deps = {}) => {
         const captureCmd = `/usr/bin/enlightenment_info -dump_screen ${tempRemotePath}`;
         const sdbArgs = deviceId ? ['-s', deviceId, 'shell', captureCmd] : ['shell', captureCmd];
 
-        const captureProcess = spawnProc(getSdbBin(sdbPath), sdbArgs);
+        const captureProcess = safeSpawn(getSdbBin(sdbPath), sdbArgs, {}, '[Capture/Cap]');
 
         captureProcess.on('close', (code) => {
             if (code !== 0) {
@@ -1459,7 +1515,7 @@ const handleSocketConnection = (socket, deps = {}) => {
             // Step 2: Pull
             // sdb -s [id] pull [remote] [local]
             const pullArgs = deviceId ? ['-s', deviceId, 'pull', tempRemotePath, localPath] : ['pull', tempRemotePath, localPath];
-            const pullProcess = spawnProc(getSdbBin(sdbPath), pullArgs);
+            const pullProcess = safeSpawn(getSdbBin(sdbPath), pullArgs, {}, '[Capture/Pull]');
 
             pullProcess.on('close', (pullCode) => {
                 if (pullCode === 0 && fs.existsSync(localPath)) {
@@ -1470,7 +1526,7 @@ const handleSocketConnection = (socket, deps = {}) => {
 
                     // Cleanup remote (optional, good practice)
                     const rmArgs = deviceId ? ['-s', deviceId, 'shell', 'rm', tempRemotePath] : ['shell', 'rm', tempRemotePath];
-                    spawnProc(getSdbBin(sdbPath), rmArgs);
+                    safeSpawn(getSdbBin(sdbPath), rmArgs, {}, '[Capture/RM]');
                 } else {
                     socket.emit('capture_result', { success: false, message: 'Failed to pull screen capture. Command might have failed.' });
                 }
@@ -1618,7 +1674,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                 : ['shell', 'top', '-b', '-d', '1'];
 
             try {
-                cpuMonitorProcess = spawnProc(getSdbBin(sdbPath), args);
+                cpuMonitorProcess = safeSpawn(getSdbBin(sdbPath), args, {}, '[CPU Monitor]');
 
                 let buffer = '';
 
@@ -1829,7 +1885,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                 : ['shell', 'top', '-H', '-b', '-d', '1', '-p', pid];
 
             try {
-                threadMonitorProcess = spawnProc(getSdbBin(sdbPath), args);
+                threadMonitorProcess = safeSpawn(getSdbBin(sdbPath), args, {}, '[Thread Monitor]');
                 let buffer = '';
 
                 threadMonitorProcess.stdout.on('data', (data) => {
@@ -2015,7 +2071,7 @@ const handleSocketConnection = (socket, deps = {}) => {
                     : ['shell', 'vd_memps', '-p', targetPid, '-t', interval || '1'];
 
                 try {
-                    memoryMonitorProcess = spawnProc(getSdbBin(sdbPath), cmdArgs);
+                    memoryMonitorProcess = safeSpawn(getSdbBin(sdbPath), cmdArgs, {}, '[Memory Monitor]');
 
                     memoryMonitorProcess.stdout.on('data', (data) => {
                         const text = data.toString();
