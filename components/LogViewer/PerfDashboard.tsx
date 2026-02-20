@@ -61,6 +61,24 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     // Constants for coloring
     const palette = ['#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
 
+    // Helper for Axis Ticks
+    const generateTicks = (start: number, end: number, minTicks: number = 5) => {
+        const duration = Math.max(1, end - start);
+        const rawInterval = duration / minTicks;
+        const magnitude = Math.pow(10, Math.floor(Math.log10(rawInterval)));
+        let interval = magnitude;
+        if (rawInterval / magnitude >= 5) interval = magnitude * 5;
+        else if (rawInterval / magnitude >= 2) interval = magnitude * 2;
+        if (interval < 1) interval = 1;
+
+        const firstTick = Math.ceil(start / interval) * interval;
+        const ticks = [];
+        for (let t = firstTick; t <= end; t += interval) {
+            ticks.push(t);
+        }
+        return ticks;
+    };
+
     const flameSegments = useMemo(() => {
         if (!result) return [];
 
@@ -301,10 +319,28 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
                                             const newDuration = duration * zoomFactor;
 
-                                            // Focus on mouse position (simplified to center for now)
-                                            const center = currentStart + (duration / 2);
-                                            const newStart = Math.max(result.startTime, center - (newDuration / 2));
-                                            const newEnd = Math.min(result.endTime, center + (newDuration / 2));
+                                            // Focus on mouse position
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            const pointerX = e.clientX - rect.left;
+                                            const fractionalPos = Math.max(0, Math.min(1, pointerX / rect.width));
+                                            const timeAtPointer = currentStart + duration * fractionalPos;
+
+                                            let newStart = timeAtPointer - newDuration * fractionalPos;
+                                            let newEnd = newStart + newDuration;
+
+                                            // Clamp if zooming out past limits
+                                            if (newStart < result.startTime) {
+                                                newEnd += (result.startTime - newStart);
+                                                newStart = result.startTime;
+                                            }
+                                            if (newEnd > result.endTime) {
+                                                newStart -= (newEnd - result.endTime);
+                                                newEnd = result.endTime;
+                                            }
+
+                                            // Final clamp ensures we do not exceed original bounds
+                                            if (newStart < result.startTime) newStart = result.startTime;
+                                            if (newEnd > result.endTime) newEnd = result.endTime;
 
                                             setFlameZoom({ startTime: newStart, endTime: newEnd });
                                         }
@@ -349,10 +385,26 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                     <div
                                         className="relative min-w-full"
                                         style={{
-                                            height: `${(maxLane + 1) * 28}px`,
+                                            height: `${(maxLane + 1) * 28 + 24}px`,
                                             width: '100%'
                                         }}
                                     >
+                                        {/* Time Axis */}
+                                        <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 text-slate-400 font-mono text-[9px] flex items-end pb-0.5 select-none pointer-events-none z-[45]">
+                                            {generateTicks(flameZoom?.startTime ?? result.startTime, flameZoom?.endTime ?? result.endTime, 8).map(t => {
+                                                const viewStart = flameZoom?.startTime ?? result.startTime;
+                                                const viewDuration = Math.max(1, (flameZoom?.endTime ?? result.endTime) - viewStart);
+                                                const left = ((t - viewStart) / viewDuration) * 100;
+                                                // hide ticks that are off-screen
+                                                if (left < 0 || left > 100) return null;
+                                                return (
+                                                    <div key={t} className="absolute flex flex-col items-center transform -translate-x-1/2" style={{ left: `${left}%` }}>
+                                                        <span className="mb-0 opacity-70">{(t - result.startTime).toFixed(0)}</span>
+                                                        <div className="w-px h-1 bg-white/20" />
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                         {flameSegments.map(s => {
                                             const isSelected = s.id === selectedSegmentId;
                                             const isBottleneck = s.duration > targetTime;
@@ -387,7 +439,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                     style={{
                                                         left: `${left}%`,
                                                         width: `${Math.max(0.2, width)}%`,
-                                                        top: `${s.lane * 28}px`,
+                                                        top: `${s.lane * 28 + 24}px`,
                                                         backgroundColor: bgColor,
                                                         opacity: isSelected ? 1 : (isInterval ? 0.6 : 0.9)
                                                     }}
