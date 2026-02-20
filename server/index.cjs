@@ -188,6 +188,7 @@ let sshAuthFinish = null;
 // Batching State
 let logBuffer = '';
 let batchTimeout = null;
+let ignoreLogs = false; // ✅ Flag to drop old buffered logs during clear operations
 const BATCH_INTERVAL = 20; // ms
 
 function flushLogs(socket) {
@@ -199,6 +200,8 @@ function flushLogs(socket) {
 }
 
 function handleLogData(data, socket) {
+    if (ignoreLogs) return; // ✅ Drop old buffered data arriving during a clear operation
+
     const str = data.toString();
     if (logFileStream) logFileStream.write(data);
 
@@ -920,14 +923,18 @@ const handleSocketConnection = (socket, deps = {}) => {
     socket.on('ssh_clear', () => {
         if (sshConnection) {
             logBuffer = ''; // ✅ Clear backend buffer immediately
+            ignoreLogs = true; // ✅ Drop incoming old logs while clearing
+            if (batchTimeout) { clearTimeout(batchTimeout); batchTimeout = null; }
             console.log('[SSH] Clearing log buffer (dlogutil -c)...');
             sshConnection.exec('dlogutil -c', (err, stream) => {
                 if (err) {
                     console.error('[SSH] Failed to clear buffer:', err);
+                    ignoreLogs = false;
                     return;
                 }
                 stream.on('close', (code) => {
                     console.log(`[SSH] Buffer cleared (Code: ${code})`);
+                    ignoreLogs = false; // ✅ Resume log streaming
                     socket.emit('log_data', '[System] Device log buffer cleared.\n');
                 }).on('data', () => { }).stderr.on('data', () => { });
             });
@@ -937,6 +944,8 @@ const handleSocketConnection = (socket, deps = {}) => {
     // ✅ SDB Clear Buffer
     socket.on('sdb_clear', ({ deviceId, sdbPath }) => {
         logBuffer = ''; // ✅ Clear backend buffer immediately
+        ignoreLogs = true; // ✅ Drop incoming old logs while clearing
+        if (batchTimeout) { clearTimeout(batchTimeout); batchTimeout = null; }
         console.log(`[SDB] Clearing log buffer for ${deviceId || 'default'}...`);
         const bin = getSdbBin(sdbPath);
 
@@ -949,6 +958,7 @@ const handleSocketConnection = (socket, deps = {}) => {
         const clearProc = safeSpawn(bin, args, {}, '[SDB Clear]');
 
         clearProc.on('close', (code) => {
+            ignoreLogs = false; // ✅ Resume log streaming
             if (code === 0) {
                 console.log('[SDB] Buffer cleared successfully');
                 socket.emit('log_data', '[System] Device log buffer cleared.\n');
@@ -958,6 +968,7 @@ const handleSocketConnection = (socket, deps = {}) => {
         });
 
         clearProc.on('error', (err) => {
+            ignoreLogs = false;
             console.error('[SDB] Clear process error:', err);
         });
     });
