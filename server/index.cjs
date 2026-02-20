@@ -185,6 +185,9 @@ let debugStream = null;
 let logFileStream = null;
 let sshAuthFinish = null;
 
+let currentSshCommand = '';
+let currentSdbCommand = '';
+
 // Batching State
 let logBuffer = '';
 let batchTimeout = null;
@@ -415,6 +418,9 @@ const handleSocketConnection = (socket, deps = {}) => {
                         console.log('[SSH] Using default command: dlogutil -v kerneltime');
                         logDebug('Using default command: dlogutil -v kerneltime');
                     }
+
+                    // ✅ Save for clearing logic later
+                    currentSshCommand = cmdToSend;
 
                     console.log('[SSH] Writing command to stream:', cmdToSend.trim());
                     stream.write(cmdToSend);
@@ -822,6 +828,10 @@ const handleSocketConnection = (socket, deps = {}) => {
                                     console.log('[SDB] Writing default command: dlogutil -v kerneltime');
                                     logDebug('Using default command: dlogutil -v kerneltime');
                                 }
+
+                                // ✅ Save for clearing logic later
+                                currentSdbCommand = cmdToSend;
+
                                 if (sdbProcess && sdbProcess.stdin) {
                                     sdbProcess.stdin.write(cmdToSend);
                                 }
@@ -915,37 +925,65 @@ const handleSocketConnection = (socket, deps = {}) => {
         }
     });
 
-    // ✅ SSH Clear Buffer (Virtual Clear to prevent dlogutil crash)
+    // ✅ SSH Clear Buffer (In-shell restart to prevent shell crash and remove backlog)
     socket.on('ssh_clear', () => {
-        if (sshConnection) {
+        if (sshConnection && sshConnection.stream && sshConnection.stream.writable) {
             logBuffer = ''; // ✅ Clear backend buffer immediately
             ignoreLogs = true; // ✅ Drop incoming old logs while clearing
             if (batchTimeout) { clearTimeout(batchTimeout); batchTimeout = null; }
-            console.log('[SSH] Virtual Screen Clear (Dropping in-flight logs)');
+            console.log('[SSH] True Clear via in-shell restart');
+
+            // 1. Kill old background/foreground dlogutil
+            sshConnection.stream.write('\x03\nkillall dlogutil\npkill dlogutil\n');
 
             setTimeout(() => {
-                ignoreLogs = false; // ✅ Resume log streaming after pipes drain
-                socket.emit('log_data', '-----------------------------------------------------------\n[System] Log Screen Cleared\n-----------------------------------------------------------\n');
-            }, 500);
+                // 2. Clear buffer on device
+                sshConnection.stream.write('dlogutil -c\n');
+
+                setTimeout(() => {
+                    // 3. Restart tracing with user's original command
+                    sshConnection.stream.write(currentSshCommand || 'dlogutil -v kerneltime\n');
+
+                    setTimeout(() => {
+                        ignoreLogs = false; // ✅ Resume log streaming
+                        socket.emit('log_data', '-----------------------------------------------------------\n[System] Device Log Buffer Cleared\n-----------------------------------------------------------\n');
+                    }, 500); // 500ms for tail wait
+                }, 500); // 500ms for dlogutil -c to finish
+            }, 300); // 300ms for killall to finish
         }
     });
 
-    // ✅ SDB Clear Buffer (Virtual Clear to prevent sdb shell crash)
+    // ✅ SDB Clear Buffer (In-shell restart to prevent shell crash and remove backlog)
     socket.on('sdb_clear', ({ deviceId, sdbPath }) => {
-        let cleanDeviceId = deviceId;
-        if (cleanDeviceId && typeof cleanDeviceId === 'string' && cleanDeviceId.startsWith('SDB:')) {
-            cleanDeviceId = cleanDeviceId.substring(4);
+        if (sdbProcess && sdbProcess.stdin && sdbProcess.stdin.writable) {
+            let cleanDeviceId = deviceId;
+            if (cleanDeviceId && typeof cleanDeviceId === 'string' && cleanDeviceId.startsWith('SDB:')) {
+                cleanDeviceId = cleanDeviceId.substring(4);
+            }
+
+            logBuffer = ''; // ✅ Clear backend buffer immediately
+            ignoreLogs = true; // ✅ Drop incoming old logs while clearing
+            if (batchTimeout) { clearTimeout(batchTimeout); batchTimeout = null; }
+            console.log(`[SDB] True Clear via in-shell restart for ${cleanDeviceId || 'default'}`);
+
+            // 1. Kill old background/foreground dlogutil
+            sdbProcess.stdin.write('\x03\nkillall dlogutil\npkill dlogutil\n');
+
+            setTimeout(() => {
+                // 2. Clear buffer on device
+                sdbProcess.stdin.write('dlogutil -c\n');
+
+                setTimeout(() => {
+                    // 3. Restart tracing with user's original command
+                    sdbProcess.stdin.write(currentSdbCommand || 'dlogutil -v kerneltime\n');
+
+                    setTimeout(() => {
+                        ignoreLogs = false; // ✅ Resume log streaming
+                        socket.emit('log_data', '-----------------------------------------------------------\n[System] Device Log Buffer Cleared\n-----------------------------------------------------------\n');
+                    }, 500); // 500ms for tail wait
+                }, 500); // 500ms for dlogutil -c to finish
+            }, 300); // 300ms for killall to finish
         }
-
-        logBuffer = ''; // ✅ Clear backend buffer immediately
-        ignoreLogs = true; // ✅ Drop incoming old logs while clearing
-        if (batchTimeout) { clearTimeout(batchTimeout); batchTimeout = null; }
-        console.log(`[SDB] Virtual Screen Clear for ${cleanDeviceId || 'default'} (Dropping in-flight logs)`);
-
-        setTimeout(() => {
-            ignoreLogs = false; // ✅ Resume log streaming after pipes drain
-            socket.emit('log_data', '-----------------------------------------------------------\n[System] Log Screen Cleared\n-----------------------------------------------------------\n');
-        }, 500);
     });
 
     socket.on('disconnect', () => {
