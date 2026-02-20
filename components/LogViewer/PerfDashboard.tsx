@@ -60,6 +60,39 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
+    const [isScanningStatus, setIsScanningStatus] = useState(isAnalyzing);
+    const minScanTimeMs = 1000;
+    const scanStartTimeRef = React.useRef<number>(0);
+    const scanTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+    const dragCleanupRef = React.useRef<(() => void) | null>(null);
+
+    useEffect(() => {
+        if (isAnalyzing) {
+            setIsScanningStatus(true);
+            scanStartTimeRef.current = Date.now();
+            if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
+        } else {
+            const elapsed = Date.now() - scanStartTimeRef.current;
+            if (elapsed < minScanTimeMs) {
+                scanTimeoutRef.current = setTimeout(() => {
+                    setIsScanningStatus(false);
+                }, minScanTimeMs - elapsed);
+            } else {
+                setIsScanningStatus(false);
+            }
+        }
+
+        return () => {
+            if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
+        };
+    }, [isAnalyzing]);
+
+    useEffect(() => {
+        return () => {
+            if (dragCleanupRef.current) dragCleanupRef.current();
+        };
+    }, []);
+
     useEffect(() => {
         const timeout = setTimeout(() => {
             setSearchQuery(searchInput);
@@ -147,7 +180,9 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                         const onUp = () => {
                             window.removeEventListener('mousemove', onMove);
                             window.removeEventListener('mouseup', onUp);
+                            dragCleanupRef.current = null;
                         };
+                        dragCleanupRef.current = onUp;
                         window.addEventListener('mousemove', onMove);
                         window.addEventListener('mouseup', onUp);
                     }}
@@ -166,7 +201,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
             {/* Header Bar */}
             <div className="h-10 shrink-0 flex items-center justify-between px-4 bg-slate-900 border-b border-white/5 select-none">
                 <div className="flex items-center gap-3">
-                    <div className={`flex items-center gap-2 ${isAnalyzing ? 'animate-pulse text-indigo-400' : 'text-slate-400'}`}>
+                    <div className={`flex items-center gap-2 ${isScanningStatus ? 'animate-pulse text-indigo-400' : 'text-slate-400'}`}>
                         <LayoutDashboard size={14} />
                         <span className="text-xs font-bold uppercase tracking-wider">Performance Dashboard</span>
                     </div>
@@ -214,9 +249,55 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
             </div>
 
             {/* Content Body */}
-            <AnimatePresence>
-                {!minimized && result && (
+            <AnimatePresence mode="wait">
+                {isScanningStatus ? (
                     <motion.div
+                        key="scanning"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex-1 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-sm z-50 relative overflow-hidden"
+                    >
+                        {/* Colorful Loading / Scanning Animation */}
+                        <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
+                            {/* Outer spinning gradient ring */}
+                            <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+                                className="absolute inset-0 rounded-full border-t-4 border-indigo-500 border-r-4 border-pink-500 border-b-4 border-emerald-500 border-l-4 border-transparent opacity-80 shadow-[0_0_15px_rgba(99,102,241,0.5)]"
+                            />
+                            {/* Inner pulsing orb */}
+                            <motion.div
+                                animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.7, 0.3] }}
+                                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                                className="absolute inset-4 rounded-full bg-gradient-to-tr from-indigo-500 to-pink-500 blur-md"
+                            />
+                            {/* Center Icon */}
+                            <Activity size={32} className="text-white relative z-10" />
+                        </div>
+                        <h3 className="text-white font-bold text-lg tracking-wider mb-3 drop-shadow-md">Analyzing Performance</h3>
+                        <div className="flex items-center gap-1.5 text-slate-300 text-[11px] font-mono">
+                            <motion.div
+                                animate={{ opacity: [0.3, 1, 0.3] }}
+                                transition={{ repeat: Infinity, duration: 1, delay: 0 }}
+                                className="w-1.5 h-1.5 rounded-full bg-indigo-400"
+                            />
+                            <motion.div
+                                animate={{ opacity: [0.3, 1, 0.3] }}
+                                transition={{ repeat: Infinity, duration: 1, delay: 0.2 }}
+                                className="w-1.5 h-1.5 rounded-full bg-pink-400"
+                            />
+                            <motion.div
+                                animate={{ opacity: [0.3, 1, 0.3] }}
+                                transition={{ repeat: Infinity, duration: 1, delay: 0.4 }}
+                                className="w-1.5 h-1.5 rounded-full bg-emerald-400"
+                            />
+                            <span className="ml-2 uppercase tracking-widest text-slate-400">Extracting transactions...</span>
+                        </div>
+                    </motion.div>
+                ) : !minimized && result ? (
+                    <motion.div
+                        key="content"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -402,8 +483,10 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                         const onUp = () => {
                                             window.removeEventListener('mousemove', onMove);
                                             window.removeEventListener('mouseup', onUp);
+                                            dragCleanupRef.current = null;
                                         };
 
+                                        dragCleanupRef.current = onUp;
                                         window.addEventListener('mousemove', onMove);
                                         window.addEventListener('mouseup', onUp);
                                     }}
@@ -600,8 +683,10 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                 const onUp = () => {
                                                     window.removeEventListener('mousemove', onMove);
                                                     window.removeEventListener('mouseup', onUp);
+                                                    dragCleanupRef.current = null;
                                                 };
 
+                                                dragCleanupRef.current = onUp;
                                                 window.addEventListener('mousemove', onMove);
                                                 window.addEventListener('mouseup', onUp);
                                             }}
@@ -664,22 +749,21 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 </div>
                             )}
 
-
                         </div>
                     </motion.div>
-                )}
+                ) : null}
             </AnimatePresence>
 
             {
-                !result && !minimized && (
+                !result && !minimized && !isScanningStatus && (
                     <div className="flex-1 flex items-center justify-center text-slate-600 gap-2">
-                        <Activity size={20} className="animate-bounce opacity-20" />
+                        <Activity size={20} className="opacity-20" />
                         <span className="text-xs font-bold uppercase tracking-widest opacity-50">
-                            {isAnalyzing ? 'Analyzing Performance...' : 'Ready to Analyze'}
+                            Ready to Analyze
                         </span>
                     </div>
                 )
             }
-        </div >
+        </div>
     );
 };

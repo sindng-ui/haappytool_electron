@@ -844,21 +844,30 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                     <>
                         <AnimatePresence>
                             {(perfAnalysisResult || isAnalyzingPerformance) && (
-                                <PerfDashboard
-                                    isOpen={true}
-                                    result={perfAnalysisResult || null}
-                                    isAnalyzing={isAnalyzingPerformance}
-                                    onClose={() => {
-                                        if (onAnalyzePerformance) onAnalyzePerformance();
-                                    }}
-                                    targetTime={1000}
-                                    onJumpToLine={onJumpToLine}
-                                    onJumpToRange={onJumpToRange}
-                                    onViewRawRange={onViewRawRange}
-                                    onCopyRawRange={onCopyRawRange}
-                                    height={dashboardHeight}
-                                    onHeightChange={onDashboardHeightChange}
-                                />
+                                <motion.div
+                                    key="perf-dashboard-wrapper"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                    className="w-full relative z-20 shrink-0"
+                                >
+                                    <PerfDashboard
+                                        isOpen={true}
+                                        result={perfAnalysisResult || null}
+                                        isAnalyzing={isAnalyzingPerformance}
+                                        onClose={() => {
+                                            if (onAnalyzePerformance) onAnalyzePerformance();
+                                        }}
+                                        targetTime={1000}
+                                        onJumpToLine={onJumpToLine}
+                                        onJumpToRange={onJumpToRange}
+                                        onViewRawRange={onViewRawRange}
+                                        onCopyRawRange={onCopyRawRange}
+                                        height={dashboardHeight}
+                                        onHeightChange={onDashboardHeightChange}
+                                    />
+                                </motion.div>
                             )}
                         </AnimatePresence>
 
