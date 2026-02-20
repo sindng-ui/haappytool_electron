@@ -865,7 +865,7 @@ export const useLogExtractorLogic = ({
 
 
             const detailedHash = assembleIncludeGroups(currentConfig).map(g => g.join(',')).join('|');
-            const filterVersion = `rule:${selectedRuleId}_hash:${detailedHash}`;
+            const filterVersion = `rule:${selectedRuleId}_hash:${detailedHash}_qf:${quickFilter}`;
 
             if (filterVersion === lastFilterHashLeft.current) {
                 return;
@@ -1110,7 +1110,7 @@ export const useLogExtractorLogic = ({
                 exc: effectiveExcludes,
                 happyCase: !!currentConfig.happyCombosCaseSensitive,
                 blockCase: !!currentConfig.blockListCaseSensitive,
-
+                quickFilter
             });
 
             if (payloadHash === lastFilterHashRight.current) {
@@ -1122,10 +1122,10 @@ export const useLogExtractorLogic = ({
             setRightWorkerReady(false);
             rightWorkerRef.current.postMessage({
                 type: 'FILTER_LOGS',
-                payload: { ...currentConfig, includeGroups: refinedGroups }
+                payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
             });
         }
-    }, [currentConfig, rightTotalLines, isDualView]);
+    }, [currentConfig, rightTotalLines, isDualView, quickFilter]);
 
     const handleClearLogs = useCallback(() => {
         // 1. Backend Clear (Device Buffer)
