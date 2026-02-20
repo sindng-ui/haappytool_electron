@@ -39,27 +39,32 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
         // Goal: If it looks like a log (has timestamp/tag), return FALSE for isStandard so it gets Filtered.
         // If it looks like shell noise (prompt, echo), return TRUE so it Bypasses filters (and is shown).
 
-        const hasTimeColon = line.indexOf(':') > -1;
+        const trimmedLine = line.trimStart();
+        const hasTimeColon = trimmedLine.indexOf(':') > -1;
 
         // Supported Formats:
-        // 1. Tizen/Android: "MM-DD HH:MM:SS" or "Time Only" -> line[2]==':' or line[4]=='-' or line[2]=='-'
-        // 2. Linux Syslog: "Feb 20 13:00:00" -> Starts with Mmm (line[3]==' ') AND has time
-        // 3. Brackets: "[2024...]" -> line[0]=='['
-        // 4. ISO8601: "2024-02..." -> line[4]=='-'
+        // 1. Tizen/Android: "MM-DD HH:MM:SS" or "Time Only" -> [2]==':' or [4]=='-' or [2]=='-'
+        // 2. Linux Syslog: "Feb 20 13:00:00" -> Starts with Mmm ([3]==' ') AND has time
+        // 3. Brackets: "[2024...]" -> [0]=='['
+        // 4. ISO8601: "2024-02..." -> [4]=='-'
+        // 5. Level slash: "I/Tag", "W/Tag"
+        // 6. Kernel level: "<5> [   ..."
 
         const isStandard =
-            line.includes(' /') || // Tizen Tag/Label separator
-            (line.length > 10 && (
-                line[2] === ':' ||  // "HH:MM:SS"
-                line[2] === '-' ||  // "MM-DD"
-                line[4] === '-' ||  // "YYYY-MM-DD"
-                line[0] === '[' ||  // "[TIMESTAMP]"
-                (line[3] === ' ' && hasTimeColon) // "Mmm DD HH:MM:SS" (Basic check: 3rd char space + contains colon)
+            trimmedLine.includes(' /') || // Tizen Tag/Label separator
+            /^[VDIWEF]\//.test(trimmedLine) || // Tizen V/TAG format without date
+            /^<\d+>/.test(trimmedLine) ||      // Kernel Priority <5>
+            (trimmedLine.length > 10 && (
+                trimmedLine[2] === ':' ||  // "HH:MM:SS"
+                trimmedLine[2] === '-' ||  // "MM-DD"
+                trimmedLine[4] === '-' ||  // "YYYY-MM-DD"
+                trimmedLine[0] === '[' ||  // "[TIMESTAMP]"
+                (trimmedLine[3] === ' ' && hasTimeColon) // "Mmm DD HH:MM:SS"
             ));
 
         if (!isStandard) {
             // DEBUG: Only log if it contains target keyword but bypassed
-            if (line.includes('ST_APP')) console.log('[FilterTrace] Bypassing ST_APP line (Non-Standard):', line.substring(0, 100));
+            if (trimmedLine.includes('ST_APP')) console.log('[FilterTrace] Bypassing ST_APP line (Non-Standard):', trimmedLine.substring(0, 100));
             return true;
         }
     }
