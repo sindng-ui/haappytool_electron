@@ -668,7 +668,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             setStableScrollTop(top);
             setStableScrollLeft(left); // ✅ NEW
             if (onAtBottomChange) {
-                const isAtBottom = top + viewportHeight >= scrollHeight - 50;
+                const isAtBottom = top + clientHeight >= scrollHeight - 50;
                 onAtBottomChange(isAtBottom);
             }
         }, 16);

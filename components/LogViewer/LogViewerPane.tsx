@@ -147,7 +147,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     }, [preferences?.levelStyles]);
 
     // Auto-scroll (Sticky Bottom) State
-    const [atBottom, setAtBottom] = useState(false);
+    // ✅ 초기에 무조건 스크롤이 바닥에 붙도록 기본값을 true로 설정.
+    const [atBottom, setAtBottom] = useState(true);
 
     // ✅ Performance: Dynamic overscan based on scroll state
     // When streaming at bottom, reduce overscan to save rendering cost
