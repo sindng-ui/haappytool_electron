@@ -57,8 +57,16 @@ const ConfigurationPanel: React.FC = () => {
 
             // 2. Refresh tags and build command
             const cmdTemplate = currentConfig.logCommand ?? defaultLogCommand;
-            const tags = (currentConfig.logTags || []).join(' ');
-            const finalCmd = cmdTemplate.replace(/\$\(TAGS\)/g, tags);
+            const tags = (currentConfig.logTags || []).join(' ').trim();
+            let finalCmd = cmdTemplate.replace(/\$\(TAGS\)/g, tags);
+
+            // Cleanup: remove redundant separators and spaces when tags are empty
+            finalCmd = finalCmd
+                .replace(/--filter\s+;/g, ';') // remove empty filter before semicolon
+                .replace(/;\s*;/g, ';')      // remove double semicolons
+                .replace(/\s+/g, ' ')        // collapse spaces
+                .replace(/;\s*$/, '')        // remove trailing semicolon
+                .trim();
 
             console.log('[ConfigPanel] Starting Logging:', {
                 template: cmdTemplate,

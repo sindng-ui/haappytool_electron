@@ -575,8 +575,12 @@ const handleSocketConnection = (socket, deps = {}) => {
             const tagString = Array.isArray(tags) ? tags.join(' ') : '';
             command = command.replace(/\$\(TAGS\)/g, tagString);
 
-            // Cleanup: similar to SSH for consistency
-            command = command.replace(/\s+/g, ' ').trim();
+            // Cleanup: consistent with SSH and Frontend
+            command = command.replace(/--filter\s+;/g, ';') // remove empty filter before semicolon
+                .replace(/;\s*;/g, ';')      // remove double semicolons
+                .replace(/\s+/g, ' ')        // collapse spaces
+                .replace(/;\s*$/, '')        // remove trailing semicolon
+                .trim();
 
             console.log(`[SDB] Substituted $(TAGS) -> "${tagString}"`);
             console.log(`[SDB] Effective command: ${command}`);
@@ -639,19 +643,9 @@ const handleSocketConnection = (socket, deps = {}) => {
 
             args.push('shell');
 
-            if (command && typeof command === 'string' && command.trim().length > 0) {
-                if (!isRetry) { // Log only once
-                    console.log(`[SDB] Using custom command: ${command}`);
-                    logDebug(`Custom command provided: ${command}`);
-                }
-                const cmdParts = command.trim().split(/\s+/);
-                args.push(...cmdParts);
-            } else {
-                if (!isRetry) {
-                    console.log('[SDB] Using default command: dlogutil -v kerneltime');
-                    logDebug('Using default command: dlogutil -v kerneltime');
-                }
-                args.push('dlogutil', '-v', 'kerneltime');
+            if (!isRetry) {
+                console.log('[SDB] Using shell for interaction');
+                logDebug('Using interactive shell');
             }
 
             if (!isRetry) {
@@ -814,6 +808,21 @@ const handleSocketConnection = (socket, deps = {}) => {
                         if (sdbProcess && sdbProcess.pid) {
                             console.log('[SDB] ✓ Process spawned successfully, PID:', sdbProcess.pid);
                             logDebug(`Process spawned with PID: ${sdbProcess.pid}`);
+
+                            setTimeout(() => {
+                                let cmdToSend = 'dlogutil -v kerneltime\n';
+                                if (command && typeof command === 'string' && command.trim().length > 0) {
+                                    cmdToSend = command.trim() + '\n';
+                                    console.log(`[SDB] Writing custom command: ${command}`);
+                                    logDebug(`Custom command provided: ${command}`);
+                                } else {
+                                    console.log('[SDB] Writing default command: dlogutil -v kerneltime');
+                                    logDebug('Using default command: dlogutil -v kerneltime');
+                                }
+                                if (sdbProcess && sdbProcess.stdin) {
+                                    sdbProcess.stdin.write(cmdToSend);
+                                }
+                            }, 500);
 
                             // CRITICAL: Notify client that connection succeeded
                             socket.emit('sdb_status', { status: 'connected', message: 'SDB Connected successfully' });
