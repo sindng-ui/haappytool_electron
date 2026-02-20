@@ -262,9 +262,9 @@ const initStream = (payload?: { isLive?: boolean }) => {
 
 // --- Handler: Process Chunk (Stream) ---
 let streamBuffer = '';
-// ✅ Performance: Throttle FILTER_COMPLETE messages
+// ✅ Performance: Throttle FILTER_COMPLETE messages to ensure smooth 30+ FPS rendering
 let lastFilterNotifyTime = 0;
-const MIN_NOTIFY_INTERVAL_MS = 500; // 500ms throttle
+const MIN_NOTIFY_INTERVAL_MS = 32; // Reduced from 500ms for buttery smooth live streaming
 
 const processChunk = (chunk: string) => {
     if (!isStreamMode) return;

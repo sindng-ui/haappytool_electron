@@ -321,14 +321,25 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 
     const prevScrollTopRef = useRef<number>(0);
 
-    // Clear cache when file changes or worker restarts (e.g. new filter)
+    // Clear cache when file changes or worker restarts (e.g. new filter) or stream cleared
     useEffect(() => {
         const newMap = new Map<number, { lineNum: number, content: string }>();
         setCachedLines(newMap);
         cachedLinesRef.current = newMap;
         pendingIndicesRef.current.clear();
         prevScrollTopRef.current = 0;
-    }, [workerReady, fileName]); // Removed totalMatches to prevent cache clear on streaming updates
+    }, [workerReady, fileName]);
+
+    // ✅ Fix: Clear cache aggressively when totalMatches becomes 0 (e.g. Log Clear command sent)
+    // Prevents Virtuoso from rendering old cached lines when new logs arrive with colliding indices.
+    useEffect(() => {
+        if (totalMatches === 0) {
+            const newMap = new Map<number, { lineNum: number, content: string }>();
+            setCachedLines(newMap);
+            cachedLinesRef.current = newMap;
+            pendingIndicesRef.current.clear();
+        }
+    }, [totalMatches]);
 
 
 
@@ -764,8 +775,11 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         >
             {/* Toolbar */}
             {!isRawMode && (
-                <div className={`h-11 border-b border-slate-200 dark:border-white/5 flex items-center justify-between shrink-0 z-20 group/toolbar px-3 
-                    ${isRawMode ? 'bg-transparent' : 'bg-white/50 dark:bg-slate-950/50'}`}>
+                <div
+                    className={`h-11 border-b border-slate-200 dark:border-white/5 flex items-center justify-between shrink-0 z-50 relative group/toolbar px-3 
+                    ${isRawMode ? 'bg-transparent' : 'bg-white/50 dark:bg-slate-950/50'}`}
+                    style={{ WebkitAppRegion: 'no-drag' } as any}
+                >
                     <div className="flex items-center gap-3 overflow-hidden">
                         <div className={`p-1.5 rounded-lg shadow-sm transition-all duration-300 ${workerReady ? (isRawMode ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-300' : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 icon-glow') : 'bg-slate-100 text-slate-500 dark:bg-slate-800/50 dark:text-slate-500'}`}>
                             {isRawMode ? <Split size={14} /> : <Zap size={14} />}

@@ -990,9 +990,9 @@ export const useLogExtractorLogic = ({
 
             tizenBuffer.current.push(chunk);
 
-            // ✅ Performance: Adaptive buffering strategy
-            const MAX_BUFFER_SIZE = 500; // Limit buffer size to prevent memory issues
-            const BUFFER_TIMEOUT_MS = 250; // Reduced from 500ms for better responsiveness
+            // ✅ Performance: Adaptive buffering strategy for buttery smooth 30+ FPS Live Log Streaming
+            const MAX_BUFFER_SIZE = 100; // Emit immediately to worker once 100 lines received
+            const BUFFER_TIMEOUT_MS = 32; // Flush buffer every 32ms (~30 FPS) if not filled
 
             // 1. If buffer is too large, flush immediately
             if (tizenBuffer.current.length >= MAX_BUFFER_SIZE) {
