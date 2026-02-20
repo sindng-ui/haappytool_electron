@@ -838,22 +838,18 @@ const handleSocketConnection = (socket, deps = {}) => {
                         // ... SDB Stdout/Stderr listeners ...
                         sdbProcess.stdout.on('data', (data) => {
                             if (data) {
-                                const str = data.toString();
-                                socket.emit('log_data', str);
-                                if (saveToFile && logFileStream) logFileStream.write(str);
+                                handleLogData(data, socket);
                             }
                         });
 
                         sdbProcess.stderr.on('data', (data) => {
                             if (data) {
                                 const str = data.toString();
-                                // Optional: Emit stderr as log or error? 
-                                // Typically dlogutil output goes to stdout, but errors to stderr.
                                 console.log('[SDB STDERR]', str);
                                 if (str.includes('closed') || str.includes('error') || str.includes('failed')) {
                                     // socket.emit('sdb_error', { message: str }); // Can be noisy
                                 }
-                                if (saveToFile && logFileStream) logFileStream.write(`[STDERR] ${str}`);
+                                handleLogData(data, socket);
                             }
                         });
 
@@ -919,63 +915,37 @@ const handleSocketConnection = (socket, deps = {}) => {
         }
     });
 
-    // ✅ SSH Clear Buffer
+    // ✅ SSH Clear Buffer (Virtual Clear to prevent dlogutil crash)
     socket.on('ssh_clear', () => {
         if (sshConnection) {
             logBuffer = ''; // ✅ Clear backend buffer immediately
             ignoreLogs = true; // ✅ Drop incoming old logs while clearing
             if (batchTimeout) { clearTimeout(batchTimeout); batchTimeout = null; }
-            console.log('[SSH] Clearing log buffer (dlogutil -c)...');
-            sshConnection.exec('dlogutil -c', (err, stream) => {
-                if (err) {
-                    console.error('[SSH] Failed to clear buffer:', err);
-                    ignoreLogs = false;
-                    return;
-                }
-                stream.on('close', (code) => {
-                    console.log(`[SSH] Buffer cleared (Code: ${code}). Waiting 1.5s for pipes to drain...`);
-                    setTimeout(() => {
-                        ignoreLogs = false; // ✅ Resume log streaming after OS pipes drain
-                        socket.emit('log_data', '[System] Device log buffer cleared.\n');
-                    }, 1500);
-                }).on('data', () => { }).stderr.on('data', () => { });
-            });
+            console.log('[SSH] Virtual Screen Clear (Dropping in-flight logs)');
+
+            setTimeout(() => {
+                ignoreLogs = false; // ✅ Resume log streaming after pipes drain
+                socket.emit('log_data', '-----------------------------------------------------------\n[System] Log Screen Cleared\n-----------------------------------------------------------\n');
+            }, 500);
         }
     });
 
-    // ✅ SDB Clear Buffer
+    // ✅ SDB Clear Buffer (Virtual Clear to prevent sdb shell crash)
     socket.on('sdb_clear', ({ deviceId, sdbPath }) => {
+        let cleanDeviceId = deviceId;
+        if (cleanDeviceId && typeof cleanDeviceId === 'string' && cleanDeviceId.startsWith('SDB:')) {
+            cleanDeviceId = cleanDeviceId.substring(4);
+        }
+
         logBuffer = ''; // ✅ Clear backend buffer immediately
         ignoreLogs = true; // ✅ Drop incoming old logs while clearing
         if (batchTimeout) { clearTimeout(batchTimeout); batchTimeout = null; }
-        console.log(`[SDB] Clearing log buffer for ${deviceId || 'default'}...`);
-        const bin = getSdbBin(sdbPath);
+        console.log(`[SDB] Virtual Screen Clear for ${cleanDeviceId || 'default'} (Dropping in-flight logs)`);
 
-        const args = [];
-        if (deviceId && deviceId !== 'auto-detect') {
-            args.push('-s', deviceId);
-        }
-        args.push('shell', 'dlogutil', '-c');
-
-        const clearProc = safeSpawn(bin, args, {}, '[SDB Clear]');
-
-        clearProc.on('close', (code) => {
-            if (code === 0) {
-                console.log('[SDB] Buffer cleared successfully. Waiting 1.5s for pipes to drain...');
-                setTimeout(() => {
-                    ignoreLogs = false; // ✅ Resume log streaming after OS pipes fully drain
-                    socket.emit('log_data', '[System] Device log buffer cleared.\n');
-                }, 1500);
-            } else {
-                ignoreLogs = false;
-                console.error(`[SDB] Failed to clear buffer (Code: ${code})`);
-            }
-        });
-
-        clearProc.on('error', (err) => {
-            ignoreLogs = false;
-            console.error('[SDB] Clear process error:', err);
-        });
+        setTimeout(() => {
+            ignoreLogs = false; // ✅ Resume log streaming after pipes drain
+            socket.emit('log_data', '-----------------------------------------------------------\n[System] Log Screen Cleared\n-----------------------------------------------------------\n');
+        }, 500);
     });
 
     socket.on('disconnect', () => {
