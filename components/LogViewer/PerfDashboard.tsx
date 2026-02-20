@@ -60,6 +60,33 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
+    // Bottleneck Navigator Logic
+    const [currentBottleneckIndex, setCurrentBottleneckIndex] = useState(-1);
+    const bottlenecks = useMemo(() => {
+        if (!result) return [];
+        return result.bottlenecks || result.segments.filter(s => s.duration >= (result.perfThreshold || 1000));
+    }, [result]);
+
+    const jumpToBottleneck = (index: number) => {
+        if (!result || bottlenecks.length === 0) return;
+
+        let targetIndex = index;
+        if (targetIndex < 0) targetIndex = bottlenecks.length - 1;
+        if (targetIndex >= bottlenecks.length) targetIndex = 0;
+
+        const target = bottlenecks[targetIndex];
+        setCurrentBottleneckIndex(targetIndex);
+        setSelectedSegmentId(target.id);
+
+        // User requested: Do not zoom in on the bottleneck segment. Keep the map fully zoomed out.
+        setFlameZoom(null);
+
+        // Sync with log viewer
+        if (onJumpToRange) {
+            onJumpToRange(target.startLine, target.endLine);
+        }
+    };
+
     const [isScanningStatus, setIsScanningStatus] = useState(isAnalyzing);
     const minScanTimeMs = 1000;
     const scanStartTimeRef = React.useRef<number>(0);
@@ -321,6 +348,33 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 </div>
                             </div>
 
+                            {/* Bottleneck Navigator */}
+                            {bottlenecks.length > 0 && (
+                                <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-3 flex flex-col gap-2">
+                                    <span className="text-[9px] text-rose-400 uppercase font-black flex items-center gap-1">
+                                        <Target size={10} />
+                                        Bottleneck Navigator
+                                    </span>
+                                    <div className="flex items-center justify-between gap-1">
+                                        <button
+                                            onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
+                                            className="px-2 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded text-[10px] font-bold transition-colors flex-1 text-center"
+                                        >
+                                            ◀ Prev
+                                        </button>
+                                        <span className="text-[10px] text-slate-400 font-mono px-2">
+                                            {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'} / {bottlenecks.length}
+                                        </span>
+                                        <button
+                                            onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
+                                            className="px-2 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded text-[10px] font-bold transition-colors flex-1 text-center"
+                                        >
+                                            Next ▶
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* View Toggles */}
                             <div className="flex p-1 bg-slate-950 rounded-lg border border-white/5 gap-0.5">
                                 <button
@@ -551,8 +605,10 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                         e.stopPropagation();
                                                         onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
                                                     }}
-                                                    className={`absolute h-5 rounded flex items-center px-1.5 cursor-pointer transition-all border group/item ${isSelected ? 'z-30 border-white shadow-lg brightness-110' : 'z-10 border-transparent hover:border-white/20 hover:brightness-105'
-                                                        } ${isGroup ? 'border-2 border-white/30 shadow-sm' : ''} ${isInterval ? 'opacity-70' : ''}`}
+                                                    className={`absolute h-5 rounded flex items-center px-1.5 cursor-pointer transition-all group/item ${isSelected
+                                                            ? 'z-[60] border-2 border-white/90 shadow-[0_0_8px_1px_rgba(255,255,255,0.7)] brightness-110 saturate-110'
+                                                            : 'z-10 border border-transparent hover:border-white/20 hover:brightness-105'
+                                                        } ${isGroup && !isSelected ? 'border-2 border-white/30 shadow-sm' : ''} ${isInterval ? 'opacity-70' : ''}`}
                                                     style={{
                                                         left: `${left}%`,
                                                         width: `${Math.max(0.2, width)}%`,
