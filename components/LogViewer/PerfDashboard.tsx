@@ -19,7 +19,7 @@ interface PerfDashboardProps {
 
 const {
     Flame, TrendingUp, X, ChevronUp, ChevronDown, Maximize2, Minimize2, Activity, Clock, Target, ArrowRight,
-    LayoutDashboard, AlignLeft, Copy, GripHorizontal
+    LayoutDashboard, AlignLeft, Copy, GripHorizontal, Search
 } = Lucide;
 
 /**
@@ -57,6 +57,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'chart' | 'list'>('chart');
     const [minimized, setMinimized] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Constants for coloring
     const palette = ['#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
@@ -172,6 +173,23 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1">
+                    {/* Search Input */}
+                    <div className="flex items-center bg-black/20 rounded border border-white/10 px-2 py-1 mr-2 focus-within:border-indigo-500/50 focus-within:bg-black/40 transition-colors">
+                        <Search size={12} className="text-slate-500 mr-2" />
+                        <input
+                            type="text"
+                            placeholder="Filter segments..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="bg-transparent text-[10px] text-white w-32 focus:outline-none placeholder:text-slate-600 font-mono"
+                        />
+                        {searchQuery && (
+                            <button onClick={() => setSearchQuery('')} className="text-slate-500 hover:text-white ml-1">
+                                <X size={10} />
+                            </button>
+                        )}
+                    </div>
+
                     <button
                         onClick={() => setMinimized(!minimized)}
                         className="p-1.5 hover:bg-white/10 rounded-md text-slate-400 transition-colors"
@@ -422,6 +440,14 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             const bgColor = isSelected ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
                                             const textColor = getContrastColor(bgColor);
 
+                                            const isMatch = !searchQuery || s.name.toLowerCase().includes(searchQuery.toLowerCase());
+
+                                            // Determine base opacity:
+                                            // Selected: 1, Normal Match: 0.9, Normal Interval Match: 0.6
+                                            // Non-Match: Dim to 0.15
+                                            const baseOpacity = isSelected ? 1 : (isInterval ? 0.6 : 0.9);
+                                            const finalOpacity = isMatch ? baseOpacity : 0.15;
+
                                             return (
                                                 <div
                                                     key={s.id}
@@ -441,7 +467,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                         width: `${Math.max(0.2, width)}%`,
                                                         top: `${s.lane * 28 + 24}px`,
                                                         backgroundColor: bgColor,
-                                                        opacity: isSelected ? 1 : (isInterval ? 0.6 : 0.9)
+                                                        opacity: finalOpacity
                                                     }}
                                                     title={`${s.name} (${s.duration}ms)`}
                                                 >
@@ -504,6 +530,9 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             // Fallback palette color if no dangerColor
                                             const bgColor = s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]);
 
+                                            const isMatch = !searchQuery || s.name.toLowerCase().includes(searchQuery.toLowerCase());
+                                            const finalOpacity = isMatch ? 0.6 : 0.1;
+
                                             return (
                                                 <div
                                                     key={`mini-${s.id}`}
@@ -514,7 +543,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                         bottom: 0,
                                                         height: `${Math.max(2, (s.lane + 1) * 2)}px`,
                                                         backgroundColor: bgColor,
-                                                        opacity: 0.6
+                                                        opacity: finalOpacity
                                                     }}
                                                 />
                                             );
@@ -585,41 +614,43 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {(result.bottlenecks || [...result.segments].sort((a, b) => b.duration - a.duration).slice(0, 50)).map(s => {
-                                                const isGroup = s.id.startsWith('group-');
-                                                const isInterval = s.id.startsWith('interval-');
-                                                const isBottleneck = s.duration >= (result.perfThreshold || 1000);
+                                            {(result.bottlenecks || [...result.segments].sort((a, b) => b.duration - a.duration).slice(0, 50))
+                                                .filter(s => !searchQuery || s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                                                .map(s => {
+                                                    const isGroup = s.id.startsWith('group-');
+                                                    const isInterval = s.id.startsWith('interval-');
+                                                    const isBottleneck = s.duration >= (result.perfThreshold || 1000);
 
-                                                return (
-                                                    <tr
-                                                        key={s.id}
-                                                        onClick={() => {
-                                                            setSelectedSegmentId(s.id);
-                                                            onJumpToRange?.(s.startLine, s.endLine);
-                                                        }}
-                                                        onDoubleClick={() => {
-                                                            onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
-                                                        }}
-                                                        className={`border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors ${selectedSegmentId === s.id ? 'bg-indigo-500/10' : ''} ${isInterval ? 'opacity-60' : ''}`}
-                                                    >
-                                                        <td className="p-2">
-                                                            <div className={`w-1.5 h-1.5 rounded-full ${isBottleneck ? 'bg-rose-500' : 'bg-emerald-500'} ${isGroup ? 'ring-2 ring-emerald-500/50' : ''}`}
-                                                                style={{ backgroundColor: s.dangerColor || undefined }} />
-                                                        </td>
-                                                        <td className={`p-2 text-[10px] font-medium truncate max-w-[200px] ${isGroup ? 'text-white font-bold' : 'text-slate-300'}`}>
-                                                            {s.name}
-                                                            {isGroup && <span className="ml-2 text-[8px] bg-emerald-500/20 text-emerald-400 px-1 rounded">GROUP</span>}
-                                                        </td>
-                                                        <td className={`p-2 text-[10px] font-mono font-bold text-right ${isBottleneck ? 'text-rose-400' : 'text-slate-400'}`}
-                                                            style={{ color: s.dangerColor || undefined }}>
-                                                            {s.duration}ms
-                                                        </td>
-                                                        <td className="p-2 text-[10px] font-mono text-slate-500 text-right">
-                                                            L{(s.originalStartLine || s.startLine) === (s.originalEndLine || s.endLine) ? (s.originalStartLine || s.startLine) : `${(s.originalStartLine || s.startLine)}-${(s.originalEndLine || s.endLine)}`}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
+                                                    return (
+                                                        <tr
+                                                            key={s.id}
+                                                            onClick={() => {
+                                                                setSelectedSegmentId(s.id);
+                                                                onJumpToRange?.(s.startLine, s.endLine);
+                                                            }}
+                                                            onDoubleClick={() => {
+                                                                onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
+                                                            }}
+                                                            className={`border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors ${selectedSegmentId === s.id ? 'bg-indigo-500/10' : ''} ${isInterval ? 'opacity-60' : ''}`}
+                                                        >
+                                                            <td className="p-2">
+                                                                <div className={`w-1.5 h-1.5 rounded-full ${isBottleneck ? 'bg-rose-500' : 'bg-emerald-500'} ${isGroup ? 'ring-2 ring-emerald-500/50' : ''}`}
+                                                                    style={{ backgroundColor: s.dangerColor || undefined }} />
+                                                            </td>
+                                                            <td className={`p-2 text-[10px] font-medium truncate max-w-[200px] ${isGroup ? 'text-white font-bold' : 'text-slate-300'}`}>
+                                                                {s.name}
+                                                                {isGroup && <span className="ml-2 text-[8px] bg-emerald-500/20 text-emerald-400 px-1 rounded">GROUP</span>}
+                                                            </td>
+                                                            <td className={`p-2 text-[10px] font-mono font-bold text-right ${isBottleneck ? 'text-rose-400' : 'text-slate-400'}`}
+                                                                style={{ color: s.dangerColor || undefined }}>
+                                                                {s.duration}ms
+                                                            </td>
+                                                            <td className="p-2 text-[10px] font-mono text-slate-500 text-right">
+                                                                L{(s.originalStartLine || s.startLine) === (s.originalEndLine || s.endLine) ? (s.originalStartLine || s.startLine) : `${(s.originalStartLine || s.startLine)}-${(s.originalEndLine || s.endLine)}`}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                         </tbody>
                                     </table>
                                 </div>
