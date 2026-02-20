@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import * as Lucide from 'lucide-react';
+import { X, LayoutDashboard, Target, Activity, ChevronUp, ChevronDown, RefreshCw, ZoomIn, Search, Maximize, Clock, AlignLeft, Copy, Maximize2 } from 'lucide-react';
 import { AnalysisResult, AnalysisSegment } from '../../utils/perfAnalysis';
 
 interface PerfDashboardProps {
@@ -16,11 +16,6 @@ interface PerfDashboardProps {
     height: number;
     onHeightChange: (height: number) => void;
 }
-
-const {
-    Flame, TrendingUp, X, ChevronUp, ChevronDown, Maximize2, Minimize2, Activity, Clock, Target, ArrowRight,
-    LayoutDashboard, AlignLeft, Copy, GripHorizontal, Search
-} = Lucide;
 
 /**
  * Calculates whether black or white text should be used based on background brightness (YIQ)
@@ -59,6 +54,21 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const [minimized, setMinimized] = useState(false);
     const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Time Ruler Tool Logic
+    const [measureRange, setMeasureRange] = useState<{ startTime: number, endTime: number } | null>(null);
+    const [isShiftPressed, setIsShiftPressed] = useState(false);
+
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Shift') setIsShiftPressed(true); };
+        const onKeyUp = (e: KeyboardEvent) => { if (e.key === 'Shift') setIsShiftPressed(false); };
+        window.addEventListener('keydown', onKeyDown);
+        window.addEventListener('keyup', onKeyUp);
+        return () => {
+            window.removeEventListener('keydown', onKeyDown);
+            window.removeEventListener('keyup', onKeyUp);
+        };
+    }, []);
 
     // Bottleneck Navigator Logic
     const [currentBottleneckIndex, setCurrentBottleneckIndex] = useState(-1);
@@ -446,7 +456,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
                             {viewMode === 'chart' && (
                                 <div
-                                    className="flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar p-4 relative select-none cursor-grab active:cursor-grabbing group/chart"
+                                    className={`flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar p-4 relative select-none group/chart ${isShiftPressed ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
                                     onWheel={(e) => {
                                         if (!result) return;
                                         e.preventDefault();
@@ -507,42 +517,106 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                         }
                                     }}
                                     onMouseDown={(e) => {
-                                        // Simple Drag Pan Implementation
-                                        const startX = e.clientX;
-                                        const currentStart = flameZoom?.startTime ?? result.startTime;
-                                        const currentEnd = flameZoom?.endTime ?? result.endTime;
-                                        const duration = currentEnd - currentStart;
                                         const containerWidth = e.currentTarget.clientWidth;
+                                        const rect = e.currentTarget.getBoundingClientRect();
 
-                                        const onMove = (mv: MouseEvent) => {
-                                            const deltaX = startX - mv.clientX;
-                                            const panAmount = (deltaX / containerWidth) * duration;
+                                        const viewStart = flameZoom?.startTime ?? result.startTime;
+                                        const viewEnd = flameZoom?.endTime ?? result.endTime;
+                                        const viewDuration = Math.max(1, viewEnd - viewStart);
 
-                                            let newStart = currentStart + panAmount;
-                                            let newEnd = currentEnd + panAmount;
+                                        // Helper for Magnetic Snap
+                                        const getSnappedTime = (rawTime: number) => {
+                                            const pixelToTimeRatio = viewDuration / containerWidth;
+                                            const snapThresholdTime = 10 * pixelToTimeRatio; // ~10px snap radius
 
-                                            // Clamp
-                                            if (newStart < result.startTime) {
-                                                newStart = result.startTime;
-                                                newEnd = newStart + duration;
-                                            }
-                                            if (newEnd > result.endTime) {
-                                                newEnd = result.endTime;
-                                                newStart = newEnd - duration;
-                                            }
+                                            let bestSnap = rawTime;
+                                            let minDiff = snapThresholdTime;
 
-                                            setFlameZoom({ startTime: newStart, endTime: newEnd });
+                                            flameSegments.forEach(s => {
+                                                // Check start
+                                                const diffStart = Math.abs(s.startTime - rawTime);
+                                                if (diffStart < minDiff) { minDiff = diffStart; bestSnap = s.startTime; }
+                                                // Check end
+                                                const diffEnd = Math.abs(s.endTime - rawTime);
+                                                if (diffEnd < minDiff) { minDiff = diffEnd; bestSnap = s.endTime; }
+                                            });
+                                            return bestSnap;
                                         };
 
-                                        const onUp = () => {
-                                            window.removeEventListener('mousemove', onMove);
-                                            window.removeEventListener('mouseup', onUp);
-                                            dragCleanupRef.current = null;
-                                        };
+                                        if (e.shiftKey) {
+                                            // == MEASURE (RULER) MODE ==
+                                            e.preventDefault();
 
-                                        dragCleanupRef.current = onUp;
-                                        window.addEventListener('mousemove', onMove);
-                                        window.addEventListener('mouseup', onUp);
+                                            // Init point
+                                            const startFraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / containerWidth));
+                                            const rawStartTime = viewStart + (viewDuration * startFraction);
+                                            const snappedStartTime = getSnappedTime(rawStartTime);
+
+                                            setMeasureRange({
+                                                startTime: snappedStartTime,
+                                                endTime: snappedStartTime
+                                            });
+
+                                            const onMove = (mv: MouseEvent) => {
+                                                const moveFraction = Math.max(0, Math.min(1, (mv.clientX - rect.left) / containerWidth));
+                                                const rawEndTime = viewStart + (viewDuration * moveFraction);
+                                                const snappedEndTime = getSnappedTime(rawEndTime);
+
+                                                setMeasureRange(prev => prev ? {
+                                                    ...prev,
+                                                    endTime: snappedEndTime
+                                                } : null);
+                                            };
+
+                                            const onUp = () => {
+                                                window.removeEventListener('mousemove', onMove);
+                                                window.removeEventListener('mouseup', onUp);
+                                                dragCleanupRef.current = null;
+                                            };
+                                            dragCleanupRef.current = onUp;
+                                            window.addEventListener('mousemove', onMove);
+                                            window.addEventListener('mouseup', onUp);
+
+                                        } else {
+                                            // == SIMPLE PAN MODE ==
+                                            // If clicking without shift, clear ruler
+                                            setMeasureRange(null);
+
+                                            const startX = e.clientX;
+                                            const currentStart = viewStart;
+                                            const currentEnd = viewEnd;
+                                            const duration = currentEnd - currentStart;
+
+                                            const onMove = (mv: MouseEvent) => {
+                                                const deltaX = startX - mv.clientX;
+                                                const panAmount = (deltaX / containerWidth) * duration;
+
+                                                let newStart = currentStart + panAmount;
+                                                let newEnd = currentEnd + panAmount;
+
+                                                // Clamp
+                                                if (newStart < result.startTime) {
+                                                    newStart = result.startTime;
+                                                    newEnd = newStart + duration;
+                                                }
+                                                if (newEnd > result.endTime) {
+                                                    newEnd = result.endTime;
+                                                    newStart = newEnd - duration;
+                                                }
+
+                                                setFlameZoom({ startTime: newStart, endTime: newEnd });
+                                            };
+
+                                            const onUp = () => {
+                                                window.removeEventListener('mousemove', onMove);
+                                                window.removeEventListener('mouseup', onUp);
+                                                dragCleanupRef.current = null;
+                                            };
+
+                                            dragCleanupRef.current = onUp;
+                                            window.addEventListener('mousemove', onMove);
+                                            window.addEventListener('mouseup', onUp);
+                                        }
                                     }}
                                 >
                                     <div
@@ -568,6 +642,32 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                 );
                                             })}
                                         </div>
+
+                                        {/* Time Ruler UI */}
+                                        {measureRange && (() => {
+                                            const viewStart = flameZoom?.startTime ?? result.startTime;
+                                            const viewDuration = Math.max(1, (flameZoom?.endTime ?? result.endTime) - viewStart);
+                                            const rulerStart = Math.min(measureRange.startTime, measureRange.endTime);
+                                            const rulerEnd = Math.max(measureRange.startTime, measureRange.endTime);
+                                            const leftPercent = ((rulerStart - viewStart) / viewDuration) * 100;
+                                            const widthPercent = ((rulerEnd - rulerStart) / viewDuration) * 100;
+
+                                            return (
+                                                <div
+                                                    className="absolute top-0 bottom-0 bg-amber-500/20 border-x-2 border-amber-500/80 z-[80] pointer-events-none shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                                                    style={{
+                                                        left: `${Math.max(0, leftPercent)}%`,
+                                                        width: `${Math.max(0.1, widthPercent)}%`
+                                                    }}
+                                                >
+                                                    <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-amber-500 text-amber-950 font-bold text-[11px] px-2.5 py-1 rounded shadow-lg whitespace-nowrap flex items-center gap-1.5 backdrop-blur-sm border border-amber-400">
+                                                        <Clock size={11} />
+                                                        {(rulerEnd - rulerStart).toLocaleString(undefined, { maximumFractionDigits: 2 })}ms
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
                                         {flameSegments.map(s => {
                                             const isSelected = s.id === selectedSegmentId;
                                             const isBottleneck = s.duration > targetTime;
@@ -606,8 +706,8 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                         onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
                                                     }}
                                                     className={`absolute h-5 rounded flex items-center px-1.5 cursor-pointer transition-all group/item ${isSelected
-                                                            ? 'z-[60] border-2 border-white/90 shadow-[0_0_8px_1px_rgba(255,255,255,0.7)] brightness-110 saturate-110'
-                                                            : 'z-10 border border-transparent hover:border-white/20 hover:brightness-105'
+                                                        ? 'z-[60] border-2 border-white/90 shadow-[0_0_8px_1px_rgba(255,255,255,0.7)] brightness-110 saturate-110'
+                                                        : 'z-10 border border-transparent hover:border-white/20 hover:brightness-105'
                                                         } ${isGroup && !isSelected ? 'border-2 border-white/30 shadow-sm' : ''} ${isInterval ? 'opacity-70' : ''}`}
                                                     style={{
                                                         left: `${left}%`,
@@ -820,6 +920,6 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                     </div>
                 )
             }
-        </div>
+        </div >
     );
 };
