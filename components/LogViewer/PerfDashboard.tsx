@@ -57,7 +57,15 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'chart' | 'list'>('chart');
     const [minimized, setMinimized] = useState(false);
+    const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            setSearchQuery(searchInput);
+        }, 250);
+        return () => clearTimeout(timeout);
+    }, [searchInput]);
 
     // Constants for coloring
     const palette = ['#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
@@ -119,7 +127,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
     return (
         <div
-            className="w-full border-b border-white/10 flex flex-col transition-all duration-300 ease-in-out relative group/dashboard"
+            className="w-full border-b-[6px] border-[#080b14] shadow-[0_8px_16px_rgba(0,0,0,0.6)] z-10 flex flex-col transition-all duration-300 ease-in-out relative group/dashboard"
             style={{
                 height: minimized ? '40px' : `${height}px`,
                 backgroundColor: '#0f172a' // Slate-950 distinct bg
@@ -179,12 +187,12 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                         <input
                             type="text"
                             placeholder="Filter segments..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
                             className="bg-transparent text-[10px] text-white w-32 focus:outline-none placeholder:text-slate-600 font-mono"
                         />
-                        {searchQuery && (
-                            <button onClick={() => setSearchQuery('')} className="text-slate-500 hover:text-white ml-1">
+                        {searchInput && (
+                            <button onClick={() => setSearchInput('')} className="text-slate-500 hover:text-white ml-1">
                                 <X size={10} />
                             </button>
                         )}
@@ -531,7 +539,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             const bgColor = s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]);
 
                                             const isMatch = !searchQuery || s.name.toLowerCase().includes(searchQuery.toLowerCase());
-                                            const finalOpacity = isMatch ? 0.6 : 0.1;
+                                            const finalOpacity = isMatch ? 0.85 : 0.15;
 
                                             return (
                                                 <div
@@ -541,7 +549,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                         left: `${left}%`,
                                                         width: `${Math.max(0.1, width)}%`,
                                                         bottom: 0,
-                                                        height: `${Math.max(2, (s.lane + 1) * 2)}px`,
+                                                        height: `${Math.max(6, (s.lane + 1) * 3)}px`,
                                                         backgroundColor: bgColor,
                                                         opacity: finalOpacity
                                                     }}
