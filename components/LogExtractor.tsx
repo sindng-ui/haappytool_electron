@@ -579,7 +579,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
             {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
             {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
             <div
-                className={`absolute right-0 h-8 z-40 transition-[left,transform] duration-700 ease-[cubic-bezier(0.19,1,0.22,1)] top-0 ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? 'translate-y-0' : 'translate-y-16'}`}
+                className={`absolute right-0 h-8 z-40 transition-[left,transform] duration-700 ease-[cubic-bezier(0.19,1,0.22,1)] top-0 ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? 'translate-y-0 pointer-events-none' : 'translate-y-16 pointer-events-auto'}`}
                 style={{
                     left: isPanelOpen ? configPanelWidth : 32,
                     transitionDelay: isPanelOpen ? '100ms, 0ms' : '0ms, 100ms' // Staggered: Open=HeaderDown/Wait/PanelOut, Close=PanelIn/Wait/HeaderUp. Wait...
