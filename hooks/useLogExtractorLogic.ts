@@ -585,6 +585,8 @@ export const useLogExtractorLogic = ({
     // Global Keyboard Event Listener
     useEffect(() => {
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            if (!isActive) return;
+
             if (e.repeat) {
                 // Throttle repeated keys if necessary, but standard execution is usually fine
             }
@@ -662,11 +664,11 @@ export const useLogExtractorLogic = ({
                     if (e.key === '+' || e.key === '=') {
                         e.preventDefault();
                         const current = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
-                        window.electronAPI?.setZoomFactor && window.electronAPI.setZoomFactor(current + 0.1);
+                        window.electronAPI?.setZoomFactor && window.electronAPI.setZoomFactor(current + 0.05);
                     } else if (e.key === '-' || e.key === '_') {
                         e.preventDefault();
                         const current = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
-                        window.electronAPI?.setZoomFactor && window.electronAPI.setZoomFactor(Math.max(0.5, current - 0.1));
+                        window.electronAPI?.setZoomFactor && window.electronAPI.setZoomFactor(Math.max(0.5, current - 0.05));
                     }
                 } else {
                     // Disable default Zoom Out (Ctrl -) to enforce Ctrl+Shift+-
@@ -693,7 +695,7 @@ export const useLogExtractorLogic = ({
         };
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [isDualView, rawContextOpen, activeLineIndexRight, activeLineIndexLeft, logViewPreferences]); // Added dependency
+    }, [isDualView, rawContextOpen, activeLineIndexRight, activeLineIndexLeft, logViewPreferences, isActive]); // Added dependency
 
     const handleZoomIn = useCallback((source: 'mouse' | 'keyboard' = 'keyboard') => {
         // Enforce Zoom Factor reset to 1.0
