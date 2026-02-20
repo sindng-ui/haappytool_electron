@@ -10,7 +10,7 @@ interface PerfDashboardProps {
     isAnalyzing: boolean;
     onJumpToLine?: (lineNum: number) => void;
     onJumpToRange?: (start: number, end: number) => void;
-    onViewRawRange?: (originalStart: number, originalEnd: number) => void;
+    onViewRawRange?: (originalStart: number, originalEnd: number, filteredIndex?: number) => void;
     onCopyRawRange?: (start: number, end: number) => void;
     targetTime: number;
     height: number;
@@ -226,7 +226,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                 </div>
                                                 <div className="flex gap-1.5 mt-2">
                                                     <button
-                                                        onClick={() => onViewRawRange?.(s.originalStartLine, s.originalEndLine)}
+                                                        onClick={() => onViewRawRange?.(s.originalStartLine, s.originalEndLine, s.startLine + 1)}
                                                         className="flex-1 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[9px] font-bold uppercase rounded-lg border border-indigo-500/20 transition-colors flex items-center justify-center gap-1"
                                                     >
                                                         <AlignLeft size={10} /> Raw
@@ -380,7 +380,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                     }}
                                                     onDoubleClick={(e) => {
                                                         e.stopPropagation();
-                                                        onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine);
+                                                        onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
                                                     }}
                                                     className={`absolute h-5 rounded flex items-center px-1.5 cursor-pointer transition-all border group/item ${isSelected ? 'z-30 border-white shadow-lg brightness-110' : 'z-10 border-transparent hover:border-white/20 hover:brightness-105'
                                                         } ${isGroup ? 'border-2 border-white/30 shadow-sm' : ''} ${isInterval ? 'opacity-70' : ''}`}
@@ -439,7 +439,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                             onJumpToRange?.(s.startLine, s.endLine);
                                                         }}
                                                         onDoubleClick={() => {
-                                                            onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine);
+                                                            onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
                                                         }}
                                                         className={`border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors ${selectedSegmentId === s.id ? 'bg-indigo-500/10' : ''} ${isInterval ? 'opacity-60' : ''}`}
                                                     >

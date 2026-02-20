@@ -24,7 +24,7 @@ interface RawContextViewerProps {
     sourcePane: 'left' | 'right';
     leftFileName: string;
     rightFileName: string;
-    targetLine: { lineNum: number; content: string };
+    targetLine: { lineNum: number; content: string; formattedLineIndex?: number | string };
     onClose: () => void;
     heightPercent: number;
     onResizeStart: (e: React.MouseEvent) => void;
@@ -63,7 +63,7 @@ const RawContextViewer: React.FC<RawContextViewerProps> = ({
                         <span className="mx-2 opacity-50">|</span>
                         Original Line: <span className="text-white">{targetLine.lineNum}</span>
                         <span className="mx-2 opacity-50">|</span>
-                        Filtered Row: <span className="text-yellow-400">#{(targetLine as any).formattedLineIndex ?? '?'}</span>
+                        Filtered Row: <span className="text-yellow-400">#{targetLine.formattedLineIndex ?? '?'}</span>
                     </span>
                     <button onClick={onClose} className="text-indigo-400 hover:text-white"><X size={14} /></button>
                 </div>

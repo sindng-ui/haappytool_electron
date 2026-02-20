@@ -1402,12 +1402,12 @@ export const useLogExtractorLogic = ({
         });
     }, []);
 
-    const handleViewRawRangeLeft = useCallback(async (start: number, end: number) => {
+    const handleViewRawRangeLeft = useCallback(async (start: number, end: number, filteredIndex?: number) => {
         const relativeIndex = start - 1;
         try {
             const lines = await requestLeftRawLines(relativeIndex, 1);
             if (lines && lines.length > 0) {
-                setRawContextTargetLine({ ...lines[0], formattedLineIndex: '?' } as any);
+                setRawContextTargetLine({ ...lines[0], formattedLineIndex: filteredIndex ?? '?' } as any);
                 setRawContextSourcePane('left');
                 setRawViewHighlightRange({ start, end });
                 setRawContextOpen(true);
@@ -1417,12 +1417,12 @@ export const useLogExtractorLogic = ({
         }
     }, [requestLeftRawLines]);
 
-    const handleViewRawRangeRight = useCallback(async (start: number, end: number) => {
+    const handleViewRawRangeRight = useCallback(async (start: number, end: number, filteredIndex?: number) => {
         const relativeIndex = start - 1;
         try {
             const lines = await requestRightRawLines(relativeIndex, 1);
             if (lines && lines.length > 0) {
-                setRawContextTargetLine({ ...lines[0], formattedLineIndex: '?' } as any);
+                setRawContextTargetLine({ ...lines[0], formattedLineIndex: filteredIndex ?? '?' } as any);
                 setRawContextSourcePane('right');
                 setRawViewHighlightRange({ start, end });
                 setRawContextOpen(true);

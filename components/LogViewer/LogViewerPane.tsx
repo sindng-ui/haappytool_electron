@@ -60,7 +60,7 @@ interface LogViewerPaneProps {
     isAnalyzingPerformance?: boolean;
     onJumpToLine?: (lineNum: number) => void;
     onJumpToRange?: (start: number, end: number) => void;
-    onViewRawRange?: (originalStart: number, originalEnd: number) => void;
+    onViewRawRange?: (originalStart: number, originalEnd: number, filteredIndex?: number) => void;
     onCopyRawRange?: (start: number, end: number) => void;
     dashboardHeight?: number;
     onDashboardHeightChange?: (height: number) => void;
