@@ -114,6 +114,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const rightFileInputRef = React.useRef<HTMLInputElement>(null);
     const { isFocusMode } = useHappyTool(); // ✅ Use global focus mode state
 
+    const defaultLogCommand = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
+
     // ✅ Resize Detection for Smart Transitions
     const [isResizing, setIsResizing] = React.useState(false);
     React.useEffect(() => {
@@ -1065,7 +1067,14 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 currentConnectionInfo={leftFileName}
                 isQuickConnect={isTizenQuickConnect}
                 tags={currentConfig?.logTags || []}
-                logCommand={currentConfig?.logCommand}
+                logCommand={(() => {
+                    if (!currentConfig) return undefined;
+                    const cmd = currentConfig.logCommand ?? defaultLogCommand;
+                    const tags = (currentConfig.logTags || []).join(' ');
+                    // Explicitly substitute tags client-side to ensure server gets the final command
+                    // especially for SDB reconnects where server-side substitution might be flaky or unimplemented
+                    return cmd.replace(/\$\(TAGS\)/g, tags);
+                })()}
             />
 
 

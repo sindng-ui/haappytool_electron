@@ -35,9 +35,28 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
 
     // 2. Bypass Logic for Stream Mode
     if (bypassShellFilter && rule.showRawLogLines !== false) {
-        // Optimized standard log detection (avoiding complex regex if possible)
-        // Supported: "23:00:00", "2024-02-16", "02-16"
-        const isStandard = line.includes(' /') || (line.length > 10 && (line[2] === ':' || line[4] === '-' || line[2] === '-'));
+        // Optimized standard log detection (heuristics to distinguish "Logs" from "Shell Output")
+        // Goal: If it looks like a log (has timestamp/tag), return FALSE for isStandard so it gets Filtered.
+        // If it looks like shell noise (prompt, echo), return TRUE so it Bypasses filters (and is shown).
+
+        const hasTimeColon = line.indexOf(':') > -1;
+
+        // Supported Formats:
+        // 1. Tizen/Android: "MM-DD HH:MM:SS" or "Time Only" -> line[2]==':' or line[4]=='-' or line[2]=='-'
+        // 2. Linux Syslog: "Feb 20 13:00:00" -> Starts with Mmm (line[3]==' ') AND has time
+        // 3. Brackets: "[2024...]" -> line[0]=='['
+        // 4. ISO8601: "2024-02..." -> line[4]=='-'
+
+        const isStandard =
+            line.includes(' /') || // Tizen Tag/Label separator
+            (line.length > 10 && (
+                line[2] === ':' ||  // "HH:MM:SS"
+                line[2] === '-' ||  // "MM-DD"
+                line[4] === '-' ||  // "YYYY-MM-DD"
+                line[0] === '[' ||  // "[TIMESTAMP]"
+                (line[3] === ' ' && hasTimeColon) // "Mmm DD HH:MM:SS" (Basic check: 3rd char space + contains colon)
+            ));
+
         if (!isStandard) {
             // DEBUG: Only log if it contains target keyword but bypassed
             if (line.includes('ST_APP')) console.log('[FilterTrace] Bypassing ST_APP line (Non-Standard):', line.substring(0, 100));

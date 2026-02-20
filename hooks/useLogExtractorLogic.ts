@@ -1072,10 +1072,13 @@ export const useLogExtractorLogic = ({
             } else {
                 // FIX: Only send to the active connection mode to avoid duplicates
                 if (connectionMode === 'sdb') {
+                    console.log('[useLog] Sending SDB command:', cmd);
                     tizenSocket.emit('sdb_write', cmd);
                 } else if (connectionMode === 'ssh') {
+                    console.log('[useLog] Sending SSH command:', cmd);
                     tizenSocket.emit('ssh_write', cmd);
                 } else if (!connectionMode) {
+                    console.warn('[useLog] Connection mode is null, falling back to SDB write');
                     // Fallback or Test mode? For safety, try both if null (though should be set)
                     // actually if it's null it might be safe to try both or just ignore?
                     // Let's assume SDB priority if unknown, or just both if really unsure (legacy behavior)

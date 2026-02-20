@@ -592,7 +592,11 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
 
             <div className="flex-1 overflow-hidden relative">
                 {tabs.map((tab) => (
-                    isActive && tab.id === activeTabId && (
+                    <div
+                        key={tab.id}
+                        className="w-full h-full"
+                        style={{ display: tab.id === activeTabId ? 'block' : 'none' }}
+                    >
                         <LogProvider
                             key={tab.id}
                             rules={rules}
@@ -620,7 +624,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                                 onTitleChange={handleTitleChange}
                             />
                         </LogProvider>
-                    )
+                    </div>
                 ))}
             </div>
 

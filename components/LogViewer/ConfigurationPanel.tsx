@@ -60,6 +60,14 @@ const ConfigurationPanel: React.FC = () => {
             const tags = (currentConfig.logTags || []).join(' ');
             const finalCmd = cmdTemplate.replace(/\$\(TAGS\)/g, tags);
 
+            console.log('[ConfigPanel] Starting Logging:', {
+                template: cmdTemplate,
+                tags,
+                finalCmd,
+                connectionMode,
+                hasEverConnected
+            });
+
             // Execute
             sendTizenCommand(finalCmd + '\n');
             setIsLogging(true);
