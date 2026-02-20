@@ -933,9 +933,11 @@ const handleSocketConnection = (socket, deps = {}) => {
                     return;
                 }
                 stream.on('close', (code) => {
-                    console.log(`[SSH] Buffer cleared (Code: ${code})`);
-                    ignoreLogs = false; // ✅ Resume log streaming
-                    socket.emit('log_data', '[System] Device log buffer cleared.\n');
+                    console.log(`[SSH] Buffer cleared (Code: ${code}). Waiting 1.5s for pipes to drain...`);
+                    setTimeout(() => {
+                        ignoreLogs = false; // ✅ Resume log streaming after OS pipes drain
+                        socket.emit('log_data', '[System] Device log buffer cleared.\n');
+                    }, 1500);
                 }).on('data', () => { }).stderr.on('data', () => { });
             });
         }
@@ -958,11 +960,14 @@ const handleSocketConnection = (socket, deps = {}) => {
         const clearProc = safeSpawn(bin, args, {}, '[SDB Clear]');
 
         clearProc.on('close', (code) => {
-            ignoreLogs = false; // ✅ Resume log streaming
             if (code === 0) {
-                console.log('[SDB] Buffer cleared successfully');
-                socket.emit('log_data', '[System] Device log buffer cleared.\n');
+                console.log('[SDB] Buffer cleared successfully. Waiting 1.5s for pipes to drain...');
+                setTimeout(() => {
+                    ignoreLogs = false; // ✅ Resume log streaming after OS pipes fully drain
+                    socket.emit('log_data', '[System] Device log buffer cleared.\n');
+                }, 1500);
             } else {
+                ignoreLogs = false;
                 console.error(`[SDB] Failed to clear buffer (Code: ${code})`);
             }
         });

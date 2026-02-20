@@ -567,7 +567,7 @@ const AppContent: React.FC = () => {
         onChange={onImportFileChange}
       />
 
-      <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0B0F19] font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300 relative">
+      <div className={`flex flex-col h-screen w-screen overflow-hidden bg-[#0B0F19] font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300 relative ${isFocusMode ? 'focus-mode' : ''}`}>
         <div className="flex-1 flex overflow-hidden z-10 relative">
           <div className={`sidebar-transition relative z-[100] ${isFocusMode ? 'sidebar-hidden w-0 opacity-0 -ml-14' : 'w-14 opacity-100'}`}>
             <Sidebar

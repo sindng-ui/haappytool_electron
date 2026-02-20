@@ -57,6 +57,11 @@ pre {
   -webkit-app-region: no-drag;
 }
 
+/* Disable drag regions entirely in Focus Mode to fix invisible hitboxes blocking top clicks */
+.focus-mode .title-drag {
+  -webkit-app-region: no-drag !important;
+}
+
 /* Custom Scrollbar - Premium & Adaptive */
 ::-webkit-scrollbar {
   width: 6px;
