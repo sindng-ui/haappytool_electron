@@ -466,6 +466,113 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 </div>
                             )}
 
+                            {viewMode === 'chart' && flameSegments.length > 0 && (
+                                <div className="h-10 shrink-0 bg-slate-900 border-t border-white/10 relative select-none">
+                                    <div
+                                        className="absolute inset-0 cursor-pointer"
+                                        onMouseDown={(e) => {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            const x = e.clientX - rect.left;
+                                            const clickFraction = Math.max(0, Math.min(1, x / rect.width));
+
+                                            const totalDuration = result.endTime - result.startTime;
+                                            const currentDuration = (flameZoom?.endTime ?? result.endTime) - (flameZoom?.startTime ?? result.startTime);
+
+                                            let newStart = result.startTime + (clickFraction * totalDuration) - (currentDuration / 2);
+                                            let newEnd = newStart + currentDuration;
+
+                                            // Clamp
+                                            if (newStart < result.startTime) {
+                                                newStart = result.startTime;
+                                                newEnd = newStart + currentDuration;
+                                            }
+                                            if (newEnd > result.endTime) {
+                                                newEnd = result.endTime;
+                                                newStart = newEnd - currentDuration;
+                                            }
+
+                                            setFlameZoom({ startTime: newStart, endTime: newEnd });
+                                        }}
+                                    >
+                                        {/* Minimap Segments */}
+                                        {flameSegments.map(s => {
+                                            if (s.duration === 0) return null;
+                                            const totalDuration = Math.max(1, result.endTime - result.startTime);
+                                            const left = ((s.startTime - result.startTime) / totalDuration) * 100;
+                                            const width = (s.duration / totalDuration) * 100;
+                                            const isBottleneck = s.duration > targetTime;
+                                            // Fallback palette color if no dangerColor
+                                            const bgColor = s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]);
+
+                                            return (
+                                                <div
+                                                    key={`mini-${s.id}`}
+                                                    className="absolute"
+                                                    style={{
+                                                        left: `${left}%`,
+                                                        width: `${Math.max(0.1, width)}%`,
+                                                        bottom: 0,
+                                                        height: `${Math.max(2, (s.lane + 1) * 2)}px`,
+                                                        backgroundColor: bgColor,
+                                                        opacity: 0.6
+                                                    }}
+                                                />
+                                            );
+                                        })}
+
+                                        {/* Viewport Overlay */}
+                                        <div
+                                            className="absolute top-0 bottom-0 bg-white/10 border-x-2 border-indigo-400 cursor-grab active:cursor-grabbing hover:bg-white/20 transition-colors"
+                                            style={{
+                                                left: `${((flameZoom?.startTime ?? result.startTime) - result.startTime) / Math.max(1, result.endTime - result.startTime) * 100}%`,
+                                                width: `${((flameZoom?.endTime ?? result.endTime) - (flameZoom?.startTime ?? result.startTime)) / Math.max(1, result.endTime - result.startTime) * 100}%`
+                                            }}
+                                            onMouseDown={(e) => {
+                                                e.stopPropagation(); // Prevent jumping
+                                                const startX = e.clientX;
+                                                const initialStart = flameZoom?.startTime ?? result.startTime;
+                                                const initialEnd = flameZoom?.endTime ?? result.endTime;
+                                                const currentDuration = initialEnd - initialStart;
+                                                const totalDuration = result.endTime - result.startTime;
+
+                                                // We need the parent width to calculate fraction, but we can't reliably get `e.currentTarget.parentElement` because of React typing. 
+                                                // We'll approximate using the nearest relative ancestor's width.
+                                                const containerWidth = e.currentTarget.parentElement?.clientWidth || window.innerWidth / 2;
+
+                                                const onMove = (mv: MouseEvent) => {
+                                                    const deltaX = mv.clientX - startX;
+                                                    const fractionMoved = deltaX / containerWidth;
+                                                    const timeMoved = fractionMoved * totalDuration;
+
+                                                    let newStart = initialStart + timeMoved;
+                                                    let newEnd = initialEnd + timeMoved;
+
+                                                    // Clamp
+                                                    if (newStart < result.startTime) {
+                                                        newStart = result.startTime;
+                                                        newEnd = newStart + currentDuration;
+                                                    }
+                                                    if (newEnd > result.endTime) {
+                                                        newEnd = result.endTime;
+                                                        newStart = newEnd - currentDuration;
+                                                    }
+
+                                                    setFlameZoom({ startTime: newStart, endTime: newEnd });
+                                                };
+
+                                                const onUp = () => {
+                                                    window.removeEventListener('mousemove', onMove);
+                                                    window.removeEventListener('mouseup', onUp);
+                                                };
+
+                                                window.addEventListener('mousemove', onMove);
+                                                window.addEventListener('mouseup', onUp);
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
                             {viewMode === 'list' && (
                                 <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
                                     <table className="w-full text-left border-collapse">
