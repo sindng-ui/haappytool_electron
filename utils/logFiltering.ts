@@ -40,31 +40,23 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
         // If it looks like shell noise (prompt, echo), return TRUE so it Bypasses filters (and is shown).
 
         const trimmedLine = line.trimStart();
-        const hasTimeColon = trimmedLine.indexOf(':') > -1;
 
-        // Supported Formats:
-        // 1. Tizen/Android: "MM-DD HH:MM:SS" or "Time Only" -> [2]==':' or [4]=='-' or [2]=='-'
-        // 2. Linux Syslog: "Feb 20 13:00:00" -> Starts with Mmm ([3]==' ') AND has time
-        // 3. Brackets: "[2024...]" -> [0]=='['
-        // 4. ISO8601: "2024-02..." -> [4]=='-'
-        // 5. Level slash: "I/Tag", "W/Tag"
-        // 6. Kernel level: "<5> [   ..."
+        // Broad heuristic to detect if a line is a genuine System Log vs arbitrary Shell output
+        // 1. Time or date structures: 12:34:56.789, 02-20, 2024-02-20, Mmm dd
+        const hasTimeOrDate = /(:[0-5]\d)|(\d{2,4}[-/]\d{2}[-/]\d{2})|([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2})/.test(trimmedLine);
+        // 2. Log level indicators: I/Tag, D/Tag, [INFO], <5>
+        const hasLevel = /\b[VDIWEF]\/|\b(?:INFO|DEBUG|WARN|ERROR|VERBOSE|FATAL)\b|<[0-9]>/i.test(trimmedLine);
+        // 3. Brackets at start: common in kernel times [ 1234.56 ] or PIDs [1000:1000]
+        const startsWithBracket = trimmedLine.startsWith('[');
+        // 4. Typical Tizen/Android PID block: ( 1234) or (1234)
+        const hasPid = /\(\s*\d+\s*\)/.test(trimmedLine);
+        // 5. Tizen legacy separator feature
+        const hasTizenLegacy = trimmedLine.includes(' /');
 
-        const isStandard =
-            trimmedLine.includes(' /') || // Tizen Tag/Label separator
-            /^[VDIWEF]\//.test(trimmedLine) || // Tizen V/TAG format without date
-            /^<\d+>/.test(trimmedLine) ||      // Kernel Priority <5>
-            (trimmedLine.length > 10 && (
-                trimmedLine[2] === ':' ||  // "HH:MM:SS"
-                trimmedLine[2] === '-' ||  // "MM-DD"
-                trimmedLine[4] === '-' ||  // "YYYY-MM-DD"
-                trimmedLine[0] === '[' ||  // "[TIMESTAMP]"
-                (trimmedLine[3] === ' ' && hasTimeColon) // "Mmm DD HH:MM:SS"
-            ));
+        const isStandard = hasTimeOrDate || hasLevel || startsWithBracket || hasPid || hasTizenLegacy;
 
         if (!isStandard) {
-            // DEBUG: Only log if it contains target keyword but bypassed
-            if (trimmedLine.includes('ST_APP')) console.log('[FilterTrace] Bypassing ST_APP line (Non-Standard):', trimmedLine.substring(0, 100));
+            // It does not look like a log. Assume it is a stack trace, shell text, or raw output we want to bypass visually
             return true;
         }
     }
