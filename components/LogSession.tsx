@@ -715,12 +715,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 e.preventDefault();
                 e.stopPropagation();
 
-                // 🛑 IMMEDIATE HARD RESET: Stop Browser Zoom Dead in its Tracks
-                // This ensures the render engine sees 1.0 even if the OS sent a zoom signal
-                if (window.electronAPI?.setZoomFactor) {
-                    window.electronAPI.setZoomFactor(1);
-                }
-
                 const delta = e.deltaY; // Negative is UP (Zoom In), Positive is DOWN (Zoom Out)
 
                 if (delta < 0) {

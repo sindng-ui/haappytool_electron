@@ -698,10 +698,6 @@ export const useLogExtractorLogic = ({
     }, [isDualView, rawContextOpen, activeLineIndexRight, activeLineIndexLeft, logViewPreferences, isActive]); // Added dependency
 
     const handleZoomIn = useCallback((source: 'mouse' | 'keyboard' = 'keyboard') => {
-        // Enforce Zoom Factor reset to 1.0
-        const currentZoomFactor = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
-        if (window.electronAPI?.setZoomFactor) window.electronAPI.setZoomFactor(1);
-
         setLogViewPreferences(prev => {
             const currentFontSize = prev.fontSize || 11;
             const newFontSize = Math.min(30, currentFontSize + 1);
@@ -717,7 +713,8 @@ export const useLogExtractorLogic = ({
             // 새로운 폰트에 맞는 표준 높이에 기존 오프셋 적용
             const newRowHeight = Math.max(12, standardFormula(newFontSize) + rowHeightOffset);
 
-            console.log(`[Zoom Debug] ${source} IN: Font ${prev.fontSize} -> ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight} (Persistent Offset: ${rowHeightOffset}), ZF: ${currentZoomFactor}, DPR: ${window.devicePixelRatio}`);
+            const zf = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
+            console.log(`[Zoom Debug] ${source} IN: Font ${prev.fontSize} -> ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight} (Persistent Offset: ${rowHeightOffset}), ZF: ${zf}, DPR: ${window.devicePixelRatio}`);
 
             if (newFontSize !== currentFontSize || (prev.rowHeight !== newRowHeight)) {
                 const next = { ...prev, fontSize: newFontSize, rowHeight: newRowHeight, rowHeightOffset };
@@ -729,10 +726,6 @@ export const useLogExtractorLogic = ({
     }, []);
 
     const handleZoomOut = useCallback((source: 'mouse' | 'keyboard' = 'keyboard') => {
-        // Enforce Zoom Factor reset to 1.0
-        const currentZoomFactor = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
-        if (window.electronAPI?.setZoomFactor) window.electronAPI.setZoomFactor(1);
-
         setLogViewPreferences(prev => {
             const currentFontSize = prev.fontSize || 11;
             const newFontSize = Math.max(8, currentFontSize - 1);
@@ -748,7 +741,8 @@ export const useLogExtractorLogic = ({
             // 새로운 폰트에 맞는 표준 높이에 "지워지지 않는" 기존 오프셋 적용
             const newRowHeight = Math.max(12, standardFormula(newFontSize) + rowHeightOffset);
 
-            console.log(`[Zoom Debug] ${source} OUT: Font ${prev.fontSize} -> ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight} (Persistent Offset: ${rowHeightOffset}), ZF: ${currentZoomFactor}, DPR: ${window.devicePixelRatio}`);
+            const zf = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
+            console.log(`[Zoom Debug] ${source} OUT: Font ${prev.fontSize} -> ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight} (Persistent Offset: ${rowHeightOffset}), ZF: ${zf}, DPR: ${window.devicePixelRatio}`);
 
             if (newFontSize !== currentFontSize || (prev.rowHeight !== newRowHeight)) {
                 const next = { ...prev, fontSize: newFontSize, rowHeight: newRowHeight, rowHeightOffset };
