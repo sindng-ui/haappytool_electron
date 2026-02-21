@@ -11,7 +11,7 @@ const SmartThingsDevicesPane = React.lazy(() => import('../../components/SmartTh
 const SmartThingsLabPlugin = React.lazy(() => import('../SmartThingsLab/SmartThingsLabPlugin'));
 const TizenLabPlugin = React.lazy(() => import('../TizenLab/TizenLabPlugin'));
 const ReverseEngineer = React.lazy(() => import('../../components/ReverseEngineer'));
-const PerfAnalyzer = React.lazy(() => import('../../components/PerfAnalyzer'));
+const PerfTool = React.lazy(() => import('../../components/PerfTool'));
 import { ToolId } from '../../types';
 import { Network } from 'lucide-react';
 
@@ -161,10 +161,10 @@ export const EasyPostPlugin: HappyPlugin = {
 };
 
 const { Gauge } = Lucide;
-export const PerfAnalyzerPlugin: HappyPlugin = {
-    id: ToolId.PERF_ANALYZER,
-    name: 'Perf Analyzer',
+export const PerfToolPlugin: HappyPlugin = {
+    id: ToolId.PERF_TOOL,
+    name: 'Perf Tool',
     icon: Gauge,
-    component: PerfAnalyzer,
+    component: PerfTool,
     order: 17,
 };

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, LayoutDashboard, Target, Activity, ChevronUp, ChevronDown, RefreshCw, ZoomIn, Search, Maximize, Clock, AlignLeft, Copy, Maximize2 } from 'lucide-react';
+import { X, LayoutDashboard, Target, Activity, ChevronUp, ChevronDown, RefreshCw, ZoomIn, Search, Maximize, Clock, AlignLeft, Copy, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AnalysisResult, AnalysisSegment } from '../../utils/perfAnalysis';
 
 interface PerfDashboardProps {
@@ -13,8 +13,9 @@ interface PerfDashboardProps {
     onViewRawRange?: (originalStart: number, originalEnd: number, filteredIndex?: number) => void;
     onCopyRawRange?: (start: number, end: number) => void;
     targetTime: number;
-    height: number;
-    onHeightChange: (height: number) => void;
+    height?: number;
+    onHeightChange?: (height: number) => void;
+    isFullScreen?: boolean;
 }
 
 /**
@@ -46,7 +47,7 @@ const getContrastColor = (hexcolor: string) => {
 export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     isOpen, onClose, result, isAnalyzing,
     onJumpToLine, onJumpToRange, onViewRawRange, onCopyRawRange,
-    targetTime, height, onHeightChange
+    targetTime, height = 400, onHeightChange = () => { }, isFullScreen = false
 }) => {
     const [flameZoom, setFlameZoom] = useState<{ startTime: number; endTime: number } | null>(null);
     const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
@@ -74,7 +75,8 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const [currentBottleneckIndex, setCurrentBottleneckIndex] = useState(-1);
     const bottlenecks = useMemo(() => {
         if (!result) return [];
-        return result.bottlenecks || result.segments.filter(s => s.duration >= (result.perfThreshold || 1000));
+        // Match the list logic: top 50 slowest segments
+        return [...result.segments].sort((a, b) => b.duration - a.duration).slice(0, 50);
     }, [result]);
 
     const jumpToBottleneck = (index: number) => {
@@ -197,14 +199,14 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
     return (
         <div
-            className="w-full border-b-[6px] border-[#080b14] shadow-[0_8px_16px_rgba(0,0,0,0.6)] z-10 flex flex-col transition-all duration-300 ease-in-out relative group/dashboard"
-            style={{
+            className={`w-full z-10 flex flex-col transition-all duration-300 ease-in-out relative group/dashboard ${isFullScreen ? 'h-full flex-1' : 'border-b-[6px] border-[#080b14] shadow-[0_8px_16px_rgba(0,0,0,0.6)]'}`}
+            style={isFullScreen ? { backgroundColor: '#0f172a' } : {
                 height: minimized ? '40px' : `${height}px`,
                 backgroundColor: '#0f172a' // Slate-950 distinct bg
             }}
         >
             {/* Resizer Handle (Bottom) - Refined Pill Design */}
-            {!minimized && (
+            {!minimized && !isFullScreen && (
                 <div
                     className="absolute -bottom-2 left-0 right-0 h-4 cursor-ns-resize z-[100] flex justify-end px-12 group/resizer"
                     onMouseDown={(e) => {
@@ -276,12 +278,14 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                     >
                         {minimized ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
                     </button>
-                    <button
-                        onClick={onClose}
-                        className="p-1.5 hover:bg-red-500/20 hover:text-red-400 rounded-md text-slate-400 transition-colors ml-1"
-                    >
-                        <X size={14} />
-                    </button>
+                    {!isFullScreen && (
+                        <button
+                            onClick={onClose}
+                            className="p-1.5 hover:bg-red-500/20 hover:text-red-400 rounded-md text-slate-400 transition-colors ml-1"
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -340,106 +344,216 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                         exit={{ opacity: 0 }}
                         className="flex-1 flex overflow-hidden"
                     >
-                        {/* Summary & Controls Panel (Left) */}
-                        <div className="w-64 shrink-0 border-r border-white/5 bg-slate-900/50 p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
-                            {/* Quick Stats */}
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
-                                    <span className="text-[9px] text-slate-500 uppercase font-black block mb-1">Pass Rate</span>
-                                    <span className={`text-lg font-black ${result.passCount === result.segments.length ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                        {Math.round((result.passCount / Math.max(1, result.segments.length)) * 100)}%
-                                    </span>
-                                </div>
-                                <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
-                                    <span className="text-[9px] text-slate-500 uppercase font-black block mb-1">Slow Ops</span>
-                                    <span className={`text-lg font-black ${result.failCount > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                                        {result.failCount}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Bottleneck Navigator */}
-                            {bottlenecks.length > 0 && (
-                                <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-3 flex flex-col gap-2">
-                                    <span className="text-[9px] text-rose-400 uppercase font-black flex items-center gap-1">
-                                        <Target size={10} />
-                                        Bottleneck Navigator
-                                    </span>
-                                    <div className="flex items-center justify-between gap-1">
-                                        <button
-                                            onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
-                                            className="px-2 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded text-[10px] font-bold transition-colors flex-1 text-center"
-                                        >
-                                            ◀ Prev
-                                        </button>
-                                        <span className="text-[10px] text-slate-400 font-mono px-2">
-                                            {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'} / {bottlenecks.length}
+                        {/* Summary & Controls Panel (Left) - Hidden in FullScreen */}
+                        {!isFullScreen && (
+                            <div className="w-64 shrink-0 border-r border-white/5 bg-slate-900/50 p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+                                {/* Quick Stats */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
+                                        <span className="text-[9px] text-slate-500 uppercase font-black block mb-1">Pass Rate</span>
+                                        <span className={`text-lg font-black ${result.passCount === result.segments.length ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                            {Math.round((result.passCount / Math.max(1, result.segments.length)) * 100)}%
                                         </span>
-                                        <button
-                                            onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
-                                            className="px-2 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded text-[10px] font-bold transition-colors flex-1 text-center"
-                                        >
-                                            Next ▶
-                                        </button>
+                                    </div>
+                                    <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
+                                        <span className="text-[9px] text-slate-500 uppercase font-black block mb-1">Slow Ops</span>
+                                        <span className={`text-lg font-black ${result.failCount > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                            {result.failCount}
+                                        </span>
                                     </div>
                                 </div>
-                            )}
 
-                            {/* View Toggles */}
-                            <div className="flex p-1 bg-slate-950 rounded-lg border border-white/5 gap-0.5">
-                                <button
-                                    onClick={() => setViewMode('chart')}
-                                    className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center justify-center gap-1.5 ${viewMode === 'chart' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
-                                >
-                                    <Activity size={12} /> Chart
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('list')}
-                                    className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center justify-center gap-1.5 ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
-                                >
-                                    <AlignLeft size={12} /> Bottlenecks
-                                </button>
-                            </div>
-                            {selectedSegmentId && (
-                                <div className="mt-auto bg-slate-800/80 rounded-xl p-3 border border-white/10 animate-in fade-in slide-in-from-bottom-2">
-                                    {(() => {
-                                        const s = result.segments.find(sg => sg.id === selectedSegmentId);
-                                        if (!s) return null;
-                                        return (
-                                            <>
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className="text-[10px] font-bold text-slate-300 line-clamp-2 leading-tight">{s.name}</span>
-                                                    <span className={`text-[10px] font-black ${s.duration > targetTime ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                        {s.duration}ms
-                                                    </span>
-                                                </div>
-                                                <div className="flex gap-1.5 mt-2">
-                                                    <button
-                                                        onClick={() => onViewRawRange?.(s.originalStartLine, s.originalEndLine, s.startLine + 1)}
-                                                        className="flex-1 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[9px] font-bold uppercase rounded-lg border border-indigo-500/20 transition-colors flex items-center justify-center gap-1"
-                                                    >
-                                                        <AlignLeft size={10} /> Raw
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            if (s.originalStartLine && s.originalEndLine) {
-                                                                onCopyRawRange?.(s.originalStartLine, s.originalEndLine);
-                                                            }
-                                                        }}
-                                                        className="flex-1 py-1.5 bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-[9px] font-bold uppercase rounded-lg border border-white/5 transition-colors flex items-center justify-center gap-1"
-                                                    >
-                                                        <Copy size={10} /> Copy Logs
-                                                    </button>
-                                                </div>
-                                            </>
-                                        );
-                                    })()}
+                                {/* Bottleneck Navigator */}
+                                {bottlenecks.length > 0 && (
+                                    <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-3 flex flex-col gap-2">
+                                        <span className="text-[9px] text-rose-400 uppercase font-black flex items-center gap-1">
+                                            <Target size={10} />
+                                            Slowest Op Navigator (Top 50)
+                                        </span>
+                                        <div className="flex items-center justify-between gap-1">
+                                            <button
+                                                onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
+                                                className="px-2 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded text-[10px] font-bold transition-colors flex-1 text-center"
+                                            >
+                                                ◀ Prev
+                                            </button>
+                                            <span className="text-[10px] text-slate-400 font-mono px-2">
+                                                {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'} / {bottlenecks.length}
+                                            </span>
+                                            <button
+                                                onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
+                                                className="px-2 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded text-[10px] font-bold transition-colors flex-1 text-center"
+                                            >
+                                                Next ▶
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* View Toggles */}
+                                <div className="flex p-1 bg-slate-950 rounded-lg border border-white/5 gap-0.5">
+                                    <button
+                                        onClick={() => setViewMode('chart')}
+                                        className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center justify-center gap-1.5 ${viewMode === 'chart' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                                    >
+                                        <Activity size={12} /> Chart
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode('list')}
+                                        className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center justify-center gap-1.5 ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                                    >
+                                        <AlignLeft size={12} /> Bottlenecks
+                                    </button>
                                 </div>
-                            )}
-                        </div>
+                                {selectedSegmentId && (
+                                    <div className="mt-auto bg-slate-800/80 rounded-xl p-3 border border-white/10 animate-in fade-in slide-in-from-bottom-2">
+                                        {(() => {
+                                            const s = result.segments.find(sg => sg.id === selectedSegmentId);
+                                            if (!s) return null;
+                                            return (
+                                                <>
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <span className="text-[10px] font-bold text-slate-300 line-clamp-2 leading-tight">{s.name}</span>
+                                                        <span className={`text-[10px] font-black ${s.duration > targetTime ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                            {s.duration}ms
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex gap-1.5 mt-2">
+                                                        <button
+                                                            onClick={() => onViewRawRange?.(s.originalStartLine, s.originalEndLine, s.startLine + 1)}
+                                                            className="flex-1 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[9px] font-bold uppercase rounded-lg border border-indigo-500/20 transition-colors flex items-center justify-center gap-1"
+                                                        >
+                                                            <AlignLeft size={10} /> Raw
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (s.originalStartLine && s.originalEndLine) {
+                                                                    onCopyRawRange?.(s.originalStartLine, s.originalEndLine);
+                                                                }
+                                                            }}
+                                                            className="flex-1 py-1.5 bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-[9px] font-bold uppercase rounded-lg border border-white/5 transition-colors flex items-center justify-center gap-1"
+                                                        >
+                                                            <Copy size={10} /> Copy Logs
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Main View Area (Right) */}
                         <div className="flex-1 bg-black/20 relative overflow-hidden flex flex-col">
+                            {/* FullScreen Top Bar Utility */}
+                            {isFullScreen && (
+                                <div className="h-14 shrink-0 border-b border-white/5 bg-slate-900/40 backdrop-blur-md flex items-center justify-between px-4 gap-4 z-[40]">
+                                    <div className="flex items-center gap-4">
+                                        {/* Simplified Stats */}
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] text-slate-500 uppercase font-black">Pass Rate</span>
+                                                <span className={`text-[13px] font-black ${result.passCount === result.segments.length ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                                    {Math.round((result.passCount / Math.max(1, result.segments.length)) * 100)}%
+                                                </span>
+                                            </div>
+                                            <div className="w-px h-6 bg-white/5" />
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] text-slate-500 uppercase font-black">Slow Ops</span>
+                                                <span className={`text-[13px] font-black ${result.failCount > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                                    {result.failCount}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="w-px h-8 bg-white/10 mx-2" />
+
+                                        {/* View Toggles in Top Bar */}
+                                        <div className="flex p-0.5 bg-black/40 rounded-lg border border-white/5 gap-0.5">
+                                            <button
+                                                onClick={() => setViewMode('chart')}
+                                                className={`px-3 py-1.5 text-[9px] font-bold uppercase rounded-md transition-all flex items-center gap-1.5 ${viewMode === 'chart' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                            >
+                                                <Activity size={10} /> Chart
+                                            </button>
+                                            <button
+                                                onClick={() => setViewMode('list')}
+                                                className={`px-3 py-1.5 text-[9px] font-bold uppercase rounded-md transition-all flex items-center gap-1.5 ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                            >
+                                                <AlignLeft size={10} /> Bottlenecks
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Navigator in Top Bar */}
+                                    {bottlenecks.length > 0 && (
+                                        <div className="flex items-center gap-3 px-3 py-1.5 bg-rose-500/5 border border-rose-500/20 rounded-xl">
+                                            <span className="text-[9px] text-rose-400 uppercase font-black flex items-center gap-1 shrink-0">
+                                                <Target size={10} />
+                                                Navigator
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
+                                                    className="w-7 h-7 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg transition-colors"
+                                                >
+                                                    <ChevronLeft size={14} />
+                                                </button>
+                                                <span className="text-[11px] text-slate-300 font-mono min-w-[40px] text-center">
+                                                    {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'} <span className="text-slate-600 text-[9px]">/</span> {bottlenecks.length}
+                                                </span>
+                                                <button
+                                                    onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
+                                                    className="w-7 h-7 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg transition-colors"
+                                                >
+                                                    <ChevronRight size={14} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Action Buttons (Copy/Raw) for Selected Segment in Top Bar */}
+                                    <div className="flex items-center gap-2 ml-auto">
+                                        {selectedSegmentId && (
+                                            <>
+                                                {(() => {
+                                                    const s = result.segments.find(sg => sg.id === selectedSegmentId);
+                                                    if (!s) return null;
+                                                    return (
+                                                        <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-800/40 rounded-xl border border-white/5 animate-in fade-in slide-in-from-right-2">
+                                                            <div className="flex flex-col max-w-[150px]">
+                                                                <span className="text-[8px] text-slate-500 uppercase font-bold truncate">{s.name}</span>
+                                                                <span className="text-[10px] text-indigo-300 font-mono">{(s.originalEndLine - s.originalStartLine)} logs</span>
+                                                            </div>
+                                                            <div className="flex gap-1">
+                                                                <button
+                                                                    onClick={() => onViewRawRange?.(s.originalStartLine, s.originalEndLine, s.startLine + 1)}
+                                                                    className="px-2.5 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[9px] font-black uppercase rounded-lg transition-colors"
+                                                                    title="View Raw Logs"
+                                                                >
+                                                                    <AlignLeft size={12} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (s.originalStartLine && s.originalEndLine) {
+                                                                            onCopyRawRange?.(s.originalStartLine, s.originalEndLine);
+                                                                        }
+                                                                    }}
+                                                                    className="px-2.5 py-1.5 bg-slate-700/30 hover:bg-slate-700/50 text-slate-300 text-[9px] font-black uppercase rounded-lg transition-colors"
+                                                                    title="Copy Log Range"
+                                                                >
+                                                                    <Copy size={12} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                             {viewMode === 'chart' && flameZoom && (
                                 <button
                                     onClick={(e) => {
@@ -863,7 +977,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {(result.bottlenecks || [...result.segments].sort((a, b) => b.duration - a.duration).slice(0, 50))
+                                            {[...result.segments].sort((a, b) => b.duration - a.duration).slice(0, 50)
                                                 .filter(s => !searchQuery || s.name.toLowerCase().includes(searchQuery.toLowerCase()))
                                                 .map(s => {
                                                     const isGroup = s.id.startsWith('group-');

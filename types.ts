@@ -16,7 +16,7 @@ export enum ToolId {
   AI_ASSISTANT = 'AI_ASSISTANT',
   TIZEN_LAB = 'TIZEN_LAB',
   EASY_POST = 'EASY_POST',
-  PERF_ANALYZER = 'PERF_ANALYZER',
+  PERF_TOOL = 'PERF_TOOL',
 }
 
 export interface LogHighlight {
