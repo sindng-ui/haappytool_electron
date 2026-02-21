@@ -979,6 +979,10 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
                                 // Ctrl + F (Find) - Ensure Shift is NOT pressed so we don't trap Ctrl+Shift+F
                                 if ((e.key === 'f' || e.key === 'F') && !e.shiftKey) {
+                                    // If PerfDashboard is open, let PerfDashboard handle Ctrl+F
+                                    if (leftPerfAnalysisResult || rightPerfAnalysisResult || isAnalyzingPerformanceLeft || isAnalyzingPerformanceRight) {
+                                        return; // Don't intercept - PerfDashboard's listener will handle it
+                                    }
                                     e.preventDefault();
                                     e.stopPropagation();
                                     searchInputRef.current?.focus();
@@ -1048,7 +1052,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                             window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
                             window.removeEventListener('copy', handleGlobalCopy);
                         };
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, isSaveDialogOpen, isViewerOpen, tizenSocket, handleClearLogs, isTransactionDrawerOpen, setIsTransactionDrawerOpen, addToast]);
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, isSaveDialogOpen, isViewerOpen, tizenSocket, handleClearLogs, isTransactionDrawerOpen, setIsTransactionDrawerOpen, addToast, leftPerfAnalysisResult, rightPerfAnalysisResult, isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight]);
                     return null;
                 })()
             )}

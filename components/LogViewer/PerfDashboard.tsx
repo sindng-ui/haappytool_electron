@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import { AnalysisResult, AnalysisSegment } from '../../utils/perfAnalysis';
@@ -197,6 +197,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const [minimized, setMinimized] = useState(false);
     const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const searchRef = useRef<HTMLInputElement>(null);
 
     // Time Ruler Tool Logic
     const [measureRange, setMeasureRange] = useState<{ startTime: number, endTime: number } | null>(null);
@@ -211,6 +212,13 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                 setSelectedSegmentId(null);
                 setMultiSelectedIds([]);
             }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                if (isOpen) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    searchRef.current?.focus();
+                }
+            }
         };
         const onKeyUp = (e: KeyboardEvent) => { if (e.key === 'Shift') setIsShiftPressed(false); };
         window.addEventListener('keydown', onKeyDown);
@@ -219,7 +227,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
             window.removeEventListener('keydown', onKeyDown);
             window.removeEventListener('keyup', onKeyUp);
         };
-    }, []);
+    }, [isOpen]);
 
     // Bottleneck Navigator Logic
     const [currentBottleneckIndex, setCurrentBottleneckIndex] = useState(-1);
@@ -464,6 +472,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                     <div className="flex items-center bg-black/20 rounded border border-white/10 px-2 py-1 mr-2 focus-within:border-indigo-500/50 focus-within:bg-black/40 transition-colors">
                         <Lucide.Search size={12} className="text-slate-500 mr-2" />
                         <input
+                            ref={searchRef}
                             type="text"
                             placeholder="Filter segments..."
                             value={searchInput}
@@ -1085,20 +1094,21 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
                                                 const left = ((s.startTime - viewStart) / viewDuration) * 100;
                                                 const width = (s.duration / viewDuration) * 100;
-                                                const bgColor = isSelected ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
-                                                const textColor = getContrastColor(bgColor);
                                                 const isMatch = checkSegmentMatch(s, searchQuery);
+                                                const isSearchHit = !!searchQuery && isMatch;
+                                                const bgColor = (isSelected || isSearchHit) ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
+                                                const textColor = getContrastColor(bgColor);
                                                 const isTidFocused = selectedTid !== null && s.tid === selectedTid;
 
                                                 // Determine base opacity:
-                                                let baseOpacity = isSelected ? 1 : (isInterval ? 0.6 : 0.9);
+                                                let baseOpacity = (isSelected || isSearchHit) ? 1 : (isInterval ? 0.6 : 0.9);
 
                                                 // If something is selected, dim others NOT in the same TID
                                                 if (selectedTid !== null && !isTidFocused) {
                                                     baseOpacity *= 0.3; // More aggressive dimming for non-focused threads
                                                 }
 
-                                                const finalOpacity = isMatch ? baseOpacity : 0.1;
+                                                const finalOpacity = isMatch ? baseOpacity : 0.15;
 
                                                 return (
                                                     <div
@@ -1113,10 +1123,10 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                             e.stopPropagation();
                                                             onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
                                                         }}
-                                                        className={`absolute h-5 rounded flex items-center px-1.5 cursor-pointer transition-all group/item ${isSelected
+                                                        className={`absolute h-5 rounded flex items-center px-1.5 cursor-pointer transition-all group/item ${(isSelected || isSearchHit)
                                                             ? 'z-[60] border-2 border-white/90 shadow-[0_0_8px_1px_rgba(255,255,255,0.7)] brightness-110 saturate-110'
                                                             : isTidFocused ? 'z-[20] border border-white/20 brightness-105' : 'z-10 border border-transparent hover:border-white/20'
-                                                            } ${isGroup && !isSelected ? 'border-2 border-white/30 shadow-sm' : ''} ${isInterval ? 'opacity-70' : ''}`}
+                                                            } ${isGroup && !isSelected && !isSearchHit ? 'border-2 border-white/30 shadow-sm' : ''} ${isInterval ? 'opacity-70' : ''}`}
                                                         style={{
                                                             left: `${left}%`,
                                                             width: `${Math.max(0.2, width)}%`,
