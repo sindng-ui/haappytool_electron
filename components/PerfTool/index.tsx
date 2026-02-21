@@ -3,7 +3,7 @@ import * as Lucide from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { extractTimestamp, formatDuration } from '../../utils/logTime';
-import { AnalysisResult, AnalysisSegment } from '../../utils/perfAnalysis';
+import { AnalysisResult, AnalysisSegment, extractLogIds, extractSourceMetadata } from '../../utils/perfAnalysis';
 import { PerfDashboard } from '../LogViewer/PerfDashboard';
 
 const {
@@ -17,79 +17,6 @@ interface DangerThreshold {
     label: string;
 }
 
-const extractLogIds = (line: string): { pid: string | null, tid: string | null } => {
-    let pid: string | null = null;
-    let tid: string | null = null;
-
-    // 1. (P 123, T 456) or (T 456, P 123) or (123, 456)
-    // Support multiple separators: comma, space, colon, dash
-    const parenMatch = line.match(/\(\s*(?:P\s*)?(\d+)\s*[,:\s-]\s*(?:T\s*)?(\d+)\s*\)/i);
-    if (parenMatch) {
-        pid = parenMatch[1];
-        tid = parenMatch[2];
-    } else {
-        // 2. [PID:TID] or [PID TID] or [PID-TID]
-        const bracketMatch = line.match(/\[\s*(\d+)\s*[:\s-]\s*(\d+)\s*\]/);
-        if (bracketMatch) {
-            pid = bracketMatch[1];
-            tid = bracketMatch[2];
-        } else {
-            // 3. Android Standard: Date Time PID TID ...
-            const androidMatch = line.match(/^\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+(\d+)\s+(\d+)\s+/);
-            if (androidMatch) {
-                pid = androidMatch[1];
-                tid = androidMatch[2];
-            }
-        }
-    }
-
-    // 4. Handle T/P or P/T combined (Common in some Tizen/embedded formats)
-    const combinedMatch = line.match(/(?:T\/P|P\/T)[\s:]*(\d+)/i);
-    if (combinedMatch) {
-        if (!pid) pid = combinedMatch[1];
-        if (!tid) tid = combinedMatch[1];
-    }
-
-    // Fallback for individual labels if not found in pairs
-    if (!pid) {
-        const pMatch = line.match(/(?:P\s*|PID[:\s]|ProcessId[:\s])(\d+)/i);
-        if (pMatch) pid = pMatch[1];
-    }
-    if (!tid) {
-        const tMatch = line.match(/(?:T\s*|TID[:\s]|ThreadId[:\s])(\d+)/i);
-        if (tMatch) tid = tMatch[1];
-    }
-
-    // Final fallback for simple brackets [1234] if nothing else found
-    if (!pid && !tid) {
-        const simpleBracket = line.match(/\[\s*(\d+)\s*\]/);
-        if (simpleBracket) pid = simpleBracket[1];
-    }
-
-    return { pid, tid };
-};
-
-const extractSourceMetadata = (line: string): { fileName: string | null, functionName: string | null } => {
-    // Standard format: FileName.ext: FunctionName(Line)> or FileName.ext: FunctionName:Line>
-    // 1. Match filename with extension
-    const fileMatch = line.match(/([\w\-\.]+\.(?:cs|cpp|h|java|kt|js|ts|tsx|py|c|h|cc|hpp|m|mm))\s*:/i);
-    if (!fileMatch) return { fileName: null, functionName: null };
-
-    const fileName = fileMatch[1];
-    const afterFile = line.substring(fileMatch.index! + fileMatch[0].length).trim();
-
-    // 2. Match function name: everything after colon up to '>' or message-start ':'
-    const funcMatch = afterFile.match(/^([^>:]+)(?:[:>])/);
-    let functionName = funcMatch ? funcMatch[1].trim() : null;
-
-    // Clean up function name if it has trailing line info like :123 or (123)
-    if (functionName) {
-        // Remove trailing line info if desired, but user said "FunctionName(Line)" in examples, so keeping it is better.
-        // But we can trim common trailing stuff if it's messy.
-    }
-
-    return { fileName, functionName };
-};
 
 const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     const { addToast } = useToast();
@@ -114,6 +41,23 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
 
     const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
     const activeRequestIdRef = React.useRef<string | null>(null);
+    const workerRef = React.useRef<Worker | null>(null);
+
+    const getWorker = useCallback(() => {
+        if (!workerRef.current) {
+            workerRef.current = new Worker(new URL('../../workers/PerfTool.worker.ts', import.meta.url), { type: 'module' });
+        }
+        return workerRef.current;
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (workerRef.current) {
+                workerRef.current.terminate();
+                workerRef.current = null;
+            }
+        };
+    }, []);
 
     // Load persistence (Local & Session)
     useEffect(() => {
@@ -206,58 +150,60 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
 
         const requestId = Math.random().toString(36).substring(7);
         activeRequestIdRef.current = requestId;
-        const keywordLower = targetKeyword.toLowerCase().trim();
-        const pidCounts = new Map<string, number>();
 
-        let streamBuffer = '';
+        const worker = getWorker();
         let offChunk: (() => void) | undefined;
         let offComplete: (() => void) | undefined;
+        let offError: (() => void) | undefined;
 
-        const processLine = (line: string) => {
-            if (line.toLowerCase().includes(keywordLower)) {
-                // Use the robust utility to extract IDs
-                const { pid } = extractLogIds(line);
-                if (pid) {
-                    pidCounts.set(pid, (pidCounts.get(pid) || 0) + 1);
-                }
-            }
-        };
-
-        const onChunk = (data: { chunk: string; requestId: string }) => {
-            if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
-            const fullChunk = streamBuffer + data.chunk;
-            const lines = fullChunk.split(/\r?\n/);
-            streamBuffer = lines.pop() || '';
-            for (const line of lines) {
-                processLine(line);
-            }
-        };
-
-        const onComplete = (data: { requestId: string }) => {
-            if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
-            if (streamBuffer) processLine(streamBuffer);
-
+        const cleanup = () => {
             if (offChunk) offChunk();
             if (offComplete) offComplete();
+            if (offError) offError();
+            worker.onmessage = null;
+        };
 
-            setIsScanning(false);
-            const results = Array.from(pidCounts.entries())
-                .map(([pid, count]) => ({ pid, count }))
-                .sort((a, b) => b.count - a.count);
+        worker.onmessage = (e) => {
+            const { type, payload, requestId: resId } = e.data;
+            if (resId !== requestId) return;
 
-            if (results.length === 0) {
-                addToast("No PIDs found for this Tag.", "warning");
-            } else {
-                setPidList(results);
+            if (type === 'SCAN_COMPLETE') {
+                const { results } = payload;
+                setIsScanning(false);
+                if (results.length === 0) {
+                    addToast("No PIDs found for this Tag.", "warning");
+                } else {
+                    setPidList(results);
+                }
+                cleanup();
+            } else if (type === 'ERROR') {
+                setIsScanning(false);
+                addToast(payload.error, "error");
+                cleanup();
             }
         };
 
+        worker.postMessage({ type: 'INIT_SCAN', payload: { keyword: targetKeyword }, requestId });
+
         if (window.electronAPI?.onFileChunk) {
-            offChunk = window.electronAPI.onFileChunk(onChunk);
-            offComplete = window.electronAPI.onFileStreamComplete(onComplete);
+            offChunk = window.electronAPI.onFileChunk((data: { chunk: string; requestId: string }) => {
+                if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
+                worker.postMessage({ type: 'ADD_CHUNK', payload: { chunk: data.chunk }, requestId });
+            });
+            offComplete = window.electronAPI.onFileStreamComplete((data: { requestId: string }) => {
+                if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
+                worker.postMessage({ type: 'FINALIZE', requestId });
+            });
+            offError = window.electronAPI.onFileStreamError((data: { error: string, requestId: string }) => {
+                if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
+                setIsScanning(false);
+                addToast(`File read error: ${data.error}`, "error");
+                cleanup();
+            });
+
             window.electronAPI.streamReadFile(fileHandle.path, requestId);
         }
-    }, [fileHandle, targetKeyword, addToast]);
+    }, [fileHandle, targetKeyword, addToast, getWorker]);
 
 
     // Full Analysis
@@ -277,15 +223,8 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
 
         const requestId = Math.random().toString(36).substring(7);
         activeRequestIdRef.current = requestId;
-        const keywordLower = targetKeyword.toLowerCase().trim();
 
-        // Matched logs grouped by TID
-        const matchedLogsByTid = new Map<string, { timestamp: number; lineContent: string; lineIndex: number }[]>();
-
-        let currentLineIndex = 0;
-        let streamBuffer = '';
-        let detectedPid: string | null = null;
-
+        const worker = getWorker();
         let offChunk: (() => void) | undefined;
         let offComplete: (() => void) | undefined;
         let offError: (() => void) | undefined;
@@ -294,145 +233,55 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
             if (offChunk) offChunk();
             if (offComplete) offComplete();
             if (offError) offError();
+            worker.onmessage = null;
         };
 
-        const processLine = (line: string, index: number) => {
-            if (line.toLowerCase().includes(keywordLower)) {
-                const ts = extractTimestamp(line);
-                if (ts !== null) {
-                    const { pid, tid: extractedTid } = extractLogIds(line);
-                    const tid = extractedTid || 'Main';
-                    if (!detectedPid && pid) detectedPid = pid;
-                    if (!matchedLogsByTid.has(tid)) matchedLogsByTid.set(tid, []);
-                    matchedLogsByTid.get(tid)!.push({ timestamp: ts, lineContent: line, lineIndex: index });
-                }
-            }
-        };
+        worker.onmessage = (e) => {
+            const { type, payload, requestId: resId } = e.data;
+            if (resId !== requestId) return;
 
-        const onChunk = (data: { chunk: string; requestId: string }) => {
-            if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
-
-            const fullChunk = streamBuffer + data.chunk;
-            const lines = fullChunk.split(/\r?\n/);
-
-            streamBuffer = lines.pop() || '';
-
-            for (const line of lines) {
-                currentLineIndex++;
-                processLine(line, currentLineIndex);
-            }
-        };
-
-        const onComplete = (data: { requestId: string }) => {
-            if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
-
-            if (streamBuffer) {
-                currentLineIndex++;
-                processLine(streamBuffer, currentLineIndex);
-            }
-            cleanup();
-
-            const allLogs = Array.from(matchedLogsByTid.values()).flat().sort((a, b) => a.timestamp - b.timestamp);
-            if (allLogs.length < 2) {
+            if (type === 'ANALYSIS_COMPLETE') {
+                setResult(payload.result);
                 setIsAnalyzing(false);
-                addToast("Not enough logs matched the keyword to form intervals.", "warning");
-                return;
+                addToast(`Analysis complete: ${payload.result.segments.length} intervals found`, "success");
+                cleanup();
+            } else if (type === 'ERROR') {
+                setIsAnalyzing(false);
+                addToast(`Analysis error: ${payload.error}`, "error");
+                cleanup();
             }
-
-            // Generate Interval Segments per TID
-            const segments: AnalysisSegment[] = [];
-            let passCount = 0;
-            let failCount = 0;
-
-            const sortedTids = Array.from(matchedLogsByTid.keys()).sort((a, b) => {
-                // Prioritize Main Thread (TID == PID or TID == targetKeyword)
-                const isAMain = a === detectedPid || a === targetKeyword.trim();
-                const isBMain = b === detectedPid || b === targetKeyword.trim();
-                if (isAMain && !isBMain) return -1;
-                if (!isAMain && isBMain) return 1;
-                return a.localeCompare(b);
-            });
-            const tidToLane = new Map<string, number>();
-            sortedTids.forEach((tid, idx) => tidToLane.set(tid, idx));
-
-            matchedLogsByTid.forEach((logs, tid) => {
-                const lane = tidToLane.get(tid) || 0;
-                // Sort logs within TID group to ensure interval duration consistency
-                const sortedLogs = logs.sort((a, b) => a.timestamp - b.timestamp);
-
-                for (let i = 0; i < sortedLogs.length - 1; i++) {
-                    const current = sortedLogs[i];
-                    const next = sortedLogs[i + 1];
-                    const duration = next.timestamp - current.timestamp;
-
-                    const isFail = duration >= perfThreshold;
-                    if (isFail) failCount++; else passCount++;
-
-                    const { fileName, functionName } = extractSourceMetadata(current.lineContent);
-                    const { fileName: endFileName, functionName: endFunctionName } = extractSourceMetadata(next.lineContent);
-
-                    segments.push({
-                        id: `interval-${tid}-${i}-${Math.random().toString(36).substring(7)}`,
-                        name: `TID ${tid} • Interval ${i + 1}`,
-                        startTime: current.timestamp,
-                        endTime: next.timestamp,
-                        duration,
-                        startLine: current.lineIndex,
-                        endLine: next.lineIndex,
-                        originalStartLine: current.lineIndex,
-                        originalEndLine: next.lineIndex,
-                        type: 'manual',
-                        status: isFail ? 'fail' : 'pass',
-                        logs: [current.lineContent, next.lineContent],
-                        dangerColor: getDangerColor(duration),
-                        lane,
-                        tid,
-                        fileName: fileName || undefined,
-                        functionName: functionName || undefined,
-                        endFileName: endFileName || undefined,
-                        endFunctionName: endFunctionName || undefined,
-                        intervalIndex: i + 1
-                    });
-                }
-            });
-
-            const startTime = allLogs[0].timestamp;
-            const endTime = allLogs[allLogs.length - 1].timestamp;
-            const totalDuration = endTime - startTime;
-
-            const finishedResult: AnalysisResult = {
-                fileName: fileHandle.name,
-                totalDuration,
-                segments,
-                startTime,
-                endTime,
-                logCount: currentLineIndex,
-                passCount,
-                failCount,
-                bottlenecks: segments.filter(s => s.duration >= perfThreshold),
-                perfThreshold
-            };
-
-            setResult(finishedResult);
-            setIsAnalyzing(false);
-            addToast(`Analysis complete: ${segments.length} intervals found`, "success");
         };
 
-        const onError = (data: { error: string; requestId: string }) => {
-            if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
-            setIsAnalyzing(false);
-            addToast(`Analysis error: ${data.error}`, "error");
-            cleanup();
-        };
+        worker.postMessage({
+            type: 'INIT_ANALYSIS',
+            payload: {
+                keyword: targetKeyword,
+                perfThreshold,
+                dangerLevels,
+                fileName: fileHandle.name
+            },
+            requestId
+        });
 
         if (window.electronAPI?.onFileChunk) {
-            offChunk = window.electronAPI.onFileChunk(onChunk);
-            offComplete = window.electronAPI.onFileStreamComplete(onComplete);
-            offError = window.electronAPI.onFileStreamError(onError);
-        }
+            offChunk = window.electronAPI.onFileChunk((data: { chunk: string; requestId: string }) => {
+                if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
+                worker.postMessage({ type: 'ADD_CHUNK', payload: { chunk: data.chunk }, requestId });
+            });
+            offComplete = window.electronAPI.onFileStreamComplete((data: { requestId: string }) => {
+                if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
+                worker.postMessage({ type: 'FINALIZE', requestId });
+            });
+            offError = window.electronAPI.onFileStreamError((data: { error: string, requestId: string }) => {
+                if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
+                setIsAnalyzing(false);
+                addToast(`File read error: ${data.error}`, "error");
+                cleanup();
+            });
 
-        window.electronAPI.streamReadFile(fileHandle.path, requestId);
-    }, [fileHandle, targetKeyword, perfThreshold, dangerLevels, addToast]);
+            window.electronAPI.streamReadFile(fileHandle.path, requestId);
+        }
+    }, [fileHandle, targetKeyword, perfThreshold, dangerLevels, addToast, getWorker]);
 
     // Copy Logs Feature
     const handleCopyLogs = useCallback(async (start: number, end: number) => {
@@ -732,6 +581,13 @@ const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHand
     const [isLoading, setIsLoading] = useState(true);
     const targetRef = React.useRef<HTMLDivElement>(null);
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
     useEffect(() => {
         if (!isOpen) return;
 

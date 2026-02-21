@@ -42,6 +42,80 @@ export interface AnalysisResult {
 }
 
 /**
+ * Extracts potential PID and TID from a log line.
+ * Used for automated PID discovery in PerfTool.
+ */
+export const extractLogIds = (line: string): { pid: string | null, tid: string | null } => {
+    let pid: string | null = null;
+    let tid: string | null = null;
+
+    // 1. (P 123, T 456) or (T 456, P 123) or (123, 456)
+    const parenMatch = line.match(/\(\s*(?:P\s*)?(\d+)\s*[,:\s-]\s*(?:T\s*)?(\d+)\s*\)/i);
+    if (parenMatch) {
+        pid = parenMatch[1];
+        tid = parenMatch[2];
+    } else {
+        // 2. [PID:TID] or [PID TID] or [PID-TID]
+        const bracketMatch = line.match(/\[\s*(\d+)\s*[:\s-]\s*(\d+)\s*\]/);
+        if (bracketMatch) {
+            pid = bracketMatch[1];
+            tid = bracketMatch[2];
+        } else {
+            // 3. Android Standard: Date Time PID TID ...
+            const androidMatch = line.match(/^\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+(\d+)\s+(\d+)\s+/);
+            if (androidMatch) {
+                pid = androidMatch[1];
+                tid = androidMatch[2];
+            }
+        }
+    }
+
+    // 4. Handle T/P or P/T combined (Common in some Tizen/embedded formats)
+    const combinedMatch = line.match(/(?:T\/P|P\/T)[\s:]*(\d+)/i);
+    if (combinedMatch) {
+        if (!pid) pid = combinedMatch[1];
+        if (!tid) tid = combinedMatch[1];
+    }
+
+    // Fallback for individual labels if not found in pairs
+    if (!pid) {
+        const pMatch = line.match(/(?:P\s*|PID[:\s]|ProcessId[:\s])(\d+)/i);
+        if (pMatch) pid = pMatch[1];
+    }
+    if (!tid) {
+        const tMatch = line.match(/(?:T\s*|TID[:\s]|ThreadId[:\s])(\d+)/i);
+        if (tMatch) tid = tMatch[1];
+    }
+
+    // Final fallback for simple brackets [1234] if nothing else found
+    if (!pid && !tid) {
+        const simpleBracket = line.match(/\[\s*(\d+)\s*\]/);
+        if (simpleBracket) pid = simpleBracket[1];
+    }
+
+    return { pid, tid };
+};
+
+/**
+ * Extracts source metadata (filename, function name) from a log line.
+ * Standard format: FileName.ext: FunctionName(Line)>
+ */
+export const extractSourceMetadata = (line: string): { fileName: string | null, functionName: string | null } => {
+    // Standard format: FileName.ext: FunctionName(Line)> or FileName.ext: FunctionName:Line>
+    const fileMatch = line.match(/([\w\-\.]+\.(?:cs|cpp|h|java|kt|js|ts|tsx|py|c|h|cc|hpp|m|mm))\s*:/i);
+    if (!fileMatch) return { fileName: null, functionName: null };
+
+    const fileName = fileMatch[1];
+    const afterFile = line.substring(fileMatch.index! + fileMatch[0].length).trim();
+
+    // 2. Match function name: everything up to '>'
+    const funcMatch = afterFile.match(/^([^>]+)(?:>)/);
+    let functionName = funcMatch ? funcMatch[1].trim() : null;
+
+    return { fileName, functionName };
+};
+
+/**
  * Core performance analysis logic extracted from PerfAnalyzer.
  * Can be run in the main thread or worker.
  */

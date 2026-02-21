@@ -109,36 +109,14 @@ HyperLogRenderer 위에 투명한 **Interaction Layer**를 두어 복잡한 선�
 
 ## 📊 Analyze Performance (Flame Map)
 
-성능 분석(Analyze Performance) 기능은 로그 데이터를 기반으로 시스템의 동작 시간과 병목 구간을 시각화하는 기능입니다. (Flame Map 형태 제공)
+로그 데이터를 기반으로 한 성능 분석 및 시각화 기능에 대한 상세 명세는 다음 문서를 참조하십시오.
 
-### 1. 목적 (얻을 수 있는 결과)
-- **병목 구간 식별**: 특정 작업이나 흐름에서 임계값(Threshold)을 초과하여 지연이 발생한 구간을 한눈에 파악합니다.
-- **시각적 프로파일링**: 로그의 텍스트만으로는 파악하기 힘든 시스템 로딩, 화면 전환, 트랜잭션 등 일련의 과정에 대한 소요 시간을 차트(Chart) 및 리스트(Bottlenecks) 형태로 직관적으로 시각화합니다.
-- **정확한 로깅 추적**: 지연이 발생한 시작/끝 지점의 원본 로그(Raw View)로 정확하게 점프하여 원인을 분석할 수 있습니다.
+- **[perf_tool_specification.md](./perf_tool_specification.md)**: Perf Tool 및 Log Extractor 공통 성능 분석 로직 명세
 
-### 2. 조건 및 사용 데이터
-- **활성화 조건**: Rule(설정) 내에 `perfThreshold`(성능 임계값, ms 단위)와 분석 그룹(`happyGroups` 내의 `alias` 및 `tags`)이 정의되어 있어야 합니다.
-- **사용 데이터**:
-    - 활성화된(enabled) 탭/그룹별 필터링된 로그 라인들.
-    - 해당 로그의 타임스탬프(`extractTimestamp` 결과값).
-    - 로그의 원본 줄 번호(originalLineNumber) 및 필터링된 줄 번호.
-- **분석 로직 (유형)**:
-    - **Step (Group)**: 동일한 `alias`를 가진 그룹 내의 첫 로그와 마지막 로그 간의 시간 차이를 분석합니다. (단일 작업의 소요 시간 측정)
-    - **Combo (Interval)**: 매칭된 A 시점과 다음 B 시점 사이의 시간(Transitional timeframe)을 분석합니다. (단계별 넘어가는 속도 측정)
-
-### 3. 분석 시점 (언제 수행되는가)
-- 우측 상단의 `Analyze Performance` (번개 아이콘) 버튼을 **명시적으로 클릭**할 때만 수행됩니다.
-- 대용량 데이터 분석 시 UI 블로킹을 방지하기 위해 **Web Worker** 화면단 백그라운드에서 비동기(`PERF_ANALYSIS` 메시지 트리거)로 연산됩니다.
-
-### 4. 세부 사항 및 한계점
-- **데이터 샘플링/보정 한계**: 
-    - 최대 분석 가능한 세그먼트에는 제한이 없으나, UI 렌더링(Flame 차트) 최적화를 위해 차트 가시성을 해치는 1ms 단위의 극초단기 이벤트보단 임계값(`perfThreshold`) 초과 데이터나 지정된 주요 Flow 위주로 확인하는 것에 특화되어 있습니다.
-    - 렌더링 한계: 10만 개 이상의 세그먼트 발생 시 브라우저 메모리 부하가 있을 수 있어, `Bottlenecks` 리스트 뷰는 지연 시간이 긴 상위 50개 항목 위주로 우선 제공하도록 구현되어 있습니다(`slice(0, 50)`).
-- **Time Parsing 민감도**: 
-    - 타임스탬프 파싱이 불가능한(`extractTimestamp`가 null을 반환) 비표준 로그 줄의 경우 분석 대상(MatchedLog)에서 누락됩니다.
-- **AI Agent 참조용 노트 (개발/디버그 시 주의점)**:
-    - **Original Line vs Filtered Line**: Raw View 기능이나 Jump To 기능과 연동될 때, `startLine`/`endLine`(현재 뷰 기준)과 `originalStartLine`/`originalEndLine`(전체 파일 기준)의 맵핑을 혼동하지 않도록 워커 처리(`LogProcessor.worker.ts`)에서 정확한 인덱스 반환 여부가 항상 보장되어야 합니다. (이와 관련하여 UI 헤더 텍스트 표시 시 `filteredIndex` 등 관련 Prop 처리에 유의할 것)
-    - **비동기 상태 관리**: 성능 분석 결과(`perfAnalysisResult`)는 메인 스레드에 비동기로 도달하므로, `useEffect` 의존성 배열에서 `currentConfig`와 워커 최신화 상태를 잘 싱크해 주어야 과거 설정으로 분석되는 버그를 막을 수 있습니다.
+주요 요약:
+- **Step (Group)**: 동일 `alias` 그룹의 시작-끝 분석.
+- **Combo (Interval)**: 연속된 매칭 로그 간의 간격 분석.
+- **Flame Dashboard**: 분석 결과를 시각화하고 Bottleneck을 식별.
 
 ---
 
