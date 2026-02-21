@@ -686,6 +686,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                         ) : (
                             <PerfDashboard
                                 isOpen={true}
+                                isActive={true}
                                 onClose={() => { }} // Not used in fullscreen
                                 result={result}
                                 isAnalyzing={isAnalyzing}

@@ -78,6 +78,7 @@ const RawContextViewer: React.FC<RawContextViewerProps> = ({
                     isRawMode={true}
                     activeLineIndex={rawTargetLineIndex}
                     initialScrollIndex={rawTargetLineIndex - rawSegmentOffset}
+                    isActive={true} // Raw View is an modal-like overlay, usually only active when visible
                     preferences={preferences}
                     lineHighlightRanges={highlightRange ? [{
                         start: highlightRange.start - 1,
@@ -1149,7 +1150,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onFocusPaneRequest={handleFocusPaneRequest}
                                     onSyncScroll={onSyncScrollLeft}
                                     onHighlightJump={onHighlightJumpLeft}
-
+                                    isActive={isActive}
                                     onShowBookmarks={onShowBookmarksLeft}
                                     performanceHeatmap={leftPerformanceHeatmap}
                                     onAnalyzePerformance={handleAnalyzePerformanceLeft}
@@ -1246,6 +1247,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onSyncScroll={onSyncScrollRight}
                                             onHighlightJump={onHighlightJumpRight}
 
+                                            isActive={isActive}
                                             onShowBookmarks={onShowBookmarksRight}
                                             performanceHeatmap={rightPerformanceHeatmap}
                                             onAnalyzePerformance={handleAnalyzePerformanceRight}

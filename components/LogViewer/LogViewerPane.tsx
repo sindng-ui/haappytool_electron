@@ -58,6 +58,7 @@ interface LogViewerPaneProps {
     onAnalyzePerformance?: () => void;
     perfAnalysisResult?: AnalysisResult | null;
     isAnalyzingPerformance?: boolean;
+    isActive: boolean;
     onJumpToLine?: (lineNum: number) => void;
     onJumpToRange?: (start: number, end: number) => void;
     onViewRawRange?: (originalStart: number, originalEnd: number, filteredIndex?: number) => void;
@@ -119,6 +120,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     onAnalyzePerformance,
     perfAnalysisResult,
     isAnalyzingPerformance = false,
+    isActive,
     onJumpToLine,
     onJumpToRange,
     onViewRawRange,
@@ -854,6 +856,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                 >
                                     <PerfDashboard
                                         isOpen={true}
+                                        isActive={isActive}
                                         result={perfAnalysisResult || null}
                                         isAnalyzing={isAnalyzingPerformance}
                                         onClose={() => {

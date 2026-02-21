@@ -19,6 +19,7 @@ interface PerfDashboardProps {
     isFullScreen?: boolean;
     showTidColumn?: boolean;
     useCompactDetail?: boolean;
+    isActive: boolean;
 }
 
 /**
@@ -105,88 +106,10 @@ const TransitionCard: React.FC<{
     );
 };
 
-interface FlameSegmentProps {
-    s: any;
-    flameZoom: any;
-    result: any;
-    totalDuration: number;
-    selectedSegmentId: string | null;
-    searchQuery: string;
-    onSelect: (id: string, start: number, end: number) => void;
-    checkMatch: (s: any, q: string) => boolean;
-}
 
-const MemoizedFlameSegment = React.memo<FlameSegmentProps>(({
-    s, flameZoom, result, totalDuration, selectedSegmentId, searchQuery, onSelect, checkMatch
-}) => {
-    const isSelected = selectedSegmentId === s.id;
-    const isMatched = checkMatch(s, searchQuery);
-    const opacity = isMatched ? 1 : 0.15;
-
-    // Zoom/Pan Transform
-    let left = s.relStart * 100;
-    let width = s.width;
-
-    if (flameZoom) {
-        const zoomStart = (flameZoom.startTime - result.startTime) / 1000;
-        const zoomEnd = (flameZoom.endTime - result.startTime) / 1000;
-        const zoomDuration = zoomEnd - zoomStart;
-        left = ((s.relStart - zoomStart) / zoomDuration) * 100;
-        width = (s.width / (zoomDuration / totalDuration * 100)) * 100;
-    }
-
-    if (left + width < 0 || left > 100) return null;
-
-    return (
-        <motion.div
-            layoutId={s.id}
-            onClick={() => onSelect(s.id, s.startLine, s.endLine)}
-            className={`absolute h-8 rounded-lg cursor-pointer flex flex-col justify-center px-2 shadow-lg transition-all border group/seg ${isSelected ? 'ring-2 ring-white z-40 scale-[1.02] shadow-indigo-500/20' : 'hover:scale-[1.01] hover:z-30'}`}
-            style={{
-                left: `${left}%`,
-                width: `${width}%`,
-                top: `${s.lane * 36 + 40}px`,
-                backgroundColor: s.dangerColor || '#4f46e5',
-                borderColor: isSelected ? '#fff' : 'rgba(255,255,255,0.1)',
-                opacity
-            }}
-        >
-            <div className="text-[10px] font-bold truncate transition-colors" style={{ color: getContrastColor(s.dangerColor || '#4f46e5') }}>
-                {s.name}
-            </div>
-            <div className="text-[8px] opacity-60 truncate font-mono" style={{ color: getContrastColor(s.dangerColor || '#4f46e5') }}>
-                {formatDuration(s.duration)}
-            </div>
-
-            {/* Custom Tooltip */}
-            <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-[10px] text-white whitespace-nowrap z-[100] opacity-0 group-hover/seg:opacity-100 transition-opacity pointer-events-none shadow-2xl backdrop-blur-xl`}>
-                <p className="font-black text-indigo-400 mb-1">{s.name}</p>
-                <div className="flex items-center gap-2 mb-1.5 p-1 px-1.5 bg-white/5 rounded-lg border border-white/5">
-                    <Lucide.Clock size={10} className="text-slate-400" />
-                    <span className="font-mono">{formatDuration(s.duration)}</span>
-                    <div className="w-px h-2.5 bg-white/10" />
-                    <span className="text-slate-500">TID: {s.tid}</span>
-                </div>
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                        <span className="text-slate-300 font-bold">{s.fileName || 'Unknown File'}</span>
-                        <span className="text-slate-500 ml-auto whitespace-pre">  →  </span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-pink-500" />
-                        <span className="text-slate-300 font-bold">{s.endFileName || s.fileName || 'Unknown File'}</span>
-                    </div>
-                </div>
-                <div className="mt-1.5 pt-1.5 border-t border-white/5 text-[9px] text-slate-500 flex justify-between italic">
-                    <span>Lines {s.startLine} - {s.endLine}</span>
-                    <span className="text-emerald-400 font-bold ml-4">Click to navigate</span>
-                </div>
-            </div>
-        </motion.div>
-    );
-});
 
 export const PerfDashboard: React.FC<PerfDashboardProps> = ({
-    isOpen, onClose, result, isAnalyzing,
+    isOpen, onClose, result, isAnalyzing, isActive = true,
     onJumpToLine, onJumpToRange, onViewRawRange, onCopyRawRange,
     targetTime, height = 400, onHeightChange = () => { }, isFullScreen = false,
     showTidColumn = true, useCompactDetail = false
@@ -221,13 +144,17 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
             }
         };
         const onKeyUp = (e: KeyboardEvent) => { if (e.key === 'Shift') setIsShiftPressed(false); };
-        window.addEventListener('keydown', onKeyDown);
-        window.addEventListener('keyup', onKeyUp);
+
+        if (isActive) {
+            window.addEventListener('keydown', onKeyDown);
+            window.addEventListener('keyup', onKeyUp);
+        }
+
         return () => {
             window.removeEventListener('keydown', onKeyDown);
             window.removeEventListener('keyup', onKeyUp);
         };
-    }, [isOpen]);
+    }, [isOpen, isActive]);
 
     // Bottleneck Navigator Logic
     const [currentBottleneckIndex, setCurrentBottleneckIndex] = useState(-1);
@@ -1078,7 +1005,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                 );
                                             })()}
 
-                                            {flameSegments.map(s => {
+                                            {isActive && flameSegments.map(s => {
                                                 const isSingleSelected = s.id === selectedSegmentId;
                                                 const isMultiSelected = multiSelectedIds.includes(s.id);
                                                 const isSelected = isSingleSelected || isMultiSelected;
@@ -1186,8 +1113,8 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             setFlameZoom({ startTime: newStart, endTime: newEnd });
                                         }}
                                     >
-                                        {/* Minimap Segments */}
-                                        {flameSegments.map(s => {
+                                        {/* Minimap Segments (Only if active or tiny log) */}
+                                        {isActive && flameSegments.map(s => {
                                             if (s.duration === 0) return null;
                                             const totalDuration = Math.max(1, result.endTime - result.startTime);
                                             const left = ((s.startTime - result.startTime) / totalDuration) * 100;
