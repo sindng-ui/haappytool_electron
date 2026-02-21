@@ -18,6 +18,7 @@ interface PerfDashboardProps {
     onHeightChange?: (height: number) => void;
     isFullScreen?: boolean;
     showTidColumn?: boolean;
+    useCompactDetail?: boolean;
 }
 
 /**
@@ -188,7 +189,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     isOpen, onClose, result, isAnalyzing,
     onJumpToLine, onJumpToRange, onViewRawRange, onCopyRawRange,
     targetTime, height = 400, onHeightChange = () => { }, isFullScreen = false,
-    showTidColumn = true
+    showTidColumn = true, useCompactDetail = false
 }) => {
     const [flameZoom, setFlameZoom] = useState<{ startTime: number; endTime: number } | null>(null);
     const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
@@ -591,7 +592,56 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                         <Lucide.AlignLeft size={12} /> Bottlenecks
                                     </button>
                                 </div>
-                                {/* Sidebar Detail (Removed in favor of Docked Footer) */}
+
+                                {/* Sidebar Detail Section (Compact Mode Detail - Integrated in Dashboard) */}
+                                <AnimatePresence>
+                                    {useCompactDetail && selectedSegmentId && result && (() => {
+                                        const s = result.segments.find(sg => sg.id === selectedSegmentId);
+                                        if (!s) return null;
+                                        const isBottleneck = s.duration >= (result.perfThreshold || 1000);
+                                        return (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="mt-2 pt-4 border-t border-white/10 flex flex-col gap-3 overflow-hidden"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Selected Segment</span>
+                                                    <button onClick={() => setSelectedSegmentId(null)} className="text-slate-500 hover:text-white transition-colors">
+                                                        <Lucide.X size={12} />
+                                                    </button>
+                                                </div>
+
+                                                <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5 flex flex-col gap-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-2 h-2 rounded-full shrink-0 ${isBottleneck ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]' : 'bg-emerald-500'}`} />
+                                                        <span className="text-[12px] font-black text-white truncate leading-tight">{s.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between mt-1">
+                                                        <span className={`text-[15px] font-black tracking-tighter leading-none ${isBottleneck ? 'text-rose-400' : 'text-emerald-400'}`}>{formatDuration(s.duration)}</span>
+                                                        <span className="text-[9px] font-bold text-slate-500 font-mono">TID {s.tid || 'N/A'}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1)}
+                                                        className="flex-1 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border border-indigo-500/20"
+                                                    >
+                                                        Raw
+                                                    </button>
+                                                    <button
+                                                        onClick={() => onCopyRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine)}
+                                                        className="flex-1 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border border-emerald-500/20"
+                                                    >
+                                                        Copy
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })()}
+                                </AnimatePresence>
 
                             </div>
                         )}
@@ -1225,9 +1275,11 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 </div>
                             )}
 
+
+
                             {/* Docked Detail Panel (Definitive Map visibility solution) */}
                             <AnimatePresence>
-                                {selectedSegmentId && result && (() => {
+                                {!useCompactDetail && selectedSegmentId && result && (() => {
                                     const s = result.segments.find(sg => sg.id === selectedSegmentId);
                                     if (!s) return null;
                                     const isBottleneck = s.duration >= (result.perfThreshold || 1000);
@@ -1324,14 +1376,16 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                 ) : null}
             </AnimatePresence>
 
-            {!result && !minimized && !isScanningStatus && (
-                <div className="flex-1 flex items-center justify-center text-slate-600 gap-2">
-                    <Lucide.Activity size={20} className="opacity-20" />
-                    <span className="text-xs font-bold uppercase tracking-widest opacity-50">
-                        Ready to Analyze
-                    </span>
-                </div>
-            )}
-        </div>
+            {
+                !result && !minimized && !isScanningStatus && (
+                    <div className="flex-1 flex items-center justify-center text-slate-600 gap-2">
+                        <Lucide.Activity size={20} className="opacity-20" />
+                        <span className="text-xs font-bold uppercase tracking-widest opacity-50">
+                            Ready to Analyze
+                        </span>
+                    </div>
+                )
+            }
+        </div >
     );
 };

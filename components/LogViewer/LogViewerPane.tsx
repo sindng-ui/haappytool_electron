@@ -867,6 +867,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                         height={dashboardHeight}
                                         onHeightChange={onDashboardHeightChange}
                                         showTidColumn={false}
+                                        useCompactDetail={true}
                                     />
                                 </motion.div>
                             )}
