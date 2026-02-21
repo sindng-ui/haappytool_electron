@@ -1124,7 +1124,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                             backgroundColor: bgColor,
                                                             opacity: finalOpacity
                                                         }}
-                                                        title={`TID ${s.tid || 'N/A'}\nStart: ${s.fileName || 'N/A'}: ${s.functionName || 'N/A'}${((s.fileName !== s.endFileName) || (s.functionName !== s.endFunctionName)) ? `\nEnd: ${s.endFileName || 'N/A'}: ${s.endFunctionName || 'N/A'}` : ''}\nInterval: ${s.intervalIndex || 'N/A'}\nDuration: ${s.duration}ms`}
+                                                        title={`Name: ${s.name}\nDuration: ${s.duration}ms\nTID: ${s.tid || 'N/A'}`}
                                                     >
                                                         {width > 3 && (
                                                             <span
