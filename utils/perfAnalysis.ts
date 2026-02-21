@@ -1,5 +1,6 @@
 import { LogRule, HappyGroup } from '../types';
 import { extractTimestamp } from './logTime';
+import { extractTransactionIds } from './transactionAnalysis';
 
 export interface AnalysisSegment {
     id: string;
@@ -65,6 +66,7 @@ export const analyzePerfSegments = (
         content: string;
         alias: string;
         tag: string;
+        tid: string;
     }
 
     const matchedLogs: MatchedLog[] = [];
@@ -92,7 +94,8 @@ export const analyzePerfSegments = (
             lineIndex: lineIndices[idx],
             content: line,
             alias: foundGroup.alias!.trim(),
-            tag: foundGroup.tags[0]
+            tag: foundGroup.tags[0],
+            tid: extractTransactionIds(line).find(id => id.type === 'tid')?.value || 'Main'
         });
     }
 
@@ -125,6 +128,7 @@ export const analyzePerfSegments = (
             type: 'step',
             status: duration > targetTime ? 'fail' : 'pass',
             logs: [start.content, end.content],
+            tid: start.tid,
             dangerColor: rule.dangerThresholds?.[0]
                 ? [...rule.dangerThresholds].sort((a, b) => b.ms - a.ms).find(d => duration >= d.ms)?.color
                 : undefined
@@ -151,22 +155,44 @@ export const analyzePerfSegments = (
             type: 'combo',
             status: duration > targetTime ? 'fail' : 'pass',
             logs: [current.content, next.content],
+            tid: current.tid,
             dangerColor: rule.dangerThresholds?.[0] ? [...rule.dangerThresholds].sort((a, b) => b.ms - a.ms).find(d => duration >= d.ms)?.color : undefined
         });
     }
 
     // 5. Lane Assignment (for Flame Chart)
-    const laneList: { endTime: number }[] = [];
-    // Sort by startTime, then duration (larger first) to make layout more stable
-    segments.sort((a, b) => a.startTime - b.startTime || b.duration - a.duration).forEach(s => {
-        let laneIndex = laneList.findIndex(l => l.endTime <= s.startTime);
-        if (laneIndex === -1) {
-            laneIndex = laneList.length;
-            laneList.push({ endTime: s.endTime });
-        } else {
-            laneList[laneIndex].endTime = s.endTime;
-        }
-        s.lane = laneIndex;
+    // Group segments by TID first, then pack them within Tid-specific bands
+    const segmentsByTid = new Map<string, AnalysisSegment[]>();
+    segments.forEach(s => {
+        const tid = s.tid || 'Main';
+        if (!segmentsByTid.has(tid)) segmentsByTid.set(tid, []);
+        segmentsByTid.get(tid)!.push(s);
+    });
+
+    const sortedTids = Array.from(segmentsByTid.keys()).sort((a, b) => {
+        if (a === 'Main') return -1;
+        if (b === 'Main') return 1;
+        return a.localeCompare(b);
+    });
+
+    let currentLaneOffset = 0;
+    sortedTids.forEach(tid => {
+        const tidSegments = segmentsByTid.get(tid)!;
+        tidSegments.sort((a, b) => a.startTime - b.startTime || b.duration - a.duration);
+
+        const localLanes: { endTime: number }[] = [];
+        tidSegments.forEach(s => {
+            let laneIndex = localLanes.findIndex(l => l.endTime <= s.startTime);
+            if (laneIndex === -1) {
+                laneIndex = localLanes.length;
+                localLanes.push({ endTime: s.endTime });
+            } else {
+                localLanes[laneIndex].endTime = s.endTime;
+            }
+            s.lane = currentLaneOffset + laneIndex;
+        });
+
+        currentLaneOffset += localLanes.length;
     });
 
     return segments;

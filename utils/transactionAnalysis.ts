@@ -49,7 +49,7 @@ export const extractTransactionIds = (line: string): TransactionIdentity[] => {
     }
 
     // 4. Numeric or Alphanumeric brackets anywhere: "[22]" or "(P 123, T 333)"
-    const bracketMatches = line.matchAll(/[(\[]\s*(P\s*\d+|T\s*\d+|[a-zA-Z0-9_-]{3,})\s*[)\]]/g);
+    const bracketMatches = Array.from(line.matchAll(/[(\[]\s*(P\s*\d+|T\s*\d+|[a-zA-Z0-9_-]{3,})\s*[)\]]/g));
     for (const match of bracketMatches) {
         const val = match[1].trim();
         if (val.startsWith('P')) identities.push({ type: 'pid', value: val.replace(/\s+/g, '') });

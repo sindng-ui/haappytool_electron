@@ -362,6 +362,21 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         return Math.max(4, ...flameSegments.map(s => s.lane));
     }, [flameSegments]);
 
+    const laneTidMap = useMemo(() => {
+        const map = new Map<number, string>();
+        flameSegments.forEach(s => {
+            if (s.lane !== undefined && !map.has(s.lane)) {
+                map.set(s.lane, s.tid || 'Main');
+            }
+        });
+        return map;
+    }, [flameSegments]);
+
+    const selectedTid = useMemo(() => {
+        if (!selectedSegmentId) return null;
+        return flameSegments.find(s => s.id === selectedSegmentId)?.tid || null;
+    }, [flameSegments, selectedSegmentId]);
+
 
 
     if (!isOpen) return null;
@@ -837,114 +852,178 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                     }}
                                 >
                                     <div
-                                        className="relative min-w-full"
+                                        className="flex min-w-full"
                                         style={{
-                                            height: `${(maxLane + 1) * 28 + 24}px`,
-                                            width: '100%'
+                                            height: `${(maxLane + 1) * 28 + 24}px`
                                         }}
                                     >
-                                        {/* Time Axis */}
-                                        <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 text-slate-400 font-mono text-[9px] flex items-end pb-0.5 select-none pointer-events-none z-[45]">
-                                            {generateTicks(flameZoom?.startTime ?? result.startTime, flameZoom?.endTime ?? result.endTime, 8).map(t => {
-                                                const viewStart = flameZoom?.startTime ?? result.startTime;
-                                                const viewDuration = Math.max(1, (flameZoom?.endTime ?? result.endTime) - viewStart);
-                                                const left = ((t - viewStart) / viewDuration) * 100;
-                                                // hide ticks that are off-screen
-                                                if (left < 0 || left > 100) return null;
+                                        {/* TID Sidebar (Sticky Left - Integrated Design) */}
+                                        <div className="sticky left-0 w-[52px] shrink-0 z-[100] pointer-events-none">
+                                            {/* Subtle vertical separator line */}
+                                            <div className="absolute top-0 bottom-0 right-0 w-px bg-white/5 shadow-[2px_0_10px_rgba(0,0,0,0.5)]" />
+
+                                            {/* TID Column Header (Minimalist) */}
+                                            <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 flex items-center justify-center bg-slate-950/20 backdrop-blur-md">
+                                                <span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.3em]">TID</span>
+                                            </div>
+
+                                            {/* Lane Labels */}
+                                            {Array.from({ length: maxLane + 1 }).map((_, i) => {
+                                                const tid = laneTidMap.get(i);
+                                                if (!tid) return null;
+
+                                                const isFirstInTid = i === 0 || laneTidMap.get(i - 1) !== tid;
+                                                const tidColor = palette[i % palette.length];
+                                                const isTidSelected = tid === selectedTid;
+
                                                 return (
-                                                    <div key={t} className="absolute flex flex-col items-center transform -translate-x-1/2" style={{ left: `${left}%` }}>
-                                                        <span className="mb-0 opacity-70">{(t - result.startTime).toFixed(0)}</span>
-                                                        <div className="w-px h-1 bg-white/20" />
+                                                    <div
+                                                        key={`tid-label-${i}`}
+                                                        className={`absolute left-0 right-0 h-[24px] flex items-center pr-1 transition-all group/tid ${isTidSelected ? 'z-[110]' : ''}`}
+                                                        style={{ top: `${i * 28 + 24}px` }}
+                                                    >
+                                                        {isFirstInTid ? (
+                                                            <div className={`relative w-full h-[18px] flex items-center justify-center rounded-r-md border-y border-r pointer-events-auto transition-all ${isTidSelected
+                                                                ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
+                                                                : 'bg-slate-900/40 border-white/5 hover:bg-slate-900/80 hover:border-white/10'
+                                                                }`}>
+                                                                <div className={`absolute left-0 top-0 bottom-0 rounded-full transition-all ${isTidSelected ? 'w-1' : 'w-[2px]'}`} style={{ backgroundColor: tidColor }} />
+                                                                <span className={`text-[9px] font-mono tracking-tighter transition-all ${isTidSelected ? 'font-black scale-105' : 'font-bold'}`} style={{ color: tidColor }}>
+                                                                    {tid.length > 5 ? tid.substring(0, 5) : tid}
+                                                                </span>
+
+                                                                {/* Hover/Select Glow Effect */}
+                                                                <div className={`absolute inset-0 rounded-r-md transition-opacity ${isTidSelected ? 'opacity-20' : 'opacity-0 group-hover/tid:opacity-10'}`} style={{ backgroundColor: tidColor, filter: 'blur(4px)' }} />
+                                                            </div>
+                                                        ) : (
+                                                            <div className={`ml-auto mr-1.5 rounded-full transition-all ${isTidSelected ? 'w-1.5 h-1.5 opacity-30 shadow-[0_0_8px_rgba(255,255,255,0.2)]' : 'w-1 h-1 opacity-10'}`} style={{ backgroundColor: tidColor }} />
+                                                        )}
                                                     </div>
                                                 );
                                             })}
                                         </div>
 
-                                        {/* Time Ruler UI */}
-                                        {measureRange && (() => {
-                                            const viewStart = flameZoom?.startTime ?? result.startTime;
-                                            const viewDuration = Math.max(1, (flameZoom?.endTime ?? result.endTime) - viewStart);
-                                            const rulerStart = Math.min(measureRange.startTime, measureRange.endTime);
-                                            const rulerEnd = Math.max(measureRange.startTime, measureRange.endTime);
-                                            const leftPercent = ((rulerStart - viewStart) / viewDuration) * 100;
-                                            const widthPercent = ((rulerEnd - rulerStart) / viewDuration) * 100;
+                                        {/* Scrollable Map Area */}
+                                        <div className="flex-1 relative bg-slate-950/20">
+                                            {/* Selected TID Lane Highlight */}
+                                            {selectedTid && Array.from({ length: maxLane + 1 }).map((_, i) => {
+                                                if (laneTidMap.get(i) !== selectedTid) return null;
+                                                return (
+                                                    <div
+                                                        key={`tid-bg-${i}`}
+                                                        className="absolute left-0 right-0 h-[24px] bg-indigo-500/[0.04] pointer-events-none z-0"
+                                                        style={{ top: `${i * 28 + 24}px` }}
+                                                    />
+                                                );
+                                            })}
+                                            {/* Time Axis */}
+                                            <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 text-slate-400 font-mono text-[9px] flex items-end pb-0.5 select-none pointer-events-none z-[45]">
+                                                {generateTicks(flameZoom?.startTime ?? result.startTime, flameZoom?.endTime ?? result.endTime, 8).map(t => {
+                                                    const viewStart = flameZoom?.startTime ?? result.startTime;
+                                                    const viewDuration = Math.max(1, (flameZoom?.endTime ?? result.endTime) - viewStart);
+                                                    const left = ((t - viewStart) / viewDuration) * 100;
+                                                    // hide ticks that are off-screen
+                                                    if (left < 0 || left > 100) return null;
+                                                    return (
+                                                        <div key={t} className="absolute flex flex-col items-center transform -translate-x-1/2" style={{ left: `${left}%` }}>
+                                                            <span className="mb-0 opacity-70">{(t - result.startTime).toFixed(0)}</span>
+                                                            <div className="w-px h-1 bg-white/20" />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
 
-                                            return (
-                                                <div
-                                                    className="absolute top-0 bottom-0 bg-amber-500/20 border-x-2 border-amber-500/80 z-[80] pointer-events-none shadow-[0_0_15px_rgba(245,158,11,0.2)]"
-                                                    style={{
-                                                        left: `${Math.max(0, leftPercent)}%`,
-                                                        width: `${Math.max(0.1, widthPercent)}%`
-                                                    }}
-                                                >
-                                                    <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-amber-500 text-amber-950 font-bold text-[11px] px-2.5 py-1 rounded shadow-lg whitespace-nowrap flex items-center gap-1.5 backdrop-blur-sm border border-amber-400">
-                                                        <Lucide.Clock size={11} />
-                                                        {(rulerEnd - rulerStart).toLocaleString(undefined, { maximumFractionDigits: 2 })}ms
+                                            {/* Time Ruler UI */}
+                                            {measureRange && (() => {
+                                                const viewStart = flameZoom?.startTime ?? result.startTime;
+                                                const viewDuration = Math.max(1, (flameZoom?.endTime ?? result.endTime) - viewStart);
+                                                const rulerStart = Math.min(measureRange.startTime, measureRange.endTime);
+                                                const rulerEnd = Math.max(measureRange.startTime, measureRange.endTime);
+                                                const leftPercent = ((rulerStart - viewStart) / viewDuration) * 100;
+                                                const widthPercent = ((rulerEnd - rulerStart) / viewDuration) * 100;
+
+                                                return (
+                                                    <div
+                                                        className="absolute top-0 bottom-0 bg-amber-500/20 border-x-2 border-amber-500/80 z-[80] pointer-events-none shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                                                        style={{
+                                                            left: `${Math.max(0, leftPercent)}%`,
+                                                            width: `${Math.max(0.1, widthPercent)}%`
+                                                        }}
+                                                    >
+                                                        <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-amber-500 text-amber-950 font-bold text-[11px] px-2.5 py-1 rounded shadow-lg whitespace-nowrap flex items-center gap-1.5 backdrop-blur-sm border border-amber-400">
+                                                            <Lucide.Clock size={11} />
+                                                            {(rulerEnd - rulerStart).toLocaleString(undefined, { maximumFractionDigits: 2 })}ms
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })()}
+                                                );
+                                            })()}
 
-                                        {flameSegments.map(s => {
-                                            const isSelected = s.id === selectedSegmentId;
-                                            const isBottleneck = s.duration > targetTime;
-                                            const isGroup = s.id.startsWith('group-') && s.duration > 0;
-                                            const isInterval = s.id.startsWith('interval-');
+                                            {flameSegments.map(s => {
+                                                const isSelected = s.id === selectedSegmentId;
+                                                const isBottleneck = s.duration > targetTime;
+                                                const isGroup = s.id.startsWith('group-') && s.duration > 0;
+                                                const isInterval = s.id.startsWith('interval-');
 
-                                            const viewStart = flameZoom?.startTime ?? result.startTime;
-                                            const viewEnd = flameZoom?.endTime ?? result.endTime;
-                                            const viewDuration = Math.max(1, viewEnd - viewStart);
+                                                const viewStart = flameZoom?.startTime ?? result.startTime;
+                                                const viewEnd = flameZoom?.endTime ?? result.endTime;
+                                                const viewDuration = Math.max(1, viewEnd - viewStart);
 
-                                            if (s.endTime < viewStart || s.startTime > viewEnd) return null;
+                                                if (s.endTime < viewStart || s.startTime > viewEnd) return null;
 
-                                            const left = ((s.startTime - viewStart) / viewDuration) * 100;
-                                            const width = (s.duration / viewDuration) * 100;
-                                            const bgColor = isSelected ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
-                                            const textColor = getContrastColor(bgColor);
-                                            const isMatch = checkSegmentMatch(s, searchQuery);
+                                                const left = ((s.startTime - viewStart) / viewDuration) * 100;
+                                                const width = (s.duration / viewDuration) * 100;
+                                                const bgColor = isSelected ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
+                                                const textColor = getContrastColor(bgColor);
+                                                const isMatch = checkSegmentMatch(s, searchQuery);
+                                                const isTidFocused = selectedTid !== null && s.tid === selectedTid;
 
-                                            // Determine base opacity:
-                                            // Selected: 1, Normal Match: 0.9, Normal Interval Match: 0.6
-                                            // Non-Match: Dim to 0.15
-                                            const baseOpacity = isSelected ? 1 : (isInterval ? 0.6 : 0.9);
-                                            const finalOpacity = isMatch ? baseOpacity : 0.15;
+                                                // Determine base opacity:
+                                                let baseOpacity = isSelected ? 1 : (isInterval ? 0.6 : 0.9);
 
-                                            return (
-                                                <div
-                                                    key={s.id}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedSegmentId(s.id);
-                                                        onJumpToRange?.(s.startLine, s.endLine);
-                                                    }}
-                                                    onDoubleClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
-                                                    }}
-                                                    className={`absolute h-5 rounded flex items-center px-1.5 cursor-pointer transition-all group/item ${isSelected
-                                                        ? 'z-[60] border-2 border-white/90 shadow-[0_0_8px_1px_rgba(255,255,255,0.7)] brightness-110 saturate-110'
-                                                        : 'z-10 border border-transparent hover:border-white/20 hover:brightness-105'
-                                                        } ${isGroup && !isSelected ? 'border-2 border-white/30 shadow-sm' : ''} ${isInterval ? 'opacity-70' : ''}`}
-                                                    style={{
-                                                        left: `${left}%`,
-                                                        width: `${Math.max(0.2, width)}%`,
-                                                        top: `${s.lane * 28 + 24}px`,
-                                                        backgroundColor: bgColor,
-                                                        opacity: finalOpacity
-                                                    }}
-                                                    title={`TID ${s.tid || 'N/A'}\nStart: ${s.fileName || 'N/A'}: ${s.functionName || 'N/A'}${((s.fileName !== s.endFileName) || (s.functionName !== s.endFunctionName)) ? `\nEnd: ${s.endFileName || 'N/A'}: ${s.endFunctionName || 'N/A'}` : ''}\nInterval: ${s.intervalIndex || 'N/A'}\nDuration: ${s.duration}ms`}
-                                                >
-                                                    {width > 3 && (
-                                                        <span
-                                                            className={`text-[9px] font-medium truncate leading-none ${isGroup ? 'font-black' : ''}`}
-                                                            style={{ color: textColor }}
-                                                        >
-                                                            {s.fileName && s.functionName ? `${s.fileName}: ${s.functionName}` : s.name}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
+                                                // If something is selected, dim others NOT in the same TID
+                                                if (selectedTid !== null && !isTidFocused) {
+                                                    baseOpacity *= 0.3; // More aggressive dimming for non-focused threads
+                                                }
+
+                                                const finalOpacity = isMatch ? baseOpacity : 0.1;
+
+                                                return (
+                                                    <div
+                                                        key={s.id}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedSegmentId(s.id);
+                                                            onJumpToRange?.(s.startLine, s.endLine);
+                                                        }}
+                                                        onDoubleClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
+                                                        }}
+                                                        className={`absolute h-5 rounded flex items-center px-1.5 cursor-pointer transition-all group/item ${isSelected
+                                                            ? 'z-[60] border-2 border-white/90 shadow-[0_0_8px_1px_rgba(255,255,255,0.7)] brightness-110 saturate-110'
+                                                            : isTidFocused ? 'z-[20] border border-white/20 brightness-105' : 'z-10 border border-transparent hover:border-white/20'
+                                                            } ${isGroup && !isSelected ? 'border-2 border-white/30 shadow-sm' : ''} ${isInterval ? 'opacity-70' : ''}`}
+                                                        style={{
+                                                            left: `${left}%`,
+                                                            width: `${Math.max(0.2, width)}%`,
+                                                            top: `${s.lane * 28 + 24}px`,
+                                                            backgroundColor: bgColor,
+                                                            opacity: finalOpacity
+                                                        }}
+                                                        title={`TID ${s.tid || 'N/A'}\nStart: ${s.fileName || 'N/A'}: ${s.functionName || 'N/A'}${((s.fileName !== s.endFileName) || (s.functionName !== s.endFunctionName)) ? `\nEnd: ${s.endFileName || 'N/A'}: ${s.endFunctionName || 'N/A'}` : ''}\nInterval: ${s.intervalIndex || 'N/A'}\nDuration: ${s.duration}ms`}
+                                                    >
+                                                        {width > 3 && (
+                                                            <span
+                                                                className={`text-[9px] font-medium truncate leading-none ${isGroup ? 'font-black' : ''}`}
+                                                                style={{ color: textColor }}
+                                                            >
+                                                                {s.fileName && s.functionName ? `${s.fileName}: ${s.functionName}` : s.name}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
 
                                     {flameSegments.length === 0 && (
