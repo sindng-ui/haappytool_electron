@@ -49,7 +49,7 @@ const Scorecard: React.FC<{ label: string; value: string | number; icon: React.R
             <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] truncate">{label}</span>
             <div style={{ color }} className="opacity-70 group-hover:opacity-100 transition-all shrink-0 scale-75 origin-right">{icon}</div>
         </div>
-        <div className="flex items-end gap-1.5 overflow-hidden -mt-1">
+        <div className="flex items-end gap-1.5 overflow-hidden mt-0.5">
             <span className="text-xl font-black text-white tracking-tighter whitespace-nowrap leading-none">{value}</span>
             {subValue && <span className="text-[9px] font-bold text-slate-500 whitespace-nowrap truncate leading-none mb-0.5">{subValue}</span>}
         </div>
