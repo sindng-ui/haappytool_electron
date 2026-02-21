@@ -395,23 +395,102 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1">
-                    {/* Search Input */}
-                    <div className="flex items-center bg-black/20 rounded border border-white/10 px-2 py-1 mr-2 focus-within:border-indigo-500/50 focus-within:bg-black/40 transition-colors">
-                        <Lucide.Search size={12} className="text-slate-500 mr-2" />
-                        <input
-                            ref={searchRef}
-                            type="text"
-                            placeholder="Filter segments..."
-                            value={searchInput}
-                            onChange={(e) => setSearchInput(e.target.value)}
-                            className="bg-transparent text-[10px] text-white w-32 focus:outline-none placeholder:text-slate-600 font-mono"
-                        />
-                        {searchInput && (
-                            <button onClick={() => setSearchInput('')} className="text-slate-500 hover:text-white ml-1">
-                                <Lucide.X size={10} />
+                    {/* Premium Compact Navigator (Small Mode) */}
+                    {result && !isFullScreen && (
+                        <div className="flex items-center gap-1.5 bg-slate-950/40 backdrop-blur-2xl rounded-xl p-1 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                            {/* All Fails & Fail Only */}
+                            <div className="flex items-center gap-0.5">
+                                <button
+                                    onClick={() => {
+                                        if (!result) return;
+                                        if (multiSelectedIds.length > 0) {
+                                            setMultiSelectedIds([]);
+                                        } else {
+                                            setSelectedSegmentId(null);
+                                            const failIds = result.segments
+                                                .filter(s => s.duration >= (result.perfThreshold || 1000))
+                                                .map(s => s.id);
+                                            setMultiSelectedIds(failIds);
+                                        }
+                                    }}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase transition-all duration-300 border ${multiSelectedIds.length > 0
+                                        ? 'bg-rose-500 text-white border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.3)]'
+                                        : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10 hover:text-slate-300'}`}
+                                    title="All Fails"
+                                >
+                                    <Lucide.AlertCircle size={10} className={multiSelectedIds.length > 0 ? 'animate-pulse' : ''} />
+                                    <span className="hidden leading-none">ALL</span>
+                                </button>
+                                <button
+                                    onClick={() => setShowOnlyFail(!showOnlyFail)}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase transition-all duration-300 border ${showOnlyFail
+                                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                        : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10 hover:text-slate-300'}`}
+                                    title="Fail Only"
+                                >
+                                    <Lucide.Filter size={10} />
+                                </button>
+                            </div>
+
+                            {bottlenecks.length > 0 && (
+                                <>
+                                    <div className="w-px h-4 bg-white/10 mx-0.5" />
+                                    <div className="flex items-center gap-0.5 bg-black/30 rounded-lg px-1.5 py-0.5 border border-white/5">
+                                        <button
+                                            onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
+                                            className="p-0.5 hover:text-indigo-400 text-slate-500 transition-all hover:scale-110 active:scale-90"
+                                        >
+                                            <Lucide.ChevronLeft size={12} />
+                                        </button>
+                                        <span className="text-[9px] text-white font-mono font-black min-w-[24px] text-center">
+                                            {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'}
+                                        </span>
+                                        <button
+                                            onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
+                                            className="p-0.5 hover:text-indigo-400 text-slate-500 transition-all hover:scale-110 active:scale-90"
+                                        >
+                                            <Lucide.ChevronRight size={12} />
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Search Input - NOW BETWEEN NAVIGATOR AND TOGGLES */}
+                    {result && !isFullScreen && (
+                        <div className="flex items-center bg-black/20 rounded-lg border border-white/10 px-2 py-1 mx-1 focus-within:border-indigo-500/50 focus-within:bg-black/40 transition-colors">
+                            <Lucide.Search size={10} className="text-slate-500 mr-1.5" />
+                            <input
+                                ref={searchRef}
+                                type="text"
+                                placeholder="Search..."
+                                value={searchInput}
+                                onChange={(e) => setSearchInput(e.target.value)}
+                                className="bg-transparent text-[9px] text-white w-20 focus:outline-none placeholder:text-slate-600 font-mono"
+                            />
+                        </div>
+                    )}
+
+                    {/* View Toggles (Moved from Sidebar) */}
+                    {result && !isFullScreen && (
+                        <div className="flex p-0.5 bg-slate-950 rounded-lg border border-white/5 gap-0.5 mr-2">
+                            <button
+                                onClick={() => setViewMode('chart')}
+                                className={`p-1.5 rounded-md transition-all ${viewMode === 'chart' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-400'}`}
+                                title="Chart View"
+                            >
+                                <Lucide.Activity size={12} />
                             </button>
-                        )}
-                    </div>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-400'}`}
+                                title="Bottlenecks List"
+                            >
+                                <Lucide.AlignLeft size={12} />
+                            </button>
+                        </div>
+                    )}
 
                     <button
                         onClick={() => setMinimized(!minimized)}
@@ -422,7 +501,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                     {!isFullScreen && (
                         <button
                             onClick={onClose}
-                            className="p-1.5 hover:bg-red-500/20 hover:text-red-400 rounded-md text-slate-400 transition-colors ml-1"
+                            className="p-1.5 hover:bg-red-500/20 hover:text-red-400 rounded-md text-slate-400 transition-colors"
                         >
                             <Lucide.X size={14} />
                         </button>
@@ -504,48 +583,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Bottleneck Navigator */}
-                                {bottlenecks.length > 0 && (
-                                    <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-3 flex flex-col gap-2">
-                                        <span className="text-[9px] text-rose-400 uppercase font-black flex items-center gap-1">
-                                            <Lucide.Target size={10} />
-                                            Slowest Op Navigator (Top 50)
-                                        </span>
-                                        <div className="flex items-center justify-between gap-1">
-                                            <button
-                                                onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
-                                                className="px-2 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded text-[10px] font-bold transition-colors flex-1 text-center"
-                                            >
-                                                ◀ Prev
-                                            </button>
-                                            <span className="text-[10px] text-slate-400 font-mono px-2">
-                                                {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'} / {bottlenecks.length}
-                                            </span>
-                                            <button
-                                                onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
-                                                className="px-2 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded text-[10px] font-bold transition-colors flex-1 text-center"
-                                            >
-                                                Next ▶
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
 
-                                {/* View Toggles */}
-                                <div className="flex p-1 bg-slate-950 rounded-lg border border-white/5 gap-0.5">
-                                    <button
-                                        onClick={() => setViewMode('chart')}
-                                        className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center justify-center gap-1.5 ${viewMode === 'chart' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
-                                    >
-                                        <Lucide.Activity size={12} /> Chart
-                                    </button>
-                                    <button
-                                        onClick={() => setViewMode('list')}
-                                        className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center justify-center gap-1.5 ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
-                                    >
-                                        <Lucide.AlignLeft size={12} /> Bottlenecks
-                                    </button>
-                                </div>
 
                                 {/* Sidebar Detail Section (Compact Mode Detail - Integrated in Dashboard) */}
                                 <AnimatePresence>
@@ -630,46 +668,44 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
                                     <div className="flex items-center gap-3">
                                         <div className="flex items-center gap-1 bg-slate-950/40 backdrop-blur-2xl border border-white/10 rounded-2xl p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-                                            {/* All Fails Toggle */}
-                                            <button
-                                                onClick={() => {
-                                                    if (!result) return;
-                                                    if (multiSelectedIds.length > 0) {
-                                                        setMultiSelectedIds([]);
-                                                    } else {
-                                                        setSelectedSegmentId(null); // Clear individual selection
-                                                        const failIds = result.segments
-                                                            .filter(s => s.duration >= (result.perfThreshold || 1000))
-                                                            .map(s => s.id);
-                                                        setMultiSelectedIds(failIds);
-                                                    }
-                                                }}
-                                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all duration-300 border ${multiSelectedIds.length > 0
-                                                    ? 'bg-rose-500 text-white border-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.4)] scale-105 active:scale-95'
-                                                    : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-slate-200'}`}
-                                                title="Toggle All Fails Selection"
-                                            >
-                                                <Lucide.AlertCircle size={14} className={multiSelectedIds.length > 0 ? 'animate-pulse' : ''} />
-                                                All Fails
-                                            </button>
-
-                                            <div className="w-px h-6 bg-white/10 mx-1" />
+                                            {/* All Fails & Fail Only */}
+                                            <div className="flex items-center gap-1 mr-1">
+                                                <button
+                                                    onClick={() => {
+                                                        if (!result) return;
+                                                        if (multiSelectedIds.length > 0) {
+                                                            setMultiSelectedIds([]);
+                                                        } else {
+                                                            setSelectedSegmentId(null);
+                                                            const failIds = result.segments
+                                                                .filter(s => s.duration >= (result.perfThreshold || 1000))
+                                                                .map(s => s.id);
+                                                            setMultiSelectedIds(failIds);
+                                                        }
+                                                    }}
+                                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all duration-300 border ${multiSelectedIds.length > 0
+                                                        ? 'bg-rose-500 text-white border-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.4)]'
+                                                        : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-slate-200'}`}
+                                                    title="All Fails"
+                                                >
+                                                    <Lucide.AlertCircle size={14} className={multiSelectedIds.length > 0 ? 'animate-pulse' : ''} />
+                                                    All Fails
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowOnlyFail(!showOnlyFail)}
+                                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all duration-300 border ${showOnlyFail
+                                                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                                        : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-slate-200'}`}
+                                                    title="Fail Only"
+                                                >
+                                                    <Lucide.Filter size={14} />
+                                                    Fail Only
+                                                </button>
+                                            </div>
 
                                             {bottlenecks.length > 0 && (
-                                                <div className="flex items-center gap-2">
-                                                    {/* Fail Only Toggle */}
-                                                    <button
-                                                        onClick={() => setShowOnlyFail(!showOnlyFail)}
-                                                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all duration-300 ${showOnlyFail
-                                                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                                            : 'text-slate-500 hover:text-slate-300'}`}
-                                                    >
-                                                        <Lucide.Filter size={12} />
-                                                        Fail Only
-                                                    </button>
-
+                                                <>
                                                     <div className="w-px h-6 bg-white/10 mx-1" />
-
                                                     <div className="flex items-center gap-2 bg-black/20 rounded-xl px-2 py-1">
                                                         <button
                                                             onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
@@ -692,28 +728,48 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                             <Lucide.ChevronRight size={16} />
                                                         </button>
                                                     </div>
-                                                </div>
+                                                </>
                                             )}
                                         </div>
 
-                                        <div className="h-10 w-px bg-white/5 mx-2" />
+                                        {/* Search Input - NOW BETWEEN NAVIGATOR AND TOGGLES */}
+                                        <div className="flex items-center bg-slate-950/60 rounded-2xl border border-white/10 px-4 py-2 w-64 focus-within:border-indigo-500/50 transition-all shadow-inner">
+                                            <Lucide.Search size={14} className="text-slate-500 mr-2" />
+                                            <input
+                                                type="text"
+                                                placeholder="Search segments..."
+                                                value={searchInput}
+                                                onChange={(e) => setSearchInput(e.target.value)}
+                                                className="bg-transparent text-xs text-white w-full focus:outline-none placeholder:text-slate-600 font-mono"
+                                            />
+                                        </div>
 
                                         <div className="flex items-center gap-3">
-                                            <div className="p-1 bg-slate-950 rounded-lg border border-white/5 flex gap-1">
+                                            <div className="p-1 bg-slate-950 rounded-xl border border-white/5 flex gap-1 shadow-lg">
                                                 <button
                                                     onClick={() => setViewMode('chart')}
-                                                    className={`px-4 py-1.5 rounded-md text-[11px] font-black uppercase tracking-wider transition-all ${viewMode === 'chart' ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                                    className={`px-6 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${viewMode === 'chart' ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]' : 'text-slate-500 hover:text-slate-300'}`}
                                                 >
+                                                    <Lucide.Activity size={14} />
                                                     Chart
                                                 </button>
                                                 <button
                                                     onClick={() => setViewMode('list')}
-                                                    className={`px-4 py-1.5 rounded-md text-[11px] font-black uppercase tracking-wider transition-all ${viewMode === 'list' ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                                    className={`px-6 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]' : 'text-slate-500 hover:text-slate-300'}`}
                                                 >
+                                                    <Lucide.AlignLeft size={14} />
                                                     List
                                                 </button>
                                             </div>
                                         </div>
+
+                                        <button
+                                            onClick={onClose}
+                                            className="ml-4 p-2.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all shadow-lg active:scale-90"
+                                            title="Close Dashboard"
+                                        >
+                                            <Lucide.X size={18} />
+                                        </button>
                                     </div>
                                 </div>
                             )}
