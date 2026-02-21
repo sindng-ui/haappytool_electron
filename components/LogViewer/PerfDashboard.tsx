@@ -228,10 +228,21 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
     useEffect(() => {
         const timeout = setTimeout(() => {
-            setSearchQuery(searchInput);
-        }, 250);
+            const trimmedInput = searchInput.trim();
+            setSearchQuery(trimmedInput);
+
+            // If search is non-empty and has matches, clear the manual selection
+            // This ensures search results are not dimmed by an existing cross-thread selection
+            if (trimmedInput !== '' && result) {
+                const hasMatch = result.segments.some(s => checkSegmentMatch(s, trimmedInput));
+                if (hasMatch) {
+                    setSelectedSegmentId(null);
+                    setMultiSelectedIds([]);
+                }
+            }
+        }, 500);
         return () => clearTimeout(timeout);
-    }, [searchInput]);
+    }, [searchInput, result]);
 
     const checkSegmentMatch = (s: AnalysisSegment, query: string) => {
         if (!query) return true;
