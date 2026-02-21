@@ -201,9 +201,17 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     // Time Ruler Tool Logic
     const [measureRange, setMeasureRange] = useState<{ startTime: number, endTime: number } | null>(null);
     const [isShiftPressed, setIsShiftPressed] = useState(false);
+    const [showOnlyFail, setShowOnlyFail] = useState(false);
+    const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([]);
 
     useEffect(() => {
-        const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Shift') setIsShiftPressed(true); };
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Shift') setIsShiftPressed(true);
+            if (e.key === 'Escape') {
+                setSelectedSegmentId(null);
+                setMultiSelectedIds([]);
+            }
+        };
         const onKeyUp = (e: KeyboardEvent) => { if (e.key === 'Shift') setIsShiftPressed(false); };
         window.addEventListener('keydown', onKeyDown);
         window.addEventListener('keyup', onKeyUp);
@@ -217,9 +225,13 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const [currentBottleneckIndex, setCurrentBottleneckIndex] = useState(-1);
     const bottlenecks = useMemo(() => {
         if (!result) return [];
+        let filtered = [...result.segments];
+        if (showOnlyFail) {
+            filtered = filtered.filter(s => s.duration >= (result.perfThreshold || 1000));
+        }
         // Match the list logic: top 50 slowest segments
-        return [...result.segments].sort((a, b) => b.duration - a.duration).slice(0, 50);
-    }, [result]);
+        return filtered.sort((a, b) => b.duration - a.duration).slice(0, 50);
+    }, [result, showOnlyFail]);
 
     const jumpToBottleneck = (index: number) => {
         if (!result || bottlenecks.length === 0) return;
@@ -231,6 +243,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         const target = bottlenecks[targetIndex];
         setCurrentBottleneckIndex(targetIndex);
         setSelectedSegmentId(target.id);
+        setMultiSelectedIds([]); // Clear multi-select when navigating individually
 
         // User requested: Do not zoom in on the bottleneck segment. Keep the map fully zoomed out.
         setFlameZoom(null);
@@ -331,7 +344,12 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         if (!result) return [];
 
         // StartTime ASC, Duration DESC
-        const sorted = [...result.segments].sort((a, b) => (a.startTime - b.startTime) || (b.duration - a.duration));
+        let baseSegments = [...result.segments];
+        if (showOnlyFail) {
+            baseSegments = baseSegments.filter(s => s.duration >= (result.perfThreshold || 1000));
+        }
+
+        const sorted = baseSegments.sort((a, b) => (a.startTime - b.startTime) || (b.duration - a.duration));
         const lanes: number[] = [];
         const totalDuration = result.endTime - result.startTime;
         const minVisualDuration = totalDuration * 0.005; // 0.5% width minimum
@@ -616,11 +634,10 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                 <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5 flex flex-col gap-2">
                                                     <div className="flex items-center gap-2">
                                                         <div className={`w-2 h-2 rounded-full shrink-0 ${isBottleneck ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]' : 'bg-emerald-500'}`} />
-                                                        <span className="text-[12px] font-black text-white truncate leading-tight">{s.name}</span>
+                                                        <span className="text-[12px] font-black text-white truncate leading-tight" title={s.name}>{s.name}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between mt-1">
                                                         <span className={`text-[15px] font-black tracking-tighter leading-none ${isBottleneck ? 'text-rose-400' : 'text-emerald-400'}`}>{formatDuration(s.duration)}</span>
-                                                        <span className="text-[9px] font-bold text-slate-500 font-mono">TID {s.tid || 'N/A'}</span>
                                                     </div>
                                                 </div>
 
@@ -676,32 +693,72 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                     <div className="flex-1" />
 
                                     <div className="flex items-center gap-3">
-                                        {/* Navigator in Top Bar */}
-                                        {bottlenecks.length > 0 && (
-                                            <div className="flex items-center gap-3 px-4 py-2 bg-rose-500/5 backdrop-blur-md border border-rose-500/20 rounded-2xl shadow-lg">
-                                                <span className="text-[9px] text-rose-400 uppercase font-black flex items-center gap-1.5 shrink-0">
-                                                    <Lucide.Target size={12} />
-                                                    Navigator
-                                                </span>
-                                                <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-1 bg-slate-950/40 backdrop-blur-2xl border border-white/10 rounded-2xl p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                                            {/* All Fails Toggle */}
+                                            <button
+                                                onClick={() => {
+                                                    if (!result) return;
+                                                    if (multiSelectedIds.length > 0) {
+                                                        setMultiSelectedIds([]);
+                                                    } else {
+                                                        setSelectedSegmentId(null); // Clear individual selection
+                                                        const failIds = result.segments
+                                                            .filter(s => s.duration >= (result.perfThreshold || 1000))
+                                                            .map(s => s.id);
+                                                        setMultiSelectedIds(failIds);
+                                                    }
+                                                }}
+                                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all duration-300 border ${multiSelectedIds.length > 0
+                                                    ? 'bg-rose-500 text-white border-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.4)] scale-105 active:scale-95'
+                                                    : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-slate-200'}`}
+                                                title="Toggle All Fails Selection"
+                                            >
+                                                <Lucide.AlertCircle size={14} className={multiSelectedIds.length > 0 ? 'animate-pulse' : ''} />
+                                                All Fails
+                                            </button>
+
+                                            <div className="w-px h-6 bg-white/10 mx-1" />
+
+                                            {bottlenecks.length > 0 && (
+                                                <div className="flex items-center gap-2">
+                                                    {/* Fail Only Toggle */}
                                                     <button
-                                                        onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
-                                                        className="w-8 h-8 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-xl transition-all hover:scale-105 active:scale-95"
+                                                        onClick={() => setShowOnlyFail(!showOnlyFail)}
+                                                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all duration-300 ${showOnlyFail
+                                                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                                            : 'text-slate-500 hover:text-slate-300'}`}
                                                     >
-                                                        <Lucide.ChevronLeft size={16} />
+                                                        <Lucide.Filter size={12} />
+                                                        Fail Only
                                                     </button>
-                                                    <span className="text-xs text-slate-200 font-mono font-black min-w-[50px] text-center">
-                                                        {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'} <span className="text-slate-600">/</span> {bottlenecks.length}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
-                                                        className="w-8 h-8 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-xl transition-all hover:scale-105 active:scale-95"
-                                                    >
-                                                        <Lucide.ChevronRight size={16} />
-                                                    </button>
+
+                                                    <div className="w-px h-6 bg-white/10 mx-1" />
+
+                                                    <div className="flex items-center gap-2 bg-black/20 rounded-xl px-2 py-1">
+                                                        <button
+                                                            onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
+                                                            className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400 rounded-lg transition-all"
+                                                        >
+                                                            <Lucide.ChevronLeft size={16} />
+                                                        </button>
+                                                        <div className="flex flex-col items-center min-w-[45px]">
+                                                            <span className="text-[10px] text-white font-mono font-black leading-none">
+                                                                {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'}
+                                                            </span>
+                                                            <span className="text-[7px] text-slate-500 font-black uppercase mt-0.5 tracking-tighter">
+                                                                of {bottlenecks.length}
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
+                                                            className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400 rounded-lg transition-all"
+                                                        >
+                                                            <Lucide.ChevronRight size={16} />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
 
                                         <div className="h-10 w-px bg-white/5 mx-2" />
 
@@ -730,7 +787,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                         e.stopPropagation();
                                         setFlameZoom(null);
                                     }}
-                                    className="absolute bottom-6 right-8 z-[60] px-3.5 py-1.5 bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold text-indigo-400 hover:text-white hover:bg-indigo-600 shadow-2xl transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
+                                    className="absolute bottom-16 right-8 z-[60] px-3.5 py-1.5 bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold text-indigo-400 hover:text-white hover:bg-indigo-600 shadow-2xl transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
                                     title="Reset View"
                                 >
                                     <Lucide.Maximize2 size={12} />
@@ -1013,7 +1070,9 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             })()}
 
                                             {flameSegments.map(s => {
-                                                const isSelected = s.id === selectedSegmentId;
+                                                const isSingleSelected = s.id === selectedSegmentId;
+                                                const isMultiSelected = multiSelectedIds.includes(s.id);
+                                                const isSelected = isSingleSelected || isMultiSelected;
                                                 const isBottleneck = s.duration > targetTime;
                                                 const isGroup = s.id.startsWith('group-') && s.duration > 0;
                                                 const isInterval = s.id.startsWith('interval-');
@@ -1047,6 +1106,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setSelectedSegmentId(s.id);
+                                                            setMultiSelectedIds([]); // Individual click clears multi-selection
                                                             onJumpToRange?.(s.startLine, s.endLine);
                                                         }}
                                                         onDoubleClick={(e) => {
@@ -1211,7 +1271,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {[...result.segments].sort((a, b) => b.duration - a.duration).slice(0, 50)
+                                            {[...result.segments].filter(s => !showOnlyFail || s.duration >= (result.perfThreshold || 1000)).sort((a, b) => b.duration - a.duration).slice(0, 50)
                                                 .filter(s => checkSegmentMatch(s, searchQuery))
                                                 .map(s => {
                                                     const isGroup = s.id.startsWith('group-');
@@ -1223,6 +1283,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                             key={s.id}
                                                             onClick={() => {
                                                                 setSelectedSegmentId(s.id);
+                                                                setMultiSelectedIds([]);
                                                                 onJumpToRange?.(s.startLine, s.endLine);
                                                             }}
                                                             onDoubleClick={() => {
@@ -1237,9 +1298,8 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                             <td className={`p-2 text-[10px] font-medium max-w-[350px] ${isGroup ? 'text-white font-bold' : 'text-slate-200'}`}>
                                                                 <div className="flex flex-col gap-0.5">
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="truncate text-white font-bold">{s.name}</span>
+                                                                        <span className="truncate text-white font-bold" title={s.name}>{s.name}</span>
                                                                         {isGroup && <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1 rounded font-black">GROUP</span>}
-                                                                        {s.tid && <span className="text-[8px] bg-indigo-500/20 text-indigo-400 px-1 rounded font-black border border-indigo-500/20">TID {s.tid}</span>}
                                                                     </div>
                                                                     <div className="text-[10px] text-slate-300 font-mono truncate flex items-center gap-1 mt-0.5">
                                                                         <div className="flex items-center gap-1">
@@ -1293,14 +1353,13 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                         >
                                             <div className="p-3 md:p-4 flex items-center justify-between gap-4 max-w-screen-2xl mx-auto">
                                                 <div className="flex-1 min-w-0 flex items-center gap-4">
-                                                    {/* 1. Executor Info */}
                                                     <div className="flex items-center gap-3 pr-4 border-r border-white/5 shrink-0 h-10">
                                                         <div className={`p-2 rounded-xl bg-indigo-500/20 text-indigo-400 shadow-lg`}>
                                                             <Lucide.Activity size={18} />
                                                         </div>
                                                         <div className="flex flex-col">
-                                                            <span className="text-[14px] font-black text-white tracking-tighter leading-none">{s.tid || '9999'}</span>
-                                                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Executor ID</span>
+                                                            <span className="text-[14px] font-black text-white tracking-tighter leading-none">{s.name}</span>
+                                                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Segment Name</span>
                                                         </div>
                                                     </div>
 
@@ -1317,9 +1376,9 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                                     transition={{ duration: 0.2 }}
                                                                     className="flex-1 min-w-0 flex items-center gap-3"
                                                                 >
-                                                                    <div className="flex-1 min-w-0 flex flex-col">
-                                                                        <span className="text-[13px] font-black text-indigo-300 truncate tracking-tight">{s.fileName || 'App.cs'}</span>
-                                                                        <span className="text-[10px] font-bold text-slate-400 truncate opacity-80">{s.functionName || 'OnEvent'}</span>
+                                                                    <div className="flex-1 min-w-0 flex flex-col items-center">
+                                                                        <span className="text-[13px] font-black text-indigo-300 truncate tracking-tight text-center w-full" title={s.fileName}>{s.fileName || 'App.cs'}</span>
+                                                                        <span className="text-[10px] font-bold text-slate-400 truncate opacity-80 text-center w-full" title={s.functionName}>{s.functionName || 'OnEvent'}</span>
                                                                     </div>
 
                                                                     {((s.fileName !== s.endFileName) || (s.functionName !== s.endFunctionName)) && (
@@ -1327,9 +1386,9 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                                             <div className="p-1.5 bg-white/5 rounded-full shrink-0">
                                                                                 <Lucide.MoveRight size={12} className="text-slate-500" />
                                                                             </div>
-                                                                            <div className="flex-1 min-w-0 flex flex-col">
-                                                                                <span className="text-[13px] font-black text-pink-300 truncate tracking-tight">{s.endFileName || 'App.cs'}</span>
-                                                                                <span className="text-[10px] font-bold text-slate-400 truncate opacity-80">{s.endFunctionName || 'OnEvent'}</span>
+                                                                            <div className="flex-1 min-w-0 flex flex-col items-center">
+                                                                                <span className="text-[13px] font-black text-pink-300 truncate tracking-tight text-center w-full" title={s.endFileName}>{s.endFileName || 'App.cs'}</span>
+                                                                                <span className="text-[10px] font-bold text-slate-400 truncate opacity-80 text-center w-full" title={s.endFunctionName}>{s.endFunctionName || 'OnEvent'}</span>
                                                                             </div>
                                                                         </>
                                                                     )}
