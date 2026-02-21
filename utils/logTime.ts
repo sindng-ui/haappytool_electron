@@ -58,16 +58,13 @@ export const extractTimestamp = (line: string): number | null => {
     }
 
     // 2. Raw Monotonic Time (Tizen/Linux Kernel style or "Seconds.Microseconds" at start)
-    // Matches: "[  123.456]", "123.456", "  123.456"
-    // Regex Logic:
-    // ^\s*          -> Start of line, optional leading space
-    // (\[\s*)?      -> Optional open bracket with optional space
-    // (\d+\.\d+)    -> Timestamp (Group 2)
-    // (\s*\])?      -> Optional close bracket with optional space
-    const rawMatch = line.match(/^\s*(\[\s*)?(\d+\.\d+)(\s*\])?/);
+    // Matches: "[  123.456]", "123.456", "  123.456", "03:500"
+    // Regex Logic: Improved to support both '.' and ':' as millisecond separators
+    const rawMatch = line.match(/^\s*(\[\s*)?(\d+[.:]\d+)(\s*\])?/);
     if (rawMatch) {
-        // rawMatch[2] is the timestamp part
-        const seconds = parseFloat(rawMatch[2]);
+        // Handle both '.' and ':' in the timestamp string
+        const tsStr = rawMatch[2].replace(':', '.');
+        const seconds = parseFloat(tsStr);
         if (!isNaN(seconds)) {
             return seconds * 1000; // Convert to ms
         }

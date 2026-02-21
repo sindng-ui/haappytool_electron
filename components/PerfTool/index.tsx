@@ -17,6 +17,58 @@ interface DangerThreshold {
     label: string;
 }
 
+const extractLogIds = (line: string): { pid: string | null, tid: string | null } => {
+    let pid: string | null = null;
+    let tid: string | null = null;
+
+    // 1. (P 123, T 456) or (T 456, P 123) or (123, 456)
+    // Support multiple separators: comma, space, colon, dash
+    const parenMatch = line.match(/\(\s*(?:P\s*)?(\d+)\s*[,:\s-]\s*(?:T\s*)?(\d+)\s*\)/i);
+    if (parenMatch) {
+        pid = parenMatch[1];
+        tid = parenMatch[2];
+    } else {
+        // 2. [PID:TID] or [PID TID] or [PID-TID]
+        const bracketMatch = line.match(/\[\s*(\d+)\s*[:\s-]\s*(\d+)\s*\]/);
+        if (bracketMatch) {
+            pid = bracketMatch[1];
+            tid = bracketMatch[2];
+        } else {
+            // 3. Android Standard: Date Time PID TID ...
+            const androidMatch = line.match(/^\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+(\d+)\s+(\d+)\s+/);
+            if (androidMatch) {
+                pid = androidMatch[1];
+                tid = androidMatch[2];
+            }
+        }
+    }
+
+    // 4. Handle T/P or P/T combined (Common in some Tizen/embedded formats)
+    const combinedMatch = line.match(/(?:T\/P|P\/T)[\s:]*(\d+)/i);
+    if (combinedMatch) {
+        if (!pid) pid = combinedMatch[1];
+        if (!tid) tid = combinedMatch[1];
+    }
+
+    // Fallback for individual labels if not found in pairs
+    if (!pid) {
+        const pMatch = line.match(/(?:P\s*|PID[:\s]|ProcessId[:\s])(\d+)/i);
+        if (pMatch) pid = pMatch[1];
+    }
+    if (!tid) {
+        const tMatch = line.match(/(?:T\s*|TID[:\s]|ThreadId[:\s])(\d+)/i);
+        if (tMatch) tid = tMatch[1];
+    }
+
+    // Final fallback for simple brackets [1234] if nothing else found
+    if (!pid && !tid) {
+        const simpleBracket = line.match(/\[\s*(\d+)\s*\]/);
+        if (simpleBracket) pid = simpleBracket[1];
+    }
+
+    return { pid, tid };
+};
+
 const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     const { addToast } = useToast();
 
@@ -179,11 +231,12 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
         const requestId = Math.random().toString(36).substring(7);
         const keywordLower = targetKeyword.toLowerCase().trim();
 
-        // Matched logs array
-        const matchedLogs: { timestamp: number; lineContent: string; lineIndex: number }[] = [];
+        // Matched logs grouped by TID
+        const matchedLogsByTid = new Map<string, { timestamp: number; lineContent: string; lineIndex: number }[]>();
 
         let currentLineIndex = 0;
         let streamBuffer = '';
+        let detectedPid: string | null = null;
 
         let offChunk: (() => void) | undefined;
         let offComplete: (() => void) | undefined;
@@ -199,8 +252,11 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
             if (line.toLowerCase().includes(keywordLower)) {
                 const ts = extractTimestamp(line);
                 if (ts !== null) {
-                    // Determine implicit 'end' of previous event to build sequential intervals.
-                    matchedLogs.push({ timestamp: ts, lineContent: line, lineIndex: index });
+                    const { pid, tid: extractedTid } = extractLogIds(line);
+                    const tid = extractedTid || 'Main';
+                    if (!detectedPid && pid) detectedPid = pid;
+                    if (!matchedLogsByTid.has(tid)) matchedLogsByTid.set(tid, []);
+                    matchedLogsByTid.get(tid)!.push({ timestamp: ts, lineContent: line, lineIndex: index });
                 }
             }
         };
@@ -228,51 +284,71 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
             }
             cleanup();
 
-            if (matchedLogs.length < 2) {
+            const allLogs = Array.from(matchedLogsByTid.values()).flat().sort((a, b) => a.timestamp - b.timestamp);
+            if (allLogs.length < 2) {
                 setIsAnalyzing(false);
                 addToast("Not enough logs matched the keyword to form intervals.", "warning");
                 return;
             }
 
-            // Generate Interval Segments
+            // Generate Interval Segments per TID
             const segments: AnalysisSegment[] = [];
             let passCount = 0;
             let failCount = 0;
 
-            for (let i = 0; i < matchedLogs.length - 1; i++) {
-                const current = matchedLogs[i];
-                const next = matchedLogs[i + 1];
-                const duration = next.timestamp - current.timestamp;
+            const sortedTids = Array.from(matchedLogsByTid.keys()).sort((a, b) => {
+                // Prioritize Main Thread (TID == PID or TID == targetKeyword)
+                const isAMain = a === detectedPid || a === targetKeyword.trim();
+                const isBMain = b === detectedPid || b === targetKeyword.trim();
+                if (isAMain && !isBMain) return -1;
+                if (!isAMain && isBMain) return 1;
+                return a.localeCompare(b);
+            });
+            const tidToLane = new Map<string, number>();
+            sortedTids.forEach((tid, idx) => tidToLane.set(tid, idx));
 
-                const isFail = duration >= perfThreshold;
-                if (isFail) failCount++; else passCount++;
+            matchedLogsByTid.forEach((logs, tid) => {
+                const lane = tidToLane.get(tid) || 0;
+                // Sort logs within TID group to ensure interval duration consistency
+                const sortedLogs = logs.sort((a, b) => a.timestamp - b.timestamp);
 
-                segments.push({
-                    id: `interval-${i}-${Math.random().toString(36).substring(7)}`,
-                    name: `Interval ${i + 1}`,
-                    startTime: current.timestamp,
-                    endTime: next.timestamp,
-                    duration,
-                    startLine: current.lineIndex,
-                    endLine: next.lineIndex,
-                    originalStartLine: current.lineIndex,
-                    originalEndLine: next.lineIndex,
-                    type: 'manual', // Closest type available in AnalysisSegment
-                    status: isFail ? 'fail' : 'pass',
-                    logs: [current.lineContent, next.lineContent],
-                    dangerColor: getDangerColor(duration),
-                    lane: 0 // Will be assigned by PerfDashboard logic or defaults
-                });
-            }
+                for (let i = 0; i < sortedLogs.length - 1; i++) {
+                    const current = sortedLogs[i];
+                    const next = sortedLogs[i + 1];
+                    const duration = next.timestamp - current.timestamp;
 
-            const totalDuration = matchedLogs[matchedLogs.length - 1].timestamp - matchedLogs[0].timestamp;
+                    const isFail = duration >= perfThreshold;
+                    if (isFail) failCount++; else passCount++;
+
+                    segments.push({
+                        id: `interval-${tid}-${i}-${Math.random().toString(36).substring(7)}`,
+                        name: `TID ${tid} • Interval ${i + 1}`,
+                        startTime: current.timestamp,
+                        endTime: next.timestamp,
+                        duration,
+                        startLine: current.lineIndex,
+                        endLine: next.lineIndex,
+                        originalStartLine: current.lineIndex,
+                        originalEndLine: next.lineIndex,
+                        type: 'manual',
+                        status: isFail ? 'fail' : 'pass',
+                        logs: [current.lineContent, next.lineContent],
+                        dangerColor: getDangerColor(duration),
+                        lane
+                    });
+                }
+            });
+
+            const startTime = allLogs[0].timestamp;
+            const endTime = allLogs[allLogs.length - 1].timestamp;
+            const totalDuration = endTime - startTime;
 
             const finishedResult: AnalysisResult = {
                 fileName: fileHandle.name,
                 totalDuration,
                 segments,
-                startTime: matchedLogs[0].timestamp,
-                endTime: matchedLogs[matchedLogs.length - 1].timestamp,
+                startTime,
+                endTime,
                 logCount: currentLineIndex,
                 passCount,
                 failCount,

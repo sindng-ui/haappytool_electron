@@ -170,13 +170,18 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         const minVisualDuration = totalDuration * 0.005; // 0.5% width minimum
 
         return sorted.map(s => {
-            let lane = 0;
+            let lane = s.lane !== undefined ? s.lane : 0;
             const effectiveEndTime = Math.max(s.endTime, s.startTime + minVisualDuration);
 
-            while (lanes[lane] !== undefined && lanes[lane] > s.startTime) {
-                lane++;
+            // Only run the greedy packing logic if lane was not explicitly provided.
+            // This allows PerfTool to show one lane per TID accurately.
+            if (s.lane === undefined) {
+                while (lanes[lane] !== undefined && lanes[lane] > s.startTime) {
+                    lane++;
+                }
             }
-            lanes[lane] = effectiveEndTime;
+
+            lanes[lane] = Math.max(lanes[lane] || 0, effectiveEndTime);
 
             return {
                 ...s,
