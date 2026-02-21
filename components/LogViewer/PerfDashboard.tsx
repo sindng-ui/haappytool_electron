@@ -17,6 +17,7 @@ interface PerfDashboardProps {
     height?: number;
     onHeightChange?: (height: number) => void;
     isFullScreen?: boolean;
+    showTidColumn?: boolean;
 }
 
 /**
@@ -186,7 +187,8 @@ const MemoizedFlameSegment = React.memo<FlameSegmentProps>(({
 export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     isOpen, onClose, result, isAnalyzing,
     onJumpToLine, onJumpToRange, onViewRawRange, onCopyRawRange,
-    targetTime, height = 400, onHeightChange = () => { }, isFullScreen = false
+    targetTime, height = 400, onHeightChange = () => { }, isFullScreen = false,
+    showTidColumn = true
 }) => {
     const [flameZoom, setFlameZoom] = useState<{ startTime: number; endTime: number } | null>(null);
     const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
@@ -858,50 +860,52 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                         }}
                                     >
                                         {/* TID Sidebar (Sticky Left - Integrated Design) */}
-                                        <div className="sticky left-0 w-[52px] shrink-0 z-[100] pointer-events-none">
-                                            {/* Subtle vertical separator line */}
-                                            <div className="absolute top-0 bottom-0 right-0 w-px bg-white/5 shadow-[2px_0_10px_rgba(0,0,0,0.5)]" />
+                                        {showTidColumn && (
+                                            <div className="sticky left-0 w-[52px] shrink-0 z-[100] pointer-events-none">
+                                                {/* Subtle vertical separator line */}
+                                                <div className="absolute top-0 bottom-0 right-0 w-px bg-white/5 shadow-[2px_0_10px_rgba(0,0,0,0.5)]" />
 
-                                            {/* TID Column Header (Minimalist) */}
-                                            <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 flex items-center justify-center bg-slate-950/20 backdrop-blur-md">
-                                                <span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.3em]">TID</span>
+                                                {/* TID Column Header (Minimalist) */}
+                                                <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 flex items-center justify-center bg-slate-950/20 backdrop-blur-md">
+                                                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.3em]">TID</span>
+                                                </div>
+
+                                                {/* Lane Labels */}
+                                                {Array.from({ length: maxLane + 1 }).map((_, i) => {
+                                                    const tid = laneTidMap.get(i);
+                                                    if (!tid) return null;
+
+                                                    const isFirstInTid = i === 0 || laneTidMap.get(i - 1) !== tid;
+                                                    const tidColor = palette[i % palette.length];
+                                                    const isTidSelected = tid === selectedTid;
+
+                                                    return (
+                                                        <div
+                                                            key={`tid-label-${i}`}
+                                                            className={`absolute left-0 right-0 h-[24px] flex items-center pr-1 transition-all group/tid ${isTidSelected ? 'z-[110]' : ''}`}
+                                                            style={{ top: `${i * 28 + 24}px` }}
+                                                        >
+                                                            {isFirstInTid ? (
+                                                                <div className={`relative w-full h-[18px] flex items-center justify-center rounded-r-md border-y border-r pointer-events-auto transition-all ${isTidSelected
+                                                                    ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
+                                                                    : 'bg-slate-900/40 border-white/5 hover:bg-slate-900/80 hover:border-white/10'
+                                                                    }`}>
+                                                                    <div className={`absolute left-0 top-0 bottom-0 rounded-full transition-all ${isTidSelected ? 'w-1' : 'w-[2px]'}`} style={{ backgroundColor: tidColor }} />
+                                                                    <span className={`text-[9px] font-mono tracking-tighter transition-all ${isTidSelected ? 'font-black scale-105' : 'font-bold'}`} style={{ color: tidColor }}>
+                                                                        {tid.length > 5 ? tid.substring(0, 5) : tid}
+                                                                    </span>
+
+                                                                    {/* Hover/Select Glow Effect */}
+                                                                    <div className={`absolute inset-0 rounded-r-md transition-opacity ${isTidSelected ? 'opacity-20' : 'opacity-0 group-hover/tid:opacity-10'}`} style={{ backgroundColor: tidColor, filter: 'blur(4px)' }} />
+                                                                </div>
+                                                            ) : (
+                                                                <div className={`ml-auto mr-1.5 rounded-full transition-all ${isTidSelected ? 'w-1.5 h-1.5 opacity-30 shadow-[0_0_8px_rgba(255,255,255,0.2)]' : 'w-1 h-1 opacity-10'}`} style={{ backgroundColor: tidColor }} />
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
-
-                                            {/* Lane Labels */}
-                                            {Array.from({ length: maxLane + 1 }).map((_, i) => {
-                                                const tid = laneTidMap.get(i);
-                                                if (!tid) return null;
-
-                                                const isFirstInTid = i === 0 || laneTidMap.get(i - 1) !== tid;
-                                                const tidColor = palette[i % palette.length];
-                                                const isTidSelected = tid === selectedTid;
-
-                                                return (
-                                                    <div
-                                                        key={`tid-label-${i}`}
-                                                        className={`absolute left-0 right-0 h-[24px] flex items-center pr-1 transition-all group/tid ${isTidSelected ? 'z-[110]' : ''}`}
-                                                        style={{ top: `${i * 28 + 24}px` }}
-                                                    >
-                                                        {isFirstInTid ? (
-                                                            <div className={`relative w-full h-[18px] flex items-center justify-center rounded-r-md border-y border-r pointer-events-auto transition-all ${isTidSelected
-                                                                ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
-                                                                : 'bg-slate-900/40 border-white/5 hover:bg-slate-900/80 hover:border-white/10'
-                                                                }`}>
-                                                                <div className={`absolute left-0 top-0 bottom-0 rounded-full transition-all ${isTidSelected ? 'w-1' : 'w-[2px]'}`} style={{ backgroundColor: tidColor }} />
-                                                                <span className={`text-[9px] font-mono tracking-tighter transition-all ${isTidSelected ? 'font-black scale-105' : 'font-bold'}`} style={{ color: tidColor }}>
-                                                                    {tid.length > 5 ? tid.substring(0, 5) : tid}
-                                                                </span>
-
-                                                                {/* Hover/Select Glow Effect */}
-                                                                <div className={`absolute inset-0 rounded-r-md transition-opacity ${isTidSelected ? 'opacity-20' : 'opacity-0 group-hover/tid:opacity-10'}`} style={{ backgroundColor: tidColor, filter: 'blur(4px)' }} />
-                                                            </div>
-                                                        ) : (
-                                                            <div className={`ml-auto mr-1.5 rounded-full transition-all ${isTidSelected ? 'w-1.5 h-1.5 opacity-30 shadow-[0_0_8px_rgba(255,255,255,0.2)]' : 'w-1 h-1 opacity-10'}`} style={{ backgroundColor: tidColor }} />
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                        )}
 
                                         {/* Scrollable Map Area */}
                                         <div className="flex-1 relative bg-slate-950/20">
