@@ -127,7 +127,7 @@ describe('PerfDashboard Component', () => {
             />
         );
 
-        expect(await screen.findByText(/Segments/i)).toBeInTheDocument();
+        expect(await screen.findByText('Segments')).toBeInTheDocument();
         expect(await screen.findByText(/Total Time/i)).toBeInTheDocument();
         expect(await screen.findByText(/1,000ms/i)).toBeInTheDocument();
     });

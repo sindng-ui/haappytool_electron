@@ -10,6 +10,14 @@ vi.mock('../../contexts/ToastContext', () => ({
     }),
 }));
 
+// Mock Worker
+class MockWorker {
+    postMessage = vi.fn();
+    terminate = vi.fn();
+    onmessage = null;
+}
+vi.stubGlobal('Worker', MockWorker);
+
 // Mock framer-motion
 vi.mock('framer-motion', () => {
     const Component = ({ children, ...props }: any) => {
@@ -48,8 +56,8 @@ describe('PerfTool Component', () => {
     it('should render initial state correctly', async () => {
         render(<PerfTool />);
         // Wait for isInitialLoadDone
-        expect(await screen.findByText(/Performance Analysis/i)).toBeInTheDocument();
-        expect(await screen.findByText(/Target Keyword/i)).toBeInTheDocument();
+        expect(await screen.findByText(/Perf Tool/i)).toBeInTheDocument();
+        expect(await screen.findByPlaceholderText(/Enter PID or Log Tag/i)).toBeInTheDocument();
     });
 
     it('should update target keyword on input Change', async () => {
