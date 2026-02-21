@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, LayoutDashboard, Target, Activity, ChevronUp, ChevronDown, RefreshCw, ZoomIn, Search, Maximize, Clock, AlignLeft, Copy, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react';
+import * as Lucide from 'lucide-react';
 import { AnalysisResult, AnalysisSegment } from '../../utils/perfAnalysis';
+import { formatDuration } from '../../utils/logTime';
 
 interface PerfDashboardProps {
     isOpen: boolean;
@@ -23,13 +24,9 @@ interface PerfDashboardProps {
  */
 const getContrastColor = (hexcolor: string) => {
     if (!hexcolor) return 'rgba(255, 255, 255, 0.9)';
-
-    // Support for CSS variables or rgba/rgb - for now we focus on hex as provided by settings
     if (!hexcolor.startsWith('#')) return 'rgba(255, 255, 255, 0.9)';
-
     const hex = hexcolor.slice(1);
     let r, g, b;
-
     if (hex.length === 3) {
         r = parseInt(hex[0] + hex[0], 16);
         g = parseInt(hex[1] + hex[1], 16);
@@ -39,10 +36,152 @@ const getContrastColor = (hexcolor: string) => {
         g = parseInt(hex.slice(2, 4), 16);
         b = parseInt(hex.slice(4, 6), 16);
     }
-
     const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
     return (yiq >= 128) ? 'rgba(0, 0, 0, 0.85)' : 'rgba(255, 255, 255, 0.95)';
 };
+
+// --- Sub-components for Premium Cockpit ---
+
+const Scorecard: React.FC<{ label: string; value: string | number; icon: React.ReactNode; color: string; subValue?: string }> = ({ label, value, icon, color, subValue }) => (
+    <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl px-3.5 py-1.5 flex flex-col justify-center shadow-xl relative overflow-hidden group min-w-[120px]">
+        <div className={`absolute top-0 right-0 w-12 h-12 -mr-4 -mt-4 rounded-full blur-2xl opacity-10 group-hover:opacity-20 transition-opacity`} style={{ backgroundColor: color }} />
+        <div className="flex items-center justify-between gap-3">
+            <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] truncate">{label}</span>
+            <div style={{ color }} className="opacity-70 group-hover:opacity-100 transition-all shrink-0 scale-75 origin-right">{icon}</div>
+        </div>
+        <div className="flex items-end gap-1.5 overflow-hidden -mt-1">
+            <span className="text-xl font-black text-white tracking-tighter whitespace-nowrap leading-none">{value}</span>
+            {subValue && <span className="text-[9px] font-bold text-slate-500 whitespace-nowrap truncate leading-none mb-0.5">{subValue}</span>}
+        </div>
+    </div>
+);
+
+const TransitionCard: React.FC<{
+    startFile?: string;
+    startFunc?: string;
+    endFile?: string;
+    endFunc?: string;
+}> = ({ startFile, startFunc, endFile, endFunc }) => {
+    const isTransition = (startFile !== endFile) || (startFunc !== endFunc);
+
+    return (
+        <div className="bg-slate-950/60 border border-white/5 rounded-2xl p-4 space-y-3 shadow-inner">
+            <div className="flex items-start gap-3">
+                <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+                <div className="flex-1 min-w-0">
+                    <p className="text-[8px] font-black text-slate-500 uppercase mb-0.5 tracking-tighter">Origin Point</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {startFile && <span className="text-[11px] font-bold text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded-lg border border-indigo-500/20">{startFile}</span>}
+                        {startFunc && <span className="text-[11px] font-medium text-slate-300">{startFunc}</span>}
+                    </div>
+                </div>
+            </div>
+
+            {isTransition && (
+                <div className="flex flex-col items-center py-1">
+                    <div className="w-px h-6 bg-gradient-to-b from-indigo-500/50 to-purple-500/50" />
+                    <Lucide.MoveRight size={14} className="text-slate-600 my-1" />
+                    <div className="w-px h-6 bg-gradient-to-b from-purple-500/50 to-pink-500/50" />
+                </div>
+            )}
+
+            {isTransition ? (
+                <div className="flex items-start gap-3">
+                    <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-pink-500 mt-1.5 shadow-[0_0_8px_rgba(236,72,153,0.5)]" />
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[8px] font-black text-slate-500 uppercase mb-0.5 tracking-tighter">Exit Point</p>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            {endFile && <span className="text-[11px] font-bold text-pink-300 bg-pink-500/10 px-1.5 py-0.5 rounded-lg border border-pink-500/20">{endFile}</span>}
+                            {endFunc && <span className="text-[11px] font-medium text-slate-300">{endFunc}</span>}
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <p className="text-[10px] text-slate-600 font-bold italic pl-4.5">Single point operation (no transition detected)</p>
+            )}
+        </div>
+    );
+};
+
+interface FlameSegmentProps {
+    s: any;
+    flameZoom: any;
+    result: any;
+    totalDuration: number;
+    selectedSegmentId: string | null;
+    searchQuery: string;
+    onSelect: (id: string, start: number, end: number) => void;
+    checkMatch: (s: any, q: string) => boolean;
+}
+
+const MemoizedFlameSegment = React.memo<FlameSegmentProps>(({
+    s, flameZoom, result, totalDuration, selectedSegmentId, searchQuery, onSelect, checkMatch
+}) => {
+    const isSelected = selectedSegmentId === s.id;
+    const isMatched = checkMatch(s, searchQuery);
+    const opacity = isMatched ? 1 : 0.15;
+
+    // Zoom/Pan Transform
+    let left = s.relStart * 100;
+    let width = s.width;
+
+    if (flameZoom) {
+        const zoomStart = (flameZoom.startTime - result.startTime) / 1000;
+        const zoomEnd = (flameZoom.endTime - result.startTime) / 1000;
+        const zoomDuration = zoomEnd - zoomStart;
+        left = ((s.relStart - zoomStart) / zoomDuration) * 100;
+        width = (s.width / (zoomDuration / totalDuration * 100)) * 100;
+    }
+
+    if (left + width < 0 || left > 100) return null;
+
+    return (
+        <motion.div
+            layoutId={s.id}
+            onClick={() => onSelect(s.id, s.startLine, s.endLine)}
+            className={`absolute h-8 rounded-lg cursor-pointer flex flex-col justify-center px-2 shadow-lg transition-all border group/seg ${isSelected ? 'ring-2 ring-white z-40 scale-[1.02] shadow-indigo-500/20' : 'hover:scale-[1.01] hover:z-30'}`}
+            style={{
+                left: `${left}%`,
+                width: `${width}%`,
+                top: `${s.lane * 36 + 40}px`,
+                backgroundColor: s.dangerColor || '#4f46e5',
+                borderColor: isSelected ? '#fff' : 'rgba(255,255,255,0.1)',
+                opacity
+            }}
+        >
+            <div className="text-[10px] font-bold truncate transition-colors" style={{ color: getContrastColor(s.dangerColor || '#4f46e5') }}>
+                {s.name}
+            </div>
+            <div className="text-[8px] opacity-60 truncate font-mono" style={{ color: getContrastColor(s.dangerColor || '#4f46e5') }}>
+                {formatDuration(s.duration)}
+            </div>
+
+            {/* Custom Tooltip */}
+            <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-[10px] text-white whitespace-nowrap z-[100] opacity-0 group-hover/seg:opacity-100 transition-opacity pointer-events-none shadow-2xl backdrop-blur-xl`}>
+                <p className="font-black text-indigo-400 mb-1">{s.name}</p>
+                <div className="flex items-center gap-2 mb-1.5 p-1 px-1.5 bg-white/5 rounded-lg border border-white/5">
+                    <Lucide.Clock size={10} className="text-slate-400" />
+                    <span className="font-mono">{formatDuration(s.duration)}</span>
+                    <div className="w-px h-2.5 bg-white/10" />
+                    <span className="text-slate-500">TID: {s.tid}</span>
+                </div>
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                        <span className="text-slate-300 font-bold">{s.fileName || 'Unknown File'}</span>
+                        <span className="text-slate-500 ml-auto whitespace-pre">  →  </span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-pink-500" />
+                        <span className="text-slate-300 font-bold">{s.endFileName || s.fileName || 'Unknown File'}</span>
+                    </div>
+                </div>
+                <div className="mt-1.5 pt-1.5 border-t border-white/5 text-[9px] text-slate-500 flex justify-between italic">
+                    <span>Lines {s.startLine} - {s.endLine}</span>
+                    <span className="text-emerald-400 font-bold ml-4">Click to navigate</span>
+                </div>
+            </div>
+        </motion.div>
+    );
+});
 
 export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     isOpen, onClose, result, isAnalyzing,
@@ -138,6 +277,31 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         }, 250);
         return () => clearTimeout(timeout);
     }, [searchInput]);
+
+    const checkSegmentMatch = (s: AnalysisSegment, query: string) => {
+        if (!query) return true;
+        const q = query.toLowerCase().trim();
+
+        if (q.startsWith('tid:')) {
+            const val = q.substring(4).trim();
+            return s.tid?.toLowerCase().includes(val);
+        }
+        if (q.startsWith('file:')) {
+            const val = q.substring(5).trim();
+            return s.fileName?.toLowerCase().includes(val);
+        }
+        if (q.startsWith('func:')) {
+            const val = q.substring(5).trim();
+            return s.functionName?.toLowerCase().includes(val);
+        }
+
+        return (
+            s.name.toLowerCase().includes(q) ||
+            s.tid?.toLowerCase().includes(q) ||
+            s.fileName?.toLowerCase().includes(q) ||
+            s.functionName?.toLowerCase().includes(q)
+        );
+    };
 
     // Constants for coloring
     const palette = ['#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
@@ -246,7 +410,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
             <div className="h-10 shrink-0 flex items-center justify-between px-4 bg-slate-900 border-b border-white/5 select-none">
                 <div className="flex items-center gap-3">
                     <div className={`flex items-center gap-2 ${isScanningStatus ? 'animate-pulse text-indigo-400' : 'text-slate-400'}`}>
-                        <LayoutDashboard size={14} />
+                        <Lucide.LayoutDashboard size={14} />
                         <span className="text-xs font-bold uppercase tracking-wider">Performance Dashboard</span>
                     </div>
                     {result && (
@@ -262,7 +426,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                 <div className="flex items-center gap-1">
                     {/* Search Input */}
                     <div className="flex items-center bg-black/20 rounded border border-white/10 px-2 py-1 mr-2 focus-within:border-indigo-500/50 focus-within:bg-black/40 transition-colors">
-                        <Search size={12} className="text-slate-500 mr-2" />
+                        <Lucide.Search size={12} className="text-slate-500 mr-2" />
                         <input
                             type="text"
                             placeholder="Filter segments..."
@@ -272,7 +436,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                         />
                         {searchInput && (
                             <button onClick={() => setSearchInput('')} className="text-slate-500 hover:text-white ml-1">
-                                <X size={10} />
+                                <Lucide.X size={10} />
                             </button>
                         )}
                     </div>
@@ -281,14 +445,14 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                         onClick={() => setMinimized(!minimized)}
                         className="p-1.5 hover:bg-white/10 rounded-md text-slate-400 transition-colors"
                     >
-                        {minimized ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                        {minimized ? <Lucide.ChevronDown size={14} /> : <Lucide.ChevronUp size={14} />}
                     </button>
                     {!isFullScreen && (
                         <button
                             onClick={onClose}
                             className="p-1.5 hover:bg-red-500/20 hover:text-red-400 rounded-md text-slate-400 transition-colors ml-1"
                         >
-                            <X size={14} />
+                            <Lucide.X size={14} />
                         </button>
                     )}
                 </div>
@@ -319,7 +483,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 className="absolute inset-4 rounded-full bg-gradient-to-tr from-indigo-500 to-pink-500 blur-md"
                             />
                             {/* Center Icon */}
-                            <Activity size={32} className="text-white relative z-10" />
+                            <Lucide.Activity size={32} className="text-white relative z-10" />
                         </div>
                         <h3 className="text-white font-bold text-lg tracking-wider mb-3 drop-shadow-md">Analyzing Performance</h3>
                         <div className="flex items-center gap-1.5 text-slate-300 text-[11px] font-mono">
@@ -372,7 +536,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 {bottlenecks.length > 0 && (
                                     <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-3 flex flex-col gap-2">
                                         <span className="text-[9px] text-rose-400 uppercase font-black flex items-center gap-1">
-                                            <Target size={10} />
+                                            <Lucide.Target size={10} />
                                             Slowest Op Navigator (Top 50)
                                         </span>
                                         <div className="flex items-center justify-between gap-1">
@@ -401,51 +565,17 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                         onClick={() => setViewMode('chart')}
                                         className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center justify-center gap-1.5 ${viewMode === 'chart' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                                     >
-                                        <Activity size={12} /> Chart
+                                        <Lucide.Activity size={12} /> Chart
                                     </button>
                                     <button
                                         onClick={() => setViewMode('list')}
                                         className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all flex items-center justify-center gap-1.5 ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                                     >
-                                        <AlignLeft size={12} /> Bottlenecks
+                                        <Lucide.AlignLeft size={12} /> Bottlenecks
                                     </button>
                                 </div>
-                                {selectedSegmentId && (
-                                    <div className="mt-auto bg-slate-800/80 rounded-xl p-3 border border-white/10 animate-in fade-in slide-in-from-bottom-2">
-                                        {(() => {
-                                            const s = result.segments.find(sg => sg.id === selectedSegmentId);
-                                            if (!s) return null;
-                                            return (
-                                                <>
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <span className="text-[10px] font-bold text-slate-300 line-clamp-2 leading-tight">{s.name}</span>
-                                                        <span className={`text-[10px] font-black ${s.duration > targetTime ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                            {s.duration}ms
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex gap-1.5 mt-2">
-                                                        <button
-                                                            onClick={() => onViewRawRange?.(s.originalStartLine, s.originalEndLine, s.startLine + 1)}
-                                                            className="flex-1 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[9px] font-bold uppercase rounded-lg border border-indigo-500/20 transition-colors flex items-center justify-center gap-1"
-                                                        >
-                                                            <AlignLeft size={10} /> Raw
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                if (s.originalStartLine && s.originalEndLine) {
-                                                                    onCopyRawRange?.(s.originalStartLine, s.originalEndLine);
-                                                                }
-                                                            }}
-                                                            className="flex-1 py-1.5 bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-[9px] font-bold uppercase rounded-lg border border-white/5 transition-colors flex items-center justify-center gap-1"
-                                                        >
-                                                            <Copy size={10} /> Copy Logs
-                                                        </button>
-                                                    </div>
-                                                </>
-                                            );
-                                        })()}
-                                    </div>
-                                )}
+                                {/* Sidebar Detail (Removed in favor of Docked Footer) */}
+
                             </div>
                         )}
 
@@ -453,109 +583,77 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                         <div className="flex-1 bg-black/20 relative overflow-hidden flex flex-col">
                             {/* FullScreen Top Bar Utility */}
                             {isFullScreen && (
-                                <div className="h-14 shrink-0 border-b border-white/5 bg-slate-900/40 backdrop-blur-md flex items-center justify-between px-4 gap-4 z-[40]">
-                                    <div className="flex items-center gap-4">
-                                        {/* Simplified Stats */}
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex flex-col">
-                                                <span className="text-[8px] text-slate-500 uppercase font-black">Pass Rate</span>
-                                                <span className={`text-[13px] font-black ${result.passCount === result.segments.length ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                                    {Math.round((result.passCount / Math.max(1, result.segments.length)) * 100)}%
-                                                </span>
-                                            </div>
-                                            <div className="w-px h-6 bg-white/5" />
-                                            <div className="flex flex-col">
-                                                <span className="text-[8px] text-slate-500 uppercase font-black">Slow Ops</span>
-                                                <span className={`text-[13px] font-black ${result.failCount > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                                                    {result.failCount}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <div className="w-px h-8 bg-white/10 mx-2" />
-
-                                        {/* View Toggles in Top Bar */}
-                                        <div className="flex p-0.5 bg-black/40 rounded-lg border border-white/5 gap-0.5">
-                                            <button
-                                                onClick={() => setViewMode('chart')}
-                                                className={`px-3 py-1.5 text-[9px] font-bold uppercase rounded-md transition-all flex items-center gap-1.5 ${viewMode === 'chart' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                                            >
-                                                <Activity size={10} /> Chart
-                                            </button>
-                                            <button
-                                                onClick={() => setViewMode('list')}
-                                                className={`px-3 py-1.5 text-[9px] font-bold uppercase rounded-md transition-all flex items-center gap-1.5 ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                                            >
-                                                <AlignLeft size={10} /> Bottlenecks
-                                            </button>
-                                        </div>
+                                <div className="h-20 shrink-0 border-b border-white/5 bg-slate-900/60 backdrop-blur-xl px-4 flex items-center justify-between z-50">
+                                    <div className="flex items-center gap-3">
+                                        <Scorecard
+                                            label="Segments"
+                                            value={result.segments.length}
+                                            icon={<Lucide.Activity size={14} />}
+                                            color="#6366f1"
+                                        />
+                                        <Scorecard
+                                            label="Pass Rate"
+                                            value={`${Math.round(result.passCount / Math.max(1, result.segments.length) * 100)}%`}
+                                            icon={<Lucide.CheckCircle2 size={14} />}
+                                            color="#10b981"
+                                            subValue={`${result.failCount} slow ops`}
+                                        />
+                                        <Scorecard
+                                            label="Total Time"
+                                            value={formatDuration(result.totalDuration)}
+                                            icon={<Lucide.Timer size={14} />}
+                                            color="#ec4899"
+                                        />
                                     </div>
 
-                                    {/* Navigator in Top Bar */}
-                                    {bottlenecks.length > 0 && (
-                                        <div className="flex items-center gap-3 px-3 py-1.5 bg-rose-500/5 border border-rose-500/20 rounded-xl">
-                                            <span className="text-[9px] text-rose-400 uppercase font-black flex items-center gap-1 shrink-0">
-                                                <Target size={10} />
-                                                Navigator
-                                            </span>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
-                                                    className="w-7 h-7 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg transition-colors"
-                                                >
-                                                    <ChevronLeft size={14} />
-                                                </button>
-                                                <span className="text-[11px] text-slate-300 font-mono min-w-[40px] text-center">
-                                                    {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'} <span className="text-slate-600 text-[9px]">/</span> {bottlenecks.length}
+                                    <div className="flex-1" />
+
+                                    <div className="flex items-center gap-3">
+                                        {/* Navigator in Top Bar */}
+                                        {bottlenecks.length > 0 && (
+                                            <div className="flex items-center gap-3 px-4 py-2 bg-rose-500/5 backdrop-blur-md border border-rose-500/20 rounded-2xl shadow-lg">
+                                                <span className="text-[9px] text-rose-400 uppercase font-black flex items-center gap-1.5 shrink-0">
+                                                    <Lucide.Target size={12} />
+                                                    Navigator
                                                 </span>
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
+                                                        className="w-8 h-8 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-xl transition-all hover:scale-105 active:scale-95"
+                                                    >
+                                                        <Lucide.ChevronLeft size={16} />
+                                                    </button>
+                                                    <span className="text-xs text-slate-200 font-mono font-black min-w-[50px] text-center">
+                                                        {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'} <span className="text-slate-600">/</span> {bottlenecks.length}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
+                                                        className="w-8 h-8 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-xl transition-all hover:scale-105 active:scale-95"
+                                                    >
+                                                        <Lucide.ChevronRight size={16} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="h-10 w-px bg-white/5 mx-2" />
+
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-1 bg-slate-950 rounded-lg border border-white/5 flex gap-1">
                                                 <button
-                                                    onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
-                                                    className="w-7 h-7 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg transition-colors"
+                                                    onClick={() => setViewMode('chart')}
+                                                    className={`px-4 py-1.5 rounded-md text-[11px] font-black uppercase tracking-wider transition-all ${viewMode === 'chart' ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                                                 >
-                                                    <ChevronRight size={14} />
+                                                    Chart
+                                                </button>
+                                                <button
+                                                    onClick={() => setViewMode('list')}
+                                                    className={`px-4 py-1.5 rounded-md text-[11px] font-black uppercase tracking-wider transition-all ${viewMode === 'list' ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                                >
+                                                    List
                                                 </button>
                                             </div>
                                         </div>
-                                    )}
-
-                                    {/* Action Buttons (Copy/Raw) for Selected Segment in Top Bar */}
-                                    <div className="flex items-center gap-2 ml-auto">
-                                        {selectedSegmentId && (
-                                            <>
-                                                {(() => {
-                                                    const s = result.segments.find(sg => sg.id === selectedSegmentId);
-                                                    if (!s) return null;
-                                                    return (
-                                                        <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-800/40 rounded-xl border border-white/5 animate-in fade-in slide-in-from-right-2">
-                                                            <div className="flex flex-col max-w-[150px]">
-                                                                <span className="text-[8px] text-slate-500 uppercase font-bold truncate">{s.name}</span>
-                                                                <span className="text-[10px] text-indigo-300 font-mono">{(s.originalEndLine - s.originalStartLine)} logs</span>
-                                                            </div>
-                                                            <div className="flex gap-1">
-                                                                <button
-                                                                    onClick={() => onViewRawRange?.(s.originalStartLine, s.originalEndLine, s.startLine + 1)}
-                                                                    className="px-2.5 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[9px] font-black uppercase rounded-lg transition-colors"
-                                                                    title="View Raw Logs"
-                                                                >
-                                                                    <AlignLeft size={12} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        if (s.originalStartLine && s.originalEndLine) {
-                                                                            onCopyRawRange?.(s.originalStartLine, s.originalEndLine);
-                                                                        }
-                                                                    }}
-                                                                    className="px-2.5 py-1.5 bg-slate-700/30 hover:bg-slate-700/50 text-slate-300 text-[9px] font-black uppercase rounded-lg transition-colors"
-                                                                    title="Copy Log Range"
-                                                                >
-                                                                    <Copy size={12} />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </>
-                                        )}
                                     </div>
                                 </div>
                             )}
@@ -568,7 +666,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                     className="absolute bottom-6 right-8 z-[60] px-3.5 py-1.5 bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold text-indigo-400 hover:text-white hover:bg-indigo-600 shadow-2xl transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
                                     title="Reset View"
                                 >
-                                    <Maximize2 size={12} />
+                                    <Lucide.Maximize2 size={12} />
                                     <span>RESET VIEW</span>
                                 </button>
                             )}
@@ -780,7 +878,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                     }}
                                                 >
                                                     <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-amber-500 text-amber-950 font-bold text-[11px] px-2.5 py-1 rounded shadow-lg whitespace-nowrap flex items-center gap-1.5 backdrop-blur-sm border border-amber-400">
-                                                        <Clock size={11} />
+                                                        <Lucide.Clock size={11} />
                                                         {(rulerEnd - rulerStart).toLocaleString(undefined, { maximumFractionDigits: 2 })}ms
                                                     </div>
                                                 </div>
@@ -803,8 +901,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             const width = (s.duration / viewDuration) * 100;
                                             const bgColor = isSelected ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
                                             const textColor = getContrastColor(bgColor);
-
-                                            const isMatch = !searchQuery || s.name.toLowerCase().includes(searchQuery.toLowerCase());
+                                            const isMatch = checkSegmentMatch(s, searchQuery);
 
                                             // Determine base opacity:
                                             // Selected: 1, Normal Match: 0.9, Normal Interval Match: 0.6
@@ -835,14 +932,14 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                         backgroundColor: bgColor,
                                                         opacity: finalOpacity
                                                     }}
-                                                    title={`${s.name} (${s.duration}ms)`}
+                                                    title={`TID ${s.tid || 'N/A'}\nStart: ${s.fileName || 'N/A'}: ${s.functionName || 'N/A'}${((s.fileName !== s.endFileName) || (s.functionName !== s.endFunctionName)) ? `\nEnd: ${s.endFileName || 'N/A'}: ${s.endFunctionName || 'N/A'}` : ''}\nInterval: ${s.intervalIndex || 'N/A'}\nDuration: ${s.duration}ms`}
                                                 >
                                                     {width > 3 && (
                                                         <span
                                                             className={`text-[9px] font-medium truncate leading-none ${isGroup ? 'font-black' : ''}`}
                                                             style={{ color: textColor }}
                                                         >
-                                                            {s.name}
+                                                            {s.fileName && s.functionName ? `${s.fileName}: ${s.functionName}` : s.name}
                                                         </span>
                                                     )}
                                                 </div>
@@ -895,8 +992,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             const isBottleneck = s.duration > targetTime;
                                             // Fallback palette color if no dangerColor
                                             const bgColor = s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]);
-
-                                            const isMatch = !searchQuery || s.name.toLowerCase().includes(searchQuery.toLowerCase());
+                                            const isMatch = checkSegmentMatch(s, searchQuery);
                                             const finalOpacity = isMatch ? 0.85 : 0.15;
 
                                             return (
@@ -975,15 +1071,15 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                     <table className="w-full text-left border-collapse">
                                         <thead className="sticky top-0 bg-slate-900 shadow-sm z-10">
                                             <tr>
-                                                <th className="p-2 text-[9px] font-black uppercase text-slate-500 tracking-wider">Status</th>
-                                                <th className="p-2 text-[9px] font-black uppercase text-slate-500 tracking-wider">Name</th>
-                                                <th className="p-2 text-[9px] font-black uppercase text-slate-500 tracking-wider text-right">Duration</th>
-                                                <th className="p-2 text-[9px] font-black uppercase text-slate-500 tracking-wider text-right">Start</th>
+                                                <th className="p-2 text-[9px] font-black uppercase text-slate-300 tracking-wider">Status</th>
+                                                <th className="p-2 text-[9px] font-black uppercase text-slate-300 tracking-wider">Name</th>
+                                                <th className="p-2 text-[9px] font-black uppercase text-slate-300 tracking-wider text-right">Duration</th>
+                                                <th className="p-2 text-[9px] font-black uppercase text-slate-300 tracking-wider text-right">Start</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {[...result.segments].sort((a, b) => b.duration - a.duration).slice(0, 50)
-                                                .filter(s => !searchQuery || s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                                                .filter(s => checkSegmentMatch(s, searchQuery))
                                                 .map(s => {
                                                     const isGroup = s.id.startsWith('group-');
                                                     const isInterval = s.id.startsWith('interval-');
@@ -1005,15 +1101,37 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                                 <div className={`w-1.5 h-1.5 rounded-full ${isBottleneck ? 'bg-rose-500' : 'bg-emerald-500'} ${isGroup ? 'ring-2 ring-emerald-500/50' : ''}`}
                                                                     style={{ backgroundColor: s.dangerColor || undefined }} />
                                                             </td>
-                                                            <td className={`p-2 text-[10px] font-medium truncate max-w-[200px] ${isGroup ? 'text-white font-bold' : 'text-slate-300'}`}>
-                                                                {s.name}
-                                                                {isGroup && <span className="ml-2 text-[8px] bg-emerald-500/20 text-emerald-400 px-1 rounded">GROUP</span>}
+                                                            <td className={`p-2 text-[10px] font-medium max-w-[350px] ${isGroup ? 'text-white font-bold' : 'text-slate-200'}`}>
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="truncate text-white font-bold">{s.name}</span>
+                                                                        {isGroup && <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1 rounded font-black">GROUP</span>}
+                                                                        {s.tid && <span className="text-[8px] bg-indigo-500/20 text-indigo-400 px-1 rounded font-black border border-indigo-500/20">TID {s.tid}</span>}
+                                                                    </div>
+                                                                    <div className="text-[10px] text-slate-300 font-mono truncate flex items-center gap-1 mt-0.5">
+                                                                        <div className="flex items-center gap-1">
+                                                                            {s.fileName && <span className="text-indigo-300 font-bold">{s.fileName}</span>}
+                                                                            {s.fileName && s.functionName && <span className="text-slate-500">:</span>}
+                                                                            {s.functionName && <span className="text-emerald-400 font-bold">{s.functionName}</span>}
+                                                                        </div>
+                                                                        {((s.fileName !== s.endFileName) || (s.functionName !== s.endFunctionName)) && (
+                                                                            <>
+                                                                                <Lucide.MoveRight size={10} className="text-slate-500" />
+                                                                                <div className="flex items-center gap-1">
+                                                                                    {s.endFileName && <span className="text-purple-300 font-bold">{s.endFileName}</span>}
+                                                                                    {s.endFileName && s.endFunctionName && <span className="text-slate-500">:</span>}
+                                                                                    {s.endFunctionName && <span className="text-pink-400 font-bold">{s.endFunctionName}</span>}
+                                                                                </div>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
                                                             </td>
-                                                            <td className={`p-2 text-[10px] font-mono font-bold text-right ${isBottleneck ? 'text-rose-400' : 'text-slate-400'}`}
+                                                            <td className={`p-2 text-[10px] font-mono font-bold text-right ${isBottleneck ? 'text-rose-400' : 'text-slate-300'}`}
                                                                 style={{ color: s.dangerColor || undefined }}>
                                                                 {s.duration}ms
                                                             </td>
-                                                            <td className="p-2 text-[10px] font-mono text-slate-500 text-right">
+                                                            <td className="p-2 text-[10px] font-mono text-slate-300 text-right font-black">
                                                                 L{(s.originalStartLine || s.startLine) === (s.originalEndLine || s.endLine) ? (s.originalStartLine || s.startLine) : `${(s.originalStartLine || s.startLine)}-${(s.originalEndLine || s.endLine)}`}
                                                             </td>
                                                         </tr>
@@ -1024,21 +1142,113 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 </div>
                             )}
 
+                            {/* Docked Detail Panel (Definitive Map visibility solution) */}
+                            <AnimatePresence>
+                                {selectedSegmentId && result && (() => {
+                                    const s = result.segments.find(sg => sg.id === selectedSegmentId);
+                                    if (!s) return null;
+                                    const isBottleneck = s.duration >= (result.perfThreshold || 1000);
+
+                                    return (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            className="shrink-0 bg-slate-950/80 backdrop-blur-2xl border-t border-white/10 overflow-hidden relative"
+                                        >
+                                            <div className="p-3 md:p-4 flex items-center justify-between gap-4 max-w-screen-2xl mx-auto">
+                                                <div className="flex-1 min-w-0 flex items-center gap-4">
+                                                    {/* 1. Executor Info */}
+                                                    <div className="flex items-center gap-3 pr-4 border-r border-white/5 shrink-0 h-10">
+                                                        <div className={`p-2 rounded-xl bg-indigo-500/20 text-indigo-400 shadow-lg`}>
+                                                            <Lucide.Activity size={18} />
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[14px] font-black text-white tracking-tighter leading-none">{s.tid || '9999'}</span>
+                                                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Executor ID</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* 2. Execution Path */}
+                                                    <div className="flex-1 flex flex-col gap-1 min-w-0 mx-2 md:mx-4">
+                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Execution Context</span>
+                                                        <div className="flex items-center gap-3 overflow-hidden">
+                                                            <AnimatePresence mode="wait">
+                                                                <motion.div
+                                                                    key={s.id}
+                                                                    initial={{ x: -10, opacity: 0 }}
+                                                                    animate={{ x: 0, opacity: 1 }}
+                                                                    exit={{ x: 10, opacity: 0 }}
+                                                                    transition={{ duration: 0.2 }}
+                                                                    className="flex-1 min-w-0 flex items-center gap-3"
+                                                                >
+                                                                    <div className="flex-1 min-w-0 flex flex-col">
+                                                                        <span className="text-[13px] font-black text-indigo-300 truncate tracking-tight">{s.fileName || 'App.cs'}</span>
+                                                                        <span className="text-[10px] font-bold text-slate-400 truncate opacity-80">{s.functionName || 'OnEvent'}</span>
+                                                                    </div>
+
+                                                                    {((s.fileName !== s.endFileName) || (s.functionName !== s.endFunctionName)) && (
+                                                                        <>
+                                                                            <div className="p-1.5 bg-white/5 rounded-full shrink-0">
+                                                                                <Lucide.MoveRight size={12} className="text-slate-500" />
+                                                                            </div>
+                                                                            <div className="flex-1 min-w-0 flex flex-col">
+                                                                                <span className="text-[13px] font-black text-pink-300 truncate tracking-tight">{s.endFileName || 'App.cs'}</span>
+                                                                                <span className="text-[10px] font-bold text-slate-400 truncate opacity-80">{s.endFunctionName || 'OnEvent'}</span>
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+                                                                </motion.div>
+                                                            </AnimatePresence>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* 3. Metrics & Actions */}
+                                                <div className="flex items-center gap-6 md:gap-10 shrink-0 border-l border-white/5 pl-6 h-12">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className={`text-[18px] font-black tracking-tighter leading-none ${isBottleneck ? 'text-rose-400' : 'text-emerald-400'}`}>{s.duration}ms</span>
+                                                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-1">Duration</span>
+                                                    </div>
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-[18px] font-black text-slate-200 tracking-tighter leading-none">#{s.intervalIndex || '0'}</span>
+                                                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-1">Interval</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1)}
+                                                            className="p-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-xl transition-all hover:scale-105"
+                                                            title="View Raw Logs"
+                                                        >
+                                                            <Lucide.AlignLeft size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setSelectedSegmentId(null)}
+                                                            className="p-2.5 bg-white/5 hover:bg-white/10 text-slate-400 rounded-xl transition-all"
+                                                            title="Close Detail"
+                                                        >
+                                                            <Lucide.X size={18} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })()}
+                            </AnimatePresence>
                         </div>
                     </motion.div>
                 ) : null}
             </AnimatePresence>
 
-            {
-                !result && !minimized && !isScanningStatus && (
-                    <div className="flex-1 flex items-center justify-center text-slate-600 gap-2">
-                        <Activity size={20} className="opacity-20" />
-                        <span className="text-xs font-bold uppercase tracking-widest opacity-50">
-                            Ready to Analyze
-                        </span>
-                    </div>
-                )
-            }
-        </div >
+            {!result && !minimized && !isScanningStatus && (
+                <div className="flex-1 flex items-center justify-center text-slate-600 gap-2">
+                    <Lucide.Activity size={20} className="opacity-20" />
+                    <span className="text-xs font-bold uppercase tracking-widest opacity-50">
+                        Ready to Analyze
+                    </span>
+                </div>
+            )}
+        </div>
     );
 };

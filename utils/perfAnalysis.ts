@@ -17,6 +17,14 @@ export interface AnalysisSegment {
     logs: string[]; // Stores [startLineContent, endLineContent] for combos
     lane?: number;
     dangerColor?: string; // Color based on danger thresholds
+
+    // Enhanced Metadata
+    tid?: string;
+    fileName?: string;
+    functionName?: string;
+    endFileName?: string;
+    endFunctionName?: string;
+    intervalIndex?: number;
 }
 
 export interface AnalysisResult {

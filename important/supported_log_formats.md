@@ -54,6 +54,24 @@
 
 ---
 
+## 📂 소스 메타데이터 (Source Metadata)
+
+상세 분석을 위해 로그 본문에서 파일명과 함수명을 추출합니다.
+
+### 1. 표준 소스 위치 포맷
+주로 개발용 로그에서 소스 코드의 위치를 명시할 때 사용됩니다.
+- **포맷**: `FileName.ext: FunctionName(Line)> Message` 또는 `FileName.ext: FunctionName: Message`
+- **예시**:
+    - `SmartThingsApp.cs: OnCreate(123)> start`
+    - `hwservice.cpp: hwfunc(123)> Initialize`
+    - `AppUtil.cs: bind:125> event done`
+
+### 2. 추출 규칙
+- **FileName**: 확장자(`.cs`, `.cpp`, `.java` 등)를 포함한 파일 이름.
+- **FunctionName**: 파일명 뒤의 콜론(`:`) 이후부터 메시지 시작 구분자(`>` 또는 마지막 `:`) 전까지의 영역. (괄호 안의 라인 번호 포함 가능)
+
+---
+
 ## 📑 분석 및 필터링 규칙
 
 ### 1. Happy Combo (OR of ANDs)

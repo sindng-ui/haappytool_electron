@@ -8,7 +8,7 @@ import { PerfDashboard } from '../LogViewer/PerfDashboard';
 
 const {
     Play, Target, Loader2, UploadCloud, Activity,
-    Clock, Palette, Plus, Trash2, SortDesc, Search, ChevronRight
+    Clock, Palette, Plus, Trash2, SortDesc, Search, ChevronRight, RotateCcw
 } = Lucide;
 
 interface DangerThreshold {
@@ -69,6 +69,28 @@ const extractLogIds = (line: string): { pid: string | null, tid: string | null }
     return { pid, tid };
 };
 
+const extractSourceMetadata = (line: string): { fileName: string | null, functionName: string | null } => {
+    // Standard format: FileName.ext: FunctionName(Line)> or FileName.ext: FunctionName:Line>
+    // 1. Match filename with extension
+    const fileMatch = line.match(/([\w\-\.]+\.(?:cs|cpp|h|java|kt|js|ts|tsx|py|c|h|cc|hpp|m|mm))\s*:/i);
+    if (!fileMatch) return { fileName: null, functionName: null };
+
+    const fileName = fileMatch[1];
+    const afterFile = line.substring(fileMatch.index! + fileMatch[0].length).trim();
+
+    // 2. Match function name: everything after colon up to '>' or message-start ':'
+    const funcMatch = afterFile.match(/^([^>:]+)(?:[:>])/);
+    let functionName = funcMatch ? funcMatch[1].trim() : null;
+
+    // Clean up function name if it has trailing line info like :123 or (123)
+    if (functionName) {
+        // Remove trailing line info if desired, but user said "FunctionName(Line)" in examples, so keeping it is better.
+        // But we can trim common trailing stuff if it's messy.
+    }
+
+    return { fileName, functionName };
+};
+
 const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     const { addToast } = useToast();
 
@@ -90,26 +112,55 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     const [rawViewerOpen, setRawViewerOpen] = useState(false);
     const [rawRange, setRawRange] = useState<{ start: number, end: number } | null>(null);
 
-    // Load persistence
+    const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
+    const activeRequestIdRef = React.useRef<string | null>(null);
+
+    // Load persistence (Local & Session)
     useEffect(() => {
-        const saved = localStorage.getItem('happytool_perf_tool_settings_v2');
-        if (saved) {
+        // 1. Permanent Settings (Local)
+        const localSaved = localStorage.getItem('happytool_perf_tool_settings_v2');
+        if (localSaved) {
             try {
-                const parsed = JSON.parse(saved);
-                if (parsed.targetKeyword) setTargetKeyword(parsed.targetKeyword);
-                if (parsed.perfThreshold) setPerfThreshold(parsed.perfThreshold);
-                if (parsed.fileHandle) setFileHandle(parsed.fileHandle);
-                if (parsed.dangerLevels) setDangerLevels(parsed.dangerLevels);
-            } catch (e) {
-                console.error("Failed to load perf tool settings", e);
-            }
+                const parsed = JSON.parse(localSaved);
+                if (parsed.perfThreshold !== undefined) setPerfThreshold(parsed.perfThreshold);
+                if (parsed.dangerLevels && Array.isArray(parsed.dangerLevels)) {
+                    setDangerLevels(parsed.dangerLevels);
+                }
+            } catch (e) { console.error("Failed to load local settings", e); }
         }
+
+        // 2. Session Data (Session) - Survives tab switch, not app restart
+        const sessionSaved = sessionStorage.getItem('happytool_perf_tool_session_v1');
+        if (sessionSaved) {
+            try {
+                const parsed = JSON.parse(sessionSaved);
+                if (parsed.fileHandle !== undefined) setFileHandle(parsed.fileHandle);
+                if (parsed.targetKeyword !== undefined) setTargetKeyword(parsed.targetKeyword);
+                if (parsed.result !== undefined) setResult(parsed.result);
+                if (parsed.pidList !== undefined) setPidList(parsed.pidList);
+            } catch (e) { console.error("Failed to load session data", e); }
+        }
+
+        setIsInitialLoadDone(true);
+
+        return () => {
+            if (activeRequestIdRef.current) activeRequestIdRef.current = null;
+        };
     }, []);
 
+    // Save Permanent Settings
     useEffect(() => {
-        const settings = { targetKeyword, perfThreshold, fileHandle, dangerLevels };
+        if (!isInitialLoadDone) return;
+        const settings = { perfThreshold, dangerLevels };
         localStorage.setItem('happytool_perf_tool_settings_v2', JSON.stringify(settings));
-    }, [targetKeyword, perfThreshold, fileHandle, dangerLevels]);
+    }, [perfThreshold, dangerLevels, isInitialLoadDone]);
+
+    // Save Session Data
+    useEffect(() => {
+        if (!isInitialLoadDone) return;
+        const session = { fileHandle, targetKeyword, result, pidList };
+        sessionStorage.setItem('happytool_perf_tool_session_v1', JSON.stringify(session));
+    }, [fileHandle, targetKeyword, result, pidList, isInitialLoadDone]);
 
     const addDangerLevel = () => {
         if (dangerLevels.length >= 8) return;
@@ -154,6 +205,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
         setPidList(null);
 
         const requestId = Math.random().toString(36).substring(7);
+        activeRequestIdRef.current = requestId;
         const keywordLower = targetKeyword.toLowerCase().trim();
         const pidCounts = new Map<string, number>();
 
@@ -163,13 +215,8 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
 
         const processLine = (line: string) => {
             if (line.toLowerCase().includes(keywordLower)) {
-                // Try to extract PID using common formats
-                // Android format: 11-06 14:00:00.000 1234 5678 I Tag :
-                // Tizen format: [1234:5678]
-                const androidMatch = line.match(/^\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+(\d+)\s+/);
-                const tizenMatch = line.match(/\[\s*(\d+)\s*:\s*\d+\s*\]/);
-
-                const pid = androidMatch ? androidMatch[1] : (tizenMatch ? tizenMatch[1] : null);
+                // Use the robust utility to extract IDs
+                const { pid } = extractLogIds(line);
                 if (pid) {
                     pidCounts.set(pid, (pidCounts.get(pid) || 0) + 1);
                 }
@@ -177,7 +224,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
         };
 
         const onChunk = (data: { chunk: string; requestId: string }) => {
-            if (data.requestId !== requestId) return;
+            if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
             const fullChunk = streamBuffer + data.chunk;
             const lines = fullChunk.split(/\r?\n/);
             streamBuffer = lines.pop() || '';
@@ -187,7 +234,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
         };
 
         const onComplete = (data: { requestId: string }) => {
-            if (data.requestId !== requestId) return;
+            if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
             if (streamBuffer) processLine(streamBuffer);
 
             if (offChunk) offChunk();
@@ -229,6 +276,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
         setPidList(null);
 
         const requestId = Math.random().toString(36).substring(7);
+        activeRequestIdRef.current = requestId;
         const keywordLower = targetKeyword.toLowerCase().trim();
 
         // Matched logs grouped by TID
@@ -262,7 +310,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
         };
 
         const onChunk = (data: { chunk: string; requestId: string }) => {
-            if (data.requestId !== requestId) return;
+            if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
 
             const fullChunk = streamBuffer + data.chunk;
             const lines = fullChunk.split(/\r?\n/);
@@ -276,7 +324,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
         };
 
         const onComplete = (data: { requestId: string }) => {
-            if (data.requestId !== requestId) return;
+            if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
 
             if (streamBuffer) {
                 currentLineIndex++;
@@ -320,6 +368,9 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                     const isFail = duration >= perfThreshold;
                     if (isFail) failCount++; else passCount++;
 
+                    const { fileName, functionName } = extractSourceMetadata(current.lineContent);
+                    const { fileName: endFileName, functionName: endFunctionName } = extractSourceMetadata(next.lineContent);
+
                     segments.push({
                         id: `interval-${tid}-${i}-${Math.random().toString(36).substring(7)}`,
                         name: `TID ${tid} • Interval ${i + 1}`,
@@ -334,7 +385,13 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                         status: isFail ? 'fail' : 'pass',
                         logs: [current.lineContent, next.lineContent],
                         dangerColor: getDangerColor(duration),
-                        lane
+                        lane,
+                        tid,
+                        fileName: fileName || undefined,
+                        functionName: functionName || undefined,
+                        endFileName: endFileName || undefined,
+                        endFunctionName: endFunctionName || undefined,
+                        intervalIndex: i + 1
                     });
                 }
             });
@@ -362,7 +419,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
         };
 
         const onError = (data: { error: string; requestId: string }) => {
-            if (data.requestId !== requestId) return;
+            if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
             setIsAnalyzing(false);
             addToast(`Analysis error: ${data.error}`, "error");
             cleanup();
@@ -387,7 +444,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
         const collected: string[] = [];
 
         const onChunk = (data: { chunk: string; requestId: string }) => {
-            if (data.requestId !== requestId) return;
+            if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
             const fullChunk = streamBuffer + data.chunk;
             const parts = fullChunk.split(/\r?\n/);
             streamBuffer = parts.pop() || '';
@@ -401,7 +458,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
         };
 
         const onComplete = async (data: { requestId: string }) => {
-            if (data.requestId !== requestId) return;
+            if (data.requestId !== requestId || data.requestId !== activeRequestIdRef.current) return;
             if (offChunk) offChunk();
             if (offComplete) offComplete();
 
@@ -443,6 +500,20 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
 
                         {/* 1. File Upload */}
                         <div className={`group relative border-2 border-dashed rounded-3xl p-6 flex flex-col items-center gap-3 transition-all duration-300 ${fileHandle ? 'border-emerald-500/30 bg-emerald-500/5 shadow-lg shadow-emerald-500/5' : 'border-white/10 hover:border-indigo-500/50 hover:bg-indigo-500/5'}`}>
+                            {fileHandle && (
+                                <button
+                                    onClick={() => {
+                                        setFileHandle(null);
+                                        setResult(null);
+                                        setPidList(null);
+                                        sessionStorage.removeItem('happytool_perf_tool_session_v1');
+                                    }}
+                                    className="absolute top-3 right-3 p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl transition-all z-10 hover:scale-110 active:scale-90"
+                                    title="Unload File & Reset Result"
+                                >
+                                    <Lucide.RotateCcw size={14} />
+                                </button>
+                            )}
                             <div className={`p-3 rounded-2xl ${fileHandle ? 'bg-emerald-500/10' : 'bg-white/5 group-hover:bg-indigo-500/10'} transition-all`}>
                                 <UploadCloud size={24} className={`${fileHandle ? 'text-emerald-400' : 'text-slate-500 group-hover:text-indigo-400'} transition-colors`} />
                             </div>
@@ -452,10 +523,12 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                                 </p>
                                 {!fileHandle && <p className="text-[8px] text-slate-500 uppercase font-black mt-1 tracking-wider">Drop or Click to Upload</p>}
                             </div>
-                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => {
-                                const f = e.target.files?.[0];
-                                if (f) setFileHandle({ path: window.electronAPI.getFilePath(f), name: f.name });
-                            }} />
+                            {!fileHandle && (
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) setFileHandle({ path: window.electronAPI.getFilePath(f), name: f.name });
+                                }} />
+                            )}
                         </div>
 
                         {/* 2. Target Keyword & PID Scanner */}
@@ -520,9 +593,13 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                                 <input
                                     type="number"
                                     className="w-full bg-slate-900/50 text-slate-200 text-xs font-mono p-3 rounded-xl border border-slate-700/50 focus:border-indigo-500/50 focus:bg-slate-900 focus:outline-none transition-all shadow-inner"
-                                    value={perfThreshold}
-                                    onChange={(e) => setPerfThreshold(parseInt(e.target.value) || 0)}
-                                    placeholder="1000"
+                                    value={perfThreshold === 0 ? '' : perfThreshold}
+                                    onChange={(e) => {
+                                        const raw = e.target.value.replace(/^0+/, '');
+                                        const val = raw === '' ? 0 : parseInt(raw);
+                                        if (!isNaN(val)) setPerfThreshold(val);
+                                    }}
+                                    placeholder="0"
                                 />
                                 <p className="mt-2 text-[9px] text-slate-500 leading-relaxed">
                                     Intervals running longer than this limit will trigger a <span className="text-rose-400 font-bold">FAIL</span> state in reports.
@@ -545,31 +622,32 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                                     </div>
                                 </div>
 
-                                <div className="space-y-2.5">
+                                <div className="space-y-1.5">
                                     {dangerLevels.map((lvl, idx) => (
-                                        <div key={idx} className="flex items-center gap-2 group p-2 hover:bg-white/5 rounded-xl border border-transparent hover:border-white/5 transition-all">
-                                            <div className="relative shrink-0">
+                                        <div key={idx} className="flex items-center gap-2 group p-1.5 hover:bg-white/5 rounded-xl border border-transparent hover:border-white/5 transition-all">
+                                            <div className="relative shrink-0 ml-1">
                                                 <input
                                                     type="color"
-                                                    className="w-6 h-6 rounded-lg cursor-pointer bg-transparent border-none p-0 overflow-hidden shadow-sm"
+                                                    className="w-5 h-5 rounded-md cursor-pointer bg-transparent border-none p-0 overflow-hidden shadow-sm hover:scale-110 transition-transform"
                                                     value={lvl.color}
                                                     onChange={(e) => updateDangerLevel(idx, { color: e.target.value })}
                                                 />
                                             </div>
                                             <input
                                                 type="text"
-                                                className="flex-1 bg-slate-950/60 text-[11px] text-slate-300 px-3 py-2 rounded-xl border border-slate-700/30 focus:outline-none focus:border-indigo-500/50 min-w-0 font-medium"
+                                                className="flex-1 bg-slate-950/40 text-[11px] text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700/20 focus:outline-none focus:border-indigo-500/50 min-w-0 font-medium"
                                                 value={lvl.label}
                                                 onChange={(e) => updateDangerLevel(idx, { label: e.target.value })}
                                                 placeholder="Label"
                                             />
-                                            <div className="flex items-center bg-slate-950 rounded-xl border border-slate-700/30 px-3 py-2 shrink-0">
+                                            <div className="flex items-center bg-slate-950/60 rounded-lg border border-slate-700/20 px-3 py-1.5 shrink-0">
                                                 <input
                                                     type="text"
-                                                    className="w-16 bg-transparent text-[11px] font-mono text-indigo-400 text-right focus:outline-none"
+                                                    className="w-14 bg-transparent text-[11px] font-mono text-indigo-400 text-right focus:outline-none"
                                                     value={lvl.ms === 0 ? '' : lvl.ms}
                                                     onChange={(e) => {
-                                                        const val = e.target.value === '' ? 0 : (parseInt(e.target.value) || 0);
+                                                        const raw = e.target.value.replace(/[^0-9]/g, '').replace(/^0+/, '');
+                                                        const val = raw === '' ? 0 : parseInt(raw);
                                                         updateDangerLevel(idx, { ms: val });
                                                     }}
                                                     placeholder="0"
