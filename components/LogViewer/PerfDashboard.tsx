@@ -139,7 +139,11 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                 if (isOpen) {
                     e.preventDefault();
                     e.stopPropagation();
-                    searchRef.current?.focus();
+                    if (minimized) setMinimized(false);
+                    // Give a small delay to allow the DOM to render if it was minimized
+                    setTimeout(() => {
+                        searchRef.current?.focus();
+                    }, 50);
                 }
             }
         };
@@ -736,6 +740,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                         <div className="flex items-center bg-slate-950/60 rounded-2xl border border-white/10 px-4 py-2 w-64 focus-within:border-indigo-500/50 transition-all shadow-inner">
                                             <Lucide.Search size={14} className="text-slate-500 mr-2" />
                                             <input
+                                                ref={searchRef}
                                                 type="text"
                                                 placeholder="Search segments..."
                                                 value={searchInput}
