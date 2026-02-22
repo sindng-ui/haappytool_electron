@@ -1259,38 +1259,42 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                     className={`flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar p-4 relative select-none group/chart outline-none ${isShiftPressed ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
                                     onMouseDown={(e) => {
                                         e.currentTarget.focus(); // Ensure it captures wheel events
-                                        const containerWidth = e.currentTarget.clientWidth;
-                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const chartRect = canvasRef.current?.getBoundingClientRect();
+                                        if (!chartRect || !result) return;
+
+                                        const chartWidth = chartRect.width;
+                                        const containerWidth = e.currentTarget.clientWidth; // Keep for pan ratio if needed, but chartWidth is better
+                                        const rect = e.currentTarget.getBoundingClientRect(); // Keep for legacy if needed, but chartRect is core now
 
                                         const viewStart = flameZoom?.startTime ?? result.startTime;
                                         const viewEnd = flameZoom?.endTime ?? result.endTime;
                                         const viewDuration = Math.max(1, viewEnd - viewStart);
 
-                                        // Helper for Magnetic Snap
-                                        const getSnappedTime = (rawTime: number) => {
-                                            const pixelToTimeRatio = viewDuration / containerWidth;
-                                            const snapThresholdTime = 10 * pixelToTimeRatio; // ~10px snap radius
-
-                                            let bestSnap = rawTime;
-                                            let minDiff = snapThresholdTime;
-
-                                            flameSegments.forEach(s => {
-                                                // Check start
-                                                const diffStart = Math.abs(s.startTime - rawTime);
-                                                if (diffStart < minDiff) { minDiff = diffStart; bestSnap = s.startTime; }
-                                                // Check end
-                                                const diffEnd = Math.abs(s.endTime - rawTime);
-                                                if (diffEnd < minDiff) { minDiff = diffEnd; bestSnap = s.endTime; }
-                                            });
-                                            return bestSnap;
-                                        };
-
                                         if (e.shiftKey) {
                                             // == MEASURE (RULER) MODE ==
                                             e.preventDefault();
 
+                                            // Helper for Magnetic Snap (Inside measure mode to ensure chartRect is fresh)
+                                            const getSnappedTime = (rawTime: number) => {
+                                                const pixelToTimeRatio = viewDuration / chartWidth;
+                                                const snapThresholdTime = 10 * pixelToTimeRatio; // ~10px snap radius
+
+                                                let bestSnap = rawTime;
+                                                let minDiff = snapThresholdTime;
+
+                                                flameSegments.forEach(s => {
+                                                    // Check start
+                                                    const diffStart = Math.abs(s.startTime - rawTime);
+                                                    if (diffStart < minDiff) { minDiff = diffStart; bestSnap = s.startTime; }
+                                                    // Check end
+                                                    const diffEnd = Math.abs(s.endTime - rawTime);
+                                                    if (diffEnd < minDiff) { minDiff = diffEnd; bestSnap = s.endTime; }
+                                                });
+                                                return bestSnap;
+                                            };
+
                                             // Init point
-                                            const startFraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / containerWidth));
+                                            const startFraction = Math.max(0, Math.min(1, (e.clientX - chartRect.left) / chartWidth));
                                             const rawStartTime = viewStart + (viewDuration * startFraction);
                                             const snappedStartTime = getSnappedTime(rawStartTime);
 
@@ -1300,7 +1304,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             });
 
                                             const onMove = (mv: MouseEvent) => {
-                                                const moveFraction = Math.max(0, Math.min(1, (mv.clientX - rect.left) / containerWidth));
+                                                const moveFraction = Math.max(0, Math.min(1, (mv.clientX - chartRect.left) / chartWidth));
                                                 const rawEndTime = viewStart + (viewDuration * moveFraction);
                                                 const snappedEndTime = getSnappedTime(rawEndTime);
 
@@ -1321,7 +1325,6 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
                                         } else {
                                             // == SIMPLE PAN MODE ==
-                                            // If clicking without shift, clear ruler
                                             setMeasureRange(null);
 
                                             const startX = e.clientX;
@@ -1331,7 +1334,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
                                             const onMove = (mv: MouseEvent) => {
                                                 const deltaX = startX - mv.clientX;
-                                                const panAmount = (deltaX / containerWidth) * duration;
+                                                const panAmount = (deltaX / chartWidth) * duration;
 
                                                 let newStart = currentStart + panAmount;
                                                 let newEnd = currentEnd + panAmount;
@@ -1354,7 +1357,6 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                 window.removeEventListener('mouseup', onUp);
                                                 dragCleanupRef.current = null;
                                             };
-
                                             dragCleanupRef.current = onUp;
                                             window.addEventListener('mousemove', onMove);
                                             window.addEventListener('mouseup', onUp);
