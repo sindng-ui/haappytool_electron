@@ -11,7 +11,7 @@ HappyTool은 로그 데이터를 기반으로 시스템의 동작 시간과 병�
 1.  **Log Extractor - Analyze Performance**: 현재 열려있는 로그 뷰어의 필터링된 데이터를 실시간으로 차트화합니다.
 2.  **Perf Tool**: 별도의 독립된 파일이나 대용량 로그 전체를 대상으로 PIDDiscovery(자동 PID 찾기) 및 심층 성능 분석을 수행합니다.
 
-이 두 도구는 핵심 연산 로직(`perfAnalysis.ts`)을 공유하지만, 사용 시나리오와 데이터 처리 방식에서 차이가 있습니다.
+**v1.1.1 Upgrade**: 정밀 시간 계측을 위한 **Precision Ruler**, 다중 스레드 비교를 위한 **Crosshair Guide**, 그리고 결과 공유를 위한 **One-click Screenshot** 기능이 추가되었습니다.
 
 ---
 
@@ -26,6 +26,10 @@ HappyTool은 로그 데이터를 기반으로 시스템의 동작 시간과 병�
 4.  **Lane Assignment (Flame Chart)**: 
     *   TID(Thread ID)별로 세그먼트를 그룹화합니다.
     *   동일 쓰레드 내에서 시간이 겹치는 세그먼트는 서로 다른 Lane(층)에 배치하여 시각적 간섭을 막습니다. (Greedy Packing Algorithm)
+5.  **Interaction & Measurement**:
+    *   **Vertical Crosshair Guide**: 마우스 커서를 따라다니는 점선 가이드를 통해 서로 다른 TID 간의 동시성(Concurrency)을 정밀하게 확인합니다.
+    *   **Time Ruler**: 맵 상단에 줌 레벨에 연동되는 정밀 시간 축(Ruler)을 표시하여 구간의 절대 시간을 직관적으로 파악합니다.
+    *   **Search Highlight (Subtle Border)**: 검색어 매칭 시 해당 세그먼트에 1px 흰색 테두리를 자동 생성하여 가독성을 높였습니다. (휘황찬란 방지 최적화)
 
 ### 2.2 공통 데이터 추출 기술
 *   **PID/TID 추출**: `extractLogIds` 유틸리티를 사용하여 `[PID:TID]`, `(P 123, T 456)`, 혹은 Android 표준 포맷에서 식별자를 자동으로 추출합니다.
@@ -55,13 +59,17 @@ HappyTool은 로그 데이터를 기반으로 시스템의 동작 시간과 병�
 *   임계값(`perfThreshold`)을 초과한 세그먼트는 시각적으로 'Fail' 상태가 되며 `Bottlenecks` 리스트에 우선 노출됩니다.
 *   `DangerThresholds` 설정을 통해 시간별로 정교한 색상 단계(Slow, Very Slow, Critical)를 지정할 수 있도록 구현되어야 합니다.
 
-### 4.3 렌더링 최적화
-*   세그먼트가 수만 개를 넘을 경우 Flame Chart의 DOM 요소가 너무 많아질 수 있습니다. 
-*   가시 영역 밖의 세그먼트는 렌더링하지 않거나, 대시보드 내에서의 가상화 로직을 고려해야 합니다.
+### 4.3 렌더링 최적화 및 안정성
+*   **Culling & Merging**: 화면 밖 세그먼트는 그리지 않고, 1px 미만의 미세 세그먼트는 병합 처리하여 수만 개의 데이터도 60fps로 유지합니다.
+*   **Inactive Loop Control**: 앱이 비활성화되거나 탭이 가려지면(`isActive: false`) 캔버스 렌더링 루프를 즉시 중단하여 시스템 자원(CPU/GPU)을 보호합니다.
+*   **Regression Unit Tests**: `perf-tool.regression.test.ts`를 통해 줌 격리, 컬링 성능, 검색 매칭 로직 등 핵심 엔진의 변경 사항이 기존 기능을 파괴하지 않도록 감시합니다.
 
 ---
 
-## ⚠️ 5. 한계점 및 개선 방향
+## 📸 5. 편의 기능 (Utilities)
+
+1.  **One-click Screenshot**: 카메라 아이콘 클릭 시 현재 Flame Map 뷰를 PNG 이미지로 즉시 내보내 실무 보고 및 공유에 활용합니다. (배경색 고정 및 플래시 피드백 포함)
+2.  **Zoom Isolation**: `Ctrl + Wheel` 줌 동작 시 마우스가 올라가 있는 패널(Left/Right/Dashboard)을 식별하여 해당 영역의 줌만 독립적으로 작동하도록 정밀 제어합니다.
 
 1.  **타임스탬프 의존성**: 로그 라인에 타임스탬프가 없거나 `extractTimestamp`가 파싱하지 못하는 특이 포맷의 경우 분석에서 완전히 제외됩니다.
 2.  **로그 유실 대응**: 실시간 로깅 중 로그 유실(Drop)이 발생하면 `A -> B` 간격이 비정상적으로 길게 측정될 수 있습니다. 이를 감지하는 로직(Gap Detection)이 필요합니다.
@@ -69,5 +77,5 @@ HappyTool은 로그 데이터를 기반으로 시스템의 동작 시간과 병�
 
 ---
 
-**작성일**: 2026-02-21  
-**상태**: 최신화 완료 (Antigravity AI 보강)
+**작성일**: 2026-02-22  
+**상태**: v1.1.1 정밀 계측 및 시각화 고도화 완료

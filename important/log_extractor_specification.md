@@ -55,6 +55,7 @@ Log Extractor의 모든 동작은 **Mission(또는 Rule)**이라는 설정 단�
     - 60fps의 부드러운 스크롤을 보장합니다.
 - **Web Worker**: 인덱싱, 필터링, 검색 등 무거운 작업은 백그라운드 워커에서 처리하여 UI 스레드를 차단하지 않습니다.
 - **WASM 가속**: 단순한 OR 필터링의 경우 Rust로 작성된 WebAssembly 엔진을 사용하여 처리 속도를 극대화합니다.
+- **Inactive Resource Guard**: `isActive` 상태가 아닐 때(탭 전환 등) 캔버스 드로잉 및 고부하 자원 사용을 자동으로 일시 중지하여 효율적인 멀티태스킹을 지원합니다.
 
 ---
 
@@ -128,8 +129,12 @@ HyperLogRenderer 위에 투명한 **Interaction Layer**를 두어 복잡한 선�
 - `Ctrl + Shift + X`: 로그 클리어
 - `Shift + Wheel / Arrow`: 스크롤 동기화 (듀얼 뷰 모드)
 - `Ctrl + Arrow Left/Right`: 왼쪽/오른쪽 패인 포커스 전환
-- `Ctrl + / -`: 화면 확대/축소
-- `Ctrl + [` : font size 축소
-- `Ctrl + ]` : font size 확대
-- `Ctrl + Shift [` : Configuration영역 width 축소
-- `Ctrl + Shift ]` : Configuration영역 width 확대
+- `Ctrl + / -`: 화면 확대/축소 (UI 전역 줌)
+- `Ctrl + Wheel`: **Pane-aware Zoom**. 마우스가 올라가 있는 패널(로그 패널 또는 성능 대시보드)에 맞게 독립적인 줌이 트리거됩니다.
+- `Ctrl + [`, `Ctrl + ]` : font size 조절 (개별 패널)
+- `Ctrl + Shift [`, `Ctrl + Shift ]` : Configuration 영역 width 조절
+
+---
+
+**작성일**: 2026-02-22  
+**상태**: v1.1.1 인터랙션 및 리소스 관리 고도화
