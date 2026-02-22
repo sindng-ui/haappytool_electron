@@ -18,104 +18,67 @@ const TIME_PATTERNS = [
     /^\s*\[\s*(\d+\.\d+)\s*\]/
 ];
 
-/**
- * Extracts a timestamp (in milliseconds) from a log line.
- * Returns null if no valid timestamp is found.
- */
 export const extractTimestamp = (line: string): number | null => {
     if (!line) return null;
 
-    // 1. Standard / Tizen Dlog: "MM-DD HH:mm:ss.mss" or "YYYY-MM-DD HH:mm:ss.mss"
-    // Matches: 01-01 12:00:00.123, 2024-01-01 12:00:00.123
-    const stdMatch = line.match(/(\d{4}-)?(\d{2}-\d{2}\s+)?(\d{2}:\d{2}:\d{2}\.\d{3})/);
-    if (stdMatch) {
-        // Optimization: Manual parsing to avoid expensive Date.parse() and string allocation
+    // Scan the first 256 characters (preamble) for all potential timestamps.
+    // We pick the one that appears latest in the header, as requested.
+    const preamble = line.length > 256 ? line.substring(0, 256) : line;
+    const candidates: { value: number; index: number }[] = [];
+
+    // 1. Standard DateTime (MM-DD HH:mm:ss.mss or YYYY-MM-DD ...)
+    const stdRegex = /(\d{4}-)?(\d{2}-\d{2}\s+)?(\d{2}:\d{2}:\d{2}\.\d{3})/g;
+    let match;
+    while ((match = stdRegex.exec(preamble)) !== null) {
         const now = new Date();
         let year = now.getFullYear();
         let month = now.getMonth();
         let day = now.getDate();
 
-        if (stdMatch[1]) {
-            year = parseInt(stdMatch[1], 10);
-        }
-
-        if (stdMatch[2]) {
-            const dateStr = stdMatch[2].trim();
-            const dashIdx = dateStr.indexOf('-');
-            if (dashIdx !== -1) {
-                month = parseInt(dateStr.substring(0, dashIdx), 10) - 1; // 0-indexed
-                day = parseInt(dateStr.substring(dashIdx + 1), 10);
+        if (match[1]) year = parseInt(match[1], 10);
+        if (match[2]) {
+            const dateParts = match[2].trim().split('-');
+            if (dateParts.length === 2) {
+                month = parseInt(dateParts[0], 10) - 1;
+                day = parseInt(dateParts[1], 10);
             }
         }
 
-        const timePart = stdMatch[3];
-        const hours = parseInt(timePart.substring(0, 2), 10);
-        const minutes = parseInt(timePart.substring(3, 5), 10);
-        const seconds = parseInt(timePart.substring(6, 8), 10);
-        const milliseconds = parseInt(timePart.substring(9, 12), 10);
+        const timePart = match[3];
+        const h = parseInt(timePart.substring(0, 2), 10);
+        const m = parseInt(timePart.substring(3, 5), 10);
+        const s = parseInt(timePart.substring(6, 8), 10);
+        const ms = parseInt(timePart.substring(9, 12), 10);
 
-        return new Date(year, month, day, hours, minutes, seconds, milliseconds).getTime();
+        const val = new Date(year, month, day, h, m, s, ms).getTime();
+        candidates.push({ value: val, index: match.index });
     }
 
-    // 2. Raw Monotonic Time (Tizen/Linux Kernel style or "Seconds.Microseconds" at start)
-    // Matches: "[  123.456]", "123.456", "  123.456", "03:500"
-    // Regex Logic: Improved to support both '.' and ':' as millisecond separators
-    const rawMatch = line.match(/^\s*(\[\s*)?(\d+[.:]\d+)(\s*\])?/);
-    if (rawMatch) {
-        // Handle both '.' and ':' in the timestamp string
-        const tsStr = rawMatch[2].replace(':', '.');
-        const seconds = parseFloat(tsStr);
-        if (!isNaN(seconds)) {
-            return seconds * 1000; // Convert to ms
+    // 2. Monotonic / Seconds-Dot-Milliseconds (e.g. 12345.6789)
+    // Matches if preceded by space, start, colon-space, or bracket
+    // This catches the second time in "[Date] service: 123.456"
+    const monoRegex = /(?:^|\s|:\s|\[\s*)(\d+\.\d{3,})(?:\s|\]|:|$)/g;
+    while ((match = monoRegex.exec(preamble)) !== null) {
+        const val = parseFloat(match[1]);
+        if (!isNaN(val)) {
+            // Calculate actual index of the digits
+            const digitIdx = match.index + match[0].indexOf(match[1]);
+            candidates.push({ value: val * 1000, index: digitIdx });
         }
     }
 
-    // 3. Prefixed Monotonic Time (e.g. "bluetooth: 12345.6789")
-    // Matches: "Service: 123.456" or "Tag: 123.456"
-    // Structure: Start -> Word/Dashes/Dots -> Optional (PID) -> Colon -> Space -> Timestamp
-    const prefixMatch = line.match(/^[\w\-\.]+(?:\(\d+\))?:\s+(\d+\.\d+)/);
-    if (prefixMatch) {
-        const seconds = parseFloat(prefixMatch[1]);
-        if (!isNaN(seconds)) {
-            return seconds * 1000;
-        }
+    // 3. Simple Monotonic at start or in brackets (2 decimal places fallback)
+    const simpleMonoRegex = /^\s*(?:\[\s*)?(\d+\.\d{1,2})(?:\s*\])?/g;
+    while ((match = simpleMonoRegex.exec(preamble)) !== null) {
+        const val = parseFloat(match[1]);
+        if (!isNaN(val)) candidates.push({ value: val * 1000, index: match.index });
     }
 
-    // 4. Timestamp followed by colon (common in ftrace/dmesg)
-    // Matches: "task-123 [001] 100.123: func", "Tag 123.456:"
-    const colonMatch = line.match(/^\s*.*?\s+(\d+\.\d+):/);
-    if (colonMatch) {
-        const seconds = parseFloat(colonMatch[1]);
-        if (!isNaN(seconds)) {
-            return seconds * 1000;
-        }
-    }
+    if (candidates.length === 0) return null;
 
-    // 5. Brackets with prefix or Simple Prefix (Non-greedy)
-    // Matches: "[Tag] 123.456", "Tag 123.456"
-    // Be careful with false positives (e.g. "Version 1.2")
-    // We restrict prefix to common tag chars
-    const loosePrefixMatch = line.match(/^\s*[\w\-\.\[\]]+\s+(\d+\.\d+)(?:\s|$)/);
-    if (loosePrefixMatch) {
-        const seconds = parseFloat(loosePrefixMatch[1]);
-        if (!isNaN(seconds)) {
-            return seconds * 1000;
-        }
-    }
-
-    // 6. Robust High-Precision Fallback
-    // Check for any floating point number with 6+ decimal places (timestamps usually have 6 or 9)
-    // This helps catch cases where formatting is slightly off or in middle of preamble
-    // Matches: " 123.456789 ", "Time: 123.456789"
-    const robustMatch = line.match(/(?:^|\s)(\d+\.\d{6,})(?:\s|$|:)/);
-    if (robustMatch) {
-        const seconds = parseFloat(robustMatch[1]);
-        if (!isNaN(seconds)) {
-            return seconds * 1000;
-        }
-    }
-
-    return null;
+    // Sort by index descending (rightmost first)
+    candidates.sort((a, b) => b.index - a.index);
+    return candidates[0].value;
 };
 
 /**
