@@ -612,7 +612,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                                     let startOffset = 0;
                                     let startLineNum = 0;
                                     if (result?.lineOffsets) {
-                                        const padding = 50;
+                                        const padding = 100;
                                         const targetLine = Math.max(1, start - padding);
                                         // Sparse search in the index
                                         for (const [lIdx, bOff] of result.lineOffsets) {
@@ -684,7 +684,7 @@ const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHand
         setLines([]);
 
         const requestId = Math.random().toString(36).substring(7);
-        const pad = 50;
+        const pad = 100;
         const searchStart = Math.max(1, startLine - pad);
         const searchEnd = endLine + pad;
 

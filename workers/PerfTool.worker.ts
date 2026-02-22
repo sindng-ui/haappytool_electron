@@ -138,6 +138,12 @@ ctx.onmessage = (evt) => {
                     if (currentLineIndex >= searchStart && currentLineIndex <= searchEnd) {
                         extractedLines.push({ index: currentLineIndex, content: lineContent });
                     }
+                    if (currentLineIndex >= searchEnd) {
+                        // We have everything we need, send it now!
+                        ctx.postMessage({ type: 'RAW_EXTRACT_COMPLETE', payload: { lines: extractedLines }, requestId });
+                        mode = null; // Exit mode to ignore further chunks
+                        return; // Stop processing this chunk
+                    }
                 } else {
                     processLine(lineContent, currentLineIndex);
                 }
@@ -152,6 +158,11 @@ ctx.onmessage = (evt) => {
                 if (mode === 'raw_extract') {
                     if (currentLineIndex >= searchStart && currentLineIndex <= searchEnd) {
                         extractedLines.push({ index: currentLineIndex, content: streamBuffer });
+                    }
+                    if (currentLineIndex >= searchEnd && mode === 'raw_extract') {
+                        ctx.postMessage({ type: 'RAW_EXTRACT_COMPLETE', payload: { lines: extractedLines }, requestId });
+                        mode = null;
+                        return;
                     }
                 } else {
                     processLine(streamBuffer, currentLineIndex);

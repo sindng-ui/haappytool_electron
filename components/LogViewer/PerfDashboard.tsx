@@ -123,6 +123,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const searchRef = useRef<HTMLInputElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
+    const flameChartContainerRef = useRef<HTMLDivElement>(null);
 
     const [isInitialDrawComplete, setIsInitialDrawComplete] = useState(false);
 
@@ -178,6 +179,71 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         // Match the list logic: top 50 slowest segments
         return filtered.sort((a, b) => b.duration - a.duration).slice(0, 50);
     }, [result, showOnlyFail]);
+
+    // 💡 Stabilize Zoom & Pan using manual event listener for passive: false support
+    useEffect(() => {
+        const container = flameChartContainerRef.current;
+        if (!container) return;
+
+        const handleWheel = (e: WheelEvent) => {
+            if (!result) return;
+            const currentStart = flameZoom?.startTime ?? result.startTime;
+            const currentEnd = flameZoom?.endTime ?? result.endTime;
+            const duration = currentEnd - currentStart;
+
+            // Zoom (Ctrl+Wheel)
+            if (e.ctrlKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+                const newDuration = duration * zoomFactor;
+
+                const rect = container.getBoundingClientRect();
+                const pointerX = e.clientX - rect.left;
+                const fractionalPos = Math.max(0, Math.min(1, pointerX / rect.width));
+                const timeAtPointer = currentStart + duration * fractionalPos;
+
+                let newStart = timeAtPointer - newDuration * fractionalPos;
+                let newEnd = newStart + newDuration;
+
+                if (newStart < result.startTime) {
+                    newEnd += (result.startTime - newStart);
+                    newStart = result.startTime;
+                }
+                if (newEnd > result.endTime) {
+                    newStart -= (newEnd - result.endTime);
+                    newEnd = result.endTime;
+                }
+                if (newStart < result.startTime) newStart = result.startTime;
+                if (newEnd > result.endTime) newEnd = result.endTime;
+
+                setFlameZoom({ startTime: newStart, endTime: newEnd });
+            }
+            // Pan (Horizontal Scroll or Shift+Wheel)
+            else if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
+                e.preventDefault();
+                const delta = e.deltaX || e.deltaY;
+                const panAmount = (delta / container.clientWidth) * duration;
+
+                let newStart = currentStart + panAmount;
+                let newEnd = currentEnd + panAmount;
+
+                if (newStart < result.startTime) {
+                    newStart = result.startTime;
+                    newEnd = newStart + duration;
+                }
+                if (newEnd > result.endTime) {
+                    newEnd = result.endTime;
+                    newStart = newEnd - duration;
+                }
+
+                setFlameZoom({ startTime: newStart, endTime: newEnd });
+            }
+        };
+
+        container.addEventListener('wheel', handleWheel, { passive: false });
+        return () => container.removeEventListener('wheel', handleWheel);
+    }, [result, flameZoom, setFlameZoom]);
 
     const jumpToBottleneck = (index: number) => {
         if (!result || bottlenecks.length === 0) return;
@@ -1074,68 +1140,8 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
                             {viewMode === 'chart' && (
                                 <div
+                                    ref={flameChartContainerRef}
                                     className={`flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar p-4 relative select-none group/chart ${isShiftPressed ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
-                                    onWheel={(e) => {
-                                        if (!result) return;
-                                        const currentStart = flameZoom?.startTime ?? result.startTime;
-                                        const currentEnd = flameZoom?.endTime ?? result.endTime;
-                                        const duration = currentEnd - currentStart;
-
-                                        // Zoom (Ctrl+Wheel)
-                                        if (e.ctrlKey) {
-                                            e.preventDefault();
-                                            e.stopPropagation(); // Prevent global font zoom
-                                            const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
-                                            const newDuration = duration * zoomFactor;
-
-                                            // Focus on mouse position
-                                            const rect = e.currentTarget.getBoundingClientRect();
-                                            const pointerX = e.clientX - rect.left;
-                                            const fractionalPos = Math.max(0, Math.min(1, pointerX / rect.width));
-                                            const timeAtPointer = currentStart + duration * fractionalPos;
-
-                                            let newStart = timeAtPointer - newDuration * fractionalPos;
-                                            let newEnd = newStart + newDuration;
-
-                                            // Clamp if zooming out past limits
-                                            if (newStart < result.startTime) {
-                                                newEnd += (result.startTime - newStart);
-                                                newStart = result.startTime;
-                                            }
-                                            if (newEnd > result.endTime) {
-                                                newStart -= (newEnd - result.endTime);
-                                                newEnd = result.endTime;
-                                            }
-
-                                            // Final clamp ensures we do not exceed original bounds
-                                            if (newStart < result.startTime) newStart = result.startTime;
-                                            if (newEnd > result.endTime) newEnd = result.endTime;
-
-                                            setFlameZoom({ startTime: newStart, endTime: newEnd });
-                                        }
-                                        // Pan (Horizontal Scroll or Shift+Wheel)
-                                        else if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
-                                            e.preventDefault();
-                                            const delta = e.deltaX || e.deltaY;
-                                            const panAmount = (delta / e.currentTarget.clientWidth) * duration;
-
-                                            let newStart = currentStart + panAmount;
-                                            let newEnd = currentEnd + panAmount;
-
-                                            // Clamp
-                                            if (newStart < result.startTime) {
-                                                newStart = result.startTime;
-                                                newEnd = newStart + duration;
-                                            }
-                                            if (newEnd > result.endTime) {
-                                                newEnd = result.endTime;
-                                                newStart = newEnd - duration;
-                                            }
-
-                                            setFlameZoom({ startTime: newStart, endTime: newEnd });
-                                        }
-                                        // Standard Wheel -> Natural Vertical Scroll (Do nothing, let browser handle it)
-                                    }}
                                     onMouseDown={(e) => {
                                         const containerWidth = e.currentTarget.clientWidth;
                                         const rect = e.currentTarget.getBoundingClientRect();
