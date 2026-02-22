@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import { AnalysisResult, AnalysisSegment } from '../../utils/perfAnalysis';
 import { formatDuration } from '../../utils/logTime';
+import { useToast } from '../../contexts/ToastContext';
 
 interface PerfDashboardProps {
     isOpen: boolean;
@@ -138,6 +139,34 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
     // Trim Range (Shift+Drag -> Trim)
     const [trimRange, setTrimRange] = useState<{ startTime: number; endTime: number } | null>(null);
+
+    const { addToast } = useToast();
+    const [isFlashing, setIsFlashing] = useState(false);
+
+    const handleExportImage = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        try {
+            // Visual feedback
+            setIsFlashing(true);
+            setTimeout(() => setIsFlashing(false), 300);
+
+            // Create a temporary link
+            const link = document.createElement('a');
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            link.download = `happytool_perf_${timestamp}.png`;
+            link.href = canvas.toDataURL('image/png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            addToast('Screenshot saved successfully!', 'success');
+        } catch (err) {
+            console.error('Failed to export image:', err);
+            addToast('Failed to save screenshot.', 'error');
+        }
+    };
 
     // Hit Testing
     const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
@@ -509,7 +538,9 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         const viewDuration = Math.max(1, viewEnd - viewStart);
         const width = rect.width;
 
-        ctx.clearRect(0, 0, rect.width, rect.height);
+        // Fill background (Slate-950)
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, rect.width, rect.height);
 
         // Optimizing: 1. Cull segments outside view
         // 2. Merge tiny segments that fall into the same pixel to reduce draw calls
@@ -747,6 +778,19 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
             }}
             data-pane-id={paneId}
         >
+            {/* Flash Effect Overlay */}
+            <AnimatePresence>
+                {isFlashing && (
+                    <motion.div
+                        initial={{ opacity: 0.8 }}
+                        animate={{ opacity: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="absolute inset-0 z-[1000] bg-white pointer-events-none"
+                    />
+                )}
+            </AnimatePresence>
+
             {/* Loading Overlay (Persist until canvas is ready) */}
             <AnimatePresence>
                 {(isScanningStatus || (result && !isInitialDrawComplete)) && (
@@ -938,6 +982,14 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 title="Bottlenecks List"
                             >
                                 <Lucide.AlignLeft size={12} />
+                            </button>
+                            <div className="w-px h-3 bg-white/10 mx-0.5" />
+                            <button
+                                onClick={handleExportImage}
+                                className="p-1.5 rounded-md transition-all text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10"
+                                title="Export as Image"
+                            >
+                                <Lucide.Camera size={12} />
                             </button>
                         </div>
                     )}
