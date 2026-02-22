@@ -19,6 +19,7 @@ let detectedPid: string | null = null;
 let perfThreshold = 1000;
 let dangerLevels: { ms: number; color: string; label: string }[] = [];
 let analysisFileName = '';
+let targetTags: string[] = [];
 
 const getDangerColor = (duration: number): string | undefined => {
     let color: string | undefined = undefined;
@@ -39,9 +40,21 @@ const processLine = (line: string, index: number) => {
                 pidCounts.set(pid, (pidCounts.get(pid) || 0) + 1);
             }
         } else if (mode === 'analyze') {
+            const { pid, tid: extractedTid } = extractLogIds(line);
+
+            // 1. PID match check
+            const isPidMatch = line.toLowerCase().includes(keywordLower);
+            if (!isPidMatch) return;
+
+            // 2. Tag match check (if tags specified)
+            if (targetTags.length > 0) {
+                const lineContentLower = line.toLowerCase();
+                const isTagMatch = targetTags.some(tag => lineContentLower.includes(tag.toLowerCase()));
+                if (!isTagMatch) return;
+            }
+
             const ts = extractTimestamp(line);
             if (ts !== null) {
-                const { pid, tid: extractedTid } = extractLogIds(line);
                 const tid = extractedTid || 'Main';
                 if (!detectedPid && pid) detectedPid = pid;
                 if (!matchedLogsByTid.has(tid)) matchedLogsByTid.set(tid, []);
@@ -69,6 +82,7 @@ ctx.onmessage = (evt) => {
             perfThreshold = payload.perfThreshold;
             dangerLevels = payload.dangerLevels || [];
             analysisFileName = payload.fileName || 'Log File';
+            targetTags = payload.targetTags || [];
             matchedLogsByTid.clear();
             detectedPid = null;
             currentLineIndex = 0;

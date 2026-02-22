@@ -25,6 +25,8 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     const [fileHandle, setFileHandle] = useState<{ path: string; name: string } | null>(null);
     const [targetKeyword, setTargetKeyword] = useState<string>('');
     const [perfThreshold, setPerfThreshold] = useState<number>(1000);
+    const [logTags, setLogTags] = useState<string[]>([]);
+    const [newTag, setNewTag] = useState<string>('');
     const [dangerLevels, setDangerLevels] = useState<DangerThreshold[]>([
         { ms: 500, color: '#f59e0b', label: 'Slow' },
         { ms: 2000, color: '#be123c', label: 'Very Slow' }
@@ -69,6 +71,9 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                 try {
                     const parsed = JSON.parse(localSaved);
                     if (parsed.perfThreshold !== undefined) setPerfThreshold(parsed.perfThreshold);
+                    if (parsed.logTags && Array.isArray(parsed.logTags)) {
+                        setLogTags(parsed.logTags);
+                    }
                     if (parsed.dangerLevels && Array.isArray(parsed.dangerLevels)) {
                         setDangerLevels(parsed.dangerLevels);
                     }
@@ -92,6 +97,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                         const parsed = typeof sessionSaved === 'string' ? JSON.parse(sessionSaved) : sessionSaved;
                         if (parsed.fileHandle !== undefined) setFileHandle(parsed.fileHandle);
                         if (parsed.targetKeyword !== undefined) setTargetKeyword(parsed.targetKeyword);
+                        if (parsed.logTags !== undefined) setLogTags(parsed.logTags);
                         if (parsed.result !== undefined) setResult(parsed.result);
                         if (parsed.pidList !== undefined) setPidList(parsed.pidList);
                     } catch (e) { console.error("Failed to load session data from DB", e); }
@@ -111,17 +117,17 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     // Save Permanent Settings
     useEffect(() => {
         if (!isInitialLoadDone) return;
-        const settings = { perfThreshold, dangerLevels };
+        const settings = { perfThreshold, dangerLevels, logTags };
         localStorage.setItem('happytool_perf_tool_settings_v2', JSON.stringify(settings));
-    }, [perfThreshold, dangerLevels, isInitialLoadDone]);
+    }, [perfThreshold, dangerLevels, logTags, isInitialLoadDone]);
 
     // Save Session Data
     useEffect(() => {
         if (!isInitialLoadDone) return;
-        const session = { fileHandle, targetKeyword, result, pidList };
+        const session = { fileHandle, targetKeyword, result, pidList, logTags };
         // 💡 용량이 클 수 있으므로 IndexedDB에 저장합니다.
         setStoredValue('happytool_perf_tool_session_v1', session);
-    }, [fileHandle, targetKeyword, result, pidList, isInitialLoadDone]);
+    }, [fileHandle, targetKeyword, result, pidList, logTags, isInitialLoadDone]);
 
     const addDangerLevel = () => {
         if (dangerLevels.length >= 8) return;
@@ -273,6 +279,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
             type: 'INIT_ANALYSIS',
             payload: {
                 keyword: targetKeyword,
+                targetTags: logTags,
                 perfThreshold,
                 dangerLevels,
                 fileName: fileHandle.name
@@ -372,6 +379,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                                         setFileHandle(null);
                                         setResult(null);
                                         setPidList(null);
+                                        setLogTags([]);
                                         deleteStoredValue('happytool_perf_tool_session_v1');
                                     }}
                                     className="absolute top-3 right-3 p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl transition-all z-10 hover:scale-110 active:scale-90"
@@ -443,6 +451,49 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                                     </motion.div>
                                 )}
                             </AnimatePresence>
+                        </div>
+
+                        {/* 2.5 Log Tags (Chip Input) */}
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <Lucide.Tags size={12} className="text-purple-400" /> Interested Log Tags
+                            </label>
+                            <div className="bg-slate-950/60 border border-white/10 rounded-2xl p-3 min-h-[90px] flex flex-wrap gap-2 items-start focus-within:border-indigo-500/40 transition-colors shadow-inner">
+                                {logTags.map(tag => (
+                                    <motion.span
+                                        initial={{ scale: 0.8, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        key={tag}
+                                        className="flex items-center gap-1.5 bg-indigo-500/10 text-indigo-300 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-indigo-500/20 group/tag"
+                                    >
+                                        {tag}
+                                        <button
+                                            onClick={() => setLogTags(logTags.filter(t => t !== tag))}
+                                            className="text-slate-500 hover:text-rose-400 transition-colors"
+                                        >
+                                            <Trash2 size={10} />
+                                        </button>
+                                    </motion.span>
+                                ))}
+                                <input
+                                    type="text"
+                                    placeholder={logTags.length === 0 ? "Type tag & Press Enter" : "Add more..."}
+                                    value={newTag}
+                                    onChange={e => setNewTag(e.target.value)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter' && newTag.trim()) {
+                                            if (!logTags.includes(newTag.trim())) {
+                                                setLogTags([...logTags, newTag.trim()]);
+                                            }
+                                            setNewTag('');
+                                        }
+                                    }}
+                                    className="flex-1 min-w-[100px] bg-transparent border-none outline-none text-[11px] text-slate-200 placeholder:text-slate-700 py-1"
+                                />
+                            </div>
+                            <p className="text-[9px] text-slate-500 leading-relaxed px-1">
+                                <span className="text-amber-500/80 font-bold">INFO:</span> PID 내에서 위 태그가 포함된 로그들만 골라 분석합니다. (비워두면 전체 분석)
+                            </p>
                         </div>
 
                         <div className="h-px bg-white/5" />
