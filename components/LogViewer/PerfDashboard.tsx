@@ -278,6 +278,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     useEffect(() => {
         if (isAnalyzing) {
             setIsScanningStatus(true);
+            setIsInitialDrawComplete(false); // Reset for new analysis
             scanStartTimeRef.current = Date.now();
             if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
         } else {
@@ -595,13 +596,16 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
             if (isActive && result && viewMode === 'chart') {
                 drawFlameChart();
                 drawMinimap();
+                if (!isInitialDrawComplete) {
+                    setIsInitialDrawComplete(true);
+                }
             }
             frameId = requestAnimationFrame(render);
         };
 
         frameId = requestAnimationFrame(render);
         return () => cancelAnimationFrame(frameId);
-    }, [result, flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId, searchQuery, viewMode, isActive, showOnlyFail, maxLane]);
+    }, [result, flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId, searchQuery, viewMode, isActive, showOnlyFail, maxLane, isInitialDrawComplete]);
 
     const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (isShiftPressed || !result) return;
