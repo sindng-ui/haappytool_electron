@@ -12,6 +12,8 @@
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:3000 && electron .\"",
     "electron:build": "vite build && electron-builder",
+    "electron:build:dir": "vite build && electron-builder --dir --win --x64",
+    "electron:build:fast": "vite build && electron-builder --win --x64 --config.compression=store",
     "test": "vitest run --no-color",
     "test:all": "vitest run --no-color",
     "test:log-archive": "vitest run --no-color test/log-archive.test.ts",
