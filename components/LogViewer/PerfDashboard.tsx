@@ -217,12 +217,15 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
             if (e.ctrlKey) {
                 e.preventDefault();
                 e.stopPropagation();
+
+                const chartRect = canvasRef.current?.getBoundingClientRect();
+                if (!chartRect) return;
+
                 const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
                 const newDuration = duration * zoomFactor;
 
-                const rect = container.getBoundingClientRect();
-                const pointerX = e.clientX - rect.left;
-                const fractionalPos = Math.max(0, Math.min(1, pointerX / rect.width));
+                const pointerX = e.clientX - chartRect.left;
+                const fractionalPos = Math.max(0, Math.min(1, pointerX / chartRect.width));
                 const timeAtPointer = currentStart + duration * fractionalPos;
 
                 let newStart = timeAtPointer - newDuration * fractionalPos;
@@ -244,8 +247,11 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
             // Pan (Horizontal Scroll or Shift+Wheel)
             else if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
                 e.preventDefault();
+                const chartRect = canvasRef.current?.getBoundingClientRect();
+                if (!chartRect) return;
+
                 const delta = e.deltaX || e.deltaY;
-                const panAmount = (delta / container.clientWidth) * duration;
+                const panAmount = (delta / chartRect.width) * duration;
 
                 let newStart = currentStart + panAmount;
                 let newEnd = currentEnd + panAmount;
@@ -265,7 +271,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
         container.addEventListener('wheel', handleWheel, { passive: false });
         return () => container.removeEventListener('wheel', handleWheel);
-    }, [result]); // Only re-bind if result changes
+    }, [result, viewMode]); // Re-bind if viewMode changes because container is unmounted/remounted
 
     const jumpToBottleneck = (index: number) => {
         if (!result || bottlenecks.length === 0) return;
