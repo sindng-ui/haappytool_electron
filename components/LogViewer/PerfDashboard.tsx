@@ -176,6 +176,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const [isShiftPressed, setIsShiftPressed] = useState(false);
     const [showOnlyFail, setShowOnlyFail] = useState(false);
     const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([]);
+    const [mousePos, setMousePos] = useState<{ x: number, y: number, time: number } | null>(null);
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -620,6 +621,25 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         });
 
         ctx.globalAlpha = 1;
+
+        drawCrosshair(ctx, rect.width, rect.height, viewStart, viewEnd);
+    };
+
+    const drawCrosshair = (ctx: CanvasRenderingContext2D, width: number, height: number, viewStart: number, viewEnd: number) => {
+        if (!mousePos || isShiftPressed) return;
+
+        const x = ((mousePos.time - viewStart) / (viewEnd - viewStart)) * width;
+        if (x < 0 || x > width) return;
+
+        // Vertical Guide Line
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, 20);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+        ctx.setLineDash([]);
     };
 
     const drawMinimap = () => {
@@ -701,7 +721,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
         frameId = requestAnimationFrame(render);
         return () => cancelAnimationFrame(frameId);
-    }, [result, flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId, searchQuery, viewMode, isActive, showOnlyFail, maxLane, isInitialDrawComplete, trimRange, activeTags]);
+    }, [result, flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId, searchQuery, viewMode, isActive, showOnlyFail, maxLane, isInitialDrawComplete, trimRange, activeTags, mousePos]);
 
     const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (isShiftPressed || !result) return;
@@ -742,6 +762,14 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         if (target?.id !== hoveredSegmentId) {
             setHoveredSegmentId(target?.id || null);
         }
+
+        const time = viewStart + (mouseX / width) * viewDuration;
+        setMousePos({ x: mouseX, y: mouseY, time });
+    };
+
+    const handleCanvasMouseLeave = () => {
+        setMousePos(null);
+        setHoveredSegmentId(null);
     };
 
     const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1563,6 +1591,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                 ref={canvasRef}
                                                 className="absolute inset-0 w-full h-full"
                                                 onMouseMove={handleCanvasMouseMove}
+                                                onMouseLeave={handleCanvasMouseLeave}
                                                 onClick={handleCanvasClick}
                                                 onDoubleClick={handleCanvasDoubleClick}
                                                 style={{ pointerEvents: isShiftPressed ? 'none' : 'auto' }}
