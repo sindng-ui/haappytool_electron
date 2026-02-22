@@ -711,6 +711,32 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
         const onWheel = (e: WheelEvent) => {
             if (e.ctrlKey) {
+                // ✅ 형님, Perf Dashboard가 활성화된 경우 폰트 줌 대신 Flame Map 줌이 작동하도록 양보합니다.
+                const target = e.target as HTMLElement;
+                if (!target || typeof target.closest !== 'function') return;
+
+                const logPane = target.closest('.log-viewer-pane');
+                const targetPaneId = logPane?.getAttribute('data-pane-id');
+                const isOverDashboard = !!target.closest('.perf-dashboard-container');
+
+                // ✅ 형님, 오직 현재 마우스가 올라가 있는 Pane에 분석 결과가 있을 때만 폰트 줌을 양보합니다.
+                let shouldSkipForPerf = false;
+                if (targetPaneId === 'left') {
+                    shouldSkipForPerf = !!(leftPerfAnalysisResult || isAnalyzingPerformanceLeft);
+                } else if (targetPaneId === 'right') {
+                    shouldSkipForPerf = !!(rightPerfAnalysisResult || isAnalyzingPerformanceRight);
+                } else if (isOverDashboard) {
+                    // 대시보드 위라면 무조건 양보 (대시보드가 줌 처리)
+                    shouldSkipForPerf = true;
+                } else if (!targetPaneId && (leftPerfAnalysisResult || rightPerfAnalysisResult)) {
+                    // 싱글 뷰 모드 등
+                    shouldSkipForPerf = true;
+                }
+
+                if (shouldSkipForPerf) {
+                    return;
+                }
+
                 // ✅ Aggressively prevent default at the window level during capture phase
                 e.preventDefault();
                 e.stopPropagation();
@@ -731,7 +757,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         return () => {
             window.removeEventListener('wheel', onWheel, { capture: true });
         };
-    }, [isActive, handleZoomIn, handleZoomOut]);
+    }, [isActive, handleZoomIn, handleZoomOut, leftPerfAnalysisResult, rightPerfAnalysisResult, isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight]);
 
     return (
         <div

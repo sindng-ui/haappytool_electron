@@ -840,7 +840,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
 
             {/* Content area: Removed overflow-hidden to allow dashboard resizer tab to stick out */}
             <div
-                className="flex-1 relative flex flex-col"
+                className="flex-1 relative flex flex-col log-viewer-pane"
+                data-pane-id={paneId}
             >
                 {workerReady ? (
                     <>
@@ -871,6 +872,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                         onHeightChange={onDashboardHeightChange}
                                         showTidColumn={false}
                                         useCompactDetail={true}
+                                        paneId={paneId}
                                     />
                                 </motion.div>
                             )}

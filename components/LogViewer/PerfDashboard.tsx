@@ -21,6 +21,7 @@ interface PerfDashboardProps {
     useCompactDetail?: boolean;
     isActive: boolean;
     activeTags?: string[];
+    paneId?: 'left' | 'right' | 'single';
 }
 
 /**
@@ -110,10 +111,14 @@ const TransitionCard: React.FC<{
 
 
 export const PerfDashboard: React.FC<PerfDashboardProps> = ({
-    isOpen, onClose, result, isAnalyzing, isActive = true,
+    isOpen, onClose, result, isAnalyzing,
     onJumpToLine, onJumpToRange, onViewRawRange, onCopyRawRange,
     targetTime, height = 400, onHeightChange = () => { }, isFullScreen = false,
-    showTidColumn = true, useCompactDetail = false, activeTags = []
+    showTidColumn = true,
+    useCompactDetail = false,
+    isActive, // Restore destructuring
+    activeTags = [],
+    paneId // Destructure paneId
 }) => {
     const [flameZoom, setFlameZoom] = useState<{ startTime: number; endTime: number } | null>(null);
     const zoomRef = useRef<{ startTime: number; endTime: number } | null>(null);
@@ -204,16 +209,36 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
     // 💡 Stabilize Zoom & Pan using manual event listener for passive: false support
     useEffect(() => {
-        const container = flameChartContainerRef.current;
-        if (!container || !result) return;
+        if (!result) return;
 
-        const handleWheel = (e: WheelEvent) => {
+        const onGlobalWheel = (e: WheelEvent) => {
+            if (!isActive) return;
+
+            const target = e.target as HTMLElement;
+            if (!target || typeof target.closest !== 'function') return;
+
+            const dashboard = target.closest('.perf-dashboard-container');
+            const logPane = target.closest('.log-viewer-pane');
+
+            // Find if this event belongs to THIS dashboard instance
+            let belongsToMe = false;
+            if (paneId) {
+                // In Log Extractor (Multi-pane), match the pane ID
+                belongsToMe = (dashboard?.getAttribute('data-pane-id') === paneId) ||
+                    (logPane?.getAttribute('data-pane-id') === paneId);
+            } else {
+                // In Standalone Perf Tool (Single-pane), handle if over the tool's content
+                belongsToMe = !!dashboard || !!logPane;
+            }
+
+            if (!belongsToMe) return;
+
             const currentZoom = zoomRef.current;
             const currentStart = currentZoom?.startTime ?? result.startTime;
             const currentEnd = currentZoom?.endTime ?? result.endTime;
             const duration = currentEnd - currentStart;
 
-            // Zoom (Ctrl+Wheel)
+            // Zoom (Ctrl+Wheel) - Works on both Dashboard and Log Pane
             if (e.ctrlKey) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -244,9 +269,11 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
                 setFlameZoom({ startTime: newStart, endTime: newEnd });
             }
-            // Pan (Horizontal Scroll or Shift+Wheel)
-            else if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
+            // Pan (Horizontal Scroll or Shift+Wheel) - ONLY when over the dashboard
+            else if (!!dashboard && (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey)) {
                 e.preventDefault();
+                e.stopPropagation();
+
                 const chartRect = canvasRef.current?.getBoundingClientRect();
                 if (!chartRect) return;
 
@@ -269,9 +296,9 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
             }
         };
 
-        container.addEventListener('wheel', handleWheel, { passive: false });
-        return () => container.removeEventListener('wheel', handleWheel);
-    }, [result, viewMode]); // Re-bind if viewMode changes because container is unmounted/remounted
+        window.addEventListener('wheel', onGlobalWheel, { passive: false });
+        return () => window.removeEventListener('wheel', onGlobalWheel);
+    }, [result, viewMode, isActive, paneId]); // Re-bind if viewMode or isActive changes
 
     const jumpToBottleneck = (index: number) => {
         if (!result || bottlenecks.length === 0) return;
@@ -713,11 +740,12 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
     return (
         <div
-            className={`w-full z-10 flex flex-col transition-all duration-300 ease-in-out relative group/dashboard ${isFullScreen ? 'h-full flex-1' : 'border-b-[6px] border-[#080b14] shadow-[0_8px_16px_rgba(0,0,0,0.6)]'}`}
+            className={`w-full z-10 flex flex-col transition-all duration-300 ease-in-out relative group/dashboard perf-dashboard-container ${isFullScreen ? 'h-full flex-1' : 'border-b-[6px] border-[#080b14] shadow-[0_8px_16px_rgba(0,0,0,0.6)]'}`}
             style={isFullScreen ? { backgroundColor: '#0f172a' } : {
                 height: minimized ? '40px' : `${height}px`,
                 backgroundColor: '#0f172a' // Slate-950 distinct bg
             }}
+            data-pane-id={paneId}
         >
             {/* Loading Overlay (Persist until canvas is ready) */}
             <AnimatePresence>
