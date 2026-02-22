@@ -121,6 +121,11 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const searchRef = useRef<HTMLInputElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
+
+    // Hit Testing
+    const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
 
     // Time Ruler Tool Logic
     const [measureRange, setMeasureRange] = useState<{ startTime: number, endTime: number } | null>(null);
@@ -302,31 +307,26 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         const sorted = baseSegments.sort((a, b) => (a.startTime - b.startTime) || (b.duration - a.duration));
         const lanes: number[] = [];
         const totalDuration = result.endTime - result.startTime;
-        const minVisualDuration = totalDuration * 0.005; // 0.5% width minimum
 
         return sorted.map(s => {
             let lane = s.lane !== undefined ? s.lane : 0;
-            const effectiveEndTime = Math.max(s.endTime, s.startTime + minVisualDuration);
 
-            // Only run the greedy packing logic if lane was not explicitly provided.
-            // This allows PerfTool to show one lane per TID accurately.
             if (s.lane === undefined) {
                 while (lanes[lane] !== undefined && lanes[lane] > s.startTime) {
                     lane++;
                 }
             }
 
-            lanes[lane] = Math.max(lanes[lane] || 0, effectiveEndTime);
+            lanes[lane] = Math.max(lanes[lane] || 0, s.endTime);
 
             return {
                 ...s,
                 lane,
                 relStart: (s.startTime - result.startTime) / 1000,
                 relEnd: (s.endTime - result.startTime) / 1000,
-                width: Math.max(0, (s.duration / Math.max(1, totalDuration))) * 100
             };
         });
-    }, [result]);
+    }, [result, showOnlyFail]);
 
     const maxLane = useMemo(() => {
         if (!flameSegments.length) return 4;
@@ -345,8 +345,188 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
     const selectedTid = useMemo(() => {
         if (!selectedSegmentId) return null;
-        return flameSegments.find(s => s.id === selectedSegmentId)?.tid || null;
-    }, [flameSegments, selectedSegmentId]);
+        return result?.segments.find(s => s.id === selectedSegmentId)?.tid || null;
+    }, [result, selectedSegmentId]);
+
+    // Canvas Drawing Logic
+    const drawFlameChart = () => {
+        const canvas = canvasRef.current;
+        if (!canvas || !result) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+
+        const viewStart = flameZoom?.startTime ?? result.startTime;
+        const viewEnd = flameZoom?.endTime ?? result.endTime;
+        const viewDuration = Math.max(1, viewEnd - viewStart);
+        const width = rect.width;
+
+        ctx.clearRect(0, 0, rect.width, rect.height);
+
+        // Draw segments
+        flameSegments.forEach(s => {
+            if (s.endTime < viewStart || s.startTime > viewEnd) return;
+
+            const x = ((s.startTime - viewStart) / viewDuration) * width;
+            const w = Math.max(0.5, (s.duration / viewDuration) * width);
+            const y = s.lane * 28 + 24;
+            const h = 20;
+
+            const isSingleSelected = s.id === selectedSegmentId;
+            const isMultiSelected = multiSelectedIds.includes(s.id);
+            const isSelected = isSingleSelected || isMultiSelected;
+            const isHovered = s.id === hoveredSegmentId;
+            const isBottleneck = s.duration >= (result.perfThreshold || 1000);
+            const isMatch = checkSegmentMatch(s, searchQuery);
+            const isSearchHit = !!searchQuery && isMatch;
+            const isTidFocused = selectedTid !== null && s.tid === selectedTid;
+
+            // Determine base opacity:
+            let baseOpacity = (isSelected || isSearchHit || isHovered) ? 1 : 0.9;
+            if (selectedTid !== null && !isTidFocused) baseOpacity *= 0.3;
+            const finalOpacity = isMatch ? baseOpacity : 0.15;
+
+            const baseColor = (isSelected || isSearchHit) ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
+
+            ctx.globalAlpha = finalOpacity;
+            ctx.fillStyle = baseColor;
+
+            // Rounded rect approximation
+            const radius = 4;
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, radius);
+            ctx.fill();
+
+            if (isSelected || isHovered) {
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = isSelected ? 2 : 1;
+                ctx.stroke();
+            }
+
+            // Text
+            if (w > 20) {
+                ctx.globalAlpha = finalOpacity;
+                ctx.fillStyle = getContrastColor(baseColor);
+                ctx.font = 'bold 9px sans-serif';
+                const label = s.fileName && s.functionName ? `${s.fileName}: ${s.functionName}` : s.name;
+                ctx.fillText(label, x + 6, y + 13, w - 12);
+            }
+        });
+
+        ctx.globalAlpha = 1;
+    };
+
+    const drawMinimap = () => {
+        const canvas = minimapCanvasRef.current;
+        if (!canvas || !result) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+
+        ctx.clearRect(0, 0, rect.width, rect.height);
+
+        const totalDuration = Math.max(1, result.endTime - result.startTime);
+        const width = rect.width;
+        const height = rect.height;
+
+        flameSegments.forEach(s => {
+            if (s.duration === 0) return;
+            const x = ((s.startTime - result.startTime) / totalDuration) * width;
+            const w = Math.max(0.2, (s.duration / totalDuration) * width);
+
+            // Minimap Height Logic: Fixed 40px but threads are compressed
+            // Use lane index as a fraction of maxLane to determine Y
+            const yOffset = maxLane > 0 ? (s.lane / (maxLane + 1)) * (height - 4) : 0;
+            const laneH = Math.max(2, height / (maxLane + 1));
+
+            const isBottleneck = s.duration >= (result.perfThreshold || 1000);
+            const isMatch = checkSegmentMatch(s, searchQuery);
+            const finalOpacity = isMatch ? 0.8 : 0.1;
+
+            ctx.globalAlpha = finalOpacity;
+            ctx.fillStyle = s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]);
+            ctx.fillRect(x, height - yOffset - laneH, w, laneH);
+        });
+
+        ctx.globalAlpha = 1;
+    };
+
+    useEffect(() => {
+        let frameId: number;
+        const render = () => {
+            if (isActive && viewMode === 'chart' && result) {
+                drawFlameChart();
+                drawMinimap();
+            }
+        };
+
+        frameId = requestAnimationFrame(render);
+        return () => cancelAnimationFrame(frameId);
+    }, [result, flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId, searchQuery, viewMode, isActive, showOnlyFail, maxLane]);
+
+    const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (isShiftPressed || !result) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const viewStart = flameZoom?.startTime ?? result.startTime;
+        const viewEnd = flameZoom?.endTime ?? result.endTime;
+        const viewDuration = Math.max(1, viewEnd - viewStart);
+        const width = rect.width;
+
+        // Find hovered segment (reverse order to get top-most)
+        let found = null;
+        for (let i = flameSegments.length - 1; i >= 0; i--) {
+            const s = flameSegments[i];
+            const x = ((s.startTime - viewStart) / viewDuration) * width;
+            const w = Math.max(0.5, (s.duration / viewDuration) * width);
+            const y = s.lane * 28 + 24;
+            const h = 20;
+
+            if (mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h) {
+                found = s;
+                break;
+            }
+        }
+
+        if (found?.id !== hoveredSegmentId) {
+            setHoveredSegmentId(found?.id || null);
+        }
+    };
+
+    const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (isShiftPressed || !result) return;
+        if (hoveredSegmentId) {
+            setSelectedSegmentId(hoveredSegmentId);
+            setMultiSelectedIds([]);
+            const s = result.segments.find(seg => seg.id === hoveredSegmentId);
+            if (s) onJumpToRange?.(s.startLine, s.endLine);
+        } else {
+            setSelectedSegmentId(null);
+            setMultiSelectedIds([]);
+        }
+    };
+
+    const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (isShiftPressed || !result || !hoveredSegmentId) return;
+        const s = result.segments.find(seg => seg.id === hoveredSegmentId);
+        if (s) {
+            onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
+        }
+    };
 
 
 
@@ -974,30 +1154,23 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             height: `${(maxLane + 1) * 28 + 24}px`
                                         }}
                                     >
-                                        {/* TID Sidebar (Sticky Left - Integrated Design) */}
+                                        {/* TID Sidebar (Sticky Left) */}
                                         {showTidColumn && (
                                             <div className="sticky left-0 w-[52px] shrink-0 z-[100] pointer-events-none">
-                                                {/* Subtle vertical separator line */}
                                                 <div className="absolute top-0 bottom-0 right-0 w-px bg-white/5 shadow-[2px_0_10px_rgba(0,0,0,0.5)]" />
-
-                                                {/* TID Column Header (Minimalist) */}
                                                 <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 flex items-center justify-center bg-slate-950/20 backdrop-blur-md">
                                                     <span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.3em]">TID</span>
                                                 </div>
-
-                                                {/* Lane Labels */}
                                                 {Array.from({ length: maxLane + 1 }).map((_, i) => {
                                                     const tid = laneTidMap.get(i);
                                                     if (!tid) return null;
-
                                                     const isFirstInTid = i === 0 || laneTidMap.get(i - 1) !== tid;
                                                     const tidColor = palette[i % palette.length];
                                                     const isTidSelected = tid === selectedTid;
-
                                                     return (
                                                         <div
                                                             key={`tid-label-${i}`}
-                                                            className={`absolute left-0 right-0 h-[24px] flex items-center pr-1 transition-all group/tid ${isTidSelected ? 'z-[110]' : ''}`}
+                                                            className={`absolute left-0 right-0 h-[24px] flex items-center pr-1 transition-all ${isTidSelected ? 'z-[110]' : ''}`}
                                                             style={{ top: `${i * 28 + 24}px` }}
                                                         >
                                                             {isFirstInTid ? (
@@ -1009,9 +1182,6 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                                     <span className={`text-[9px] font-mono tracking-tighter transition-all ${isTidSelected ? 'font-black scale-105' : 'font-bold'}`} style={{ color: tidColor }}>
                                                                         {tid.length > 5 ? tid.substring(0, 5) : tid}
                                                                     </span>
-
-                                                                    {/* Hover/Select Glow Effect */}
-                                                                    <div className={`absolute inset-0 rounded-r-md transition-opacity ${isTidSelected ? 'opacity-20' : 'opacity-0 group-hover/tid:opacity-10'}`} style={{ backgroundColor: tidColor, filter: 'blur(4px)' }} />
                                                                 </div>
                                                             ) : (
                                                                 <div className={`ml-auto mr-1.5 rounded-full transition-all ${isTidSelected ? 'w-1.5 h-1.5 opacity-30 shadow-[0_0_8px_rgba(255,255,255,0.2)]' : 'w-1 h-1 opacity-10'}`} style={{ backgroundColor: tidColor }} />
@@ -1077,75 +1247,15 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                 );
                                             })()}
 
-                                            {isActive && flameSegments.map(s => {
-                                                const isSingleSelected = s.id === selectedSegmentId;
-                                                const isMultiSelected = multiSelectedIds.includes(s.id);
-                                                const isSelected = isSingleSelected || isMultiSelected;
-                                                const isBottleneck = s.duration > targetTime;
-                                                const isGroup = s.id.startsWith('group-') && s.duration > 0;
-                                                const isInterval = s.id.startsWith('interval-');
-
-                                                const viewStart = flameZoom?.startTime ?? result.startTime;
-                                                const viewEnd = flameZoom?.endTime ?? result.endTime;
-                                                const viewDuration = Math.max(1, viewEnd - viewStart);
-
-                                                if (s.endTime < viewStart || s.startTime > viewEnd) return null;
-
-                                                const left = ((s.startTime - viewStart) / viewDuration) * 100;
-                                                const width = (s.duration / viewDuration) * 100;
-                                                const isMatch = checkSegmentMatch(s, searchQuery);
-                                                const isSearchHit = !!searchQuery && isMatch;
-                                                const bgColor = (isSelected || isSearchHit) ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
-                                                const textColor = getContrastColor(bgColor);
-                                                const isTidFocused = selectedTid !== null && s.tid === selectedTid;
-
-                                                // Determine base opacity:
-                                                let baseOpacity = (isSelected || isSearchHit) ? 1 : (isInterval ? 0.6 : 0.9);
-
-                                                // If something is selected, dim others NOT in the same TID
-                                                if (selectedTid !== null && !isTidFocused) {
-                                                    baseOpacity *= 0.3; // More aggressive dimming for non-focused threads
-                                                }
-
-                                                const finalOpacity = isMatch ? baseOpacity : 0.15;
-
-                                                return (
-                                                    <div
-                                                        key={s.id}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedSegmentId(s.id);
-                                                            setMultiSelectedIds([]); // Individual click clears multi-selection
-                                                            onJumpToRange?.(s.startLine, s.endLine);
-                                                        }}
-                                                        onDoubleClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
-                                                        }}
-                                                        className={`absolute h-5 rounded flex items-center px-1.5 cursor-pointer transition-all group/item ${(isSelected || isSearchHit)
-                                                            ? 'z-[60] border-2 border-white/90 shadow-[0_0_8px_1px_rgba(255,255,255,0.7)] brightness-110 saturate-110'
-                                                            : isTidFocused ? 'z-[20] border border-white/20 brightness-105' : 'z-10 border border-transparent hover:border-white/20'
-                                                            } ${isGroup && !isSelected && !isSearchHit ? 'border-2 border-white/30 shadow-sm' : ''} ${isInterval ? 'opacity-70' : ''}`}
-                                                        style={{
-                                                            left: `${left}%`,
-                                                            width: `${Math.max(0.2, width)}%`,
-                                                            top: `${s.lane * 28 + 24}px`,
-                                                            backgroundColor: bgColor,
-                                                            opacity: finalOpacity
-                                                        }}
-                                                        title={`Name: ${s.name}\nDuration: ${s.duration}ms\nTID: ${s.tid || 'N/A'}`}
-                                                    >
-                                                        {width > 3 && (
-                                                            <span
-                                                                className={`text-[9px] font-medium truncate leading-none ${isGroup ? 'font-black' : ''}`}
-                                                                style={{ color: textColor }}
-                                                            >
-                                                                {s.fileName && s.functionName ? `${s.fileName}: ${s.functionName}` : s.name}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
+                                            {/* 💡 Canvas-based Flame Chart Rendering */}
+                                            <canvas
+                                                ref={canvasRef}
+                                                className="absolute inset-0 w-full h-full"
+                                                onMouseMove={handleCanvasMouseMove}
+                                                onClick={handleCanvasClick}
+                                                onDoubleClick={handleCanvasDoubleClick}
+                                                style={{ pointerEvents: isShiftPressed ? 'none' : 'auto' }}
+                                            />
                                         </div>
                                     </div>
 
@@ -1158,7 +1268,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                             )}
 
                             {viewMode === 'chart' && flameSegments.length > 0 && (
-                                <div className="h-10 shrink-0 bg-slate-900 border-t border-white/10 relative select-none">
+                                <div className="h-[40px] shrink-0 bg-slate-900 border-t border-white/10 relative select-none overflow-hidden">
                                     <div
                                         className="absolute inset-0 cursor-pointer"
                                         onMouseDown={(e) => {
@@ -1185,37 +1295,15 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                             setFlameZoom({ startTime: newStart, endTime: newEnd });
                                         }}
                                     >
-                                        {/* Minimap Segments (Only if active or tiny log) */}
-                                        {isActive && flameSegments.map(s => {
-                                            if (s.duration === 0) return null;
-                                            const totalDuration = Math.max(1, result.endTime - result.startTime);
-                                            const left = ((s.startTime - result.startTime) / totalDuration) * 100;
-                                            const width = (s.duration / totalDuration) * 100;
-                                            const isBottleneck = s.duration > targetTime;
-                                            // Fallback palette color if no dangerColor
-                                            const bgColor = s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]);
-                                            const isMatch = checkSegmentMatch(s, searchQuery);
-                                            const finalOpacity = isMatch ? 0.85 : 0.15;
-
-                                            return (
-                                                <div
-                                                    key={`mini-${s.id}`}
-                                                    className="absolute"
-                                                    style={{
-                                                        left: `${left}%`,
-                                                        width: `${Math.max(0.1, width)}%`,
-                                                        bottom: 0,
-                                                        height: `${Math.max(6, (s.lane + 1) * 3)}px`,
-                                                        backgroundColor: bgColor,
-                                                        opacity: finalOpacity
-                                                    }}
-                                                />
-                                            );
-                                        })}
+                                        {/* 💡 Canvas-based Minimap Rendering */}
+                                        <canvas
+                                            ref={minimapCanvasRef}
+                                            className="absolute inset-0 w-full h-full"
+                                        />
 
                                         {/* Viewport Overlay */}
                                         <div
-                                            className="absolute top-0 bottom-0 bg-white/10 border-x-2 border-indigo-400 cursor-grab active:cursor-grabbing hover:bg-white/20 transition-colors"
+                                            className="absolute top-0 bottom-0 bg-white/10 border-x-2 border-indigo-400 cursor-grab active:cursor-grabbing hover:bg-white/20 transition-colors z-10"
                                             style={{
                                                 left: `${((flameZoom?.startTime ?? result.startTime) - result.startTime) / Math.max(1, result.endTime - result.startTime) * 100}%`,
                                                 width: `${((flameZoom?.endTime ?? result.endTime) - (flameZoom?.startTime ?? result.startTime)) / Math.max(1, result.endTime - result.startTime) * 100}%`
@@ -1227,9 +1315,6 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                 const initialEnd = flameZoom?.endTime ?? result.endTime;
                                                 const currentDuration = initialEnd - initialStart;
                                                 const totalDuration = result.endTime - result.startTime;
-
-                                                // We need the parent width to calculate fraction, but we can't reliably get `e.currentTarget.parentElement` because of React typing. 
-                                                // We'll approximate using the nearest relative ancestor's width.
                                                 const containerWidth = e.currentTarget.parentElement?.clientWidth || window.innerWidth / 2;
 
                                                 const onMove = (mv: MouseEvent) => {

@@ -75,17 +75,27 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                 } catch (e) { console.error("Failed to load local settings", e); }
             }
 
-            // 2. Session Data (IndexedDB) - Survived tab switch and large capacity
-            // 💡 형님, sessionStorage 대신 IndexedDB를 사용하여 QuotaExceededError를 방지합니다.
-            const sessionSaved = await getStoredValue('happytool_perf_tool_session_v1');
-            if (sessionSaved) {
-                try {
-                    const parsed = typeof sessionSaved === 'string' ? JSON.parse(sessionSaved) : sessionSaved;
-                    if (parsed.fileHandle !== undefined) setFileHandle(parsed.fileHandle);
-                    if (parsed.targetKeyword !== undefined) setTargetKeyword(parsed.targetKeyword);
-                    if (parsed.result !== undefined) setResult(parsed.result);
-                    if (parsed.pidList !== undefined) setPidList(parsed.pidList);
-                } catch (e) { console.error("Failed to load session data from DB", e); }
+            // 2. Session Data Management (IndexedDB + sessionStorage Flag)
+            // 💡 형님, sessionStorage 플래그를 통해 '앱 재시작'인지 '탭/플러그인 전환'인지 구분합니다.
+            const sessionActive = sessionStorage.getItem('happytool_perf_tool_session_active');
+
+            if (!sessionActive) {
+                // 앱 신규 실행 (또는 세션 만료): 기존 IndexedDB 데이터 정리
+                // console.log("[PerfTool] New session detected. Clearing previous IndexedDB session data.");
+                await deleteStoredValue('happytool_perf_tool_session_v1');
+                sessionStorage.setItem('happytool_perf_tool_session_active', 'true');
+            } else {
+                // 기존 세션 유지: 데이터 로드 (시중의 대용량 로그 대응)
+                const sessionSaved = await getStoredValue('happytool_perf_tool_session_v1');
+                if (sessionSaved) {
+                    try {
+                        const parsed = typeof sessionSaved === 'string' ? JSON.parse(sessionSaved) : sessionSaved;
+                        if (parsed.fileHandle !== undefined) setFileHandle(parsed.fileHandle);
+                        if (parsed.targetKeyword !== undefined) setTargetKeyword(parsed.targetKeyword);
+                        if (parsed.result !== undefined) setResult(parsed.result);
+                        if (parsed.pidList !== undefined) setPidList(parsed.pidList);
+                    } catch (e) { console.error("Failed to load session data from DB", e); }
+                }
             }
 
             setIsInitialLoadDone(true);
