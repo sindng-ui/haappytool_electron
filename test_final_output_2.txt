@@ -6,128 +6,128 @@
  RUN  v4.0.18 K:/Antigravity_Projects/gitbase/happytool_electron
 
 stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Post Tool > should handle 1MB API response efficiently
-  ?뱤 1MB Response - Size: 1.00MB, Parse: 2.39ms
+  ?뱤 1MB Response - Size: 1.00MB, Parse: 2.22ms
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should parse 10,000 log lines efficiently
+  ?뱤 Parse 10K lines: 0.30ms
 
 stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Post Tool > should format JSON response efficiently
-  ?뱤 Format response: 1.39ms
-
-stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should parse 1MB JSON within threshold
-  ?뱤 Parse 1.00MB JSON: 4.18ms
-
-stderr | test/log-archive.test.ts > LogArchiveDB - Search Operations > RegEx Search > should handle invalid regex gracefully
-Invalid regex pattern: [invalid(regex
-
-stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should stringify 1MB JSON within threshold
-  ?뱤 Stringify 1.00MB JSON: 3.38ms
+  ?뱤 Format response: 1.87ms
 
 stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Post Tool > should handle large array response efficiently
-  ?뱤 Large Array (10K items, 1.12MB): Parse 5.18ms
+  ?뱤 Large Array (10K items, 1.12MB): Parse 5.68ms
 
 stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Post Tool > should extract response headers efficiently
   ?뱤 Process 8 headers: 0.00ms
 
- ??test/log-archive.test.ts (41 tests) 201ms
-stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Post Tool > should handle 10MB response (stress test)
-  ?뱤 10MB Response (Stress) - Size: 10.01MB, Parse: 24.15ms
-
-stdout | test/performance/log-filtering.perf.test.ts > Logging Performance Benchmarks > should filter 10k lines with simple rule within threshold
-Filter 10k (Simple): 5.85ms
-
-stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Response Viewer > should search through large response efficiently
-  ?뱤 Search in 1MB response: 0.45ms, Found: 3213
-
-stdout | test/performance/log-filtering.perf.test.ts > Logging Performance Benchmarks > should filter 10k lines with complex rule within threshold
-Filter 10k (Complex): 5.49ms
-
-stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Response Viewer > should navigate through search results efficiently
-  ?뱤 Index search results: 0.40ms, Matches: 179
-
-stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Response Viewer > should switch between view modes efficiently
-  ?뱤 Switch view modes: 2.08ms
-
-stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Memory Management > should not leak memory when handling multiple requests
-  ?뱤 Memory after 10 requests: +0.00MB
-
-stdout | test/performance/log-filtering.perf.test.ts > Logging Performance Benchmarks > should filter 100k lines efficiently
-Filter 100k (Complex): 84.84ms
-
- ??test/performance/post-tool.perf.test.ts (9 tests) 256ms
-stdout | test/performance/log-filtering.perf.test.ts > Logging Performance Benchmarks > should handle Bypass Logic efficiently
-Filter 100k (Bypass Enabled): 67.26ms
-
-stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should parse 10,000 log lines efficiently
-  ?뱤 Parse 10K lines: 0.27ms
-
- ??test/performance/log-filtering.perf.test.ts (4 tests) 169ms
 stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should insert 1,000 items within performance threshold
-  ?뱤 Insert 1K: 122.40ms, Memory: +0.00MB
+  ?뱤 Insert 1K: 134.46ms, Memory: +0.00MB
 
 stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should retrieve all tags efficiently
-  ?뱤 Get Tags: 3.76ms, Found: 3
+  ?뱤 Get Tags: 3.39ms, Found: 3
 
 stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should retrieve all folders efficiently
-  ?뱤 Get Folders: 11.70ms, Found: 2
+  ?뱤 Get Folders: 3.86ms, Found: 2
 
 stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should search and return 50 results efficiently
-  ?뱤 Search (50): 3.34ms, Found: 50
+  ?뱤 Search (50): 2.40ms, Found: 50
 
 stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should perform tag statistics without memory bloat
-  ?뱤 Tag Stats: 7.84ms, Memory: +0.00MB
+  ?뱤 Tag Stats: 6.46ms, Memory: +0.00MB
 
 stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should perform folder statistics without memory bloat
-  ?뱤 Folder Stats: 3.79ms, Memory: +0.00MB
+  ?뱤 Folder Stats: 9.55ms, Memory: +0.00MB
 
 stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should handle regex search efficiently
-  ?뱤 Regex Search: 2.58ms, Found: 50
+  ?뱤 Regex Search: 1.39ms, Found: 50
 
 stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should handle tag filter search efficiently
-  ?뱤 Tag Filter: 6.54ms, Found: 50
+  ?뱤 Tag Filter: 8.01ms, Found: 50
+
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should parse 1MB JSON within threshold
+  ?뱤 Parse 1.00MB JSON: 4.44ms
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Post Tool > should handle 10MB response (stress test)
+  ?뱤 10MB Response (Stress) - Size: 10.01MB, Parse: 64.26ms
+
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should stringify 1MB JSON within threshold
+  ?뱤 Stringify 1.00MB JSON: 3.90ms
 
 stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Large Scale Log Archive > should handle 10,000 items search efficiently
   ?벀 Inserting 10,000 items for large-scale test...
 
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Response Viewer > should search through large response efficiently
+  ?뱤 Search in 1MB response: 0.44ms, Found: 3213
+
 stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should parse 100,000 log lines efficiently
-  ?뱤 Parse 100K lines: 3.23ms
+  ?뱤 Parse 100K lines: 9.72ms
+
+stderr | test/log-archive.test.ts > LogArchiveDB - Search Operations > RegEx Search > should handle invalid regex gracefully
+Invalid regex pattern: [invalid(regex
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Response Viewer > should navigate through search results efficiently
+  ?뱤 Index search results: 0.38ms, Matches: 179
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Response Viewer > should switch between view modes efficiently
+  ?뱤 Switch view modes: 6.18ms
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should filter 10,000 log lines by keyword efficiently
+  ?뱤 Filter 10K lines: 1.71ms, Found: 2000
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Memory Management > should not leak memory when handling multiple requests
+  ?뱤 Memory after 10 requests: +0.00MB
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should filter with RegEx efficiently
+  ?뱤 RegEx Filter 10K lines: 5.51ms, Found: 4000
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should handle highlight pattern matching efficiently
+  ?뱤 Highlight 1K lines: 0.40ms, Found: 200
+
+ ??test/log-archive.test.ts (41 tests) 122ms
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should chunk large log file efficiently (2GB simulation)
+  ?뱤 Process 10 chunks (100000 lines): 127.01ms
+
+ ??test/performance/post-tool.perf.test.ts (9 tests) 335ms
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should handle rapid log streaming (100 logs/sec)
+  ?뱤 Handle 100 rapid logs: 0.15ms
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Processing > should parse timestamp from logs efficiently
+  ?뱤 Extract timestamps from 10K lines: 5.15ms
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Processing > should parse log level efficiently
+  ?뱤 Extract log levels from 10K lines: 14.17ms
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Processing > should handle line selection operations efficiently
+  ?뱤 Line selection operations: 0.50ms, Selected: 1000
+
+stdout | test/performance/log-filtering.perf.test.ts > Logging Performance Benchmarks > should filter 10k lines with simple rule within threshold
+Filter 10k (Simple): 5.09ms
+
+stdout | test/performance/log-filtering.perf.test.ts > Logging Performance Benchmarks > should filter 10k lines with complex rule within threshold
+Filter 10k (Complex): 6.19ms
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Memory Efficiency > should not leak memory when processing large logs
+  ?뱤 Memory increase after 5 batches: 0.00MB
+
+ ??test/performance/log-extractor.perf.test.ts (11 tests) 560ms
+stdout | test/performance/log-filtering.perf.test.ts > Logging Performance Benchmarks > should filter 100k lines efficiently
+Filter 100k (Complex): 102.95ms
 
 stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle SSH Auth Request and Response
 [useLog] Sending SSH command: ls -la
 
- ??test/hooks/useLogExtractorLogic.test.tsx (9 tests | 2 skipped) 41ms
-stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should filter 10,000 log lines by keyword efficiently
-  ?뱤 Filter 10K lines: 15.47ms, Found: 2000
+ ??test/hooks/useLogExtractorLogic.test.tsx (9 tests | 2 skipped) 40ms
+ ??test/components/PerfDashboard.test.tsx (5 tests | 3 failed) 115ms
+     ??should not render when isOpen is false 16ms
+     ??should show "Ready to Analyze" when no result and not analyzing 44ms
+     횞 should render header with result summary when result is provided 46ms
+     횞 should render scorecards in full screen mode 4ms
+     횞 should show search input 3ms
+stdout | test/performance/log-filtering.perf.test.ts > Logging Performance Benchmarks > should handle Bypass Logic efficiently
+Filter 100k (Bypass Enabled): 69.79ms
 
-stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should filter with RegEx efficiently
-  ?뱤 RegEx Filter 10K lines: 4.49ms, Found: 4000
-
-stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should handle highlight pattern matching efficiently
-  ?뱤 Highlight 1K lines: 0.53ms, Found: 200
-
- ??test/components/PerfDashboard.test.tsx (5 tests | 3 failed) 80ms
-     ??should not render when isOpen is false 17ms
-     ??should show "Ready to Analyze" when no result and not analyzing 31ms
-     횞 should render header with result summary when result is provided 13ms
-     횞 should render scorecards in full screen mode 15ms
-     횞 should show search input 2ms
-stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should chunk large log file efficiently (2GB simulation)
-  ?뱤 Process 10 chunks (100000 lines): 166.06ms
-
-stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should handle rapid log streaming (100 logs/sec)
-  ?뱤 Handle 100 rapid logs: 0.11ms
-
-stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Processing > should parse timestamp from logs efficiently
-  ?뱤 Extract timestamps from 10K lines: 6.00ms
-
-stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Processing > should parse log level efficiently
-  ?뱤 Extract log levels from 10K lines: 10.11ms
-
-stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Processing > should handle line selection operations efficiently
-  ?뱤 Line selection operations: 0.69ms, Selected: 1000
-
- ??test/components/PerfTool.test.tsx (4 tests) 207ms
-stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Memory Efficiency > should not leak memory when processing large logs
-  ?뱤 Memory increase after 5 batches: 0.00MB
-
- ??test/performance/log-extractor.perf.test.ts (11 tests) 612ms
+ ??test/performance/log-filtering.perf.test.ts (4 tests) 189ms
+ ??test/components/PerfTool.test.tsx (4 tests) 224ms
 stderr | components/PostTool.test.tsx > PostTool Integration > performs variable substitution correctly (URL and Headers)
 An update to PostTool inside a test was not wrapped in act(...).
 
@@ -172,19 +172,58 @@ act(() => {
 
 This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
 
- ??components/PostTool.test.tsx (4 tests) 123ms
- ??test/components/EditableTag.test.tsx (8 tests) 537ms
+ ??components/PostTool.test.tsx (4 tests) 105ms
+ ??test/components/EditableTag.test.tsx (8 tests) 603ms
 stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Large Scale Log Archive > should handle 10,000 items search efficiently
-  ??Inserted 10K in 1395.38ms
+  ??Inserted 10K in 1363.95ms
 
 stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Large Scale Log Archive > should handle 10,000 items search efficiently
-  ?뱤 Search 10K dataset: 10.45ms
+  ?뱤 Search 10K dataset: 3.82ms
 
 stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Large Scale Log Archive > should handle statistics on 10,000 items efficiently
-  ?뱤 Stats on 10K: 55.10ms, Memory: +0.00MB
+  ?뱤 Stats on 10K: 69.47ms, Memory: +0.00MB
 
- ??test/performance/log-archive.perf.test.ts (10 tests) 1657ms
-     ??should handle 10,000 items search efficiently  1419ms
+ ??test/performance/log-archive.perf.test.ts (10 tests) 1635ms
+     ??should handle 10,000 items search efficiently  1377ms
+stdout | test/utils/logFiltering.test.ts > checkIsMatch (Log Filtering Logic) > Quick Filters > should filter only ERRORs when quickFilter is error
+Testing Quick Filter: ERROR
+Result for " E/ Some Error": [33mtrue[39m
+
+stdout | test/utils/logFiltering.test.ts > checkIsMatch (Log Filtering Logic) > Quick Filters > should filter only EXCEPTIONs when quickFilter is exception
+Testing Quick Filter: EXCEPTION
+
+ ??test/utils/logFiltering.test.ts (14 tests) 6ms
+stdout | test/utils/perfAnalysis.test.ts > Performance Utils > analyzePerfSegments (Core Logic) > should create Step segments for grouped logs (Single Alias Group)
+[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:01.000] [INFO] StepA Start..."
+[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:01.060] [INFO] StepA End..."
+
+stdout | test/utils/perfAnalysis.test.ts > Performance Utils > analyzePerfSegments (Core Logic) > should assign danger color based on threshold
+[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:01.000] [INFO] StepA Start..."
+[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:01.200] [INFO] StepA End..."
+
+stdout | test/utils/perfAnalysis.test.ts > Performance Utils > analyzePerfSegments (Core Logic) > should create Interval segments between different aliases
+[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:01.000] [INFO] StepA..."
+[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:01.030] [INFO] StepB..."
+
+stdout | test/utils/perfAnalysis.test.ts > Performance Utils > analyzePerfSegments (Core Logic) > should handle complex flow
+[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:00.000] [INFO] StepA..."
+[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:00.100] [INFO] StepB..."
+[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:00.200] [INFO] StepA..."
+
+stdout | test/utils/perfAnalysis.test.ts > Performance Utils > analyzePerfSegments (Core Logic) > should assign segments to lanes based on TID
+[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T100'[39m } ]
+[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T200'[39m } ]
+[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T100'[39m } ]
+[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T200'[39m } ]
+
+stdout | test/utils/perfAnalysis.test.ts > Performance Utils > analyzePerfSegments (Core Logic) > should pack overlapping segments in the same TID on different lanes
+[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T100'[39m } ]
+[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T100'[39m } ]
+[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T100'[39m } ]
+
+ ??test/utils/perfAnalysis.test.ts (13 tests) 22ms
+ ??test/workers/LogProcessor.worker.test.ts (11 tests) 5ms
+ ??test/utils/logTime.test.ts (13 tests) 6ms
 stdout | test/utils/transactionAnalysis.test.ts > transactionAnalysis > extractTransactionIds > should extract IDs from standard Tizen format
 [TransactionAnalysis] Found 3 potential IDs: [
   { type: [32m'pid'[39m, value: [32m'1234'[39m },
@@ -223,10 +262,6 @@ stdout | test/utils/transactionAnalysis.test.ts > transactionAnalysis > extractT
 stdout | test/utils/transactionAnalysis.test.ts > transactionAnalysis > extractTransactionIds > should extract numeric tid in brackets
 [TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'789'[39m } ]
 
-stdout | test/utils/perfAnalysis.test.ts > Performance Utils > analyzePerfSegments (Core Logic) > should create Step segments for grouped logs (Single Alias Group)
-[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:01.000] [INFO] StepA Start..."
-[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:01.060] [INFO] StepA End..."
-
 stdout | test/utils/transactionAnalysis.test.ts > transactionAnalysis > extractTransactionIds > should deduplicate IDs
 [TransactionAnalysis] Found 3 potential IDs: [
   { type: [32m'pid'[39m, value: [32m'1234'[39m },
@@ -234,43 +269,14 @@ stdout | test/utils/transactionAnalysis.test.ts > transactionAnalysis > extractT
   { type: [32m'tag'[39m, value: [32m'Tag'[39m }
 ]
 
-stdout | test/utils/perfAnalysis.test.ts > Performance Utils > analyzePerfSegments (Core Logic) > should assign danger color based on threshold
-[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:01.000] [INFO] StepA Start..."
-[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:01.200] [INFO] StepA End..."
-
-stdout | test/utils/perfAnalysis.test.ts > Performance Utils > analyzePerfSegments (Core Logic) > should create Interval segments between different aliases
-[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:01.000] [INFO] StepA..."
-[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:01.030] [INFO] StepB..."
-
-stdout | test/utils/perfAnalysis.test.ts > Performance Utils > analyzePerfSegments (Core Logic) > should handle complex flow
-[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:00.000] [INFO] StepA..."
-[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:00.100] [INFO] StepB..."
-[TransactionAnalysis] No IDs found for line: "[2024-02-16 10:00:00.200] [INFO] StepA..."
-
  ??test/utils/transactionAnalysis.test.ts (10 tests) 8ms
-stdout | test/utils/perfAnalysis.test.ts > Performance Utils > analyzePerfSegments (Core Logic) > should assign segments to lanes based on TID
-[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T100'[39m } ]
-[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T200'[39m } ]
-[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T100'[39m } ]
-[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T200'[39m } ]
-
-stdout | test/utils/perfAnalysis.test.ts > Performance Utils > analyzePerfSegments (Core Logic) > should pack overlapping segments in the same TID on different lanes
-[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T100'[39m } ]
-[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T100'[39m } ]
-[TransactionAnalysis] Found 1 potential IDs: [ { type: [32m'tid'[39m, value: [32m'T100'[39m } ]
-
- ??test/utils/perfAnalysis.test.ts (13 tests) 20ms
-stdout | test/utils/logFiltering.test.ts > checkIsMatch (Log Filtering Logic) > Quick Filters > should filter only ERRORs when quickFilter is error
-Testing Quick Filter: ERROR
-Result for " E/ Some Error": [33mtrue[39m
-
-stdout | test/utils/logFiltering.test.ts > checkIsMatch (Log Filtering Logic) > Quick Filters > should filter only EXCEPTIONs when quickFilter is exception
-Testing Quick Filter: EXCEPTION
-
- ??test/utils/logFiltering.test.ts (14 tests) 6ms
- ??test/workers/LogProcessor.worker.test.ts (11 tests) 5ms
 stdout | test/connector_integration.test.js
-[dotenv@17.2.3] injecting env (0) from .env -- tip: ?숋툘  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ?뵍 encrypt with Dotenvx: https://dotenvx.com
+
+ ??utils/settingsHelper.test.ts (7 tests) 3ms
+ ??test/performance/perf-tool.regression.test.ts (4 tests) 4ms
+stdout | test/sdb_connection.test.js
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ?숋툘  enable debug logging with { debug: true }
 
 stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Full Scenario: Manual Connect with substituted TAGS and interactive stop
 SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
@@ -327,8 +333,8 @@ stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration
 stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Error: Device not found (Verification fail)
 SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
 
-stdout | test/sdb_connection.test.js
-[dotenv@17.2.3] injecting env (0) from .env -- tip: ?뵎 add access controls to secrets: https://dotenvx.com/ops
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status with status:connected after successful device verification
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
 
 stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Error: Device not found (Verification fail)
 [SDB] Using smart default command: dlogutil -v kerneltime
@@ -351,6 +357,25 @@ stderr | test/connector_integration.test.js > Live Logging Ecosystem Integration
 
 stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Full Scenario: Command substitution and data streaming
 SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status with status:connected after successful device verification
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'test-device'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SDB] Using shell for interaction
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'test-device'[39m, [32m'shell'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s test-device shell echo READY
+[SDB] ??Device verified, starting log stream...
+[SDB] ??Process spawned successfully, PID: [33m12345[39m
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status with status:connected after successful device verification
+[SDB] Writing custom command: dlogutil -v kerneltime
 
 stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Full Scenario: Command substitution and data streaming
 [SSH] ========== SSH Connection Request ==========
@@ -404,94 +429,6 @@ stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration
 stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Error: Handle Connection Refused
 SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
 
-stderr | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Error: Handle Connection Refused
-[SSH] ??Connection Error: Error: Refused
-    at K:/Antigravity_Projects/gitbase/happytool_electron/test/connector_integration.test.js:181:25
-    at file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/@vitest/runner/dist/index.js:145:11
-    at file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/@vitest/runner/dist/index.js:915:26
-    at file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/@vitest/runner/dist/index.js:1243:20
-    at new Promise (<anonymous>)
-    at runWithTimeout (file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/@vitest/runner/dist/index.js:1209:10)
-    at file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/@vitest/runner/dist/index.js:1653:37
-    at Traces.$ (file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/vitest/dist/chunks/traces.CCmnQaNT.js:142:27)
-    at trace (file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/vitest/dist/chunks/test.B8ej_ZHS.js:239:21)
-    at runTest (file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/@vitest/runner/dist/index.js:1653:12) {
-  code: 'ECONNREFUSED'
-}
-[SSH] Error details: {
-  message: 'Refused',
-  code: 'ECONNREFUSED',
-  level: undefined,
-  errno: undefined
-}
-[SSH] Connection refused - SSH service may not be running
-
-stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Error: Handle Connection Refused
-[SSH] Using smart default command: dlogutil -v kerneltime
-[SSH] ========== SSH Connection Request ==========
-[SSH] Connection initiated with params: {
-  host: [32m'dead-dev'[39m,
-  port: [90mundefined[39m,
-  username: [90mundefined[39m,
-  passwordProvided: [33mfalse[39m,
-  debug: [90mundefined[39m,
-  saveToFile: [90mundefined[39m,
-  command: [32m'dlogutil -v kerneltime'[39m,
-  tags: []
-}
-[SSH] Closing existing SSH connection...
-[SSH] Creating SSH client...
-[SSH] Connection attempt started...
-
-stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > Smart Builder: Should NOT have empty filter or trailing semicolon when tags are empty (SSH)
-SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
-
-stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > Smart Builder: Should NOT have empty filter or trailing semicolon when tags are empty (SSH)
-[SSH] Using smart default command: dlogutil -v kerneltime
-[SSH] ========== SSH Connection Request ==========
-[SSH] Connection initiated with params: {
-  host: [32m'1.2.3.4'[39m,
-  port: [90mundefined[39m,
-  username: [90mundefined[39m,
-  passwordProvided: [33mfalse[39m,
-  debug: [90mundefined[39m,
-  saveToFile: [90mundefined[39m,
-  command: [32m'dlogutil -v kerneltime'[39m,
-  tags: []
-}
-[SSH] Closing existing SSH connection...
-[SSH] Creating SSH client...
-[SSH] Connection attempt started...
-[SSH] ??SSH connection ready, requesting shell...
-[SSH] ??Shell created successfully
-[SSH] Using custom command: dlogutil -v kerneltime
-[SSH] Writing command to stream: dlogutil -v kerneltime
-[SSH] Command sent, waiting for log data...
-
- ??test/utils/logTime.test.ts (13 tests) 4ms
- ??test/connector_integration.test.js (7 tests) 26ms
-stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status with status:connected after successful device verification
-SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
-
-stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status with status:connected after successful device verification
-[SDB] ========== SDB Connection Request ==========
-[SDB] Connection initiated with params: {
-  deviceId: [32m'test-device'[39m,
-  debug: [90mundefined[39m,
-  saveToFile: [90mundefined[39m,
-  command: [32m'dlogutil -v kerneltime'[39m,
-  tags: []
-}
-[SDB] Using shell for interaction
-[SDB] Final sdb args: [ [32m'-s'[39m, [32m'test-device'[39m, [32m'shell'[39m ]
-[SDB] Verifying device connection before streaming...
-[SDB] Verifying device with: sdb -s test-device shell echo READY
-[SDB] ??Device verified, starting log stream...
-[SDB] ??Process spawned successfully, PID: [33m12345[39m
-
-stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status with status:connected after successful device verification
-[SDB] Writing custom command: dlogutil -v kerneltime
-
 stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST NOT emit sdb_status:connected if verification fails
 SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
 
@@ -517,6 +454,45 @@ stderr | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITI
 stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status:connected even with auto-detect deviceId
 SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
 
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Error: Handle Connection Refused
+[SSH] Using smart default command: dlogutil -v kerneltime
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: [32m'dead-dev'[39m,
+  port: [90mundefined[39m,
+  username: [90mundefined[39m,
+  passwordProvided: [33mfalse[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+
+stderr | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Error: Handle Connection Refused
+[SSH] ??Connection Error: Error: Refused
+    at K:/Antigravity_Projects/gitbase/happytool_electron/test/connector_integration.test.js:181:25
+    at file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/@vitest/runner/dist/index.js:1653:37
+    at Traces.$ (file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/vitest/dist/chunks/traces.CCmnQaNT.js:142:27)
+    at trace (file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/vitest/dist/chunks/test.B8ej_ZHS.js:239:21)
+    at runTest (file:///K:/Antigravity_Projects/gitbase/happytool_electron/node_modules/@vitest/runner/dist/index.js:1653:12) {
+  code: 'ECONNREFUSED'
+}
+[SSH] Error details: {
+  message: 'Refused',
+  code: 'ECONNREFUSED',
+  level: undefined,
+  errno: undefined
+}
+[SSH] Connection refused - SSH service may not be running
+
 stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status:connected even with auto-detect deviceId
 [SDB] ========== SDB Connection Request ==========
 [SDB] Connection initiated with params: {
@@ -533,12 +509,38 @@ stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITI
 [SDB] ??Device verified, starting log stream...
 [SDB] ??Process spawned successfully, PID: [33m12345[39m
 
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > Smart Builder: Should NOT have empty filter or trailing semicolon when tags are empty (SSH)
+SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
+
 stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status:connected even with auto-detect deviceId
 [SDB] Writing custom command: dlogutil
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > Smart Builder: Should NOT have empty filter or trailing semicolon when tags are empty (SSH)
+[SSH] Using smart default command: dlogutil -v kerneltime
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: [32m'1.2.3.4'[39m,
+  port: [90mundefined[39m,
+  username: [90mundefined[39m,
+  passwordProvided: [33mfalse[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+[SSH] ??SSH connection ready, requesting shell...
+[SSH] ??Shell created successfully
+[SSH] Using custom command: dlogutil -v kerneltime
+[SSH] Writing command to stream: dlogutil -v kerneltime
+[SSH] Command sent, waiting for log data...
 
 stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윞 Device verification timeout (5s) > MUST timeout and emit error if device verification hangs
 SERVER_STARTUP: BLOCK_TEST_DIR = K:\Antigravity_Projects\gitbase\happytool_electron\BlockTest
 
+ ??test/connector_integration.test.js (7 tests) 22ms
 stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윞 Device verification timeout (5s) > MUST timeout and emit error if device verification hangs
 [SDB] Using smart default command: dlogutil -v kerneltime
 [SDB] ========== SDB Connection Request ==========
@@ -714,30 +716,27 @@ stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윟 Proce
 stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윟 Process cleanup on disconnect > MUST kill SDB process when disconnect_sdb is called
 [SDB] Writing custom command: dlogutil -v kerneltime
 
- ??test/sdb_connection.test.js (11 tests) 24ms
- ??utils/settingsHelper.test.ts (7 tests) 5ms
- ??test/performance/perf-tool.regression.test.ts (4 tests) 3ms
+ ??test/sdb_connection.test.js (11 tests) 21ms
  ??test/performance/large-scale.perf.test.ts (3 tests | 3 skipped)
 stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should handle deeply nested JSON efficiently
-  ?뱤 Deep Nested (10 levels): Stringify 1404.37ms, Parse 3892.86ms
+  ?뱤 Deep Nested (10 levels): Stringify 1362.79ms, Parse 3567.17ms
 
 stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should handle large array JSON efficiently
-  ?뱤 Large Array (10K items, 0.70MB): Parse 2.70ms
+  ?뱤 Large Array (10K items, 0.70MB): Parse 2.94ms
 
 stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should parse 10MB JSON within threshold (stress test)
-  ?뱤 Parse 10.02MB JSON (Stress): 22.64ms
+  ?뱤 Parse 10.02MB JSON (Stress): 22.22ms
 
 stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Diff > should calculate diff for large objects efficiently
-  ?뱤 Diff Large Objects: 1.61ms
+  ?뱤 Diff Large Objects: 1.56ms
 
- ??test/performance/json-tools.perf.test.ts (6 tests) 8664ms
-     ??should handle deeply nested JSON efficiently  8516ms
+ ??test/performance/json-tools.perf.test.ts (6 tests) 8143ms
+     ??should handle deeply nested JSON efficiently  7978ms
 
 ??렞??렞??렞??Failed Tests 3 ??렞??렞??렞??
  FAIL  test/components/PerfDashboard.test.tsx > PerfDashboard Component > should render header with result summary when result is provided
- FAIL  test/components/PerfDashboard.test.tsx > PerfDashboard Component > should render scorecards in full screen mode
  FAIL  test/components/PerfDashboard.test.tsx > PerfDashboard Component > should show search input
-Error: [vitest] No "Loader2" export is defined on the "lucide-react" mock. Did you forget to return it from "vi.mock"?
+Error: [vitest] No "Camera" export is defined on the "lucide-react" mock. Did you forget to return it from "vi.mock"?
 If you need to partially mock a module, you can use "importOriginal" helper inside:
 
 vi.mock(import("lucide-react"), async (importOriginal) => {
@@ -748,11 +747,14 @@ vi.mock(import("lucide-react"), async (importOriginal) => {
   }
 })
 
- ??PerfDashboard components/LogViewer/PerfDashboard.tsx:833:37
-    831|                         <div className="relative mb-6">
-    832|                             <div className="absolute inset-0 bg-indigo??    833|                             <Lucide.Loader2 size={42} className="text-??       |                                     ^
-    834|                         </div>
-    835|                         <div className="flex flex-col items-center gap?? ??Object.react_stack_bottom_frame node_modules/react-dom/cjs/react-dom-client.development.js:25904:20
+ ??PerfDashboard components/LogViewer/PerfDashboard.tsx:1020:41
+    1018|                                 title="Export as Image"
+    1019|                             >
+    1020|                                 <Lucide.Camera size={12} />
+       |                                         ^
+    1021|                             </button>
+    1022|                         </div>
+ ??Object.react_stack_bottom_frame node_modules/react-dom/cjs/react-dom-client.development.js:25904:20
  ??renderWithHooks node_modules/react-dom/cjs/react-dom-client.development.js:7662:22
  ??updateFunctionComponent node_modules/react-dom/cjs/react-dom-client.development.js:10166:19
  ??beginWork node_modules/react-dom/cjs/react-dom-client.development.js:11778:18
@@ -761,9 +763,31 @@ vi.mock(import("lucide-react"), async (importOriginal) => {
  ??workLoopSync node_modules/react-dom/cjs/react-dom-client.development.js:17469:41
 
 ??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞[1/3]??
+ FAIL  test/components/PerfDashboard.test.tsx > PerfDashboard Component > should render scorecards in full screen mode
+Error: [vitest] No "Star" export is defined on the "lucide-react" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+vi.mock(import("lucide-react"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    // your mocked methods
+  }
+})
+
+ ??components/LogViewer/PerfDashboard.tsx:1514:85
+
+ ??PerfDashboard components/LogViewer/PerfDashboard.tsx:1494:86
+ ??Object.react_stack_bottom_frame node_modules/react-dom/cjs/react-dom-client.development.js:25904:20
+ ??renderWithHooks node_modules/react-dom/cjs/react-dom-client.development.js:7662:22
+ ??updateFunctionComponent node_modules/react-dom/cjs/react-dom-client.development.js:10166:19
+ ??beginWork node_modules/react-dom/cjs/react-dom-client.development.js:11778:18
+ ??runWithFiberInDEV node_modules/react-dom/cjs/react-dom-client.development.js:874:13
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞[2/3]??
 
  Test Files  1 failed | 19 passed | 1 skipped (21)
       Tests  3 failed | 196 passed | 5 skipped (204)
-   Start at  20:16:56
-   Duration  10.47s (transform 3.44s, setup 3.10s, import 7.08s, tests 12.65s, environment 20.54s)
+   Start at  20:17:45
+   Duration  10.18s (transform 3.31s, setup 3.12s, import 6.45s, tests 12.17s, environment 21.82s)
 

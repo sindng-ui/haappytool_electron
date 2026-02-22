@@ -242,18 +242,23 @@ describe('SDB Connection Critical Path', () => {
 
             await vi.runAllTimersAsync();
 
-            // Check 2nd spawn call (main process) args
+            // Check 2nd spawn call (main process)
+            expect(mockSpawn).toHaveBeenCalledTimes(2);
             const mainProcessArgs = mockSpawn.mock.calls[1][1];
+            expect(mainProcessArgs).toContain('shell');
 
-            // Verify tags are in the spawn args somewhere (implementation may flatten or keep separate)
-            const hasTag1 = mainProcessArgs.some(arg => arg && arg.includes('MyTag1'));
-            const hasTag2 = mainProcessArgs.some(arg => arg && arg.includes('MyTag2'));
+            const logProcess = mockSpawn.mock.results[1].value;
+            await vi.advanceTimersByTimeAsync(600);
 
-            expect(hasTag1 || hasTag2, 'At least one tag must be present in args').toBeTruthy();
+            // Verify command was sent via stdin with tags substituted
+            const writeCall = logProcess.stdin.write.mock.calls.find(call =>
+                call[0].includes('dlogutil') &&
+                call[0].includes('MyTag1') &&
+                call[0].includes('MyTag2')
+            );
 
-            // Verify $(TAGS) placeholder was removed
-            const hasPlaceholder = mainProcessArgs.some(arg => arg && arg.includes('$(TAGS)'));
-            expect(hasPlaceholder, '$(TAGS) placeholder must be removed').toBeFalsy();
+            expect(writeCall, 'Command must be sent to stdin with tags').toBeDefined();
+            expect(writeCall[0], '$(TAGS) placeholder must be removed').not.toContain('$(TAGS)');
         });
 
         it('MUST handle empty tags gracefully', async () => {

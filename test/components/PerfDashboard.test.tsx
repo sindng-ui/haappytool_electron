@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { PerfDashboard } from '../../components/LogViewer/PerfDashboard';
+import { ToastProvider } from '../../contexts/ToastContext';
 import React from 'react';
 
 // Mock framer-motion
@@ -17,7 +18,7 @@ vi.mock('framer-motion', () => {
     };
 });
 
-// Mock lucide-react icons
+// Mock lucide-react icons manually
 vi.mock('lucide-react', () => ({
     Activity: () => <div data-testid="icon-activity" />,
     Search: () => <div data-testid="icon-search" />,
@@ -39,6 +40,9 @@ vi.mock('lucide-react', () => ({
     Minimize: () => <div data-testid="icon-minimize" />,
     Play: () => <div data-testid="icon-play" />,
     Settings: () => <div data-testid="icon-settings" />,
+    Loader2: () => <div data-testid="icon-loader" />,
+    Camera: () => <div data-testid="icon-camera" />,
+    Star: () => <div data-testid="icon-star" />,
 }));
 
 describe('PerfDashboard Component', () => {
@@ -72,42 +76,48 @@ describe('PerfDashboard Component', () => {
 
     it('should not render when isOpen is false', () => {
         const { container } = render(
-            <PerfDashboard
-                isOpen={false}
-                onClose={() => { }}
-                result={null}
-                isAnalyzing={false}
-                targetTime={500}
-                isActive={true}
-            />
+            <ToastProvider>
+                <PerfDashboard
+                    isOpen={false}
+                    onClose={() => { }}
+                    result={null}
+                    isAnalyzing={false}
+                    targetTime={500}
+                    isActive={true}
+                />
+            </ToastProvider>
         );
         expect(container.firstChild).toBeNull();
     });
 
     it('should show "Ready to Analyze" when no result and not analyzing', async () => {
         render(
-            <PerfDashboard
-                isOpen={true}
-                onClose={() => { }}
-                result={null}
-                isAnalyzing={false}
-                targetTime={500}
-                isActive={true}
-            />
+            <ToastProvider>
+                <PerfDashboard
+                    isOpen={true}
+                    onClose={() => { }}
+                    result={null}
+                    isAnalyzing={false}
+                    targetTime={500}
+                    isActive={true}
+                />
+            </ToastProvider>
         );
         expect(await screen.findByText(/Ready to Analyze/i)).toBeInTheDocument();
     });
 
     it('should render header with result summary when result is provided', async () => {
         render(
-            <PerfDashboard
-                isOpen={true}
-                onClose={() => { }}
-                result={mockResult as any}
-                isAnalyzing={false}
-                targetTime={500}
-                isActive={true}
-            />
+            <ToastProvider>
+                <PerfDashboard
+                    isOpen={true}
+                    onClose={() => { }}
+                    result={mockResult as any}
+                    isAnalyzing={false}
+                    targetTime={500}
+                    isActive={true}
+                />
+            </ToastProvider>
         );
 
         // This is in the header summary line
@@ -116,15 +126,17 @@ describe('PerfDashboard Component', () => {
 
     it('should render scorecards in full screen mode', async () => {
         render(
-            <PerfDashboard
-                isOpen={true}
-                onClose={() => { }}
-                result={mockResult as any}
-                isAnalyzing={false}
-                targetTime={500}
-                isActive={true}
-                isFullScreen={true}
-            />
+            <ToastProvider>
+                <PerfDashboard
+                    isOpen={true}
+                    onClose={() => { }}
+                    result={mockResult as any}
+                    isAnalyzing={false}
+                    targetTime={500}
+                    isActive={true}
+                    isFullScreen={true}
+                />
+            </ToastProvider>
         );
 
         expect(await screen.findByText('Segments')).toBeInTheDocument();
@@ -134,14 +146,16 @@ describe('PerfDashboard Component', () => {
 
     it('should show search input', async () => {
         render(
-            <PerfDashboard
-                isOpen={true}
-                onClose={() => { }}
-                result={mockResult as any}
-                isAnalyzing={false}
-                targetTime={500}
-                isActive={true}
-            />
+            <ToastProvider>
+                <PerfDashboard
+                    isOpen={true}
+                    onClose={() => { }}
+                    result={mockResult as any}
+                    isAnalyzing={false}
+                    targetTime={500}
+                    isActive={true}
+                />
+            </ToastProvider>
         );
 
         expect(await screen.findByPlaceholderText(/Search/i)).toBeInTheDocument();

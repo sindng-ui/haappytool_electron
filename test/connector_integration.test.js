@@ -69,13 +69,20 @@ describe('Live Logging Ecosystem Integration', () => {
             checker.stdout.emit('data', Buffer.from('READY\n'));
             checker.emit('close', 0);
 
-            // [3] Check real spawn with replaced tags
+            // [3] Check real spawn (should be shell)
             expect(mockSpawn).toHaveBeenCalledTimes(2);
             const finalArgs = mockSpawn.mock.calls[1][1];
-            expect(finalArgs).toEqual(expect.arrayContaining(['dlogutil', 'TAG_X', 'TAG_Y', 'kerneltime']));
-            expect(finalArgs).not.toContain('$(TAGS)');
+            expect(finalArgs).toContain('shell');
 
             const logProcess = mockSpawn.mock.results[1].value;
+
+            // Advance timers to trigger the command sending (setTimeout 500ms)
+            await vi.advanceTimersByTimeAsync(600);
+
+            // Verify command was sent via stdin
+            expect(logProcess.stdin.write).toHaveBeenCalledWith(expect.stringContaining('dlogutil'));
+            expect(logProcess.stdin.write).toHaveBeenCalledWith(expect.stringContaining('TAG_X TAG_Y'));
+            expect(logProcess.stdin.write).not.toHaveBeenCalledWith(expect.stringContaining('$(TAGS)'));
 
             // [4] Simulate live log data from device
             logProcess.stdout.emit('data', Buffer.from('TEST_LOG_DATA'));
@@ -102,7 +109,13 @@ describe('Live Logging Ecosystem Integration', () => {
             checker.emit('close', 0);
 
             const finalArgs = mockSpawn.mock.calls[1][1];
-            expect(finalArgs).toEqual(expect.arrayContaining(['dlogutil', 'QUICK_TAG']));
+            expect(finalArgs).toContain('shell');
+
+            const logProcess = mockSpawn.mock.results[1].value;
+            await vi.advanceTimersByTimeAsync(600);
+
+            expect(logProcess.stdin.write).toHaveBeenCalledWith(expect.stringContaining('dlogutil'));
+            expect(logProcess.stdin.write).toHaveBeenCalledWith(expect.stringContaining('QUICK_TAG'));
         });
 
         it('SDB Error: Device not found (Verification fail)', async () => {
