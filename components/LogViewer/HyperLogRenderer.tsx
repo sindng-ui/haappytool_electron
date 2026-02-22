@@ -23,6 +23,7 @@ interface HyperLogRendererProps {
     isRawMode?: boolean;
     performanceHeatmap?: number[];
     onKeyDown?: (e: React.KeyboardEvent) => void;
+    isActive: boolean;
 }
 
 interface CachedLine {
@@ -103,6 +104,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     isRawMode,
     performanceHeatmap = [],
     onKeyDown,
+    isActive,
 }, ref) => {
     // ✅ 형님, 레이아웃 상수들을 컴포넌트 내부에서 계산하여 HMR이나 설정 변경에 즉각 대응하게 합니다.
     const {
@@ -338,6 +340,8 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
     // Rendering Logic (Canvas)
     const render = useCallback(() => {
+        if (!isActive) return; // ✅ Skip rendering when hidden
+
         const canvas = canvasRef.current;
         const bgCanvas = bgCanvasRef.current;
         if (!canvas || !bgCanvas) return;

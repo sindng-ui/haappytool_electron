@@ -881,6 +881,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                         <div className="flex-1 relative overflow-hidden">
                             <HyperLogRenderer
                                 ref={hyperRef}
+                                isActive={isActive}
                                 totalCount={totalMatches || 0}
                                 rowHeight={rowHeight}
                                 onScrollRequest={onScrollRequest}

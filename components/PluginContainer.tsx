@@ -27,12 +27,10 @@ const PluginContainer: React.FC<PluginContainerProps> = ({ plugin, isActive, onL
                 </div>
             </div>
         }>
-            {isActive && (
-                <div className="h-full w-full">
-                    <Component isActive={isActive} />
-                    <LoadNotifier onLoaded={onLoaded} />
-                </div>
-            )}
+            <div className={isActive ? "h-full w-full" : "hidden"}>
+                <Component isActive={isActive} />
+                <LoadNotifier onLoaded={onLoaded} />
+            </div>
         </React.Suspense>
     );
 };
