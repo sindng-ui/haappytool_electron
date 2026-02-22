@@ -20,6 +20,7 @@ interface PerfDashboardProps {
     showTidColumn?: boolean;
     useCompactDetail?: boolean;
     isActive: boolean;
+    activeTags?: string[];
 }
 
 /**
@@ -112,7 +113,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     isOpen, onClose, result, isAnalyzing, isActive = true,
     onJumpToLine, onJumpToRange, onViewRawRange, onCopyRawRange,
     targetTime, height = 400, onHeightChange = () => { }, isFullScreen = false,
-    showTidColumn = true, useCompactDetail = false
+    showTidColumn = true, useCompactDetail = false, activeTags = []
 }) => {
     const [flameZoom, setFlameZoom] = useState<{ startTime: number; endTime: number } | null>(null);
     const zoomRef = useRef<{ startTime: number; endTime: number } | null>(null);
@@ -129,6 +130,9 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const flameChartContainerRef = useRef<HTMLDivElement>(null);
 
     const [isInitialDrawComplete, setIsInitialDrawComplete] = useState(false);
+
+    // Trim Range (Shift+Drag -> Trim)
+    const [trimRange, setTrimRange] = useState<{ startTime: number; endTime: number } | null>(null);
 
     // Hit Testing
     const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
@@ -179,9 +183,24 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         if (showOnlyFail) {
             filtered = filtered.filter(s => s.duration >= (result.perfThreshold || 1000));
         }
+        // Tag filter
+        if (activeTags.length > 0) {
+            filtered = filtered.filter(s =>
+                s.logs?.some(log => activeTags.some(tag => log.includes(tag)))
+            );
+        }
+        // Trim filter
+        if (trimRange) {
+            filtered = filtered.filter(s =>
+                s.startTime < trimRange.endTime && s.endTime > trimRange.startTime
+            );
+        }
+        // Exclude Global lane from bottlenecks (navigation)
+        filtered = filtered.filter(s => s.tid !== 'Global');
+
         // Match the list logic: top 50 slowest segments
         return filtered.sort((a, b) => b.duration - a.duration).slice(0, 50);
-    }, [result, showOnlyFail]);
+    }, [result, showOnlyFail, activeTags, trimRange]);
 
     // 💡 Stabilize Zoom & Pan using manual event listener for passive: false support
     useEffect(() => {
@@ -381,6 +400,18 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         if (showOnlyFail) {
             baseSegments = baseSegments.filter(s => s.duration >= (result.perfThreshold || 1000));
         }
+        // Tag filter: show only segments whose logs contain at least one active tag
+        if (activeTags.length > 0) {
+            baseSegments = baseSegments.filter(s =>
+                s.logs?.some(log => activeTags.some(tag => log.includes(tag)))
+            );
+        }
+        // Trim filter: show only segments that overlap the trim window
+        if (trimRange) {
+            baseSegments = baseSegments.filter(s =>
+                s.startTime < trimRange.endTime && s.endTime > trimRange.startTime
+            );
+        }
 
         const sorted = baseSegments.sort((a, b) => (a.startTime - b.startTime) || (b.duration - a.duration));
         const lanes: number[] = [];
@@ -404,7 +435,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                 relEnd: (s.endTime - result.startTime) / 1000,
             };
         });
-    }, [result, showOnlyFail]);
+    }, [result, showOnlyFail, activeTags, trimRange]);
 
     const maxLane = useMemo(() => {
         if (!flameSegments.length) return 4;
@@ -456,13 +487,14 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
         visibleSegments.forEach(s => {
             const x = ((s.startTime - viewStart) / viewDuration) * width;
-            const w = Math.max(0.1, (s.duration / viewDuration) * width);
+            const w = Math.max(s.duration === 0 ? 3 : 0.5, (s.duration / viewDuration) * width);
             const y = s.lane * 28 + 24;
             const h = 20;
 
             const isSelected = s.id === selectedSegmentId || multiSelectedIds.includes(s.id);
             const isHovered = s.id === hoveredSegmentId;
             const isMatch = checkSegmentMatch(s, searchQuery);
+            const isGlobal = s.tid === 'Global';
 
             // If it's a special state, draw it immediately and don't merge
             if (isSelected || isHovered || isMatch || w > 3) {
@@ -470,9 +502,9 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                 const isSearchHit = !!searchQuery && isMatch;
                 const isTidFocused = selectedTid !== null && s.tid === selectedTid;
 
-                let baseOpacity = (isSelected || isSearchHit || isHovered) ? 1 : 0.9;
+                let baseOpacity = (isSelected || isSearchHit || isHovered) ? 1 : (isGlobal ? 0.35 : 0.9);
                 if (selectedTid !== null && !isTidFocused) baseOpacity *= 0.3;
-                const finalOpacity = isMatch ? baseOpacity : 0.15;
+                const finalOpacity = isMatch ? baseOpacity : 0.1;
 
                 const baseColor = (isSelected || isSearchHit) ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
 
@@ -481,19 +513,19 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
                 if (w > 1.5) {
                     ctx.beginPath();
-                    ctx.roundRect(x, y, w, h, 4);
+                    ctx.roundRect(x, y, w, h, isGlobal ? 2 : 4);
                     ctx.fill();
                 } else {
                     ctx.fillRect(x, y, w, h);
                 }
 
                 if (isSelected || isHovered) {
-                    ctx.strokeStyle = 'white';
+                    ctx.strokeStyle = isGlobal ? '#f59e0b' : 'white';
                     ctx.lineWidth = isSelected ? 2 : 1;
                     ctx.stroke();
                 }
 
-                if (w > 30) {
+                if (w > 30 && !isGlobal) {
                     ctx.fillStyle = getContrastColor(baseColor);
                     ctx.font = 'bold 9px sans-serif';
                     const label = s.fileName && s.functionName ? `${s.fileName}: ${s.functionName}` : s.name;
@@ -605,7 +637,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
         frameId = requestAnimationFrame(render);
         return () => cancelAnimationFrame(frameId);
-    }, [result, flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId, searchQuery, viewMode, isActive, showOnlyFail, maxLane, isInitialDrawComplete]);
+    }, [result, flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId, searchQuery, viewMode, isActive, showOnlyFail, maxLane, isInitialDrawComplete, trimRange, activeTags]);
 
     const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (isShiftPressed || !result) return;
@@ -622,21 +654,29 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
         // Find hovered segment (reverse order to get top-most)
         let found = null;
+        let globalFallback = null;
+
         for (let i = flameSegments.length - 1; i >= 0; i--) {
             const s = flameSegments[i];
             const x = ((s.startTime - viewStart) / viewDuration) * width;
-            const w = Math.max(0.5, (s.duration / viewDuration) * width);
+            const w = Math.max(s.duration === 0 ? 3 : 0.5, (s.duration / viewDuration) * width);
             const y = s.lane * 28 + 24;
             const h = 20;
 
             if (mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h) {
-                found = s;
-                break;
+                if (s.tid === 'Global') {
+                    globalFallback = s;
+                } else {
+                    found = s;
+                    break;
+                }
             }
         }
 
-        if (found?.id !== hoveredSegmentId) {
-            setHoveredSegmentId(found?.id || null);
+        const target = found || globalFallback;
+
+        if (target?.id !== hoveredSegmentId) {
+            setHoveredSegmentId(target?.id || null);
         }
     };
 
@@ -744,6 +784,29 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 {result.totalDuration.toLocaleString()}ms • {result.segments.length} segments • Limit: {result.perfThreshold}ms
                             </span>
                         </>
+                    )}
+                    {trimRange && (
+                        <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5">
+                            <Lucide.Scissors size={9} className="text-amber-400" />
+                            <span className="text-[9px] font-bold text-amber-400 font-mono">
+                                TRIMMED {formatDuration(trimRange.endTime - trimRange.startTime)}
+                            </span>
+                            <button
+                                onClick={() => { setTrimRange(null); setFlameZoom(null); }}
+                                className="ml-0.5 text-amber-500 hover:text-white transition-colors"
+                                title="Reset Trim"
+                            >
+                                <Lucide.X size={9} />
+                            </button>
+                        </div>
+                    )}
+                    {activeTags.length > 0 && (
+                        <div className="flex items-center gap-1 bg-purple-500/10 border border-purple-500/30 rounded-full px-2 py-0.5">
+                            <Lucide.Tag size={9} className="text-purple-400" />
+                            <span className="text-[9px] font-bold text-purple-400">
+                                {activeTags.length} TAG{activeTags.length > 1 ? 'S' : ''}
+                            </span>
+                        </div>
                     )}
                 </div>
 
@@ -924,15 +987,28 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
                                         <span className="text-[9px] text-slate-500 uppercase font-black block mb-1">Pass Rate</span>
-                                        <span className={`text-lg font-black ${result.failCount === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                            {Math.round(((result.segments.length - result.failCount) / Math.max(1, result.segments.length)) * 100)}%
-                                        </span>
+                                        {(() => {
+                                            const individual = flameSegments.filter(s => s.tid !== 'Global');
+                                            const filteredFail = individual.filter(s => s.duration >= (result.perfThreshold || 1000)).length;
+                                            const total = Math.max(1, individual.length);
+                                            return (
+                                                <span className={`text-lg font-black ${filteredFail === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                                    {Math.round(((total - filteredFail) / total) * 100)}%
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
                                     <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
                                         <span className="text-[9px] text-slate-500 uppercase font-black block mb-1">Slow Ops</span>
-                                        <span className={`text-lg font-black ${result.failCount > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                                            {result.failCount}
-                                        </span>
+                                        {(() => {
+                                            const individual = flameSegments.filter(s => s.tid !== 'Global');
+                                            const filteredFail = individual.filter(s => s.duration >= (result.perfThreshold || 1000)).length;
+                                            return (
+                                                <span className={`text-lg font-black ${filteredFail > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                                    {filteredFail}
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
 
@@ -1141,6 +1217,41 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 </button>
                             )}
 
+                            {/* Trim Controls - appears when measureRange is set */}
+                            {viewMode === 'chart' && measureRange && !trimRange && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const start = Math.min(measureRange.startTime, measureRange.endTime);
+                                        const end = Math.max(measureRange.startTime, measureRange.endTime);
+                                        if (end > start) {
+                                            setTrimRange({ startTime: start, endTime: end });
+                                            setFlameZoom({ startTime: start, endTime: end });
+                                            setMeasureRange(null);
+                                        }
+                                    }}
+                                    className="absolute bottom-28 right-8 z-[60] px-3.5 py-1.5 bg-indigo-600/90 backdrop-blur-md border border-indigo-400/30 rounded-full text-[10px] font-bold text-white shadow-2xl hover:bg-indigo-500 transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
+                                    title="Trim to Selected Range"
+                                >
+                                    <Lucide.Scissors size={12} />
+                                    <span>TRIM TO SELECTION</span>
+                                </button>
+                            )}
+                            {viewMode === 'chart' && trimRange && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setTrimRange(null);
+                                        setFlameZoom(null);
+                                    }}
+                                    className="absolute bottom-28 right-8 z-[60] px-3.5 py-1.5 bg-amber-500/90 backdrop-blur-md border border-amber-400/30 rounded-full text-[10px] font-bold text-white shadow-2xl hover:bg-amber-400 transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
+                                    title="Reset Trim"
+                                >
+                                    <Lucide.RotateCcw size={12} />
+                                    <span>RESET TRIM</span>
+                                </button>
+                            )}
+
                             {viewMode === 'chart' && (
                                 <div
                                     ref={flameChartContainerRef}
@@ -1260,6 +1371,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                         {showTidColumn && (
                                             <div className="sticky left-0 w-[52px] shrink-0 z-[100] pointer-events-none">
                                                 <div className="absolute top-0 bottom-0 right-0 w-px bg-white/5 shadow-[2px_0_10px_rgba(0,0,0,0.5)]" />
+                                                <div className="absolute left-0 right-0 h-px bg-white/10" style={{ top: '52px' }} />
                                                 <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 flex items-center justify-center bg-slate-950/20 backdrop-blur-md">
                                                     <span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.3em]">TID</span>
                                                 </div>
@@ -1280,9 +1392,13 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                                     ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
                                                                     : 'bg-slate-900/40 border-white/5 hover:bg-slate-900/80 hover:border-white/10'
                                                                     }`}>
-                                                                    <div className={`absolute left-0 top-0 bottom-0 rounded-full transition-all ${isTidSelected ? 'w-1' : 'w-[2px]'}`} style={{ backgroundColor: tidColor }} />
-                                                                    <span className={`text-[9px] font-mono tracking-tighter transition-all ${isTidSelected ? 'font-black scale-105' : 'font-bold'}`} style={{ color: tidColor }}>
-                                                                        {tid.length > 5 ? tid.substring(0, 5) : tid}
+                                                                    <div className={`absolute left-0 top-0 bottom-0 rounded-full transition-all ${isTidSelected ? 'w-1' : 'w-[2px]'}`} style={{ backgroundColor: i === 0 ? '#f59e0b' : tidColor }} />
+                                                                    <span className={`text-[9px] font-mono tracking-tighter transition-all ${isTidSelected ? 'font-black scale-105' : 'font-bold'}`} style={{ color: i === 0 ? '#f59e0b' : tidColor }}>
+                                                                        {i === 0 ? (
+                                                                            <Lucide.Star size={10} fill="#f59e0b" className="opacity-80" />
+                                                                        ) : (
+                                                                            tid.length > 5 ? tid.substring(0, 5) : tid
+                                                                        )}
                                                                     </span>
                                                                 </div>
                                                             ) : (
@@ -1296,6 +1412,11 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
                                         {/* Scrollable Map Area */}
                                         <div className="flex-1 relative bg-slate-950/20">
+                                            {/* Global Divider Line */}
+                                            <div
+                                                className="absolute left-0 right-0 h-px bg-white/10 z-[10] shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
+                                                style={{ top: '52px' }} // lane 0 is from 24 to 44. 24 + 28 = 52.
+                                            />
                                             {/* Selected TID Lane Highlight */}
                                             {selectedTid && Array.from({ length: maxLane + 1 }).map((_, i) => {
                                                 if (laneTidMap.get(i) !== selectedTid) return null;

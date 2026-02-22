@@ -609,6 +609,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                                 isAnalyzing={isAnalyzing}
                                 targetTime={perfThreshold}
                                 isFullScreen={true}
+                                activeTags={logTags}
                                 onViewRawRange={(start, end) => {
                                     let startOffset = 0;
                                     let startLineNum = 0;

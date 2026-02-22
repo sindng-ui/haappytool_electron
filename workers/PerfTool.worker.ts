@@ -179,7 +179,9 @@ ctx.onmessage = (evt) => {
                     .sort((a, b) => b.count - a.count);
                 ctx.postMessage({ type: 'SCAN_COMPLETE', payload: { results }, requestId });
             } else if (mode === 'analyze') {
-                const allLogs = Array.from(matchedLogsByTid.values()).flat().sort((a, b) => a.timestamp - b.timestamp);
+                const allLogs = Array.from(matchedLogsByTid.values())
+                    .flat()
+                    .sort((a, b) => (a.timestamp - b.timestamp) || (a.lineIndex - b.lineIndex));
 
                 if (allLogs.length < 2) {
                     ctx.postMessage({ type: 'ERROR', payload: { error: "Not enough logs matched the keyword to form intervals." }, requestId });
@@ -199,11 +201,46 @@ ctx.onmessage = (evt) => {
                 });
 
                 const tidToLane = new Map<string, number>();
-                sortedTids.forEach((tid, idx) => tidToLane.set(tid, idx));
+                sortedTids.forEach((tid, idx) => tidToLane.set(tid, idx + 1)); // Start from index 1 to leave 0 for Global
 
+                // 1. Add Global Flow (Lane 0) - Sequences between ALL logs regardless of TID
+                for (let i = 0; i < allLogs.length - 1; i++) {
+                    const current = allLogs[i];
+                    const next = allLogs[i + 1];
+                    const duration = next.timestamp - current.timestamp;
+                    const isFail = duration >= perfThreshold;
+
+                    const { fileName, functionName } = extractSourceMetadata(current.lineContent);
+                    const { fileName: endFileName, functionName: endFunctionName } = extractSourceMetadata(next.lineContent);
+
+                    segments.push({
+                        id: `global-${i}-${Math.random().toString(36).substring(7)}`,
+                        name: `Global Flow • Seq ${i + 1}`,
+                        startTime: current.timestamp,
+                        endTime: next.timestamp,
+                        duration,
+                        startLine: current.lineIndex,
+                        endLine: next.lineIndex,
+                        originalStartLine: current.lineIndex,
+                        originalEndLine: next.lineIndex,
+                        type: 'manual',
+                        status: isFail ? 'fail' : 'pass',
+                        logs: [current.lineContent, next.lineContent],
+                        dangerColor: getDangerColor(duration),
+                        lane: 0,
+                        tid: 'Global',
+                        fileName: fileName || undefined,
+                        functionName: functionName || undefined,
+                        endFileName: endFileName || undefined,
+                        endFunctionName: endFunctionName || undefined,
+                        intervalIndex: i + 1
+                    });
+                }
+
+                // 2. Add TID-specific Flow (Lane 1+)
                 matchedLogsByTid.forEach((logs, tid) => {
-                    const lane = tidToLane.get(tid) || 0;
-                    const sortedLogs = logs.sort((a, b) => a.timestamp - b.timestamp);
+                    const lane = tidToLane.get(tid) || 1; // Fallback to 1, not 0
+                    const sortedLogs = logs.sort((a, b) => (a.timestamp - b.timestamp) || (a.lineIndex - b.lineIndex));
 
                     for (let i = 0; i < sortedLogs.length - 1; i++) {
                         const current = sortedLogs[i];
@@ -245,8 +282,9 @@ ctx.onmessage = (evt) => {
                 const endTime = allLogs[allLogs.length - 1].timestamp;
                 const totalDuration = endTime - startTime;
 
-                const finalPassCount = segments.filter(s => s.status === 'pass').length;
-                const finalFailCount = segments.filter(s => s.status === 'fail').length;
+                const individualSegments = segments.filter(s => s.tid !== 'Global');
+                const finalPassCount = individualSegments.filter(s => s.status === 'pass').length;
+                const finalFailCount = individualSegments.filter(s => s.status === 'fail').length;
 
                 const finishedResult: AnalysisResult = {
                     fileName: analysisFileName,
@@ -257,7 +295,8 @@ ctx.onmessage = (evt) => {
                     logCount: currentLineIndex,
                     passCount: finalPassCount,
                     failCount: finalFailCount,
-                    bottlenecks: segments.filter(s => s.status === 'fail'),
+                    // Double check filtering Global from bottlenecks in worker too
+                    bottlenecks: individualSegments.filter(s => s.status === 'fail' && s.tid !== 'Global'),
                     perfThreshold,
                     lineOffsets: Array.from(lineOffsets.entries()) // Convert to array for transfer
                 };
