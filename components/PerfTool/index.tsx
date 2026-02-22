@@ -379,7 +379,6 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                                         setFileHandle(null);
                                         setResult(null);
                                         setPidList(null);
-                                        setLogTags([]);
                                         deleteStoredValue('happytool_perf_tool_session_v1');
                                     }}
                                     className="absolute top-3 right-3 p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl transition-all z-10 hover:scale-110 active:scale-90"

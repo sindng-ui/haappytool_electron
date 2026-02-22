@@ -124,6 +124,8 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
 
+    const [isInitialDrawComplete, setIsInitialDrawComplete] = useState(false);
+
     // Hit Testing
     const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
 
@@ -232,6 +234,12 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     }, []);
 
     useEffect(() => {
+        if (result) {
+            setIsInitialDrawComplete(false);
+        }
+    }, [result]);
+
+    useEffect(() => {
         const timeout = setTimeout(() => {
             const trimmedInput = searchInput.trim();
             setSearchQuery(trimmedInput);
@@ -330,7 +338,8 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
     const maxLane = useMemo(() => {
         if (!flameSegments.length) return 4;
-        return Math.max(4, ...flameSegments.map(s => s.lane));
+        const actualMax = flameSegments.reduce((max, s) => Math.max(max, s.lane || 0), 0);
+        return Math.max(4, actualMax);
     }, [flameSegments]);
 
     const laneTidMap = useMemo(() => {
@@ -368,54 +377,80 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
         ctx.clearRect(0, 0, rect.width, rect.height);
 
-        // Draw segments
-        flameSegments.forEach(s => {
-            if (s.endTime < viewStart || s.startTime > viewEnd) return;
+        // Optimizing: 1. Cull segments outside view
+        // 2. Merge tiny segments that fall into the same pixel to reduce draw calls
+        const visibleSegments = flameSegments.filter(s => s.endTime >= viewStart && s.startTime <= viewEnd);
 
+        // Pixel-based merging: to avoid drawing thousands of <1px wide rects
+        const pixelGrid = new Map<string, { x: number, y: number, w: number, color: string }>();
+
+        visibleSegments.forEach(s => {
             const x = ((s.startTime - viewStart) / viewDuration) * width;
-            const w = Math.max(0.5, (s.duration / viewDuration) * width);
+            const w = Math.max(0.1, (s.duration / viewDuration) * width);
             const y = s.lane * 28 + 24;
             const h = 20;
 
-            const isSingleSelected = s.id === selectedSegmentId;
-            const isMultiSelected = multiSelectedIds.includes(s.id);
-            const isSelected = isSingleSelected || isMultiSelected;
+            const isSelected = s.id === selectedSegmentId || multiSelectedIds.includes(s.id);
             const isHovered = s.id === hoveredSegmentId;
-            const isBottleneck = s.duration >= (result.perfThreshold || 1000);
             const isMatch = checkSegmentMatch(s, searchQuery);
-            const isSearchHit = !!searchQuery && isMatch;
-            const isTidFocused = selectedTid !== null && s.tid === selectedTid;
 
-            // Determine base opacity:
-            let baseOpacity = (isSelected || isSearchHit || isHovered) ? 1 : 0.9;
-            if (selectedTid !== null && !isTidFocused) baseOpacity *= 0.3;
-            const finalOpacity = isMatch ? baseOpacity : 0.15;
+            // If it's a special state, draw it immediately and don't merge
+            if (isSelected || isHovered || isMatch || w > 3) {
+                const isBottleneck = s.duration >= (result.perfThreshold || 1000);
+                const isSearchHit = !!searchQuery && isMatch;
+                const isTidFocused = selectedTid !== null && s.tid === selectedTid;
 
-            const baseColor = (isSelected || isSearchHit) ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
+                let baseOpacity = (isSelected || isSearchHit || isHovered) ? 1 : 0.9;
+                if (selectedTid !== null && !isTidFocused) baseOpacity *= 0.3;
+                const finalOpacity = isMatch ? baseOpacity : 0.15;
 
-            ctx.globalAlpha = finalOpacity;
-            ctx.fillStyle = baseColor;
+                const baseColor = (isSelected || isSearchHit) ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
 
-            // Rounded rect approximation
-            const radius = 4;
-            ctx.beginPath();
-            ctx.roundRect(x, y, w, h, radius);
-            ctx.fill();
-
-            if (isSelected || isHovered) {
-                ctx.strokeStyle = 'white';
-                ctx.lineWidth = isSelected ? 2 : 1;
-                ctx.stroke();
-            }
-
-            // Text
-            if (w > 20) {
                 ctx.globalAlpha = finalOpacity;
-                ctx.fillStyle = getContrastColor(baseColor);
-                ctx.font = 'bold 9px sans-serif';
-                const label = s.fileName && s.functionName ? `${s.fileName}: ${s.functionName}` : s.name;
-                ctx.fillText(label, x + 6, y + 13, w - 12);
+                ctx.fillStyle = baseColor;
+
+                if (w > 1.5) {
+                    ctx.beginPath();
+                    ctx.roundRect(x, y, w, h, 4);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(x, y, w, h);
+                }
+
+                if (isSelected || isHovered) {
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = isSelected ? 2 : 1;
+                    ctx.stroke();
+                }
+
+                if (w > 30) {
+                    ctx.fillStyle = getContrastColor(baseColor);
+                    ctx.font = 'bold 9px sans-serif';
+                    const label = s.fileName && s.functionName ? `${s.fileName}: ${s.functionName}` : s.name;
+                    ctx.fillText(label, x + 6, y + 13, w - 12);
+                }
+            } else {
+                // Merge micro-segments: group by lane and pixel X (integer)
+                const pixX = Math.floor(x);
+                const key = `${s.lane}-${pixX}`;
+                const existing = pixelGrid.get(key);
+
+                if (!existing) {
+                    const isBottleneck = s.duration >= (result.perfThreshold || 1000);
+                    const color = s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]);
+                    pixelGrid.set(key, { x, y, w, color });
+                } else {
+                    // Update width to cover the range
+                    existing.w = Math.max(existing.w, (x + w) - existing.x);
+                }
             }
+        });
+
+        // Draw merged micro-segments
+        ctx.globalAlpha = 0.6;
+        pixelGrid.forEach(m => {
+            ctx.fillStyle = m.color;
+            ctx.fillRect(m.x, m.y, Math.max(1, m.w), 20);
         });
 
         ctx.globalAlpha = 1;
@@ -439,23 +474,47 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         const width = rect.width;
         const height = rect.height;
 
+        const miniPixelGrid = new Map<string, { x: number, yOffset: number, w: number, laneH: number, color: string, alpha: number }>();
+
         flameSegments.forEach(s => {
             if (s.duration === 0) return;
             const x = ((s.startTime - result.startTime) / totalDuration) * width;
-            const w = Math.max(0.2, (s.duration / totalDuration) * width);
+            const w = (s.duration / totalDuration) * width;
+            if (w < 0.05) return; // Ignore microscopic segments in minimap
 
-            // Minimap Height Logic: Fixed 40px but threads are compressed
-            // Use lane index as a fraction of maxLane to determine Y
             const yOffset = maxLane > 0 ? (s.lane / (maxLane + 1)) * (height - 4) : 0;
             const laneH = Math.max(2, height / (maxLane + 1));
 
-            const isBottleneck = s.duration >= (result.perfThreshold || 1000);
             const isMatch = checkSegmentMatch(s, searchQuery);
             const finalOpacity = isMatch ? 0.8 : 0.1;
 
-            ctx.globalAlpha = finalOpacity;
-            ctx.fillStyle = s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]);
-            ctx.fillRect(x, height - yOffset - laneH, w, laneH);
+            if (w > 1.5 || isMatch) {
+                // Draw normally for visible or matched segments
+                ctx.globalAlpha = finalOpacity;
+                ctx.fillStyle = s.dangerColor || (s.duration >= (result.perfThreshold || 1000) ? '#be123c' : palette[s.lane % palette.length]);
+                ctx.fillRect(x, height - yOffset - laneH, Math.max(0.5, w), laneH);
+            } else {
+                // Merge micro-segments in minimap
+                const pixX = Math.floor(x * 2) / 2; // 0.5px precision
+                const key = `${s.lane}-${pixX}`;
+                const existing = miniPixelGrid.get(key);
+                if (!existing) {
+                    miniPixelGrid.set(key, {
+                        x, yOffset, w, laneH,
+                        color: s.dangerColor || (s.duration >= (result.perfThreshold || 1000) ? '#be123c' : palette[s.lane % palette.length]),
+                        alpha: finalOpacity
+                    });
+                } else {
+                    existing.w = Math.max(existing.w, (x + w) - existing.x);
+                }
+            }
+        });
+
+        // Draw merged minimap segments
+        miniPixelGrid.forEach(m => {
+            ctx.globalAlpha = m.alpha;
+            ctx.fillStyle = m.color;
+            ctx.fillRect(m.x, height - m.yOffset - m.laneH, Math.max(0.5, m.w), m.laneH);
         });
 
         ctx.globalAlpha = 1;
@@ -464,9 +523,14 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     useEffect(() => {
         let frameId: number;
         const render = () => {
-            if (isActive && viewMode === 'chart' && result) {
-                drawFlameChart();
-                drawMinimap();
+            if (isActive && result) {
+                if (viewMode === 'chart') {
+                    drawFlameChart();
+                    drawMinimap();
+                }
+                if (!isInitialDrawComplete) {
+                    setIsInitialDrawComplete(true);
+                }
             }
         };
 
@@ -540,6 +604,31 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                 backgroundColor: '#0f172a' // Slate-950 distinct bg
             }}
         >
+            {/* Loading Overlay (Persist until canvas is ready) */}
+            <AnimatePresence>
+                {(isScanningStatus || (result && !isInitialDrawComplete)) && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 z-[200] bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center pointer-events-auto"
+                    >
+                        <div className="relative mb-6">
+                            <div className="absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full" />
+                            <Lucide.Loader2 size={42} className="text-indigo-500 animate-spin relative z-10" />
+                        </div>
+                        <div className="flex flex-col items-center gap-2">
+                            <span className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] animate-pulse">
+                                {isAnalyzing ? 'Analyzing Data...' : 'Initializing View...'}
+                            </span>
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest opacity-60">
+                                {result ? `Preparing ${result.segments.length.toLocaleString()} intervals` : 'Processing log stream'}
+                            </span>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Resizer Handle (Bottom) - Refined Pill Design */}
             {!minimized && !isFullScreen && (
                 <div
