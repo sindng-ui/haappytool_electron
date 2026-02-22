@@ -924,8 +924,8 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
                                         <span className="text-[9px] text-slate-500 uppercase font-black block mb-1">Pass Rate</span>
-                                        <span className={`text-lg font-black ${result.passCount === result.segments.length ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                            {Math.round((result.passCount / Math.max(1, result.segments.length)) * 100)}%
+                                        <span className={`text-lg font-black ${result.failCount === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                            {Math.round(((result.segments.length - result.failCount) / Math.max(1, result.segments.length)) * 100)}%
                                         </span>
                                     </div>
                                     <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
@@ -1004,7 +1004,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                         />
                                         <Scorecard
                                             label="Pass Rate"
-                                            value={`${Math.round(result.passCount / Math.max(1, result.segments.length) * 100)}%`}
+                                            value={`${Math.round(((result.segments.length - result.failCount) / Math.max(1, result.segments.length)) * 100)}%`}
                                             icon={<Lucide.CheckCircle2 size={14} />}
                                             color="#10b981"
                                             subValue={`${result.failCount} slow ops`}

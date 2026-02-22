@@ -188,9 +188,9 @@ ctx.onmessage = (evt) => {
                     return;
                 }
 
+
+
                 const segments: AnalysisSegment[] = [];
-                let passCount = 0;
-                let failCount = 0;
 
                 const sortedTids = Array.from(matchedLogsByTid.keys()).sort((a, b) => {
                     const isAMain = a === detectedPid || a === keywordLower;
@@ -213,7 +213,7 @@ ctx.onmessage = (evt) => {
                         const duration = next.timestamp - current.timestamp;
 
                         const isFail = duration >= perfThreshold;
-                        if (isFail) failCount++; else passCount++;
+
 
                         const { fileName, functionName } = extractSourceMetadata(current.lineContent);
                         const { fileName: endFileName, functionName: endFunctionName } = extractSourceMetadata(next.lineContent);
@@ -247,6 +247,9 @@ ctx.onmessage = (evt) => {
                 const endTime = allLogs[allLogs.length - 1].timestamp;
                 const totalDuration = endTime - startTime;
 
+                const finalPassCount = segments.filter(s => s.status === 'pass').length;
+                const finalFailCount = segments.filter(s => s.status === 'fail').length;
+
                 const finishedResult: AnalysisResult = {
                     fileName: analysisFileName,
                     totalDuration,
@@ -254,9 +257,9 @@ ctx.onmessage = (evt) => {
                     startTime,
                     endTime,
                     logCount: currentLineIndex,
-                    passCount,
-                    failCount,
-                    bottlenecks: segments.filter(s => s.duration >= perfThreshold),
+                    passCount: finalPassCount,
+                    failCount: finalFailCount,
+                    bottlenecks: segments.filter(s => s.status === 'fail'),
                     perfThreshold,
                     lineOffsets: Array.from(lineOffsets.entries()) // Convert to array for transfer
                 };

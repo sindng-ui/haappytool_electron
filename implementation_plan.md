@@ -1,25 +1,20 @@
-# 구현 계획 - 로그 중복 해결 및 Post Tool UI 개선
+# 성능 분석 Pass Rate 계산 오류 수정 계획서
 
-## 1. 로그 중복 이슈 해결 (useLogExtractorLogic.ts)
-- [x] `useEffect` 마운트 시 `isStale` 로컬 변수 선언
-- [x] `loadState` async 함수 내 주요 지점에 `isStale` 체크 추가
-- [x] `onFileChunk`, `onFileStreamComplete` 등 IPC 리스너 내부에서 `isStale` 체크
-- [x] `cleanup` 함수에서 `isStale = true` 설정
+형님, 성능 분석 대시보드에서 Pass Rate가 100%로 잘못 표시되는 문제를 확인했습니다. 65개의 Fail(Slow Ops)이 있음에도 불구하고 100%로 뜨는 것은 계산 로직이나 데이터 연동에 문제가 있다는 뜻입니다.
 
-## 2. Post Tool UI 개선 (PostTool.tsx)
-- [x] 헤더 영역을 `h-16`에서 `h-9`로 축소 및 슬림화
-- [x] 헤더 하단 `border-indigo-500/30` 적용으로 가독성 확보
-- [x] 메인 컨테이너 및 요청/응답 영역 배경색을 `#0b0f19`로 통일
-- [x] 기존 `mr-32` 등 불필요한 마진 제거 및 레이아웃 조정
+## 원인 분석
+1. **임계값 비교 연산자 불일치**: `utils/perfAnalysis.ts`에서는 `>`를 사용하고, 다른 곳에서는 `>=`를 사용하여 경계값에서 혼선이 있을 수 있습니다.
+2. **Pass Count 계산 로직 점검**: 워커에서 `passCount`와 `failCount`를 계산할 때, 전체 세그먼트 수와 합산이 맞지 않을 가능성이 있습니다.
+3. **대시보드 UI 계산식 보강**: 대시보드 UI에서 `result.passCount`에만 의존하지 않고, 전체 세그먼트 대비 실패 건수를 직접 계산하여 더 정확한 수치를 보여주도록 수정하겠습니다.
 
-## 3. 플러그인 일관성 확보
-- [x] `EasyPostPlugin.tsx` 헤더 구분선 강화
-- [x] `LogExtractor.tsx` 전체 배경색 `#0b0f19` 적용
+## 수정 계획
+1. **`utils/perfAnalysis.ts` 수정**: 
+   - 성능 상태 판정 시 `>`를 `>=`로 변경하여 일관성을 맞춥니다.
+2. **`workers/LogProcessor.worker.ts` 수정**:
+   - `passCount`와 `failCount` 계산 시 필터링 로직을 더 명확히 하고, 필요시 합계 검증 로직을 추가합니다.
+3. **`workers/PerfTool.worker.ts` 수정**:
+   - 분석 결과 생성 시 `passCount`와 `failCount`가 정확히 세그먼트 총합과 일치하는지 확인합니다.
+4. **`components/LogViewer/PerfDashboard.tsx` 수정**:
+   - Pass Rate 표시부를 `((전체 - 실패) / 전체)` 방식으로 계산하여, 데이터 불일치가 있더라도 정확한 합격률이 표시되도록 보강합니다.
 
-## 4. Perf Analyzer 필터링 고도화 (PerfAnalyzer.tsx)
-- [x] `runAnalysis` 내부에 미션 기반 필터링 로직 추가
-- [x] `excludes` (Block List) 필터 우선 적용
-- [x] `happyGroups` 및 `includeGroups` (Happy Combo) 필터 적용
-- [x] `familyCombos` 태그 포함 로직 적용
-- [x] 필터 조건 계산 최적화 (루프 외부로 이동)
-- [x] 필터링된 로그에 대해서만 `logCount` 및 타임스탬프 처리 진행
+형님, 이대로 진행할까요? 'proceed'라고 말씀해 주시면 바로 작업 시작하겠습니다!

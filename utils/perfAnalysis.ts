@@ -201,7 +201,7 @@ export const analyzePerfSegments = (
             originalStartLine: start.lineIndex,
             originalEndLine: end.lineIndex,
             type: 'step',
-            status: duration > targetTime ? 'fail' : 'pass',
+            status: duration >= targetTime ? 'fail' : 'pass',
             logs: [start.content, end.content],
             tid: start.tid,
             dangerColor: rule.dangerThresholds?.[0]
@@ -228,7 +228,7 @@ export const analyzePerfSegments = (
             originalStartLine: current.lineIndex, // Use visual index as fallback
             originalEndLine: next.lineIndex,     // Use visual index as fallback
             type: 'combo',
-            status: duration > targetTime ? 'fail' : 'pass',
+            status: duration >= targetTime ? 'fail' : 'pass',
             logs: [current.content, next.content],
             tid: current.tid,
             dangerColor: rule.dangerThresholds?.[0] ? [...rule.dangerThresholds].sort((a, b) => b.ms - a.ms).find(d => duration >= d.ms)?.color : undefined

@@ -1,25 +1,10 @@
-# 작업 요약 (Log Duplication & UI Fixes)
+# Task: Pass Rate Calculation Fix
 
-로그 중복 출력 문제와 Post Tool의 UI 가독성 문제를 해결했습니다.
+성능 분석 대시보드에서 합격률(Pass Rate)이 실제 실패 건수가 있음에도 불구하고 100%로 표시되는 버그를 수정합니다.
 
-## 주요 변경 사항
-
-### 1. 로그 중복 출력 해결
-- **원인 분석**: `useLogExtractorLogic` 훅의 `loadState` async 함수가 컴포넌트 마운트 시 실행되는데, React Strict Mode나 빠른 탭 전환 시 컴포넌트가 언마운트된 후에도 이전 `loadState` 실행이 계속되어 동일한 워커에 중복된 로드 명령을 보내는 현상을 발견했습니다.
-- **해결 방법**: `useEffect` 내부에 `isStale` 플래그를 추가하여, 언마운트된 후에는 async 작업의 결과가 반영되거나 추가적인 IPC 요청이 발생하지 않도록 차단했습니다.
-
-### 2. Post Tool UI 개선
-- **헤더 버튼 레이아웃 미세 조정**: 버튼들을 오른쪽 영역에서 약간 왼쪽으로 이동(`mr-40`)시켜, 우측 창 제어 버튼과의 간격을 벌리고 중앙 드래그 영역을 충분히 확보했습니다.
-- **구분선 가시성 강화**: 헤더 하단 구분선의 색상을 `border-indigo-500/30`으로 변경하여 가시성을 확보했습니다.
-- **배경색 통일**: 메인 콘텐츠 영역의 배경색을 `#0b0f19`로 업데이트하여 애플리케이션 전체 테마와 일치시켰습니다.
-- **Easy Post 스타일 보강**: `EasyPostPlugin`의 헤더 구분선도 동일하게 강화했습니다.
-
-## 기술적 세부 사항
-- `useLogExtractorLogic.ts`: `useEffect` 클린업 함수에서 `isStale = true` 설정 및 조건부 실행 로직 추가.
-- `PostTool.tsx`: JSX 구조 정리 및 클래스네임 업데이트 (`h-9`, `border-indigo-500/30`, `bg-[#0b0f19]`).
-- `LogExtractor.tsx`: 루트 컨테이너 배경색을 `#0b0f19`로 변경.
-
-### 3. Perf Analyzer 분석 대상 필터링 기능 추가
-- **필터링 로직 구현**: `PerfAnalyzer`에서 선택된 미션의 `happy combo`, `패밀리콤보`, `block list`를 기준으로 로그를 필터링한 후 분석을 진행하도록 수정했습니다.
-- **성능 최적화**: 대용량 로그 처리를 위해 필터 조건 계산 로직을 루프 외부로 이동하고, 불필요한 연산을 줄여 분석 속도를 개선했습니다.
-- **설정 자동 저장**: 사용자가 선택한 미션, 분석 임계치, 분석 범위, 로드된 파일 정보 등을 로컬 스토리지에 자동 저장하여 앱 재시작 시에도 유지되도록 했습니다.
+## 세부 작업 내용
+- [x] `utils/perfAnalysis.ts`: 임계값 비교 연산자 일관성 확보 (`>` -> `>=`)
+- [x] `workers/LogProcessor.worker.ts`: 분석 결과의 pass/fail 카운트 계산 로직 보강
+- [x] `workers/PerfTool.worker.ts`: 분석 결과의 pass/fail 카운트 계산 로직 보강
+- [x] `components/LogViewer/PerfDashboard.tsx`: 대시보드 UI의 합격률 계산식 안정화
+- [x] 수정 후 성능 및 사이드 이펙트 체크
