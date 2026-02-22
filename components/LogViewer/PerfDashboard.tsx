@@ -584,7 +584,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                     ctx.fillRect(x, y, w, h);
                 }
 
-                if (isSelected || isHovered) {
+                if (isSelected || isHovered || isSearchHit) {
                     ctx.strokeStyle = isGlobal ? '#f59e0b' : 'white';
                     ctx.lineWidth = isSelected ? 2 : 1;
                     ctx.stroke();
