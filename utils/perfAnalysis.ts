@@ -39,6 +39,7 @@ export interface AnalysisResult {
     failCount: number;
     bottlenecks: AnalysisSegment[];
     perfThreshold: number;
+    lineOffsets?: [number, number][];
 }
 
 /**

@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer, clipboard } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
     readFile: (path) => ipcRenderer.invoke('readFile', path),
-    streamReadFile: (path, requestId) => ipcRenderer.invoke('streamReadFile', path, requestId),
+    streamReadFile: (path, requestId, options) => ipcRenderer.invoke('streamReadFile', path, requestId, options),
     onFileChunk: (callback) => {
         const subscription = (_event, data) => callback(data);
         ipcRenderer.on('file-chunk', subscription);

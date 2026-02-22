@@ -272,8 +272,12 @@ app.whenReady().then(async () => {
     });
 
     // IPC Handler for file streaming
-    ipcMain.handle('streamReadFile', (event, filePath, requestId) => {
-        const stream = originalFs.createReadStream(filePath, { encoding: 'utf-8', highWaterMark: 64 * 1024 }); // 64KB chunks
+    ipcMain.handle('streamReadFile', (event, filePath, requestId, options = {}) => {
+        const stream = originalFs.createReadStream(filePath, {
+            encoding: 'utf-8',
+            highWaterMark: 64 * 1024,
+            start: options.start || 0
+        });
 
         stream.on('data', (chunk) => {
             if (mainWindow) mainWindow.webContents.send('file-chunk', { chunk, requestId });

@@ -5,10 +5,18 @@ import { extractTimestamp } from '../utils/logTime';
 const ctx: Worker = self as any;
 
 // State
-let mode: 'scan' | 'analyze' | null = null;
+let mode: 'scan' | 'analyze' | 'raw_extract' | null = null;
 let keywordLower = '';
 let currentLineIndex = 0;
 let streamBuffer = '';
+let totalBytesProcessed = 0;
+let lineOffsets = new Map<number, number>(); // lineIndex -> byteOffset
+
+// Raw Extract State
+let searchStart = 0;
+let searchEnd = 0;
+let extractedLines: { index: number; content: string }[] = [];
+let startLineNumber = 0; // For partial reading
 
 // Scan State
 let pidCounts = new Map<string, number>();
@@ -87,23 +95,67 @@ ctx.onmessage = (evt) => {
             detectedPid = null;
             currentLineIndex = 0;
             streamBuffer = '';
+            totalBytesProcessed = 0;
+            lineOffsets.clear();
+            lineOffsets.set(0, 0);
+            break;
+
+        case 'INIT_RAW_EXTRACT':
+            mode = 'raw_extract';
+            searchStart = payload.searchStart;
+            searchEnd = payload.searchEnd;
+            startLineNumber = payload.startLineNumber || 0;
+            extractedLines = [];
+            currentLineIndex = startLineNumber;
+            streamBuffer = '';
             break;
 
         case 'ADD_CHUNK':
-            const fullChunk = streamBuffer + payload.chunk;
-            const lines = fullChunk.split(/\r?\n/);
-            streamBuffer = lines.pop() || '';
+            const chunkStr = payload.chunk;
+            const fullStr = streamBuffer + chunkStr;
+            let lastIdx = 0;
+            const regex = /\r?\n/g;
+            let match;
 
-            for (const line of lines) {
+            const encoder = new TextEncoder();
+
+            while ((match = regex.exec(fullStr)) !== null) {
+                const lineContent = fullStr.substring(lastIdx, match.index);
+                const lineWithSeparator = fullStr.substring(lastIdx, regex.lastIndex);
+
                 currentLineIndex++;
-                processLine(line, currentLineIndex);
+
+                // Track bytes if analyzing
+                if (mode === 'analyze') {
+                    const lineBytes = encoder.encode(lineWithSeparator).length;
+                    totalBytesProcessed += lineBytes;
+                    if (currentLineIndex % 1000 === 0) {
+                        lineOffsets.set(currentLineIndex, totalBytesProcessed);
+                    }
+                }
+
+                if (mode === 'raw_extract') {
+                    if (currentLineIndex >= searchStart && currentLineIndex <= searchEnd) {
+                        extractedLines.push({ index: currentLineIndex, content: lineContent });
+                    }
+                } else {
+                    processLine(lineContent, currentLineIndex);
+                }
+                lastIdx = regex.lastIndex;
             }
+            streamBuffer = fullStr.substring(lastIdx);
             break;
 
         case 'FINALIZE':
             if (streamBuffer) {
                 currentLineIndex++;
-                processLine(streamBuffer, currentLineIndex);
+                if (mode === 'raw_extract') {
+                    if (currentLineIndex >= searchStart && currentLineIndex <= searchEnd) {
+                        extractedLines.push({ index: currentLineIndex, content: streamBuffer });
+                    }
+                } else {
+                    processLine(streamBuffer, currentLineIndex);
+                }
             }
 
             if (mode === 'scan') {
@@ -188,10 +240,13 @@ ctx.onmessage = (evt) => {
                     passCount,
                     failCount,
                     bottlenecks: segments.filter(s => s.duration >= perfThreshold),
-                    perfThreshold
+                    perfThreshold,
+                    lineOffsets: Array.from(lineOffsets.entries()) // Convert to array for transfer
                 };
 
                 ctx.postMessage({ type: 'ANALYSIS_COMPLETE', payload: { result: finishedResult }, requestId });
+            } else if (mode === 'raw_extract') {
+                ctx.postMessage({ type: 'RAW_EXTRACT_COMPLETE', payload: { lines: extractedLines }, requestId });
             }
             break;
     }

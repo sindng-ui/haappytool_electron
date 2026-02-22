@@ -40,7 +40,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
 
     // Raw Viewer State
     const [rawViewerOpen, setRawViewerOpen] = useState(false);
-    const [rawRange, setRawRange] = useState<{ start: number, end: number } | null>(null);
+    const [rawRange, setRawRange] = useState<{ start: number, end: number, startOffset?: number, startLineNum?: number } | null>(null);
 
     const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
     const activeRequestIdRef = React.useRef<string | null>(null);
@@ -609,7 +609,22 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                                 targetTime={perfThreshold}
                                 isFullScreen={true}
                                 onViewRawRange={(start, end) => {
-                                    setRawRange({ start, end });
+                                    let startOffset = 0;
+                                    let startLineNum = 0;
+                                    if (result?.lineOffsets) {
+                                        const padding = 50;
+                                        const targetLine = Math.max(1, start - padding);
+                                        // Sparse search in the index
+                                        for (const [lIdx, bOff] of result.lineOffsets) {
+                                            if (lIdx <= targetLine) {
+                                                startLineNum = lIdx;
+                                                startOffset = bOff;
+                                            } else {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    setRawRange({ start, end, startOffset, startLineNum });
                                     setRawViewerOpen(true);
                                 }}
                                 onCopyRawRange={handleCopyLogs}
@@ -628,6 +643,9 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                         fileHandle={fileHandle}
                         startLine={rawRange.start}
                         endLine={rawRange.end}
+                        startOffset={rawRange.startOffset}
+                        startLineNum={rawRange.startLineNum}
+                        getWorker={getWorker}
                     />
                 )}
             </AnimatePresence>
@@ -641,9 +659,12 @@ interface PerfRawViewerProps {
     fileHandle: { path: string; name: string };
     startLine: number;
     endLine: number;
+    startOffset?: number;
+    startLineNum?: number;
+    getWorker: () => Worker;
 }
 
-const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHandle, startLine, endLine }) => {
+const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHandle, startLine, endLine, startOffset = 0, startLineNum = 0, getWorker }) => {
     const [lines, setLines] = useState<{ index: number, content: string }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const targetRef = React.useRef<HTMLDivElement>(null);
@@ -655,6 +676,7 @@ const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHand
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose]);
+
     useEffect(() => {
         if (!isOpen) return;
 
@@ -662,54 +684,67 @@ const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHand
         setLines([]);
 
         const requestId = Math.random().toString(36).substring(7);
-        let streamBuffer = '';
-        let currentLineIndex = 0;
-        const collected: { index: number, content: string }[] = [];
-
-        // Add some padding
         const pad = 50;
         const searchStart = Math.max(1, startLine - pad);
         const searchEnd = endLine + pad;
 
+        const worker = getWorker();
+
+        const onWorkerMessage = (e: MessageEvent) => {
+            const { type, payload, requestId: respId } = e.data;
+            if (respId !== requestId) return;
+
+            if (type === 'RAW_EXTRACT_COMPLETE') {
+                setLines(payload.lines);
+                setIsLoading(false);
+
+                // Wait for render, then scroll
+                setTimeout(() => {
+                    targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+            } else if (type === 'ERROR') {
+                setIsLoading(false);
+                console.error("Worker Error:", payload.error);
+            }
+        };
+
+        worker.addEventListener('message', onWorkerMessage);
+
+        // Init worker for raw extraction with offset support
+        worker.postMessage({
+            type: 'INIT_RAW_EXTRACT',
+            payload: {
+                searchStart,
+                searchEnd,
+                startLineNumber: startLineNum
+            },
+            requestId
+        });
+
         const onChunk = (data: { chunk: string; requestId: string }) => {
             if (data.requestId !== requestId) return;
-            const fullChunk = streamBuffer + data.chunk;
-            const parts = fullChunk.split(/\r?\n/);
-            streamBuffer = parts.pop() || '';
-
-            for (const line of parts) {
-                currentLineIndex++;
-                if (currentLineIndex >= searchStart && currentLineIndex <= searchEnd) {
-                    collected.push({ index: currentLineIndex, content: line });
-                }
-            }
+            worker.postMessage({ type: 'ADD_CHUNK', payload: { chunk: data.chunk }, requestId });
         };
 
         const onComplete = (data: { requestId: string }) => {
             if (data.requestId !== requestId) return;
-            setIsLoading(false);
-            setLines(collected);
-            if (offChunk) offChunk();
-            if (offComplete) offComplete();
-
-            // Wait for render, then scroll
-            setTimeout(() => {
-                targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 100);
+            worker.postMessage({ type: 'FINALIZE', requestId });
         };
 
         let offChunk: any, offComplete: any;
         if (window.electronAPI) {
             offChunk = window.electronAPI.onFileChunk(onChunk);
             offComplete = window.electronAPI.onFileStreamComplete(onComplete);
-            window.electronAPI.streamReadFile(fileHandle.path, requestId);
+            // Pass the byte offset to start reading from there
+            window.electronAPI.streamReadFile(fileHandle.path, requestId, { start: startOffset });
         }
 
         return () => {
+            worker.removeEventListener('message', onWorkerMessage);
             if (offChunk) offChunk();
             if (offComplete) offComplete();
         };
-    }, [isOpen, fileHandle, startLine, endLine]);
+    }, [isOpen, fileHandle, startLine, endLine, startOffset, startLineNum, getWorker]);
 
     return (
         <motion.div
