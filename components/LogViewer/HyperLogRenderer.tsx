@@ -516,7 +516,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     }
                 }
 
-                segments.sort((a, b) => a.start - b.start);
+                segments.sort((a, b) => (a.start - b.start) || ((b.end - b.start) - (a.end - a.start)));
 
                 let currentX = CONTENT_X_OFFSET - currentScrollLeft;
                 let lastIndex = 0;
