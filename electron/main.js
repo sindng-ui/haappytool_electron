@@ -271,6 +271,8 @@ app.whenReady().then(async () => {
         }
     });
 
+    const activeStreams = new Map();
+
     // IPC Handler for file streaming
     ipcMain.handle('streamReadFile', (event, filePath, requestId, options = {}) => {
         const stream = originalFs.createReadStream(filePath, {
@@ -279,20 +281,36 @@ app.whenReady().then(async () => {
             start: options.start || 0
         });
 
+        activeStreams.set(requestId, stream);
+
         stream.on('data', (chunk) => {
-            if (mainWindow) mainWindow.webContents.send('file-chunk', { chunk, requestId });
+            if (mainWindow && activeStreams.has(requestId)) {
+                mainWindow.webContents.send('file-chunk', { chunk, requestId });
+            }
         });
 
         stream.on('end', () => {
+            activeStreams.delete(requestId);
             if (mainWindow) mainWindow.webContents.send('file-stream-complete', { requestId });
         });
 
         stream.on('error', (err) => {
+            activeStreams.delete(requestId);
             console.error('Stream error:', err);
             if (mainWindow) mainWindow.webContents.send('file-stream-error', { error: err.message, requestId });
         });
 
         return { status: 'started', requestId };
+    });
+
+    ipcMain.handle('cancelStream', (event, requestId) => {
+        const stream = activeStreams.get(requestId);
+        if (stream) {
+            stream.destroy();
+            activeStreams.delete(requestId);
+            return { status: 'cancelled', requestId };
+        }
+        return { status: 'not_found', requestId };
     });
 
     // IPC Handler for Roslyn Validation

@@ -115,6 +115,9 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     showTidColumn = true, useCompactDetail = false
 }) => {
     const [flameZoom, setFlameZoom] = useState<{ startTime: number; endTime: number } | null>(null);
+    const zoomRef = useRef<{ startTime: number; endTime: number } | null>(null);
+    useEffect(() => { zoomRef.current = flameZoom; }, [flameZoom]);
+
     const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'chart' | 'list'>('chart');
     const [minimized, setMinimized] = useState(false);
@@ -183,12 +186,12 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     // 💡 Stabilize Zoom & Pan using manual event listener for passive: false support
     useEffect(() => {
         const container = flameChartContainerRef.current;
-        if (!container) return;
+        if (!container || !result) return;
 
         const handleWheel = (e: WheelEvent) => {
-            if (!result) return;
-            const currentStart = flameZoom?.startTime ?? result.startTime;
-            const currentEnd = flameZoom?.endTime ?? result.endTime;
+            const currentZoom = zoomRef.current;
+            const currentStart = currentZoom?.startTime ?? result.startTime;
+            const currentEnd = currentZoom?.endTime ?? result.endTime;
             const duration = currentEnd - currentStart;
 
             // Zoom (Ctrl+Wheel)
@@ -243,7 +246,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
         container.addEventListener('wheel', handleWheel, { passive: false });
         return () => container.removeEventListener('wheel', handleWheel);
-    }, [result, flameZoom, setFlameZoom]);
+    }, [result]); // Only re-bind if result changes
 
     const jumpToBottleneck = (index: number) => {
         if (!result || bottlenecks.length === 0) return;
@@ -589,15 +592,11 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     useEffect(() => {
         let frameId: number;
         const render = () => {
-            if (isActive && result) {
-                if (viewMode === 'chart') {
-                    drawFlameChart();
-                    drawMinimap();
-                }
-                if (!isInitialDrawComplete) {
-                    setIsInitialDrawComplete(true);
-                }
+            if (isActive && result && viewMode === 'chart') {
+                drawFlameChart();
+                drawMinimap();
             }
+            frameId = requestAnimationFrame(render);
         };
 
         frameId = requestAnimationFrame(render);
@@ -1141,8 +1140,10 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                             {viewMode === 'chart' && (
                                 <div
                                     ref={flameChartContainerRef}
-                                    className={`flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar p-4 relative select-none group/chart ${isShiftPressed ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
+                                    tabIndex={0}
+                                    className={`flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar p-4 relative select-none group/chart outline-none ${isShiftPressed ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
                                     onMouseDown={(e) => {
+                                        e.currentTarget.focus(); // Ensure it captures wheel events
                                         const containerWidth = e.currentTarget.clientWidth;
                                         const rect = e.currentTarget.getBoundingClientRect();
 

@@ -783,7 +783,7 @@ const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHand
                             <span className="text-[10px] font-bold uppercase tracking-widest">Loading Logs...</span>
                         </div>
                     ) : (
-                        <div className="space-y-0.5">
+                        <div className="space-y-0.5" style={{ contentVisibility: 'auto' }}>
                             {lines.map(l => {
                                 const isTargetStart = l.index === startLine;
                                 const isTarget = l.index >= startLine && l.index <= endLine;
@@ -794,7 +794,7 @@ const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHand
                                         className={`flex gap-4 px-2 py-0.5 rounded transition-colors ${isTarget ? 'bg-indigo-500/20 border-l-2 border-indigo-500' : 'opacity-40 hover:opacity-100'}`}
                                     >
                                         <span className="w-12 shrink-0 text-slate-400 text-right select-none">{l.index}</span>
-                                        <span className={`whitespace-pre-wrap break-all ${isTarget ? 'text-indigo-100' : 'text-slate-400'}`}>{l.content}</span>
+                                        <span className={`whitespace-pre-wrap ${isTarget ? 'text-indigo-100' : 'text-slate-400'}`}>{l.content}</span>
                                     </div>
                                 );
                             })}
