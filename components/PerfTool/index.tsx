@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { extractTimestamp, formatDuration } from '../../utils/logTime';
 import { AnalysisResult, AnalysisSegment, extractLogIds, extractSourceMetadata } from '../../utils/perfAnalysis';
 import { PerfDashboard } from '../LogViewer/PerfDashboard';
+import { getStoredValue, setStoredValue, deleteStoredValue } from '../../utils/db';
 
 const {
     Play, Target, Loader2, UploadCloud, Activity,
@@ -61,31 +62,36 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
 
     // Load persistence (Local & Session)
     useEffect(() => {
-        // 1. Permanent Settings (Local)
-        const localSaved = localStorage.getItem('happytool_perf_tool_settings_v2');
-        if (localSaved) {
-            try {
-                const parsed = JSON.parse(localSaved);
-                if (parsed.perfThreshold !== undefined) setPerfThreshold(parsed.perfThreshold);
-                if (parsed.dangerLevels && Array.isArray(parsed.dangerLevels)) {
-                    setDangerLevels(parsed.dangerLevels);
-                }
-            } catch (e) { console.error("Failed to load local settings", e); }
-        }
+        const loadAllSettings = async () => {
+            // 1. Permanent Settings (LocalStorage -> localStorage 그대로 유지해도 됨, 작으니까)
+            const localSaved = localStorage.getItem('happytool_perf_tool_settings_v2');
+            if (localSaved) {
+                try {
+                    const parsed = JSON.parse(localSaved);
+                    if (parsed.perfThreshold !== undefined) setPerfThreshold(parsed.perfThreshold);
+                    if (parsed.dangerLevels && Array.isArray(parsed.dangerLevels)) {
+                        setDangerLevels(parsed.dangerLevels);
+                    }
+                } catch (e) { console.error("Failed to load local settings", e); }
+            }
 
-        // 2. Session Data (Session) - Survives tab switch, not app restart
-        const sessionSaved = sessionStorage.getItem('happytool_perf_tool_session_v1');
-        if (sessionSaved) {
-            try {
-                const parsed = JSON.parse(sessionSaved);
-                if (parsed.fileHandle !== undefined) setFileHandle(parsed.fileHandle);
-                if (parsed.targetKeyword !== undefined) setTargetKeyword(parsed.targetKeyword);
-                if (parsed.result !== undefined) setResult(parsed.result);
-                if (parsed.pidList !== undefined) setPidList(parsed.pidList);
-            } catch (e) { console.error("Failed to load session data", e); }
-        }
+            // 2. Session Data (IndexedDB) - Survived tab switch and large capacity
+            // 💡 형님, sessionStorage 대신 IndexedDB를 사용하여 QuotaExceededError를 방지합니다.
+            const sessionSaved = await getStoredValue('happytool_perf_tool_session_v1');
+            if (sessionSaved) {
+                try {
+                    const parsed = typeof sessionSaved === 'string' ? JSON.parse(sessionSaved) : sessionSaved;
+                    if (parsed.fileHandle !== undefined) setFileHandle(parsed.fileHandle);
+                    if (parsed.targetKeyword !== undefined) setTargetKeyword(parsed.targetKeyword);
+                    if (parsed.result !== undefined) setResult(parsed.result);
+                    if (parsed.pidList !== undefined) setPidList(parsed.pidList);
+                } catch (e) { console.error("Failed to load session data from DB", e); }
+            }
 
-        setIsInitialLoadDone(true);
+            setIsInitialLoadDone(true);
+        };
+
+        loadAllSettings();
 
         return () => {
             if (activeRequestIdRef.current) activeRequestIdRef.current = null;
@@ -103,7 +109,8 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     useEffect(() => {
         if (!isInitialLoadDone) return;
         const session = { fileHandle, targetKeyword, result, pidList };
-        sessionStorage.setItem('happytool_perf_tool_session_v1', JSON.stringify(session));
+        // 💡 용량이 클 수 있으므로 IndexedDB에 저장합니다.
+        setStoredValue('happytool_perf_tool_session_v1', session);
     }, [fileHandle, targetKeyword, result, pidList, isInitialLoadDone]);
 
     const addDangerLevel = () => {
@@ -355,7 +362,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                                         setFileHandle(null);
                                         setResult(null);
                                         setPidList(null);
-                                        sessionStorage.removeItem('happytool_perf_tool_session_v1');
+                                        deleteStoredValue('happytool_perf_tool_session_v1');
                                     }}
                                     className="absolute top-3 right-3 p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl transition-all z-10 hover:scale-110 active:scale-90"
                                     title="Unload File & Reset Result"

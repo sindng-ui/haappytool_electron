@@ -226,250 +226,254 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
             </div>
 
             <div className="space-y-4">
-                {groupedRoots.map(({ root, isRootEnabled, items }, rootIdx) => (
-                    <div key={rootIdx} className={`glass rounded-2xl p-4 transition-all duration-300 relative group border ${isRootEnabled ? 'border-indigo-500/10' : 'border-slate-800 opacity-60'}`}>
-                        {/* Background Gradient for Root */}
-                        <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br transition-opacity duration-500 pointer-events-none ${isRootEnabled ? 'from-indigo-500/5 to-transparent opacity-100' : 'opacity-0'}`} />
+                {groupedRoots.map(({ root, isRootEnabled, items }, rootIdx) => {
+                    const isAnyAliasFocusedInThisRoot = items.some(item => focusedAliasId === (item.id || item.originalIdx.toString()));
 
-                        {/* Root Header */}
-                        <div className="flex items-center gap-3 relative z-10 mb-2">
-                            <input type="checkbox" checked={isRootEnabled} onChange={(e) => handleToggleRoot(root, e.target.checked)} className="accent-indigo-500 w-4 h-4 cursor-pointer" />
+                    return (
+                        <div key={rootIdx} className={`glass rounded-2xl p-4 transition-all duration-300 relative group border ${isRootEnabled ? 'border-indigo-500/10' : 'border-slate-800 opacity-60'} ${isAnyAliasFocusedInThisRoot ? 'z-50' : 'z-10'}`}>
+                            {/* Background Gradient for Root */}
+                            <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br transition-opacity duration-500 pointer-events-none ${isRootEnabled ? 'from-indigo-500/5 to-transparent opacity-100' : 'opacity-0'}`} />
 
-                            <IconButton
-                                onClick={() => onToggleRootCollapse(root)}
-                                icon={collapsedRoots.has(root) ? <Folder size={14} /> : <FolderOpen size={14} />}
-                                className={`rounded-lg transition-colors ${isRootEnabled ? 'text-indigo-300 hover:bg-indigo-500/20' : 'text-slate-500 hover:bg-slate-800'} ${!collapsedRoots.has(root) && isRootEnabled ? 'bg-indigo-500/10' : ''}`}
-                                size="sm"
-                            />
+                            {/* Root Header */}
+                            <div className="flex items-center gap-3 relative z-10 mb-2">
+                                <input type="checkbox" checked={isRootEnabled} onChange={(e) => handleToggleRoot(root, e.target.checked)} className="accent-indigo-500 w-4 h-4 cursor-pointer" />
 
-                            {/* Root Name Editing */}
-                            {editingTarget?.groupIdx === -1 && editingTarget?.value === root ? (
-                                <input
-                                    autoFocus
-                                    className="bg-indigo-900/50 text-indigo-100 px-3 py-1 rounded-lg text-sm font-bold border border-indigo-500/50 outline-none shadow-lg min-w-[120px]"
-                                    defaultValue={root}
-                                    onBlur={(e) => {
-                                        const newVal = e.target.value.trim();
-                                        if (newVal && newVal !== root) {
-                                            if (currentConfig.happyGroups) {
-                                                const newHappyGroups = currentConfig.happyGroups.map(h => {
-                                                    if ((h.tags[0] || '').trim() === root) {
-                                                        return { ...h, tags: [newVal, ...h.tags.slice(1)] };
-                                                    }
-                                                    return h;
-                                                });
-                                                updateCurrentRule({ happyGroups: newHappyGroups });
-                                            } else {
-                                                const newIncludes = currentConfig.includeGroups.map(g => (g[0] || '').trim() === root ? [newVal, ...g.slice(1)] : g);
-                                                const newDisabled = (currentConfig.disabledGroups || []).map(g => (g[0] || '').trim() === root ? [newVal, ...g.slice(1)] : g);
-                                                updateCurrentRule({ includeGroups: newIncludes, disabledGroups: newDisabled });
-                                            }
-                                        }
-                                        setEditingTarget(null);
-                                    }}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
-                                            e.preventDefault();
-                                            e.currentTarget.blur();
-                                            // Focus first branch's + tag or first tag
-                                            if (items.length > 0) {
-                                                if (items[0].group.length > 1) {
-                                                    setEditingTarget({ groupIdx: items[0].originalIdx, termIdx: 1, isActive: items[0].active });
+                                <IconButton
+                                    onClick={() => onToggleRootCollapse(root)}
+                                    icon={collapsedRoots.has(root) ? <Folder size={14} /> : <FolderOpen size={14} />}
+                                    className={`rounded-lg transition-colors ${isRootEnabled ? 'text-indigo-300 hover:bg-indigo-500/20' : 'text-slate-500 hover:bg-slate-800'} ${!collapsedRoots.has(root) && isRootEnabled ? 'bg-indigo-500/10' : ''}`}
+                                    size="sm"
+                                />
+
+                                {/* Root Name Editing */}
+                                {editingTarget?.groupIdx === -1 && editingTarget?.value === root ? (
+                                    <input
+                                        autoFocus
+                                        className="bg-indigo-900/50 text-indigo-100 px-3 py-1 rounded-lg text-sm font-bold border border-indigo-500/50 outline-none shadow-lg min-w-[120px]"
+                                        defaultValue={root}
+                                        onBlur={(e) => {
+                                            const newVal = e.target.value.trim();
+                                            if (newVal && newVal !== root) {
+                                                if (currentConfig.happyGroups) {
+                                                    const newHappyGroups = currentConfig.happyGroups.map(h => {
+                                                        if ((h.tags[0] || '').trim() === root) {
+                                                            return { ...h, tags: [newVal, ...h.tags.slice(1)] };
+                                                        }
+                                                        return h;
+                                                    });
+                                                    updateCurrentRule({ happyGroups: newHappyGroups });
                                                 } else {
+                                                    const newIncludes = currentConfig.includeGroups.map(g => (g[0] || '').trim() === root ? [newVal, ...g.slice(1)] : g);
+                                                    const newDisabled = (currentConfig.disabledGroups || []).map(g => (g[0] || '').trim() === root ? [newVal, ...g.slice(1)] : g);
+                                                    updateCurrentRule({ includeGroups: newIncludes, disabledGroups: newDisabled });
+                                                }
+                                            }
+                                            setEditingTarget(null);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+                                                e.preventDefault();
+                                                e.currentTarget.blur();
+                                                // Focus first branch's + tag or first tag
+                                                if (items.length > 0) {
+                                                    if (items[0].group.length > 1) {
+                                                        setEditingTarget({ groupIdx: items[0].originalIdx, termIdx: 1, isActive: items[0].active });
+                                                    } else {
+                                                        const firstBranchPlusInput = document.querySelector(`input[data-add-tag="${rootIdx}-0"]`) as HTMLInputElement;
+                                                        firstBranchPlusInput?.focus();
+                                                    }
+                                                }
+                                            } else if (e.key === 'ArrowDown') {
+                                                e.preventDefault();
+                                                if (items.length > 0) {
                                                     const firstBranchPlusInput = document.querySelector(`input[data-add-tag="${rootIdx}-0"]`) as HTMLInputElement;
                                                     firstBranchPlusInput?.focus();
                                                 }
                                             }
-                                        } else if (e.key === 'ArrowDown') {
-                                            e.preventDefault();
-                                            if (items.length > 0) {
-                                                const firstBranchPlusInput = document.querySelector(`input[data-add-tag="${rootIdx}-0"]`) as HTMLInputElement;
-                                                firstBranchPlusInput?.focus();
-                                            }
-                                        }
-                                    }}
+                                        }}
+                                    />
+                                ) : (
+                                    <span
+                                        onClick={() => setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root } as any)}
+                                        className={`font-bold text-sm cursor-pointer hover:text-indigo-300 transition-colors px-2 py-1 rounded hover:bg-white/5 ${isRootEnabled ? 'text-indigo-100' : 'text-slate-500'}`}
+                                    >
+                                        {root}
+                                    </span>
+                                )}
+
+                                <IconButton
+                                    variant="ghost"
+                                    size="sm"
+                                    icon={<X size={14} />}
+                                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-red-400"
+                                    onClick={() => handleDeleteRoot(root)}
                                 />
-                            ) : (
-                                <span
-                                    onClick={() => setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root } as any)}
-                                    className={`font-bold text-sm cursor-pointer hover:text-indigo-300 transition-colors px-2 py-1 rounded hover:bg-white/5 ${isRootEnabled ? 'text-indigo-100' : 'text-slate-500'}`}
-                                >
-                                    {root}
-                                </span>
-                            )}
+                            </div>
 
-                            <IconButton
-                                variant="ghost"
-                                size="sm"
-                                icon={<X size={14} />}
-                                className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-red-400"
-                                onClick={() => handleDeleteRoot(root)}
-                            />
-                        </div>
+                            {/* Branches */}
+                            {!collapsedRoots.has(root) && (
+                                <div className="relative pl-7 space-y-3 mt-3">
+                                    <div className="absolute left-[11px] top-0 bottom-4 w-px bg-slate-800" />
 
-                        {/* Branches */}
-                        {!collapsedRoots.has(root) && (
-                            <div className="relative pl-7 space-y-3 mt-3">
-                                <div className="absolute left-[11px] top-0 bottom-4 w-px bg-slate-800" />
+                                    {items.map((item, itemIdx) => {
+                                        const branchTags = item.group.slice(1);
 
-                                {items.map((item, itemIdx) => {
-                                    const branchTags = item.group.slice(1);
+                                        return (
+                                            <div key={item.originalIdx} className="relative group/branch flex items-center pr-2">
+                                                {/* Branch Line */}
+                                                <div className="absolute -left-4 top-[14px] w-4 h-px bg-slate-800" />
 
-                                    return (
-                                        <div key={item.originalIdx} className="relative group/branch flex items-center pr-2">
-                                            {/* Branch Line */}
-                                            <div className="absolute -left-4 top-[14px] w-4 h-px bg-slate-800" />
+                                                <div className="flex flex-wrap items-center gap-2 flex-1">
+                                                    {branchTags.map((term, tIdx) => (
+                                                        <React.Fragment key={tIdx}>
+                                                            {tIdx > 0 && <div className="w-1 h-1 bg-slate-700 rounded-full mx-0.5" />}
+                                                            <EditableTag
+                                                                isEditing={isTagEditing(editingTarget, item.originalIdx, tIdx + 1, item.active)}
+                                                                value={term}
+                                                                isActive={item.active}
+                                                                isLast={tIdx === branchTags.length - 1}
+                                                                groupIdx={item.originalIdx}
+                                                                termIdx={tIdx + 1}
+                                                                onStartEdit={() => setEditingTarget({ groupIdx: item.originalIdx, termIdx: tIdx + 1, isActive: item.active })}
+                                                                onCommit={(newVal) => {
+                                                                    const newGroup = [...item.group];
+                                                                    if (newVal.trim()) newGroup[tIdx + 1] = newVal.trim();
+                                                                    else newGroup.splice(tIdx + 1, 1);
+                                                                    handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
+                                                                    setEditingTarget(null);
+                                                                }}
+                                                                onDelete={() => {
+                                                                    const newGroup = [...item.group];
+                                                                    newGroup.splice(tIdx + 1, 1);
+                                                                    handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
+                                                                }}
+                                                                onNavigate={(key) => handleNavigate(key, rootIdx, itemIdx, tIdx + 1, root, items.length, branchTags.length, item.originalIdx, item.active)}
+                                                            />
+                                                        </React.Fragment>
+                                                    ))}
 
-                                            <div className="flex flex-wrap items-center gap-2 flex-1">
-                                                {branchTags.map((term, tIdx) => (
-                                                    <React.Fragment key={tIdx}>
-                                                        {tIdx > 0 && <div className="w-1 h-1 bg-slate-700 rounded-full mx-0.5" />}
-                                                        <EditableTag
-                                                            isEditing={isTagEditing(editingTarget, item.originalIdx, tIdx + 1, item.active)}
-                                                            value={term}
-                                                            isActive={item.active}
-                                                            isLast={tIdx === branchTags.length - 1}
-                                                            groupIdx={item.originalIdx}
-                                                            termIdx={tIdx + 1}
-                                                            onStartEdit={() => setEditingTarget({ groupIdx: item.originalIdx, termIdx: tIdx + 1, isActive: item.active })}
-                                                            onCommit={(newVal) => {
-                                                                const newGroup = [...item.group];
-                                                                if (newVal.trim()) newGroup[tIdx + 1] = newVal.trim();
-                                                                else newGroup.splice(tIdx + 1, 1);
+                                                    {/* Add Tag Input */}
+                                                    <input
+                                                        className="bg-transparent text-[11px] text-slate-500 placeholder-slate-600 focus:text-indigo-300 focus:placeholder-indigo-500/50 focus:outline-none min-w-[60px] py-1 px-2 border border-transparent focus:border-indigo-500/30 rounded-lg transition-all hover:bg-white/5"
+                                                        placeholder="+ tag"
+                                                        data-add-tag={`${rootIdx}-${itemIdx}`}
+                                                        onBlur={(e) => { e.currentTarget.value = ''; }}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                                                const newGroup = [...item.group, e.currentTarget.value.trim()];
                                                                 handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
-                                                                setEditingTarget(null);
-                                                            }}
-                                                            onDelete={() => {
-                                                                const newGroup = [...item.group];
-                                                                newGroup.splice(tIdx + 1, 1);
-                                                                handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
-                                                            }}
-                                                            onNavigate={(key) => handleNavigate(key, rootIdx, itemIdx, tIdx + 1, root, items.length, branchTags.length, item.originalIdx, item.active)}
-                                                        />
-                                                    </React.Fragment>
-                                                ))}
-
-                                                {/* Add Tag Input */}
-                                                <input
-                                                    className="bg-transparent text-[11px] text-slate-500 placeholder-slate-600 focus:text-indigo-300 focus:placeholder-indigo-500/50 focus:outline-none min-w-[60px] py-1 px-2 border border-transparent focus:border-indigo-500/30 rounded-lg transition-all hover:bg-white/5"
-                                                    placeholder="+ tag"
-                                                    data-add-tag={`${rootIdx}-${itemIdx}`}
-                                                    onBlur={(e) => { e.currentTarget.value = ''; }}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                                                            const newGroup = [...item.group, e.currentTarget.value.trim()];
-                                                            handleUpdateGroup(item.originalIdx, newGroup, item.active, item.id);
-                                                            e.currentTarget.value = '';
-                                                        } else if (e.key === 'ArrowDown') {
-                                                            e.preventDefault();
-                                                            handleNavigate('Down', rootIdx, itemIdx, branchTags.length, root, items.length, branchTags.length, item.originalIdx, item.active);
-                                                        } else if (e.key === 'ArrowUp') {
-                                                            e.preventDefault();
-                                                            handleNavigate('Up', rootIdx, itemIdx, branchTags.length, root, items.length, branchTags.length, item.originalIdx, item.active);
-                                                        } else if (e.key === 'ArrowLeft' && e.currentTarget.selectionStart === 0) {
-                                                            e.preventDefault();
-                                                            handleNavigate('Left', rootIdx, itemIdx, 0, root, items.length, branchTags.length, item.originalIdx, item.active);
-                                                        } else if (e.key === 'Backspace' && !e.currentTarget.value) {
-                                                            e.preventDefault();
-                                                            handleNavigate('Backspace', rootIdx, itemIdx, 0, root, items.length, branchTags.length, item.originalIdx, item.active);
-                                                        } else if (e.key === 'Delete' && !e.currentTarget.value) {
-                                                            e.preventDefault();
-                                                            handleDeleteBranch(item, items.length, root, rootIdx, itemIdx);
-                                                        } else if (e.key === 'Tab') {
-                                                            if (e.shiftKey) {
+                                                                e.currentTarget.value = '';
+                                                            } else if (e.key === 'ArrowDown') {
+                                                                e.preventDefault();
+                                                                handleNavigate('Down', rootIdx, itemIdx, branchTags.length, root, items.length, branchTags.length, item.originalIdx, item.active);
+                                                            } else if (e.key === 'ArrowUp') {
+                                                                e.preventDefault();
+                                                                handleNavigate('Up', rootIdx, itemIdx, branchTags.length, root, items.length, branchTags.length, item.originalIdx, item.active);
+                                                            } else if (e.key === 'ArrowLeft' && e.currentTarget.selectionStart === 0) {
                                                                 e.preventDefault();
                                                                 handleNavigate('Left', rootIdx, itemIdx, 0, root, items.length, branchTags.length, item.originalIdx, item.active);
-                                                            } else {
-                                                                if (itemIdx < items.length - 1) {
+                                                            } else if (e.key === 'Backspace' && !e.currentTarget.value) {
+                                                                e.preventDefault();
+                                                                handleNavigate('Backspace', rootIdx, itemIdx, 0, root, items.length, branchTags.length, item.originalIdx, item.active);
+                                                            } else if (e.key === 'Delete' && !e.currentTarget.value) {
+                                                                e.preventDefault();
+                                                                handleDeleteBranch(item, items.length, root, rootIdx, itemIdx);
+                                                            } else if (e.key === 'Tab') {
+                                                                if (e.shiftKey) {
                                                                     e.preventDefault();
-                                                                    const nextBranch = items[itemIdx + 1];
-                                                                    const nextBranchTags = nextBranch.group.slice(1);
-                                                                    if (nextBranchTags.length > 0) {
-                                                                        setEditingTarget({ groupIdx: nextBranch.originalIdx, termIdx: 1, isActive: nextBranch.active });
-                                                                    } else {
-                                                                        const nextInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx + 1}"]`) as HTMLInputElement;
-                                                                        nextInput?.focus();
+                                                                    handleNavigate('Left', rootIdx, itemIdx, 0, root, items.length, branchTags.length, item.originalIdx, item.active);
+                                                                } else {
+                                                                    if (itemIdx < items.length - 1) {
+                                                                        e.preventDefault();
+                                                                        const nextBranch = items[itemIdx + 1];
+                                                                        const nextBranchTags = nextBranch.group.slice(1);
+                                                                        if (nextBranchTags.length > 0) {
+                                                                            setEditingTarget({ groupIdx: nextBranch.originalIdx, termIdx: 1, isActive: nextBranch.active });
+                                                                        } else {
+                                                                            const nextInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx + 1}"]`) as HTMLInputElement;
+                                                                            nextInput?.focus();
+                                                                        }
                                                                     }
                                                                 }
                                                             }
-                                                        }
-                                                    }}
+                                                        }}
+                                                    />
+                                                </div>
+
+                                                {/* ✅ Perf Mode UI */}
+                                                {isPerfMode && (
+                                                    <div className="flex items-center gap-2 ml-3 animate-in fade-in slide-in-from-right-4 duration-300">
+                                                        <div className="h-4 w-px bg-slate-700/50" />
+
+                                                        {/* Alias Input */}
+                                                        <div className="relative group/alias">
+                                                            <input
+                                                                className={`text-[10px] bg-slate-900/50 border border-slate-700 rounded px-2 py-1 w-24 text-slate-300 placeholder-slate-600 focus:border-amber-500/50 focus:outline-none transition-all ${item.alias ? 'text-amber-300 border-amber-500/30 bg-amber-500/5' : ''}`}
+                                                                placeholder="Alias"
+                                                                value={item.alias || ''}
+                                                                onFocus={() => setFocusedAliasId(item.id || item.originalIdx.toString())}
+                                                                onBlur={() => setTimeout(() => setFocusedAliasId(null), 200)}
+                                                                onChange={(e) => handleUpdateGroup(item.originalIdx, item.group, item.active, item.id, e.target.value)}
+                                                                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                                            />
+                                                            {item.alias && (
+                                                                <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-amber-500 rounded-full flex items-center justify-center shadow-lg shadow-amber-900/50">
+                                                                    <Activity size={8} className="text-black" />
+                                                                </div>
+                                                            )}
+
+                                                            {/* Alias Suggestions */}
+                                                            {focusedAliasId === (item.id || item.originalIdx.toString()) && allAliases.length > 0 && (
+                                                                <div className="absolute top-full left-0 mt-1 w-40 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                                                    <div className="px-2 py-1 text-[8px] uppercase text-slate-500 font-bold border-b border-slate-800 mb-1">Suggestions</div>
+                                                                    <div className="max-h-32 overflow-y-auto custom-scrollbar">
+                                                                        {allAliases
+                                                                            .filter(a => !item.alias || a.toLowerCase().includes(item.alias.toLowerCase()))
+                                                                            .map((a, i) => (
+                                                                                <div
+                                                                                    key={i}
+                                                                                    className="px-2 py-1.5 text-[10px] text-slate-300 hover:bg-amber-500/10 hover:text-amber-400 cursor-pointer transition-colors flex items-center gap-2"
+                                                                                    onClick={() => handleUpdateGroup(item.originalIdx, item.group, item.active, item.id, a)}
+                                                                                >
+                                                                                    <Activity size={10} className="text-amber-500/50" />
+                                                                                    {a}
+                                                                                </div>
+                                                                            ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Removed Role Badges as per request */}
+
+
+                                                <IconButton
+                                                    variant="ghost"
+                                                    size="xs"
+                                                    icon={<X size={12} />}
+                                                    className="ml-2 opacity-0 group-hover/branch:opacity-100 transition-opacity text-slate-600 hover:text-red-400"
+                                                    onClick={() => handleDeleteBranch(item, items.length, root, rootIdx, itemIdx)}
                                                 />
                                             </div>
+                                        );
+                                    })}
 
-                                            {/* ✅ Perf Mode UI */}
-                                            {isPerfMode && (
-                                                <div className="flex items-center gap-2 ml-3 animate-in fade-in slide-in-from-right-4 duration-300">
-                                                    <div className="h-4 w-px bg-slate-700/50" />
-
-                                                    {/* Alias Input */}
-                                                    <div className="relative group/alias">
-                                                        <input
-                                                            className={`text-[10px] bg-slate-900/50 border border-slate-700 rounded px-2 py-1 w-24 text-slate-300 placeholder-slate-600 focus:border-amber-500/50 focus:outline-none transition-all ${item.alias ? 'text-amber-300 border-amber-500/30 bg-amber-500/5' : ''}`}
-                                                            placeholder="Alias"
-                                                            value={item.alias || ''}
-                                                            onFocus={() => setFocusedAliasId(item.id || item.originalIdx.toString())}
-                                                            onBlur={() => setTimeout(() => setFocusedAliasId(null), 200)}
-                                                            onChange={(e) => handleUpdateGroup(item.originalIdx, item.group, item.active, item.id, e.target.value)}
-                                                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                                                        />
-                                                        {item.alias && (
-                                                            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-amber-500 rounded-full flex items-center justify-center shadow-lg shadow-amber-900/50">
-                                                                <Activity size={8} className="text-black" />
-                                                            </div>
-                                                        )}
-
-                                                        {/* Alias Suggestions */}
-                                                        {focusedAliasId === (item.id || item.originalIdx.toString()) && allAliases.length > 0 && (
-                                                            <div className="absolute top-full left-0 mt-1 w-40 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                                                <div className="px-2 py-1 text-[8px] uppercase text-slate-500 font-bold border-b border-slate-800 mb-1">Suggestions</div>
-                                                                <div className="max-h-32 overflow-y-auto custom-scrollbar">
-                                                                    {allAliases
-                                                                        .filter(a => !item.alias || a.toLowerCase().includes(item.alias.toLowerCase()))
-                                                                        .map((a, i) => (
-                                                                            <div
-                                                                                key={i}
-                                                                                className="px-2 py-1.5 text-[10px] text-slate-300 hover:bg-amber-500/10 hover:text-amber-400 cursor-pointer transition-colors flex items-center gap-2"
-                                                                                onClick={() => handleUpdateGroup(item.originalIdx, item.group, item.active, item.id, a)}
-                                                                            >
-                                                                                <Activity size={10} className="text-amber-500/50" />
-                                                                                {a}
-                                                                            </div>
-                                                                        ))}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Removed Role Badges as per request */}
-
-
-                                            <IconButton
-                                                variant="ghost"
-                                                size="xs"
-                                                icon={<X size={12} />}
-                                                className="ml-2 opacity-0 group-hover/branch:opacity-100 transition-opacity text-slate-600 hover:text-red-400"
-                                                onClick={() => handleDeleteBranch(item, items.length, root, rootIdx, itemIdx)}
-                                            />
-                                        </div>
-                                    );
-                                })}
-
-                                <div className="relative pl-4 pt-1">
-                                    <div className="absolute left-[11px] top-4 w-4 h-px bg-slate-800" />
-                                    <button
-                                        onClick={() => handleCreateBranch(rootIdx, root, items.length)}
-                                        className="text-[10px] font-bold text-indigo-400/70 hover:text-indigo-300 flex items-center gap-1 py-1 px-2 rounded hover:bg-indigo-500/10 transition-colors uppercase tracking-wider"
-                                    >
-                                        <Plus size={10} /> Add Branch
-                                    </button>
+                                    <div className="relative pl-4 pt-1">
+                                        <div className="absolute left-[11px] top-4 w-4 h-px bg-slate-800" />
+                                        <button
+                                            onClick={() => handleCreateBranch(rootIdx, root, items.length)}
+                                            className="text-[10px] font-bold text-indigo-400/70 hover:text-indigo-300 flex items-center gap-1 py-1 px-2 rounded hover:bg-indigo-500/10 transition-colors uppercase tracking-wider"
+                                        >
+                                            <Plus size={10} /> Add Branch
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                ))}
+                            )}
+                        </div>
+                    );
+                })}
             </div>
 
             <Button
