@@ -136,13 +136,11 @@ ctx.onmessage = (evt) => {
 
                 if (mode === 'raw_extract') {
                     if (currentLineIndex >= searchStart && currentLineIndex <= searchEnd) {
-                        if (extractedLines.length < 2000) { // Safety limit to prevent UI freeze
-                            // Cap extremely long lines which can freeze browser layout
-                            const safeContent = lineContent.length > 2000
-                                ? lineContent.substring(0, 2000) + "... [line truncated for performance]"
-                                : lineContent;
-                            extractedLines.push({ index: currentLineIndex, content: safeContent });
-                        }
+                        // Cap extremely long lines which can freeze browser layout, but let's be generous
+                        const safeContent = lineContent.length > 5000
+                            ? lineContent.substring(0, 5000) + "... [line truncated for performance]"
+                            : lineContent;
+                        extractedLines.push({ index: currentLineIndex, content: safeContent });
                     }
                     if (currentLineIndex >= searchEnd) {
                         // We have everything we need, send it now!

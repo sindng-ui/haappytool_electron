@@ -1,10 +1,9 @@
-# Task: Pass Rate Calculation Fix
+# Task: 원본 보기 가상화 및 제한 해제
 
-성능 분석 대시보드에서 합격률(Pass Rate)이 실제 실패 건수가 있음에도 불구하고 100%로 표시되는 버그를 수정합니다.
+원본 보기(Raw Log View)에서 로그 줄 수 제한을 없애고 가상화를 통해 성능을 최적화합니다.
 
 ## 세부 작업 내용
-- [x] `utils/perfAnalysis.ts`: 임계값 비교 연산자 일관성 확보 (`>` -> `>=`)
-- [x] `workers/LogProcessor.worker.ts`: 분석 결과의 pass/fail 카운트 계산 로직 보강
-- [x] `workers/PerfTool.worker.ts`: 분석 결과의 pass/fail 카운트 계산 로직 보강
-- [x] `components/LogViewer/PerfDashboard.tsx`: 대시보드 UI의 합격률 계산식 안정화
-- [x] 수정 후 성능 및 사이드 이펙트 체크
+- [x] `workers/PerfTool.worker.ts`: 2,000줄 추출 제한 제거 및 개별 줄 길이 제한 상향 (5,000자)
+- [x] `components/PerfTool/index.tsx`: `PerfRawViewer`에 `react-virtuoso` 가상화 적용
+- [x] `components/PerfTool/index.tsx`: 초기 스크롤 로직을 가상화 기반으로 변경
+- [x] UI 스타일링 개선 (강조 표시 및 줄 번호 가독성)

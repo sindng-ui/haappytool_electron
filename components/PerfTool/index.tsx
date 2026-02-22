@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import * as Lucide from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -667,7 +668,6 @@ interface PerfRawViewerProps {
 const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHandle, startLine, endLine, startOffset = 0, startLineNum = 0, getWorker }) => {
     const [lines, setLines] = useState<{ index: number, content: string }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const targetRef = React.useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -698,10 +698,7 @@ const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHand
                 setLines(payload.lines);
                 setIsLoading(false);
 
-                // Wait for render, then scroll
-                setTimeout(() => {
-                    targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 100);
+
             } else if (type === 'ERROR') {
                 setIsLoading(false);
                 console.error("Worker Error:", payload.error);
@@ -776,29 +773,33 @@ const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHand
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-auto custom-scrollbar p-4 bg-slate-950/50 font-mono text-[11px] leading-relaxed">
+                <div className="flex-1 overflow-hidden bg-slate-950/50 font-mono text-[11px] leading-relaxed">
                     {isLoading ? (
                         <div className="h-full flex flex-col items-center justify-center text-slate-500 gap-3">
                             <Loader2 size={24} className="animate-spin text-indigo-500" />
                             <span className="text-[10px] font-bold uppercase tracking-widest">Loading Logs...</span>
                         </div>
                     ) : (
-                        <div className="space-y-0.5" style={{ contentVisibility: 'auto' }}>
-                            {lines.map(l => {
-                                const isTargetStart = l.index === startLine;
+                        <Virtuoso
+                            style={{ height: '100%' }}
+                            className="custom-scrollbar"
+                            data={lines}
+                            initialTopMostItemIndex={{
+                                index: Math.max(0, lines.findIndex(l => l.index === startLine)),
+                                align: 'center'
+                            }}
+                            itemContent={(index, l) => {
                                 const isTarget = l.index >= startLine && l.index <= endLine;
                                 return (
                                     <div
-                                        key={l.index}
-                                        ref={isTargetStart ? targetRef : null}
-                                        className={`flex gap-4 px-2 py-0.5 rounded transition-colors ${isTarget ? 'bg-indigo-500/20 border-l-2 border-indigo-500' : 'opacity-40 hover:opacity-100'}`}
+                                        className={`flex gap-4 px-6 py-0.5 transition-colors ${isTarget ? 'bg-indigo-500/20 border-l-4 border-indigo-500' : 'opacity-40 hover:opacity-100'}`}
                                     >
-                                        <span className="w-12 shrink-0 text-slate-400 text-right select-none">{l.index}</span>
-                                        <span className={`whitespace-pre-wrap ${isTarget ? 'text-indigo-100' : 'text-slate-400'}`}>{l.content}</span>
+                                        <span className="w-14 shrink-0 text-slate-500 text-right select-none">{l.index}</span>
+                                        <span className={`whitespace-pre-wrap ${isTarget ? 'text-indigo-100' : 'text-slate-400 font-medium'}`}>{l.content}</span>
                                     </div>
                                 );
-                            })}
-                        </div>
+                            }}
+                        />
                     )}
                 </div>
             </motion.div>
