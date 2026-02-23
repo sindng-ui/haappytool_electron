@@ -143,6 +143,15 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
     const minimapRectCacheRef = useRef<DOMRect | null>(null);
     const viewportCacheRef = useRef<{ left: string, width: string } | null>(null);
 
+    // Dirty flag: controls whether rAF loop should redraw. Set to true when any visual state changes.
+    const isDirtyRef = useRef(true);
+    // Sync isActive to a ref so rAF closure can read it without stale closure
+    const isActiveRef = useRef(isActive);
+    useEffect(() => {
+        isActiveRef.current = isActive;
+        if (isActive) isDirtyRef.current = true; // redraw when becoming active
+    }, [isActive]);
+
     // Trim Range (Shift+Drag -> Trim)
     const [trimRange, setTrimRange] = useState<{ startTime: number; endTime: number } | null>(null);
 
@@ -549,10 +558,16 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         if (!ctx) return;
 
         const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
+        const rect = rectCacheRef.current ?? canvas.getBoundingClientRect();
+        rectCacheRef.current = rect;
+
+        const targetW = Math.round(rect.width * dpr);
+        const targetH = Math.round(rect.height * dpr);
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+            canvas.width = targetW;
+            canvas.height = targetH;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         const viewStart = flameZoom?.startTime ?? result.startTime;
         const viewEnd = flameZoom?.endTime ?? result.endTime;
@@ -669,16 +684,22 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         if (!ctx) return;
 
         const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
+        const rect = minimapRectCacheRef.current ?? canvas.getBoundingClientRect();
+        minimapRectCacheRef.current = rect;
+        const width = rect.width;
+        const height = rect.height;
+
+        const targetW = Math.round(rect.width * dpr);
+        const targetH = Math.round(rect.height * dpr);
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+            canvas.width = targetW;
+            canvas.height = targetH;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         ctx.clearRect(0, 0, rect.width, rect.height);
 
         const totalDuration = Math.max(1, result.endTime - result.startTime);
-        const width = rect.width;
-        const height = rect.height;
 
         const miniPixelGrid = new Map<string, { x: number, yOffset: number, w: number, laneH: number, color: string, alpha: number }>();
 
@@ -727,42 +748,56 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
     };
 
     useEffect(() => {
-        if (!isActive) return;
-
         const canvas = canvasRef.current;
         const minimapCanvas = minimapCanvasRef.current;
         if (!canvas || !minimapCanvas) return;
 
-        const observer = new ResizeObserver((entries) => {
-            if (!isActive) return;
-            // Flush cache
+        const observer = new ResizeObserver(() => {
+            // Flush size caches so next draw picks up new dimensions
             rectCacheRef.current = null;
             minimapRectCacheRef.current = null;
+            isDirtyRef.current = true;
             setIsInitialDrawComplete(false);
         });
 
         observer.observe(canvas);
         observer.observe(minimapCanvas);
-
         return () => observer.disconnect();
-    }, [isOpen, isActive]);
+    }, [isOpen]);
 
+    // Mark dirty whenever any visible state changes (instead of recreating rAF loop)
+    useEffect(() => { isDirtyRef.current = true; }, [
+        result, flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId,
+        searchQuery, viewMode, showOnlyFail, maxLane, trimRange, activeTags, mousePos
+    ]);
+
+    // Single persistent rAF loop - ONLY draws when dirty, STOPS completely when inactive
     useEffect(() => {
         let frameId: number;
+        let running = true;
+
         const render = () => {
-            if (isActive && result && viewMode === 'chart') {
+            if (!running) return; // Stop completely when effect cleanup runs
+
+            if (isActiveRef.current && isDirtyRef.current && result && viewMode === 'chart') {
                 drawFlameChart();
                 drawMinimap();
+                isDirtyRef.current = false;
                 if (!isInitialDrawComplete) {
                     setIsInitialDrawComplete(true);
                 }
             }
+
             frameId = requestAnimationFrame(render);
         };
 
         frameId = requestAnimationFrame(render);
-        return () => cancelAnimationFrame(frameId);
-    }, [result, flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId, searchQuery, viewMode, isActive, showOnlyFail, maxLane, isInitialDrawComplete, trimRange, activeTags, mousePos]);
+        return () => {
+            running = false;
+            cancelAnimationFrame(frameId);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [result, viewMode, isInitialDrawComplete]); // Minimal deps: loop re-creates only when data/mode changes
 
     const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (isShiftPressed || !result) return;
