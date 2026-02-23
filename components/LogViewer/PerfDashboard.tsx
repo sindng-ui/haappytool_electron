@@ -122,9 +122,25 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
     activeTags = EMPTY_TAGS,
     paneId
 }) => {
+    // flameZoom STATE is only used for JSX rendering (viewport overlay, time ticks)
+    // zoomRef is the PRIMARY source of truth - updated instantly from events with NO re-render
     const [flameZoom, setFlameZoom] = useState<{ startTime: number; endTime: number } | null>(null);
     const zoomRef = useRef<{ startTime: number; endTime: number } | null>(null);
-    useEffect(() => { zoomRef.current = flameZoom; }, [flameZoom]);
+    // Throttle: schedule a single setFlameZoom per rAF frame (ensures JSX reflects zoom without spamming re-renders)
+    const zoomFlushPendingRef = useRef(false);
+    const scheduleZoomFlush = () => {
+        if (zoomFlushPendingRef.current) return;
+        zoomFlushPendingRef.current = true;
+        requestAnimationFrame(() => {
+            setFlameZoom(zoomRef.current ? { ...zoomRef.current } : null);
+            zoomFlushPendingRef.current = false;
+        });
+    };
+    const applyZoom = (newZoom: { startTime: number; endTime: number } | null) => {
+        zoomRef.current = newZoom;    // Instant update → draws on next rAF without re-render
+        isDirtyRef.current = true;    // Mark canvas as needing redraw
+        scheduleZoomFlush();          // Schedule JSX update (throttled to ~60fps)
+    };
 
     const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'chart' | 'list'>('chart');
@@ -312,7 +328,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                 if (newStart < result.startTime) newStart = result.startTime;
                 if (newEnd > result.endTime) newEnd = result.endTime;
 
-                setFlameZoom({ startTime: newStart, endTime: newEnd });
+                applyZoom({ startTime: newStart, endTime: newEnd });
             }
             // Pan (Horizontal Scroll or Shift+Wheel) - ONLY when over the dashboard
             else if (!!dashboard && (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey)) {
@@ -337,7 +353,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                     newStart = newEnd - duration;
                 }
 
-                setFlameZoom({ startTime: newStart, endTime: newEnd });
+                applyZoom({ startTime: newStart, endTime: newEnd });
             }
         };
 
@@ -475,9 +491,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
 
         // StartTime ASC, Duration DESC
         let baseSegments = [...result.segments];
-        if (showOnlyFail) {
-            baseSegments = baseSegments.filter(s => s.duration >= (result.perfThreshold || 1000));
-        }
+        // Note: showOnlyFail does NOT filter here — it affects opacity in drawFlameChart.
+        // Removing segments from flameSegments would drop lanes causing layout collapse.
         // Tag filter: show only segments whose logs contain at least one active tag
         if (activeTags.length > 0) {
             baseSegments = baseSegments.filter(s =>
@@ -551,15 +566,21 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
     }, [result, selectedSegmentId]);
 
     // Canvas Drawing Logic
-    const drawFlameChart = () => {
+    const drawFlameChart = (): boolean => {
         const canvas = canvasRef.current;
-        if (!canvas || !result) return;
+        if (!canvas || !result) return false;
         const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        if (!ctx) return false;
 
         const dpr = window.devicePixelRatio || 1;
         const rect = rectCacheRef.current ?? canvas.getBoundingClientRect();
-        rectCacheRef.current = rect;
+        if (rect.width > 0 && rect.height > 0) {
+            rectCacheRef.current = rect;
+        } else {
+            // 캔버스가 아직 그려지지 않았거나 크기가 0이면 다음 프레임에 다시 크기를 구하도록 합니다.
+            requestAnimationFrame(() => { isDirtyRef.current = true; });
+            return false;
+        }
 
         const targetW = Math.round(rect.width * dpr);
         const targetH = Math.round(rect.height * dpr);
@@ -569,8 +590,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         }
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        const viewStart = flameZoom?.startTime ?? result.startTime;
-        const viewEnd = flameZoom?.endTime ?? result.endTime;
+        const viewStart = zoomRef.current?.startTime ?? result.startTime;
+        const viewEnd = zoomRef.current?.endTime ?? result.endTime;
         const viewDuration = Math.max(1, viewEnd - viewStart);
         const width = rect.width;
 
@@ -602,8 +623,11 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                 const isSearchHit = !!searchQuery && isMatch;
                 const isTidFocused = selectedTid !== null && s.tid === selectedTid;
 
+                const isFail = s.duration >= (result.perfThreshold || 1000);
                 let baseOpacity = (isSelected || isSearchHit || isHovered) ? 1 : (isGlobal ? 0.35 : 0.9);
                 if (selectedTid !== null && !isTidFocused) baseOpacity *= 0.3;
+                // Fail Only mode: dim non-fail segments
+                if (showOnlyFail && !isFail) baseOpacity = Math.min(baseOpacity, 0.12);
                 const finalOpacity = isMatch ? baseOpacity : 0.1;
 
                 const baseColor = (isSelected || isSearchHit) ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
@@ -677,15 +701,19 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         ctx.setLineDash([]);
     };
 
-    const drawMinimap = () => {
+    const drawMinimap = (): boolean => {
         const canvas = minimapCanvasRef.current;
-        if (!canvas || !result) return;
+        if (!canvas || !result) return false;
         const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        if (!ctx) return false;
 
         const dpr = window.devicePixelRatio || 1;
         const rect = minimapRectCacheRef.current ?? canvas.getBoundingClientRect();
-        minimapRectCacheRef.current = rect;
+        if (rect.width > 0 && rect.height > 0) {
+            minimapRectCacheRef.current = rect;
+        } else {
+            return false;
+        }
         const width = rect.width;
         const height = rect.height;
 
@@ -745,6 +773,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         });
 
         ctx.globalAlpha = 1;
+        return true;
     };
 
     useEffect(() => {
@@ -763,13 +792,48 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         observer.observe(canvas);
         observer.observe(minimapCanvas);
         return () => observer.disconnect();
-    }, [isOpen]);
+    }, [isOpen, viewMode, result, flameSegments.length]);
 
     // Mark dirty whenever any visible state changes (instead of recreating rAF loop)
     useEffect(() => { isDirtyRef.current = true; }, [
-        result, flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId,
-        searchQuery, viewMode, showOnlyFail, maxLane, trimRange, activeTags, mousePos
+        flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId,
+        searchQuery, viewMode, mousePos, isScanningStatus
     ]);
+
+    // result 변경 시 size cache 완전 초기화 + dirty 설정 (초기 로드 타이밍 보장)
+    useEffect(() => {
+        if (!result) return;
+        rectCacheRef.current = null;
+        minimapRectCacheRef.current = null;
+        isDirtyRef.current = true;
+    }, [result]);
+
+    // isOpen 변경 시에도 dirty 설정 (패널 열릴 때 즉시 그리기)
+    useEffect(() => {
+        if (isOpen) {
+            rectCacheRef.current = null;
+            minimapRectCacheRef.current = null;
+            isDirtyRef.current = true;
+        }
+    }, [isOpen]);
+
+    // When layout-affecting filters change (Fail Only, tags, trim), flush size caches too.
+    // This avoids a timing bug where rAF draws with stale canvas dimensions before ResizeObserver fires.
+    useEffect(() => {
+        rectCacheRef.current = null;
+        minimapRectCacheRef.current = null;
+        isDirtyRef.current = true;
+    }, [showOnlyFail, maxLane, trimRange, activeTags]);
+
+    // resultRef: lets rAF loop check result existence without stale closure
+    const resultRef = useRef(result);
+    useEffect(() => { resultRef.current = result; }, [result]);
+
+    // drawRef pattern: always calls latest closure even though rAF loop is created only once
+    const drawFlameChartRef = useRef<() => boolean>(() => true);
+    const drawMinimapRef = useRef<() => boolean>(() => true);
+    drawFlameChartRef.current = drawFlameChart;
+    drawMinimapRef.current = drawMinimap;
 
     // Single persistent rAF loop - ONLY draws when dirty, STOPS completely when inactive
     useEffect(() => {
@@ -777,13 +841,13 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         let running = true;
 
         const render = () => {
-            if (!running) return; // Stop completely when effect cleanup runs
+            if (!running) return;
 
-            if (isActiveRef.current && isDirtyRef.current && result && viewMode === 'chart') {
-                drawFlameChart();
-                drawMinimap();
-                isDirtyRef.current = false;
-                if (!isInitialDrawComplete) {
+            if (isActiveRef.current && isDirtyRef.current && resultRef.current) {
+                const flameSuccess = drawFlameChartRef.current();
+                const miniSuccess = drawMinimapRef.current();
+                if (flameSuccess !== false && miniSuccess !== false) {
+                    isDirtyRef.current = false;
                     setIsInitialDrawComplete(true);
                 }
             }
@@ -796,8 +860,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
             running = false;
             cancelAnimationFrame(frameId);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [result, viewMode, isInitialDrawComplete]); // Minimal deps: loop re-creates only when data/mode changes
+    }, []); // Single loop - drawRef ensures latest closure is always called
 
     const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (isShiftPressed || !result) return;
@@ -807,8 +870,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        const viewStart = flameZoom?.startTime ?? result.startTime;
-        const viewEnd = flameZoom?.endTime ?? result.endTime;
+        const viewStart = zoomRef.current?.startTime ?? result.startTime;
+        const viewEnd = zoomRef.current?.endTime ?? result.endTime;
         const viewDuration = Math.max(1, viewEnd - viewStart);
         const width = rect.width;
 
@@ -823,7 +886,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
             const y = s.lane * 28 + 24;
             const h = 20;
 
-            if (mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h) {
+            if (mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + 20) {
                 if (s.tid === 'Global') {
                     globalFallback = s;
                 } else {
@@ -869,9 +932,62 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         }
     };
 
+    // ── Drag-to-pan on flame chart (left-click drag) ──────────────────────
+    const panStartRef = useRef<{ clientX: number; viewStart: number; viewEnd: number } | null>(null);
 
+    const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (e.button !== 0 || isShiftPressed || !result) return;
+        // Only start pan if user is NOT clicking on a segment (let click-select handle that)
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const viewStart = zoomRef.current?.startTime ?? result.startTime;
+        const viewEnd = zoomRef.current?.endTime ?? result.endTime;
+        const viewDuration = Math.max(1, viewEnd - viewStart);
+        const width = rect.width;
+        // Check if we clicked on a segment - if so, let click handler deal with it, don't pan
+        let onSegment = false;
+        for (let i = flameSegments.length - 1; i >= 0; i--) {
+            const s = flameSegments[i];
+            const x = ((s.startTime - viewStart) / viewDuration) * width;
+            const w = Math.max(s.duration === 0 ? 3 : 0.5, (s.duration / viewDuration) * width);
+            const y = s.lane * 28 + 24;
+            if (mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + 20) {
+                onSegment = true;
+                break;
+            }
+        }
+        if (!onSegment) {
+            panStartRef.current = { clientX: e.clientX, viewStart, viewEnd };
+            e.currentTarget.style.cursor = 'grabbing';
+        }
+    };
 
-    if (!isOpen) return null;
+    const handleCanvasPanMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (!panStartRef.current || !result) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const dx = e.clientX - panStartRef.current.clientX;
+        const { viewStart, viewEnd } = panStartRef.current;
+        const dur = viewEnd - viewStart;
+        const panAmount = -(dx / rect.width) * dur;
+        let newStart = viewStart + panAmount;
+        let newEnd = viewEnd + panAmount;
+        if (newStart < result.startTime) { newStart = result.startTime; newEnd = newStart + dur; }
+        if (newEnd > result.endTime) { newEnd = result.endTime; newStart = newEnd - dur; }
+        applyZoom({ startTime: newStart, endTime: newEnd });
+    };
+
+    const handleCanvasMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (panStartRef.current) {
+            panStartRef.current = null;
+            e.currentTarget.style.cursor = '';
+        }
+    };
+
 
     return (
         <div
@@ -993,8 +1109,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1">
-                    {/* Premium Compact Navigator (Small Mode) */}
-                    {result && (
+                    {/* Compact controls in header - visible only in non-fullscreen (Log Extractor mode) */}
+                    {!isFullScreen && result && (
                         <div className="flex items-center gap-1.5 bg-slate-950/40 backdrop-blur-2xl rounded-xl p-1 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                             {/* All Fails & Fail Only */}
                             <div className="flex items-center gap-0.5">
@@ -1011,93 +1127,64 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                             setMultiSelectedIds(failIds);
                                         }
                                     }}
-                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase transition-all duration-300 border ${multiSelectedIds.length > 0
-                                        ? 'bg-rose-500 text-white border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.3)]'
-                                        : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10 hover:text-slate-300'}`}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase transition-all duration-300 border ${multiSelectedIds.length > 0 ? 'bg-rose-500 text-white border-rose-400' : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10 hover:text-slate-300'}`}
                                     title="All Fails"
                                 >
                                     <Lucide.AlertCircle size={10} className={multiSelectedIds.length > 0 ? 'animate-pulse' : ''} />
-                                    <span className="hidden leading-none">ALL</span>
+                                    <span className="text-[8px] leading-none">ALL</span>
                                 </button>
                                 <button
                                     onClick={() => setShowOnlyFail(!showOnlyFail)}
-                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase transition-all duration-300 border ${showOnlyFail
-                                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                                        : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10 hover:text-slate-300'}`}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase transition-all duration-300 border ${showOnlyFail ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10 hover:text-slate-300'}`}
                                     title="Fail Only"
                                 >
                                     <Lucide.Filter size={10} />
+                                    <span className="text-[8px] leading-none">FAIL</span>
                                 </button>
                             </div>
-
                             {bottlenecks.length > 0 && (
                                 <>
                                     <div className="w-px h-4 bg-white/10 mx-0.5" />
                                     <div className="flex items-center gap-0.5 bg-black/30 rounded-lg px-1.5 py-0.5 border border-white/5">
-                                        <button
-                                            onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
-                                            className="p-0.5 hover:text-indigo-400 text-slate-500 transition-all hover:scale-110 active:scale-90"
-                                        >
+                                        <button onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)} className="p-0.5 hover:text-indigo-400 text-slate-500 transition-all">
                                             <Lucide.ChevronLeft size={12} />
                                         </button>
                                         <span className="text-[9px] text-white font-mono font-black min-w-[24px] text-center">
                                             {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'}
                                         </span>
-                                        <button
-                                            onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
-                                            className="p-0.5 hover:text-indigo-400 text-slate-500 transition-all hover:scale-110 active:scale-90"
-                                        >
+                                        <button onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)} className="p-0.5 hover:text-indigo-400 text-slate-500 transition-all">
                                             <Lucide.ChevronRight size={12} />
                                         </button>
                                     </div>
                                 </>
                             )}
+                            <div className="w-px h-4 bg-white/10 mx-0.5" />
+                            <div className="flex items-center bg-black/20 rounded-lg border border-white/10 px-2 py-1 focus-within:border-indigo-500/50 transition-colors">
+                                <Lucide.Search size={10} className="text-slate-500 mr-1.5" />
+                                <input
+                                    ref={searchRef}
+                                    type="text"
+                                    placeholder="Search..."
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value)}
+                                    className="bg-transparent text-[9px] text-white w-20 focus:outline-none placeholder:text-slate-600 font-mono"
+                                />
+                            </div>
+                            <div className="w-px h-4 bg-white/10 mx-0.5" />
+                            <div className="flex p-0.5 bg-slate-950 rounded-lg border border-white/5 gap-0.5">
+                                <button onClick={() => setViewMode('chart')} className={`p-1.5 rounded-md transition-all ${viewMode === 'chart' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-400'}`} title="Chart View">
+                                    <Lucide.Activity size={12} />
+                                </button>
+                                <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-400'}`} title="Bottlenecks List">
+                                    <Lucide.AlignLeft size={12} />
+                                </button>
+                                <div className="w-px h-3 bg-white/10 mx-0.5" />
+                                <button onClick={handleExportImage} className="p-1.5 rounded-md transition-all text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10" title="Export as Image">
+                                    <Lucide.Camera size={12} />
+                                </button>
+                            </div>
                         </div>
                     )}
-
-                    {/* Search Input - NOW BETWEEN NAVIGATOR AND TOGGLES */}
-                    {result && (
-                        <div className="flex items-center bg-black/20 rounded-lg border border-white/10 px-2 py-1 mx-1 focus-within:border-indigo-500/50 focus-within:bg-black/40 transition-colors">
-                            <Lucide.Search size={10} className="text-slate-500 mr-1.5" />
-                            <input
-                                ref={searchRef}
-                                type="text"
-                                placeholder="Search..."
-                                value={searchInput}
-                                onChange={(e) => setSearchInput(e.target.value)}
-                                className="bg-transparent text-[9px] text-white w-20 focus:outline-none placeholder:text-slate-600 font-mono"
-                            />
-                        </div>
-                    )}
-
-                    {/* View Toggles (Moved from Sidebar) */}
-                    {result && (
-                        <div className="flex p-0.5 bg-slate-950 rounded-lg border border-white/5 gap-0.5 mr-2">
-                            <button
-                                onClick={() => setViewMode('chart')}
-                                className={`p-1.5 rounded-md transition-all ${viewMode === 'chart' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-400'}`}
-                                title="Chart View"
-                            >
-                                <Lucide.Activity size={12} />
-                            </button>
-                            <button
-                                onClick={() => setViewMode('list')}
-                                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-400'}`}
-                                title="Bottlenecks List"
-                            >
-                                <Lucide.AlignLeft size={12} />
-                            </button>
-                            <div className="w-px h-3 bg-white/10 mx-0.5" />
-                            <button
-                                onClick={handleExportImage}
-                                className="p-1.5 rounded-md transition-all text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10"
-                                title="Export as Image"
-                            >
-                                <Lucide.Camera size={12} />
-                            </button>
-                        </div>
-                    )}
-
                     <button
                         onClick={() => setMinimized(!minimized)}
                         className="p-1.5 hover:bg-white/10 rounded-md text-slate-400 transition-colors"
@@ -1397,7 +1484,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setFlameZoom(null);
+                                        applyZoom(null);
                                     }}
                                     className="absolute bottom-16 right-8 z-[60] px-3.5 py-1.5 bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold text-indigo-400 hover:text-white hover:bg-indigo-600 shadow-2xl transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
                                     title="Reset View"
@@ -1456,8 +1543,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                         const containerWidth = e.currentTarget.clientWidth; // Keep for pan ratio if needed, but chartWidth is better
                                         const rect = e.currentTarget.getBoundingClientRect(); // Keep for legacy if needed, but chartRect is core now
 
-                                        const viewStart = flameZoom?.startTime ?? result.startTime;
-                                        const viewEnd = flameZoom?.endTime ?? result.endTime;
+                                        const viewStart = zoomRef.current?.startTime ?? result.startTime;
+                                        const viewEnd = zoomRef.current?.endTime ?? result.endTime;
                                         const viewDuration = Math.max(1, viewEnd - viewStart);
 
                                         if (e.shiftKey) {
@@ -1556,7 +1643,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                     <div
                                         className="flex min-w-full"
                                         style={{
-                                            height: `${(maxLane + 1) * 28 + 24}px`
+                                            height: `${Math.max(200, (maxLane + 1) * 28 + 24)}px`
                                         }}
                                     >
                                         {/* TID Sidebar (Sticky Left) */}
@@ -1662,11 +1749,19 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                             <canvas
                                                 ref={canvasRef}
                                                 className="absolute inset-0 w-full h-full"
-                                                onMouseMove={handleCanvasMouseMove}
-                                                onMouseLeave={handleCanvasMouseLeave}
+                                                onMouseDown={handleCanvasMouseDown}
+                                                onMouseMove={(e) => {
+                                                    handleCanvasPanMove(e);  // pan if dragging
+                                                    handleCanvasMouseMove(e); // hover detection
+                                                }}
+                                                onMouseUp={handleCanvasMouseUp}
+                                                onMouseLeave={(e) => {
+                                                    handleCanvasMouseLeave();
+                                                    handleCanvasMouseUp(e);  // cancel pan if mouse leaves
+                                                }}
                                                 onClick={handleCanvasClick}
                                                 onDoubleClick={handleCanvasDoubleClick}
-                                                style={{ pointerEvents: isShiftPressed ? 'none' : 'auto' }}
+                                                style={{ pointerEvents: isShiftPressed ? 'none' : 'auto', cursor: panStartRef.current ? 'grabbing' : 'default' }}
                                             />
                                         </div>
                                     </div>
@@ -1747,7 +1842,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                                         newStart = newEnd - currentDuration;
                                                     }
 
-                                                    setFlameZoom({ startTime: newStart, endTime: newEnd });
+                                                    applyZoom({ startTime: newStart, endTime: newEnd });
                                                 };
 
                                                 const onUp = () => {
