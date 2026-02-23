@@ -21,9 +21,21 @@ const TIME_PATTERNS = [
 export const extractTimestamp = (line: string): number | null => {
     if (!line) return null;
 
-    // Scan the first 256 characters (preamble) for all potential timestamps.
-    // We pick the one that appears latest in the header, as requested.
-    const preamble = line.length > 256 ? line.substring(0, 256) : line;
+    // Determine the boundary of the header to avoid picking up large numbers
+    // in the log message as timestamps (e.g., "Value: 200000.0").
+    // We stop at the first occurrence of ": " or " > " which typically starts the message.
+    let boundary = 256;
+    const colonSpaceIdx = line.indexOf(': ');
+    if (colonSpaceIdx !== -1 && colonSpaceIdx < boundary) boundary = colonSpaceIdx;
+
+    const arrowIdx = line.indexOf(' > ');
+    if (arrowIdx !== -1 && arrowIdx < boundary) boundary = arrowIdx;
+
+    // End of C#-style or other source metadata: FileName.cs:Func()>
+    const metaEndIdx = line.indexOf(')>');
+    if (metaEndIdx !== -1 && (metaEndIdx + 2) < boundary) boundary = metaEndIdx + 2;
+
+    const preamble = line.substring(0, boundary);
     const candidates: { value: number; index: number }[] = [];
 
     // 1. Standard DateTime (MM-DD HH:mm:ss.mss or YYYY-MM-DD ...)

@@ -62,8 +62,9 @@ export const extractLogIds = (line: string): { pid: string | null, tid: string |
             pid = bracketMatch[1];
             tid = bracketMatch[2];
         } else {
-            // 3. Android Standard: Date Time PID TID ...
-            const androidMatch = line.match(/^\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+(\d+)\s+(\d+)\s+/);
+            // 3. Android/Tizen Standard: Date Time PID TID ... or DecimalTime PID TID
+            const androidMatch = line.match(/^\s*(?:\d{2}-\d{2}\s+)?\d{2}:\d{2}:\d{2}\.\d{3}\s+(\d+)\s+(\d+)\s+/) ||
+                line.match(/^\s*\d+\.\d{3}\s+(\d+)\s+(\d+)\s+/);
             if (androidMatch) {
                 pid = androidMatch[1];
                 tid = androidMatch[2];
@@ -170,7 +171,7 @@ export const analyzePerfSegments = (
             content: line,
             alias: foundGroup.alias!.trim(),
             tag: foundGroup.tags[0],
-            tid: extractTransactionIds(line).find(id => id.type === 'tid')?.value || 'Main'
+            tid: extractLogIds(line).tid || 'Main'
         });
     }
 

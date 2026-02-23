@@ -110,16 +110,17 @@ const TransitionCard: React.FC<{
 };
 
 
+const EMPTY_TAGS: string[] = [];
 
-export const PerfDashboard: React.FC<PerfDashboardProps> = ({
+const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
     isOpen, onClose, result, isAnalyzing,
     onJumpToLine, onJumpToRange, onViewRawRange, onCopyRawRange,
     targetTime, height = 400, onHeightChange = () => { }, isFullScreen = false,
     showTidColumn = true,
     useCompactDetail = false,
-    isActive, // Restore destructuring
-    activeTags = [],
-    paneId // Destructure paneId
+    isActive = true,
+    activeTags = EMPTY_TAGS,
+    paneId
 }) => {
     const [flameZoom, setFlameZoom] = useState<{ startTime: number; endTime: number } | null>(null);
     const zoomRef = useRef<{ startTime: number; endTime: number } | null>(null);
@@ -136,6 +137,11 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
     const flameChartContainerRef = useRef<HTMLDivElement>(null);
 
     const [isInitialDrawComplete, setIsInitialDrawComplete] = useState(false);
+
+    // Performance Caches
+    const rectCacheRef = useRef<DOMRect | null>(null);
+    const minimapRectCacheRef = useRef<DOMRect | null>(null);
+    const viewportCacheRef = useRef<{ left: string, width: string } | null>(null);
 
     // Trim Range (Shift+Drag -> Trim)
     const [trimRange, setTrimRange] = useState<{ startTime: number; endTime: number } | null>(null);
@@ -510,7 +516,21 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         const map = new Map<number, string>();
         flameSegments.forEach(s => {
             if (s.lane !== undefined && !map.has(s.lane)) {
-                map.set(s.lane, s.tid || 'Main');
+                if (s.lane === 0) {
+                    map.set(s.lane, 'Global');
+                } else {
+                    // If no TID/Tag, try to show the PID from the first log line if possible
+                    let tid = s.tid;
+                    if (!tid || tid === 'Main') {
+                        const firstLog = s.logs?.[0];
+                        if (firstLog) {
+                            // Simple regex for PID extraction (e.g. [1234])
+                            const pidMatch = firstLog.match(/\[\s*(\d+)\s*\]/) || firstLog.match(/PID[:\s]*(\d+)/i);
+                            if (pidMatch) tid = pidMatch[1];
+                        }
+                    }
+                    map.set(s.lane, tid || 'Process');
+                }
             }
         });
         return map;
@@ -705,6 +725,27 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
         ctx.globalAlpha = 1;
     };
+
+    useEffect(() => {
+        if (!isActive) return;
+
+        const canvas = canvasRef.current;
+        const minimapCanvas = minimapCanvasRef.current;
+        if (!canvas || !minimapCanvas) return;
+
+        const observer = new ResizeObserver((entries) => {
+            if (!isActive) return;
+            // Flush cache
+            rectCacheRef.current = null;
+            minimapRectCacheRef.current = null;
+            setIsInitialDrawComplete(false);
+        });
+
+        observer.observe(canvas);
+        observer.observe(minimapCanvas);
+
+        return () => observer.disconnect();
+    }, [isOpen, isActive]);
 
     useEffect(() => {
         let frameId: number;
@@ -918,7 +959,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
 
                 <div className="flex items-center gap-1">
                     {/* Premium Compact Navigator (Small Mode) */}
-                    {result && !isFullScreen && (
+                    {result && (
                         <div className="flex items-center gap-1.5 bg-slate-950/40 backdrop-blur-2xl rounded-xl p-1 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                             {/* All Fails & Fail Only */}
                             <div className="flex items-center gap-0.5">
@@ -980,7 +1021,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                     )}
 
                     {/* Search Input - NOW BETWEEN NAVIGATOR AND TOGGLES */}
-                    {result && !isFullScreen && (
+                    {result && (
                         <div className="flex items-center bg-black/20 rounded-lg border border-white/10 px-2 py-1 mx-1 focus-within:border-indigo-500/50 focus-within:bg-black/40 transition-colors">
                             <Lucide.Search size={10} className="text-slate-500 mr-1.5" />
                             <input
@@ -995,7 +1036,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                     )}
 
                     {/* View Toggles (Moved from Sidebar) */}
-                    {result && !isFullScreen && (
+                    {result && (
                         <div className="flex p-0.5 bg-slate-950 rounded-lg border border-white/5 gap-0.5 mr-2">
                             <button
                                 onClick={() => setViewMode('chart')}
@@ -1510,11 +1551,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                                     }`}>
                                                                     <div className={`absolute left-0 top-0 bottom-0 rounded-full transition-all ${isTidSelected ? 'w-1' : 'w-[2px]'}`} style={{ backgroundColor: i === 0 ? '#f59e0b' : tidColor }} />
                                                                     <span className={`text-[9px] font-mono tracking-tighter transition-all ${isTidSelected ? 'font-black scale-105' : 'font-bold'}`} style={{ color: i === 0 ? '#f59e0b' : tidColor }}>
-                                                                        {i === 0 ? (
-                                                                            <Lucide.Star size={10} fill="#f59e0b" className="opacity-80" />
-                                                                        ) : (
-                                                                            tid.length > 5 ? tid.substring(0, 5) : tid
-                                                                        )}
+                                                                        {i === 0 ? '*' : (tid.length > 5 ? tid.substring(0, 5) : tid)}
                                                                     </span>
                                                                 </div>
                                                             ) : (
@@ -1545,7 +1582,7 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
                                                 );
                                             })}
                                             {/* Time Axis */}
-                                            <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 text-slate-400 font-mono text-[9px] flex items-end pb-0.5 select-none pointer-events-none z-[45]">
+                                            <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 text-slate-400 font-mono text-[9px] flex items-end pb-0.5 select-none pointer-events-none z-[110]">
                                                 {generateTicks(flameZoom?.startTime ?? result.startTime, flameZoom?.endTime ?? result.endTime, 8).map(t => {
                                                     const viewStart = flameZoom?.startTime ?? result.startTime;
                                                     const viewDuration = Math.max(1, (flameZoom?.endTime ?? result.endTime) - viewStart);
@@ -1882,3 +1919,5 @@ export const PerfDashboard: React.FC<PerfDashboardProps> = ({
         </div >
     );
 };
+
+export const PerfDashboard = React.memo(PerfDashboardBase);
