@@ -246,27 +246,38 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
     const bottlenecks = useMemo(() => {
         if (!result) return [];
         let filtered = [...result.segments];
-        if (showOnlyFail) {
-            filtered = filtered.filter(s => s.duration >= (result.perfThreshold || 1000));
+
+        // 1. Search Query Filter (Always respect search)
+        if (searchQuery) {
+            filtered = filtered.filter(s => checkSegmentMatch(s, searchQuery));
         }
-        // Tag filter
+
+        // 2. Fail Only Filter
+        if (showOnlyFail) {
+            // Match with visual logic: anything marked as 'fail' or exceeding threshold
+            filtered = filtered.filter(s => s.status === 'fail' || s.duration >= (result.perfThreshold || 1000));
+        }
+
+        // 3. Tag filter
         if (activeTags.length > 0) {
             filtered = filtered.filter(s =>
                 s.logs?.some(log => activeTags.some(tag => log.includes(tag)))
             );
         }
-        // Trim filter
+
+        // 4. Trim filter
         if (trimRange) {
             filtered = filtered.filter(s =>
                 s.startTime < trimRange.endTime && s.endTime > trimRange.startTime
             );
         }
-        // Exclude Global lane from bottlenecks (navigation)
+
+        // 5. Exclude Global lane from bottlenecks (navigation)
         filtered = filtered.filter(s => s.tid !== 'Global');
 
         // Match the list logic: top 50 slowest segments
         return filtered.sort((a, b) => b.duration - a.duration).slice(0, 50);
-    }, [result, showOnlyFail, activeTags, trimRange]);
+    }, [result, showOnlyFail, searchQuery, activeTags, trimRange]);
 
     // 💡 Stabilize Zoom & Pan using manual event listener for passive: false support
     useEffect(() => {
@@ -295,8 +306,10 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
             if (!belongsToMe) return;
 
             const currentZoom = zoomRef.current;
-            const currentStart = currentZoom?.startTime ?? result.startTime;
-            const currentEnd = currentZoom?.endTime ?? result.endTime;
+            const defaultStart = trimRange?.startTime ?? result.startTime;
+            const defaultEnd = trimRange?.endTime ?? result.endTime;
+            const currentStart = currentZoom?.startTime ?? defaultStart;
+            const currentEnd = currentZoom?.endTime ?? defaultEnd;
             const duration = currentEnd - currentStart;
 
             // Zoom (Ctrl+Wheel) - Works on both Dashboard and Log Pane
@@ -317,16 +330,19 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                 let newStart = timeAtPointer - newDuration * fractionalPos;
                 let newEnd = newStart + newDuration;
 
-                if (newStart < result.startTime) {
-                    newEnd += (result.startTime - newStart);
-                    newStart = result.startTime;
+                const boundStart = trimRange?.startTime ?? result.startTime;
+                const boundEnd = trimRange?.endTime ?? result.endTime;
+
+                if (newStart < boundStart) {
+                    newEnd += (boundStart - newStart);
+                    newStart = boundStart;
                 }
-                if (newEnd > result.endTime) {
-                    newStart -= (newEnd - result.endTime);
-                    newEnd = result.endTime;
+                if (newEnd > boundEnd) {
+                    newStart -= (newEnd - boundEnd);
+                    newEnd = boundEnd;
                 }
-                if (newStart < result.startTime) newStart = result.startTime;
-                if (newEnd > result.endTime) newEnd = result.endTime;
+                if (newStart < boundStart) newStart = boundStart;
+                if (newEnd > boundEnd) newEnd = boundEnd;
 
                 applyZoom({ startTime: newStart, endTime: newEnd });
             }
@@ -344,12 +360,15 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                 let newStart = currentStart + panAmount;
                 let newEnd = currentEnd + panAmount;
 
-                if (newStart < result.startTime) {
-                    newStart = result.startTime;
+                const boundStart = trimRange?.startTime ?? result.startTime;
+                const boundEnd = trimRange?.endTime ?? result.endTime;
+
+                if (newStart < boundStart) {
+                    newStart = boundStart;
                     newEnd = newStart + duration;
                 }
-                if (newEnd > result.endTime) {
-                    newEnd = result.endTime;
+                if (newEnd > boundEnd) {
+                    newEnd = boundEnd;
                     newStart = newEnd - duration;
                 }
 
@@ -440,7 +459,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         return () => clearTimeout(timeout);
     }, [searchInput, result]);
 
-    const checkSegmentMatch = (s: AnalysisSegment, query: string) => {
+    function checkSegmentMatch(s: AnalysisSegment, query: string) {
         if (!query) return true;
         const q = query.toLowerCase().trim();
 
@@ -463,7 +482,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
             s.fileName?.toLowerCase().includes(q) ||
             s.functionName?.toLowerCase().includes(q)
         );
-    };
+    }
 
     // Constants for coloring
     const palette = ['#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
@@ -590,8 +609,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         }
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        const viewStart = zoomRef.current?.startTime ?? result.startTime;
-        const viewEnd = zoomRef.current?.endTime ?? result.endTime;
+        const viewStart = zoomRef.current?.startTime ?? (trimRange?.startTime ?? result.startTime);
+        const viewEnd = zoomRef.current?.endTime ?? (trimRange?.endTime ?? result.endTime);
         const viewDuration = Math.max(1, viewEnd - viewStart);
         const width = rect.width;
 
@@ -870,8 +889,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        const viewStart = zoomRef.current?.startTime ?? result.startTime;
-        const viewEnd = zoomRef.current?.endTime ?? result.endTime;
+        const viewStart = zoomRef.current?.startTime ?? (trimRange?.startTime ?? result.startTime);
+        const viewEnd = zoomRef.current?.endTime ?? (trimRange?.endTime ?? result.endTime);
         const viewDuration = Math.max(1, viewEnd - viewStart);
         const width = rect.width;
 
@@ -943,8 +962,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         const rect = canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
-        const viewStart = zoomRef.current?.startTime ?? result.startTime;
-        const viewEnd = zoomRef.current?.endTime ?? result.endTime;
+        const viewStart = zoomRef.current?.startTime ?? (trimRange?.startTime ?? result.startTime);
+        const viewEnd = zoomRef.current?.endTime ?? (trimRange?.endTime ?? result.endTime);
         const viewDuration = Math.max(1, viewEnd - viewStart);
         const width = rect.width;
         // Check if we clicked on a segment - if so, let click handler deal with it, don't pan
@@ -976,8 +995,10 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         const panAmount = -(dx / rect.width) * dur;
         let newStart = viewStart + panAmount;
         let newEnd = viewEnd + panAmount;
-        if (newStart < result.startTime) { newStart = result.startTime; newEnd = newStart + dur; }
-        if (newEnd > result.endTime) { newEnd = result.endTime; newStart = newEnd - dur; }
+        const boundStart = trimRange?.startTime ?? result.startTime;
+        const boundEnd = trimRange?.endTime ?? result.endTime;
+        if (newStart < boundStart) { newStart = boundStart; newEnd = newStart + dur; }
+        if (newEnd > boundEnd) { newEnd = boundEnd; newStart = newEnd - dur; }
         applyZoom({ startTime: newStart, endTime: newEnd });
     };
 
@@ -1142,22 +1163,28 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                     <span className="text-[8px] leading-none">FAIL</span>
                                 </button>
                             </div>
-                            {bottlenecks.length > 0 && (
-                                <>
-                                    <div className="w-px h-4 bg-white/10 mx-0.5" />
-                                    <div className="flex items-center gap-0.5 bg-black/30 rounded-lg px-1.5 py-0.5 border border-white/5">
-                                        <button onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)} className="p-0.5 hover:text-indigo-400 text-slate-500 transition-all">
-                                            <Lucide.ChevronLeft size={12} />
-                                        </button>
-                                        <span className="text-[9px] text-white font-mono font-black min-w-[24px] text-center">
-                                            {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'}
-                                        </span>
-                                        <button onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)} className="p-0.5 hover:text-indigo-400 text-slate-500 transition-all">
-                                            <Lucide.ChevronRight size={12} />
-                                        </button>
-                                    </div>
-                                </>
-                            )}
+                            <div className="w-px h-4 bg-white/10 mx-0.5" />
+                            <div className="flex items-center gap-0.5 bg-black/30 rounded-lg px-1.5 py-0.5 border border-white/5">
+                                <button
+                                    onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
+                                    className={`p-0.5 transition-all ${bottlenecks.length > 0 ? 'hover:text-indigo-400 text-slate-500' : 'text-slate-800 cursor-not-allowed'}`}
+                                    disabled={bottlenecks.length === 0}
+                                >
+                                    <Lucide.ChevronLeft size={12} />
+                                </button>
+                                <span className={`text-[9px] font-mono font-black min-w-[24px] text-center ${bottlenecks.length > 0 ? 'text-white' : 'text-slate-600'}`}>
+                                    {bottlenecks.length > 0 ? (currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-') : '0'}
+                                    <span className="opacity-40 mx-0.5">/</span>
+                                    <span className="opacity-60">{bottlenecks.length}</span>
+                                </span>
+                                <button
+                                    onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
+                                    className={`p-0.5 transition-all ${bottlenecks.length > 0 ? 'hover:text-indigo-400 text-slate-500' : 'text-slate-800 cursor-not-allowed'}`}
+                                    disabled={bottlenecks.length === 0}
+                                >
+                                    <Lucide.ChevronRight size={12} />
+                                </button>
+                            </div>
                             <div className="w-px h-4 bg-white/10 mx-0.5" />
                             <div className="flex items-center bg-black/20 rounded-lg border border-white/10 px-2 py-1 focus-within:border-indigo-500/50 transition-colors">
                                 <Lucide.Search size={10} className="text-slate-500 mr-1.5" />
@@ -1409,33 +1436,31 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                                 </button>
                                             </div>
 
-                                            {bottlenecks.length > 0 && (
-                                                <>
-                                                    <div className="w-px h-6 bg-white/10 mx-1" />
-                                                    <div className="flex items-center gap-2 bg-black/20 rounded-xl px-2 py-1">
-                                                        <button
-                                                            onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
-                                                            className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400 rounded-lg transition-all"
-                                                        >
-                                                            <Lucide.ChevronLeft size={16} />
-                                                        </button>
-                                                        <div className="flex flex-col items-center min-w-[45px]">
-                                                            <span className="text-[10px] text-white font-mono font-black leading-none">
-                                                                {currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-'}
-                                                            </span>
-                                                            <span className="text-[7px] text-slate-500 font-black uppercase mt-0.5 tracking-tighter">
-                                                                of {bottlenecks.length}
-                                                            </span>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
-                                                            className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400 rounded-lg transition-all"
-                                                        >
-                                                            <Lucide.ChevronRight size={16} />
-                                                        </button>
-                                                    </div>
-                                                </>
-                                            )}
+                                            <div className="w-px h-6 bg-white/10 mx-1" />
+                                            <div className="flex items-center gap-2 bg-black/20 rounded-xl px-2 py-1">
+                                                <button
+                                                    onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
+                                                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${bottlenecks.length > 0 ? 'bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400' : 'text-slate-800 cursor-not-allowed'}`}
+                                                    disabled={bottlenecks.length === 0}
+                                                >
+                                                    <Lucide.ChevronLeft size={16} />
+                                                </button>
+                                                <div className="flex flex-col items-center min-w-[45px]">
+                                                    <span className={`text-[10px] font-mono font-black leading-none ${bottlenecks.length > 0 ? 'text-white' : 'text-slate-600'}`}>
+                                                        {bottlenecks.length > 0 ? (currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-') : '0'}
+                                                    </span>
+                                                    <span className="text-[7px] text-slate-500 font-black uppercase mt-0.5 tracking-tighter">
+                                                        of {bottlenecks.length}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
+                                                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${bottlenecks.length > 0 ? 'bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400' : 'text-slate-800 cursor-not-allowed'}`}
+                                                    disabled={bottlenecks.length === 0}
+                                                >
+                                                    <Lucide.ChevronRight size={16} />
+                                                </button>
+                                            </div>
                                         </div>
 
                                         {/* Search Input - NOW BETWEEN NAVIGATOR AND TOGGLES */}
@@ -1503,7 +1528,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                         const end = Math.max(measureRange.startTime, measureRange.endTime);
                                         if (end > start) {
                                             setTrimRange({ startTime: start, endTime: end });
-                                            setFlameZoom({ startTime: start, endTime: end });
+                                            applyZoom({ startTime: start, endTime: end });
                                             setMeasureRange(null);
                                         }
                                     }}
@@ -1519,7 +1544,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setTrimRange(null);
-                                        setFlameZoom(null);
+                                        applyZoom(null);
                                     }}
                                     className="absolute bottom-28 right-8 z-[60] px-3.5 py-1.5 bg-amber-500/90 backdrop-blur-md border border-amber-400/30 rounded-full text-[10px] font-bold text-white shadow-2xl hover:bg-amber-400 transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
                                     title="Reset Trim"
@@ -1617,12 +1642,15 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                                 let newEnd = currentEnd + panAmount;
 
                                                 // Clamp
-                                                if (newStart < result.startTime) {
-                                                    newStart = result.startTime;
+                                                const boundStart = trimRange?.startTime ?? result.startTime;
+                                                const boundEnd = trimRange?.endTime ?? result.endTime;
+
+                                                if (newStart < boundStart) {
+                                                    newStart = boundStart;
                                                     newEnd = newStart + duration;
                                                 }
-                                                if (newEnd > result.endTime) {
-                                                    newEnd = result.endTime;
+                                                if (newEnd > boundEnd) {
+                                                    newEnd = boundEnd;
                                                     newStart = newEnd - duration;
                                                 }
 
@@ -1705,9 +1733,9 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                             })}
                                             {/* Time Axis */}
                                             <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 text-slate-400 font-mono text-[9px] flex items-end pb-0.5 select-none pointer-events-none z-[110]">
-                                                {generateTicks(flameZoom?.startTime ?? result.startTime, flameZoom?.endTime ?? result.endTime, 8).map(t => {
-                                                    const viewStart = flameZoom?.startTime ?? result.startTime;
-                                                    const viewDuration = Math.max(1, (flameZoom?.endTime ?? result.endTime) - viewStart);
+                                                {generateTicks(flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime), flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime), 8).map(t => {
+                                                    const viewStart = flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime);
+                                                    const viewDuration = Math.max(1, (flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime)) - viewStart);
                                                     const left = ((t - viewStart) / viewDuration) * 100;
                                                     // hide ticks that are off-screen
                                                     if (left < 0 || left > 100) return null;
@@ -1722,8 +1750,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
 
                                             {/* Time Ruler UI */}
                                             {measureRange && (() => {
-                                                const viewStart = flameZoom?.startTime ?? result.startTime;
-                                                const viewDuration = Math.max(1, (flameZoom?.endTime ?? result.endTime) - viewStart);
+                                                const viewStart = flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime);
+                                                const viewDuration = Math.max(1, (flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime)) - viewStart);
                                                 const rulerStart = Math.min(measureRange.startTime, measureRange.endTime);
                                                 const rulerEnd = Math.max(measureRange.startTime, measureRange.endTime);
                                                 const leftPercent = ((rulerStart - viewStart) / viewDuration) * 100;
@@ -1789,17 +1817,20 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                             let newStart = result.startTime + (clickFraction * totalDuration) - (currentDuration / 2);
                                             let newEnd = newStart + currentDuration;
 
-                                            // Clamp
-                                            if (newStart < result.startTime) {
-                                                newStart = result.startTime;
+                                            // Clamp click navigation to trim range
+                                            const boundStart = trimRange?.startTime ?? result.startTime;
+                                            const boundEnd = trimRange?.endTime ?? result.endTime;
+
+                                            if (newStart < boundStart) {
+                                                newStart = boundStart;
                                                 newEnd = newStart + currentDuration;
                                             }
-                                            if (newEnd > result.endTime) {
-                                                newEnd = result.endTime;
+                                            if (newEnd > boundEnd) {
+                                                newEnd = boundEnd;
                                                 newStart = newEnd - currentDuration;
                                             }
 
-                                            setFlameZoom({ startTime: newStart, endTime: newEnd });
+                                            applyZoom({ startTime: newStart, endTime: newEnd });
                                         }}
                                     >
                                         {/* 💡 Canvas-based Minimap Rendering */}

@@ -50,9 +50,17 @@ const processLine = (line: string, index: number) => {
         } else if (mode === 'analyze') {
             const { pid, tid: extractedTid } = extractLogIds(line);
 
-            // 1. PID match check
-            const isPidMatch = line.toLowerCase().includes(keywordLower);
-            if (!isPidMatch) return;
+            // 1. PID match check - Robust validation
+            // If the keyword is purely numbers, it's likely a PID.
+            // We must ensure it's not a false positive from the line content (like 'line 2225')
+            const isPureNumber = /^\d+$/.test(keywordLower);
+            if (isPureNumber) {
+                // If it's a number, the extracted PID MUST match exactly.
+                if (pid !== keywordLower) return;
+            } else {
+                // For tags or general strings, we still use includes.
+                if (!line.toLowerCase().includes(keywordLower)) return;
+            }
 
             // 2. Tag match check (if tags specified)
             if (targetTags.length > 0) {

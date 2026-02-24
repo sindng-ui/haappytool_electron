@@ -50,21 +50,29 @@ export const extractLogIds = (line: string): { pid: string | null, tid: string |
     let pid: string | null = null;
     let tid: string | null = null;
 
+    // Rule: We should only search for PID/TID to the left of the file name if it exists.
+    // This prevents false positives from strings inside the payload or function names (e.g. functionName(223))
+    let searchTarget = line;
+    const fileMatch = line.match(/([\w\-\.]+\.(?:cs|cpp|h|java|kt|js|ts|tsx|py|c|h|cc|hpp|m|mm))\s*:/i);
+    if (fileMatch) {
+        searchTarget = line.substring(0, fileMatch.index);
+    }
+
     // 1. (P 123, T 456) or (T 456, P 123) or (123, 456)
-    const parenMatch = line.match(/\(\s*(?:P\s*)?(\d+)\s*[,:\s-]\s*(?:T\s*)?(\d+)\s*\)/i);
+    const parenMatch = searchTarget.match(/\(\s*(?:P\s*)?(\d+)\s*[,:\s-]\s*(?:T\s*)?(\d+)\s*\)/i);
     if (parenMatch) {
         pid = parenMatch[1];
         tid = parenMatch[2];
     } else {
         // 2. [PID:TID] or [PID TID] or [PID-TID]
-        const bracketMatch = line.match(/\[\s*(\d+)\s*[:\s-]\s*(\d+)\s*\]/);
+        const bracketMatch = searchTarget.match(/\[\s*(\d+)\s*[:\s-]\s*(\d+)\s*\]/);
         if (bracketMatch) {
             pid = bracketMatch[1];
             tid = bracketMatch[2];
         } else {
             // 3. Android/Tizen Standard: Date Time PID TID ... or DecimalTime PID TID
-            const androidMatch = line.match(/^\s*(?:\d{2}-\d{2}\s+)?\d{2}:\d{2}:\d{2}\.\d{3}\s+(\d+)\s+(\d+)\s+/) ||
-                line.match(/^\s*\d+\.\d{3}\s+(\d+)\s+(\d+)\s+/);
+            const androidMatch = searchTarget.match(/^\s*(?:\d{2}-\d{2}\s+)?\d{2}:\d{2}:\d{2}\.\d{3}\s+(\d+)\s+(\d+)\s+/) ||
+                searchTarget.match(/^\s*\d+\.\d{3}\s+(\d+)\s+(\d+)\s+/);
             if (androidMatch) {
                 pid = androidMatch[1];
                 tid = androidMatch[2];
@@ -73,7 +81,7 @@ export const extractLogIds = (line: string): { pid: string | null, tid: string |
     }
 
     // 4. Handle T/P or P/T combined (Common in some Tizen/embedded formats)
-    const combinedMatch = line.match(/(?:T\/P|P\/T)[\s:]*(\d+)/i);
+    const combinedMatch = searchTarget.match(/(?:T\/P|P\/T)[\s:]*(\d+)/i);
     if (combinedMatch) {
         if (!pid) pid = combinedMatch[1];
         if (!tid) tid = combinedMatch[1];
@@ -81,17 +89,17 @@ export const extractLogIds = (line: string): { pid: string | null, tid: string |
 
     // Fallback for individual labels if not found in pairs
     if (!pid) {
-        const pMatch = line.match(/(?:P\s*|PID[:\s]|ProcessId[:\s])(\d+)/i);
+        const pMatch = searchTarget.match(/(?:P\s*|PID[:\s]|ProcessId[:\s])(\d+)/i);
         if (pMatch) pid = pMatch[1];
     }
     if (!tid) {
-        const tMatch = line.match(/(?:T\s*|TID[:\s]|ThreadId[:\s])(\d+)/i);
+        const tMatch = searchTarget.match(/(?:T\s*|TID[:\s]|ThreadId[:\s])(\d+)/i);
         if (tMatch) tid = tMatch[1];
     }
 
     // Final fallback for simple brackets [1234] if nothing else found
     if (!pid && !tid) {
-        const simpleBracket = line.match(/\[\s*(\d+)\s*\]/);
+        const simpleBracket = searchTarget.match(/\[\s*(\d+)\s*\]/);
         if (simpleBracket) pid = simpleBracket[1];
     }
 

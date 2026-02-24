@@ -17,9 +17,15 @@ export interface TransactionIdentity {
 export const extractTransactionIds = (line: string): TransactionIdentity[] => {
     const identities: TransactionIdentity[] = [];
 
+    let searchTarget = line;
+    const fileMatch = line.match(/([\w\-\.]+\.(?:cs|cpp|h|java|kt|js|ts|tsx|py|c|h|cc|hpp|m|mm))\s*:/i);
+    if (fileMatch) {
+        searchTarget = line.substring(0, fileMatch.index);
+    }
+
     // 1. Standard Tizen/Android Format: "02-16 09:46:13.123  1234  5678 I Tag: Message"
     // Regex matches: [Optional Date] Time PID TID Level Tag:
-    const standardMatch = line.match(/(?:\d{2}-\d{2}\s+)?\d{2}:\d{2}:\d{2}\.\d{3}\s+([0-9]+)\s+([0-9]+)\s+[VDIWE]\s+([^:]+):/);
+    const standardMatch = searchTarget.match(/(?:\d{2}-\d{2}\s+)?\d{2}:\d{2}:\d{2}\.\d{3}\s+([0-9]+)\s+([0-9]+)\s+[VDIWE]\s+([^:]+):/);
     if (standardMatch) {
         identities.push({ type: 'pid', value: standardMatch[1] });
         identities.push({ type: 'tid', value: standardMatch[2] });
@@ -27,7 +33,7 @@ export const extractTransactionIds = (line: string): TransactionIdentity[] => {
     }
 
     // 2. Bracket/Alternative Format: "[ 1234: 5678] I/Tag: Message" or "09:46:13.123 1234-5678 Tag: Message"
-    const bracketMatch = line.match(/\[\s*(\d+)\s*[:\s-]\s*(\d+)\s*\]|(\d+)\s*-\s*(\d+)\s+([VDIWE])\s+([^:]+):/);
+    const bracketMatch = searchTarget.match(/\[\s*(\d+)\s*[:\s-]\s*(\d+)\s*\]|(\d+)\s*-\s*(\d+)\s+([VDIWE])\s+([^:]+):/);
     if (bracketMatch) {
         if (bracketMatch[1]) {
             identities.push({ type: 'pid', value: bracketMatch[1] });
@@ -40,7 +46,7 @@ export const extractTransactionIds = (line: string): TransactionIdentity[] => {
     }
 
     // 3. Simple Tag Pattern: "V/TagName( 1234): Message" or "V/TagName (P 123, T 333) Message"
-    const simpleTagMatch = line.match(/([VDIWE])\/([^(: \t]+)\s*(?:\(\s*(\d+)\s*\)|\((P\s*\d+),\s*(T\s*\d+)\))?/);
+    const simpleTagMatch = searchTarget.match(/([VDIWE])\/([^(: \t]+)\s*(?:\(\s*(\d+)\s*\)|\((P\s*\d+),\s*(T\s*\d+)\))?/);
     if (simpleTagMatch) {
         identities.push({ type: 'tag', value: simpleTagMatch[2].trim() });
         if (simpleTagMatch[3]) identities.push({ type: 'pid', value: simpleTagMatch[3].trim() });
@@ -49,7 +55,7 @@ export const extractTransactionIds = (line: string): TransactionIdentity[] => {
     }
 
     // 4. Numeric or Alphanumeric brackets anywhere: "[22]" or "(P 123, T 333)"
-    const bracketMatches = Array.from(line.matchAll(/[(\[]\s*(P\s*\d+|T\s*\d+|[a-zA-Z0-9_-]{3,})\s*[)\]]/g));
+    const bracketMatches = Array.from(searchTarget.matchAll(/[(\[]\s*(P\s*\d+|T\s*\d+|[a-zA-Z0-9_-]{3,})\s*[)\]]/g));
     for (const match of bracketMatches) {
         const val = match[1].trim();
         if (val.startsWith('P')) identities.push({ type: 'pid', value: val.replace(/\s+/g, '') });

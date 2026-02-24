@@ -156,10 +156,9 @@ describe('Performance Utils', () => {
             // Filter intervals
             const intervals = segments.filter(s => s.type === 'combo');
 
-            // Find interval for TID 100 (Step A -> Step B)
-            const tid100Seg = intervals.find(s => s.tid === 'T100');
-            // Find interval for TID 200 (Step A -> Step B) 
-            const tid200Seg = intervals.find(s => s.tid === 'T200');
+            // Find interval for TID 100/200 (Step A -> Step B)
+            const tid100Seg = intervals.find(s => s.tid === '100');
+            const tid200Seg = intervals.find(s => s.tid === '200');
 
             expect(tid100Seg).toBeDefined();
             expect(tid200Seg).toBeDefined();
