@@ -208,6 +208,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
     const [showOnlyFail, setShowOnlyFail] = useState(false);
     const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([]);
     const [mousePos, setMousePos] = useState<{ x: number, y: number, time: number } | null>(null);
+    const [lockedTid, setLockedTid] = useState<string | null>(null);
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -241,11 +242,15 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         };
     }, [isOpen, isActive]);
 
-    // Bottleneck Navigator Logic
-    const [currentBottleneckIndex, setCurrentBottleneckIndex] = useState(-1);
-    const bottlenecks = useMemo(() => {
+    // Thread Navigation & Bottleneck Logic
+    const navSegments = useMemo(() => {
         if (!result) return [];
         let filtered = [...result.segments];
+
+        if (lockedTid) {
+            filtered = filtered.filter(s => s.tid === lockedTid);
+            return filtered.sort((a, b) => a.startTime - b.startTime);
+        }
 
         // 1. Search Query Filter (Always respect search)
         if (searchQuery) {
@@ -277,7 +282,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
 
         // Match the list logic: top 50 slowest segments
         return filtered.sort((a, b) => b.duration - a.duration).slice(0, 50);
-    }, [result, showOnlyFail, searchQuery, activeTags, trimRange]);
+    }, [result, showOnlyFail, searchQuery, activeTags, trimRange, lockedTid]);
 
     // 💡 Stabilize Zoom & Pan using manual event listener for passive: false support
     useEffect(() => {
@@ -380,15 +385,19 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         return () => window.removeEventListener('wheel', onGlobalWheel);
     }, [result, viewMode, isActive, paneId]); // Re-bind if viewMode or isActive changes
 
-    const jumpToBottleneck = (index: number) => {
-        if (!result || bottlenecks.length === 0) return;
+    const currentNavIndex = useMemo(() => {
+        if (!selectedSegmentId || navSegments.length === 0) return -1;
+        return navSegments.findIndex(s => s.id === selectedSegmentId);
+    }, [selectedSegmentId, navSegments]);
 
-        let targetIndex = index;
-        if (targetIndex < 0) targetIndex = bottlenecks.length - 1;
-        if (targetIndex >= bottlenecks.length) targetIndex = 0;
+    const jumpToNavSegment = (direction: -1 | 1) => {
+        if (!result || navSegments.length === 0) return;
 
-        const target = bottlenecks[targetIndex];
-        setCurrentBottleneckIndex(targetIndex);
+        let targetIndex = currentNavIndex + direction;
+        if (targetIndex < 0) targetIndex = navSegments.length - 1;
+        if (targetIndex >= navSegments.length) targetIndex = 0;
+
+        const target = navSegments[targetIndex];
         setSelectedSegmentId(target.id);
         setMultiSelectedIds([]); // Clear multi-select when navigating individually
 
@@ -639,17 +648,17 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
             // If it's a special state, draw it immediately and don't merge
             if (isSelected || isHovered || isMatch || w > 3) {
                 const isBottleneck = s.duration >= (result.perfThreshold || 1000);
-                const isSearchHit = !!searchQuery && isMatch;
-                const isTidFocused = selectedTid !== null && s.tid === selectedTid;
-
                 const isFail = s.duration >= (result.perfThreshold || 1000);
-                let baseOpacity = (isSelected || isSearchHit || isHovered) ? 1 : (isGlobal ? 0.35 : 0.9);
-                if (selectedTid !== null && !isTidFocused) baseOpacity *= 0.3;
+                const effectiveSelectedTid = lockedTid || selectedTid;
+                const isTidFocused = effectiveSelectedTid !== null && s.tid === effectiveSelectedTid;
+
+                let baseOpacity = (isSelected || isMatch || isHovered) ? 1 : (isGlobal ? 0.35 : 0.9);
+                if (effectiveSelectedTid !== null && !isTidFocused) baseOpacity *= (lockedTid ? 0.1 : 0.3); // More dimming if locked
                 // Fail Only mode: dim non-fail segments
                 if (showOnlyFail && !isFail) baseOpacity = Math.min(baseOpacity, 0.12);
                 const finalOpacity = isMatch ? baseOpacity : 0.1;
 
-                const baseColor = (isSelected || isSearchHit) ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
+                const baseColor = (isSelected || isMatch) ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
 
                 ctx.globalAlpha = finalOpacity;
                 ctx.fillStyle = baseColor;
@@ -662,7 +671,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                     ctx.fillRect(x, y, w, h);
                 }
 
-                if (isSelected || isHovered || isSearchHit) {
+                if (isSelected || isHovered || isMatch) {
                     ctx.strokeStyle = isGlobal ? '#f59e0b' : 'white';
                     ctx.lineWidth = isSelected ? 2 : 1;
                     ctx.stroke();
@@ -1166,21 +1175,21 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                             <div className="w-px h-4 bg-white/10 mx-0.5" />
                             <div className="flex items-center gap-0.5 bg-black/30 rounded-lg px-1.5 py-0.5 border border-white/5">
                                 <button
-                                    onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
-                                    className={`p-0.5 transition-all ${bottlenecks.length > 0 ? 'hover:text-indigo-400 text-slate-500' : 'text-slate-800 cursor-not-allowed'}`}
-                                    disabled={bottlenecks.length === 0}
+                                    onClick={() => jumpToNavSegment(-1)}
+                                    className={`p-0.5 transition-all ${navSegments.length > 0 ? 'hover:text-indigo-400 text-slate-500' : 'text-slate-800 cursor-not-allowed'}`}
+                                    disabled={navSegments.length === 0}
                                 >
                                     <Lucide.ChevronLeft size={12} />
                                 </button>
-                                <span className={`text-[9px] font-mono font-black min-w-[24px] text-center ${bottlenecks.length > 0 ? 'text-white' : 'text-slate-600'}`}>
-                                    {bottlenecks.length > 0 ? (currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-') : '0'}
+                                <span className={`text-[9px] font-mono font-black min-w-[24px] text-center ${navSegments.length > 0 ? 'text-white' : 'text-slate-600'}`}>
+                                    {navSegments.length > 0 ? (currentNavIndex >= 0 ? currentNavIndex + 1 : '-') : '0'}
                                     <span className="opacity-40 mx-0.5">/</span>
-                                    <span className="opacity-60">{bottlenecks.length}</span>
+                                    <span className="opacity-60">{navSegments.length}</span>
                                 </span>
                                 <button
-                                    onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
-                                    className={`p-0.5 transition-all ${bottlenecks.length > 0 ? 'hover:text-indigo-400 text-slate-500' : 'text-slate-800 cursor-not-allowed'}`}
-                                    disabled={bottlenecks.length === 0}
+                                    onClick={() => jumpToNavSegment(1)}
+                                    className={`p-0.5 transition-all ${navSegments.length > 0 ? 'hover:text-indigo-400 text-slate-500' : 'text-slate-800 cursor-not-allowed'}`}
+                                    disabled={navSegments.length === 0}
                                 >
                                     <Lucide.ChevronRight size={12} />
                                 </button>
@@ -1439,24 +1448,24 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                             <div className="w-px h-6 bg-white/10 mx-1" />
                                             <div className="flex items-center gap-2 bg-black/20 rounded-xl px-2 py-1">
                                                 <button
-                                                    onClick={() => jumpToBottleneck(currentBottleneckIndex - 1)}
-                                                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${bottlenecks.length > 0 ? 'bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400' : 'text-slate-800 cursor-not-allowed'}`}
-                                                    disabled={bottlenecks.length === 0}
+                                                    onClick={() => jumpToNavSegment(-1)}
+                                                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${navSegments.length > 0 ? 'bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400' : 'text-slate-800 cursor-not-allowed'}`}
+                                                    disabled={navSegments.length === 0}
                                                 >
                                                     <Lucide.ChevronLeft size={16} />
                                                 </button>
                                                 <div className="flex flex-col items-center min-w-[45px]">
-                                                    <span className={`text-[10px] font-mono font-black leading-none ${bottlenecks.length > 0 ? 'text-white' : 'text-slate-600'}`}>
-                                                        {bottlenecks.length > 0 ? (currentBottleneckIndex >= 0 ? currentBottleneckIndex + 1 : '-') : '0'}
+                                                    <span className={`text-[10px] font-mono font-black leading-none ${navSegments.length > 0 ? 'text-white' : 'text-slate-600'}`}>
+                                                        {navSegments.length > 0 ? (currentNavIndex >= 0 ? currentNavIndex + 1 : '-') : '0'}
                                                     </span>
                                                     <span className="text-[7px] text-slate-500 font-black uppercase mt-0.5 tracking-tighter">
-                                                        of {bottlenecks.length}
+                                                        of {navSegments.length}
                                                     </span>
                                                 </div>
                                                 <button
-                                                    onClick={() => jumpToBottleneck(currentBottleneckIndex + 1)}
-                                                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${bottlenecks.length > 0 ? 'bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400' : 'text-slate-800 cursor-not-allowed'}`}
-                                                    disabled={bottlenecks.length === 0}
+                                                    onClick={() => jumpToNavSegment(1)}
+                                                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${navSegments.length > 0 ? 'bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400' : 'text-slate-800 cursor-not-allowed'}`}
+                                                    disabled={navSegments.length === 0}
                                                 >
                                                     <Lucide.ChevronRight size={16} />
                                                 </button>
@@ -1687,7 +1696,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                                     if (!tid) return null;
                                                     const isFirstInTid = i === 0 || laneTidMap.get(i - 1) !== tid;
                                                     const tidColor = palette[i % palette.length];
-                                                    const isTidSelected = tid === selectedTid;
+                                                    const isTidSelected = tid === (lockedTid || selectedTid);
+                                                    const isLocked = tid === lockedTid;
                                                     return (
                                                         <div
                                                             key={`tid-label-${i}`}
@@ -1695,12 +1705,21 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                                             style={{ top: `${i * 28 + 24}px` }}
                                                         >
                                                             {isFirstInTid ? (
-                                                                <div className={`relative w-full h-[18px] flex items-center justify-center rounded-r-md border-y border-r pointer-events-auto transition-all ${isTidSelected
-                                                                    ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
-                                                                    : 'bg-slate-900/40 border-white/5 hover:bg-slate-900/80 hover:border-white/10'
-                                                                    }`}>
-                                                                    <div className={`absolute left-0 top-0 bottom-0 rounded-full transition-all ${isTidSelected ? 'w-1' : 'w-[2px]'}`} style={{ backgroundColor: i === 0 ? '#f59e0b' : tidColor }} />
-                                                                    <span className={`text-[9px] font-mono tracking-tighter transition-all ${isTidSelected ? 'font-black scale-105' : 'font-bold'}`} style={{ color: i === 0 ? '#f59e0b' : tidColor }}>
+                                                                <div
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (tid === 'Global') return;
+                                                                        setLockedTid(prev => prev === tid ? null : tid);
+                                                                    }}
+                                                                    className={`relative w-full h-[18px] flex items-center justify-center rounded-r-md border-y border-r pointer-events-auto cursor-pointer transition-all ${isLocked
+                                                                        ? 'bg-amber-500/20 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+                                                                        : isTidSelected
+                                                                            ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
+                                                                            : 'bg-slate-900/40 border-white/5 hover:bg-slate-900/80 hover:border-white/10'
+                                                                        }`}>
+                                                                    {isLocked && <Lucide.Lock size={8} className="absolute left-1 text-amber-500" />}
+                                                                    <div className={`absolute left-0 top-0 bottom-0 rounded-full transition-all ${isTidSelected ? 'w-1' : 'w-[2px]'}`} style={{ backgroundColor: i === 0 ? '#f59e0b' : (isLocked ? '#f59e0b' : tidColor) }} />
+                                                                    <span className={`text-[9px] font-mono tracking-tighter transition-all ${isTidSelected ? 'font-black scale-105' : 'font-bold'}`} style={{ color: i === 0 ? '#f59e0b' : (isLocked ? '#fbbf24' : tidColor) }}>
                                                                         {i === 0 ? '*' : (tid.length > 5 ? tid.substring(0, 5) : tid)}
                                                                     </span>
                                                                 </div>

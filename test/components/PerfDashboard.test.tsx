@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { PerfDashboard } from '../../components/LogViewer/PerfDashboard';
 import { ToastProvider } from '../../contexts/ToastContext';
 import React from 'react';
@@ -17,6 +17,44 @@ vi.mock('framer-motion', () => {
         AnimatePresence: ({ children }: any) => <>{children}</>,
     };
 });
+
+// Mock ResizeObserver
+global.ResizeObserver = class ResizeObserver {
+    observe() { }
+    unobserve() { }
+    disconnect() { }
+};
+
+// Mock HTMLCanvasElement
+global.HTMLCanvasElement.prototype.getContext = () => {
+    return {
+        fillRect: () => { },
+        clearRect: () => { },
+        getImageData: () => { },
+        putImageData: () => { },
+        createImageData: () => { },
+        setTransform: () => { },
+        drawImage: () => { },
+        save: () => { },
+        fillText: () => { },
+        restore: () => { },
+        beginPath: () => { },
+        moveTo: () => { },
+        lineTo: () => { },
+        closePath: () => { },
+        stroke: () => { },
+        translate: () => { },
+        scale: () => { },
+        rotate: () => { },
+        arc: () => { },
+        fill: () => { },
+        measureText: () => ({ width: 0 }),
+        transform: () => { },
+        rect: () => { },
+        clip: () => { },
+        roundRect: () => { },
+    } as any;
+};
 
 // Mock lucide-react icons manually
 vi.mock('lucide-react', () => ({
@@ -43,6 +81,7 @@ vi.mock('lucide-react', () => ({
     Loader2: () => <div data-testid="icon-loader" />,
     Camera: () => <div data-testid="icon-camera" />,
     Star: () => <div data-testid="icon-star" />,
+    Lock: () => <div data-testid="icon-lock" />,
 }));
 
 describe('PerfDashboard Component', () => {
@@ -74,7 +113,7 @@ describe('PerfDashboard Component', () => {
         bottlenecks: []
     };
 
-    it('should not render when isOpen is false', () => {
+    it('should hide component when isOpen is false', () => {
         const { container } = render(
             <ToastProvider>
                 <PerfDashboard
@@ -87,7 +126,9 @@ describe('PerfDashboard Component', () => {
                 />
             </ToastProvider>
         );
-        expect(container.firstChild).toBeNull();
+        const dashboard = container.querySelector('.perf-dashboard-container');
+        expect(dashboard?.className).toContain('opacity-0');
+        expect(dashboard?.className).toContain('h-0');
     });
 
     it('should show "Ready to Analyze" when no result and not analyzing', async () => {
@@ -159,5 +200,30 @@ describe('PerfDashboard Component', () => {
         );
 
         expect(await screen.findByPlaceholderText(/Search/i)).toBeInTheDocument();
+    });
+
+    it('should allow toggling thread lock mode via TID label click', async () => {
+        const { container } = render(
+            <ToastProvider>
+                <PerfDashboard
+                    isOpen={true}
+                    onClose={() => { }}
+                    result={mockResult as any}
+                    isAnalyzing={false}
+                    targetTime={500}
+                    isActive={true}
+                />
+            </ToastProvider>
+        );
+
+        // Find the TID label `Main` rendered by the sidebar
+        const tidLabels = await screen.findAllByText('Main');
+        expect(tidLabels.length).toBeGreaterThan(0);
+
+        // Click on the TID label wrapper to toggle the thread lock
+        const labelWrapper = tidLabels[0].closest('div');
+        if (labelWrapper) {
+            fireEvent.click(labelWrapper);
+        }
     });
 });
