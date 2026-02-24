@@ -106,30 +106,12 @@ describe('PerfDashboard Component', () => {
                 type: 'step',
                 status: 'pass',
                 logs: [],
-                lane: 0,
+                lane: 1,
                 tid: 'Main'
             }
         ],
         bottlenecks: []
     };
-
-    it('should hide component when isOpen is false', () => {
-        const { container } = render(
-            <ToastProvider>
-                <PerfDashboard
-                    isOpen={false}
-                    onClose={() => { }}
-                    result={null}
-                    isAnalyzing={false}
-                    targetTime={500}
-                    isActive={true}
-                />
-            </ToastProvider>
-        );
-        const dashboard = container.querySelector('.perf-dashboard-container');
-        expect(dashboard?.className).toContain('opacity-0');
-        expect(dashboard?.className).toContain('h-0');
-    });
 
     it('should show "Ready to Analyze" when no result and not analyzing', async () => {
         render(

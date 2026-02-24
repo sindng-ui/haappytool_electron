@@ -642,7 +642,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
 
             const isSelected = s.id === selectedSegmentId || multiSelectedIds.includes(s.id);
             const isHovered = s.id === hoveredSegmentId;
-            const isMatch = checkSegmentMatch(s, searchQuery);
+            const isMatch = searchQuery !== '' && checkSegmentMatch(s, searchQuery);
             const isGlobal = s.tid === 'Global';
 
             // If it's a special state, draw it immediately and don't merge
@@ -656,7 +656,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                 if (effectiveSelectedTid !== null && !isTidFocused) baseOpacity *= (lockedTid ? 0.1 : 0.3); // More dimming if locked
                 // Fail Only mode: dim non-fail segments
                 if (showOnlyFail && !isFail) baseOpacity = Math.min(baseOpacity, 0.12);
-                const finalOpacity = isMatch ? baseOpacity : 0.1;
+                const finalOpacity = searchQuery !== '' ? (isMatch ? baseOpacity : 0.1) : baseOpacity;
 
                 const baseColor = (isSelected || isMatch) ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
 
@@ -768,10 +768,10 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
             const yOffset = maxLane > 0 ? (s.lane / (maxLane + 1)) * (height - 4) : 0;
             const laneH = Math.max(2, height / (maxLane + 1));
 
-            const isMatch = checkSegmentMatch(s, searchQuery);
-            const finalOpacity = isMatch ? 0.8 : 0.1;
+            const isMatch = searchQuery !== '' && checkSegmentMatch(s, searchQuery);
+            const finalOpacity = searchQuery !== '' ? (isMatch ? 0.8 : 0.1) : 0.8;
 
-            if (w > 1.5 || isMatch) {
+            if (w > 1.5 || (searchQuery !== '' && isMatch)) {
                 // Draw normally for visible or matched segments
                 ctx.globalAlpha = finalOpacity;
                 ctx.fillStyle = s.dangerColor || (s.duration >= (result.perfThreshold || 1000) ? '#be123c' : palette[s.lane % palette.length]);
@@ -825,7 +825,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
     // Mark dirty whenever any visible state changes (instead of recreating rAF loop)
     useEffect(() => { isDirtyRef.current = true; }, [
         flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId,
-        searchQuery, viewMode, mousePos, isScanningStatus
+        searchQuery, viewMode, mousePos, isScanningStatus, lockedTid
     ]);
 
     // result 변경 시 size cache 완전 초기화 + dirty 설정 (초기 로드 타이밍 보장)
