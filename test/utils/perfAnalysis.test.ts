@@ -195,5 +195,55 @@ describe('Performance Utils', () => {
 
             expect(uniqueLanes.size).toBeGreaterThan(1);
         });
+
+        it('should handle time reversal (negative duration) gracefully', () => {
+            // A(100) -> B(50)
+            const lines = [
+                '[2024-02-16 10:00:00.100] [INFO] StepA',
+                '[2024-02-16 10:00:00.050] [INFO] StepB'
+            ];
+            const indices = [1, 2];
+            const segments = analyzePerfSegments(lines, indices, baseRule, targetTime, false);
+
+            const interval = segments.find(s => s.type === 'combo');
+            expect(interval).toBeDefined();
+            expect(interval?.duration).toBe(-50);
+            expect(interval?.status).toBe('pass'); // Negative is usually < targetTime
+        });
+
+        it('should ignore logs with invalid timestamps', () => {
+            const lines = [
+                '[2024-02-16 10:00:00.000] [INFO] StepA',
+                '[INVALID TIMESTAMP] [INFO] StepB',
+                '[2024-02-16 10:00:00.100] [INFO] StepA'
+            ];
+            const indices = [1, 2, 3];
+            const segments = analyzePerfSegments(lines, indices, baseRule, targetTime, false);
+
+            // Filter intervals: only A->A (100ms) should exist because B was ignored
+            const intervals = segments.filter(s => s.type === 'combo');
+            expect(intervals).toHaveLength(1);
+            expect(intervals[0].name).toBe('Step A → Step A');
+            expect(intervals[0].duration).toBe(100);
+        });
+
+        it('should fallback to Main when TID/PID cannot be extracted', () => {
+            const lines = [
+                'No IDs here StepA',
+                'Still no IDs StepB'
+            ];
+            // Mock timestamps since extractTimestamp might fail on these
+            // In real code, extractTimestamp is called, but for testing we can use valid looking lines
+            const validLines = [
+                '[10:00:00.000] No IDs here StepA',
+                '[10:00:00.050] Still no IDs StepB'
+            ];
+            const indices = [10, 20];
+            const segments = analyzePerfSegments(validLines, indices, baseRule, targetTime, false);
+
+            const interval = segments.find(s => s.type === 'combo');
+            expect(interval).toBeDefined();
+            expect(interval?.tid).toBe('Main');
+        });
     });
 });
