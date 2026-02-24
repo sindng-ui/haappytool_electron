@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import { AnalysisResult, AnalysisSegment } from '../../utils/perfAnalysis';
@@ -390,7 +390,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         return navSegments.findIndex(s => s.id === selectedSegmentId);
     }, [selectedSegmentId, navSegments]);
 
-    const jumpToNavSegment = (direction: -1 | 1) => {
+    const jumpToNavSegment = useCallback((direction: -1 | 1) => {
         if (!result || navSegments.length === 0) return;
 
         let targetIndex = currentNavIndex + direction;
@@ -408,7 +408,24 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         if (onJumpToRange) {
             onJumpToRange(target.startLine, target.endLine);
         }
-    };
+    }, [result, navSegments, currentNavIndex, onJumpToRange]);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (!isActive || !isOpen) return;
+            if (e.key === 'F3') {
+                e.preventDefault();
+                e.stopPropagation();
+                jumpToNavSegment(-1);
+            } else if (e.key === 'F4') {
+                e.preventDefault();
+                e.stopPropagation();
+                jumpToNavSegment(1);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [jumpToNavSegment, isActive, isOpen]);
 
     const [isScanningStatus, setIsScanningStatus] = useState(isAnalyzing);
     const minScanTimeMs = 1000;
