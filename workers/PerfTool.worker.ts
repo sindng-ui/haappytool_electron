@@ -23,6 +23,7 @@ let pidCounts = new Map<string, number>();
 
 // Analysis State
 let matchedLogsByTid = new Map<string, { timestamp: number; lineContent: string; lineIndex: number }[]>();
+let matchCountNoTs = 0;
 let detectedPid: string | null = null;
 let perfThreshold = 1000;
 let dangerLevels: { ms: number; color: string; label: string }[] = [];
@@ -50,6 +51,7 @@ const processLine = (line: string, index: number) => {
         } else if (mode === 'analyze') {
             const { pid, tid: extractedTid } = extractLogIds(line);
 
+<<<<<<< Updated upstream
             // 1. PID match check - Robust validation
             // If the keyword is purely numbers, it's likely a PID.
             // We must ensure it's not a false positive from the line content (like 'line 2225')
@@ -63,6 +65,9 @@ const processLine = (line: string, index: number) => {
             }
 
             // 2. Tag match check (if tags specified)
+=======
+            // 1. Tag match check (if tags specified)
+>>>>>>> Stashed changes
             if (targetTags.length > 0) {
                 const lineContentLower = line.toLowerCase();
                 const isTagMatch = targetTags.some(tag => lineContentLower.includes(tag.toLowerCase()));
@@ -75,6 +80,8 @@ const processLine = (line: string, index: number) => {
                 if (!detectedPid && pid) detectedPid = pid;
                 if (!matchedLogsByTid.has(tid)) matchedLogsByTid.set(tid, []);
                 matchedLogsByTid.get(tid)!.push({ timestamp: ts, lineContent: line, lineIndex: index });
+            } else {
+                matchCountNoTs++;
             }
         }
     }
@@ -100,6 +107,7 @@ ctx.onmessage = (evt) => {
             analysisFileName = payload.fileName || 'Log File';
             targetTags = payload.targetTags || [];
             matchedLogsByTid.clear();
+            matchCountNoTs = 0;
             detectedPid = null;
             currentLineIndex = 0;
             streamBuffer = '';
@@ -192,7 +200,15 @@ ctx.onmessage = (evt) => {
                     .sort((a, b) => (a.timestamp - b.timestamp) || (a.lineIndex - b.lineIndex));
 
                 if (allLogs.length < 2) {
-                    ctx.postMessage({ type: 'ERROR', payload: { error: "Not enough logs matched the keyword to form intervals." }, requestId });
+                    const tagInfo = targetTags.length > 0 ? ` and tags [${targetTags.join(', ')}]` : '';
+                    const noTsInfo = matchCountNoTs > 0 ? ` Note: ${matchCountNoTs} lines matched but were missing valid timestamps.` : '';
+                    ctx.postMessage({
+                        type: 'ERROR',
+                        payload: {
+                            error: `Not enough logs matched the keyword "${keywordLower}"${tagInfo} to form intervals. (Found ${allLogs.length} matching lines with timestamps).${noTsInfo}`
+                        },
+                        requestId
+                    });
                     return;
                 }
 
