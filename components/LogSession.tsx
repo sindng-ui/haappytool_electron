@@ -184,7 +184,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         // Transaction Analyzer
         transactionResults, transactionIdentity, transactionSourcePane, isAnalyzingTransaction, isTransactionDrawerOpen,
         setIsTransactionDrawerOpen, analyzeTransactionAction,
-        handleZoomIn, handleZoomOut // ✅ Consumed
+        handleZoomIn, handleZoomOut, // ✅ Consumed
+        clearCacheTick
     } = useLogContext();
 
     // Log Archive: Text Selection
@@ -1189,6 +1190,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onContextMenu={handleContextMenu}
                                     onArchiveSave={onArchiveSaveLeft}
                                     isArchiveSaveEnabled={isLeftArchiveEnabled}
+                                    clearCacheTick={clearCacheTick}
                                 />
                                 {(leftTotalSegments > 1 || leftSelectionDuration) && (
                                     <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
@@ -1283,6 +1285,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onContextMenu={handleContextMenu}
                                             onArchiveSave={onArchiveSaveRight}
                                             isArchiveSaveEnabled={isRightArchiveEnabled}
+                                            clearCacheTick={clearCacheTick}
                                         />
                                         {(rightTotalSegments > 1 || rightSelectionDuration) && (
                                             <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">

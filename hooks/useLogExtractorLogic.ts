@@ -806,6 +806,7 @@ export const useLogExtractorLogic = ({
 
     // Tizen Socket State
     const [tizenSocket, setTizenSocket] = useState<Socket | null>(null);
+    const [clearCacheTick, setClearCacheTick] = useState(0);
 
     const tizenBuffer = useRef<string[]>([]);
     const tizenBufferTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -1142,6 +1143,7 @@ export const useLogExtractorLogic = ({
             setActiveLineIndexLeft(-1);
             setSelectedIndicesLeft(new Set());
             setLeftBookmarks(new Set()); // Clear bookmarks
+            setClearCacheTick(t => t + 1); // ✅ Explicitly trigger cache clear
 
             // Clear pending buffer to prevent old logs from being processed after clear
             tizenBuffer.current = [];
@@ -2166,6 +2168,7 @@ export const useLogExtractorLogic = ({
         handleJumpToLineLeft, handleJumpToLineRight,
         leftLineHighlightRanges, rightLineHighlightRanges,
         handleJumpToRangeLeft, handleJumpToRangeRight,
+        clearCacheTick, // ✅ Export for Cache Invalidation
         handleViewRawRangeLeft, handleViewRawRangeRight,
         handleCopyRawRangeLeft, handleCopyRawRangeRight,
         rawViewHighlightRange,

@@ -297,6 +297,7 @@ export const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ filePath, fileName
                             levelStyles: [],
                             logLevelOpacity: 20
                         }}
+                        isActive={true}
                     />
                 </div>
             </div>

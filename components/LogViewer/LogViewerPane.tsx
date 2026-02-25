@@ -65,6 +65,7 @@ interface LogViewerPaneProps {
     onCopyRawRange?: (start: number, end: number) => void;
     dashboardHeight?: number;
     onDashboardHeightChange?: (height: number) => void;
+    clearCacheTick?: number;
 }
 
 export interface LogViewerHandle {
@@ -127,6 +128,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     onCopyRawRange,
     dashboardHeight: propDashboardHeight,
     onDashboardHeightChange,
+    clearCacheTick,
 }, ref) => {
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
     const [localDashboardHeight, setLocalDashboardHeight] = useState(320);
@@ -331,20 +333,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         cachedLinesRef.current = newMap;
         pendingIndicesRef.current.clear();
         prevScrollTopRef.current = 0;
-    }, [workerReady, fileName]);
-
-    // ✅ Fix: Clear cache aggressively when totalMatches becomes 0 (e.g. Log Clear command sent)
-    // Prevents Virtuoso from rendering old cached lines when new logs arrive with colliding indices.
-    useEffect(() => {
-        if (totalMatches === 0) {
-            const newMap = new Map<number, { lineNum: number, content: string }>();
-            setCachedLines(newMap);
-            cachedLinesRef.current = newMap;
-            pendingIndicesRef.current.clear();
-        }
-    }, [totalMatches]);
-
-
+    }, [workerReady, fileName, clearCacheTick]);
 
     const pendingIndicesRef = useRef<Set<number>>(new Set());
 
