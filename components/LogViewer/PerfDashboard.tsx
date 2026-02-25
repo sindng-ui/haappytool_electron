@@ -247,40 +247,45 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         if (!result) return [];
         let filtered = [...result.segments];
 
+        // 1. Thread Lock Filter
         if (lockedTid) {
             filtered = filtered.filter(s => s.tid === lockedTid);
-            return filtered.sort((a, b) => a.startTime - b.startTime);
         }
 
-        // 1. Search Query Filter (Always respect search)
+        // 2. Search Query Filter (Always respect search)
         if (searchQuery) {
             filtered = filtered.filter(s => checkSegmentMatch(s, searchQuery));
         }
 
-        // 2. Fail Only Filter
+        // 3. Fail Only Filter
         if (showOnlyFail) {
             // Match with visual logic: anything marked as 'fail' or exceeding threshold
             filtered = filtered.filter(s => s.status === 'fail' || s.duration >= (result.perfThreshold || 1000));
         }
 
-        // 3. Tag filter
+        // 4. Tag filter
         if (activeTags.length > 0) {
             filtered = filtered.filter(s =>
                 s.logs?.some(log => activeTags.some(tag => log.includes(tag)))
             );
         }
 
-        // 4. Trim filter
+        // 5. Trim filter
         if (trimRange) {
             filtered = filtered.filter(s =>
                 s.startTime < trimRange.endTime && s.endTime > trimRange.startTime
             );
         }
 
-        // 5. Exclude Global lane from bottlenecks (navigation)
+        // 6. Exclude Global lane from bottlenecks (navigation)
         filtered = filtered.filter(s => s.tid !== 'Global');
 
-        // Match the list logic: top 50 slowest segments
+        if (lockedTid) {
+            // Thread-focused navigation: chronological order
+            return filtered.sort((a, b) => a.startTime - b.startTime);
+        }
+
+        // Global navigation: top 50 slowest segments
         return filtered.sort((a, b) => b.duration - a.duration).slice(0, 50);
     }, [result, showOnlyFail, searchQuery, activeTags, trimRange, lockedTid]);
 
@@ -680,13 +685,13 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                 ctx.globalAlpha = finalOpacity;
                 ctx.fillStyle = baseColor;
 
+                ctx.beginPath();
                 if (w > 1.5) {
-                    ctx.beginPath();
                     ctx.roundRect(x, y, w, h, isGlobal ? 2 : 4);
-                    ctx.fill();
                 } else {
-                    ctx.fillRect(x, y, w, h);
+                    ctx.rect(x, y, w, h);
                 }
+                ctx.fill();
 
                 if (isSelected || isHovered || isMatch) {
                     ctx.strokeStyle = isGlobal ? '#f59e0b' : 'white';
@@ -1321,9 +1326,14 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                             const individual = flameSegments.filter(s => s.tid !== 'Global');
                                             const filteredFail = individual.filter(s => s.duration >= (result.perfThreshold || 1000)).length;
                                             const total = Math.max(1, individual.length);
+                                            const rate = ((total - filteredFail) / total) * 100;
+
+                                            // Handle edge case where very low fail count rounds to 100
+                                            const displayRate = (filteredFail > 0 && rate > 99.9) ? "99.9" : rate.toFixed(1);
+
                                             return (
                                                 <span className={`text-lg font-black ${filteredFail === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                                    {Math.round(((total - filteredFail) / total) * 100)}%
+                                                    {displayRate}%
                                                 </span>
                                             );
                                         })()}
@@ -1410,7 +1420,13 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                         />
                                         <Scorecard
                                             label="Pass Rate"
-                                            value={`${Math.round(((result.segments.length - result.failCount) / Math.max(1, result.segments.length)) * 100)}%`}
+                                            value={(() => {
+                                                const individualCount = result.segments.filter(s => s.tid !== 'Global').length;
+                                                const total = Math.max(1, individualCount);
+                                                const rate = ((total - result.failCount) / total) * 100;
+                                                const displayRate = (result.failCount > 0 && rate > 99.9) ? "99.9" : rate.toFixed(1);
+                                                return `${displayRate}%`;
+                                            })()}
                                             icon={<Lucide.CheckCircle2 size={14} />}
                                             color="#10b981"
                                             subValue={`${result.failCount} slow ops`}
