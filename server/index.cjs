@@ -925,35 +925,23 @@ const handleSocketConnection = (socket, deps = {}) => {
         }
     });
 
-    // ✅ SSH Clear Buffer (In-shell restart to prevent shell crash and remove backlog)
+    // ✅ SSH Clear Buffer (Soft Clear to prevent shell crash and backlog replay)
     socket.on('ssh_clear', () => {
         if (sshConnection && sshConnection.stream && sshConnection.stream.writable) {
             logBuffer = ''; // ✅ Clear backend buffer immediately
             ignoreLogs = true; // ✅ Drop incoming old logs while clearing
             if (batchTimeout) { clearTimeout(batchTimeout); batchTimeout = null; }
-            console.log('[SSH] True Clear via in-shell restart');
+            console.log('[SSH] Soft Clear initiated');
 
-            // 1. Kill old background/foreground dlogutil
-            sshConnection.stream.write('\x03\nkillall dlogutil\npkill dlogutil\n');
-
+            // We just ignore data for a short window to drop in-flight buffer
             setTimeout(() => {
-                // 2. Clear buffer on device
-                sshConnection.stream.write('dlogutil -c\n');
-
-                setTimeout(() => {
-                    // 3. Restart tracing with user's original command
-                    sshConnection.stream.write(currentSshCommand || 'dlogutil -v kerneltime\n');
-
-                    setTimeout(() => {
-                        ignoreLogs = false; // ✅ Resume log streaming
-                        socket.emit('log_data', '-----------------------------------------------------------\n[System] Device Log Buffer Cleared\n-----------------------------------------------------------\n');
-                    }, 500); // 500ms for tail wait
-                }, 500); // 500ms for dlogutil -c to finish
-            }, 300); // 300ms for killall to finish
+                ignoreLogs = false; // ✅ Resume log streaming
+                socket.emit('log_data', '-----------------------------------------------------------\n[System] UI Cleared (Stream Continues)\n-----------------------------------------------------------\n');
+            }, 300);
         }
     });
 
-    // ✅ SDB Clear Buffer (In-shell restart to prevent shell crash and remove backlog)
+    // ✅ SDB Clear Buffer (Soft Clear to prevent shell crash and backlog replay)
     socket.on('sdb_clear', ({ deviceId, sdbPath }) => {
         if (sdbProcess && sdbProcess.stdin && sdbProcess.stdin.writable) {
             let cleanDeviceId = deviceId;
@@ -964,25 +952,13 @@ const handleSocketConnection = (socket, deps = {}) => {
             logBuffer = ''; // ✅ Clear backend buffer immediately
             ignoreLogs = true; // ✅ Drop incoming old logs while clearing
             if (batchTimeout) { clearTimeout(batchTimeout); batchTimeout = null; }
-            console.log(`[SDB] True Clear via in-shell restart for ${cleanDeviceId || 'default'}`);
+            console.log(`[SDB] Soft Clear initiated for ${cleanDeviceId || 'default'}`);
 
-            // 1. Kill old background/foreground dlogutil
-            sdbProcess.stdin.write('\x03\nkillall dlogutil\npkill dlogutil\n');
-
+            // We just ignore data for a short window to drop in-flight buffer
             setTimeout(() => {
-                // 2. Clear buffer on device
-                sdbProcess.stdin.write('dlogutil -c\n');
-
-                setTimeout(() => {
-                    // 3. Restart tracing with user's original command
-                    sdbProcess.stdin.write(currentSdbCommand || 'dlogutil -v kerneltime\n');
-
-                    setTimeout(() => {
-                        ignoreLogs = false; // ✅ Resume log streaming
-                        socket.emit('log_data', '-----------------------------------------------------------\n[System] Device Log Buffer Cleared\n-----------------------------------------------------------\n');
-                    }, 500); // 500ms for tail wait
-                }, 500); // 500ms for dlogutil -c to finish
-            }, 300); // 300ms for killall to finish
+                ignoreLogs = false; // ✅ Resume log streaming
+                socket.emit('log_data', '-----------------------------------------------------------\n[System] UI Cleared (Stream Continues)\n-----------------------------------------------------------\n');
+            }, 300);
         }
     });
 
