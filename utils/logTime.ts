@@ -23,17 +23,27 @@ export const extractTimestamp = (line: string): number | null => {
 
     // Determine the boundary of the header to avoid picking up large numbers
     // in the log message as timestamps (e.g., "Value: 200000.0").
-    // We stop at the first occurrence of ": " or " > " which typically starts the message.
+    // We prioritize " > " as a strong indicator of the message start.
     let boundary = 256;
-    const colonSpaceIdx = line.indexOf(': ');
-    if (colonSpaceIdx !== -1 && colonSpaceIdx < boundary) boundary = colonSpaceIdx;
-
     const arrowIdx = line.indexOf(' > ');
-    if (arrowIdx !== -1 && arrowIdx < boundary) boundary = arrowIdx;
+    if (arrowIdx !== -1) {
+        boundary = arrowIdx;
+    } else {
+        // Fallback to ": " but only if it's not too early (likely a prefix like "aaaa: ")
+        // or if it's following a common "thread-like" pattern.
+        const colonSpaceIdx = line.indexOf(': ');
+        // If colon is within first 16 chars, it's often a label/prefix, ignore it as boundary
+        if (colonSpaceIdx !== -1 && colonSpaceIdx < boundary && colonSpaceIdx > 16) {
+            boundary = colonSpaceIdx;
+        }
+    }
 
     // End of C#-style or other source metadata: FileName.cs:Func()>
     const metaEndIdx = line.indexOf(')>');
-    if (metaEndIdx !== -1 && (metaEndIdx + 2) < boundary) boundary = metaEndIdx + 2;
+    if (metaEndIdx !== -1 && (metaEndIdx + 2) < 256) {
+        // If meta end exists, we can search up to it if it's further than current boundary
+        if (metaEndIdx + 2 > boundary) boundary = metaEndIdx + 2;
+    }
 
     const preamble = line.substring(0, boundary);
     const candidates: { value: number; index: number }[] = [];
@@ -67,9 +77,9 @@ export const extractTimestamp = (line: string): number | null => {
     }
 
     // 2. Monotonic / Seconds-Dot-Milliseconds (e.g. 12345.6789)
-    // Matches if preceded by space, start, colon-space, or bracket
+    // Matches if preceded by space, start, colon, or bracket
     // This catches the second time in "[Date] service: 123.456"
-    const monoRegex = /(?:^|\s|:\s|\[\s*)(\d+\.\d{3,})(?:\s|\]|:|$)/g;
+    const monoRegex = /(?:^|\s|[:]\s*|\[\s*)(\d+\.\d{3,})(?:\s|\]|:|$)/g;
     while ((match = monoRegex.exec(preamble)) !== null) {
         const val = parseFloat(match[1]);
         if (!isNaN(val)) {
