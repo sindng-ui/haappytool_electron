@@ -123,24 +123,34 @@ ctx.onmessage = (evt) => {
             break;
 
         case 'ADD_CHUNK':
+            const encoder = new TextEncoder();
             const chunkStr = payload.chunk;
             const fullStr = streamBuffer + chunkStr;
             let lastIdx = 0;
-            const regex = /\r?\n/g;
+
+            // Support all common line endings: CRLF, CR, LF
+            const regex = /\r\n|\r|\n/g;
             let match;
 
-            const encoder = new TextEncoder();
+            // Handle UTF-8 BOM drift (3 bytes) if this is the very first chunk of the file
+            if (currentLineIndex === 0 && lastIdx === 0 && fullStr.startsWith('\uFEFF')) {
+                totalBytesProcessed += 3;
+            }
 
             while ((match = regex.exec(fullStr)) !== null) {
                 const lineContent = fullStr.substring(lastIdx, match.index);
+                const separator = match[0];
                 const lineWithSeparator = fullStr.substring(lastIdx, regex.lastIndex);
 
                 currentLineIndex++;
 
                 // Track bytes if analyzing
                 if (mode === 'analyze') {
+                    // Optimization: We could sum lengths but since we need byte accuracy for seek:
                     const lineBytes = encoder.encode(lineWithSeparator).length;
                     totalBytesProcessed += lineBytes;
+
+                    // Store offset of the NEXT line (current bytes processed)
                     if (currentLineIndex % 1000 === 0) {
                         lineOffsets.set(currentLineIndex, totalBytesProcessed);
                     }
@@ -148,17 +158,16 @@ ctx.onmessage = (evt) => {
 
                 if (mode === 'raw_extract') {
                     if (currentLineIndex >= searchStart && currentLineIndex <= searchEnd) {
-                        // Cap extremely long lines which can freeze browser layout, but let's be generous
+                        // Cap extremely long lines which can freeze browser layout
                         const safeContent = lineContent.length > 5000
-                            ? lineContent.substring(0, 5000) + "... [line truncated for performance]"
+                            ? lineContent.substring(0, 5000) + "... [line truncated]"
                             : lineContent;
                         extractedLines.push({ index: currentLineIndex, content: safeContent });
                     }
                     if (currentLineIndex >= searchEnd) {
-                        // We have everything we need, send it now!
                         ctx.postMessage({ type: 'RAW_EXTRACT_COMPLETE', payload: { lines: extractedLines }, requestId });
-                        mode = null; // Exit mode to ignore further chunks
-                        return; // Stop processing this chunk
+                        mode = null;
+                        return;
                     }
                 } else {
                     processLine(lineContent, currentLineIndex);
