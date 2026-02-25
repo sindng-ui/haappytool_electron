@@ -599,23 +599,44 @@ const getRawLines = async (startLineNum: number, count: number, requestId: strin
         }
         const max = Math.min(startIdx + count, lineOffsets.length);
 
-        const readSlice = (blob: Blob): Promise<string> => {
-            return new Promise((resolve) => {
-                const r = new FileReader();
-                r.onload = (e) => resolve(e.target?.result as string);
-                r.readAsText(blob);
-            });
-        };
-
+        // ✅ Batch Reading Optimization for Raw Lines:
+        let minByte = -1n;
+        let maxByte = -1n;
         for (let i = startIdx; i < max; i++) {
-            const startByte = Number(lineOffsets[i]);
-            const endByte = i < lineOffsets.length - 1 ? Number(lineOffsets[i + 1]) : currentFile.size;
-            if (startByte >= endByte) {
-                resultLines.push({ lineNum: i + 1, content: '' });
-                continue;
+            const startByte = lineOffsets[i];
+            const endByte = i < lineOffsets.length - 1 ? lineOffsets[i + 1] : BigInt(currentFile.size);
+            if (minByte === -1n || startByte < minByte) minByte = startByte;
+            if (maxByte === -1n || endByte > maxByte) maxByte = endByte;
+        }
+
+        try {
+            if (minByte !== -1n && maxByte !== -1n) {
+                const fullBlob = currentFile.slice(Number(minByte), Number(maxByte));
+                const buffer = await fullBlob.arrayBuffer();
+                const decoder = new TextDecoder();
+
+                for (let i = startIdx; i < max; i++) {
+                    const lineStart = lineOffsets[i];
+                    const lineEnd = i < lineOffsets.length - 1 ? lineOffsets[i + 1] : BigInt(currentFile.size);
+
+                    if (lineStart >= lineEnd) {
+                        resultLines.push({ lineNum: i + 1, content: '' });
+                        continue;
+                    }
+
+                    const relStart = Number(lineStart - minByte);
+                    const relEnd = Number(lineEnd - minByte);
+
+                    const lineBuffer = buffer.slice(relStart, relEnd);
+                    const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
+
+                    resultLines.push({ lineNum: i + 1, content: text });
+                }
             }
-            const text = await readSlice(currentFile.slice(startByte, endByte));
-            resultLines.push({ lineNum: i + 1, content: text.replace(/\r?\n$/, '') });
+        } catch (err) {
+            console.error('[Worker] Raw batch read failed', err);
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
         }
     }
 

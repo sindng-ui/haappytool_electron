@@ -10,7 +10,7 @@
     "clean": "rimraf dist dist_electron",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:3000 && electron .\"",
+    "electron:dev": "concurrently -k \"set CHOKIDAR_USEPOLLING=true && vite\" \"wait-on tcp:3000 && electron .\"",
     "electron:build": "vite build && electron-builder",
     "electron:build:dir": "vite build && electron-builder --dir --win --x64",
     "electron:build:fast": "vite build && electron-builder --win --x64 --config.compression=store",

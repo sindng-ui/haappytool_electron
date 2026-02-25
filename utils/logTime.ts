@@ -48,10 +48,13 @@ export const extractTimestamp = (line: string): number | null => {
     const preamble = line.substring(0, boundary);
     const candidates: { value: number; index: number }[] = [];
 
-    // 1. Standard DateTime (MM-DD HH:mm:ss.mss or YYYY-MM-DD ...)
     const stdRegex = /(\d{4}-)?(\d{2}-\d{2}\s+)?(\d{2}:\d{2}:\d{2}\.\d{3})/g;
     let match;
+    const stdRanges: { start: number, end: number }[] = [];
+
     while ((match = stdRegex.exec(preamble)) !== null) {
+        stdRanges.push({ start: match.index, end: match.index + match[0].length });
+
         const now = new Date();
         let year = now.getFullYear();
         let month = now.getMonth();
@@ -85,7 +88,10 @@ export const extractTimestamp = (line: string): number | null => {
         if (!isNaN(val)) {
             // Calculate actual index of the digits
             const digitIdx = match.index + match[0].indexOf(match[1]);
-            candidates.push({ value: val * 1000, index: digitIdx });
+            const isInsideStd = stdRanges.some(r => digitIdx >= r.start && digitIdx < r.end);
+            if (!isInsideStd) {
+                candidates.push({ value: val * 1000, index: digitIdx });
+            }
         }
     }
 
@@ -93,7 +99,13 @@ export const extractTimestamp = (line: string): number | null => {
     const simpleMonoRegex = /^\s*(?:\[\s*)?(\d+\.\d{1,2})(?:\s*\])?/g;
     while ((match = simpleMonoRegex.exec(preamble)) !== null) {
         const val = parseFloat(match[1]);
-        if (!isNaN(val)) candidates.push({ value: val * 1000, index: match.index });
+        if (!isNaN(val)) {
+            const digitIdx = match.index + match[0].indexOf(match[1]);
+            const isInsideStd = stdRanges.some(r => digitIdx >= r.start && digitIdx < r.end);
+            if (!isInsideStd) {
+                candidates.push({ value: val * 1000, index: digitIdx });
+            }
+        }
     }
 
     if (candidates.length === 0) return null;

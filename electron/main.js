@@ -1,4 +1,9 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+// ✅ WSL/Virtual Drive(Y:) Environment Fixes
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-software-rasterizer');
+app.commandLine.appendSwitch('no-sandbox');
+app.disableHardwareAcceleration();
 const path = require('path');
 const fs = require('fs/promises'); // For async/await helper if needed
 const originalFs = require('fs'); // For streams

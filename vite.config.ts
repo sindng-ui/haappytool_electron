@@ -8,6 +8,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '127.0.0.1',
+      watch: {
+        usePolling: true,
+      },
       proxy: {
         '/lm-studio': {
           target: 'http://localhost:1234/v1',

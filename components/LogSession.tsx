@@ -32,14 +32,17 @@ interface RawContextViewerProps {
     rightTotalLines: number;
     requestLeftRawLines: (start: number, count: number) => Promise<any>;
     requestRightRawLines: (start: number, count: number) => Promise<any>;
+    highlightCaseSensitive?: boolean;
     preferences?: any;
-    highlightRange?: { start: number; end: number } | null; // Added
+    highlightRange?: { start: number; end: number } | null;
+    clearCacheTick?: number;
 }
 
 const RawContextViewer: React.FC<RawContextViewerProps> = ({
     sourcePane, leftFileName, rightFileName, targetLine, onClose, heightPercent, onResizeStart,
     leftTotalLines, rightTotalLines, requestLeftRawLines, requestRightRawLines, preferences,
-    highlightRange // Added
+    highlightRange,
+    clearCacheTick
 }) => {
     const rawViewerRef = React.useRef<LogViewerHandle>(null);
     const rawTotalLines = sourcePane === 'left' ? leftTotalLines : rightTotalLines;
@@ -85,6 +88,7 @@ const RawContextViewer: React.FC<RawContextViewerProps> = ({
                         end: highlightRange.end - 1,
                         color: 'rgba(99, 102, 241, 0.3)'
                     }] : []}
+                    clearCacheTick={clearCacheTick}
                 />
                 {/* Resizer Handle (Bottom) - Refined Pill Design */}
                 <div
@@ -1121,6 +1125,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     requestRightRawLines={requestRightRawLines}
                     preferences={logViewPreferences}
                     highlightRange={rawViewHighlightRange}
+                    clearCacheTick={clearCacheTick}
                 />
             )}
 

@@ -183,21 +183,8 @@ export const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ filePath, fileName
         });
     }, []);
 
-    // Initial Dump Jump - Manual Trigger
-    // Use a flag to ensure we only jump once per open/targetRange change, BUT wait for workerReady
-    useEffect(() => {
-        if (!isOpen) return;
-
-        if (workerReady && targetRange && viewerRef.current) {
-            // Give a small delay to ensure Virtuoso is fully mounted and measured
-            const timer = setTimeout(() => {
-                const target = Math.max(0, targetRange.startLine - 5);
-                console.log('RawViewer: Initial Jump to', target);
-                viewerRef.current?.scrollToIndex(target, { align: 'start' });
-            }, 100);
-            return () => clearTimeout(timer);
-        }
-    }, [workerReady, targetRange, isOpen]);
+    // Initial Jump Logic is now handled centrally by LogViewerPane via initialScrollIndex prop
+    // to ensure instant anchoring without visual delay.🐧
 
     const highlightRanges = useMemo(() => {
         const ranges = [];

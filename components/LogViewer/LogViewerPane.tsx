@@ -257,8 +257,9 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     // Force scroll to initial index if provided - fixes race conditions where data loads after mount
     useEffect(() => {
         if (initialScrollIndex !== undefined && totalMatches > 0 && hyperRef.current) {
+            // ✅ instant jump to 'start' to avoid "drifting" visual effect
             requestAnimationFrame(() => {
-                hyperRef.current?.scrollToIndex(initialScrollIndex, { align: 'center' });
+                hyperRef.current?.scrollToIndex(initialScrollIndex, { align: 'start' });
             });
         }
     }, [initialScrollIndex, totalMatches]);
@@ -891,6 +892,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                 performanceHeatmap={performanceHeatmap}
                                 onKeyDown={handleKeyDown}
                                 onScroll={handleScroll}
+                                clearCacheTick={clearCacheTick}
                             />
                             {showScrollToBottom && (
                                 <button

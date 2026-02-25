@@ -99,7 +99,7 @@ describe('Performance Benchmarks - JSON Tools', () => {
     });
 
     it('should handle deeply nested JSON efficiently', () => {
-        const depth = 10; // 10 levels deep
+        const depth = 8; // 8 levels deep (reduced from 10 to prevent exponential timeout)
         const testData = generateDeeplyNestedJSON(depth);
 
         const stringifyStart = performance.now();

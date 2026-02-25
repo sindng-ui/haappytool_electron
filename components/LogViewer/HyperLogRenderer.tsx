@@ -24,6 +24,7 @@ interface HyperLogRendererProps {
     performanceHeatmap?: number[];
     onKeyDown?: (e: React.KeyboardEvent) => void;
     isActive: boolean;
+    clearCacheTick?: number;
 }
 
 interface CachedLine {
@@ -105,6 +106,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     performanceHeatmap = [],
     onKeyDown,
     isActive,
+    clearCacheTick
 }, ref) => {
     // ✅ 형님, 레이아웃 상수들을 컴포넌트 내부에서 계산하여 HMR이나 설정 변경에 즉각 대응하게 합니다.
     const {
@@ -146,6 +148,12 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
     const cachedLinesRef = useRef(cachedLines);
     useEffect(() => { cachedLinesRef.current = cachedLines; }, [cachedLines]);
+
+    // ✅ clearCacheTick이 변경되면 내부 캐시를 비워줍니다. (wrapper의 clear 액션과 동기화)
+    useEffect(() => {
+        setCachedLines(new Map());
+    }, [clearCacheTick]);
+
     const scrollTaskRef = useRef<number | null>(null);
 
     // --- IMPERATIVE HANDLE ---
@@ -565,7 +573,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         }
 
         ctx.restore(); // [C] Restore state (clipping ends here)
-    }, [stableScrollTop, cachedLines, totalCount, rowHeight, preferences, levelMatchers, selectedIndices, activeLineIndex, bookmarks, loadVisibleLines, compiledTextHighlights, compiledLineHighlights, highlightCaseSensitive, compiledLineHighlightRanges, getCachedWidth, performanceHeatmap, CONTENT_X_OFFSET, GUTTER_STAR_WIDTH, GUTTER_INDEX_WIDTH]);
+    }, [stableScrollTop, cachedLines, totalCount, rowHeight, preferences, levelMatchers, selectedIndices, activeLineIndex, bookmarks, loadVisibleLines, compiledTextHighlights, compiledLineHighlights, highlightCaseSensitive, compiledLineHighlightRanges, getCachedWidth, performanceHeatmap, CONTENT_X_OFFSET, GUTTER_STAR_WIDTH, GUTTER_INDEX_WIDTH, isActive]);
 
     const renderHeatmap = useCallback(() => {
         render(); // 히트맵 렌더링은 이제 render 함수 통합됨
@@ -619,7 +627,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     useLayoutEffect(() => {
         render();
         renderHeatmap();
-    }, [render, cachedLines, selectedIndices, activeLineIndex, bookmarks, performanceHeatmap]);
+    }, [render, cachedLines, selectedIndices, activeLineIndex, bookmarks, performanceHeatmap, isActive]);
 
     // ✅ Dynamic Width Calculation (Sample based for performance)
     useEffect(() => {
@@ -686,7 +694,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             res.push({ index: i, line: cachedLines.get(i) });
         }
         return res;
-    }, [stableScrollTop, viewportHeight, rowHeight, totalCount, cachedLines]);
+    }, [stableScrollTop, viewportHeight, rowHeight, totalCount, cachedLines, isActive]);
     const handleLineAction = (e: React.MouseEvent, index: number, type: 'click' | 'dbclick' | 'enter') => {
         if (e.altKey) {
             // ✅ Alt 클릭으로 텍스트 선택을 시작하면 기존 라인 선택(파란 줄)을 지워줍니다.
