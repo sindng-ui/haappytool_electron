@@ -285,8 +285,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
             return filtered.sort((a, b) => a.startTime - b.startTime);
         }
 
-        // Global navigation: top 50 slowest segments
-        return filtered.sort((a, b) => b.duration - a.duration).slice(0, 50);
+        // Global navigation: top 200 slowest segments
+        return filtered.sort((a, b) => b.duration - a.duration).slice(0, 200);
     }, [result, showOnlyFail, searchQuery, activeTags, trimRange, lockedTid]);
 
     // 💡 Stabilize Zoom & Pan using manual event listener for passive: false support
@@ -1955,7 +1955,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {[...result.segments].filter(s => !showOnlyFail || s.duration >= (result.perfThreshold || 1000)).sort((a, b) => b.duration - a.duration).slice(0, 50)
+                                            {[...result.segments].filter(s => !showOnlyFail || s.duration >= (result.perfThreshold || 1000)).sort((a, b) => b.duration - a.duration).slice(0, 200)
                                                 .filter(s => checkSegmentMatch(s, searchQuery))
                                                 .map(s => {
                                                     const isGroup = s.id.startsWith('group-');
