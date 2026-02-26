@@ -99,7 +99,7 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                 >
                     {/* TID Sidebar (Sticky Left) */}
                     {showTidColumn && (
-                        <div className="sticky left-0 w-[52px] shrink-0 z-[100] pointer-events-none">
+                        <div className="sticky left-0 w-[52px] shrink-0 z-[100] pointer-events-none bg-slate-900/95 backdrop-blur-md">
                             <div className="absolute top-0 bottom-0 right-0 w-px bg-white/5 shadow-[2px_0_10px_rgba(0,0,0,0.5)]" />
                             <div className="absolute left-0 right-0 h-px bg-white/10" style={{ top: '52px' }} />
                             <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 flex items-center justify-center bg-slate-950/20 backdrop-blur-md">

@@ -38,78 +38,8 @@ interface PerfDashboardProps {
     paneId?: 'left' | 'right' | 'single';
 }
 
-/**
- * Calculates whether black or white text should be used based on background brightness (YIQ)
- */
-const getContrastColor = (hexcolor: string) => {
-    if (!hexcolor) return 'rgba(255, 255, 255, 0.9)';
-    if (!hexcolor.startsWith('#')) return 'rgba(255, 255, 255, 0.9)';
-    const hex = hexcolor.slice(1);
-    let r, g, b;
-    if (hex.length === 3) {
-        r = parseInt(hex[0] + hex[0], 16);
-        g = parseInt(hex[1] + hex[1], 16);
-        b = parseInt(hex[2] + hex[2], 16);
-    } else {
-        r = parseInt(hex.slice(0, 2), 16);
-        g = parseInt(hex.slice(2, 4), 16);
-        b = parseInt(hex.slice(4, 6), 16);
-    }
-    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-    return (yiq >= 128) ? 'rgba(0, 0, 0, 0.85)' : 'rgba(255, 255, 255, 0.95)';
-};
 
 // --- Sub-components for Premium Cockpit ---
-
-
-
-const TransitionCard: React.FC<{
-    startFile?: string;
-    startFunc?: string;
-    endFile?: string;
-    endFunc?: string;
-}> = ({ startFile, startFunc, endFile, endFunc }) => {
-    const isTransition = (startFile !== endFile) || (startFunc !== endFunc);
-
-    return (
-        <div className="bg-slate-950/60 border border-white/5 rounded-2xl p-4 space-y-3 shadow-inner">
-            <div className="flex items-start gap-3">
-                <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-                <div className="flex-1 min-w-0">
-                    <p className="text-[8px] font-black text-slate-500 uppercase mb-0.5 tracking-tighter">Origin Point</p>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                        {startFile && <span className="text-[11px] font-bold text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded-lg border border-indigo-500/20">{startFile}</span>}
-                        {startFunc && <span className="text-[11px] font-medium text-slate-300">{startFunc}</span>}
-                    </div>
-                </div>
-            </div>
-
-            {isTransition && (
-                <div className="flex flex-col items-center py-1">
-                    <div className="w-px h-6 bg-gradient-to-b from-indigo-500/50 to-purple-500/50" />
-                    <Lucide.MoveRight size={14} className="text-slate-600 my-1" />
-                    <div className="w-px h-6 bg-gradient-to-b from-purple-500/50 to-pink-500/50" />
-                </div>
-            )}
-
-            {isTransition ? (
-                <div className="flex items-start gap-3">
-                    <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-pink-500 mt-1.5 shadow-[0_0_8px_rgba(236,72,153,0.5)]" />
-                    <div className="flex-1 min-w-0">
-                        <p className="text-[8px] font-black text-slate-500 uppercase mb-0.5 tracking-tighter">Exit Point</p>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                            {endFile && <span className="text-[11px] font-bold text-pink-300 bg-pink-500/10 px-1.5 py-0.5 rounded-lg border border-pink-500/20">{endFile}</span>}
-                            {endFunc && <span className="text-[11px] font-medium text-slate-300">{endFunc}</span>}
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <p className="text-[10px] text-slate-600 font-bold italic pl-4.5">Single point operation (no transition detected)</p>
-            )}
-        </div>
-    );
-};
-
 
 const EMPTY_TAGS: string[] = [];
 
