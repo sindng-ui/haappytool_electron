@@ -406,14 +406,51 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         setSelectedSegmentId(target.id);
         setMultiSelectedIds([]); // Clear multi-select when navigating individually
 
-        // User requested: Do not zoom in on the bottleneck segment. Keep the map fully zoomed out.
-        setFlameZoom(null);
+        // 화면 즉각 갱신을 위해 applyZoom 사용
+        const prevZoom = zoomRef.current || flameZoom;
+        const currentStart = prevZoom?.startTime ?? trimRange?.startTime ?? result.startTime;
+        const currentEnd = prevZoom?.endTime ?? trimRange?.endTime ?? result.endTime;
+        const currentDuration = currentEnd - currentStart;
+
+        const targetStart = target.startTime;
+        const targetEnd = target.endTime;
+
+        // 이미 타겟이 완전히 뷰포트 안에 있다면 줌 변경 안 함
+        if (!(targetStart >= currentStart && targetEnd <= currentEnd)) {
+            let newStart = currentStart;
+            let newEnd = currentEnd;
+
+            // 타겟이 뷰포트보다 크다면 시작 부분을 맞춤, 아니라면 화면의 중앙에 위치하도록 함
+            if ((targetEnd - targetStart) >= currentDuration) {
+                newStart = targetStart;
+                newEnd = newStart + currentDuration;
+            } else {
+                const targetCenter = (targetStart + targetEnd) / 2;
+                newStart = targetCenter - currentDuration / 2;
+                newEnd = targetCenter + currentDuration / 2;
+            }
+
+            // 전체 영역을 벗어나지 않도록 Bound 체크
+            const boundStart = trimRange?.startTime ?? result.startTime;
+            const boundEnd = trimRange?.endTime ?? result.endTime;
+
+            if (newStart < boundStart) {
+                newStart = boundStart;
+                newEnd = Math.min(boundEnd, newStart + currentDuration);
+            }
+            if (newEnd > boundEnd) {
+                newEnd = boundEnd;
+                newStart = Math.max(boundStart, newEnd - currentDuration);
+            }
+
+            applyZoom({ startTime: newStart, endTime: newEnd });
+        }
 
         // Sync with log viewer
         if (onJumpToRange) {
             onJumpToRange(target.startLine, target.endLine);
         }
-    }, [result, navSegments, currentNavIndex, onJumpToRange]);
+    }, [result, navSegments, currentNavIndex, onJumpToRange, trimRange]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
