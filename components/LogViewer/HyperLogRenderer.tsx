@@ -39,6 +39,7 @@ export interface HyperLogHandle {
     scrollBy: (options: { top: number }) => void;
     scrollTo: (options: { top: number }) => void;
     getScrollTop: () => number;
+    getCenterLineInfo: () => { index: number; offset: number; viewportHeight: number };
     focus: () => void;
 }
 
@@ -146,6 +147,28 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     const scrollLeftRef = useRef(0); // ✅ NEW: Horizontal Scroll Ref
     const frameId = useRef<number | null>(null);
 
+    // ✅ NEW: 줌 (rowHeight 변경) 시 1프레임 지터링 및 연속 줌 튀는 현상 방지를 위한 동기적 스크롤 보정
+    const prevRowHeightRef = useRef(rowHeight);
+    useLayoutEffect(() => {
+        if (prevRowHeightRef.current !== rowHeight) {
+            if (scrollContainerRef.current && viewportHeight > 0) {
+                const prevRH = prevRowHeightRef.current;
+                const currentScrollTop = scrollTopRef.current;
+
+                const centerAbsY = currentScrollTop + viewportHeight / 2;
+                const centerFractionalIndex = centerAbsY / prevRH;
+
+                const newCenterAbsY = centerFractionalIndex * rowHeight;
+                const newScrollTop = Math.max(0, newCenterAbsY - viewportHeight / 2);
+
+                scrollContainerRef.current.scrollTop = newScrollTop;
+                scrollTopRef.current = newScrollTop;
+            }
+            prevRowHeightRef.current = rowHeight;
+        }
+    }, [rowHeight, viewportHeight]);
+
+
     const cachedLinesRef = useRef(cachedLines);
     useEffect(() => { cachedLinesRef.current = cachedLines; }, [cachedLines]);
 
@@ -173,6 +196,14 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = options.top;
         },
         getScrollTop: () => scrollTopRef.current,
+        getCenterLineInfo: () => {
+            if (!scrollContainerRef.current) return { index: 0, offset: 0, viewportHeight: 0 };
+            const scrollTop = scrollTopRef.current;
+            const centerAbsY = scrollTop + viewportHeight / 2;
+            const centerIndex = Math.floor(centerAbsY / rowHeight);
+            const centerOffset = centerAbsY % rowHeight;
+            return { index: centerIndex, offset: centerOffset, viewportHeight };
+        },
         focus: () => {
             if (scrollContainerRef.current) {
                 scrollContainerRef.current.focus({ preventScroll: true });

@@ -78,6 +78,7 @@ export interface LogViewerHandle {
     jumpToPrevBookmark: () => void;
     focus: () => void;
     getScrollTop: () => number;
+    getCenterLineInfo: () => { index: number; offset: number; viewportHeight: number };
     isAtTop: () => boolean;
     isAtBottom: () => boolean;
 }
@@ -269,6 +270,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             hyperRef.current?.focus();
         },
         getScrollTop: () => hyperRef.current?.getScrollTop() || 0,
+        getCenterLineInfo: () => hyperRef.current?.getCenterLineInfo() || { index: 0, offset: 0, viewportHeight: 0 },
         scrollBy: (deltaY: number) => {
             ignoreSyncRef.current = true;
             hyperRef.current?.scrollBy({ top: deltaY });

@@ -704,7 +704,6 @@ export const useLogExtractorLogic = ({
 
             // ✅ 형님, 수동으로 조정한 줄간격 느낌(Offset)을 유지합니다.
             const standardFormula = (fs: number) => 20 + (fs - 11) * 2;
-            // ✅ 영구 저장된 오프셋을 사용합니다. (없으면 현재 상태에서 계산)
             const currentStandardRowHeight = standardFormula(currentFontSize);
             const rowHeightOffset = prev.rowHeightOffset !== undefined
                 ? prev.rowHeightOffset
@@ -714,7 +713,7 @@ export const useLogExtractorLogic = ({
             const newRowHeight = Math.max(12, standardFormula(newFontSize) + rowHeightOffset);
 
             const zf = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
-            console.log(`[Zoom Debug] ${source} IN: Font ${prev.fontSize} -> ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight} (Persistent Offset: ${rowHeightOffset}), ZF: ${zf}, DPR: ${window.devicePixelRatio}`);
+            console.log(`[Zoom Debug] ${source} IN: Font ${prev.fontSize} -> ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight}, ZF: ${zf}`);
 
             if (newFontSize !== currentFontSize || (prev.rowHeight !== newRowHeight)) {
                 const next = { ...prev, fontSize: newFontSize, rowHeight: newRowHeight, rowHeightOffset };
@@ -729,10 +728,9 @@ export const useLogExtractorLogic = ({
         setLogViewPreferences(prev => {
             const currentFontSize = prev.fontSize || 11;
             const newFontSize = Math.max(8, currentFontSize - 1);
-
             const standardFormula = (fs: number) => 20 + (fs - 11) * 2;
 
-            // ✅ 영구 저장된 오프셋을 사용합니다. (없으면 현재 상태에서 계산)
+            // ✅ 영구 저장된 오프셋을 사용합니다.
             const currentStandardRowHeight = standardFormula(currentFontSize);
             const rowHeightOffset = prev.rowHeightOffset !== undefined
                 ? prev.rowHeightOffset
@@ -742,16 +740,15 @@ export const useLogExtractorLogic = ({
             const newRowHeight = Math.max(12, standardFormula(newFontSize) + rowHeightOffset);
 
             const zf = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
-            console.log(`[Zoom Debug] ${source} OUT: Font ${prev.fontSize} -> ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight} (Persistent Offset: ${rowHeightOffset}), ZF: ${zf}, DPR: ${window.devicePixelRatio}`);
+            console.log(`[Zoom Debug] ${source} OUT: Font ${prev.fontSize} -> ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight}, ZF: ${zf}`);
 
             if (newFontSize !== currentFontSize || (prev.rowHeight !== newRowHeight)) {
                 const next = { ...prev, fontSize: newFontSize, rowHeight: newRowHeight, rowHeightOffset };
                 setStoredValue('logViewPreferences', JSON.stringify(next));
                 return next;
             }
-            // Self-Correction at Limit: Ensure Row Height is correct even if Font is already min
+            // Self-Correction at Limit
             if (prev.rowHeight !== newRowHeight) {
-                console.log(`[Zoom Debug] ${source} FIX: Font ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight}`);
                 const next = { ...prev, rowHeight: newRowHeight, rowHeightOffset };
                 setStoredValue('logViewPreferences', JSON.stringify(next));
                 return next;

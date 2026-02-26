@@ -108,10 +108,5 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
         if (allTermsInGroupMatch) return true;
     }
 
-    // DEBUG: Only log if it contains target but failed to match rule groups
-    if (line.includes('ST_APP')) {
-        console.log('[FilterTrace] ST_APP line REJECTED. Groups:', JSON.stringify(groups));
-    }
-
     return false;
 };
