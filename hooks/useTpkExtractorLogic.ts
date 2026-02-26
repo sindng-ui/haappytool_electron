@@ -77,7 +77,7 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
                     const uint8Array = new Uint8Array(arrayBuffer);
 
                     // @ts-ignore
-                    const result = await window.electronAPI.saveBinaryFile(uint8Array, finalName);
+                    const result: any = await window.electronAPI.saveBinaryFile(uint8Array, finalName);
 
                     if (result.status === 'success') {
                         setResultPath(`Saved to ${result.filePath}`);
@@ -139,7 +139,7 @@ export const useTpkExtractorLogic = (): UseTpkExtractorLogicReturn => {
                 const arrayBuffer = await resultBlob.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
                 // @ts-ignore
-                const result = await window.electronAPI.saveBinaryFile(uint8Array, downloadName);
+                const result: any = await window.electronAPI.saveBinaryFile(uint8Array, downloadName);
 
                 if (result.status === 'success') {
                     setResultPath(`Saved to ${result.filePath}`);

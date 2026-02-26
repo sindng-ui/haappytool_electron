@@ -18,7 +18,7 @@ export const ConfigHeader: React.FC<ConfigHeaderProps> = ({ name, onUpdateName }
         }
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             e.currentTarget.blur();
         }

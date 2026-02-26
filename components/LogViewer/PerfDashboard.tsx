@@ -4,6 +4,19 @@ import * as Lucide from 'lucide-react';
 import { AnalysisResult, AnalysisSegment } from '../../utils/perfAnalysis';
 import { formatDuration } from '../../utils/logTime';
 import { useToast } from '../../contexts/ToastContext';
+import { usePerfZoomLogic } from './PerfDashboard/hooks/usePerfZoomLogic';
+import { PerfMinimap } from './PerfDashboard/PerfMinimap';
+import { PerfFlameGraph } from './PerfDashboard/PerfFlameGraph';
+import { PerfTopBar } from './PerfDashboard/PerfTopBar';
+import { PerfBottleneckList } from './PerfDashboard/PerfBottleneckList';
+import { PerfSegmentDetail } from './PerfDashboard/PerfSegmentDetail';
+import { PerfChartLayout } from './PerfDashboard/PerfChartLayout';
+import { usePerfDashboardState } from './usePerfDashboardState';
+import { PerfDashboardOverlay } from './PerfDashboard/PerfDashboardOverlay';
+import { PerfDashboardScanner } from './PerfDashboard/PerfDashboardScanner';
+import { PerfDashboardSummary } from './PerfDashboard/PerfDashboardSummary';
+import { PerfDashboardHeaderBar } from './PerfDashboard/PerfDashboardHeaderBar';
+import { usePerfFlameData } from './usePerfFlameData';
 
 interface PerfDashboardProps {
     isOpen: boolean;
@@ -48,19 +61,7 @@ const getContrastColor = (hexcolor: string) => {
 
 // --- Sub-components for Premium Cockpit ---
 
-const Scorecard: React.FC<{ label: string; value: string | number; icon: React.ReactNode; color: string; subValue?: string }> = ({ label, value, icon, color, subValue }) => (
-    <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl px-3.5 py-1.5 flex flex-col justify-center shadow-xl relative overflow-hidden group min-w-[120px]">
-        <div className={`absolute top-0 right-0 w-12 h-12 -mr-4 -mt-4 rounded-full blur-2xl opacity-10 group-hover:opacity-20 transition-opacity`} style={{ backgroundColor: color }} />
-        <div className="flex items-center justify-between gap-3">
-            <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] truncate">{label}</span>
-            <div style={{ color }} className="opacity-70 group-hover:opacity-100 transition-all shrink-0 scale-75 origin-right">{icon}</div>
-        </div>
-        <div className="flex items-end gap-1.5 overflow-hidden mt-0.5">
-            <span className="text-xl font-black text-white tracking-tighter whitespace-nowrap leading-none">{value}</span>
-            {subValue && <span className="text-[9px] font-bold text-slate-500 whitespace-nowrap truncate leading-none mb-0.5">{subValue}</span>}
-        </div>
-    </div>
-);
+
 
 const TransitionCard: React.FC<{
     startFile?: string;
@@ -122,54 +123,32 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
     activeTags = EMPTY_TAGS,
     paneId
 }) => {
-    // flameZoom STATE is only used for JSX rendering (viewport overlay, time ticks)
-    // zoomRef is the PRIMARY source of truth - updated instantly from events with NO re-render
-    const [flameZoom, setFlameZoom] = useState<{ startTime: number; endTime: number } | null>(null);
-    const zoomRef = useRef<{ startTime: number; endTime: number } | null>(null);
-    // Throttle: schedule a single setFlameZoom per rAF frame (ensures JSX reflects zoom without spamming re-renders)
-    const zoomFlushPendingRef = useRef(false);
-    const scheduleZoomFlush = () => {
-        if (zoomFlushPendingRef.current) return;
-        zoomFlushPendingRef.current = true;
-        requestAnimationFrame(() => {
-            setFlameZoom(zoomRef.current ? { ...zoomRef.current } : null);
-            zoomFlushPendingRef.current = false;
-        });
-    };
-    const applyZoom = (newZoom: { startTime: number; endTime: number } | null) => {
-        zoomRef.current = newZoom;    // Instant update → draws on next rAF without re-render
-        isDirtyRef.current = true;    // Mark canvas as needing redraw
-        scheduleZoomFlush();          // Schedule JSX update (throttled to ~60fps)
-    };
-
-    const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<'chart' | 'list'>('chart');
-    const [minimized, setMinimized] = useState(false);
-    const [searchInput, setSearchInput] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
-    const searchRef = useRef<HTMLInputElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
-    const flameChartContainerRef = useRef<HTMLDivElement>(null);
-
-    const [isInitialDrawComplete, setIsInitialDrawComplete] = useState(false);
-
-    // Performance Caches
-    const rectCacheRef = useRef<DOMRect | null>(null);
-    const minimapRectCacheRef = useRef<DOMRect | null>(null);
-    const viewportCacheRef = useRef<{ left: string, width: string } | null>(null);
-
-    // Dirty flag: controls whether rAF loop should redraw. Set to true when any visual state changes.
-    const isDirtyRef = useRef(true);
-    // Sync isActive to a ref so rAF closure can read it without stale closure
-    const isActiveRef = useRef(isActive);
-    useEffect(() => {
-        isActiveRef.current = isActive;
-        if (isActive) isDirtyRef.current = true; // redraw when becoming active
-    }, [isActive]);
-
-    // Trim Range (Shift+Drag -> Trim)
-    const [trimRange, setTrimRange] = useState<{ startTime: number; endTime: number } | null>(null);
+    const {
+        selectedSegmentId, setSelectedSegmentId,
+        viewMode, setViewMode,
+        minimized, setMinimized,
+        searchInput, setSearchInput,
+        searchQuery,
+        searchRef, canvasRef, flameChartContainerRef, dragCleanupRef,
+        isInitialDrawComplete, setIsInitialDrawComplete,
+        trimRange, setTrimRange,
+        flameZoom, applyZoom,
+        measureRange, setMeasureRange,
+        isShiftPressed, showOnlyFail, setShowOnlyFail,
+        multiSelectedIds, setMultiSelectedIds,
+        lockedTid, setLockedTid,
+        navSegments, currentNavIndex, jumpToNavSegment,
+        checkSegmentMatch,
+        isScanningStatus
+    } = usePerfDashboardState({
+        result,
+        isAnalyzing,
+        isActive,
+        isOpen,
+        paneId,
+        activeTags,
+        onJumpToRange
+    });
 
     const { addToast } = useToast();
     const [isFlashing, setIsFlashing] = useState(false);
@@ -199,359 +178,6 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         }
     };
 
-    // Hit Testing
-    const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
-
-    // Time Ruler Tool Logic
-    const [measureRange, setMeasureRange] = useState<{ startTime: number, endTime: number } | null>(null);
-    const [isShiftPressed, setIsShiftPressed] = useState(false);
-    const [showOnlyFail, setShowOnlyFail] = useState(false);
-    const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([]);
-    const [mousePos, setMousePos] = useState<{ x: number, y: number, time: number } | null>(null);
-    const [lockedTid, setLockedTid] = useState<string | null>(null);
-
-    useEffect(() => {
-        const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Shift') setIsShiftPressed(true);
-            if (e.key === 'Escape') {
-                setSelectedSegmentId(null);
-                setMultiSelectedIds([]);
-            }
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
-                if (isOpen) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (minimized) setMinimized(false);
-                    // Give a small delay to allow the DOM to render if it was minimized
-                    setTimeout(() => {
-                        searchRef.current?.focus();
-                    }, 50);
-                }
-            }
-        };
-        const onKeyUp = (e: KeyboardEvent) => { if (e.key === 'Shift') setIsShiftPressed(false); };
-
-        if (isActive) {
-            window.addEventListener('keydown', onKeyDown);
-            window.addEventListener('keyup', onKeyUp);
-        }
-
-        return () => {
-            window.removeEventListener('keydown', onKeyDown);
-            window.removeEventListener('keyup', onKeyUp);
-        };
-    }, [isOpen, isActive]);
-
-    // Thread Navigation & Bottleneck Logic
-    const navSegments = useMemo(() => {
-        if (!result) return [];
-        let filtered = [...result.segments];
-
-        // 1. Thread Lock Filter
-        if (lockedTid) {
-            filtered = filtered.filter(s => s.tid === lockedTid);
-        }
-
-        // 2. Search Query Filter (Always respect search)
-        if (searchQuery) {
-            filtered = filtered.filter(s => checkSegmentMatch(s, searchQuery));
-        }
-
-        // 3. Fail Only Filter
-        if (showOnlyFail) {
-            // Match with visual logic: anything marked as 'fail' or exceeding threshold
-            filtered = filtered.filter(s => s.status === 'fail' || s.duration >= (result.perfThreshold || 1000));
-        }
-
-        // 4. Tag filter
-        if (activeTags.length > 0) {
-            filtered = filtered.filter(s =>
-                s.logs?.some(log => activeTags.some(tag => log.includes(tag)))
-            );
-        }
-
-        // 5. Trim filter
-        if (trimRange) {
-            filtered = filtered.filter(s =>
-                s.startTime < trimRange.endTime && s.endTime > trimRange.startTime
-            );
-        }
-
-        // 6. Exclude Global lane from bottlenecks (navigation)
-        filtered = filtered.filter(s => s.tid !== 'Global');
-
-        if (lockedTid) {
-            // Thread-focused navigation: chronological order
-            return filtered.sort((a, b) => a.startTime - b.startTime);
-        }
-
-        // Global navigation: top 200 slowest segments
-        return filtered.sort((a, b) => b.duration - a.duration).slice(0, 200);
-    }, [result, showOnlyFail, searchQuery, activeTags, trimRange, lockedTid]);
-
-    // 💡 Stabilize Zoom & Pan using manual event listener for passive: false support
-    useEffect(() => {
-        if (!result) return;
-
-        const onGlobalWheel = (e: WheelEvent) => {
-            if (!isActive) return;
-
-            const target = e.target as HTMLElement;
-            if (!target || typeof target.closest !== 'function') return;
-
-            const dashboard = target.closest('.perf-dashboard-container');
-            const logPane = target.closest('.log-viewer-pane');
-
-            // Find if this event belongs to THIS dashboard instance
-            let belongsToMe = false;
-            if (paneId) {
-                // In Log Extractor (Multi-pane), match the pane ID
-                belongsToMe = (dashboard?.getAttribute('data-pane-id') === paneId) ||
-                    (logPane?.getAttribute('data-pane-id') === paneId);
-            } else {
-                // In Standalone Perf Tool (Single-pane), handle if over the tool's content
-                belongsToMe = !!dashboard || !!logPane;
-            }
-
-            if (!belongsToMe) return;
-
-            const currentZoom = zoomRef.current;
-            const defaultStart = trimRange?.startTime ?? result.startTime;
-            const defaultEnd = trimRange?.endTime ?? result.endTime;
-            const currentStart = currentZoom?.startTime ?? defaultStart;
-            const currentEnd = currentZoom?.endTime ?? defaultEnd;
-            const duration = currentEnd - currentStart;
-
-            // Zoom (Ctrl+Wheel) - Works on both Dashboard and Log Pane
-            if (e.ctrlKey) {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const chartRect = canvasRef.current?.getBoundingClientRect();
-                if (!chartRect) return;
-
-                const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
-                const newDuration = duration * zoomFactor;
-
-                const pointerX = e.clientX - chartRect.left;
-                const fractionalPos = Math.max(0, Math.min(1, pointerX / chartRect.width));
-                const timeAtPointer = currentStart + duration * fractionalPos;
-
-                let newStart = timeAtPointer - newDuration * fractionalPos;
-                let newEnd = newStart + newDuration;
-
-                const boundStart = trimRange?.startTime ?? result.startTime;
-                const boundEnd = trimRange?.endTime ?? result.endTime;
-
-                if (newStart < boundStart) {
-                    newEnd += (boundStart - newStart);
-                    newStart = boundStart;
-                }
-                if (newEnd > boundEnd) {
-                    newStart -= (newEnd - boundEnd);
-                    newEnd = boundEnd;
-                }
-                if (newStart < boundStart) newStart = boundStart;
-                if (newEnd > boundEnd) newEnd = boundEnd;
-
-                applyZoom({ startTime: newStart, endTime: newEnd });
-            }
-            // Pan (Horizontal Scroll or Shift+Wheel) - ONLY when over the dashboard
-            else if (!!dashboard && (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey)) {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const chartRect = canvasRef.current?.getBoundingClientRect();
-                if (!chartRect) return;
-
-                const delta = e.deltaX || e.deltaY;
-                const panAmount = (delta / chartRect.width) * duration;
-
-                let newStart = currentStart + panAmount;
-                let newEnd = currentEnd + panAmount;
-
-                const boundStart = trimRange?.startTime ?? result.startTime;
-                const boundEnd = trimRange?.endTime ?? result.endTime;
-
-                if (newStart < boundStart) {
-                    newStart = boundStart;
-                    newEnd = newStart + duration;
-                }
-                if (newEnd > boundEnd) {
-                    newEnd = boundEnd;
-                    newStart = newEnd - duration;
-                }
-
-                applyZoom({ startTime: newStart, endTime: newEnd });
-            }
-        };
-
-        window.addEventListener('wheel', onGlobalWheel, { passive: false });
-        return () => window.removeEventListener('wheel', onGlobalWheel);
-    }, [result, viewMode, isActive, paneId]); // Re-bind if viewMode or isActive changes
-
-    const currentNavIndex = useMemo(() => {
-        if (!selectedSegmentId || navSegments.length === 0) return -1;
-        return navSegments.findIndex(s => s.id === selectedSegmentId);
-    }, [selectedSegmentId, navSegments]);
-
-    const jumpToNavSegment = useCallback((direction: -1 | 1) => {
-        if (!result || navSegments.length === 0) return;
-
-        let targetIndex = currentNavIndex + direction;
-        if (targetIndex < 0) targetIndex = navSegments.length - 1;
-        if (targetIndex >= navSegments.length) targetIndex = 0;
-
-        const target = navSegments[targetIndex];
-        setSelectedSegmentId(target.id);
-        setMultiSelectedIds([]); // Clear multi-select when navigating individually
-
-        // 화면 즉각 갱신을 위해 applyZoom 사용
-        const prevZoom = zoomRef.current || flameZoom;
-        const currentStart = prevZoom?.startTime ?? trimRange?.startTime ?? result.startTime;
-        const currentEnd = prevZoom?.endTime ?? trimRange?.endTime ?? result.endTime;
-        const currentDuration = currentEnd - currentStart;
-
-        const targetStart = target.startTime;
-        const targetEnd = target.endTime;
-
-        // 이미 타겟이 완전히 뷰포트 안에 있다면 줌 변경 안 함
-        if (!(targetStart >= currentStart && targetEnd <= currentEnd)) {
-            let newStart = currentStart;
-            let newEnd = currentEnd;
-
-            // 타겟이 뷰포트보다 크다면 시작 부분을 맞춤, 아니라면 화면의 중앙에 위치하도록 함
-            if ((targetEnd - targetStart) >= currentDuration) {
-                newStart = targetStart;
-                newEnd = newStart + currentDuration;
-            } else {
-                const targetCenter = (targetStart + targetEnd) / 2;
-                newStart = targetCenter - currentDuration / 2;
-                newEnd = targetCenter + currentDuration / 2;
-            }
-
-            // 전체 영역을 벗어나지 않도록 Bound 체크
-            const boundStart = trimRange?.startTime ?? result.startTime;
-            const boundEnd = trimRange?.endTime ?? result.endTime;
-
-            if (newStart < boundStart) {
-                newStart = boundStart;
-                newEnd = Math.min(boundEnd, newStart + currentDuration);
-            }
-            if (newEnd > boundEnd) {
-                newEnd = boundEnd;
-                newStart = Math.max(boundStart, newEnd - currentDuration);
-            }
-
-            applyZoom({ startTime: newStart, endTime: newEnd });
-        }
-
-        // Sync with log viewer
-        if (onJumpToRange) {
-            onJumpToRange(target.startLine, target.endLine);
-        }
-    }, [result, navSegments, currentNavIndex, onJumpToRange, trimRange]);
-
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (!isActive || !isOpen) return;
-            if (e.key === 'F3') {
-                e.preventDefault();
-                e.stopPropagation();
-                jumpToNavSegment(-1);
-            } else if (e.key === 'F4') {
-                e.preventDefault();
-                e.stopPropagation();
-                jumpToNavSegment(1);
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [jumpToNavSegment, isActive, isOpen]);
-
-    const [isScanningStatus, setIsScanningStatus] = useState(isAnalyzing);
-    const minScanTimeMs = 1000;
-    const scanStartTimeRef = React.useRef<number>(0);
-    const scanTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-    const dragCleanupRef = React.useRef<(() => void) | null>(null);
-
-    useEffect(() => {
-        if (isAnalyzing) {
-            setIsScanningStatus(true);
-            setIsInitialDrawComplete(false); // Reset for new analysis
-            scanStartTimeRef.current = Date.now();
-            if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
-        } else {
-            const elapsed = Date.now() - scanStartTimeRef.current;
-            if (elapsed < minScanTimeMs) {
-                scanTimeoutRef.current = setTimeout(() => {
-                    setIsScanningStatus(false);
-                }, minScanTimeMs - elapsed);
-            } else {
-                setIsScanningStatus(false);
-            }
-        }
-
-        return () => {
-            if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
-        };
-    }, [isAnalyzing]);
-
-    useEffect(() => {
-        return () => {
-            if (dragCleanupRef.current) dragCleanupRef.current();
-        };
-    }, []);
-
-    useEffect(() => {
-        if (result) {
-            setIsInitialDrawComplete(false);
-        }
-    }, [result]);
-
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            const trimmedInput = searchInput.trim();
-            setSearchQuery(trimmedInput);
-
-            // If search is non-empty and has matches, clear the manual selection
-            // This ensures search results are not dimmed by an existing cross-thread selection
-            if (trimmedInput !== '' && result) {
-                const hasMatch = result.segments.some(s => checkSegmentMatch(s, trimmedInput));
-                if (hasMatch) {
-                    setSelectedSegmentId(null);
-                    setMultiSelectedIds([]);
-                }
-            }
-        }, 500);
-        return () => clearTimeout(timeout);
-    }, [searchInput, result]);
-
-    function checkSegmentMatch(s: AnalysisSegment, query: string) {
-        if (!query) return true;
-        const q = query.toLowerCase().trim();
-
-        if (q.startsWith('tid:')) {
-            const val = q.substring(4).trim();
-            return s.tid?.toLowerCase().includes(val);
-        }
-        if (q.startsWith('file:')) {
-            const val = q.substring(5).trim();
-            return s.fileName?.toLowerCase().includes(val);
-        }
-        if (q.startsWith('func:')) {
-            const val = q.substring(5).trim();
-            return s.functionName?.toLowerCase().includes(val);
-        }
-
-        return (
-            s.name.toLowerCase().includes(q) ||
-            s.tid?.toLowerCase().includes(q) ||
-            s.fileName?.toLowerCase().includes(q) ||
-            s.functionName?.toLowerCase().includes(q)
-        );
-    }
-
     // Constants for coloring
     const palette = ['#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
 
@@ -573,510 +199,17 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         return ticks;
     };
 
-    const flameSegments = useMemo(() => {
-        if (!result) return [];
-
-        // StartTime ASC, Duration DESC
-        let baseSegments = [...result.segments];
-        // Note: showOnlyFail does NOT filter here — it affects opacity in drawFlameChart.
-        // Removing segments from flameSegments would drop lanes causing layout collapse.
-        // Tag filter: show only segments whose logs contain at least one active tag
-        if (activeTags.length > 0) {
-            baseSegments = baseSegments.filter(s =>
-                s.logs?.some(log => activeTags.some(tag => log.includes(tag)))
-            );
-        }
-        // Trim filter: show only segments that overlap the trim window
-        if (trimRange) {
-            baseSegments = baseSegments.filter(s =>
-                s.startTime < trimRange.endTime && s.endTime > trimRange.startTime
-            );
-        }
-
-        const sorted = baseSegments.sort((a, b) => (a.startTime - b.startTime) || (b.duration - a.duration));
-        const lanes: number[] = [];
-        const totalDuration = result.endTime - result.startTime;
-
-        return sorted.map(s => {
-            let lane = s.lane !== undefined ? s.lane : 0;
-
-            if (s.lane === undefined) {
-                while (lanes[lane] !== undefined && lanes[lane] > s.startTime) {
-                    lane++;
-                }
-            }
-
-            lanes[lane] = Math.max(lanes[lane] || 0, s.endTime);
-
-            return {
-                ...s,
-                lane,
-                relStart: (s.startTime - result.startTime) / 1000,
-                relEnd: (s.endTime - result.startTime) / 1000,
-            };
-        });
-    }, [result, showOnlyFail, activeTags, trimRange]);
-
-    const maxLane = useMemo(() => {
-        if (!flameSegments.length) return 4;
-        const actualMax = flameSegments.reduce((max, s) => Math.max(max, s.lane || 0), 0);
-        return Math.max(4, actualMax);
-    }, [flameSegments]);
-
-    const laneTidMap = useMemo(() => {
-        const map = new Map<number, string>();
-        flameSegments.forEach(s => {
-            if (s.lane !== undefined && !map.has(s.lane)) {
-                if (s.lane === 0) {
-                    map.set(s.lane, 'Global');
-                } else {
-                    // If no TID/Tag, try to show the PID from the first log line if possible
-                    let tid = s.tid;
-                    if (!tid || tid === 'Main') {
-                        const firstLog = s.logs?.[0];
-                        if (firstLog) {
-                            // Simple regex for PID extraction (e.g. [1234])
-                            const pidMatch = firstLog.match(/\[\s*(\d+)\s*\]/) || firstLog.match(/PID[:\s]*(\d+)/i);
-                            if (pidMatch) tid = pidMatch[1];
-                        }
-                    }
-                    map.set(s.lane, tid || 'Process');
-                }
-            }
-        });
-        return map;
-    }, [flameSegments]);
+    const { flameSegments, maxLane, laneTidMap } = usePerfFlameData({
+        result,
+        showOnlyFail,
+        activeTags,
+        trimRange
+    });
 
     const selectedTid = useMemo(() => {
         if (!selectedSegmentId) return null;
         return result?.segments.find(s => s.id === selectedSegmentId)?.tid || null;
     }, [result, selectedSegmentId]);
-
-    // Canvas Drawing Logic
-    const drawFlameChart = (): boolean => {
-        const canvas = canvasRef.current;
-        if (!canvas || !result) return false;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return false;
-
-        const dpr = window.devicePixelRatio || 1;
-        const rect = rectCacheRef.current ?? canvas.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-            rectCacheRef.current = rect;
-        } else {
-            // 캔버스가 아직 그려지지 않았거나 크기가 0이면 다음 프레임에 다시 크기를 구하도록 합니다.
-            requestAnimationFrame(() => { isDirtyRef.current = true; });
-            return false;
-        }
-
-        const targetW = Math.round(rect.width * dpr);
-        const targetH = Math.round(rect.height * dpr);
-        if (canvas.width !== targetW || canvas.height !== targetH) {
-            canvas.width = targetW;
-            canvas.height = targetH;
-        }
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-        const viewStart = zoomRef.current?.startTime ?? (trimRange?.startTime ?? result.startTime);
-        const viewEnd = zoomRef.current?.endTime ?? (trimRange?.endTime ?? result.endTime);
-        const viewDuration = Math.max(1, viewEnd - viewStart);
-        const width = rect.width;
-
-        // Fill background (Slate-950)
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, rect.width, rect.height);
-
-        // Optimizing: 1. Cull segments outside view
-        // 2. Merge tiny segments that fall into the same pixel to reduce draw calls
-        const visibleSegments = flameSegments.filter(s => s.endTime >= viewStart && s.startTime <= viewEnd);
-
-        // Pixel-based merging: to avoid drawing thousands of <1px wide rects
-        const pixelGrid = new Map<string, { x: number, y: number, w: number, color: string }>();
-
-        visibleSegments.forEach(s => {
-            const x = ((s.startTime - viewStart) / viewDuration) * width;
-            const w = Math.max(s.duration === 0 ? 3 : 0.5, (s.duration / viewDuration) * width);
-            const y = s.lane * 28 + 24;
-            const h = 20;
-
-            const isSelected = s.id === selectedSegmentId || multiSelectedIds.includes(s.id);
-            const isHovered = s.id === hoveredSegmentId;
-            const isMatch = searchQuery !== '' && checkSegmentMatch(s, searchQuery);
-            const isGlobal = s.tid === 'Global';
-
-            // If it's a special state, draw it immediately and don't merge
-            if (isSelected || isHovered || isMatch || w > 3) {
-                const isBottleneck = s.duration >= (result.perfThreshold || 1000);
-                const isFail = s.duration >= (result.perfThreshold || 1000);
-                const effectiveSelectedTid = lockedTid || selectedTid;
-                const isTidFocused = effectiveSelectedTid !== null && s.tid === effectiveSelectedTid;
-
-                let baseOpacity = (isSelected || isMatch || isHovered) ? 1 : (isGlobal ? 0.35 : 0.9);
-                if (effectiveSelectedTid !== null && !isTidFocused) baseOpacity *= (lockedTid ? 0.1 : 0.3); // More dimming if locked
-                // Fail Only mode: dim non-fail segments
-                if (showOnlyFail && !isFail) baseOpacity = Math.min(baseOpacity, 0.12);
-                const finalOpacity = searchQuery !== '' ? (isMatch ? baseOpacity : 0.1) : baseOpacity;
-
-                const baseColor = (isSelected || isMatch) ? '#6366f1' : (s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]));
-
-                ctx.globalAlpha = finalOpacity;
-                ctx.fillStyle = baseColor;
-
-                ctx.beginPath();
-                if (w > 1.5) {
-                    ctx.roundRect(x, y, w, h, isGlobal ? 2 : 4);
-                } else {
-                    ctx.rect(x, y, w, h);
-                }
-                ctx.fill();
-
-                if (isSelected || isHovered || isMatch) {
-                    ctx.strokeStyle = isGlobal ? '#f59e0b' : 'white';
-                    ctx.lineWidth = isSelected ? 2 : 1;
-                    ctx.stroke();
-                }
-
-                if (w > 30 && !isGlobal) {
-                    ctx.fillStyle = getContrastColor(baseColor);
-                    ctx.font = 'bold 9px sans-serif';
-                    const label = s.fileName && s.functionName ? `${s.fileName}: ${s.functionName}` : s.name;
-                    ctx.fillText(label, x + 6, y + 13, w - 12);
-                }
-            } else {
-                // Merge micro-segments: group by lane and pixel X (integer)
-                const pixX = Math.floor(x);
-                const key = `${s.lane}-${pixX}`;
-                const existing = pixelGrid.get(key);
-
-                if (!existing) {
-                    const isBottleneck = s.duration >= (result.perfThreshold || 1000);
-                    const color = s.dangerColor || (isBottleneck ? '#be123c' : palette[s.lane % palette.length]);
-                    pixelGrid.set(key, { x, y, w, color });
-                } else {
-                    // Update width to cover the range
-                    existing.w = Math.max(existing.w, (x + w) - existing.x);
-                }
-            }
-        });
-
-        // Draw merged micro-segments
-        ctx.globalAlpha = 0.6;
-        pixelGrid.forEach(m => {
-            ctx.fillStyle = m.color;
-            ctx.fillRect(m.x, m.y, Math.max(1, m.w), 20);
-        });
-
-        ctx.globalAlpha = 1;
-
-        drawCrosshair(ctx, rect.width, rect.height, viewStart, viewEnd);
-    };
-
-    const drawCrosshair = (ctx: CanvasRenderingContext2D, width: number, height: number, viewStart: number, viewEnd: number) => {
-        if (!mousePos || isShiftPressed) return;
-
-        const x = ((mousePos.time - viewStart) / (viewEnd - viewStart)) * width;
-        if (x < 0 || x > width) return;
-
-        // Vertical Guide Line
-        ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(x, 20);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-        ctx.setLineDash([]);
-    };
-
-    const drawMinimap = (): boolean => {
-        const canvas = minimapCanvasRef.current;
-        if (!canvas || !result) return false;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return false;
-
-        const dpr = window.devicePixelRatio || 1;
-        const rect = minimapRectCacheRef.current ?? canvas.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-            minimapRectCacheRef.current = rect;
-        } else {
-            return false;
-        }
-        const width = rect.width;
-        const height = rect.height;
-
-        const targetW = Math.round(rect.width * dpr);
-        const targetH = Math.round(rect.height * dpr);
-        if (canvas.width !== targetW || canvas.height !== targetH) {
-            canvas.width = targetW;
-            canvas.height = targetH;
-        }
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-        ctx.clearRect(0, 0, rect.width, rect.height);
-
-        const totalDuration = Math.max(1, result.endTime - result.startTime);
-
-        const miniPixelGrid = new Map<string, { x: number, yOffset: number, w: number, laneH: number, color: string, alpha: number }>();
-
-        flameSegments.forEach(s => {
-            if (s.duration === 0) return;
-            const x = ((s.startTime - result.startTime) / totalDuration) * width;
-            const w = (s.duration / totalDuration) * width;
-            if (w < 0.05) return; // Ignore microscopic segments in minimap
-
-            const yOffset = maxLane > 0 ? (s.lane / (maxLane + 1)) * (height - 4) : 0;
-            const laneH = Math.max(2, height / (maxLane + 1));
-
-            const isMatch = searchQuery !== '' && checkSegmentMatch(s, searchQuery);
-            const finalOpacity = searchQuery !== '' ? (isMatch ? 0.8 : 0.1) : 0.8;
-
-            if (w > 1.5 || (searchQuery !== '' && isMatch)) {
-                // Draw normally for visible or matched segments
-                ctx.globalAlpha = finalOpacity;
-                ctx.fillStyle = s.dangerColor || (s.duration >= (result.perfThreshold || 1000) ? '#be123c' : palette[s.lane % palette.length]);
-                ctx.fillRect(x, height - yOffset - laneH, Math.max(0.5, w), laneH);
-            } else {
-                // Merge micro-segments in minimap
-                const pixX = Math.floor(x * 2) / 2; // 0.5px precision
-                const key = `${s.lane}-${pixX}`;
-                const existing = miniPixelGrid.get(key);
-                if (!existing) {
-                    miniPixelGrid.set(key, {
-                        x, yOffset, w, laneH,
-                        color: s.dangerColor || (s.duration >= (result.perfThreshold || 1000) ? '#be123c' : palette[s.lane % palette.length]),
-                        alpha: finalOpacity
-                    });
-                } else {
-                    existing.w = Math.max(existing.w, (x + w) - existing.x);
-                }
-            }
-        });
-
-        // Draw merged minimap segments
-        miniPixelGrid.forEach(m => {
-            ctx.globalAlpha = m.alpha;
-            ctx.fillStyle = m.color;
-            ctx.fillRect(m.x, height - m.yOffset - m.laneH, Math.max(0.5, m.w), m.laneH);
-        });
-
-        ctx.globalAlpha = 1;
-        return true;
-    };
-
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        const minimapCanvas = minimapCanvasRef.current;
-        if (!canvas || !minimapCanvas) return;
-
-        const observer = new ResizeObserver(() => {
-            // Flush size caches so next draw picks up new dimensions
-            rectCacheRef.current = null;
-            minimapRectCacheRef.current = null;
-            isDirtyRef.current = true;
-            setIsInitialDrawComplete(false);
-        });
-
-        observer.observe(canvas);
-        observer.observe(minimapCanvas);
-        return () => observer.disconnect();
-    }, [isOpen, viewMode, result, flameSegments.length]);
-
-    // Mark dirty whenever any visible state changes (instead of recreating rAF loop)
-    useEffect(() => { isDirtyRef.current = true; }, [
-        flameZoom, selectedSegmentId, multiSelectedIds, hoveredSegmentId,
-        searchQuery, viewMode, mousePos, isScanningStatus, lockedTid
-    ]);
-
-    // result 변경 시 size cache 완전 초기화 + dirty 설정 (초기 로드 타이밍 보장)
-    useEffect(() => {
-        if (!result) return;
-        rectCacheRef.current = null;
-        minimapRectCacheRef.current = null;
-        isDirtyRef.current = true;
-    }, [result]);
-
-    // isOpen 변경 시에도 dirty 설정 (패널 열릴 때 즉시 그리기)
-    useEffect(() => {
-        if (isOpen) {
-            rectCacheRef.current = null;
-            minimapRectCacheRef.current = null;
-            isDirtyRef.current = true;
-        }
-    }, [isOpen]);
-
-    // When layout-affecting filters change (Fail Only, tags, trim), flush size caches too.
-    // This avoids a timing bug where rAF draws with stale canvas dimensions before ResizeObserver fires.
-    useEffect(() => {
-        rectCacheRef.current = null;
-        minimapRectCacheRef.current = null;
-        isDirtyRef.current = true;
-    }, [showOnlyFail, maxLane, trimRange, activeTags]);
-
-    // resultRef: lets rAF loop check result existence without stale closure
-    const resultRef = useRef(result);
-    useEffect(() => { resultRef.current = result; }, [result]);
-
-    // drawRef pattern: always calls latest closure even though rAF loop is created only once
-    const drawFlameChartRef = useRef<() => boolean>(() => true);
-    const drawMinimapRef = useRef<() => boolean>(() => true);
-    drawFlameChartRef.current = drawFlameChart;
-    drawMinimapRef.current = drawMinimap;
-
-    // Single persistent rAF loop - ONLY draws when dirty, STOPS completely when inactive
-    useEffect(() => {
-        let frameId: number;
-        let running = true;
-
-        const render = () => {
-            if (!running) return;
-
-            if (isActiveRef.current && isDirtyRef.current && resultRef.current) {
-                const flameSuccess = drawFlameChartRef.current();
-                const miniSuccess = drawMinimapRef.current();
-                if (flameSuccess !== false && miniSuccess !== false) {
-                    isDirtyRef.current = false;
-                    setIsInitialDrawComplete(true);
-                }
-            }
-
-            frameId = requestAnimationFrame(render);
-        };
-
-        frameId = requestAnimationFrame(render);
-        return () => {
-            running = false;
-            cancelAnimationFrame(frameId);
-        };
-    }, []); // Single loop - drawRef ensures latest closure is always called
-
-    const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        if (isShiftPressed || !result) return;
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-
-        const viewStart = zoomRef.current?.startTime ?? (trimRange?.startTime ?? result.startTime);
-        const viewEnd = zoomRef.current?.endTime ?? (trimRange?.endTime ?? result.endTime);
-        const viewDuration = Math.max(1, viewEnd - viewStart);
-        const width = rect.width;
-
-        // Find hovered segment (reverse order to get top-most)
-        let found = null;
-        let globalFallback = null;
-
-        for (let i = flameSegments.length - 1; i >= 0; i--) {
-            const s = flameSegments[i];
-            const x = ((s.startTime - viewStart) / viewDuration) * width;
-            const w = Math.max(s.duration === 0 ? 3 : 0.5, (s.duration / viewDuration) * width);
-            const y = s.lane * 28 + 24;
-            const h = 20;
-
-            if (mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + 20) {
-                if (s.tid === 'Global') {
-                    globalFallback = s;
-                } else {
-                    found = s;
-                    break;
-                }
-            }
-        }
-
-        const target = found || globalFallback;
-
-        if (target?.id !== hoveredSegmentId) {
-            setHoveredSegmentId(target?.id || null);
-        }
-
-        const time = viewStart + (mouseX / width) * viewDuration;
-        setMousePos({ x: mouseX, y: mouseY, time });
-    };
-
-    const handleCanvasMouseLeave = () => {
-        setMousePos(null);
-        setHoveredSegmentId(null);
-    };
-
-    const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        if (isShiftPressed || !result) return;
-        if (hoveredSegmentId) {
-            setSelectedSegmentId(hoveredSegmentId);
-            setMultiSelectedIds([]);
-            const s = result.segments.find(seg => seg.id === hoveredSegmentId);
-            if (s) onJumpToRange?.(s.startLine, s.endLine);
-        } else {
-            setSelectedSegmentId(null);
-            setMultiSelectedIds([]);
-        }
-    };
-
-    const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        if (isShiftPressed || !result || !hoveredSegmentId) return;
-        const s = result.segments.find(seg => seg.id === hoveredSegmentId);
-        if (s) {
-            onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
-        }
-    };
-
-    // ── Drag-to-pan on flame chart (left-click drag) ──────────────────────
-    const panStartRef = useRef<{ clientX: number; viewStart: number; viewEnd: number } | null>(null);
-
-    const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        if (e.button !== 0 || isShiftPressed || !result) return;
-        // Only start pan if user is NOT clicking on a segment (let click-select handle that)
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        const viewStart = zoomRef.current?.startTime ?? (trimRange?.startTime ?? result.startTime);
-        const viewEnd = zoomRef.current?.endTime ?? (trimRange?.endTime ?? result.endTime);
-        const viewDuration = Math.max(1, viewEnd - viewStart);
-        const width = rect.width;
-        // Check if we clicked on a segment - if so, let click handler deal with it, don't pan
-        let onSegment = false;
-        for (let i = flameSegments.length - 1; i >= 0; i--) {
-            const s = flameSegments[i];
-            const x = ((s.startTime - viewStart) / viewDuration) * width;
-            const w = Math.max(s.duration === 0 ? 3 : 0.5, (s.duration / viewDuration) * width);
-            const y = s.lane * 28 + 24;
-            if (mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + 20) {
-                onSegment = true;
-                break;
-            }
-        }
-        if (!onSegment) {
-            panStartRef.current = { clientX: e.clientX, viewStart, viewEnd };
-            e.currentTarget.style.cursor = 'grabbing';
-        }
-    };
-
-    const handleCanvasPanMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        if (!panStartRef.current || !result) return;
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        const dx = e.clientX - panStartRef.current.clientX;
-        const { viewStart, viewEnd } = panStartRef.current;
-        const dur = viewEnd - viewStart;
-        const panAmount = -(dx / rect.width) * dur;
-        let newStart = viewStart + panAmount;
-        let newEnd = viewEnd + panAmount;
-        const boundStart = trimRange?.startTime ?? result.startTime;
-        const boundEnd = trimRange?.endTime ?? result.endTime;
-        if (newStart < boundStart) { newStart = boundStart; newEnd = newStart + dur; }
-        if (newEnd > boundEnd) { newEnd = boundEnd; newStart = newEnd - dur; }
-        applyZoom({ startTime: newStart, endTime: newEnd });
-    };
-
-    const handleCanvasMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        if (panStartRef.current) {
-            panStartRef.current = null;
-            e.currentTarget.style.cursor = '';
-        }
-    };
-
 
     return (
         <div
@@ -1103,25 +236,12 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
             {/* Loading Overlay (Persist until canvas is ready) */}
             <AnimatePresence>
                 {(isScanningStatus || (result && !isInitialDrawComplete)) && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-[200] bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center pointer-events-auto"
-                    >
-                        <div className="relative mb-6">
-                            <div className="absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full" />
-                            <Lucide.Loader2 size={42} className="text-indigo-500 animate-spin relative z-10" />
-                        </div>
-                        <div className="flex flex-col items-center gap-2">
-                            <span className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] animate-pulse">
-                                {isAnalyzing ? 'Analyzing Data...' : 'Initializing View...'}
-                            </span>
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest opacity-60">
-                                {result ? `Preparing ${result.segments.length.toLocaleString()} intervals` : 'Processing log stream'}
-                            </span>
-                        </div>
-                    </motion.div>
+                    <PerfDashboardOverlay
+                        isAnalyzing={isAnalyzing}
+                        isScanningStatus={isScanningStatus}
+                        isInitialDrawComplete={isInitialDrawComplete}
+                        result={result}
+                    />
                 )}
             </AnimatePresence>
 
@@ -1158,192 +278,41 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
             )}
 
             {/* Header Bar */}
-            <div className="h-10 shrink-0 flex items-center justify-between px-4 bg-slate-900 border-b border-white/5 select-none">
-                <div className="flex items-center gap-3">
-                    <div className={`flex items-center gap-2 ${isScanningStatus ? 'animate-pulse text-indigo-400' : 'text-slate-400'}`}>
-                        <Lucide.LayoutDashboard size={14} />
-                        <span className="text-xs font-bold uppercase tracking-wider">Performance Dashboard</span>
-                    </div>
-                    {result && (
-                        <>
-                            <div className="h-3 w-px bg-slate-700 mx-1" />
-                            <span className="text-[10px] text-slate-500 font-mono">
-                                {result.totalDuration.toLocaleString()}ms • {result.segments.length} segments • Limit: {result.perfThreshold}ms
-                            </span>
-                        </>
-                    )}
-                    {trimRange && (
-                        <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5">
-                            <Lucide.Scissors size={9} className="text-amber-400" />
-                            <span className="text-[9px] font-bold text-amber-400 font-mono">
-                                TRIMMED {formatDuration(trimRange.endTime - trimRange.startTime)}
-                            </span>
-                            <button
-                                onClick={() => { setTrimRange(null); setFlameZoom(null); }}
-                                className="ml-0.5 text-amber-500 hover:text-white transition-colors"
-                                title="Reset Trim"
-                            >
-                                <Lucide.X size={9} />
-                            </button>
-                        </div>
-                    )}
-                    {activeTags.length > 0 && (
-                        <div className="flex items-center gap-1 bg-purple-500/10 border border-purple-500/30 rounded-full px-2 py-0.5">
-                            <Lucide.Tag size={9} className="text-purple-400" />
-                            <span className="text-[9px] font-bold text-purple-400">
-                                {activeTags.length} TAG{activeTags.length > 1 ? 'S' : ''}
-                            </span>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex items-center gap-1">
-                    {/* Compact controls in header - visible only in non-fullscreen (Log Extractor mode) */}
-                    {!isFullScreen && result && (
-                        <div className="flex items-center gap-1.5 bg-slate-950/40 backdrop-blur-2xl rounded-xl p-1 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-                            {/* All Fails & Fail Only */}
-                            <div className="flex items-center gap-0.5">
-                                <button
-                                    onClick={() => {
-                                        if (!result) return;
-                                        if (multiSelectedIds.length > 0) {
-                                            setMultiSelectedIds([]);
-                                        } else {
-                                            setSelectedSegmentId(null);
-                                            const failIds = result.segments
-                                                .filter(s => s.duration >= (result.perfThreshold || 1000))
-                                                .map(s => s.id);
-                                            setMultiSelectedIds(failIds);
-                                        }
-                                    }}
-                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase transition-all duration-300 border ${multiSelectedIds.length > 0 ? 'bg-rose-500 text-white border-rose-400' : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10 hover:text-slate-300'}`}
-                                    title="All Fails"
-                                >
-                                    <Lucide.AlertCircle size={10} className={multiSelectedIds.length > 0 ? 'animate-pulse' : ''} />
-                                    <span className="text-[8px] leading-none">ALL</span>
-                                </button>
-                                <button
-                                    onClick={() => setShowOnlyFail(!showOnlyFail)}
-                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase transition-all duration-300 border ${showOnlyFail ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10 hover:text-slate-300'}`}
-                                    title="Fail Only"
-                                >
-                                    <Lucide.Filter size={10} />
-                                    <span className="text-[8px] leading-none">FAIL</span>
-                                </button>
-                            </div>
-                            <div className="w-px h-4 bg-white/10 mx-0.5" />
-                            <div className="flex items-center gap-0.5 bg-black/30 rounded-lg px-1.5 py-0.5 border border-white/5">
-                                <button
-                                    onClick={() => jumpToNavSegment(-1)}
-                                    className={`p-0.5 transition-all ${navSegments.length > 0 ? 'hover:text-indigo-400 text-slate-500' : 'text-slate-800 cursor-not-allowed'}`}
-                                    disabled={navSegments.length === 0}
-                                >
-                                    <Lucide.ChevronLeft size={12} />
-                                </button>
-                                <span className={`text-[9px] font-mono font-black min-w-[24px] text-center ${navSegments.length > 0 ? 'text-white' : 'text-slate-600'}`}>
-                                    {navSegments.length > 0 ? (currentNavIndex >= 0 ? currentNavIndex + 1 : '-') : '0'}
-                                    <span className="opacity-40 mx-0.5">/</span>
-                                    <span className="opacity-60">{navSegments.length}</span>
-                                </span>
-                                <button
-                                    onClick={() => jumpToNavSegment(1)}
-                                    className={`p-0.5 transition-all ${navSegments.length > 0 ? 'hover:text-indigo-400 text-slate-500' : 'text-slate-800 cursor-not-allowed'}`}
-                                    disabled={navSegments.length === 0}
-                                >
-                                    <Lucide.ChevronRight size={12} />
-                                </button>
-                            </div>
-                            <div className="w-px h-4 bg-white/10 mx-0.5" />
-                            <div className="flex items-center bg-black/20 rounded-lg border border-white/10 px-2 py-1 focus-within:border-indigo-500/50 transition-colors">
-                                <Lucide.Search size={10} className="text-slate-500 mr-1.5" />
-                                <input
-                                    ref={searchRef}
-                                    type="text"
-                                    placeholder="Search..."
-                                    value={searchInput}
-                                    onChange={(e) => setSearchInput(e.target.value)}
-                                    className="bg-transparent text-[9px] text-white w-20 focus:outline-none placeholder:text-slate-600 font-mono"
-                                />
-                            </div>
-                            <div className="w-px h-4 bg-white/10 mx-0.5" />
-                            <div className="flex p-0.5 bg-slate-950 rounded-lg border border-white/5 gap-0.5">
-                                <button onClick={() => setViewMode('chart')} className={`p-1.5 rounded-md transition-all ${viewMode === 'chart' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-400'}`} title="Chart View">
-                                    <Lucide.Activity size={12} />
-                                </button>
-                                <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-400'}`} title="Bottlenecks List">
-                                    <Lucide.AlignLeft size={12} />
-                                </button>
-                                <div className="w-px h-3 bg-white/10 mx-0.5" />
-                                <button onClick={handleExportImage} className="p-1.5 rounded-md transition-all text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10" title="Export as Image">
-                                    <Lucide.Camera size={12} />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                    <button
-                        onClick={() => setMinimized(!minimized)}
-                        className="p-1.5 hover:bg-white/10 rounded-md text-slate-400 transition-colors"
-                    >
-                        {minimized ? <Lucide.ChevronDown size={14} /> : <Lucide.ChevronUp size={14} />}
-                    </button>
-                    {!isFullScreen && (
-                        <button
-                            onClick={onClose}
-                            className="p-1.5 hover:bg-red-500/20 hover:text-red-400 rounded-md text-slate-400 transition-colors"
-                        >
-                            <Lucide.X size={14} />
-                        </button>
-                    )}
-                </div>
-            </div>
+            <PerfDashboardHeaderBar
+                result={result}
+                isScanningStatus={isScanningStatus}
+                trimRange={trimRange}
+                setTrimRange={setTrimRange}
+                applyZoom={applyZoom}
+                activeTags={activeTags}
+                isFullScreen={isFullScreen}
+                multiSelectedIds={multiSelectedIds}
+                setMultiSelectedIds={setMultiSelectedIds}
+                setSelectedSegmentId={setSelectedSegmentId}
+                showOnlyFail={showOnlyFail}
+                setShowOnlyFail={setShowOnlyFail}
+                navSegments={navSegments}
+                currentNavIndex={currentNavIndex}
+                jumpToNavSegment={jumpToNavSegment}
+                searchInput={searchInput}
+                setSearchInput={setSearchInput}
+                searchRef={searchRef}
+                viewMode={viewMode}
+                setViewMode={setViewMode}
+                handleExportImage={handleExportImage}
+                minimized={minimized}
+                setMinimized={setMinimized}
+                onClose={onClose}
+            />
 
             {/* Content Body */}
             <AnimatePresence mode="wait">
                 {isScanningStatus ? (
-                    <motion.div
-                        key="scanning"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="flex-1 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-sm z-50 relative overflow-hidden"
-                    >
-                        {/* Colorful Loading / Scanning Animation */}
-                        <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
-                            {/* Outer spinning gradient ring */}
-                            <motion.div
-                                animate={{ rotate: 360 }}
-                                transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
-                                className="absolute inset-0 rounded-full border-t-4 border-indigo-500 border-r-4 border-pink-500 border-b-4 border-emerald-500 border-l-4 border-transparent opacity-80 shadow-[0_0_15px_rgba(99,102,241,0.5)]"
-                            />
-                            {/* Inner pulsing orb */}
-                            <motion.div
-                                animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.7, 0.3] }}
-                                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                                className="absolute inset-4 rounded-full bg-gradient-to-tr from-indigo-500 to-pink-500 blur-md"
-                            />
-                            {/* Center Icon */}
-                            <Lucide.Activity size={32} className="text-white relative z-10" />
-                        </div>
-                        <h3 className="text-white font-bold text-lg tracking-wider mb-3 drop-shadow-md">Analyzing Performance</h3>
-                        <div className="flex items-center gap-1.5 text-slate-300 text-[11px] font-mono">
-                            <motion.div
-                                animate={{ opacity: [0.3, 1, 0.3] }}
-                                transition={{ repeat: Infinity, duration: 1, delay: 0 }}
-                                className="w-1.5 h-1.5 rounded-full bg-indigo-400"
-                            />
-                            <motion.div
-                                animate={{ opacity: [0.3, 1, 0.3] }}
-                                transition={{ repeat: Infinity, duration: 1, delay: 0.2 }}
-                                className="w-1.5 h-1.5 rounded-full bg-pink-400"
-                            />
-                            <motion.div
-                                animate={{ opacity: [0.3, 1, 0.3] }}
-                                transition={{ repeat: Infinity, duration: 1, delay: 0.4 }}
-                                className="w-1.5 h-1.5 rounded-full bg-emerald-400"
-                            />
-                            <span className="ml-2 uppercase tracking-widest text-slate-400">Extracting transactions...</span>
-                        </div>
-                    </motion.div>
+                    <PerfDashboardScanner
+                        minimized={minimized}
+                        isAnalyzing={isAnalyzing}
+                        result={result}
+                    />
                 ) : !minimized && result ? (
                     <motion.div
                         key="content"
@@ -1353,236 +322,40 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                         className="flex-1 flex overflow-hidden"
                     >
                         {/* Summary & Controls Panel (Left) - Hidden in FullScreen */}
-                        {!isFullScreen && (
-                            <div className="w-64 shrink-0 border-r border-white/5 bg-slate-900/50 p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
-                                {/* Quick Stats */}
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
-                                        <span className="text-[9px] text-slate-500 uppercase font-black block mb-1">Pass Rate</span>
-                                        {(() => {
-                                            const individual = flameSegments.filter(s => s.tid !== 'Global');
-                                            const filteredFail = individual.filter(s => s.duration >= (result.perfThreshold || 1000)).length;
-                                            const total = Math.max(1, individual.length);
-                                            const rate = ((total - filteredFail) / total) * 100;
-
-                                            // Handle edge case where very low fail count rounds to 100
-                                            const displayRate = (filteredFail > 0 && rate > 99.9) ? "99.9" : rate.toFixed(1);
-
-                                            return (
-                                                <span className={`text-lg font-black ${filteredFail === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                                    {displayRate}%
-                                                </span>
-                                            );
-                                        })()}
-                                    </div>
-                                    <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
-                                        <span className="text-[9px] text-slate-500 uppercase font-black block mb-1">Slow Ops</span>
-                                        {(() => {
-                                            const individual = flameSegments.filter(s => s.tid !== 'Global');
-                                            const filteredFail = individual.filter(s => s.duration >= (result.perfThreshold || 1000)).length;
-                                            return (
-                                                <span className={`text-lg font-black ${filteredFail > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                                                    {filteredFail}
-                                                </span>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
-
-
-
-                                {/* Sidebar Detail Section (Compact Mode Detail - Integrated in Dashboard) */}
-                                <AnimatePresence>
-                                    {useCompactDetail && selectedSegmentId && result && (() => {
-                                        const s = result.segments.find(sg => sg.id === selectedSegmentId);
-                                        if (!s) return null;
-                                        const isBottleneck = s.duration >= (result.perfThreshold || 1000);
-                                        return (
-                                            <motion.div
-                                                initial={{ height: 0, opacity: 0 }}
-                                                animate={{ height: 'auto', opacity: 1 }}
-                                                exit={{ height: 0, opacity: 0 }}
-                                                className="mt-2 pt-4 border-t border-white/10 flex flex-col gap-3 overflow-hidden"
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Selected Segment</span>
-                                                    <button onClick={() => setSelectedSegmentId(null)} className="text-slate-500 hover:text-white transition-colors">
-                                                        <Lucide.X size={12} />
-                                                    </button>
-                                                </div>
-
-                                                <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5 flex flex-col gap-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={`w-2 h-2 rounded-full shrink-0 ${isBottleneck ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]' : 'bg-emerald-500'}`} />
-                                                        <span className="text-[12px] font-black text-white truncate leading-tight" title={s.name}>{s.name}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between mt-1">
-                                                        <span className={`text-[15px] font-black tracking-tighter leading-none ${isBottleneck ? 'text-rose-400' : 'text-emerald-400'}`}>{formatDuration(s.duration)}</span>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() => onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1)}
-                                                        className="flex-1 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border border-indigo-500/20"
-                                                    >
-                                                        Raw
-                                                    </button>
-                                                    <button
-                                                        onClick={() => onCopyRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine)}
-                                                        className="flex-1 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border border-emerald-500/20"
-                                                    >
-                                                        Copy
-                                                    </button>
-                                                </div>
-                                            </motion.div>
-                                        );
-                                    })()}
-                                </AnimatePresence>
-
-                            </div>
-                        )}
+                        <PerfDashboardSummary
+                            result={result}
+                            flameSegments={flameSegments}
+                            isFullScreen={isFullScreen}
+                            useCompactDetail={useCompactDetail}
+                            selectedSegmentId={selectedSegmentId}
+                            setSelectedSegmentId={setSelectedSegmentId}
+                            onViewRawRange={onViewRawRange}
+                            onCopyRawRange={onCopyRawRange}
+                        />
 
                         {/* Main View Area (Right) */}
                         <div className="flex-1 bg-black/20 relative overflow-hidden flex flex-col">
                             {/* FullScreen Top Bar Utility */}
                             {isFullScreen && (
-                                <div className="h-20 shrink-0 border-b border-white/5 bg-slate-900/60 backdrop-blur-xl px-4 flex items-center justify-between z-50">
-                                    <div className="flex items-center gap-3">
-                                        <Scorecard
-                                            label="Segments"
-                                            value={result.segments.length}
-                                            icon={<Lucide.Activity size={14} />}
-                                            color="#6366f1"
-                                        />
-                                        <Scorecard
-                                            label="Pass Rate"
-                                            value={(() => {
-                                                const individualCount = result.segments.filter(s => s.tid !== 'Global').length;
-                                                const total = Math.max(1, individualCount);
-                                                const rate = ((total - result.failCount) / total) * 100;
-                                                const displayRate = (result.failCount > 0 && rate > 99.9) ? "99.9" : rate.toFixed(1);
-                                                return `${displayRate}%`;
-                                            })()}
-                                            icon={<Lucide.CheckCircle2 size={14} />}
-                                            color="#10b981"
-                                            subValue={`${result.failCount} slow ops`}
-                                        />
-                                        <Scorecard
-                                            label="Total Time"
-                                            value={formatDuration(result.totalDuration)}
-                                            icon={<Lucide.Timer size={14} />}
-                                            color="#ec4899"
-                                        />
-                                    </div>
-
-                                    <div className="flex-1" />
-
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex items-center gap-1 bg-slate-950/40 backdrop-blur-2xl border border-white/10 rounded-2xl p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-                                            {/* All Fails & Fail Only */}
-                                            <div className="flex items-center gap-1 mr-1">
-                                                <button
-                                                    onClick={() => {
-                                                        if (!result) return;
-                                                        if (multiSelectedIds.length > 0) {
-                                                            setMultiSelectedIds([]);
-                                                        } else {
-                                                            setSelectedSegmentId(null);
-                                                            const failIds = result.segments
-                                                                .filter(s => s.duration >= (result.perfThreshold || 1000))
-                                                                .map(s => s.id);
-                                                            setMultiSelectedIds(failIds);
-                                                        }
-                                                    }}
-                                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all duration-300 border ${multiSelectedIds.length > 0
-                                                        ? 'bg-rose-500 text-white border-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.4)]'
-                                                        : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-slate-200'}`}
-                                                    title="All Fails"
-                                                >
-                                                    <Lucide.AlertCircle size={14} className={multiSelectedIds.length > 0 ? 'animate-pulse' : ''} />
-                                                    All Fails
-                                                </button>
-                                                <button
-                                                    onClick={() => setShowOnlyFail(!showOnlyFail)}
-                                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all duration-300 border ${showOnlyFail
-                                                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                                        : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-slate-200'}`}
-                                                    title="Fail Only"
-                                                >
-                                                    <Lucide.Filter size={14} />
-                                                    Fail Only
-                                                </button>
-                                            </div>
-
-                                            <div className="w-px h-6 bg-white/10 mx-1" />
-                                            <div className="flex items-center gap-2 bg-black/20 rounded-xl px-2 py-1">
-                                                <button
-                                                    onClick={() => jumpToNavSegment(-1)}
-                                                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${navSegments.length > 0 ? 'bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400' : 'text-slate-800 cursor-not-allowed'}`}
-                                                    disabled={navSegments.length === 0}
-                                                >
-                                                    <Lucide.ChevronLeft size={16} />
-                                                </button>
-                                                <div className="flex flex-col items-center min-w-[45px]">
-                                                    <span className={`text-[10px] font-mono font-black leading-none ${navSegments.length > 0 ? 'text-white' : 'text-slate-600'}`}>
-                                                        {navSegments.length > 0 ? (currentNavIndex >= 0 ? currentNavIndex + 1 : '-') : '0'}
-                                                    </span>
-                                                    <span className="text-[7px] text-slate-500 font-black uppercase mt-0.5 tracking-tighter">
-                                                        of {navSegments.length}
-                                                    </span>
-                                                </div>
-                                                <button
-                                                    onClick={() => jumpToNavSegment(1)}
-                                                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${navSegments.length > 0 ? 'bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400' : 'text-slate-800 cursor-not-allowed'}`}
-                                                    disabled={navSegments.length === 0}
-                                                >
-                                                    <Lucide.ChevronRight size={16} />
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Search Input - NOW BETWEEN NAVIGATOR AND TOGGLES */}
-                                        <div className="flex items-center bg-slate-950/60 rounded-2xl border border-white/10 px-4 py-2 w-64 focus-within:border-indigo-500/50 transition-all shadow-inner">
-                                            <Lucide.Search size={14} className="text-slate-500 mr-2" />
-                                            <input
-                                                ref={searchRef}
-                                                type="text"
-                                                placeholder="Search segments..."
-                                                value={searchInput}
-                                                onChange={(e) => setSearchInput(e.target.value)}
-                                                className="bg-transparent text-xs text-white w-full focus:outline-none placeholder:text-slate-600 font-mono"
-                                            />
-                                        </div>
-
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-1 bg-slate-950 rounded-xl border border-white/5 flex gap-1 shadow-lg">
-                                                <button
-                                                    onClick={() => setViewMode('chart')}
-                                                    className={`px-6 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${viewMode === 'chart' ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]' : 'text-slate-500 hover:text-slate-300'}`}
-                                                >
-                                                    <Lucide.Activity size={14} />
-                                                    Chart
-                                                </button>
-                                                <button
-                                                    onClick={() => setViewMode('list')}
-                                                    className={`px-6 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]' : 'text-slate-500 hover:text-slate-300'}`}
-                                                >
-                                                    <Lucide.AlignLeft size={14} />
-                                                    List
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            onClick={onClose}
-                                            className="ml-4 p-2.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all shadow-lg active:scale-90"
-                                            title="Close Dashboard"
-                                        >
-                                            <Lucide.X size={18} />
-                                        </button>
-                                    </div>
-                                </div>
+                                <PerfTopBar
+                                    result={result}
+                                    viewMode={viewMode}
+                                    setViewMode={setViewMode}
+                                    showOnlyFail={showOnlyFail}
+                                    setShowOnlyFail={setShowOnlyFail}
+                                    multiSelectedIds={multiSelectedIds}
+                                    setMultiSelectedIds={setMultiSelectedIds}
+                                    setSelectedSegmentId={setSelectedSegmentId}
+                                    navSegments={navSegments}
+                                    currentNavIndex={currentNavIndex}
+                                    jumpToNavSegment={jumpToNavSegment}
+                                    searchInput={searchInput}
+                                    setSearchInput={setSearchInput}
+                                    searchRef={searchRef}
+                                    onClose={onClose}
+                                    minimized={minimized}
+                                    setMinimized={setMinimized}
+                                />
                             )}
                             {viewMode === 'chart' && flameZoom && (
                                 <button
@@ -1633,524 +406,81 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                 </button>
                             )}
 
-                            {viewMode === 'chart' && (
-                                <div
-                                    ref={flameChartContainerRef}
-                                    tabIndex={0}
-                                    className={`flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar p-4 relative select-none group/chart outline-none ${isShiftPressed ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
-                                    onMouseDown={(e) => {
-                                        e.currentTarget.focus(); // Ensure it captures wheel events
-                                        const chartRect = canvasRef.current?.getBoundingClientRect();
-                                        if (!chartRect || !result) return;
-
-                                        const chartWidth = chartRect.width;
-                                        const containerWidth = e.currentTarget.clientWidth; // Keep for pan ratio if needed, but chartWidth is better
-                                        const rect = e.currentTarget.getBoundingClientRect(); // Keep for legacy if needed, but chartRect is core now
-
-                                        const viewStart = zoomRef.current?.startTime ?? result.startTime;
-                                        const viewEnd = zoomRef.current?.endTime ?? result.endTime;
-                                        const viewDuration = Math.max(1, viewEnd - viewStart);
-
-                                        if (e.shiftKey) {
-                                            // == MEASURE (RULER) MODE ==
-                                            e.preventDefault();
-
-                                            // Helper for Magnetic Snap (Inside measure mode to ensure chartRect is fresh)
-                                            const getSnappedTime = (rawTime: number) => {
-                                                const pixelToTimeRatio = viewDuration / chartWidth;
-                                                const snapThresholdTime = 10 * pixelToTimeRatio; // ~10px snap radius
-
-                                                let bestSnap = rawTime;
-                                                let minDiff = snapThresholdTime;
-
-                                                flameSegments.forEach(s => {
-                                                    // Check start
-                                                    const diffStart = Math.abs(s.startTime - rawTime);
-                                                    if (diffStart < minDiff) { minDiff = diffStart; bestSnap = s.startTime; }
-                                                    // Check end
-                                                    const diffEnd = Math.abs(s.endTime - rawTime);
-                                                    if (diffEnd < minDiff) { minDiff = diffEnd; bestSnap = s.endTime; }
-                                                });
-                                                return bestSnap;
-                                            };
-
-                                            // Init point
-                                            const startFraction = Math.max(0, Math.min(1, (e.clientX - chartRect.left) / chartWidth));
-                                            const rawStartTime = viewStart + (viewDuration * startFraction);
-                                            const snappedStartTime = getSnappedTime(rawStartTime);
-
-                                            setMeasureRange({
-                                                startTime: snappedStartTime,
-                                                endTime: snappedStartTime
-                                            });
-
-                                            const onMove = (mv: MouseEvent) => {
-                                                const moveFraction = Math.max(0, Math.min(1, (mv.clientX - chartRect.left) / chartWidth));
-                                                const rawEndTime = viewStart + (viewDuration * moveFraction);
-                                                const snappedEndTime = getSnappedTime(rawEndTime);
-
-                                                setMeasureRange(prev => prev ? {
-                                                    ...prev,
-                                                    endTime: snappedEndTime
-                                                } : null);
-                                            };
-
-                                            const onUp = () => {
-                                                window.removeEventListener('mousemove', onMove);
-                                                window.removeEventListener('mouseup', onUp);
-                                                dragCleanupRef.current = null;
-                                            };
-                                            dragCleanupRef.current = onUp;
-                                            window.addEventListener('mousemove', onMove);
-                                            window.addEventListener('mouseup', onUp);
-
-                                        } else {
-                                            // == SIMPLE PAN MODE ==
-                                            setMeasureRange(null);
-
-                                            const startX = e.clientX;
-                                            const currentStart = viewStart;
-                                            const currentEnd = viewEnd;
-                                            const duration = currentEnd - currentStart;
-
-                                            const onMove = (mv: MouseEvent) => {
-                                                const deltaX = startX - mv.clientX;
-                                                const panAmount = (deltaX / chartWidth) * duration;
-
-                                                let newStart = currentStart + panAmount;
-                                                let newEnd = currentEnd + panAmount;
-
-                                                // Clamp
-                                                const boundStart = trimRange?.startTime ?? result.startTime;
-                                                const boundEnd = trimRange?.endTime ?? result.endTime;
-
-                                                if (newStart < boundStart) {
-                                                    newStart = boundStart;
-                                                    newEnd = newStart + duration;
-                                                }
-                                                if (newEnd > boundEnd) {
-                                                    newEnd = boundEnd;
-                                                    newStart = newEnd - duration;
-                                                }
-
-                                                setFlameZoom({ startTime: newStart, endTime: newEnd });
-                                            };
-
-                                            const onUp = () => {
-                                                window.removeEventListener('mousemove', onMove);
-                                                window.removeEventListener('mouseup', onUp);
-                                                dragCleanupRef.current = null;
-                                            };
-                                            dragCleanupRef.current = onUp;
-                                            window.addEventListener('mousemove', onMove);
-                                            window.addEventListener('mouseup', onUp);
-                                        }
-                                    }}
-                                >
-                                    <div
-                                        className="flex min-w-full"
-                                        style={{
-                                            height: `${Math.max(200, (maxLane + 1) * 28 + 24)}px`
-                                        }}
-                                    >
-                                        {/* TID Sidebar (Sticky Left) */}
-                                        {showTidColumn && (
-                                            <div className="sticky left-0 w-[52px] shrink-0 z-[100] pointer-events-none">
-                                                <div className="absolute top-0 bottom-0 right-0 w-px bg-white/5 shadow-[2px_0_10px_rgba(0,0,0,0.5)]" />
-                                                <div className="absolute left-0 right-0 h-px bg-white/10" style={{ top: '52px' }} />
-                                                <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 flex items-center justify-center bg-slate-950/20 backdrop-blur-md">
-                                                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.3em]">TID</span>
-                                                </div>
-                                                {Array.from({ length: maxLane + 1 }).map((_, i) => {
-                                                    const tid = laneTidMap.get(i);
-                                                    if (!tid) return null;
-                                                    const isFirstInTid = i === 0 || laneTidMap.get(i - 1) !== tid;
-                                                    const tidColor = palette[i % palette.length];
-                                                    const isTidSelected = tid === (lockedTid || selectedTid);
-                                                    const isLocked = tid === lockedTid;
-                                                    return (
-                                                        <div
-                                                            key={`tid-label-${i}`}
-                                                            className={`absolute left-0 right-0 h-[24px] flex items-center pr-1 transition-all ${isTidSelected ? 'z-[110]' : ''}`}
-                                                            style={{ top: `${i * 28 + 24}px` }}
-                                                        >
-                                                            {isFirstInTid ? (
-                                                                <div
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        if (tid === 'Global') return;
-                                                                        setLockedTid(prev => prev === tid ? null : tid);
-                                                                    }}
-                                                                    className={`relative w-full h-[18px] flex items-center justify-center rounded-r-md border-y border-r pointer-events-auto cursor-pointer transition-all ${isLocked
-                                                                        ? 'bg-amber-500/20 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
-                                                                        : isTidSelected
-                                                                            ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
-                                                                            : 'bg-slate-900/40 border-white/5 hover:bg-slate-900/80 hover:border-white/10'
-                                                                        }`}>
-                                                                    {isLocked && <Lucide.Lock size={8} className="absolute left-1 text-amber-500" />}
-                                                                    <div className={`absolute left-0 top-0 bottom-0 rounded-full transition-all ${isTidSelected ? 'w-1' : 'w-[2px]'}`} style={{ backgroundColor: i === 0 ? '#f59e0b' : (isLocked ? '#f59e0b' : tidColor) }} />
-                                                                    <span className={`text-[9px] font-mono tracking-tighter transition-all ${isTidSelected ? 'font-black scale-105' : 'font-bold'}`} style={{ color: i === 0 ? '#f59e0b' : (isLocked ? '#fbbf24' : tidColor) }}>
-                                                                        {i === 0 ? '*' : (tid.length > 5 ? tid.substring(0, 5) : tid)}
-                                                                    </span>
-                                                                </div>
-                                                            ) : (
-                                                                <div className={`ml-auto mr-1.5 rounded-full transition-all ${isTidSelected ? 'w-1.5 h-1.5 opacity-30 shadow-[0_0_8px_rgba(255,255,255,0.2)]' : 'w-1 h-1 opacity-10'}`} style={{ backgroundColor: tidColor }} />
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-
-                                        {/* Scrollable Map Area */}
-                                        <div className="flex-1 relative bg-slate-950/20">
-                                            {/* Global Divider Line */}
-                                            <div
-                                                className="absolute left-0 right-0 h-px bg-white/10 z-[10] shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
-                                                style={{ top: '52px' }} // lane 0 is from 24 to 44. 24 + 28 = 52.
-                                            />
-                                            {/* Selected TID Lane Highlight */}
-                                            {selectedTid && Array.from({ length: maxLane + 1 }).map((_, i) => {
-                                                if (laneTidMap.get(i) !== selectedTid) return null;
-                                                return (
-                                                    <div
-                                                        key={`tid-bg-${i}`}
-                                                        className="absolute left-0 right-0 h-[24px] bg-indigo-500/[0.04] pointer-events-none z-0"
-                                                        style={{ top: `${i * 28 + 24}px` }}
-                                                    />
-                                                );
-                                            })}
-                                            {/* Time Axis */}
-                                            <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 text-slate-400 font-mono text-[9px] flex items-end pb-0.5 select-none pointer-events-none z-[110]">
-                                                {generateTicks(flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime), flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime), 8).map(t => {
-                                                    const viewStart = flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime);
-                                                    const viewDuration = Math.max(1, (flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime)) - viewStart);
-                                                    const left = ((t - viewStart) / viewDuration) * 100;
-                                                    // hide ticks that are off-screen
-                                                    if (left < 0 || left > 100) return null;
-                                                    return (
-                                                        <div key={t} className="absolute flex flex-col items-center transform -translate-x-1/2" style={{ left: `${left}%` }}>
-                                                            <span className="mb-0 opacity-70">{(t - result.startTime).toFixed(0)}</span>
-                                                            <div className="w-px h-1 bg-white/20" />
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-
-                                            {/* Time Ruler UI */}
-                                            {measureRange && (() => {
-                                                const viewStart = flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime);
-                                                const viewDuration = Math.max(1, (flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime)) - viewStart);
-                                                const rulerStart = Math.min(measureRange.startTime, measureRange.endTime);
-                                                const rulerEnd = Math.max(measureRange.startTime, measureRange.endTime);
-                                                const leftPercent = ((rulerStart - viewStart) / viewDuration) * 100;
-                                                const widthPercent = ((rulerEnd - rulerStart) / viewDuration) * 100;
-
-                                                return (
-                                                    <div
-                                                        className="absolute top-0 bottom-0 bg-amber-500/20 border-x-2 border-amber-500/80 z-[80] pointer-events-none shadow-[0_0_15px_rgba(245,158,11,0.2)]"
-                                                        style={{
-                                                            left: `${Math.max(0, leftPercent)}%`,
-                                                            width: `${Math.max(0.1, widthPercent)}%`
-                                                        }}
-                                                    >
-                                                        <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-amber-500 text-amber-950 font-bold text-[11px] px-2.5 py-1 rounded shadow-lg whitespace-nowrap flex items-center gap-1.5 backdrop-blur-sm border border-amber-400">
-                                                            <Lucide.Clock size={11} />
-                                                            {(rulerEnd - rulerStart).toLocaleString(undefined, { maximumFractionDigits: 2 })}ms
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })()}
-
-                                            {/* 💡 Canvas-based Flame Chart Rendering */}
-                                            <canvas
-                                                ref={canvasRef}
-                                                className="absolute inset-0 w-full h-full"
-                                                onMouseDown={handleCanvasMouseDown}
-                                                onMouseMove={(e) => {
-                                                    handleCanvasPanMove(e);  // pan if dragging
-                                                    handleCanvasMouseMove(e); // hover detection
-                                                }}
-                                                onMouseUp={handleCanvasMouseUp}
-                                                onMouseLeave={(e) => {
-                                                    handleCanvasMouseLeave();
-                                                    handleCanvasMouseUp(e);  // cancel pan if mouse leaves
-                                                }}
-                                                onClick={handleCanvasClick}
-                                                onDoubleClick={handleCanvasDoubleClick}
-                                                style={{ pointerEvents: isShiftPressed ? 'none' : 'auto', cursor: panStartRef.current ? 'grabbing' : 'default' }}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {flameSegments.length === 0 && (
-                                        <div className="absolute inset-0 flex items-center justify-center text-slate-600">
-                                            <span className="text-xs uppercase tracking-widest font-bold">No segments found</span>
-                                        </div>
-                                    )}
-                                </div>
+                            {/* Flame Chart Canvas Area (Replaced by PerfChartLayout) */}
+                            {viewMode === 'chart' && result && (
+                                <PerfChartLayout
+                                    result={result}
+                                    flameSegments={flameSegments}
+                                    maxLane={maxLane}
+                                    laneTidMap={laneTidMap}
+                                    palette={palette}
+                                    trimRange={trimRange}
+                                    flameZoom={flameZoom}
+                                    applyZoom={applyZoom}
+                                    showTidColumn={showTidColumn}
+                                    lockedTid={lockedTid}
+                                    setLockedTid={setLockedTid}
+                                    selectedTid={selectedTid}
+                                    measureRange={measureRange}
+                                    setMeasureRange={setMeasureRange}
+                                    isShiftPressed={isShiftPressed}
+                                    searchQuery={searchQuery}
+                                    checkSegmentMatch={checkSegmentMatch}
+                                    showOnlyFail={showOnlyFail}
+                                    selectedSegmentId={selectedSegmentId}
+                                    setSelectedSegmentId={setSelectedSegmentId}
+                                    multiSelectedIds={multiSelectedIds}
+                                    setMultiSelectedIds={setMultiSelectedIds}
+                                    onJumpToRange={onJumpToRange}
+                                    onViewRawRange={onViewRawRange}
+                                    isActive={true} // Assuming it's active when rendered
+                                    isOpen={true} // Assuming it's open when rendered
+                                    setIsInitialDrawComplete={setIsInitialDrawComplete}
+                                    exportCanvasRef={canvasRef}
+                                    generateTicks={generateTicks}
+                                    flameChartContainerRef={flameChartContainerRef}
+                                    dragCleanupRef={dragCleanupRef}
+                                />
                             )}
 
                             {viewMode === 'chart' && flameSegments.length > 0 && (
-                                <div className="h-[40px] shrink-0 bg-slate-900 border-t border-white/10 relative select-none overflow-hidden">
-                                    <div
-                                        className="absolute inset-0 cursor-pointer"
-                                        onMouseDown={(e) => {
-                                            const rect = e.currentTarget.getBoundingClientRect();
-                                            const x = e.clientX - rect.left;
-                                            const clickFraction = Math.max(0, Math.min(1, x / rect.width));
-
-                                            const totalDuration = result.endTime - result.startTime;
-                                            const currentDuration = (flameZoom?.endTime ?? result.endTime) - (flameZoom?.startTime ?? result.startTime);
-
-                                            let newStart = result.startTime + (clickFraction * totalDuration) - (currentDuration / 2);
-                                            let newEnd = newStart + currentDuration;
-
-                                            // Clamp click navigation to trim range
-                                            const boundStart = trimRange?.startTime ?? result.startTime;
-                                            const boundEnd = trimRange?.endTime ?? result.endTime;
-
-                                            if (newStart < boundStart) {
-                                                newStart = boundStart;
-                                                newEnd = newStart + currentDuration;
-                                            }
-                                            if (newEnd > boundEnd) {
-                                                newEnd = boundEnd;
-                                                newStart = newEnd - currentDuration;
-                                            }
-
-                                            applyZoom({ startTime: newStart, endTime: newEnd });
-                                        }}
-                                    >
-                                        {/* 💡 Canvas-based Minimap Rendering */}
-                                        <canvas
-                                            ref={minimapCanvasRef}
-                                            className="absolute inset-0 w-full h-full"
-                                        />
-
-                                        {/* Viewport Overlay */}
-                                        <div
-                                            className="absolute top-0 bottom-0 bg-white/10 border-x-2 border-indigo-400 cursor-grab active:cursor-grabbing hover:bg-white/20 transition-colors z-10"
-                                            style={{
-                                                left: `${((flameZoom?.startTime ?? result.startTime) - result.startTime) / Math.max(1, result.endTime - result.startTime) * 100}%`,
-                                                width: `${((flameZoom?.endTime ?? result.endTime) - (flameZoom?.startTime ?? result.startTime)) / Math.max(1, result.endTime - result.startTime) * 100}%`
-                                            }}
-                                            onMouseDown={(e) => {
-                                                e.stopPropagation(); // Prevent jumping
-                                                const startX = e.clientX;
-                                                const initialStart = flameZoom?.startTime ?? result.startTime;
-                                                const initialEnd = flameZoom?.endTime ?? result.endTime;
-                                                const currentDuration = initialEnd - initialStart;
-                                                const totalDuration = result.endTime - result.startTime;
-                                                const containerWidth = e.currentTarget.parentElement?.clientWidth || window.innerWidth / 2;
-
-                                                const onMove = (mv: MouseEvent) => {
-                                                    const deltaX = mv.clientX - startX;
-                                                    const fractionMoved = deltaX / containerWidth;
-                                                    const timeMoved = fractionMoved * totalDuration;
-
-                                                    let newStart = initialStart + timeMoved;
-                                                    let newEnd = initialEnd + timeMoved;
-
-                                                    // Clamp
-                                                    if (newStart < result.startTime) {
-                                                        newStart = result.startTime;
-                                                        newEnd = newStart + currentDuration;
-                                                    }
-                                                    if (newEnd > result.endTime) {
-                                                        newEnd = result.endTime;
-                                                        newStart = newEnd - currentDuration;
-                                                    }
-
-                                                    applyZoom({ startTime: newStart, endTime: newEnd });
-                                                };
-
-                                                const onUp = () => {
-                                                    window.removeEventListener('mousemove', onMove);
-                                                    window.removeEventListener('mouseup', onUp);
-                                                    dragCleanupRef.current = null;
-                                                };
-
-                                                dragCleanupRef.current = onUp;
-                                                window.addEventListener('mousemove', onMove);
-                                                window.addEventListener('mouseup', onUp);
-                                            }}
-                                        />
-                                    </div>
-                                </div>
+                                <PerfMinimap
+                                    result={result}
+                                    flameSegments={flameSegments}
+                                    maxLane={maxLane}
+                                    searchQuery={searchQuery}
+                                    palette={palette}
+                                    trimRange={trimRange}
+                                    flameZoom={flameZoom}
+                                    applyZoom={applyZoom}
+                                    checkSegmentMatch={checkSegmentMatch}
+                                />
                             )}
 
                             {viewMode === 'list' && (
-                                <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead className="sticky top-0 bg-slate-900 shadow-sm z-10">
-                                            <tr>
-                                                <th className="p-2 text-[9px] font-black uppercase text-slate-300 tracking-wider">Status</th>
-                                                <th className="p-2 text-[9px] font-black uppercase text-slate-300 tracking-wider">Name</th>
-                                                <th className="p-2 text-[9px] font-black uppercase text-slate-300 tracking-wider text-right">Duration</th>
-                                                <th className="p-2 text-[9px] font-black uppercase text-slate-300 tracking-wider text-right">Start</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {[...result.segments].filter(s => !showOnlyFail || s.duration >= (result.perfThreshold || 1000)).sort((a, b) => b.duration - a.duration).slice(0, 200)
-                                                .filter(s => checkSegmentMatch(s, searchQuery))
-                                                .map(s => {
-                                                    const isGroup = s.id.startsWith('group-');
-                                                    const isInterval = s.id.startsWith('interval-');
-                                                    const isBottleneck = s.duration >= (result.perfThreshold || 1000);
-
-                                                    return (
-                                                        <tr
-                                                            key={s.id}
-                                                            onClick={() => {
-                                                                setSelectedSegmentId(s.id);
-                                                                setMultiSelectedIds([]);
-                                                                onJumpToRange?.(s.startLine, s.endLine);
-                                                            }}
-                                                            onDoubleClick={() => {
-                                                                onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1);
-                                                            }}
-                                                            className={`border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors ${selectedSegmentId === s.id ? 'bg-indigo-500/10' : ''} ${isInterval ? 'opacity-60' : ''}`}
-                                                        >
-                                                            <td className="p-2">
-                                                                <div className={`w-1.5 h-1.5 rounded-full ${isBottleneck ? 'bg-rose-500' : 'bg-emerald-500'} ${isGroup ? 'ring-2 ring-emerald-500/50' : ''}`}
-                                                                    style={{ backgroundColor: s.dangerColor || undefined }} />
-                                                            </td>
-                                                            <td className={`p-2 text-[10px] font-medium max-w-[350px] ${isGroup ? 'text-white font-bold' : 'text-slate-200'}`}>
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="truncate text-white font-bold" title={s.name}>{s.name}</span>
-                                                                        {isGroup && <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1 rounded font-black">GROUP</span>}
-                                                                    </div>
-                                                                    <div className="text-[10px] text-slate-300 font-mono truncate flex items-center gap-1 mt-0.5">
-                                                                        <div className="flex items-center gap-1">
-                                                                            {s.fileName && <span className="text-indigo-300 font-bold">{s.fileName}</span>}
-                                                                            {s.fileName && s.functionName && <span className="text-slate-500">:</span>}
-                                                                            {s.functionName && <span className="text-emerald-400 font-bold">{s.functionName}</span>}
-                                                                        </div>
-                                                                        {((s.fileName !== s.endFileName) || (s.functionName !== s.endFunctionName)) && (
-                                                                            <>
-                                                                                <Lucide.MoveRight size={10} className="text-slate-500" />
-                                                                                <div className="flex items-center gap-1">
-                                                                                    {s.endFileName && <span className="text-purple-300 font-bold">{s.endFileName}</span>}
-                                                                                    {s.endFileName && s.endFunctionName && <span className="text-slate-500">:</span>}
-                                                                                    {s.endFunctionName && <span className="text-pink-400 font-bold">{s.endFunctionName}</span>}
-                                                                                </div>
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className={`p-2 text-[10px] font-mono font-bold text-right ${isBottleneck ? 'text-rose-400' : 'text-slate-300'}`}
-                                                                style={{ color: s.dangerColor || undefined }}>
-                                                                {s.duration}ms
-                                                            </td>
-                                                            <td className="p-2 text-[10px] font-mono text-slate-300 text-right font-black">
-                                                                L{(s.originalStartLine || s.startLine) === (s.originalEndLine || s.endLine) ? (s.originalStartLine || s.startLine) : `${(s.originalStartLine || s.startLine)}-${(s.originalEndLine || s.endLine)}`}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                <PerfBottleneckList
+                                    result={result}
+                                    showOnlyFail={showOnlyFail}
+                                    searchQuery={searchQuery}
+                                    checkSegmentMatch={checkSegmentMatch}
+                                    selectedSegmentId={selectedSegmentId}
+                                    setSelectedSegmentId={setSelectedSegmentId}
+                                    setMultiSelectedIds={setMultiSelectedIds}
+                                    onJumpToRange={onJumpToRange}
+                                    onViewRawRange={onViewRawRange}
+                                />
                             )}
 
 
 
                             {/* Docked Detail Panel (Definitive Map visibility solution) */}
-                            <AnimatePresence>
-                                {!useCompactDetail && selectedSegmentId && result && (() => {
-                                    const s = result.segments.find(sg => sg.id === selectedSegmentId);
-                                    if (!s) return null;
-                                    const isBottleneck = s.duration >= (result.perfThreshold || 1000);
-
-                                    return (
-                                        <motion.div
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: 'auto', opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
-                                            className="shrink-0 bg-slate-950/80 backdrop-blur-2xl border-t border-white/10 overflow-hidden relative"
-                                        >
-                                            <div className="p-3 md:p-4 flex items-center justify-between gap-4 max-w-screen-2xl mx-auto">
-                                                <div className="flex-1 min-w-0 flex items-center gap-4">
-                                                    <div className="flex items-center gap-3 pr-4 border-r border-white/5 shrink-0 h-10">
-                                                        <div className={`p-2 rounded-xl bg-indigo-500/20 text-indigo-400 shadow-lg`}>
-                                                            <Lucide.Activity size={18} />
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[14px] font-black text-white tracking-tighter leading-none">{s.name}</span>
-                                                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Segment Name</span>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* 2. Execution Path */}
-                                                    <div className="flex-1 flex flex-col gap-1 min-w-0 mx-2 md:mx-4">
-                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Execution Context</span>
-                                                        <div className="flex items-center gap-3 overflow-hidden">
-                                                            <AnimatePresence mode="wait">
-                                                                <motion.div
-                                                                    key={s.id}
-                                                                    initial={{ x: -10, opacity: 0 }}
-                                                                    animate={{ x: 0, opacity: 1 }}
-                                                                    exit={{ x: 10, opacity: 0 }}
-                                                                    transition={{ duration: 0.2 }}
-                                                                    className="flex-1 min-w-0 flex items-center gap-3"
-                                                                >
-                                                                    <div className="flex-1 min-w-0 flex flex-col items-center">
-                                                                        <span className="text-[13px] font-black text-indigo-300 truncate tracking-tight text-center w-full" title={s.fileName}>{s.fileName || 'App.cs'}</span>
-                                                                        <span className="text-[10px] font-bold text-slate-400 truncate opacity-80 text-center w-full" title={s.functionName}>{s.functionName || 'OnEvent'}</span>
-                                                                    </div>
-
-                                                                    {((s.fileName !== s.endFileName) || (s.functionName !== s.endFunctionName)) && (
-                                                                        <>
-                                                                            <div className="p-1.5 bg-white/5 rounded-full shrink-0">
-                                                                                <Lucide.MoveRight size={12} className="text-slate-500" />
-                                                                            </div>
-                                                                            <div className="flex-1 min-w-0 flex flex-col items-center">
-                                                                                <span className="text-[13px] font-black text-pink-300 truncate tracking-tight text-center w-full" title={s.endFileName}>{s.endFileName || 'App.cs'}</span>
-                                                                                <span className="text-[10px] font-bold text-slate-400 truncate opacity-80 text-center w-full" title={s.endFunctionName}>{s.endFunctionName || 'OnEvent'}</span>
-                                                                            </div>
-                                                                        </>
-                                                                    )}
-                                                                </motion.div>
-                                                            </AnimatePresence>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* 3. Metrics & Actions */}
-                                                <div className="flex items-center gap-6 md:gap-10 shrink-0 border-l border-white/5 pl-6 h-12">
-                                                    <div className="flex flex-col items-center">
-                                                        <span className={`text-[18px] font-black tracking-tighter leading-none ${isBottleneck ? 'text-rose-400' : 'text-emerald-400'}`}>{s.duration}ms</span>
-                                                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-1">Duration</span>
-                                                    </div>
-                                                    <div className="flex flex-col items-center">
-                                                        <span className="text-[18px] font-black text-slate-200 tracking-tighter leading-none">#{s.intervalIndex || '0'}</span>
-                                                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-1">Interval</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => onViewRawRange?.(s.originalStartLine || s.startLine, s.originalEndLine || s.endLine, s.startLine + 1)}
-                                                            className="p-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-xl transition-all hover:scale-105"
-                                                            title="View Raw Logs"
-                                                        >
-                                                            <Lucide.AlignLeft size={18} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setSelectedSegmentId(null)}
-                                                            className="p-2.5 bg-white/5 hover:bg-white/10 text-slate-400 rounded-xl transition-all"
-                                                            title="Close Detail"
-                                                        >
-                                                            <Lucide.X size={18} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    );
-                                })()}
-                            </AnimatePresence>
+                            <PerfSegmentDetail
+                                useCompactDetail={useCompactDetail!}
+                                selectedSegmentId={selectedSegmentId}
+                                result={result}
+                                setSelectedSegmentId={setSelectedSegmentId}
+                                onViewRawRange={onViewRawRange}
+                            />
                         </div>
                     </motion.div>
                 ) : null}

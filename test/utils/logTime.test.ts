@@ -1,4 +1,4 @@
-
+import { describe, it, expect } from 'vitest';
 import { extractTimestamp, formatDuration } from '../../utils/logTime';
 
 describe('Log Time Utils', () => {

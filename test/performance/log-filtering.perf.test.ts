@@ -28,7 +28,6 @@ describe('Logging Performance Benchmarks', () => {
         includeGroups: [['ERROR']],
         excludes: [],
         highlights: [],
-        enabled: true,
         happyCombosCaseSensitive: false,
         blockListCaseSensitive: false
     };
@@ -39,7 +38,6 @@ describe('Logging Performance Benchmarks', () => {
         includeGroups: [['ERROR', 'FATAL'], ['WARNING', 'database'], ['network', 'timeout']],
         excludes: ['ignore', 'debug', 'trace'],
         highlights: [],
-        enabled: true,
         happyCombosCaseSensitive: false,
         blockListCaseSensitive: false
     };

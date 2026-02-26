@@ -1,0 +1,312 @@
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { AnalysisResult, AnalysisSegment } from '../../utils/perfAnalysis';
+import { usePerfZoomLogic } from './PerfDashboard/hooks/usePerfZoomLogic';
+
+export interface PerfDashboardStateProps {
+    result: AnalysisResult | null;
+    isAnalyzing: boolean;
+    isActive: boolean;
+    isOpen: boolean;
+    paneId?: string;
+    activeTags?: string[];
+    onJumpToRange?: (start: number, end: number) => void;
+}
+
+export function usePerfDashboardState({
+    result,
+    isAnalyzing,
+    isActive,
+    isOpen,
+    paneId,
+    activeTags = [],
+    onJumpToRange
+}: PerfDashboardStateProps) {
+    const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
+    const [viewMode, setViewMode] = useState<'chart' | 'list'>('chart');
+    const [minimized, setMinimized] = useState(false);
+    const [searchInput, setSearchInput] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const searchRef = useRef<HTMLInputElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const flameChartContainerRef = useRef<HTMLDivElement>(null);
+
+    const [isInitialDrawComplete, setIsInitialDrawComplete] = useState(false);
+    const [trimRange, setTrimRange] = useState<{ startTime: number; endTime: number } | null>(null);
+
+    const { flameZoom, zoomRef, applyZoom, handleWheelZoom, handleWheelPan, jumpToNavSegmentZoom } = usePerfZoomLogic({
+        resultStartTime: result?.startTime ?? 0,
+        resultEndTime: result?.endTime ?? 0,
+        trimRange,
+        onZoomChange: () => { }
+    });
+
+    const [measureRange, setMeasureRange] = useState<{ startTime: number, endTime: number } | null>(null);
+    const [isShiftPressed, setIsShiftPressed] = useState(false);
+    const [showOnlyFail, setShowOnlyFail] = useState(false);
+    const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([]);
+    const [lockedTid, setLockedTid] = useState<string | null>(null);
+
+    function checkSegmentMatch(s: AnalysisSegment, query: string) {
+        if (!query) return true;
+        const q = query.toLowerCase().trim();
+
+        if (q.startsWith('tid:')) {
+            const val = q.substring(4).trim();
+            return s.tid?.toLowerCase().includes(val);
+        }
+        if (q.startsWith('file:')) {
+            const val = q.substring(5).trim();
+            return s.fileName?.toLowerCase().includes(val);
+        }
+        if (q.startsWith('func:')) {
+            const val = q.substring(5).trim();
+            return s.functionName?.toLowerCase().includes(val);
+        }
+
+        return (
+            s.name.toLowerCase().includes(q) ||
+            s.tid?.toLowerCase().includes(q) ||
+            s.fileName?.toLowerCase().includes(q) ||
+            s.functionName?.toLowerCase().includes(q)
+        );
+    }
+
+    const navSegments = useMemo(() => {
+        if (!result) return [];
+        let filtered = [...result.segments];
+
+        if (lockedTid) {
+            filtered = filtered.filter(s => s.tid === lockedTid);
+        }
+        if (searchQuery) {
+            filtered = filtered.filter(s => checkSegmentMatch(s, searchQuery));
+        }
+        if (showOnlyFail) {
+            filtered = filtered.filter(s => s.status === 'fail' || s.duration >= (result.perfThreshold || 1000));
+        }
+        if (activeTags.length > 0) {
+            filtered = filtered.filter(s =>
+                s.logs?.some(log => activeTags.some(tag => log.includes(tag)))
+            );
+        }
+        if (trimRange) {
+            filtered = filtered.filter(s =>
+                s.startTime < trimRange.endTime && s.endTime > trimRange.startTime
+            );
+        }
+        filtered = filtered.filter(s => s.tid !== 'Global');
+
+        if (lockedTid) {
+            return filtered.sort((a, b) => a.startTime - b.startTime);
+        }
+
+        return filtered.sort((a, b) => b.duration - a.duration).slice(0, 200);
+    }, [result, showOnlyFail, searchQuery, activeTags, trimRange, lockedTid]);
+
+    const currentNavIndex = useMemo(() => {
+        if (!selectedSegmentId || navSegments.length === 0) return -1;
+        return navSegments.findIndex(s => s.id === selectedSegmentId);
+    }, [selectedSegmentId, navSegments]);
+
+    const jumpToNavSegment = useCallback((direction: -1 | 1) => {
+        if (!result || navSegments.length === 0) return;
+
+        let targetIndex = currentNavIndex + direction;
+        if (targetIndex < 0) targetIndex = navSegments.length - 1;
+        if (targetIndex >= navSegments.length) targetIndex = 0;
+
+        const target = navSegments[targetIndex];
+        setSelectedSegmentId(target.id);
+        setMultiSelectedIds([]);
+
+        jumpToNavSegmentZoom({ startTime: target.startTime, endTime: target.endTime });
+
+        if (onJumpToRange) {
+            onJumpToRange(target.startLine, target.endLine);
+        }
+    }, [result, navSegments, currentNavIndex, onJumpToRange, jumpToNavSegmentZoom]);
+
+    // Keyboard Shortcuts (F3/F4 and globals)
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Shift') setIsShiftPressed(true);
+            if (e.key === 'Escape') {
+                setSelectedSegmentId(null);
+                setMultiSelectedIds([]);
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                if (isOpen) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (minimized) setMinimized(false);
+                    setTimeout(() => {
+                        searchRef.current?.focus();
+                    }, 50);
+                }
+            }
+        };
+        const onKeyUp = (e: KeyboardEvent) => { if (e.key === 'Shift') setIsShiftPressed(false); };
+
+        if (isActive) {
+            window.addEventListener('keydown', onKeyDown);
+            window.addEventListener('keyup', onKeyUp);
+        }
+
+        return () => {
+            window.removeEventListener('keydown', onKeyDown);
+            window.removeEventListener('keyup', onKeyUp);
+        };
+    }, [isOpen, isActive, minimized]);
+
+    useEffect(() => {
+        const handleKeyDownNav = (e: KeyboardEvent) => {
+            if (!isActive || !isOpen) return;
+            if (e.key === 'F3') {
+                e.preventDefault();
+                e.stopPropagation();
+                jumpToNavSegment(-1);
+            } else if (e.key === 'F4') {
+                e.preventDefault();
+                e.stopPropagation();
+                jumpToNavSegment(1);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDownNav);
+        return () => window.removeEventListener('keydown', handleKeyDownNav);
+    }, [jumpToNavSegment, isActive, isOpen]);
+
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            const trimmedInput = searchInput.trim();
+            setSearchQuery(trimmedInput);
+
+            if (trimmedInput !== '' && result) {
+                const hasMatch = result.segments.some(s => checkSegmentMatch(s, trimmedInput));
+                if (hasMatch) {
+                    setSelectedSegmentId(null);
+                    setMultiSelectedIds([]);
+                }
+            }
+        }, 500);
+        return () => clearTimeout(timeout);
+    }, [searchInput, result]);
+
+    const dragCleanupRef = useRef<(() => void) | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (dragCleanupRef.current) dragCleanupRef.current();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (result) {
+            setIsInitialDrawComplete(false);
+        }
+    }, [result]);
+
+    const [isScanningStatus, setIsScanningStatus] = useState(isAnalyzing);
+    const minScanTimeMs = 1000;
+    const scanStartTimeRef = useRef<number>(0);
+    const scanTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    useEffect(() => {
+        if (isAnalyzing) {
+            setIsScanningStatus(true);
+            setIsInitialDrawComplete(false);
+            scanStartTimeRef.current = Date.now();
+            if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
+        } else {
+            const elapsed = Date.now() - scanStartTimeRef.current;
+            if (elapsed < minScanTimeMs) {
+                scanTimeoutRef.current = setTimeout(() => {
+                    setIsScanningStatus(false);
+                }, minScanTimeMs - elapsed);
+            } else {
+                setIsScanningStatus(false);
+            }
+        }
+
+        return () => {
+            if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
+        };
+    }, [isAnalyzing]);
+
+    // Handle Wheel Events
+    useEffect(() => {
+        if (!result) return;
+
+        const onGlobalWheel = (e: WheelEvent) => {
+            if (!isActive) return;
+
+            const target = e.target as HTMLElement;
+            if (!target || typeof target.closest !== 'function') return;
+
+            const dashboard = target.closest('.perf-dashboard-container');
+            const logPane = target.closest('.log-viewer-pane');
+
+            let belongsToMe = false;
+            if (paneId) {
+                belongsToMe = (dashboard?.getAttribute('data-pane-id') === paneId) ||
+                    (logPane?.getAttribute('data-pane-id') === paneId);
+            } else {
+                belongsToMe = !!dashboard || !!logPane;
+            }
+
+            if (!belongsToMe) return;
+
+            const currentZoom = zoomRef.current;
+            const defaultStart = trimRange?.startTime ?? result.startTime;
+            const defaultEnd = trimRange?.endTime ?? result.endTime;
+            const currentStart = currentZoom?.startTime ?? defaultStart;
+            const currentEnd = currentZoom?.endTime ?? defaultEnd;
+            const duration = currentEnd - currentStart;
+
+            if (e.ctrlKey) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const chartRect = canvasRef.current?.getBoundingClientRect();
+                if (!chartRect) return;
+
+                const pointerX = e.clientX - chartRect.left;
+                const fractionalPos = Math.max(0, Math.min(1, pointerX / chartRect.width));
+
+                handleWheelZoom(e.deltaY, fractionalPos);
+            } else if (!!dashboard && (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey)) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const chartRect = canvasRef.current?.getBoundingClientRect();
+                if (!chartRect) return;
+
+                const delta = e.deltaX || e.deltaY;
+                const panAmount = (delta / chartRect.width) * duration;
+
+                handleWheelPan(panAmount);
+            }
+        };
+
+        window.addEventListener('wheel', onGlobalWheel, { passive: false });
+        return () => window.removeEventListener('wheel', onGlobalWheel);
+    }, [result, isActive, paneId, trimRange, handleWheelZoom, handleWheelPan, zoomRef]);
+
+    return {
+        selectedSegmentId, setSelectedSegmentId,
+        viewMode, setViewMode,
+        minimized, setMinimized,
+        searchInput, setSearchInput,
+        searchQuery,
+        searchRef, canvasRef, flameChartContainerRef, dragCleanupRef,
+        isInitialDrawComplete, setIsInitialDrawComplete,
+        trimRange, setTrimRange,
+        flameZoom, applyZoom,
+        measureRange, setMeasureRange,
+        isShiftPressed, showOnlyFail, setShowOnlyFail,
+        multiSelectedIds, setMultiSelectedIds,
+        lockedTid, setLockedTid,
+        navSegments, currentNavIndex, jumpToNavSegment,
+        checkSegmentMatch,
+        isScanningStatus
+    };
+}

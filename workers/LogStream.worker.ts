@@ -2,11 +2,17 @@
 // Dedicated worker for real-time log streaming
 // Shares similar filtering logic with LogProcessor but optimized for stream chunks
 
-import { LogRule, LogWorkerMessage, LogWorkerResponse, LineResult, LogHighlight } from '../types';
+import { LogRule, LogWorkerMessage, LogWorkerResponse, LogHighlight } from '../types';
 
-let currentLines: LineResult[] = [];
+interface StreamLine {
+    lineNum: number;
+    content: string;
+    timestamp: number;
+}
+
+let currentLines: StreamLine[] = [];
 let totalLines = 0;
-let filteredMatches: LineResult[] = [];
+let filteredMatches: StreamLine[] = [];
 let currentRule: LogRule | null = null;
 const BUFFER_SIZE = 100000; // Keep last 100k lines in memory to prevent overflow
 
@@ -59,13 +65,13 @@ self.onmessage = (e: MessageEvent<LogWorkerMessage>) => {
         case 'PROCESS_CHUNK':
             const chunk = payload.chunk as string;
             const newLines = chunk.split('\n');
-            const processedLines: LineResult[] = [];
+            const processedLines: StreamLine[] = [];
 
             newLines.forEach(lineContent => {
                 if (!lineContent.trim()) return; // Skip empty lines in stream?
 
                 totalLines++;
-                const lineObj: LineResult = {
+                const lineObj: StreamLine = {
                     lineNum: totalLines,
                     content: lineContent,
                     timestamp: 0 // Parse if needed
