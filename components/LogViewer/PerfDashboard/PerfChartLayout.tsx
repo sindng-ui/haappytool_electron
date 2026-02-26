@@ -92,7 +92,7 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                 }}
             >
                 <div
-                    className="flex flex-col min-w-full relative"
+                    className="flex flex-row min-w-full relative"
                     style={{
                         height: `${Math.max(200, (maxLane + 1) * 28 + 24)}px`
                     }}

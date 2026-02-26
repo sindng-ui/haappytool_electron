@@ -266,8 +266,16 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
 
             ctx.globalAlpha = Math.min(1, opacity * 1.5);
             ctx.fillStyle = (isSelected || isMatch || isFail) ? '#fff' : 'rgba(255,255,255,0.85)';
-            const name = s.name || '';
-            ctx.fillText(name, x + PAD, y + h / 2, maxTextW);
+
+            // Priority: FileName: FunctionName(StartLine) > s.name
+            let displayName = s.name || '';
+            if (s.fileName && s.functionName) {
+                displayName = `${s.fileName}: ${s.functionName}(${s.startLine})`;
+            } else if (s.fileName) {
+                displayName = `${s.fileName}(${s.startLine})`;
+            }
+
+            ctx.fillText(displayName, x + PAD, y + h / 2, maxTextW);
             ctx.restore();
         });
 
