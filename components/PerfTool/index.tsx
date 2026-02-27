@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import * as Lucide from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
@@ -669,6 +669,21 @@ interface PerfRawViewerProps {
 const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHandle, startLine, endLine, startOffset = 0, startLineNum = 0, getWorker }) => {
     const [lines, setLines] = useState<{ index: number, content: string }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const virtuosoRef = useRef<any>(null);
+
+    const jumpToStart = useCallback(() => {
+        const idx = lines.findIndex(l => l.index === startLine);
+        if (idx !== -1) {
+            virtuosoRef.current?.scrollToIndex({ index: idx, align: 'center', behavior: 'auto' });
+        }
+    }, [lines, startLine]);
+
+    const jumpToEnd = useCallback(() => {
+        const idx = lines.findIndex(l => l.index === endLine);
+        if (idx !== -1) {
+            virtuosoRef.current?.scrollToIndex({ index: idx, align: 'center', behavior: 'auto' });
+        }
+    }, [lines, endLine]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -769,9 +784,32 @@ const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHand
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors">
-                        <Lucide.X size={20} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center bg-slate-950/40 rounded-xl p-1 border border-white/5 mr-2">
+                            <button
+                                onClick={jumpToStart}
+                                disabled={isLoading || lines.length === 0}
+                                className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-indigo-500/20 text-indigo-300 rounded-lg text-[10px] font-bold transition-all disabled:opacity-30 group"
+                                title="Jump to Selection Start"
+                            >
+                                <Lucide.ArrowUp size={12} className="group-hover:-translate-y-0.5 transition-transform" />
+                                Selection Start
+                            </button>
+                            <div className="w-px h-3 bg-white/10 mx-1" />
+                            <button
+                                onClick={jumpToEnd}
+                                disabled={isLoading || lines.length === 0}
+                                className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-purple-500/20 text-purple-300 rounded-lg text-[10px] font-bold transition-all disabled:opacity-30 group"
+                                title="Jump to Selection End"
+                            >
+                                <Lucide.ArrowDown size={12} className="group-hover:translate-y-0.5 transition-transform" />
+                                Selection End
+                            </button>
+                        </div>
+                        <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors">
+                            <Lucide.X size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-hidden bg-slate-950/50 font-mono text-[11px] leading-relaxed">
@@ -782,6 +820,7 @@ const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHand
                         </div>
                     ) : (
                         <Virtuoso
+                            ref={virtuosoRef}
                             style={{ height: '100%' }}
                             className="custom-scrollbar"
                             data={lines}
