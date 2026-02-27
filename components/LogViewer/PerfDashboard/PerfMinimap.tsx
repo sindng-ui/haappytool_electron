@@ -112,12 +112,19 @@ export const PerfMinimap: React.FC<PerfMinimapProps> = ({
             const success = drawMinimap();
             if (!success) {
                 // Resize Observer fallback if dimensions weren't ready
+                let resizeTimer: ReturnType<typeof setTimeout> | null = null;
                 const resizeObserver = new ResizeObserver(() => {
-                    minimapRectCacheRef.current = null;
-                    rafId = requestAnimationFrame(drawMinimap);
+                    if (resizeTimer) clearTimeout(resizeTimer);
+                    resizeTimer = setTimeout(() => {
+                        minimapRectCacheRef.current = null;
+                        rafId = requestAnimationFrame(drawMinimap);
+                    }, 100);
                 });
                 if (minimapCanvasRef.current) resizeObserver.observe(minimapCanvasRef.current);
-                return () => resizeObserver.disconnect();
+                return () => {
+                    if (resizeTimer) clearTimeout(resizeTimer);
+                    resizeObserver.disconnect();
+                };
             }
         });
 

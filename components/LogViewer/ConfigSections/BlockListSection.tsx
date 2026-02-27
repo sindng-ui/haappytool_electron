@@ -11,7 +11,7 @@ interface BlockListSectionProps {
     blockListCaseSensitive: boolean;
 }
 
-export const BlockListSection: React.FC<BlockListSectionProps> = ({ currentConfig, updateCurrentRule, blockListCaseSensitive }) => {
+export const BlockListSection = React.memo<BlockListSectionProps>(({ currentConfig, updateCurrentRule, blockListCaseSensitive }) => {
     // Edit State
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [editValue, setEditValue] = useState('');
@@ -138,4 +138,4 @@ export const BlockListSection: React.FC<BlockListSectionProps> = ({ currentConfi
             </div>
         </div>
     );
-};
+});

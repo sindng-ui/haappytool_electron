@@ -5,7 +5,7 @@ interface ConfigHeaderProps {
     onUpdateName: (name: string) => void;
 }
 
-export const ConfigHeader: React.FC<ConfigHeaderProps> = ({ name, onUpdateName }) => {
+export const ConfigHeader = React.memo<ConfigHeaderProps>(({ name, onUpdateName }) => {
     const [localName, setLocalName] = useState(name);
 
     useEffect(() => {
@@ -42,4 +42,4 @@ export const ConfigHeader: React.FC<ConfigHeaderProps> = ({ name, onUpdateName }
             </div>
         </div>
     );
-};
+});

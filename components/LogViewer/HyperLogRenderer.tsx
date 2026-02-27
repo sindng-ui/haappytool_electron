@@ -620,40 +620,57 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
     useLayoutEffect(() => {
         if (!containerRef.current) return;
+        let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+        let isFirstRender = true;
+
         const observer = new ResizeObserver(entries => {
             for (const entry of entries) {
-                const dpr = window.devicePixelRatio || 1;
                 const { width, height } = entry.contentRect;
-                setViewportHeight(height);
-                if (bgCanvasRef.current) {
-                    bgCanvasRef.current.width = width * dpr;
-                    bgCanvasRef.current.height = height * dpr;
-                    bgCanvasRef.current.style.width = width + 'px';
-                    bgCanvasRef.current.style.height = height + 'px';
-                    const bgCtx = bgCanvasRef.current.getContext('2d');
-                    if (bgCtx) {
-                        bgCtx.setTransform(1, 0, 0, 1, 0, 0);
-                        bgCtx.scale(dpr, dpr);
+
+                const applyResize = () => {
+                    const dpr = window.devicePixelRatio || 1;
+                    setViewportHeight(height);
+                    if (bgCanvasRef.current) {
+                        bgCanvasRef.current.width = width * dpr;
+                        bgCanvasRef.current.height = height * dpr;
+                        bgCanvasRef.current.style.width = width + 'px';
+                        bgCanvasRef.current.style.height = height + 'px';
+                        const bgCtx = bgCanvasRef.current.getContext('2d');
+                        if (bgCtx) {
+                            bgCtx.setTransform(1, 0, 0, 1, 0, 0);
+                            bgCtx.scale(dpr, dpr);
+                        }
                     }
-                }
-                if (canvasRef.current) {
-                    canvasRef.current.width = width * dpr;
-                    canvasRef.current.height = height * dpr;
-                    canvasRef.current.style.width = width + 'px';
-                    canvasRef.current.style.height = height + 'px';
-                    const ctx = canvasRef.current.getContext('2d');
-                    if (ctx) {
-                        ctx.setTransform(1, 0, 0, 1, 0, 0);
-                        ctx.scale(dpr, dpr);
+                    if (canvasRef.current) {
+                        canvasRef.current.width = width * dpr;
+                        canvasRef.current.height = height * dpr;
+                        canvasRef.current.style.width = width + 'px';
+                        canvasRef.current.style.height = height + 'px';
+                        const ctx = canvasRef.current.getContext('2d');
+                        if (ctx) {
+                            ctx.setTransform(1, 0, 0, 1, 0, 0);
+                            ctx.scale(dpr, dpr);
+                        }
+                        render();
+                        renderHeatmap();
                     }
-                    render();
-                    renderHeatmap();
+                };
+
+                if (isFirstRender) {
+                    isFirstRender = false;
+                    applyResize();
+                } else {
+                    if (resizeTimer) clearTimeout(resizeTimer);
+                    resizeTimer = setTimeout(applyResize, 100);
                 }
             }
         });
         observer.observe(containerRef.current);
-        return () => observer.disconnect();
-    }, [render]);
+        return () => {
+            if (resizeTimer) clearTimeout(resizeTimer);
+            observer.disconnect();
+        };
+    }, [render, renderHeatmap]);
 
     useLayoutEffect(() => {
         render();

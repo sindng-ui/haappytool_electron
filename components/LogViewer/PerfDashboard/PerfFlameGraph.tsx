@@ -75,12 +75,28 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
 
     useEffect(() => {
         if (!canvasRef.current) return;
+        let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+        let isFirstRender = true;
+
         const observer = new ResizeObserver(() => {
-            rectCacheRef.current = null;
-            isDirtyRef.current = true;
+            const applyResize = () => {
+                rectCacheRef.current = null;
+                isDirtyRef.current = true;
+            };
+
+            if (isFirstRender) {
+                isFirstRender = false;
+                applyResize();
+            } else {
+                if (resizeTimer) clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(applyResize, 100);
+            }
         });
         observer.observe(canvasRef.current);
-        return () => observer.disconnect();
+        return () => {
+            if (resizeTimer) clearTimeout(resizeTimer);
+            observer.disconnect();
+        };
     }, []);
 
     useEffect(() => {

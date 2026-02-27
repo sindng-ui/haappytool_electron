@@ -259,7 +259,7 @@ pre {
   }
 
   .glass-morphism {
-    @apply bg-slate-900/60 backdrop-blur-xl border-r border-white/5;
+    @apply bg-slate-900/90 border border-white/5;
   }
 
   .card-gradient {

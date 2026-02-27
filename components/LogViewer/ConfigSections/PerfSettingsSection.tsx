@@ -9,7 +9,7 @@ interface PerfSettingsSectionProps {
     updateCurrentRule: (updates: Partial<LogRule>) => void;
 }
 
-export const PerfSettingsSection: React.FC<PerfSettingsSectionProps> = ({ currentConfig, updateCurrentRule }) => {
+export const PerfSettingsSection = React.memo<PerfSettingsSectionProps>(({ currentConfig, updateCurrentRule }) => {
     const [threshold, setThreshold] = useState(currentConfig.perfThreshold?.toString() ?? '1000');
 
     // Default 2 levels if none exist
@@ -158,4 +158,4 @@ export const PerfSettingsSection: React.FC<PerfSettingsSectionProps> = ({ curren
             </div>
         </div>
     );
-};
+});

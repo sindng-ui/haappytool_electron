@@ -14,7 +14,7 @@ import { ViewSettingsSection } from './ConfigSections/ViewSettingsSection';
 
 const { ChevronLeft, ChevronRight } = Lucide;
 
-const ConfigurationPanel: React.FC = () => {
+const ConfigurationPanel = React.memo(() => {
     const {
         isPanelOpen, setIsPanelOpen,
         configPanelWidth, handleConfigResizeStart,
@@ -26,19 +26,19 @@ const ConfigurationPanel: React.FC = () => {
         hasEverConnected, setIsTizenQuickConnect, setIsTizenModalOpen
     } = useLogContext();
 
-    const onToggle = () => setIsPanelOpen(!isPanelOpen);
+    const onToggle = React.useCallback(() => setIsPanelOpen(prev => !prev), [setIsPanelOpen]);
 
-    const onToggleRootCollapse = (root: string) => {
+    const onToggleRootCollapse = React.useCallback((root: string) => {
         setCollapsedRoots(prev => {
             const next = new Set(prev);
             if (next.has(root)) next.delete(root);
             else next.add(root);
             return next;
         });
-    };
+    }, [setCollapsedRoots]);
     const defaultLogCommand = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
 
-    const handleToggleLogging = () => {
+    const handleToggleLogging = React.useCallback(() => {
         if (isLogging) {
             // Stop Logging
             // 1. Send Ctrl+C
@@ -80,11 +80,15 @@ const ConfigurationPanel: React.FC = () => {
             sendTizenCommand(finalCmd + '\n');
             setIsLogging(true);
         }
-    };
-    const handleReconnect = () => {
+    }, [isLogging, currentConfig, sendTizenCommand, setIsLogging, connectionMode, hasEverConnected]);
+    const handleReconnect = React.useCallback(() => {
         setIsTizenQuickConnect(true);
         setIsTizenModalOpen(true);
-    };
+    }, [setIsTizenQuickConnect, setIsTizenModalOpen]);
+
+    const handleUpdateName = React.useCallback((name: string) => {
+        updateCurrentRule({ name });
+    }, [updateCurrentRule]);
 
     if (!currentConfig) {
         return (
@@ -97,7 +101,11 @@ const ConfigurationPanel: React.FC = () => {
     return (
         <div
             className={`${isPanelOpen ? '' : 'w-8'} glass-morphism flex flex-col h-full shadow-2xl z-20 custom-scrollbar relative shrink-0 transition-[width] duration-700 ease-[cubic-bezier(0.19,1,0.22,1)] overflow-hidden`}
-            style={{ width: isPanelOpen ? configPanelWidth : undefined, transitionDelay: isPanelOpen ? '100ms' : '0ms' }}
+            style={{
+                width: isPanelOpen ? configPanelWidth : undefined,
+                transitionDelay: isPanelOpen ? '100ms' : '0ms',
+                contain: 'layout paint'
+            }}
         >
             {isPanelOpen && (
                 <div
@@ -122,7 +130,7 @@ const ConfigurationPanel: React.FC = () => {
                 >
                     <ConfigHeader
                         name={currentConfig.name}
-                        onUpdateName={(name) => updateCurrentRule({ name })}
+                        onUpdateName={handleUpdateName}
                     />
 
                     <div className="card-gradient p-1">
@@ -191,6 +199,6 @@ const ConfigurationPanel: React.FC = () => {
             )}
         </div>
     );
-};
+});
 
 export default ConfigurationPanel;

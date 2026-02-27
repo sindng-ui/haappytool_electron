@@ -23,7 +23,7 @@ const isTagEditing = (target: { groupIdx: number, termIdx: number, isActive: boo
 
 import { EditableTag } from './EditableTag';
 
-export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
+export const HappyComboSection = React.memo<HappyComboSectionProps>(({
     currentConfig,
     updateCurrentRule,
     groupedRoots,
@@ -499,4 +499,4 @@ export const HappyComboSection: React.FC<HappyComboSectionProps> = ({
             </Button>
         </div>
     );
-};
+});

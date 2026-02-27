@@ -21,7 +21,7 @@ interface HighlightSectionProps {
     colorHighlightsCaseSensitive: boolean;
 }
 
-export const HighlightSection: React.FC<HighlightSectionProps> = ({ currentConfig, updateCurrentRule, colorHighlightsCaseSensitive }) => {
+export const HighlightSection = React.memo<HighlightSectionProps>(({ currentConfig, updateCurrentRule, colorHighlightsCaseSensitive }) => {
     // New Item State
     const [newHighlightWord, setNewHighlightWord] = useState('');
     const [newHighlightColor, setNewHighlightColor] = useState('');
@@ -246,4 +246,4 @@ export const HighlightSection: React.FC<HighlightSectionProps> = ({ currentConfi
             </div>
         </div>
     );
-};
+});

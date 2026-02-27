@@ -18,7 +18,7 @@ interface LogSettingsSectionProps {
 
 const defaultLogCommand = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
 
-export const LogSettingsSection: React.FC<LogSettingsSectionProps> = ({ currentConfig, updateCurrentRule, isLogging, onToggleLogging, connectionMode, hasEverConnected, onReconnect }) => {
+export const LogSettingsSection = React.memo<LogSettingsSectionProps>(({ currentConfig, updateCurrentRule, isLogging, onToggleLogging, connectionMode, hasEverConnected, onReconnect }) => {
     const [localCommand, setLocalCommand] = useState(currentConfig.logCommand ?? defaultLogCommand);
 
     useEffect(() => {
@@ -126,4 +126,4 @@ export const LogSettingsSection: React.FC<LogSettingsSectionProps> = ({ currentC
             </div>
         </div>
     );
-};
+});

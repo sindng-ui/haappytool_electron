@@ -9,7 +9,7 @@ interface ViewSettingsSectionProps {
     onUpdate: (updates: Partial<LogViewPreferences>) => void;
 }
 
-export const ViewSettingsSection: React.FC<ViewSettingsSectionProps> = ({ preferences, onUpdate }) => {
+export const ViewSettingsSection = React.memo<ViewSettingsSectionProps>(({ preferences, onUpdate }) => {
 
     const handleLevelToggle = (level: LogLevel) => {
         const newStyles = preferences.levelStyles.map(s =>
@@ -148,4 +148,4 @@ export const ViewSettingsSection: React.FC<ViewSettingsSectionProps> = ({ prefer
             </div>
         </div>
     );
-};
+});
