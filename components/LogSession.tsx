@@ -541,16 +541,22 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
     // Helper to generate consistent colors from strings
     const stringToColor = (str: string): string => {
+        // 1. Better Hashing (Shift-Add-Xor hash)
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
             hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            hash = hash & hash; // Convert to 32bit integer
         }
 
-        // Use consistent Highlighting Colors (avoiding too dark or too light)
-        // We use HSL logic but convert to HEX to avoid CSS parsing issues in some environments/tooling
-        const h = Math.abs(hash % 360);
-        const s = 70 + (Math.abs(hash) % 30); // 70-100%
-        const l = 50 + (Math.abs(hash) % 10); // 50-60% (Keep it in middle range for text contrast)
+        // 2. Use Golden Ratio to spread Hue more evenly
+        // 0.618033988749895 is the conjugate of the golden ratio
+        const goldenRatioConjugate = 0.618033988749895;
+        let h = (Math.abs(hash) * goldenRatioConjugate * 360) % 360;
+
+        // 3. Dynamic Saturation and Lightness for variety
+        // Use hash to slightly vary Saturation (65-95%) and Lightness (45-65%)
+        const s = 65 + (Math.abs(hash >> 8) % 30);
+        const l = 45 + (Math.abs(hash >> 16) % 20);
 
         // HSL to RGB conversion
         const c = (1 - Math.abs(2 * l / 100 - 1)) * (s / 100);

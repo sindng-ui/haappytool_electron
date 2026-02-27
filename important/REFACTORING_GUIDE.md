@@ -48,6 +48,22 @@
 
 ---
 
+## ⚠️ 안티패턴 및 치명적 실패 사례 주의 (Lessons Learned)
+*최근 `LogViewerPane.tsx` 리팩토링 실패(Regression)에서 얻은 교훈입니다.*
+
+### 9. 강결합된 DOM 이벤트의 성급한 분리 금지 (Event Listener Decoupling Risk)
+- `wheel`, `scroll`, `mouseup`, `mousemove` 등 브라우저 Native DOM 이벤트와 밀접하게 연관된 로직을 단순히 줄 수를 줄이기 위해 성급하게 Custom Hook으로 빼내면 타이밍 이슈가 발생합니다.
+- 특히 `passive: false`가 필요한 `e.preventDefault()` 로직이나, `useRef`로 가져온 DOM Element에 직접 `addEventListener`를 붙이는 로직은 **해당 DOM 요소를 렌더링하는 컨텍스트(컴포넌트) 내부에 유지**하는 것이 더 안전할 수 있습니다.
+
+### 10. 비동기 훅(Async Hook)과 라이프사이클 충돌
+- 훅 내부에서 `import('react').then(...)`과 같은 동적 임포트(Dynamic Import)를 사용해 `useEffect`를 주입하려 하면, React의 컴포넌트 마운트 라이프사이클과 어긋나면서 브라우저 전역 이벤트(`window.addEventListener('mouseup', ...)`) 관리가 꼬여 드래그 및 선택 기능이 마비될 수 있습니다. (Race Condition 유발)
+
+### 11. 부작용(Side Effect) 누락과 의존성 배열(Dependency Array) 파괴
+- 코드를 훅으로 분리하면서 기존에 연결되어 있던 `SetState`, `Context` 또는 `Prop` 콜백(예: `handleFontZoom`, `onLineClick`)의 레퍼런스가 유실되는 경우가 흔합니다.
+- 리팩토링 후에는 기존 컴포넌트의 기능들이 분리된 훅의 `useEffect` 의존성 배열(deps)에 올바르게 전달되어 **데이터 변경 시 자동 렌더링(render())이 촉발되는지** 반드시 확인해야 합니다.
+
+---
+
 ## 🛠️ 실전 리팩토링 워크플로우 (Step-by-Step)
 
 1. **테스트 확보**: 대상 시스템의 동작을 커버하는 테스트 코드 작성 및 실행.
