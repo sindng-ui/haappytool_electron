@@ -852,8 +852,9 @@ export const useLogExtractorLogic = ({
 
     // Auto-Apply Filter (Left)
     useEffect(() => {
-        // We use leftWorkerReady instead of leftTotalLines to check availability, avoiding re-runs on every log line
-        if (leftWorkerRef.current && currentConfig && (leftWorkerReady || tizenSocket)) {
+        // ✅ Optimization: Allow filtering if worker exists, even if not "ready" (unless indexing)
+        // This ensures the loader displays immediately when config changes.
+        if (leftWorkerRef.current && currentConfig) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
 
             const effectiveIncludes = refinedGroups.map(g =>
@@ -874,21 +875,23 @@ export const useLogExtractorLogic = ({
             }
             lastFilterHashLeft.current = payloadHash;
 
+            // Immediately set to not ready to show loader without delay
             setLeftWorkerReady(false);
+
             // 🔍 DEBUG: Check what is being sent to the worker
             console.log('[FilterDebug] Sending filter payload hash:', payloadHash);
 
             leftWorkerRef.current.postMessage({
                 type: 'FILTER_LOGS',
-                payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter } // ✅ Pass quickFilter
+                payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
             });
-            // Don't reset selection during stream to avoid jumps, unless necessary?
+
             if (!tizenSocket) {
                 setActiveLineIndexLeft(-1);
                 setSelectedIndicesLeft(new Set());
             }
         }
-    }, [currentConfig, leftWorkerReady, tizenSocket, quickFilter]); // ✅ Added quickFilter dependency
+    }, [currentConfig, tizenSocket, quickFilter]);
 
 
 
@@ -1678,6 +1681,13 @@ export const useLogExtractorLogic = ({
 
     const updateCurrentRule = useCallback((updates: Partial<LogRule>) => {
         const updatedRules = rules.map(r => r.id === selectedRuleId ? { ...r, ...updates } : r);
+
+        // 🚀 Quality Control: Immediately set workers to NOT ready when a rule update is triggered
+        // This forces the loading UI to appear BEFORE the next render cycle attempts to highlight items
+        // based on the new (but not yet processed) rules.
+        setLeftWorkerReady(false);
+        setRightWorkerReady(false);
+
         onUpdateRules(updatedRules);
     }, [rules, selectedRuleId, onUpdateRules]);
 

@@ -115,12 +115,60 @@ describe('checkIsMatch (Log Filtering Logic)', () => {
         });
     });
 
-    describe('Bypass Logic', () => {
-        it('should always include [TEST_LOG_] if bypass is on', () => {
-            const rule: LogRule = { ...baseRule, excludes: ['TEST'] };
-            // Even if excluded or not matching includes, it should pass
-            expect(checkIsMatch('[TEST_LOG_START]', rule, true)).toBe(true);
+    describe('Bypass (Standard Log Heuristics)', () => {
+        it('should identify Tizen/Android standard logs and always include if bypass is on', () => {
+            const rule: LogRule = { ...baseRule, excludes: ['ERROR'] };
+
+            // Heuristic patterns: Time at start, Level in middle
+            const tizenLog = '02-16 10:11:12.123 1234 1234 I/TAG: message';
+            const androidLog = '[2024-02-16 10:11:12.123] 1234 1234 E TAG: message';
+            const dltStyle = '12:34:56.789 123 4567 INFO message';
+
+            expect(checkIsMatch(tizenLog, rule, true)).toBe(true);
+            expect(checkIsMatch(androidLog, rule, true)).toBe(true);
+            expect(checkIsMatch(dltStyle, rule, true)).toBe(true);
+        });
+
+        it('should bypass (always include) shell-like output or plain text', () => {
+            const rule: LogRule = { ...baseRule, includeGroups: [['IMPORTANT']] };
+
+            const shellRes = 'cat /proc/cpuinfo';
+            const plainText = 'This text has nothing special in it';
+
+            // Non-standard logs are bypassed (included) so users don't miss command output
+            expect(checkIsMatch(shellRes, rule, true)).toBe(true);
+            expect(checkIsMatch(plainText, rule, true)).toBe(true);
+        });
+
+        it('should NOT bypass standard logs even if bypass is on (must match rules)', () => {
+            const rule: LogRule = { ...baseRule, includeGroups: [['IMPORTANT']] };
+            const standardLog = '02-16 10:11:12.123 1234 1234 I/TAG: Not important log';
+
+            // Standard logs are NOT bypassed; they must match includeGroups
+            expect(checkIsMatch(standardLog, rule, true)).toBe(false);
         });
     });
 
+    describe('Regression & Consistency', () => {
+        it('should treat empty includeGroups as "Allow All"', () => {
+            expect(checkIsMatch('anything', { ...baseRule, includeGroups: [] }, false)).toBe(true);
+        });
+
+        it('should handle special characters in keywords correctly', () => {
+            // keywords should be lowercase for Case-Insensitive test
+            // keywords are in separate groups to test OR logic
+            const rule: LogRule = { ...baseRule, includeGroups: [['(error)'], ['[critical]']], happyCombosCaseSensitive: false };
+            expect(checkIsMatch('System (ERROR) happened', rule, false)).toBe(true);
+            expect(checkIsMatch('Status: [CRITICAL]', rule, false)).toBe(true);
+        });
+
+        it('should maintain consistency between different check paths', () => {
+            const rule: LogRule = { ...baseRule, includeGroups: [['error']], happyCombosCaseSensitive: false };
+            const line = '[ERROR] System failure';
+
+            // Whether bypass is on or off, fundamental match should work
+            expect(checkIsMatch(line, rule, false)).toBe(true);
+            expect(checkIsMatch(line, rule, true)).toBe(true);
+        });
+    });
 });

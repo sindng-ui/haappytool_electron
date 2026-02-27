@@ -16,9 +16,10 @@ import { LogRule } from '../types';
  * @returns true if the line should be included, false if it should be filtered out
  */
 // --- Optimized Heuristics for Standard Log Detection ---
-const RE_TIME_OR_DATE = /(:[0-5]\d)|(\d{2,4}[-/]\d{2}[-/]\d{2})|([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2})/;
-const RE_LEVEL = /\b[VDIWEF]\/|\b(?:INFO|DEBUG|WARN|ERROR|VERBOSE|FATAL)\b|<[0-9]>/i;
-const RE_PID = /\(\s*\d+\s*\)/;
+const RE_TIME_OR_DATE = /^\s*(\[?\d{2,4}[-/.]\d{2}[-/.]\d{2,4}|[\[]?\d{2}:\d{2}:\d{2})/;
+const RE_LEVEL_LONG = /[ \[/](TRACE|DEBUG|INFO|WARN|ERROR|FATAL)[ /\]:]/i;
+const RE_LEVEL_SHORT = /[ \[/](V|D|I|W|E|F)[ /\]:]/; // Case-sensitive for single letters to avoid "is", "in" etc.
+const RE_PID = /[ \(]\d{4,6}[ /]/;
 
 export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilter: boolean, quickFilter?: 'none' | 'error' | 'exception', wasmEngine?: any, wasmMemory?: WebAssembly.Memory, textEncoder?: TextEncoder): boolean => {
     // 1. Quick Filters (Highly optimized, minimal overhead)
@@ -43,11 +44,11 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
         if (trimmedLine.length === 0) return true;
 
         // Cheap checks first
-        let isStandard = trimmedLine[0] === '[' || trimmedLine.includes(' /');
+        let isStandard = trimmedLine[0] === '[';
 
         // RegEx checks only if cheap ones fail
         if (!isStandard) {
-            isStandard = RE_LEVEL.test(trimmedLine) || RE_TIME_OR_DATE.test(trimmedLine) || RE_PID.test(trimmedLine);
+            isStandard = RE_TIME_OR_DATE.test(trimmedLine) || RE_LEVEL_LONG.test(trimmedLine) || RE_LEVEL_SHORT.test(trimmedLine) || RE_PID.test(trimmedLine);
         }
 
         if (!isStandard) {
