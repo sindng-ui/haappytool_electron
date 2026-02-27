@@ -748,13 +748,13 @@ const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ isOpen, onClose, fileHand
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-8"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 md:p-6"
             onClick={onClose}
         >
             <motion.div
                 initial={{ scale: 0.95, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
-                className="bg-[#0f172a] border border-white/10 rounded-3xl w-full max-w-5xl h-full max-h-[80vh] flex flex-col overflow-hidden shadow-2xl"
+                className="bg-[#0f172a] border border-white/10 rounded-3xl w-full max-w-[95vw] h-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl"
                 onClick={e => e.stopPropagation()}
             >
                 <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
