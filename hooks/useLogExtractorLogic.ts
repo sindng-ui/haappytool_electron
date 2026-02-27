@@ -851,24 +851,32 @@ export const useLogExtractorLogic = ({
     };
 
     // Auto-Apply Filter (Left)
-    // Auto-Apply Filter (Left)
     useEffect(() => {
         // We use leftWorkerReady instead of leftTotalLines to check availability, avoiding re-runs on every log line
         if (leftWorkerRef.current && currentConfig && (leftWorkerReady || tizenSocket)) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
 
+            const effectiveIncludes = refinedGroups.map(g =>
+                g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
+            ).filter(g => g.length > 0);
+            const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
 
-            const detailedHash = assembleIncludeGroups(currentConfig).map(g => g.join(',')).join('|');
-            const filterVersion = `rule:${selectedRuleId}_hash:${detailedHash}_qf:${quickFilter}`;
+            const payloadHash = JSON.stringify({
+                inc: effectiveIncludes,
+                exc: effectiveExcludes,
+                happyCase: !!currentConfig.happyCombosCaseSensitive,
+                blockCase: !!currentConfig.blockListCaseSensitive,
+                quickFilter
+            });
 
-            if (filterVersion === lastFilterHashLeft.current) {
+            if (payloadHash === lastFilterHashLeft.current) {
                 return;
             }
-            lastFilterHashLeft.current = filterVersion;
+            lastFilterHashLeft.current = payloadHash;
 
             setLeftWorkerReady(false);
             // 🔍 DEBUG: Check what is being sent to the worker
-            console.log('[FilterDebug] Sending includeGroups:', JSON.stringify(refinedGroups));
+            console.log('[FilterDebug] Sending filter payload hash:', payloadHash);
 
             leftWorkerRef.current.postMessage({
                 type: 'FILTER_LOGS',
