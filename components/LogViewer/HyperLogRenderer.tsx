@@ -155,11 +155,10 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 const prevRH = prevRowHeightRef.current;
                 const currentScrollTop = scrollTopRef.current;
 
-                const centerAbsY = currentScrollTop + viewportHeight / 2;
-                const centerFractionalIndex = centerAbsY / prevRH;
-
-                const newCenterAbsY = centerFractionalIndex * rowHeight;
-                const newScrollTop = Math.max(0, newCenterAbsY - viewportHeight / 2);
+                // ✅ 형님, 중앙이 아닌 상단(First Visible Line)을 기준으로 줌을 보정합니다.
+                // 이렇게 해야 로그가 몇 줄 없을 때 화면 위로 사라지는 현상을 막을 수 있습니다.
+                const topFractionalIndex = currentScrollTop / prevRH;
+                const newScrollTop = topFractionalIndex * rowHeight;
 
                 scrollContainerRef.current.scrollTop = newScrollTop;
                 scrollTopRef.current = newScrollTop;
