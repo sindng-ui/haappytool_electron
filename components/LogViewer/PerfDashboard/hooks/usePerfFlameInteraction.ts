@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { AnalysisResult, AnalysisSegment } from '../../../utils/perfAnalysis';
+import { AnalysisResult, AnalysisSegment } from '../../../../utils/perfAnalysis';
 
 interface MousePos {
     x: number;
