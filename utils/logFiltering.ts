@@ -15,14 +15,18 @@ import { LogRule } from '../types';
  * @param bypassShellFilter - Whether to apply shell output bypass logic (Force Include non-standard logs)
  * @returns true if the line should be included, false if it should be filtered out
  */
+// --- Optimized Heuristics for Standard Log Detection ---
+const RE_TIME_OR_DATE = /(:[0-5]\d)|(\d{2,4}[-/]\d{2}[-/]\d{2})|([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2})/;
+const RE_LEVEL = /\b[VDIWEF]\/|\b(?:INFO|DEBUG|WARN|ERROR|VERBOSE|FATAL)\b|<[0-9]>/i;
+const RE_PID = /\(\s*\d+\s*\)/;
+
 export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilter: boolean, quickFilter?: 'none' | 'error' | 'exception', wasmEngine?: any, wasmMemory?: WebAssembly.Memory, textEncoder?: TextEncoder): boolean => {
     // 1. Quick Filters (Highly optimized, minimal overhead)
     if (quickFilter === 'error') {
-        const isErrorLevel = line.includes(' E/') || line.includes('ERROR') || line.includes('Error') || line.includes('Fail') || line.includes('FATAL');
+        const lineUpper = line.toUpperCase();
+        const isErrorLevel = lineUpper.includes(' E/') || lineUpper.includes('ERROR') || lineUpper.includes('FAIL') || lineUpper.includes('FATAL');
         if (!isErrorLevel) return false;
-    }
-
-    if (quickFilter === 'exception') {
+    } else if (quickFilter === 'exception') {
         if (!line.toLowerCase().includes('exception')) return false;
     }
 
@@ -33,27 +37,18 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
 
     if (!rule) return true;
 
-    // 2. Bypass Logic for Stream Mode
+    // 2. Bypass Logic for Stream Mode (Heuristics to distinguish "Logs" from "Shell Output")
     if (bypassShellFilter && rule.showRawLogLines !== false) {
-        // Optimized standard log detection (heuristics to distinguish "Logs" from "Shell Output")
-        // Goal: If it looks like a log (has timestamp/tag), return FALSE for isStandard so it gets Filtered.
-        // If it looks like shell noise (prompt, echo), return TRUE so it Bypasses filters (and is shown).
-
         const trimmedLine = line.trimStart();
+        if (trimmedLine.length === 0) return true;
 
-        // Broad heuristic to detect if a line is a genuine System Log vs arbitrary Shell output
-        // 1. Time or date structures: 12:34:56.789, 02-20, 2024-02-20, Mmm dd
-        const hasTimeOrDate = /(:[0-5]\d)|(\d{2,4}[-/]\d{2}[-/]\d{2})|([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2})/.test(trimmedLine);
-        // 2. Log level indicators: I/Tag, D/Tag, [INFO], <5>
-        const hasLevel = /\b[VDIWEF]\/|\b(?:INFO|DEBUG|WARN|ERROR|VERBOSE|FATAL)\b|<[0-9]>/i.test(trimmedLine);
-        // 3. Brackets at start: common in kernel times [ 1234.56 ] or PIDs [1000:1000]
-        const startsWithBracket = trimmedLine.startsWith('[');
-        // 4. Typical Tizen/Android PID block: ( 1234) or (1234)
-        const hasPid = /\(\s*\d+\s*\)/.test(trimmedLine);
-        // 5. Tizen legacy separator feature
-        const hasTizenLegacy = trimmedLine.includes(' /');
+        // Cheap checks first
+        let isStandard = trimmedLine[0] === '[' || trimmedLine.includes(' /');
 
-        const isStandard = hasTimeOrDate || hasLevel || startsWithBracket || hasPid || hasTizenLegacy;
+        // RegEx checks only if cheap ones fail
+        if (!isStandard) {
+            isStandard = RE_LEVEL.test(trimmedLine) || RE_TIME_OR_DATE.test(trimmedLine) || RE_PID.test(trimmedLine);
+        }
 
         if (!isStandard) {
             // It does not look like a log. Assume it is a stack trace, shell text, or raw output we want to bypass visually
@@ -61,11 +56,18 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
         }
     }
 
+    // 3. Performance: Pre-calculate lowercase line if needed to avoid redundant work
+    let lowerLine: string | null = null;
+    const getLowerLine = () => {
+        if (lowerLine === null) lowerLine = line.toLowerCase();
+        return lowerLine;
+    };
+
     // 3. Excludes (Block List)
     const excludes = rule.excludes; // Assumed to be normalized by the caller
     if (excludes.length > 0) {
         const isBlockCaseSensitive = rule.blockListCaseSensitive;
-        const lineForBlock = isBlockCaseSensitive ? line : line.toLowerCase();
+        const lineForBlock = isBlockCaseSensitive ? line : getLowerLine();
         for (let i = 0; i < excludes.length; i++) {
             if (lineForBlock.includes(excludes[i])) return false;
         }
@@ -94,7 +96,7 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
 
     // JS Fallback: OR of ANDs
     const isHappyCaseSensitive = rule.happyCombosCaseSensitive;
-    const lineForHappy = isHappyCaseSensitive ? line : line.toLowerCase();
+    const lineForHappy = isHappyCaseSensitive ? line : getLowerLine();
 
     for (let i = 0; i < groups.length; i++) {
         const group = groups[i];

@@ -33,7 +33,7 @@ ctx.onmessage = async (e) => {
     const { type, payload } = e.data;
 
     if (type === 'FILTER_CHUNK') {
-        const { blob, rule, quickFilter, chunkId } = payload;
+        const { blob, rule, quickFilter, chunkId, offset = 0 } = payload;
 
         // WASM 엔진 키워드 동기화
         if (wasmEngine && wasmModule) {
@@ -63,14 +63,14 @@ ctx.onmessage = async (e) => {
 
                 for (const line of lines) {
                     if (checkIsMatch(line, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
-                        matchesList.push(relativeLineIndex);
+                        matchesList.push(offset + relativeLineIndex);
                     }
                     relativeLineIndex++;
                 }
             }
             if (buffer) {
                 if (checkIsMatch(buffer, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
-                    matchesList.push(relativeLineIndex);
+                    matchesList.push(offset + relativeLineIndex);
                 }
                 relativeLineIndex++;
             }
@@ -86,6 +86,33 @@ ctx.onmessage = async (e) => {
                 chunkId,
                 matches,
                 lineCount: relativeLineIndex
+            }
+        }, [matches.buffer] as any);
+    } else if (type === 'FILTER_LINES') {
+        const { lines, rule, quickFilter, chunkId, offset } = payload;
+
+        // WASM 엔진 키워드 동기화
+        if (wasmEngine && wasmModule) {
+            const isCaseSensitive = !!rule.happyCombosCaseSensitive;
+            wasmEngine = new wasmModule.FilterEngine(isCaseSensitive);
+            const allKeywords = (rule.includeGroups as string[][]).flat();
+            wasmEngine.update_keywords(allKeywords);
+        }
+
+        const matchesList: number[] = [];
+        for (let i = 0; i < lines.length; i++) {
+            if (checkIsMatch(lines[i], rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+                matchesList.push(offset + i);
+            }
+        }
+
+        const matches = new Int32Array(matchesList);
+        ctx.postMessage({
+            type: 'FILTER_LINES_COMPLETE',
+            payload: {
+                chunkId,
+                matches,
+                lineCount: lines.length
             }
         }, [matches.buffer] as any);
     }

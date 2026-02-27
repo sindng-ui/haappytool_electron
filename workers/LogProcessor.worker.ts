@@ -352,51 +352,6 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
 
-    if (isStreamMode) {
-        // --- Optimization: Pre-normalize Rule Keywords ---
-        const isHappyCase = !!payload.happyCombosCaseSensitive;
-        const normalizedGroups = rawIncludeGroups.map(group =>
-            group.map(t => isHappyCase ? t : t.toLowerCase())
-        ).filter(g => g.length > 0);
-
-        const normalizedRule: LogRule = {
-            ...payload,
-            excludes: payload.excludes.map(e => e.trim()).filter(e => e !== '').map(e => !!payload.blockListCaseSensitive ? e : e.toLowerCase()),
-            includeGroups: normalizedGroups
-        };
-
-        currentRule = normalizedRule;
-
-        // ✅ Sync WASM Engine keywords if available
-        if (wasmEngine && wasmModule) {
-            wasmEngine = new wasmModule.FilterEngine(isHappyCase);
-            const allKeywords = normalizedGroups.flat();
-            wasmEngine.update_keywords(allKeywords);
-        }
-
-        // Re-filter all stream lines
-        const matches: number[] = [];
-        for (let i = 0; i < streamLines.length; i++) {
-            if (checkIsMatch(streamLines[i], currentRule, isLiveStream, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
-                matches.push(i);
-            }
-        }
-
-        // Re-init buffer with results
-        const requiredLen = matches.length;
-        const initialCap = Math.max(requiredLen, 1024 * 1024);
-        filteredIndicesBuffer = new Int32Array(initialCap);
-        filteredIndicesBuffer.set(matches);
-        filteredIndices = filteredIndicesBuffer.subarray(0, requiredLen);
-
-        respond({ type: 'FILTER_COMPLETE', payload: { matchCount: matches.length, totalLines: streamLines.length, visualBookmarks: getVisualBookmarks() } });
-        respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
-        return;
-    }
-
-    // File Mode
-    if (!currentFile || !lineOffsets) return;
-
     // --- Optimization: Pre-normalize Rule Keywords ---
     const isHappyCase = !!payload.happyCombosCaseSensitive;
     const isBlockCase = !!payload.blockListCaseSensitive;
@@ -418,51 +373,63 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
         wasmEngine.update_keywords(allKeywords);
     }
 
-    // Optimization for empty rule
-    if (normalizedRule.excludes.length === 0 && normalizedRule.includeGroups.length === 0 && currentQuickFilter === 'none') {
-        const all = new Int32Array(lineOffsets.length);
-        for (let i = 0; i < lineOffsets.length; i++) all[i] = i;
+    // Optimization for empty rule (only in File mode, stream might still need re-refilter status)
+    if (!isStreamMode && normalizedRule.excludes.length === 0 && normalizedRule.includeGroups.length === 0 && currentQuickFilter === 'none') {
+        const all = new Int32Array(lineOffsets!.length);
+        for (let i = 0; i < lineOffsets!.length; i++) all[i] = i;
         filteredIndices = all;
-        respond({ type: 'FILTER_COMPLETE', payload: { matchCount: all.length, totalLines: lineOffsets.length, visualBookmarks: getVisualBookmarks() } });
+        respond({ type: 'FILTER_COMPLETE', payload: { matchCount: all.length, totalLines: lineOffsets!.length, visualBookmarks: getVisualBookmarks() } });
         respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
         return;
     }
 
-    // --- High Performance Parallel Filtering ---
-    initSubWorkers(); // Lazy initialization specifically for heavy filtering
-    const totalLines = lineOffsets.length;
-    const numChunks = Math.min(numSubWorkers, Math.ceil(totalLines / 10000)); // 최소 10,000줄당 1개 청크
+    // --- High Performance Parallel Filtering (Common for File and Stream) ---
+    initSubWorkers();
+    const totalLines = isStreamMode ? streamLines.length : lineOffsets.length;
+
+    // 최소 10,000줄당 1개 청크, 최대 서브워커 수만큼 분할
+    const numChunks = Math.min(numSubWorkers, Math.max(1, Math.ceil(totalLines / 10000)));
     const linesPerChunk = Math.ceil(totalLines / numChunks);
 
     const chunkResults: any[] = new Array(numChunks);
     let completedChunks = 0;
 
-    const onChunkDone = (chunkId: number, matches: number[], lineCount: number) => {
-        chunkResults[chunkId] = { matches, lineCount };
+    const onChunkDone = (chunkId: number, matches: Int32Array) => {
+        chunkResults[chunkId] = matches;
         completedChunks++;
 
         respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (completedChunks / numChunks) * 100 } });
 
         if (completedChunks === numChunks) {
-            // Final assembly using TypedArray for maximum performance
-            const totalMatches = chunkResults.reduce((sum, res) => sum + res.matches.length, 0);
+            // 결과 취합
+            const totalMatches = chunkResults.reduce((sum, res) => sum + res.length, 0);
             const finalMatches = new Int32Array(totalMatches);
 
             let currentIdx = 0;
             for (let i = 0; i < numChunks; i++) {
-                const res = chunkResults[i];
-                const startLineOfChunk = i * linesPerChunk;
-                const matches = res.matches;
-                for (let j = 0; j < matches.length; j++) {
-                    finalMatches[currentIdx++] = startLineOfChunk + matches[j];
-                }
+                finalMatches.set(chunkResults[i], currentIdx);
+                currentIdx += chunkResults[i].length;
             }
 
             filteredIndices = finalMatches;
-            respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
-            respond({ type: 'FILTER_COMPLETE', payload: { matchCount: finalMatches.length, totalLines: lineOffsets!.length, visualBookmarks: getVisualBookmarks() } });
 
-            // ✅ Start idle timer after finishing work
+            // Re-init buffer with results for future dynamic growth in stream mode
+            if (isStreamMode) {
+                const initialCap = Math.max(finalMatches.length + 100000, 1024 * 1024);
+                filteredIndicesBuffer = new Int32Array(initialCap);
+                filteredIndicesBuffer.set(finalMatches);
+                filteredIndices = filteredIndicesBuffer.subarray(0, finalMatches.length);
+            }
+
+            respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+            respond({
+                type: 'FILTER_COMPLETE', payload: {
+                    matchCount: filteredIndices.length,
+                    totalLines: totalLines,
+                    visualBookmarks: getVisualBookmarks()
+                }
+            });
+
             resetSubWorkerIdleTimer();
         }
     };
@@ -470,30 +437,52 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     for (let i = 0; i < numChunks; i++) {
         const startLine = i * linesPerChunk;
         const endLine = Math.min(startLine + linesPerChunk, totalLines);
-
-        const startByte = Number(lineOffsets[startLine]);
-        const endByte = endLine < totalLines ? Number(lineOffsets[endLine]) : currentFile.size;
-
-        const blob = currentFile.slice(startByte, endByte);
         const sw = subWorkers[i % subWorkers.length];
 
-        const handler = (e: MessageEvent) => {
-            if (e.data.type === 'CHUNK_COMPLETE' && e.data.payload.chunkId === i) {
-                sw.removeEventListener('message', handler);
-                onChunkDone(i, e.data.payload.matches, e.data.payload.lineCount);
-            }
-        };
-        sw.addEventListener('message', handler);
+        if (isStreamMode) {
+            const chunkLines = streamLines.slice(startLine, endLine);
+            const handler = (e: MessageEvent) => {
+                if (e.data.type === 'FILTER_LINES_COMPLETE' && e.data.payload.chunkId === i) {
+                    sw.removeEventListener('message', handler);
+                    onChunkDone(i, e.data.payload.matches);
+                }
+            };
+            sw.addEventListener('message', handler);
+            sw.postMessage({
+                type: 'FILTER_LINES',
+                payload: {
+                    chunkId: i,
+                    lines: chunkLines,
+                    offset: startLine,
+                    rule: currentRule,
+                    quickFilter: currentQuickFilter
+                }
+            });
+        } else {
+            // File Mode
+            const startByte = Number(lineOffsets![startLine]);
+            const endByte = endLine < totalLines ? Number(lineOffsets![endLine]) : currentFile!.size;
+            const blob = currentFile!.slice(startByte, endByte);
 
-        sw.postMessage({
-            type: 'FILTER_CHUNK',
-            payload: {
-                chunkId: i,
-                blob,
-                rule: currentRule,
-                quickFilter: currentQuickFilter
-            }
-        });
+            const handler = (e: MessageEvent) => {
+                if (e.data.type === 'CHUNK_COMPLETE' && e.data.payload.chunkId === i) {
+                    sw.removeEventListener('message', handler);
+                    // File mode results now come with absolute offsets from sub-worker
+                    onChunkDone(i, e.data.payload.matches as Int32Array);
+                }
+            };
+            sw.addEventListener('message', handler);
+            sw.postMessage({
+                type: 'FILTER_CHUNK',
+                payload: {
+                    chunkId: i,
+                    blob,
+                    offset: startLine, // Pass absolute start line to sub-worker
+                    rule: currentRule,
+                    quickFilter: currentQuickFilter
+                }
+            });
+        }
     }
 };
 
