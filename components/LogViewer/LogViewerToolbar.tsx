@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Split, Archive, Bookmark, Copy, Download, BarChart3 } from 'lucide-react';
+import { Zap, Split, Archive, Bookmark, Copy, Download, BarChart3, Activity } from 'lucide-react';
 
 interface LogViewerToolbarProps {
     isRawMode?: boolean;
@@ -15,6 +15,7 @@ interface LogViewerToolbarProps {
     onAnalyzePerformance?: () => void;
     perfAnalysisResult?: any;
     isAnalyzingPerformance?: boolean;
+    onAnalyzeSpam?: () => void; // Added
 }
 
 export const LogViewerToolbar: React.FC<LogViewerToolbarProps> = ({
@@ -30,7 +31,8 @@ export const LogViewerToolbar: React.FC<LogViewerToolbarProps> = ({
     onSave,
     onAnalyzePerformance,
     perfAnalysisResult,
-    isAnalyzingPerformance = false
+    isAnalyzingPerformance = false,
+    onAnalyzeSpam // Added
 }) => {
     if (isRawMode) return null;
 
@@ -87,6 +89,16 @@ export const LogViewerToolbar: React.FC<LogViewerToolbarProps> = ({
                         title="Analyze Performance (Flame Map)"
                     >
                         <BarChart3 size={14} className={isAnalyzingPerformance ? 'animate-pulse' : ''} />
+                    </button>
+                )}
+
+                {workerReady && !isRawMode && onAnalyzeSpam && (
+                    <button
+                        onClick={onAnalyzeSpam}
+                        className={`p-1.5 rounded-lg transition-colors text-slate-400 hover:text-indigo-500 hover:bg-slate-200 dark:hover:bg-white/10`}
+                        title="Spam Analyzer (Find repeatedly executed logs)"
+                    >
+                        <Activity size={14} />
                     </button>
                 )}
             </div>

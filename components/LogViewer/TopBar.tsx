@@ -22,7 +22,7 @@ const TopBar: React.FC<{ onReturnFocus?: () => void }> = ({ onReturnFocus }) => 
         searchInputRef,
         isTizenQuickConnect, setIsTizenQuickConnect, // Added
         setIsSearchFocused, // ✅ Consumed
-        quickFilter, setQuickFilter // ✅ Quick Filter
+        quickFilter, setQuickFilter, // ✅ Quick Filter
     } = useLogContext();
 
     // Quick Connect Handler

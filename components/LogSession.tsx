@@ -9,6 +9,7 @@ import TopBar from './LogViewer/TopBar';
 import LoadingOverlay from './ui/LoadingOverlay';
 import { BookmarksModal } from './BookmarksModal';
 import GoToLineModal from './GoToLineModal';
+import { SpamAnalyzerModal } from './LogViewer/SpamAnalyzerModal';
 import { useLogSelection } from './LogArchive/hooks/useLogSelection';
 // FloatingActionButton removed
 import { useLogArchiveContext } from './LogArchive/LogArchiveProvider';
@@ -189,6 +190,9 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         transactionResults, transactionIdentity, transactionSourcePane, isAnalyzingTransaction, isTransactionDrawerOpen,
         setIsTransactionDrawerOpen, analyzeTransactionAction,
         handleZoomIn, handleZoomOut, // ✅ Consumed
+        quickFilter, setQuickFilter,
+        isSpamAnalyzerOpen, setIsSpamAnalyzerOpen,
+        isAnalyzingSpam, spamResultsLeft, requestSpamAnalysisLeft,
         clearCacheTick
     } = useLogContext();
 
@@ -1184,6 +1188,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onHighlightJump={onHighlightJumpLeft}
                                     isActive={isActive}
                                     onShowBookmarks={onShowBookmarksLeft}
+                                    onAnalyzeSpam={() => setIsSpamAnalyzerOpen(true)}
                                     performanceHeatmap={leftPerformanceHeatmap}
                                     onAnalyzePerformance={handleAnalyzePerformanceLeft}
                                     perfAnalysisResult={leftPerfAnalysisResult}
@@ -1282,6 +1287,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
                                             isActive={isActive}
                                             onShowBookmarks={onShowBookmarksRight}
+                                            onAnalyzeSpam={() => setIsSpamAnalyzerOpen(true)}
                                             performanceHeatmap={rightPerformanceHeatmap}
                                             onAnalyzePerformance={handleAnalyzePerformanceRight}
                                             perfAnalysisResult={rightPerfAnalysisResult}
@@ -1430,6 +1436,9 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     jumpToGlobalLine(visualIndex, transactionSourcePane);
                 }}
             />
+
+            {/* Spam Analyzer Modal */}
+            <SpamAnalyzerModal />
         </div>
     );
 };

@@ -164,7 +164,7 @@ const getVisualBookmarks = (): number[] => {
 // NOTE: Extracted to utils/logFiltering.ts for testability and reusability
 import { checkIsMatch } from '../utils/logFiltering';
 import { extractTimestamp } from '../utils/logTime';
-import { analyzePerfSegments } from '../utils/perfAnalysis';
+import { analyzePerfSegments, extractSourceMetadata } from '../utils/perfAnalysis';
 
 
 // ... (omitted file indexing / stream handlers)
@@ -1241,6 +1241,113 @@ const getPerformanceHeatmap = async (points: number, requestId: string) => {
     }
 };
 
+// --- Helper: Spam Log Analysis ---
+const analyzeSpamLogs = async (requestId: string) => {
+    if (!filteredIndices) {
+        respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results: [] }, requestId } as any);
+        return;
+    }
+
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
+
+    const spamMap = new Map<string, { count: number, lineContent: string, fileName: string, functionName: string }>();
+
+    const processSpamLine = (line: string) => {
+        const { fileName, functionName } = extractSourceMetadata(line);
+        let key = '';
+        let fName = fileName;
+        let fnName = functionName;
+
+        if (fileName || functionName) {
+            key = `${fileName || 'unknown'}::${functionName || 'unknown'}`;
+        } else {
+            // If no file/function could be extracted, try to create a signature
+            // Strip digits, timestamps, common symbols
+            key = line.replace(/[\d:\-\.\[\]\s]/g, '').substring(0, 50);
+            fName = 'Unknown File';
+            fnName = 'Unknown Location';
+            if (key.length < 10) return; // Ignore very short/empty lines
+        }
+
+        const existing = spamMap.get(key);
+        if (existing) {
+            existing.count++;
+        } else {
+            spamMap.set(key, {
+                count: 1,
+                lineContent: line,
+                fileName: fName || 'Unknown',
+                functionName: fnName || 'Unknown'
+            });
+        }
+    };
+
+    const totalLines = filteredIndices.length;
+
+    // Stream Mode
+    if (isStreamMode) {
+        for (let i = 0; i < totalLines; i++) {
+            const originalIdx = filteredIndices[i];
+            if (originalIdx < streamLines.length) {
+                const line = streamLines[originalIdx];
+                processSpamLine(line);
+            }
+            if (i % 10000 === 0) {
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (i / totalLines) * 100 } });
+            }
+        }
+    } else {
+        // File Mode
+        if (!currentFile || !lineOffsets) {
+            respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results: [] }, requestId } as any);
+            return;
+        }
+
+        // Processing in chunks to avoid memory bloat (50k lines per chunk)
+        const chunkSize = 50000;
+        const decoder = new TextDecoder();
+
+        for (let i = 0; i < totalLines; i += chunkSize) {
+            const endIdx = Math.min(i + chunkSize, totalLines);
+
+            // Batch read chunk
+            const minIdx = filteredIndices[i];
+            const maxIdx = filteredIndices[endIdx - 1];
+            const minByte = lineOffsets[minIdx];
+            const maxByte = maxIdx < lineOffsets.length - 1 ? lineOffsets[maxIdx + 1] : BigInt(currentFile.size);
+
+            if (maxByte > minByte) {
+                const chunkBlob = currentFile.slice(Number(minByte), Number(maxByte));
+                const buffer = await chunkBlob.arrayBuffer();
+
+                for (let j = i; j < endIdx; j++) {
+                    const originalIdx = filteredIndices[j];
+                    const lineStart = lineOffsets[originalIdx];
+                    const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
+
+                    if (lineStart >= lineEnd) continue;
+
+                    const relStart = Number(lineStart - minByte);
+                    const relEnd = Number(lineEnd - minByte);
+                    const lineBuffer = buffer.slice(relStart, relEnd);
+                    const line = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
+
+                    processSpamLine(line);
+                }
+            }
+            respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (endIdx / totalLines) * 100 } });
+        }
+    }
+
+    // Convert to array, sort, and return top 500
+    const results = Array.from(spamMap.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 500);
+
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+    respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results }, requestId } as any);
+};
+
 // --- Message Listener ---
 ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
     const { type, payload, requestId } = evt.data;
@@ -1286,6 +1393,9 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             break;
         case 'PERF_ANALYSIS':
             analyzePerformance(payload, requestId || '');
+            break;
+        case 'ANALYZE_SPAM':
+            analyzeSpamLogs(requestId || '');
             break;
     }
 };

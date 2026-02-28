@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import { getStoredValue, setStoredValue } from '../utils/db';
-import { LogRule, AppSettings, LogWorkerResponse, LogViewPreferences } from '../types';
+import { LogRule, AppSettings, LogWorkerResponse, LogViewPreferences, SpamLogResult } from '../types';
 import { LogViewerHandle } from '../components/LogViewer/LogViewerPane';
 import { AnalysisResult } from '../utils/perfAnalysis';
 import { Socket } from 'socket.io-client';
@@ -277,6 +277,17 @@ export const useLogExtractorLogic = ({
     // Toast Throttling
     const lastErrorToastTime = useRef<number>(0);
 
+    // Spam Analyzer State
+    const [isSpamAnalyzerOpen, setIsSpamAnalyzerOpen] = useState(false);
+    const [isAnalyzingSpam, setIsAnalyzingSpam] = useState(false);
+    const [spamResultsLeft, setSpamResultsLeft] = useState<SpamLogResult[]>([]);
+
+    const requestSpamAnalysisLeft = useCallback(() => {
+        if (!leftWorkerRef.current || leftFilteredCount === 0) return;
+        setIsAnalyzingSpam(true);
+        leftWorkerRef.current.postMessage({ type: 'ANALYZE_SPAM' });
+    }, [leftFilteredCount]);
+
     // Initialize Left Worker & Load State
 
     // Initialize Left Worker & Load State
@@ -447,6 +458,10 @@ export const useLogExtractorLogic = ({
                 case 'PERF_ANALYSIS_RESULT':
                     setLeftPerfAnalysisResult(payload);
                     setIsAnalyzingPerformanceLeft(false);
+                    break;
+                case 'SPAM_ANALYSIS_RESULT':
+                    setSpamResultsLeft(payload.results || []);
+                    setIsAnalyzingSpam(false);
                     break;
             }
         };
@@ -2192,6 +2207,9 @@ export const useLogExtractorLogic = ({
             setPerfDashboardHeight(h);
             setStoredValue('perfDashboardHeight', h.toString());
         },
-        handleZoomIn, handleZoomOut // ✅ Exposed
+        handleZoomIn, handleZoomOut, // ✅ Exposed
+        // Spam Analyzer
+        isSpamAnalyzerOpen, setIsSpamAnalyzerOpen,
+        isAnalyzingSpam, spamResultsLeft, requestSpamAnalysisLeft,
     };
 };
