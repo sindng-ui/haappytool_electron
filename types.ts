@@ -219,5 +219,6 @@ export interface SpamLogResult {
   functionName: string;
   lineContent: string;
   count: number;
-  lineNum?: number; // ✅ NEW: 패턴이 처음 발견된 라인 번호
+  lineNum?: number; // 패턴이 처음 발견된 라인 번호
+  indices: number[]; // ✅ NEW: 모든 발견 지점의 인덱스 목록
 }

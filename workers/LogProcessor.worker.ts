@@ -1250,33 +1250,37 @@ const analyzeSpamLogs = async (requestId: string) => {
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
 
-    const spamMap = new Map<string, { count: number, lineContent: string, fileName: string, functionName: string, lineNum: number }>();
+    const spamMap = new Map<string, { count: number, lineContent: string, fileName: string, functionName: string, lineNum: number, indices: number[] }>();
 
-    const processSpamLine = (line: string, lineNum: number) => {
+    const processSpamLine = (line: string, lineNum: number, filterIndex: number) => {
         const { fileName, functionName } = extractSourceMetadata(line);
         let key = '';
-        let fName = fileName;
-        let fnName = functionName;
+        let fName = fileName || 'Unknown File';
+        let fnName = functionName || 'Unknown Location';
 
+        // 소스 정보가 있으면 소스 기반으로 그룹화 (Notepad++ 카운트 일치 유역 🐧🎯)
         if (fileName || functionName) {
-            key = `${fileName || 'unknown'}::${functionName || 'unknown'}`;
+            key = `${fName}::${fnName}`;
         } else {
-            key = line.replace(/[\d:\-\.\[\]\s]/g, '').substring(0, 50);
-            fName = 'Unknown File';
-            fnName = 'Unknown Location';
+            // 소스 정보 없으면 메시지 본문 지문으로 그룹화
+            const messagePart = line.split('>').slice(1).join('>').trim() || line;
+            const fingerprint = messagePart.replace(/[\d:\-\.\[\]\s]/g, '').substring(0, 60);
+            key = fingerprint;
             if (key.length < 10) return;
         }
 
         const existing = spamMap.get(key);
         if (existing) {
             existing.count++;
+            existing.indices.push(filterIndex);
         } else {
             spamMap.set(key, {
                 count: 1,
                 lineContent: line,
-                fileName: fName || 'Unknown',
-                functionName: fnName || 'Unknown',
-                lineNum // ✅ 스팸 패턴이 처음 발견된 라인 번호 저장
+                fileName: fName,
+                functionName: fnName,
+                lineNum,
+                indices: [filterIndex]
             });
         }
     };
@@ -1289,7 +1293,7 @@ const analyzeSpamLogs = async (requestId: string) => {
             const originalIdx = filteredIndices[i];
             if (originalIdx < streamLines.length) {
                 const line = streamLines[originalIdx];
-                processSpamLine(line, originalIdx + 1);
+                processSpamLine(line, originalIdx + 1, i);
             }
             if (i % 10000 === 0) {
                 respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (i / totalLines) * 100 } });
@@ -1328,7 +1332,7 @@ const analyzeSpamLogs = async (requestId: string) => {
                     const lineBuffer = buffer.slice(relStart, relEnd);
                     const line = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
 
-                    processSpamLine(line, originalIdx + 1);
+                    processSpamLine(line, originalIdx + 1, j);
                 }
             }
             respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (endIdx / totalLines) * 100 } });

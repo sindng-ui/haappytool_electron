@@ -11,7 +11,7 @@ export const SpamAnalyzerPanel: React.FC = () => {
         spamResultsLeft,
         requestSpamAnalysisLeft,
         leftFilteredCount,
-        findText
+        jumpToGlobalLine
     } = useLogContext();
 
     // 점프 위치 추적을 위한 로컬 상태 (패턴 키(fileName+functionName)를 키로 사용)
@@ -27,18 +27,24 @@ export const SpamAnalyzerPanel: React.FC = () => {
     if (!isSpamAnalyzerOpen) return null;
 
     const handleJump = (item: any, direction: 'next' | 'prev') => {
-        const key = `${item.fileName}::${item.functionName}`;
-        const searchTarget = item.fileName !== 'Unknown File' ? `${item.fileName}` : item.lineContent.substring(0, 30);
+        if (!item.indices || item.indices.length === 0) return;
 
-        setJumpIndices(prev => {
-            const current = prev[key] || 1;
-            let next = direction === 'next' ? current + 1 : current - 1;
-            if (next > item.count) next = 1;
-            if (next < 1) next = item.count;
-            return { ...prev, [key]: next };
-        });
+        // 🎯 분석 로직과 동일한 키 규칙 적용 (소스 중심)
+        const key = (item.fileName !== 'Unknown File' || item.functionName !== 'Unknown Location')
+            ? `${item.fileName}::${item.functionName}`
+            : item.lineContent.replace(/[\d:\-\.\[\]\s]/g, '').substring(0, 60);
 
-        findText(searchTarget, direction, 'left', undefined, false, true);
+        const currentIdx = jumpIndices[key] === undefined ? 0 : jumpIndices[key];
+        let nextIdx = direction === 'next' ? currentIdx + 1 : currentIdx - 1;
+
+        // 순환 처리
+        if (nextIdx >= item.indices.length) nextIdx = 0;
+        if (nextIdx < 0) nextIdx = item.indices.length - 1;
+
+        // 🚀 [HYPER-JUMP] 즉시 점프! (setter 밖에서 안전하게 호출)
+        jumpToGlobalLine(item.indices[nextIdx], 'left');
+
+        setJumpIndices(prev => ({ ...prev, [key]: nextIdx }));
     };
 
     return (
@@ -88,8 +94,13 @@ export const SpamAnalyzerPanel: React.FC = () => {
                     ) : (
                         spamResultsLeft.map((item, idx) => {
                             const barWidth = Math.max(5, (item.count / spamResultsLeft[0].count) * 100);
-                            const itemKey = `${item.fileName}::${item.functionName}`;
-                            const currentIndex = jumpIndices[itemKey] || 1;
+
+                            // 🎯 handleJump와 동일한 키 규칙
+                            const itemKey = (item.fileName !== 'Unknown File' || item.functionName !== 'Unknown Location')
+                                ? `${item.fileName}::${item.functionName}`
+                                : item.lineContent.replace(/[\d:\-\.\[\]\s]/g, '').substring(0, 60);
+
+                            const currentPosIdx = jumpIndices[itemKey] === undefined ? 0 : jumpIndices[itemKey];
 
                             return (
                                 <motion.div
@@ -158,7 +169,7 @@ export const SpamAnalyzerPanel: React.FC = () => {
                                         </button>
 
                                         <div className="min-w-[45px] flex flex-col items-center justify-center font-mono">
-                                            <span className="text-[11px] font-bold text-indigo-400">{currentIndex}</span>
+                                            <span className="text-[11px] font-bold text-indigo-400">{currentPosIdx + 1}</span>
                                             <div className="w-full h-[1px] bg-slate-800 my-0.5" />
                                             <span className="text-[9px] font-medium text-slate-500">{item.count}</span>
                                         </div>
