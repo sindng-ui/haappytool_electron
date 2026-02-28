@@ -660,7 +660,8 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     applyResize();
                 } else {
                     if (resizeTimer) clearTimeout(resizeTimer);
-                    resizeTimer = setTimeout(applyResize, 100);
+                    // ✅ 형님, 애니메이션 중에도 캔버스가 기민하게 따라오도록 딜레이를 16ms로 확 줄였습니다!
+                    resizeTimer = setTimeout(applyResize, 16);
                 }
             }
         });

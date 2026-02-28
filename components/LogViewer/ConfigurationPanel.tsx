@@ -100,11 +100,13 @@ const ConfigurationPanel = React.memo(() => {
 
     return (
         <div
-            className={`${isPanelOpen ? '' : 'w-8'} glass-morphism flex flex-col h-full shadow-2xl z-20 custom-scrollbar relative shrink-0 transition-[width] duration-700 ease-[cubic-bezier(0.19,1,0.22,1)] overflow-hidden`}
+            className={`${isPanelOpen ? '' : 'w-8'} glass-morphism flex flex-col h-full shadow-2xl z-20 custom-scrollbar relative shrink-0 transition-[width] duration-400 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden`}
             style={{
                 width: isPanelOpen ? configPanelWidth : undefined,
-                transitionDelay: isPanelOpen ? '100ms' : '0ms',
-                contain: 'layout paint'
+                transitionDelay: isPanelOpen ? '50ms' : '0ms',
+                contain: 'layout paint',
+                willChange: 'width',
+                transform: 'translateZ(0)'
             }}
         >
             {isPanelOpen && (

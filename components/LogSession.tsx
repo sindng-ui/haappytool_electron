@@ -1146,14 +1146,14 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 </div>
 
                 {/* 2. Main Content Area (Spam Analyzer + Log Viewer) */}
-                <div className={`flex-1 flex flex-col overflow-hidden relative z-0 transition-[padding-top] duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${isFocusMode ? 'pt-0' : 'pt-8'}`}>
+                <div className={`flex-1 flex flex-col overflow-hidden relative z-0 transition-[padding-top] duration-400 ease-[cubic-bezier(0.4,0,0.2,1)] ${isFocusMode ? 'pt-0' : 'pt-8'}`}>
                     {/* Integrated Spam Analyzer Panel */}
                     <SpamAnalyzerPanel />
 
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="flex w-full h-full">
                             {/* Left Pane */}
-                            <div className={`flex flex-col h-full min-w-0 ${!isResizing ? 'transition-[width] duration-300 ease-[cubic-bezier(0.2,0,0,1)]' : 'transition-none'} relative ${isDualView ? 'w-1/2' : 'w-full'}`}>
+                            <div className={`flex flex-col h-full min-w-0 relative ${isDualView ? 'w-1/2' : 'w-full'}`}>
                                 <LoadingOverlay
                                     isVisible={!!leftFileName && !leftWorkerReady && leftIndexingProgress < 100}
                                     fileName={leftFileName || ''}
