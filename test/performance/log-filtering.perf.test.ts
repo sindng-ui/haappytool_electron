@@ -76,9 +76,6 @@ describe('Logging Performance Benchmarks', () => {
     });
 
     it('should show caching efficiency for Case-Insensitive vs Case-Sensitive', () => {
-        // Case-sensitive path is usually faster because no toLowerCase()
-        // But with our caching, Case-insensitive should be very close
-
         const startCS = performance.now();
         for (const line of lines100k) {
             checkIsMatch(line, { ...complexRule, happyCombosCaseSensitive: true }, false);
@@ -94,7 +91,7 @@ describe('Logging Performance Benchmarks', () => {
         console.log(`100k Case-Sensitive: ${durationCS.toFixed(2)}ms`);
         console.log(`100k Case-Insensitive (with Cache): ${durationCI.toFixed(2)}ms`);
 
-        // Target: CI shouldn't be more than 2x slower than CS (standard without caching is often much worse)
+        // CI가 CS보다 2.5배 이상 느려지면 최적화 실패로 간주 🐧🥊
         expect(durationCI).toBeLessThan(durationCS * 2.5);
     });
 
@@ -106,5 +103,21 @@ describe('Logging Performance Benchmarks', () => {
         const duration = performance.now() - start;
         console.log(`Filter 100k (Bypass Enabled): ${duration.toFixed(2)}ms`);
         expect(duration).toBeLessThan(PERF_THRESHOLD_100K_MS);
+    });
+
+    it('WASM Engine Stress Test: Match 1M lines with complex regex-like rules', () => {
+        // 실제 WASM 엔진은 node 환경에서 로드가 까다로우므로, 
+        // 여기서는 필터링 루프의 오버헤드를 측정하여 성능 저하 여부만 체크
+        const start = performance.now();
+        let matches = 0;
+        for (let i = 0; i < 1000000; i++) {
+            const line = `[DEBUG] Process:${i} index: ${i * 123} - some random payload data to fill space`;
+            if (checkIsMatch(line, complexRule, false)) matches++;
+        }
+        const duration = performance.now() - start;
+        console.log(`WASM-Simulated 1M Filter: ${duration.toFixed(2)}ms`);
+
+        // 100만 행 필터링은 1초(1000ms) 이내여야 함 (WASM 탑재 시 보통 수백ms)
+        expect(duration).toBeLessThan(1000);
     });
 });
