@@ -649,7 +649,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
     useLayoutEffect(() => {
         if (!containerRef.current) return;
-        let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+        let resizeRafId: number | null = null;
         let isFirstRender = true;
 
         const observer = new ResizeObserver(entries => {
@@ -689,15 +689,17 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     isFirstRender = false;
                     applyResize();
                 } else {
-                    if (resizeTimer) clearTimeout(resizeTimer);
-                    // ✅ 형님, 애니메이션 중에도 캔버스가 기민하게 따라오도록 딜레이를 16ms로 확 줄였습니다!
-                    resizeTimer = setTimeout(applyResize, 16);
+                    if (resizeRafId) cancelAnimationFrame(resizeRafId);
+                    // 🎯 형님, 기존의 setTimeout(16ms) 디바운스가 타이머 기근(Starvation)을 일으켜
+                    // 리사이즈 렌더가 멈추고 흰 바탕이 노출되던 버그를 고치기 위해,
+                    // 무조건 다음 화면 페인트 시점에 캔버스가 함께 커지도록 rAF로 교체합니다! 🐧🚀
+                    resizeRafId = requestAnimationFrame(applyResize);
                 }
             }
         });
         observer.observe(containerRef.current);
         return () => {
-            if (resizeTimer) clearTimeout(resizeTimer);
+            if (resizeRafId) cancelAnimationFrame(resizeRafId);
             observer.disconnect();
         };
     }, [render, renderHeatmap]);
@@ -830,7 +832,9 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     return (
         <div
             ref={containerRef}
-            className="flex-1 relative overflow-hidden bg-white dark:bg-slate-950 font-mono hyper-log-container"
+            // 🎯 형님, 컨테이너 배경색을 `bg-white dark:bg-slate-950` 대신 캔버스와 동일한 
+            // `#020617`(Slate-950 HEX)로 고정시켜 리사이즈 지연 시에도 흰색으로 번쩍이지 못하게 원천 봉쇄해버립니다! 🐧🛡️
+            className="flex-1 relative overflow-hidden bg-[#020617] font-mono hyper-log-container"
             style={{ height: '100%' }}
             onMouseDown={(e) => {
                 if (!scrollContainerRef.current) return;
