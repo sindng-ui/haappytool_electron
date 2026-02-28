@@ -542,18 +542,40 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 ctx.font = mainFont;
                 const displayContent = lineData.decodedContent;
 
-                // 하이라이트 구간 찾기
+                // ✅ 캔버스 렌더링 극한 성능 튜닝: 정규식 대신 indexOf 사용 🐧🚀
                 const segments: { start: number, end: number, color: string | null }[] = [];
                 if (compiledTextHighlights.length > 0) {
                     for (const h of compiledTextHighlights) {
-                        h.regex.lastIndex = 0;
-                        let match;
-                        while ((match = h.regex.exec(displayContent)) !== null) {
-                            segments.push({
-                                start: match.index,
-                                end: match.index + match[0].length,
-                                color: h.canvasColor
-                            });
+                        // 1. 단순 텍스트 매칭 여단 판단 (대부분의 하이라이트가 해당)
+                        const isSimpleKeyword = /^[a-zA-Z0-9_\-\s]+$/.test(h.keyword);
+
+                        if (isSimpleKeyword) {
+                            // 단순 문자열 매칭: 고속 indexOf 루프 🚀
+                            const searchContent = highlightCaseSensitive ? displayContent : displayContent.toLowerCase();
+                            const keyword = highlightCaseSensitive ? h.keyword : h.keyword.toLowerCase();
+                            const kwLen = keyword.length;
+
+                            let startIndex = 0;
+                            let index;
+                            while ((index = searchContent.indexOf(keyword, startIndex)) > -1) {
+                                segments.push({
+                                    start: index,
+                                    end: index + kwLen,
+                                    color: h.canvasColor
+                                });
+                                startIndex = index + kwLen;
+                            }
+                        } else {
+                            // 복잡한 정규식 매칭: 기존 fallback 
+                            h.regex.lastIndex = 0;
+                            let match;
+                            while ((match = h.regex.exec(displayContent)) !== null) {
+                                segments.push({
+                                    start: match.index,
+                                    end: match.index + match[0].length,
+                                    color: h.canvasColor
+                                });
+                            }
                         }
                     }
                 }

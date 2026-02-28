@@ -28,7 +28,7 @@ describe('Spam Analyzer Core Performance', () => {
     const lines100k = generateRepetitiveLogs(100000);
     const lines1M = generateRepetitiveLogs(1000000);
 
-    const THRESHOLD_1M_MS = 1500; // 1.5초
+    const THRESHOLD_1M_MS = 1000; // 1.0초 (병렬 테스트 부하 고려, 개별 실행 시 ~400ms)
 
     it('should extract metadata from 100k lines within 100ms', () => {
         const start = performance.now();
@@ -37,7 +37,7 @@ describe('Spam Analyzer Core Performance', () => {
         }
         const duration = performance.now() - start;
         console.log(`Extract Metadata 100k: ${duration.toFixed(2)}ms`);
-        expect(duration).toBeLessThan(100);
+        expect(duration).toBeLessThan(50); // 100k 행 / 50ms 이내 (실제 ~35ms)
     });
 
     it(`should group 1M lines within ${THRESHOLD_1M_MS}ms (Stress Test)`, () => {
@@ -89,6 +89,6 @@ describe('Spam Analyzer Core Performance', () => {
 
         const duration = performance.now() - start;
         console.log(`High-Cardinality Map Insert (100k): ${duration.toFixed(2)}ms`);
-        expect(duration).toBeLessThan(300);
+        expect(duration).toBeLessThan(200); // 100k 유니크 키 / 200ms 이내 (실제 ~155ms)
     });
 });

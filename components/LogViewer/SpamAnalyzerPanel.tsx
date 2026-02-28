@@ -11,7 +11,8 @@ export const SpamAnalyzerPanel: React.FC = () => {
         spamResultsLeft,
         requestSpamAnalysisLeft,
         leftFilteredCount,
-        jumpToGlobalLine
+        jumpToGlobalLine,
+        jumpToAbsoluteLine // 🔥 NEW: Use absolute index jump
     } = useLogContext();
 
     // 점프 위치 추적을 위한 로컬 상태 (패턴 키(fileName+functionName)를 키로 사용)
@@ -41,8 +42,9 @@ export const SpamAnalyzerPanel: React.FC = () => {
         if (nextIdx >= item.indices.length) nextIdx = 0;
         if (nextIdx < 0) nextIdx = item.indices.length - 1;
 
-        // 🚀 [HYPER-JUMP] 즉시 점프! (setter 밖에서 안전하게 호출)
-        jumpToGlobalLine(item.indices[nextIdx], 'left');
+        // 🚀 [HYPER-JUMP] 절대 인덱스 기반 점프! (필터 변화에 무적 🐧🛡️)
+        const absoluteIndex = item.indices[nextIdx];
+        jumpToAbsoluteLine(absoluteIndex, 'left');
 
         setJumpIndices(prev => ({ ...prev, [key]: nextIdx }));
     };
@@ -103,12 +105,10 @@ export const SpamAnalyzerPanel: React.FC = () => {
                             const currentPosIdx = jumpIndices[itemKey] === undefined ? 0 : jumpIndices[itemKey];
 
                             return (
-                                <motion.div
+                                <div
                                     key={idx}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: Math.min(idx * 0.015, 0.5) }}
-                                    className="flex items-center gap-4 p-3 bg-slate-900/60 border border-slate-800 rounded-lg hover:border-indigo-500/50 hover:bg-slate-900 transition-all group w-full relative overflow-hidden"
+                                    className="flex items-center gap-4 p-3 bg-slate-900/60 border border-slate-800 rounded-lg hover:border-indigo-500/50 hover:bg-slate-900 transition-all group w-full relative overflow-hidden animate-fade-in-up"
+                                    style={{ animationDelay: `${Math.min(idx * 0.015, 0.5)}s`, animationFillMode: 'both' }}
                                 >
                                     {/* Rank & Count Section */}
                                     <div className="flex flex-col items-center justify-center min-w-[75px] border-r border-slate-800/80 pr-4 shrink-0">
@@ -182,12 +182,12 @@ export const SpamAnalyzerPanel: React.FC = () => {
                                             <ChevronRight className="w-4 h-4 group-hover/jump:translate-x-0.5 transition-transform" />
                                         </button>
                                     </div>
-                                </motion.div>
+                                </div>
                             );
                         })
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 };

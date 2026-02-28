@@ -1978,6 +1978,29 @@ export const useLogExtractorLogic = ({
         }
     }, [leftSegmentIndex, rightSegmentIndex]);
 
+    const jumpToAbsoluteLine = useCallback(async (absoluteIndex: number, paneId: 'left' | 'right' = 'left') => {
+        const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
+        const requestMap = paneId === 'left' ? leftPendingRequests : rightPendingRequests;
+
+        if (!worker) return;
+
+        const result: any = await new Promise((resolve) => {
+            const reqId = Math.random().toString(36).substring(7);
+            requestMap.current.set(reqId, resolve);
+            worker.postMessage({
+                type: 'FIND_VISUAL_INDEX',
+                payload: { absoluteIndex },
+                requestId: reqId
+            });
+        });
+
+        if (result && result.foundIndex !== -1) {
+            jumpToGlobalLine(result.foundIndex, paneId);
+        } else {
+            showToast('Selected line is not visible in current filter', 'info');
+        }
+    }, [jumpToGlobalLine, showToast]);
+
     const findText = useCallback(async (text: string, direction: 'next' | 'prev', paneId: 'left' | 'right', startOffset?: number, isWrapRetry = false, silent = false) => {
         const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
         const viewer = paneId === 'left' ? leftViewerRef.current : rightViewerRef.current;
@@ -2218,5 +2241,6 @@ export const useLogExtractorLogic = ({
         // Spam Analyzer
         isSpamAnalyzerOpen, setIsSpamAnalyzerOpen,
         isAnalyzingSpam, spamResultsLeft, requestSpamAnalysisLeft,
+        jumpToAbsoluteLine, // 🔥 NEW: Export for SpamAnalyzerPanel
     };
 };

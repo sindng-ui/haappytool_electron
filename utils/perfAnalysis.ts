@@ -106,23 +106,55 @@ export const extractLogIds = (line: string): { pid: string | null, tid: string |
     return { pid, tid };
 };
 
+// ✅ [HYPER-PERFORMANCE] Extensions for fast metadata parsing
+const EXT_SET = new Set(['cs', 'cpp', 'h', 'java', 'kt', 'js', 'ts', 'tsx', 'py', 'c', 'cc', 'hpp', 'm', 'mm']);
+
 /**
  * Extracts source metadata (filename, function name) from a log line.
  * Standard format: FileName.ext: FunctionName(Line)>
+ * ✅ [HYPER-OPTIMIZED V2] Accurate multi-colon scan without Regex 🐧🚀
  */
 export const extractSourceMetadata = (line: string): { fileName: string | null, functionName: string | null } => {
-    // Standard format: FileName.ext: FunctionName(Line)> or FileName.ext: FunctionName:Line>
-    const fileMatch = line.match(/([\w\-\.]+\.(?:cs|cpp|h|java|kt|js|ts|tsx|py|c|h|cc|hpp|m|mm))\s*:/i);
-    if (!fileMatch) return { fileName: null, functionName: null };
+    // 1. Find the essential marker '>' indicating the end of the metadata block
+    const markerIndex = line.indexOf('>', 0);
+    if (markerIndex === -1 || markerIndex > 300) return { fileName: null, functionName: null };
 
-    const fileName = fileMatch[1];
-    const afterFile = line.substring(fileMatch.index! + fileMatch[0].length).trim();
+    // 2. Scan for the divider colon from left to right.
+    // The correct divider follows a filename with a known extension.
+    let searchPos = 0;
+    while (searchPos < markerIndex) {
+        const colonIndex = line.indexOf(':', searchPos);
+        if (colonIndex === -1 || colonIndex >= markerIndex) break;
 
-    // 2. Match function name: everything up to '>'
-    const funcMatch = afterFile.match(/^([^>]+)(?:>)/);
-    let functionName = funcMatch ? funcMatch[1].trim() : null;
+        // Extract potential filename before this colon
+        let fileStartIndex = colonIndex - 1;
+        while (fileStartIndex >= 0) {
+            const char = line[fileStartIndex];
+            if (char === ' ' || char === '[' || char === '(' || char === '<' || char === '/') {
+                break;
+            }
+            fileStartIndex--;
+        }
+        fileStartIndex++;
 
-    return { fileName, functionName };
+        const rawFile = line.substring(fileStartIndex, colonIndex).trim();
+        if (rawFile.length >= 3) {
+            const dotIdx = rawFile.lastIndexOf('.');
+            if (dotIdx !== -1) {
+                const ext = rawFile.substring(dotIdx + 1).toLowerCase();
+                if (EXT_SET.has(ext)) {
+                    // 🎉 Found the primary colon!
+                    const fileName = rawFile;
+                    const functionName = line.substring(colonIndex + 1, markerIndex).trim();
+                    return { fileName, functionName };
+                }
+            }
+        }
+
+        searchPos = colonIndex + 1;
+    }
+
+    return { fileName: null, functionName: null };
 };
 
 /**

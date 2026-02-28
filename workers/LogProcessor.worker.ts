@@ -1262,7 +1262,12 @@ const getPerformanceHeatmap = async (points: number, requestId: string) => {
 
 // --- Helper: Spam Log Analysis ---
 const analyzeSpamLogs = async (requestId: string) => {
-    if (!filteredIndices) {
+    // 📸 [SNAPSHOT] 비동기 처리 도중 filteredIndices가 변경되는 것을 방지하기 위해 캡처
+    const indicesSnapshot = filteredIndices ? new Int32Array(filteredIndices) : null;
+    const streamLinesSnapshot = isStreamMode ? [...streamLines] : null;
+    const isFile = !!currentFile && !!lineOffsets;
+
+    if (!indicesSnapshot || (!isFile && !streamLinesSnapshot)) {
         respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results: [] }, requestId } as any);
         return;
     }
@@ -1271,17 +1276,15 @@ const analyzeSpamLogs = async (requestId: string) => {
 
     const spamMap = new Map<string, { count: number, lineContent: string, fileName: string, functionName: string, lineNum: number, indices: number[] }>();
 
-    const processSpamLine = (line: string, lineNum: number, filterIndex: number) => {
+    const processSpamLine = (line: string, lineNum: number, originalIndex: number) => {
         const { fileName, functionName } = extractSourceMetadata(line);
         let key = '';
         let fName = fileName || 'Unknown File';
         let fnName = functionName || 'Unknown Location';
 
-        // 소스 정보가 있으면 소스 기반으로 그룹화 (Notepad++ 카운트 일치 유역 🐧🎯)
         if (fileName || functionName) {
             key = `${fName}::${fnName}`;
         } else {
-            // 소스 정보 없으면 메시지 본문 지문으로 그룹화
             const messagePart = line.split('>').slice(1).join('>').trim() || line;
             const fingerprint = messagePart.replace(/[\d:\-\.\[\]\s]/g, '').substring(0, 60);
             key = fingerprint;
@@ -1291,7 +1294,7 @@ const analyzeSpamLogs = async (requestId: string) => {
         const existing = spamMap.get(key);
         if (existing) {
             existing.count++;
-            existing.indices.push(filterIndex);
+            existing.indices.push(originalIndex); // Store absolute index
         } else {
             spamMap.set(key, {
                 count: 1,
@@ -1299,79 +1302,71 @@ const analyzeSpamLogs = async (requestId: string) => {
                 fileName: fName,
                 functionName: fnName,
                 lineNum,
-                indices: [filterIndex]
+                indices: [originalIndex]
             });
         }
     };
 
-    const totalLines = filteredIndices.length;
+    const totalLines = indicesSnapshot.length;
 
-    // Stream Mode
-    if (isStreamMode) {
+    if (isStreamMode && streamLinesSnapshot) {
         for (let i = 0; i < totalLines; i++) {
-            const originalIdx = filteredIndices[i];
-            if (originalIdx < streamLines.length) {
-                const line = streamLines[originalIdx];
-                processSpamLine(line, originalIdx + 1, i);
+            const originalIdx = indicesSnapshot[i];
+            if (originalIdx < streamLinesSnapshot.length) {
+                const line = streamLinesSnapshot[originalIdx];
+                processSpamLine(line, originalIdx + 1, originalIdx);
             }
-            if (i % 10000 === 0) {
+            if (i % 20000 === 0) {
                 respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (i / totalLines) * 100 } });
             }
         }
-    } else {
-        // File Mode
-        if (!currentFile || !lineOffsets) {
-            respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results: [] }, requestId } as any);
-            return;
-        }
-
+    } else if (isFile && currentFile && lineOffsets) {
         const decoder = new TextDecoder();
-        const MAX_SPAM_CHUNK_BYTES = 10 * 1024 * 1024; // 스팸 분석 시 10MB 단위로 안전하게 슬라이싱 🐧🎯
+        const MAX_SPAM_CHUNK_BYTES = 10 * 1024 * 1024;
 
         let i = 0;
         while (i < totalLines) {
             let chunkStartIdx = i;
-            let minByte = lineOffsets[filteredIndices[i]];
+            let minByte = lineOffsets[indicesSnapshot[i]];
             let maxByte = -1n;
 
-            // 바이트 크기 기반으로 청크 범위 결정
             let j = i;
             while (j < totalLines) {
-                const idx = filteredIndices[j];
+                const idx = indicesSnapshot[j];
                 const endByte = idx < lineOffsets.length - 1 ? lineOffsets[idx + 1] : BigInt(currentFile.size);
                 if (maxByte === -1n || endByte > maxByte) maxByte = endByte;
 
-                // 50,000줄 혹은 10MB 중 먼저 도달하는 쪽에서 끊음
                 if (j - i >= 50000) break;
                 if (j + 1 < totalLines) {
-                    const nextIdx = filteredIndices[j + 1];
+                    const nextIdx = indicesSnapshot[j + 1];
                     const nextEndByte = nextIdx < lineOffsets.length - 1 ? lineOffsets[nextIdx + 1] : BigInt(currentFile.size);
                     if (nextEndByte - minByte > BigInt(MAX_SPAM_CHUNK_BYTES)) break;
                 }
                 j++;
             }
 
-            const chunkEndIdx = j + 1 > totalLines ? totalLines : j + 1;
-            const actualMaxByte = maxByte;
+            const chunkEndIdx = Math.min(j + 1, totalLines);
+            if (maxByte > minByte) {
+                try {
+                    const chunkBlob = currentFile.slice(Number(minByte), Number(maxByte));
+                    const buffer = await chunkBlob.arrayBuffer();
+                    const uint8View = new Uint8Array(buffer);
 
-            if (actualMaxByte > minByte) {
-                const chunkBlob = currentFile.slice(Number(minByte), Number(actualMaxByte));
-                const buffer = await chunkBlob.arrayBuffer();
-                const uint8View = new Uint8Array(buffer);
+                    for (let k = chunkStartIdx; k < chunkEndIdx; k++) {
+                        const originalIdx = indicesSnapshot[k];
+                        const lineStart = lineOffsets[originalIdx];
+                        const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
 
-                for (let k = chunkStartIdx; k < chunkEndIdx; k++) {
-                    const originalIdx = filteredIndices[k];
-                    const lineStart = lineOffsets[originalIdx];
-                    const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
+                        if (lineStart >= lineEnd) continue;
 
-                    if (lineStart >= lineEnd) continue;
+                        const relStart = Number(lineStart - minByte);
+                        const relEnd = Number(lineEnd - minByte);
 
-                    const relStart = Number(lineStart - minByte);
-                    const relEnd = Number(lineEnd - minByte);
-
-                    // Zero-copy decode
-                    const line = decoder.decode(uint8View.subarray(relStart, relEnd)).replace(/\r?\n$/, '');
-                    processSpamLine(line, originalIdx + 1, k);
+                        const line = decoder.decode(uint8View.subarray(relStart, relEnd)).replace(/\r?\n$/, '');
+                        processSpamLine(line, originalIdx + 1, originalIdx);
+                    }
+                } catch (err) {
+                    console.error('[Worker] Spam chunk processing failed', err);
                 }
             }
 
@@ -1380,7 +1375,6 @@ const analyzeSpamLogs = async (requestId: string) => {
         }
     }
 
-    // Convert to array, sort, and return top 100 (형님 요청 반영! 🐧)
     const results = Array.from(spamMap.values())
         .sort((a, b) => b.count - a.count)
         .slice(0, 100);
@@ -1437,6 +1431,14 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             break;
         case 'ANALYZE_SPAM':
             analyzeSpamLogs(requestId || '');
+            break;
+        case 'FIND_VISUAL_INDEX':
+            if (filteredIndices) {
+                const visualIndex = filteredIndices.indexOf(payload.absoluteIndex);
+                respond({ type: 'FIND_RESULT', payload: { foundIndex: visualIndex }, requestId: requestId || '' });
+            } else {
+                respond({ type: 'FIND_RESULT', payload: { foundIndex: -1 }, requestId: requestId || '' });
+            }
             break;
     }
 };
