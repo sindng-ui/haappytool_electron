@@ -9,7 +9,7 @@ import TopBar from './LogViewer/TopBar';
 import LoadingOverlay from './ui/LoadingOverlay';
 import { BookmarksModal } from './BookmarksModal';
 import GoToLineModal from './GoToLineModal';
-import { SpamAnalyzerModal } from './LogViewer/SpamAnalyzerModal';
+import { SpamAnalyzerPanel } from './LogViewer/SpamAnalyzerPanel';
 import { useLogSelection } from './LogArchive/hooks/useLogSelection';
 // FloatingActionButton removed
 import { useLogArchiveContext } from './LogArchive/LogArchiveProvider';
@@ -1140,16 +1140,15 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             )}
 
             <div ref={logContentRef} className="flex-1 flex overflow-hidden h-full relative group/layout">
-                {/* Configuration Panel with Resize Handle - Always visible even in Focus Mode */}
+                {/* 1. Left Sidebar (Configuration) */}
                 <div className="block h-full flex-none">
                     <ConfigurationPanel />
                 </div>
 
+                {/* 2. Main Content Area (Spam Analyzer + Log Viewer) */}
                 <div className={`flex-1 flex flex-col overflow-hidden relative z-0 transition-[padding-top] duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${isFocusMode ? 'pt-0' : 'pt-8'}`}>
-
-                    {/* Render Tab Bar here (passed from parent) - REMOVED, now global in LogExtractor */}
-
-
+                    {/* Integrated Spam Analyzer Panel */}
+                    <SpamAnalyzerPanel />
 
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="flex w-full h-full">
@@ -1161,10 +1160,10 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     progress={leftIndexingProgress}
                                 />
                                 <LogViewerPane
-                                    key={`left-pane-${leftFileName || 'empty'}-${leftSegmentIndex}`} // Force remount on segment change to clear cache
+                                    key={`left-pane-${leftFileName || 'empty'}-${leftSegmentIndex}`}
                                     ref={leftViewerRef}
                                     workerReady={leftWorkerReady}
-                                    totalMatches={leftCurrentSegmentLines} // Show limited segment count
+                                    totalMatches={leftCurrentSegmentLines}
                                     onScrollRequest={requestLeftLines}
                                     absoluteOffset={leftSegmentIndex * MAX_SEGMENT_SIZE}
                                     placeholderText={leftFileName || (isDualView ? "Drag log file here" : "Drop a log file to start")}
@@ -1230,7 +1229,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                                 disabled={leftSegmentIndex === 0}
                                                 onClick={() => setLeftSegmentIndex(Math.max(0, leftSegmentIndex - 1))}
                                                 className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
-                                                title="Previous Page (1.5M lines)"
                                             >
                                                 <ChevronLeft size={14} />
                                             </button>
@@ -1238,7 +1236,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                                 disabled={leftSegmentIndex >= leftTotalSegments - 1}
                                                 onClick={() => setLeftSegmentIndex(Math.min(leftTotalSegments - 1, leftSegmentIndex + 1))}
                                                 className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
-                                                title="Next Page (1.5M lines)"
                                             >
                                                 <ChevronRight size={14} />
                                             </button>
@@ -1284,7 +1281,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onFocusPaneRequest={handleFocusPaneRequest}
                                             onSyncScroll={onSyncScrollRight}
                                             onHighlightJump={onHighlightJumpRight}
-
                                             isActive={isActive}
                                             onShowBookmarks={onShowBookmarksRight}
                                             onAnalyzeSpam={() => setIsSpamAnalyzerOpen(true)}
@@ -1326,7 +1322,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                                         disabled={rightSegmentIndex === 0}
                                                         onClick={() => setRightSegmentIndex(Math.max(0, rightSegmentIndex - 1))}
                                                         className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
-                                                        title="Previous Page (1.5M lines)"
                                                     >
                                                         <ChevronLeft size={14} />
                                                     </button>
@@ -1334,7 +1329,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                                         disabled={rightSegmentIndex >= rightTotalSegments - 1}
                                                         onClick={() => setRightSegmentIndex(Math.min(rightTotalSegments - 1, rightSegmentIndex + 1))}
                                                         className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
-                                                        title="Next Page (1.5M lines)"
                                                     >
                                                         <ChevronRight size={14} />
                                                     </button>
@@ -1437,8 +1431,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 }}
             />
 
-            {/* Spam Analyzer Modal */}
-            <SpamAnalyzerModal />
+            {/* Removed SpamAnalyzerModal in favor of integrated SpamAnalyzerPanel */}
         </div>
     );
 };

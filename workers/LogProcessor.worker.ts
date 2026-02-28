@@ -1250,9 +1250,9 @@ const analyzeSpamLogs = async (requestId: string) => {
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
 
-    const spamMap = new Map<string, { count: number, lineContent: string, fileName: string, functionName: string }>();
+    const spamMap = new Map<string, { count: number, lineContent: string, fileName: string, functionName: string, lineNum: number }>();
 
-    const processSpamLine = (line: string) => {
+    const processSpamLine = (line: string, lineNum: number) => {
         const { fileName, functionName } = extractSourceMetadata(line);
         let key = '';
         let fName = fileName;
@@ -1261,12 +1261,10 @@ const analyzeSpamLogs = async (requestId: string) => {
         if (fileName || functionName) {
             key = `${fileName || 'unknown'}::${functionName || 'unknown'}`;
         } else {
-            // If no file/function could be extracted, try to create a signature
-            // Strip digits, timestamps, common symbols
             key = line.replace(/[\d:\-\.\[\]\s]/g, '').substring(0, 50);
             fName = 'Unknown File';
             fnName = 'Unknown Location';
-            if (key.length < 10) return; // Ignore very short/empty lines
+            if (key.length < 10) return;
         }
 
         const existing = spamMap.get(key);
@@ -1277,7 +1275,8 @@ const analyzeSpamLogs = async (requestId: string) => {
                 count: 1,
                 lineContent: line,
                 fileName: fName || 'Unknown',
-                functionName: fnName || 'Unknown'
+                functionName: fnName || 'Unknown',
+                lineNum // ✅ 스팸 패턴이 처음 발견된 라인 번호 저장
             });
         }
     };
@@ -1290,7 +1289,7 @@ const analyzeSpamLogs = async (requestId: string) => {
             const originalIdx = filteredIndices[i];
             if (originalIdx < streamLines.length) {
                 const line = streamLines[originalIdx];
-                processSpamLine(line);
+                processSpamLine(line, originalIdx + 1);
             }
             if (i % 10000 === 0) {
                 respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (i / totalLines) * 100 } });
@@ -1303,14 +1302,11 @@ const analyzeSpamLogs = async (requestId: string) => {
             return;
         }
 
-        // Processing in chunks to avoid memory bloat (50k lines per chunk)
         const chunkSize = 50000;
         const decoder = new TextDecoder();
 
         for (let i = 0; i < totalLines; i += chunkSize) {
             const endIdx = Math.min(i + chunkSize, totalLines);
-
-            // Batch read chunk
             const minIdx = filteredIndices[i];
             const maxIdx = filteredIndices[endIdx - 1];
             const minByte = lineOffsets[minIdx];
@@ -1332,17 +1328,17 @@ const analyzeSpamLogs = async (requestId: string) => {
                     const lineBuffer = buffer.slice(relStart, relEnd);
                     const line = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
 
-                    processSpamLine(line);
+                    processSpamLine(line, originalIdx + 1);
                 }
             }
             respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (endIdx / totalLines) * 100 } });
         }
     }
 
-    // Convert to array, sort, and return top 500
+    // Convert to array, sort, and return top 100 (형님 요청 반영! 🐧)
     const results = Array.from(spamMap.values())
         .sort((a, b) => b.count - a.count)
-        .slice(0, 500);
+        .slice(0, 100);
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
     respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results }, requestId } as any);

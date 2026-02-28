@@ -219,4 +219,5 @@ export interface SpamLogResult {
   functionName: string;
   lineContent: string;
   count: number;
+  lineNum?: number; // ✅ NEW: 패턴이 처음 발견된 라인 번호
 }

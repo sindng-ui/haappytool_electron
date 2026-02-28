@@ -282,6 +282,13 @@ export const useLogExtractorLogic = ({
     const [isAnalyzingSpam, setIsAnalyzingSpam] = useState(false);
     const [spamResultsLeft, setSpamResultsLeft] = useState<SpamLogResult[]>([]);
 
+    // ✅ UI 닫힐 때 결과 초기화 (성능 영향 Zero화)
+    useEffect(() => {
+        if (!isSpamAnalyzerOpen && spamResultsLeft.length > 0) {
+            setSpamResultsLeft([]);
+        }
+    }, [isSpamAnalyzerOpen, spamResultsLeft.length]);
+
     const requestSpamAnalysisLeft = useCallback(() => {
         if (!leftWorkerRef.current || leftFilteredCount === 0) return;
         setIsAnalyzingSpam(true);
