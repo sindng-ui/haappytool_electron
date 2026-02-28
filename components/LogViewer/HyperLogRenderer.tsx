@@ -117,9 +117,14 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         GUTTER_TOTAL_WIDTH,
         CONTENT_X_OFFSET
     } = useMemo(() => {
+        const fontSize = preferences?.fontSize || 13;
         const star = LOG_VIEW_CONFIG.COLUMN_WIDTHS.BOOKMARK;
-        const index = LOG_VIEW_CONFIG.COLUMN_WIDTHS.INDEX;
-        const lineNum = LOG_VIEW_CONFIG.COLUMN_WIDTHS.LINE_NUMBER;
+
+        // 🎯 형님, 폰트가 작을 때도 간격이 너무 넓어 보이지 않게 고정 최소 너비를 제거하고 비례식으로만 계산합니다! 🐧📐
+        const charWidth = fontSize * 0.65; // 모노스페이스 폰트 대략적인 너비 비중
+        const index = Math.ceil(charWidth * 7.0); // #999,999 등 인덱스 영역 (더 타이트하게! 🐧🎯)
+        const lineNum = Math.ceil(charWidth * 6.0); // 원본 라인 번호 영역 (더 타이트하게! 🐧🎯)
+
         const total = star + index + lineNum;
         const offset = total + LOG_VIEW_CONFIG.SPACING.CONTENT_LEFT_OFFSET;
         return {
@@ -129,7 +134,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             GUTTER_TOTAL_WIDTH: total,
             CONTENT_X_OFFSET: offset
         };
-    }, []);
+    }, [preferences?.fontSize]);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -410,7 +415,10 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
         const fontSize = preferences?.fontSize || 13;
         const fontFamily = preferences?.fontFamily || MONO_FONT_STACK;
-        const gutterFont = `${DEFAULT_FONT_WEIGHT} 10px ${fontFamily}`;
+
+        // 🎯 형님, 라인 번호 크기를 본문 폰트 크기와 동일하게 맞춰서 시인성을 높입니다!
+        const gutterFontSize = fontSize;
+        const gutterFont = `${DEFAULT_FONT_WEIGHT} ${gutterFontSize}px ${fontFamily}`;
         const mainFont = `${DEFAULT_FONT_WEIGHT} ${fontSize}px ${fontFamily}`;
 
         // --- 1. RENDER BACKGROUND LAYER ---
@@ -515,9 +523,9 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
             if (lineData) {
                 ctx.font = gutterFont;
-                // #Index - Always default color
+                // #Index - 🎯 형님, 콤마 제거 요청 반영!
                 ctx.fillStyle = gutterColor;
-                ctx.fillText(`#${(i + 1).toLocaleString()}`, GUTTER_STAR_WIDTH, centerY);
+                ctx.fillText(`#${i + 1}`, GUTTER_STAR_WIDTH, centerY);
 
                 // Line Number - Yellow only if bookmarked
                 ctx.fillStyle = bookmarks.has(i) ? '#fef08a' : gutterColor;
