@@ -519,43 +519,62 @@ const getLines = async (startFilterIndex: number, count: number, requestId: stri
             return;
         }
 
-        // ✅ Batch Reading Optimization:
-        let minByte = -1n;
-        let maxByte = -1n;
-        for (let i = startFilterIndex; i < maxFile; i++) {
-            const idx = filteredIndices[i];
-            const startByte = lineOffsets[idx];
-            const endByte = idx < lineOffsets.length - 1 ? lineOffsets[idx + 1] : BigInt(currentFile.size);
-            if (minByte === -1n || startByte < minByte) minByte = startByte;
-            if (maxByte === -1n || endByte > maxByte) maxByte = endByte;
-        }
+        const decoder = new TextDecoder();
 
         try {
-            // Read one big chunk
-            const fullBlob = currentFile.slice(Number(minByte), Number(maxByte));
-            const buffer = await fullBlob.arrayBuffer();
-            const decoder = new TextDecoder();
+            // ✅ Smart Batching: 행 간격이 너무 벌어질 경우(5MB 초구) 분할 읽기 수행 🐧🎯
+            const MAX_BATCH_BYTES = 5 * 1024 * 1024;
 
-            for (let i = startFilterIndex; i < maxFile; i++) {
-                const originalIdx = filteredIndices[i];
-                const lineStart = lineOffsets[originalIdx];
-                const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
+            let i = startFilterIndex;
+            while (i < maxFile) {
+                let batchStart = i;
+                let batchMinByte = lineOffsets[filteredIndices[i]];
+                let batchMaxByte = -1n;
 
-                // Calculate relative position within the chunk
-                const relStart = Number(lineStart - minByte);
-                const relEnd = Number(lineEnd - minByte);
+                // 현재 배치에 포함할 행들 결정 (최대 5MB)
+                let j = i;
+                while (j < maxFile) {
+                    const idx = filteredIndices[j];
+                    const startByte = lineOffsets[idx];
+                    const endByte = idx < lineOffsets.length - 1 ? lineOffsets[idx + 1] : BigInt(currentFile.size);
 
-                const lineBuffer = buffer.slice(relStart, relEnd);
-                const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
+                    if (batchMaxByte === -1n || endByte > batchMaxByte) batchMaxByte = endByte;
 
-                resultLines.push({
-                    lineNum: originalIdx + 1,
-                    content: text
-                });
+                    // 다음 행을 포함했을 때 5MB를 초과하면 여기서 끊음
+                    if (j + 1 < maxFile) {
+                        const nextIdx = filteredIndices[j + 1];
+                        const nextEndByte = nextIdx < lineOffsets.length - 1 ? lineOffsets[nextIdx + 1] : BigInt(currentFile.size);
+                        if (nextEndByte - batchMinByte > BigInt(MAX_BATCH_BYTES)) break;
+                    }
+                    j++;
+                }
+
+                const batchEnd = j;
+                const chunkBlob = currentFile.slice(Number(batchMinByte), Number(batchMaxByte));
+                const buffer = await chunkBlob.arrayBuffer();
+                const uint8View = new Uint8Array(buffer);
+
+                for (let k = batchStart; k < batchEnd; k++) {
+                    const originalIdx = filteredIndices[k];
+                    const lineStart = lineOffsets[originalIdx];
+                    const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
+
+                    const relStart = Number(lineStart - batchMinByte);
+                    const relEnd = Number(lineEnd - batchMinByte);
+
+                    // ✅ Zero-copy: subarray로 필요한 부분만 참조하여 디코딩 🐧🚀
+                    const text = decoder.decode(uint8View.subarray(relStart, relEnd)).replace(/\r?\n$/, '');
+
+                    resultLines.push({
+                        lineNum: originalIdx + 1,
+                        content: text
+                    });
+                }
+
+                i = batchEnd;
             }
         } catch (err) {
-            console.error('[Worker] Batch read failed', err);
-            // Fallback: If batch fails, return empty to trigger UI retry
+            console.error('[Worker] Smart batch read failed', err);
             respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
             return;
         }
@@ -1306,22 +1325,42 @@ const analyzeSpamLogs = async (requestId: string) => {
             return;
         }
 
-        const chunkSize = 50000;
         const decoder = new TextDecoder();
+        const MAX_SPAM_CHUNK_BYTES = 10 * 1024 * 1024; // 스팸 분석 시 10MB 단위로 안전하게 슬라이싱 🐧🎯
 
-        for (let i = 0; i < totalLines; i += chunkSize) {
-            const endIdx = Math.min(i + chunkSize, totalLines);
-            const minIdx = filteredIndices[i];
-            const maxIdx = filteredIndices[endIdx - 1];
-            const minByte = lineOffsets[minIdx];
-            const maxByte = maxIdx < lineOffsets.length - 1 ? lineOffsets[maxIdx + 1] : BigInt(currentFile.size);
+        let i = 0;
+        while (i < totalLines) {
+            let chunkStartIdx = i;
+            let minByte = lineOffsets[filteredIndices[i]];
+            let maxByte = -1n;
 
-            if (maxByte > minByte) {
-                const chunkBlob = currentFile.slice(Number(minByte), Number(maxByte));
+            // 바이트 크기 기반으로 청크 범위 결정
+            let j = i;
+            while (j < totalLines) {
+                const idx = filteredIndices[j];
+                const endByte = idx < lineOffsets.length - 1 ? lineOffsets[idx + 1] : BigInt(currentFile.size);
+                if (maxByte === -1n || endByte > maxByte) maxByte = endByte;
+
+                // 50,000줄 혹은 10MB 중 먼저 도달하는 쪽에서 끊음
+                if (j - i >= 50000) break;
+                if (j + 1 < totalLines) {
+                    const nextIdx = filteredIndices[j + 1];
+                    const nextEndByte = nextIdx < lineOffsets.length - 1 ? lineOffsets[nextIdx + 1] : BigInt(currentFile.size);
+                    if (nextEndByte - minByte > BigInt(MAX_SPAM_CHUNK_BYTES)) break;
+                }
+                j++;
+            }
+
+            const chunkEndIdx = j + 1 > totalLines ? totalLines : j + 1;
+            const actualMaxByte = maxByte;
+
+            if (actualMaxByte > minByte) {
+                const chunkBlob = currentFile.slice(Number(minByte), Number(actualMaxByte));
                 const buffer = await chunkBlob.arrayBuffer();
+                const uint8View = new Uint8Array(buffer);
 
-                for (let j = i; j < endIdx; j++) {
-                    const originalIdx = filteredIndices[j];
+                for (let k = chunkStartIdx; k < chunkEndIdx; k++) {
+                    const originalIdx = filteredIndices[k];
                     const lineStart = lineOffsets[originalIdx];
                     const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
 
@@ -1329,13 +1368,15 @@ const analyzeSpamLogs = async (requestId: string) => {
 
                     const relStart = Number(lineStart - minByte);
                     const relEnd = Number(lineEnd - minByte);
-                    const lineBuffer = buffer.slice(relStart, relEnd);
-                    const line = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
 
-                    processSpamLine(line, originalIdx + 1, j);
+                    // Zero-copy decode
+                    const line = decoder.decode(uint8View.subarray(relStart, relEnd)).replace(/\r?\n$/, '');
+                    processSpamLine(line, originalIdx + 1, k);
                 }
             }
-            respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (endIdx / totalLines) * 100 } });
+
+            i = chunkEndIdx;
+            respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (i / totalLines) * 100 } });
         }
     }
 
