@@ -19,96 +19,11 @@ import { useHappyTool } from '../contexts/HappyToolContext';
 import TransactionDrawer from './LogViewer/TransactionDrawer';
 import { extractTransactionIds } from '../utils/transactionAnalysis';
 import { useLogSessionShortcuts } from '../hooks/useLogSessionShortcuts';
+import { RawContextViewer } from './LogViewer/RawContextViewer';
+import { stringToColor } from '../utils/colorUtils';
 
 const { X, Eraser, ChevronLeft, ChevronRight, GripHorizontal } = Lucide;
 
-interface RawContextViewerProps {
-    sourcePane: 'left' | 'right';
-    leftFileName: string;
-    rightFileName: string;
-    targetLine: { lineNum: number; content: string; formattedLineIndex?: number | string };
-    onClose: () => void;
-    heightPercent: number;
-    onResizeStart: (e: React.MouseEvent) => void;
-    leftTotalLines: number;
-    rightTotalLines: number;
-    requestLeftRawLines: (start: number, count: number) => Promise<any>;
-    requestRightRawLines: (start: number, count: number) => Promise<any>;
-    highlightCaseSensitive?: boolean;
-    preferences?: any;
-    highlightRange?: { start: number; end: number } | null;
-    clearCacheTick?: number;
-}
-
-const RawContextViewer: React.FC<RawContextViewerProps> = ({
-    sourcePane, leftFileName, rightFileName, targetLine, onClose, heightPercent, onResizeStart,
-    leftTotalLines, rightTotalLines, requestLeftRawLines, requestRightRawLines, preferences,
-    highlightRange,
-    clearCacheTick
-}) => {
-    const rawViewerRef = React.useRef<LogViewerHandle>(null);
-    const rawTotalLines = sourcePane === 'left' ? leftTotalLines : rightTotalLines;
-    const rawTargetLineIndex = targetLine.lineNum - 1;
-    const rawSegmentIndex = Math.floor(rawTargetLineIndex / MAX_SEGMENT_SIZE);
-    const rawSegmentOffset = rawSegmentIndex * MAX_SEGMENT_SIZE;
-    const rawSegmentLength = Math.min(MAX_SEGMENT_SIZE, Math.max(0, rawTotalLines - rawSegmentOffset));
-
-    const handleRawScrollRequest = React.useCallback((start: number, count: number) => {
-        const globalStart = start + rawSegmentOffset;
-        const fn = sourcePane === 'left' ? requestLeftRawLines : requestRightRawLines;
-        return fn(globalStart, count);
-    }, [rawSegmentOffset, sourcePane, requestLeftRawLines, requestRightRawLines]);
-
-    return (
-        <div className="absolute left-0 right-0 top-16 bottom-0 z-40 flex flex-col pointer-events-none">
-            <div className="flex flex-col bg-slate-950 pointer-events-auto border-b-2 border-indigo-500 shadow-2xl relative" style={{ height: `${heightPercent}%` }}>
-                <div className="bg-indigo-950/80 px-4 py-1 flex justify-between items-center border-b border-indigo-500/30 backdrop-blur">
-                    <span className="text-xs font-bold text-indigo-300">
-                        Raw View ({sourcePane === 'left' ? leftFileName : rightFileName})
-                        <span className="mx-2 opacity-50">|</span>
-                        Original Line: <span className="text-white">{targetLine.lineNum}</span>
-                        <span className="mx-2 opacity-50">|</span>
-                        Filtered Row: <span className="text-yellow-400">#{targetLine.formattedLineIndex ?? '?'}</span>
-                    </span>
-                    <button onClick={onClose} className="text-indigo-400 hover:text-white"><X size={14} /></button>
-                </div>
-                <LogViewerPane
-                    key={`raw-${sourcePane}-${rawTargetLineIndex}`}
-                    ref={rawViewerRef}
-                    workerReady={true}
-                    totalMatches={rawSegmentLength}
-                    onScrollRequest={handleRawScrollRequest}
-                    absoluteOffset={rawSegmentOffset}
-                    placeholderText=""
-                    isRawMode={true}
-                    activeLineIndex={rawTargetLineIndex}
-                    initialScrollIndex={rawTargetLineIndex - rawSegmentOffset}
-                    isActive={true} // Raw View is an modal-like overlay, usually only active when visible
-                    preferences={preferences}
-                    lineHighlightRanges={highlightRange ? [{
-                        start: highlightRange.start - 1,
-                        end: highlightRange.end - 1,
-                        color: 'rgba(99, 102, 241, 0.3)'
-                    }] : []}
-                    clearCacheTick={clearCacheTick}
-                />
-                {/* Resizer Handle (Bottom) - Refined Pill Design */}
-                <div
-                    className="absolute -bottom-2 left-0 right-0 h-4 cursor-ns-resize z-[100] flex justify-end px-12 group/resizer"
-                    onMouseDown={onResizeStart}
-                >
-                    <div className="w-10 h-3 bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-b-full flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.5)] border-x border-b border-white/20 group-hover/resizer:h-4 group-hover/resizer:from-indigo-400 group-hover/resizer:to-indigo-600 transition-all duration-200 origin-top">
-                        <div className="flex gap-0.5">
-                            <div className="w-0.5 h-0.5 bg-white/80 rounded-full shadow-sm" />
-                            <div className="w-0.5 h-0.5 bg-white/80 rounded-full shadow-sm" />
-                            <div className="w-0.5 h-0.5 bg-white/80 rounded-full shadow-sm" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 interface LogSessionProps {
     isActive: boolean;
@@ -543,44 +458,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const onHighlightJumpLeft = React.useCallback((idx: number) => jumpToHighlight(idx, 'left'), [jumpToHighlight]);
     const onShowBookmarksLeft = React.useCallback(() => setLeftBookmarksOpen(true), []);
 
-    // Helper to generate consistent colors from strings
-    const stringToColor = (str: string): string => {
-        // 1. Better Hashing (Shift-Add-Xor hash)
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = str.charCodeAt(i) + ((hash << 5) - hash);
-            hash = hash & hash; // Convert to 32bit integer
-        }
-
-        // 2. Use Golden Ratio to spread Hue more evenly
-        // 0.618033988749895 is the conjugate of the golden ratio
-        const goldenRatioConjugate = 0.618033988749895;
-        let h = (Math.abs(hash) * goldenRatioConjugate * 360) % 360;
-
-        // 3. Dynamic Saturation and Lightness for variety
-        // Use hash to slightly vary Saturation (65-95%) and Lightness (45-65%)
-        const s = 65 + (Math.abs(hash >> 8) % 30);
-        const l = 45 + (Math.abs(hash >> 16) % 20);
-
-        // HSL to RGB conversion
-        const c = (1 - Math.abs(2 * l / 100 - 1)) * (s / 100);
-        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-        const m = l / 100 - c / 2;
-        let r_ = 0, g_ = 0, b_ = 0;
-
-        if (0 <= h && h < 60) { r_ = c; g_ = x; b_ = 0; }
-        else if (60 <= h && h < 120) { r_ = x; g_ = c; b_ = 0; }
-        else if (120 <= h && h < 180) { r_ = 0; g_ = c; b_ = x; }
-        else if (180 <= h && h < 240) { r_ = 0; g_ = x; b_ = c; }
-        else if (240 <= h && h < 300) { r_ = x; g_ = 0; b_ = c; }
-        else if (300 <= h && h < 360) { r_ = c; g_ = 0; b_ = x; }
-
-        const r = Math.round((r_ + m) * 255).toString(16).padStart(2, '0');
-        const g = Math.round((g_ + m) * 255).toString(16).padStart(2, '0');
-        const b = Math.round((b_ + m) * 255).toString(16).padStart(2, '0');
-
-        return `#${r}${g}${b}`;
-    };
 
     // Prepare Effective Highlights (Explicit + Auto-generated Highlighting for Happy Combos)
     const effectiveHighlights = React.useMemo(() => {
