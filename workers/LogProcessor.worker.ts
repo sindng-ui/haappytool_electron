@@ -87,6 +87,9 @@ let currentQuickFilter: 'none' | 'error' | 'exception' = 'none'; // ✅ New Stat
 // Bookmarks (0-based Original Index)
 let originalBookmarks: Set<number> = new Set();
 
+// Concurrency Control for filtering
+let currentFilterRequestId = 0;
+
 // Performance Heatmap State
 let isCalculatingHeatmap = false;
 
@@ -177,6 +180,7 @@ const buildFileIndex = async (file: File) => {
     streamLines = []; // Clear stream data
     originalBookmarks.clear(); // Clear bookmarks for new file
     isCalculatingHeatmap = false; // Reset heatmap state for new file
+    currentFilterRequestId++; // ✅ Cancel any pending filters from previous file
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 0 } });
 
@@ -257,6 +261,7 @@ const initStream = (payload?: { isLive?: boolean }) => {
     filteredIndices = new Int32Array(0);
     filteredIndicesBuffer = new Int32Array(1024 * 1024); // Start with 1M capacity
     lastFilterNotifyTime = 0; // ✅ Reset throttle timer
+    currentFilterRequestId++; // ✅ Cancel any pending filters
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready', mode: 'stream' } });
 };
 
@@ -365,6 +370,8 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     };
 
     currentRule = normalizedRule;
+    const filterRequestId = ++currentFilterRequestId; // ✅ Request ID for this specific filter call
+    console.log(`[Worker] Starting applyFilter (RequestID: ${filterRequestId})`);
 
     // ✅ Sync WASM Engine keywords for the main worker (for getLines etc)
     if (wasmEngine && wasmModule) {
@@ -394,9 +401,15 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     const chunkResults: any[] = new Array(numChunks);
     let completedChunks = 0;
 
-    const onChunkDone = (chunkId: number, matches: Int32Array) => {
+    const onChunkDone = (chunkId: number, matches: Int32Array, receivedRequestId: number) => {
+        if (receivedRequestId !== filterRequestId) {
+            console.warn(`[Worker] Ignoring stale filter chunk (RequestID: ${receivedRequestId}, Current: ${filterRequestId})`);
+            return;
+        }
+
         chunkResults[chunkId] = matches;
         completedChunks++;
+        console.log(`[Worker] Chunk Done: ${chunkId + 1}/${numChunks} (RequestID: ${filterRequestId}) matches: ${matches.length}`);
 
         respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (completedChunks / numChunks) * 100 } });
 
@@ -421,6 +434,7 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                 filteredIndices = filteredIndicesBuffer.subarray(0, finalMatches.length);
             }
 
+            console.log(`[Worker] Filter Complete (RequestID: ${filterRequestId}) totalMatches: ${filteredIndices.length}`);
             respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
             respond({
                 type: 'FILTER_COMPLETE', payload: {
@@ -443,8 +457,10 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
             const chunkLines = streamLines.slice(startLine, endLine);
             const handler = (e: MessageEvent) => {
                 if (e.data.type === 'FILTER_LINES_COMPLETE' && e.data.payload.chunkId === i) {
-                    sw.removeEventListener('message', handler);
-                    onChunkDone(i, e.data.payload.matches);
+                    if (e.data.payload.requestId === filterRequestId) {
+                        sw.removeEventListener('message', handler);
+                        onChunkDone(i, e.data.payload.matches, e.data.payload.requestId);
+                    }
                 }
             };
             sw.addEventListener('message', handler);
@@ -455,7 +471,8 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                     lines: chunkLines,
                     offset: startLine,
                     rule: currentRule,
-                    quickFilter: currentQuickFilter
+                    quickFilter: currentQuickFilter,
+                    requestId: filterRequestId
                 }
             });
         } else {
@@ -466,9 +483,11 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
 
             const handler = (e: MessageEvent) => {
                 if (e.data.type === 'CHUNK_COMPLETE' && e.data.payload.chunkId === i) {
-                    sw.removeEventListener('message', handler);
-                    // File mode results now come with absolute offsets from sub-worker
-                    onChunkDone(i, e.data.payload.matches as Int32Array);
+                    if (e.data.payload.requestId === filterRequestId) {
+                        sw.removeEventListener('message', handler);
+                        // File mode results now come with absolute offsets from sub-worker
+                        onChunkDone(i, e.data.payload.matches as Int32Array, e.data.payload.requestId);
+                    }
                 }
             };
             sw.addEventListener('message', handler);
@@ -479,7 +498,8 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                     blob,
                     offset: startLine, // Pass absolute start line to sub-worker
                     rule: currentRule,
-                    quickFilter: currentQuickFilter
+                    quickFilter: currentQuickFilter,
+                    requestId: filterRequestId
                 }
             });
         }
@@ -1386,6 +1406,7 @@ const analyzeSpamLogs = async (requestId: string) => {
 // --- Message Listener ---
 ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
     const { type, payload, requestId } = evt.data;
+    if (type !== 'PROCESS_CHUNK') console.log(`[Worker] Received message: ${type}`);
     switch (type) {
         case 'INIT_FILE':
             buildFileIndex(payload);

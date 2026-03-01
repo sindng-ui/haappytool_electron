@@ -412,8 +412,8 @@ export const useLogExtractorLogic = ({
             const { type, payload, requestId } = e.data;
             // ... (rest of onmessage logic)
             if (type === 'ERROR') console.error('[useLog] Worker Error:', payload.error);
-            if (type === 'INDEX_COMPLETE') console.log('[useLog] Worker INDEX_COMPLETE:', payload);
-            if (type === 'FILTER_COMPLETE') console.log('[useLog] Worker FILTER_COMPLETE matches:', payload.matchCount);
+            if (type === 'INDEX_COMPLETE') console.log('[useLog-Left] Worker INDEX_COMPLETE:', payload);
+            if (type === 'FILTER_COMPLETE') console.log('[useLog-Left] Worker FILTER_COMPLETE matches:', payload.matchCount, 'total:', payload.totalLines);
 
             if (requestId && leftPendingRequests.current.has(requestId)) {
                 const resolve = leftPendingRequests.current.get(requestId);
@@ -901,7 +901,7 @@ export const useLogExtractorLogic = ({
             setLeftWorkerReady(false);
 
             // 🔍 DEBUG: Check what is being sent to the worker
-            console.log('[FilterDebug] Sending filter payload hash:', payloadHash);
+            console.log('[useLog-Left] Sending FILTER_LOGS. hash:', payloadHash, 'ruleId:', currentConfig.id);
 
             leftWorkerRef.current.postMessage({
                 type: 'FILTER_LOGS',
@@ -1146,6 +1146,7 @@ export const useLogExtractorLogic = ({
             lastFilterHashRight.current = payloadHash;
 
 
+            console.log('[useLog-Right] Sending FILTER_LOGS. hash:', payloadHash, 'ruleId:', currentConfig.id);
             setRightWorkerReady(false);
             rightWorkerRef.current.postMessage({
                 type: 'FILTER_LOGS',
@@ -1703,12 +1704,6 @@ export const useLogExtractorLogic = ({
 
     const updateCurrentRule = useCallback((updates: Partial<LogRule>) => {
         const updatedRules = rules.map(r => r.id === selectedRuleId ? { ...r, ...updates } : r);
-
-        // 🚀 Quality Control: Immediately set workers to NOT ready when a rule update is triggered
-        // This forces the loading UI to appear BEFORE the next render cycle attempts to highlight items
-        // based on the new (but not yet processed) rules.
-        setLeftWorkerReady(false);
-        setRightWorkerReady(false);
 
         onUpdateRules(updatedRules);
     }, [rules, selectedRuleId, onUpdateRules]);

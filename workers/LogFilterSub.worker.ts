@@ -33,7 +33,9 @@ ctx.onmessage = async (e) => {
     const { type, payload } = e.data;
 
     if (type === 'FILTER_CHUNK') {
-        const { blob, rule, quickFilter, chunkId, offset = 0 } = payload;
+        const { blob, rule, quickFilter, chunkId, offset = 0, requestId } = payload;
+        const startTime = Date.now();
+        console.log(`[SubWorker ${chunkId}] FILTER_CHUNK Start (RequestID: ${requestId})`);
 
         // WASM 엔진 키워드 동기화
         if (wasmEngine && wasmModule) {
@@ -78,6 +80,8 @@ ctx.onmessage = async (e) => {
             console.error(`[SubWorker ${chunkId}] Error`, err);
         }
 
+        console.log(`[SubWorker ${chunkId}] FILTER_CHUNK Done (RequestID: ${requestId}) matches: ${matchesList.length} time: ${Date.now() - startTime}ms`);
+
         // ✅ Optimization: Use Int32Array for Zero-copy transfer to main worker
         const matches = new Int32Array(matchesList);
         ctx.postMessage({
@@ -85,11 +89,14 @@ ctx.onmessage = async (e) => {
             payload: {
                 chunkId,
                 matches,
-                lineCount: relativeLineIndex
+                lineCount: relativeLineIndex,
+                requestId // ✅ Return requestId
             }
         }, [matches.buffer] as any);
     } else if (type === 'FILTER_LINES') {
-        const { lines, rule, quickFilter, chunkId, offset } = payload;
+        const { lines, rule, quickFilter, chunkId, offset, requestId } = payload;
+        const startTime = Date.now();
+        console.log(`[SubWorker ${chunkId}] FILTER_LINES Start (RequestID: ${requestId}) lines: ${lines.length}`);
 
         // WASM 엔진 키워드 동기화
         if (wasmEngine && wasmModule) {
@@ -106,13 +113,16 @@ ctx.onmessage = async (e) => {
             }
         }
 
+        console.log(`[SubWorker ${chunkId}] FILTER_LINES Done (RequestID: ${requestId}) matches: ${matchesList.length} time: ${Date.now() - startTime}ms`);
+
         const matches = new Int32Array(matchesList);
         ctx.postMessage({
             type: 'FILTER_LINES_COMPLETE',
             payload: {
                 chunkId,
                 matches,
-                lineCount: lines.length
+                lineCount: lines.length,
+                requestId // ✅ Return requestId
             }
         }, [matches.buffer] as any);
     }

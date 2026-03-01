@@ -36,11 +36,22 @@ export const EditableTag = memo(({
         setLocalValue(value);
     }, [value]);
 
+    const committedRef = useRef(false);
+
     useEffect(() => {
-        if (isEditing && inputRef.current) {
-            inputRef.current.focus();
+        if (isEditing) {
+            committedRef.current = false;
+            if (inputRef.current) {
+                inputRef.current.focus();
+            }
         }
     }, [isEditing]);
+
+    const handleCommit = (val: string) => {
+        if (committedRef.current) return;
+        committedRef.current = true;
+        onCommit(val);
+    };
 
     if (isEditing) {
         return (
@@ -49,22 +60,22 @@ export const EditableTag = memo(({
                 className="bg-slate-700 text-slate-200 px-2 py-1 rounded text-xs font-medium border border-indigo-500 w-24 outline-none shadow-lg z-50 absolute-input"
                 value={localValue}
                 onChange={(e) => setLocalValue(e.target.value)}
-                onBlur={() => onCommit(localValue)}
+                onBlur={() => handleCommit(localValue)}
                 onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        onCommit(localValue);
+                        handleCommit(localValue);
                         onNavigate('NextInput', false);
                     } else if (e.key === 'Tab') {
                         e.preventDefault();
-                        onCommit(localValue);
+                        handleCommit(localValue);
                         if (e.shiftKey) {
                             onNavigate('PreviousInput', false);
                         } else {
                             onNavigate('NextInput', false);
                         }
                     } else if (e.key === 'Escape') {
-                        onCommit(value); // Revert
+                        handleCommit(value); // Revert
                     } else if (e.key === 'Backspace') {
                         if (!localValue) {
                             e.preventDefault();
@@ -73,27 +84,27 @@ export const EditableTag = memo(({
                         } else if (e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0) {
                             // Jump to previous item if at start
                             e.preventDefault();
-                            onCommit(localValue);
+                            handleCommit(localValue);
                             onNavigate('Left', false);
                         }
                     } else if (e.key === 'ArrowUp') {
                         e.preventDefault();
-                        onCommit(localValue);
+                        handleCommit(localValue);
                         onNavigate('Up', false);
                     } else if (e.key === 'ArrowDown') {
                         e.preventDefault();
-                        onCommit(localValue);
+                        handleCommit(localValue);
                         onNavigate('Down', false);
                     } else if (e.key === 'ArrowLeft') {
                         if (e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0) {
                             e.preventDefault();
-                            onCommit(localValue);
+                            handleCommit(localValue);
                             onNavigate('Left', false);
                         }
                     } else if (e.key === 'ArrowRight') {
                         if (e.currentTarget.selectionStart === localValue.length) {
                             e.preventDefault();
-                            onCommit(localValue);
+                            handleCommit(localValue);
                             onNavigate('Right', false);
                         }
                     }
