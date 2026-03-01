@@ -50,13 +50,7 @@ export function useLogViewerKeyboard({
             }
         }
 
-        // Space => Bookmark
-        if (e.code === 'Space') {
-            if (activeLineIndex !== undefined && activeLineIndex >= 0) {
-                e.preventDefault();
-                toggleBookmark(activeLineIndex);
-            }
-        }
+        // Space => Bookmark (Removed: handled globally by useLogShortcuts)
 
         // Ctrl+C => Copy
         if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {

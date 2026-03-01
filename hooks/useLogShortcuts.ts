@@ -138,7 +138,7 @@ export function useLogShortcuts({
             }
 
             // Space => Bookmark Toggle (Global)
-            if (e.code === 'Space') {
+            if (e.key === ' ' || e.code === 'Space') {
                 // Ignore if typing in an input
                 const target = e.target as HTMLElement;
                 if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
@@ -146,7 +146,16 @@ export function useLogShortcuts({
                 }
 
                 e.preventDefault();
-                const targetPane = (isDualView && activeLineIndexRight !== -1) ? 'right' : 'left';
+
+                // Determine active pane based on focus
+                let targetPane: 'left' | 'right' = 'left';
+                if (isDualView) {
+                    const activeEl = document.activeElement;
+                    if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
+                        targetPane = 'right';
+                    }
+                }
+
                 const currentIndex = targetPane === 'right' ? activeLineIndexRight : activeLineIndexLeft;
 
                 if (currentIndex !== -1) {
@@ -189,7 +198,7 @@ export function useLogShortcuts({
         };
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [isDualView, rawContextOpen, activeLineIndexRight, activeLineIndexLeft, logViewPreferences, isActive, handleZoomIn, handleZoomOut, isTransactionDrawerOpen, setRawContextOpen, setIsTransactionDrawerOpen, setActiveLineIndexLeft, setActiveLineIndexRight, setSelectedIndicesLeft, setSelectedIndicesRight, leftViewerRef, rightViewerRef, isPerfOpenLeft, isPerfOpenRight]);
+    }, [isDualView, rawContextOpen, activeLineIndexRight, activeLineIndexLeft, logViewPreferences, isActive, handleZoomIn, handleZoomOut, isTransactionDrawerOpen, setRawContextOpen, setIsTransactionDrawerOpen, setActiveLineIndexLeft, setActiveLineIndexRight, setSelectedIndicesLeft, setSelectedIndicesRight, leftViewerRef, rightViewerRef, isPerfOpenLeft, isPerfOpenRight, toggleLeftBookmark, toggleRightBookmark]);
 
     // Handle Shift+C (Global Selection Extension)
     useEffect(() => {
