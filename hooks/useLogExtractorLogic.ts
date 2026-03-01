@@ -10,6 +10,7 @@ import { useSelectedRuleId } from './useSelectedRuleId';
 import { refineGroups, assembleIncludeGroups } from '../utils/filterGroupUtils';
 import { useTizenConnection } from './useTizenConnection';
 import { useLogShortcuts } from './useLogShortcuts';
+import { useLogFileOperations } from './useLogFileOperations';
 
 
 
@@ -223,190 +224,9 @@ export const useLogExtractorLogic = ({
         leftWorkerRef.current.postMessage({ type: 'ANALYZE_SPAM' });
     }, [leftFilteredCount]);
 
-    // Initialize Left Worker & Load State
-
-    // Initialize Left Worker & Load State
-    useEffect(() => {
-        let isStale = false;
-        leftWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
-
-        let cleanupListeners: (() => void)[] = [];
-
-        // Load saved state or initial file
-        const loadState = async () => {
-            // ✅ Priority 1: Direct File Object (from Archive or Drag&Drop)
-            if (initialFile) {
-                if (isStale) return;
-                console.log('[useLog] Loading from initialFile object:', initialFile.name);
-                setLeftFileName(initialFile.name);
-                setLeftFilePath((initialFile as any).path || '');
-
-                setLeftWorkerReady(false);
-                setLeftIndexingProgress(0);
-                setLeftTotalLines(0);
-                setLeftFilteredCount(0);
-
-                leftWorkerRef.current?.postMessage({ type: 'INIT_FILE', payload: initialFile });
-                return;
-            }
-
-            // Priority 2: Saved State (Persistence)
-            const savedStateStr = await getStoredValue(`tabState_${tabId}`);
-            if (isStale) return;
-
-            let targetPath = initialFilePath;
-            let savedScrollTop = 0;
-            let savedSelectedLine = -1;
-
-            if (savedStateStr) {
-                try {
-                    const saved = JSON.parse(savedStateStr);
-                    if (saved.scrollTop) savedScrollTop = saved.scrollTop;
-                    if (saved.selectedLine) savedSelectedLine = saved.selectedLine;
-                    if (saved.filePath && !initialFilePath) targetPath = saved.filePath;
-                } catch (e) { }
-            }
-
-            if (isStale) return;
-
-            if (savedScrollTop > 0) pendingScrollTop.current = savedScrollTop;
-            if (savedSelectedLine >= 0) {
-                setActiveLineIndexLeft(savedSelectedLine);
-                setSelectedIndicesLeft(new Set([savedSelectedLine]));
-            }
-
-            if (targetPath) {
-                loadFile(targetPath);
-            }
-        };
-
-        const loadFile = (targetPath: string) => {
-            if (isStale) return;
-            if (window.electronAPI) {
-                const fileName = targetPath.split(/[/\\]/).pop() || 'log_file.log';
-                setLeftFileName(fileName);
-                setLeftFilePath(targetPath);
-
-                if (onFileChange) {
-                    onFileChange(targetPath);
-                }
-
-                setLeftWorkerReady(false);
-                setLeftIndexingProgress(0);
-                setLeftTotalLines(0);
-                setLeftFilteredCount(0);
-
-                if (window.electronAPI.streamReadFile) {
-                    // Generate unique request ID
-                    const requestId = `stream-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-                    activeStreamRequestId.current = requestId;
-
-                    const unsubChunk = window.electronAPI.onFileChunk((data: any) => {
-                        if (isStale || data.requestId !== activeStreamRequestId.current) return;
-                        leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: data.chunk });
-                    });
-                    const unsubComplete = window.electronAPI.onFileStreamComplete((data: any) => {
-                        if (isStale || data?.requestId !== activeStreamRequestId.current) return;
-                    });
-                    cleanupListeners.push(unsubChunk, unsubComplete);
-
-                    // Start actual read
-                    leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM', payload: { isLive: false } });
-                    window.electronAPI.streamReadFile(targetPath, requestId).catch(e => {
-                        if (isStale) return;
-                        // Fallback to legacy readFile
-                        window.electronAPI.readFile(targetPath).then(content => {
-                            if (isStale) return;
-                            const file = new File([content], fileName);
-                            (file as any).path = targetPath;
-                            leftWorkerRef.current?.postMessage({ type: 'INIT_FILE', payload: file });
-                        });
-                    });
-                } else {
-                    window.electronAPI.readFile(targetPath).then(content => {
-                        if (isStale) return;
-                        const file = new File([content], fileName);
-                        (file as any).path = targetPath;
-                        leftWorkerRef.current?.postMessage({ type: 'INIT_FILE', payload: file });
-                    });
-                }
-            }
-        };
-
-        loadState();
-
-        leftWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
-            if (isStale) return;
-            const { type, payload, requestId } = e.data;
-            // ... (rest of onmessage logic)
-            if (type === 'ERROR') console.error('[useLog] Worker Error:', payload.error);
-            if (type === 'INDEX_COMPLETE') console.log('[useLog-Left] Worker INDEX_COMPLETE:', payload);
-            if (type === 'FILTER_COMPLETE') console.log('[useLog-Left] Worker FILTER_COMPLETE matches:', payload.matchCount, 'total:', payload.totalLines);
-
-            if (requestId && leftPendingRequests.current.has(requestId)) {
-                const resolve = leftPendingRequests.current.get(requestId);
-                if (type === 'LINES_DATA') {
-                    resolve && resolve(payload.lines);
-                } else if (type === 'FIND_RESULT') {
-                    resolve && resolve(payload);
-                } else if (type === 'FULL_TEXT_DATA') {
-                    resolve && resolve(payload);
-                }
-                leftPendingRequests.current.delete(requestId);
-                return;
-            }
-
-            switch (type) {
-                case 'STATUS_UPDATE':
-                    if (payload.status === 'indexing') setLeftIndexingProgress(payload.progress);
-                    if (payload.status === 'ready') setLeftWorkerReady(true);
-                    break;
-                case 'INDEX_COMPLETE':
-                    setLeftTotalLines(payload.totalLines);
-                    setLeftIndexingProgress(100); // Ensure 100% on completion
-                    break;
-                case 'FILTER_COMPLETE':
-                    setLeftFilteredCount(payload.matchCount);
-                    if (typeof payload.totalLines === 'number') setLeftTotalLines(payload.totalLines);
-                    if (payload.visualBookmarks) {
-                        setLeftBookmarks(new Set(payload.visualBookmarks));
-                    }
-                    setLeftWorkerReady(true);
-                    // 💡 성능 히트맵 요청 (500 포인트)
-                    leftWorkerRef.current?.postMessage({ type: 'GET_PERFORMANCE_HEATMAP', payload: { points: 500 } });
-                    break;
-                case 'HEATMAP_DATA':
-                    console.log(`[useLog] Received HEATMAP_DATA:`, {
-                        points: payload.heatmap?.length,
-                        hasData: payload.heatmap?.some((v: number) => v > 0)
-                    });
-                    setLeftPerformanceHeatmap(payload.heatmap || []);
-                    break;
-                case 'BOOKMARKS_UPDATED':
-                    if (payload.visualBookmarks) {
-                        setLeftBookmarks(new Set(payload.visualBookmarks));
-                    }
-                    break;
-                case 'ERROR':
-                    console.error('Left Worker Error:', payload.error);
-                    break;
-                case 'PERF_ANALYSIS_RESULT':
-                    setLeftPerfAnalysisResult(payload);
-                    setIsAnalyzingPerformanceLeft(false);
-                    break;
-                case 'SPAM_ANALYSIS_RESULT':
-                    setSpamResultsLeft(payload.results || []);
-                    setIsAnalyzingSpam(false);
-                    break;
-            }
-        };
-
-        return () => {
-            isStale = true;
-            leftWorkerRef.current?.terminate();
-            cleanupListeners.forEach(cleanup => cleanup());
-        };
-    }, []); // Run once on mount
+    // Snapshot for Drag Operations (to support shrinking selection during drag)
+    const selectionSnapshotLeftRef = useRef<Set<number>>(new Set());
+    const selectionSnapshotRightRef = useRef<Set<number>>(new Set());
 
     const handleJumpToRangeLeft = useCallback((start: number, end: number) => {
         setLeftLineHighlightRanges([{ start, end, color: 'rgba(99, 102, 241, 0.3)' }]);
@@ -462,75 +282,6 @@ export const useLogExtractorLogic = ({
             }, 100);
         }
     }, [leftFilteredCount]);
-
-    // Initialize Right Worker
-    useEffect(() => {
-        let isStale = false;
-        rightWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
-
-        rightWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
-            if (isStale) return;
-            const { type, payload, requestId } = e.data;
-            // ...
-
-            if (requestId && rightPendingRequests.current.has(requestId)) {
-                const resolve = rightPendingRequests.current.get(requestId);
-                if (type === 'LINES_DATA') {
-                    resolve && resolve(payload.lines);
-                } else if (type === 'FIND_RESULT') {
-                    resolve && resolve(payload);
-                } else if (type === 'FULL_TEXT_DATA') {
-                    resolve && resolve(payload);
-                }
-                rightPendingRequests.current.delete(requestId);
-                return;
-            }
-
-            switch (type) {
-                case 'STATUS_UPDATE':
-                    if (payload.status === 'indexing') setRightIndexingProgress(payload.progress);
-                    if (payload.status === 'ready') setRightWorkerReady(true);
-                    break;
-                case 'INDEX_COMPLETE':
-                    setRightTotalLines(payload.totalLines);
-                    setRightIndexingProgress(100);
-                    break;
-                case 'FILTER_COMPLETE':
-                    setRightFilteredCount(payload.matchCount);
-                    if (typeof payload.totalLines === 'number') setRightTotalLines(payload.totalLines);
-                    if (payload.visualBookmarks) {
-                        setRightBookmarks(new Set(payload.visualBookmarks));
-                    }
-                    setRightWorkerReady(true);
-                    setActiveLineIndexRight(-1);
-                    setSelectedIndicesRight(new Set());
-                    // 💡 성능 히트맵 요청 (500 포인트)
-                    rightWorkerRef.current?.postMessage({ type: 'GET_PERFORMANCE_HEATMAP', payload: { points: 500 } });
-                    break;
-                case 'HEATMAP_DATA':
-                    console.log(`[useLog-Right] Received HEATMAP_DATA:`, {
-                        points: payload.heatmap?.length,
-                        hasData: payload.heatmap?.some((v: number) => v > 0)
-                    });
-                    setRightPerformanceHeatmap(payload.heatmap || []);
-                    break;
-                case 'BOOKMARKS_UPDATED':
-                    if (payload.visualBookmarks) {
-                        setRightBookmarks(new Set(payload.visualBookmarks));
-                    }
-                    break;
-                case 'PERF_ANALYSIS_RESULT':
-                    setRightPerfAnalysisResult(payload);
-                    setIsAnalyzingPerformanceRight(false);
-                    break;
-            }
-        };
-
-        return () => {
-            isStale = true;
-            rightWorkerRef.current?.terminate();
-        };
-    }, []);
 
 
 
@@ -617,6 +368,170 @@ export const useLogExtractorLogic = ({
 
     const lastFilterHashLeft = useRef<string>('');
     const lastFilterHashRight = useRef<string>('');
+
+    // === Phase 2: File Operations & Persistence (Extracted) ===
+    const { loadState, handleLeftFileChange, handleRightFileChange } = useLogFileOperations({
+        tabId, initialFilePath, initialFile, onFileChange,
+        leftWorkerRef, rightWorkerRef, leftViewerRef, tizenSocket,
+        activeStreamRequestId, pendingScrollTop,
+        setLeftFileName, setLeftFilePath, setLeftWorkerReady, setLeftIndexingProgress,
+        setLeftTotalLines, setLeftFilteredCount, setActiveLineIndexLeft, setSelectedIndicesLeft,
+        setLeftBookmarks, lastFilterHashLeft,
+        setRightFileName, setRightWorkerReady, setRightIndexingProgress,
+        setRightTotalLines, setRightFilteredCount, setRightBookmarks, lastFilterHashRight,
+        leftFilePath, activeLineIndexLeft
+    });
+
+    // Initialize Left Worker & Load State
+    useEffect(() => {
+        let isStale = false;
+        leftWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
+
+        let cleanupListeners: (() => void)[] = [];
+
+        loadState();
+
+        leftWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
+            if (isStale) return;
+            const { type, payload, requestId } = e.data;
+            // ... (rest of onmessage logic)
+            if (type === 'ERROR') console.error('[useLog] Worker Error:', payload.error);
+            if (type === 'INDEX_COMPLETE') console.log('[useLog-Left] Worker INDEX_COMPLETE:', payload);
+            if (type === 'FILTER_COMPLETE') console.log('[useLog-Left] Worker FILTER_COMPLETE matches:', payload.matchCount, 'total:', payload.totalLines);
+
+            if (requestId && leftPendingRequests.current.has(requestId)) {
+                const resolve = leftPendingRequests.current.get(requestId);
+                if (type === 'LINES_DATA') {
+                    resolve && resolve(payload.lines);
+                } else if (type === 'FIND_RESULT') {
+                    resolve && resolve(payload);
+                } else if (type === 'FULL_TEXT_DATA') {
+                    resolve && resolve(payload);
+                }
+                leftPendingRequests.current.delete(requestId);
+                return;
+            }
+
+            switch (type) {
+                case 'STATUS_UPDATE':
+                    if (payload.status === 'indexing') setLeftIndexingProgress(payload.progress);
+                    if (payload.status === 'ready') setLeftWorkerReady(true);
+                    break;
+                case 'INDEX_COMPLETE':
+                    setLeftTotalLines(payload.totalLines);
+                    setLeftIndexingProgress(100); // Ensure 100% on completion
+                    break;
+                case 'FILTER_COMPLETE':
+                    setLeftFilteredCount(payload.matchCount);
+                    if (typeof payload.totalLines === 'number') setLeftTotalLines(payload.totalLines);
+                    if (payload.visualBookmarks) {
+                        setLeftBookmarks(new Set(payload.visualBookmarks));
+                    }
+                    setLeftWorkerReady(true);
+                    // 💡 성능 히트맵 요청 (500 포인트)
+                    leftWorkerRef.current?.postMessage({ type: 'GET_PERFORMANCE_HEATMAP', payload: { points: 500 } });
+                    break;
+                case 'HEATMAP_DATA':
+                    console.log(`[useLog] Received HEATMAP_DATA:`, {
+                        points: payload.heatmap?.length,
+                        hasData: payload.heatmap?.some((v: number) => v > 0)
+                    });
+                    setLeftPerformanceHeatmap(payload.heatmap || []);
+                    break;
+                case 'BOOKMARKS_UPDATED':
+                    if (payload.visualBookmarks) {
+                        setLeftBookmarks(new Set(payload.visualBookmarks));
+                    }
+                    break;
+                case 'ERROR':
+                    console.error('Left Worker Error:', payload.error);
+                    break;
+                case 'PERF_ANALYSIS_RESULT':
+                    setLeftPerfAnalysisResult(payload);
+                    setIsAnalyzingPerformanceLeft(false);
+                    break;
+                case 'SPAM_ANALYSIS_RESULT':
+                    setSpamResultsLeft(payload.results || []);
+                    setIsAnalyzingSpam(false);
+                    break;
+            }
+        };
+
+        return () => {
+            isStale = true;
+            leftWorkerRef.current?.terminate();
+            cleanupListeners.forEach(cleanup => cleanup());
+        };
+    }, []); // Run once on mount
+
+    // Initialize Right Worker
+    useEffect(() => {
+        let isStale = false;
+        rightWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
+
+        rightWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
+            if (isStale) return;
+            const { type, payload, requestId } = e.data;
+            // ...
+
+            if (requestId && rightPendingRequests.current.has(requestId)) {
+                const resolve = rightPendingRequests.current.get(requestId);
+                if (type === 'LINES_DATA') {
+                    resolve && resolve(payload.lines);
+                } else if (type === 'FIND_RESULT') {
+                    resolve && resolve(payload);
+                } else if (type === 'FULL_TEXT_DATA') {
+                    resolve && resolve(payload);
+                }
+                rightPendingRequests.current.delete(requestId);
+                return;
+            }
+
+            switch (type) {
+                case 'STATUS_UPDATE':
+                    if (payload.status === 'indexing') setRightIndexingProgress(payload.progress);
+                    if (payload.status === 'ready') setRightWorkerReady(true);
+                    break;
+                case 'INDEX_COMPLETE':
+                    setRightTotalLines(payload.totalLines);
+                    setRightIndexingProgress(100);
+                    break;
+                case 'FILTER_COMPLETE':
+                    setRightFilteredCount(payload.matchCount);
+                    if (typeof payload.totalLines === 'number') setRightTotalLines(payload.totalLines);
+                    if (payload.visualBookmarks) {
+                        setRightBookmarks(new Set(payload.visualBookmarks));
+                    }
+                    setRightWorkerReady(true);
+                    setActiveLineIndexRight(-1);
+                    setSelectedIndicesRight(new Set());
+                    // 💡 성능 히트맵 요청 (500 포인트)
+                    rightWorkerRef.current?.postMessage({ type: 'GET_PERFORMANCE_HEATMAP', payload: { points: 500 } });
+                    break;
+                case 'HEATMAP_DATA':
+                    console.log(`[useLog-Right] Received HEATMAP_DATA:`, {
+                        points: payload.heatmap?.length,
+                        hasData: payload.heatmap?.some((v: number) => v > 0)
+                    });
+                    setRightPerformanceHeatmap(payload.heatmap || []);
+                    break;
+                case 'BOOKMARKS_UPDATED':
+                    if (payload.visualBookmarks) {
+                        setRightBookmarks(new Set(payload.visualBookmarks));
+                    }
+                    break;
+                case 'PERF_ANALYSIS_RESULT':
+                    setRightPerfAnalysisResult(payload);
+                    setIsAnalyzingPerformanceRight(false);
+                    break;
+            }
+        };
+
+        return () => {
+            isStale = true;
+            rightWorkerRef.current?.terminate();
+        };
+    }, []);
 
 
     // Auto-Apply Filter (Left)
@@ -723,12 +638,7 @@ export const useLogExtractorLogic = ({
     const selectedIndicesLeftRef = useRef<Set<number>>(new Set());
     const selectedIndicesRightRef = useRef<Set<number>>(new Set());
 
-    // Snapshot for Drag Operations (to support shrinking selection during drag)
-    const selectionSnapshotLeftRef = useRef<Set<number>>(new Set());
-    const selectionSnapshotRightRef = useRef<Set<number>>(new Set());
 
-    useEffect(() => { selectedIndicesLeftRef.current = selectedIndicesLeft; }, [selectedIndicesLeft]);
-    useEffect(() => { selectedIndicesRightRef.current = selectedIndicesRight; }, [selectedIndicesRight]);
 
     // Selection Helpers
     const handleLineClick = useCallback((pane: 'left' | 'right', index: number, isShift: boolean, isCtrl: boolean) => {
@@ -796,36 +706,7 @@ export const useLogExtractorLogic = ({
 
 
 
-    const handleLeftFileChange = useCallback((file: File) => {
-        if (!leftWorkerRef.current) return;
-        let path = '';
-        if (window.electronAPI && window.electronAPI.getFilePath) {
-            path = window.electronAPI.getFilePath(file);
-        } else {
-            path = ('path' in file && (file as any).path) || '';
-        }
 
-        if (path) {
-            setStoredValue(`tabState_${tabId}`, JSON.stringify({
-                filePath: path,
-                selectedLine: -1,
-                scrollTop: 0
-            }));
-            if (onFileChange) onFileChange(path);
-        }
-
-        setLeftFileName(file.name);
-        setLeftWorkerReady(false);
-        setLeftIndexingProgress(0);
-        setLeftTotalLines(0);
-        setLeftFilteredCount(0);
-        // Reset selection
-        setActiveLineIndexLeft(-1);
-        setSelectedIndicesLeft(new Set());
-        setLeftBookmarks(new Set()); // Clear bookmarks
-        lastFilterHashLeft.current = '';
-        leftWorkerRef.current.postMessage({ type: 'INIT_FILE', payload: file });
-    }, [tabId, onFileChange]);
 
     const requestLeftLines = useCallback((startIndex: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve, reject) => {
@@ -853,17 +734,7 @@ export const useLogExtractorLogic = ({
         });
     }, []);
 
-    const handleRightFileChange = useCallback((file: File) => {
-        if (!rightWorkerRef.current) return;
-        setRightFileName(file.name);
-        setRightWorkerReady(false);
-        setRightIndexingProgress(0);
-        setRightTotalLines(0);
-        setRightFilteredCount(0);
-        setRightBookmarks(new Set()); // Clear bookmarks
-        lastFilterHashRight.current = '';
-        rightWorkerRef.current.postMessage({ type: 'INIT_FILE', payload: file });
-    }, []);
+
 
     const requestRightLines = useCallback((startIndex: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve, reject) => {
@@ -1021,29 +892,7 @@ export const useLogExtractorLogic = ({
         lastFilterHashRight.current = '';
     }, []);
 
-    // Periodic State Persistence
-    const lastSavedState = useRef<string>('');
-    useEffect(() => {
-        // Do not save state if no file path (e.g. SDB/SSH stream)
-        if (!leftFilePath || tizenSocket) return;
 
-        const timer = setInterval(() => {
-            const scrollTop = leftViewerRef.current?.getScrollTop() || 0;
-            const state = {
-                filePath: leftFilePath,
-                selectedLine: activeLineIndexLeft,
-                scrollTop
-            };
-
-            // Check if state changed to avoid unnecessary writes
-            const newStateStr = JSON.stringify(state);
-            if (lastSavedState.current !== newStateStr) {
-                lastSavedState.current = newStateStr;
-                setStoredValue(`tabState_${tabId}`, newStateStr);
-            }
-        }, 1000); // 1s interval
-        return () => clearInterval(timer);
-    }, [tabId, leftFilePath, activeLineIndexLeft]);
 
     const handleCopyLogs = useCallback(async (paneId: 'left' | 'right') => {
         const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
