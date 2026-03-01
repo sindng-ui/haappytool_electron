@@ -145,6 +145,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     const [stableScrollLeft, setStableScrollLeft] = useState(0);
     const [stableScrollWidth, setStableScrollWidth] = useState(0); // ✅ NEW: Dynamic Width
     const [viewportHeight, setViewportHeight] = useState(0);
+    const [hoveredIndex, setHoveredIndex] = useState<number>(-1); // ✅ NEW: Hover Tracking
     const [cachedLines, setCachedLines] = useState<Map<number, CachedLine>>(new Map());
     const pendingIndices = useRef<Set<number>>(new Set());
     const isDraggingRef = useRef(false); // ✅ 상태가 아닌 Ref로 관리하여 재렌더링 방지
@@ -423,8 +424,22 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
         // --- 1. RENDER BACKGROUND LAYER ---
         bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        bgCtx.fillStyle = '#020617'; // Slate-950
+        bgCtx.fillStyle = '#020617'; // Slate-950 (Main Content Background)
         bgCtx.fillRect(0, 0, width, height);
+
+        // --- 0.1 RENDER GUTTER BACKGROUND (Z-DEPTH) ---
+        // 형님, 왼쪽 영역을 더 짙게 깔아서 본문과 확실히 분리해줍니다.
+        bgCtx.fillStyle = '#010410'; // Darker than Slate-950
+        bgCtx.fillRect(0, 0, GUTTER_TOTAL_WIDTH, height);
+
+        // --- 0.2 RENDER VERTICAL DIVIDER ---
+        // 형님, 요청하신 세로 구분선입니다! 옅은 그라데이션 느낌의 선을 추가합니다.
+        bgCtx.strokeStyle = 'rgba(71, 85, 105, 0.5)'; // Slate-500 with opacity
+        bgCtx.lineWidth = 1;
+        bgCtx.beginPath();
+        bgCtx.moveTo(GUTTER_TOTAL_WIDTH, 0);
+        bgCtx.lineTo(GUTTER_TOTAL_WIDTH, height);
+        bgCtx.stroke();
 
         for (let i = startIdx; i <= endIdx; i++) {
             const y = (i * rowHeight) - currentScrollTop;
@@ -433,6 +448,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             let bgColor: string | null = null;
             if (selectedIndices?.has(i)) bgColor = selectionColor;
             else if (activeLineIndex === i) bgColor = activeColor;
+            else if (hoveredIndex === i) bgColor = 'rgba(255, 255, 255, 0.04)'; // ✅ NEW: Subtle Hover Effect
             // else if (bookmarks.has(i)) bgColor = bookmarkColor; // 👈 Removed: No more full-line bookmark background
             else {
                 const rangeMatch = compiledLineHighlightRanges.find(r => i >= r.start && i <= r.end);
@@ -523,12 +539,12 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
             if (lineData) {
                 ctx.font = gutterFont;
-                // #Index - 🎯 형님, 콤마 제거 요청 반영!
-                ctx.fillStyle = gutterColor;
+                // #Index - 🎯 형님, 인덱스는 조금 더 어둡게!
+                ctx.fillStyle = '#475569'; // Slate-500
                 ctx.fillText(`#${i + 1}`, GUTTER_STAR_WIDTH, centerY);
 
-                // Line Number - Yellow only if bookmarked
-                ctx.fillStyle = bookmarks.has(i) ? '#fef08a' : gutterColor;
+                // Line Number - Yellow only if bookmarked, else neutral-400
+                ctx.fillStyle = bookmarks.has(i) ? '#fef08a' : '#94a3b8'; // neutral-400
                 ctx.fillText(String(lineData.lineNum), GUTTER_STAR_WIDTH + GUTTER_INDEX_WIDTH, centerY);
             }
         }
@@ -707,7 +723,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     useLayoutEffect(() => {
         render();
         renderHeatmap();
-    }, [render, cachedLines, selectedIndices, activeLineIndex, bookmarks, performanceHeatmap, isActive]);
+    }, [render, cachedLines, selectedIndices, activeLineIndex, hoveredIndex, bookmarks, performanceHeatmap, isActive]);
 
     // ✅ Dynamic Width Calculation (Sample based for performance)
     useEffect(() => {
@@ -764,6 +780,24 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 onAtBottomChange(isAtBottom);
             }
         }, 16);
+    };
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!scrollContainerRef.current) return;
+        const rect = scrollContainerRef.current.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const currentTop = scrollTopRef.current;
+        const index = Math.floor((currentTop + y) / rowHeight);
+
+        if (index >= 0 && index < totalCount) {
+            if (hoveredIndex !== index) setHoveredIndex(index);
+        } else {
+            if (hoveredIndex !== -1) setHoveredIndex(-1);
+        }
+    };
+
+    const handleMouseLeave = () => {
+        if (hoveredIndex !== -1) setHoveredIndex(-1);
     };
 
     const visibleLines = useMemo(() => {
@@ -930,6 +964,8 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 className="absolute inset-0 overflow-auto scrollbar-thin scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-600 interaction-scroll-layer custom-scrollbar outline-none"
                 style={{ zIndex: 10 }}
                 onScroll={handleScroll}
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
                 onKeyDown={onKeyDown}
             >
                 <div style={{
