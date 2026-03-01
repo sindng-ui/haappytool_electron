@@ -1023,7 +1023,11 @@ export const useLogExtractorLogic = ({
         setActiveLineIndexLeft,
         setActiveLineIndexRight,
         activeLineIndexAnchorLeft: activeLineIndexLeft, // Using state as anchor
-        activeLineIndexAnchorRight: activeLineIndexRight
+        activeLineIndexAnchorRight: activeLineIndexRight,
+        isPerfOpenLeft: !!leftPerfAnalysisResult || isAnalyzingPerformanceLeft,
+        isPerfOpenRight: !!rightPerfAnalysisResult || isAnalyzingPerformanceRight,
+        toggleLeftBookmark,
+        toggleRightBookmark
     });
 
 

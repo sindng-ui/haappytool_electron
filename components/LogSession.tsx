@@ -816,109 +816,12 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 (() => {
                     React.useEffect(() => {
                         const handleGlobalKeyDown = (e: KeyboardEvent) => {
-                            // 1. ESC: Close Transaction Drawer (Highest priority, works even if not "active" tab context)
-                            if (e.key === 'Escape') {
-                                if (isTransactionDrawerOpen) {
-                                    setIsTransactionDrawerOpen(false);
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    return;
-                                }
-                            }
+                            // 1. ESC: Close Transaction Drawer - Handled by useLogShortcuts
+                            // 2. F3/F4: Bookmark Navigation - Handled by useLogShortcuts
+                            // 3. Space: Bookmark Toggle - Handled by useLogShortcuts
 
                             // If Save Dialog or Archive Viewer is open, disable all shortcuts to allow typing/local shortcuts
                             if (isSaveDialogOpen || isViewerOpen) return;
-
-                            // All other shortcuts require the session to be active
-                            if (!isActive) return;
-
-                            // F3: Next Bookmark, F4 (or Shift+F3): Prev Bookmark
-                            if (e.key === 'F3' || e.key === 'F4') {
-                                // If inside input, ignore? No, usually F3 works globally unless consumed.
-                                e.preventDefault();
-                                e.stopPropagation();
-
-                                if (!isActive) return;
-
-                                if (!isDualView && e.shiftKey) return;
-
-                                let targetPane = 'left';
-                                if (e.shiftKey) {
-                                    if (!isDualView) return;
-                                    targetPane = 'right';
-                                } else {
-                                    targetPane = 'left';
-                                }
-
-                                const isPrev = e.key === 'F3'; // F3 (and Shift+F3) = Prev, F4 (and Shift+F4) = Next
-                                const st = stateRef.current;
-                                const bookmarks = targetPane === 'right' ? st.rightBookmarks : st.leftBookmarks;
-                                const currentLine = targetPane === 'right' ? st.activeLineIndexRight : st.activeLineIndexLeft;
-
-                                const sorted = Array.from(bookmarks).sort((a, b) => a - b);
-                                if (sorted.length === 0) return;
-
-                                let targetIdx = -1;
-
-                                if (isPrev) {
-                                    // Find largest bookmark < currentLine
-                                    const prevs = sorted.filter(b => b < currentLine);
-                                    if (prevs.length > 0) targetIdx = prevs[prevs.length - 1];
-                                    else targetIdx = sorted[sorted.length - 1]; // Wrap to last
-                                } else {
-                                    // Find smallest bookmark > currentLine
-                                    const nexts = sorted.filter(b => b > currentLine);
-                                    if (nexts.length > 0) targetIdx = nexts[0];
-                                    else targetIdx = sorted[0]; // Wrap to first
-                                }
-
-                                if (targetIdx !== -1) {
-                                    jumpToGlobalLine(targetIdx, targetPane as 'left' | 'right');
-                                }
-
-                                return;
-                            }
-
-
-                            if (e.code === 'Space') {
-                                console.log('[LogSession] Space Key Pressed', { isActive, target: (e.target as HTMLElement).tagName });
-
-                                if (!isActive) {
-                                    console.log('[LogSession] Ignored: Not Active');
-                                    return;
-                                }
-
-                                // Ignore if typing in an input
-                                const target = e.target as HTMLElement;
-                                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-                                    console.log('[LogSession] Ignored: Input Focus');
-                                    return;
-                                }
-
-                                e.preventDefault();
-                                e.stopPropagation();
-
-                                let targetPane = 'left';
-                                if (isDualView) {
-                                    const activeEl = document.activeElement;
-                                    if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
-                                        targetPane = 'right';
-                                    }
-                                }
-
-                                const st = stateRef.current;
-                                const currentIndex = targetPane === 'right' ? st.activeLineIndexRight : st.activeLineIndexLeft;
-
-                                console.log(`[LogSession] Attempting Toggle: Pane=${targetPane}, Index=${currentIndex}`);
-
-                                if (currentIndex !== -1) {
-                                    if (targetPane === 'right') toggleRightBookmark(currentIndex);
-                                    else toggleLeftBookmark(currentIndex);
-                                } else {
-                                    console.warn('[LogSession] No line selected to bookmark');
-                                }
-                                return;
-                            }
 
 
                             if (e.key === 'PageDown' || e.key === 'PageUp') {

@@ -26,6 +26,10 @@ interface UseLogShortcutsProps {
     logViewPreferences: LogViewPreferences;
     setActiveLineIndexLeft: (idx: number) => void;
     setActiveLineIndexRight: (idx: number) => void;
+    isPerfOpenLeft?: boolean;
+    isPerfOpenRight?: boolean;
+    toggleLeftBookmark: (idx: number) => void;
+    toggleRightBookmark: (idx: number) => void;
 }
 
 export function useLogShortcuts({
@@ -49,7 +53,11 @@ export function useLogShortcuts({
     handleZoomOut,
     logViewPreferences,
     setActiveLineIndexLeft,
-    setActiveLineIndexRight
+    setActiveLineIndexRight,
+    isPerfOpenLeft,
+    isPerfOpenRight,
+    toggleLeftBookmark,
+    toggleRightBookmark
 }: UseLogShortcutsProps) {
     // Global Keyboard Event Listener
     useEffect(() => {
@@ -89,21 +97,33 @@ export function useLogShortcuts({
                 }
             }
 
-            // Bookmark Navigation
+            // Bookmark Navigation (Disabled when any Perf Dashboard is active for the target pane)
             if (e.key === 'F3') {
-                e.preventDefault();
-                if (e.shiftKey && isDualView) {
-                    rightViewerRef.current?.jumpToPrevBookmark();
+                const targetPerfActive = (e.shiftKey && isDualView) ? isPerfOpenRight : isPerfOpenLeft;
+                if (!targetPerfActive) {
+                    e.preventDefault();
+                    if (e.shiftKey && isDualView) {
+                        rightViewerRef.current?.jumpToPrevBookmark();
+                    } else {
+                        leftViewerRef.current?.jumpToPrevBookmark();
+                    }
                 } else {
-                    leftViewerRef.current?.jumpToPrevBookmark();
+                    // Let PerfDashboard handle it
+                    console.log('[useLogShortcuts] F3 Ignored - Perf Dashboard Active');
                 }
             }
             if (e.key === 'F4') {
-                e.preventDefault();
-                if (e.shiftKey && isDualView) {
-                    rightViewerRef.current?.jumpToNextBookmark();
+                const targetPerfActive = (e.shiftKey && isDualView) ? isPerfOpenRight : isPerfOpenLeft;
+                if (!targetPerfActive) {
+                    e.preventDefault();
+                    if (e.shiftKey && isDualView) {
+                        rightViewerRef.current?.jumpToNextBookmark();
+                    } else {
+                        leftViewerRef.current?.jumpToNextBookmark();
+                    }
                 } else {
-                    leftViewerRef.current?.jumpToNextBookmark();
+                    // Let PerfDashboard handle it
+                    console.log('[useLogShortcuts] F4 Ignored - Perf Dashboard Active');
                 }
             }
             if (e.key === 'Escape') {
@@ -114,6 +134,24 @@ export function useLogShortcuts({
                 if (isTransactionDrawerOpen) {
                     e.preventDefault();
                     setIsTransactionDrawerOpen(false);
+                }
+            }
+
+            // Space => Bookmark Toggle (Global)
+            if (e.code === 'Space') {
+                // Ignore if typing in an input
+                const target = e.target as HTMLElement;
+                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+                    return;
+                }
+
+                e.preventDefault();
+                const targetPane = (isDualView && activeLineIndexRight !== -1) ? 'right' : 'left';
+                const currentIndex = targetPane === 'right' ? activeLineIndexRight : activeLineIndexLeft;
+
+                if (currentIndex !== -1) {
+                    if (targetPane === 'right') toggleRightBookmark(currentIndex);
+                    else toggleLeftBookmark(currentIndex);
                 }
             }
 
@@ -151,7 +189,7 @@ export function useLogShortcuts({
         };
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [isDualView, rawContextOpen, activeLineIndexRight, activeLineIndexLeft, logViewPreferences, isActive, handleZoomIn, handleZoomOut, isTransactionDrawerOpen, setRawContextOpen, setIsTransactionDrawerOpen, setActiveLineIndexLeft, setActiveLineIndexRight, setSelectedIndicesLeft, setSelectedIndicesRight, leftViewerRef, rightViewerRef]);
+    }, [isDualView, rawContextOpen, activeLineIndexRight, activeLineIndexLeft, logViewPreferences, isActive, handleZoomIn, handleZoomOut, isTransactionDrawerOpen, setRawContextOpen, setIsTransactionDrawerOpen, setActiveLineIndexLeft, setActiveLineIndexRight, setSelectedIndicesLeft, setSelectedIndicesRight, leftViewerRef, rightViewerRef, isPerfOpenLeft, isPerfOpenRight]);
 
     // Handle Shift+C (Global Selection Extension)
     useEffect(() => {
