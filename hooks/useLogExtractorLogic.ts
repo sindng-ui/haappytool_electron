@@ -5,19 +5,14 @@ import { LogRule, AppSettings, LogWorkerResponse, LogViewPreferences, SpamLogRes
 import { LogViewerHandle } from '../components/LogViewer/LogViewerPane';
 import { AnalysisResult } from '../utils/perfAnalysis';
 import { Socket } from 'socket.io-client';
+import { useLogViewPreferences, defaultLogViewPreferences } from './useLogViewPreferences';
+import { useSelectedRuleId } from './useSelectedRuleId';
+import { refineGroups, assembleIncludeGroups } from '../utils/filterGroupUtils';
+import { useTizenConnection } from './useTizenConnection';
 
-const defaultLogViewPreferences: LogViewPreferences = {
-    rowHeight: 20,
-    fontSize: 11,
-    fontFamily: 'Consolas, monospace',
-    levelStyles: [
-        { level: 'V', color: '#888888', enabled: false },
-        { level: 'D', color: '#00FFFF', enabled: false }, // Cyan
-        { level: 'I', color: '#00FF00', enabled: false }, // Green
-        { level: 'W', color: '#FFA500', enabled: false }, // Orange
-        { level: 'E', color: '#FF0000', enabled: true }   // Red
-    ]
-};
+
+
+
 
 
 
@@ -84,88 +79,20 @@ export const useLogExtractorLogic = ({
 
     const [leftSegmentIndex, setLeftSegmentIndex] = useState(0); // For pagination/segmentation (Left)
     const [rightSegmentIndex, setRightSegmentIndex] = useState(0); // For pagination/segmentation (Right)
-    const [selectedRuleId, setSelectedRuleId] = useState<string>(() => {
-        return rules.length > 0 ? rules[0].id : '';
-    });
 
-    const [logViewPreferences, setLogViewPreferences] = useState<LogViewPreferences>(defaultLogViewPreferences);
+    // === LOG VIEW PREFERENCES (저장/로드/업데이트 훅으로 위임) ===
+    const {
+        logViewPreferences,
+        setLogViewPreferences,
+        updateLogViewPreferences,
+        perfDashboardHeight,
+        setPerfDashboardHeight,
+        handleZoomIn,
+        handleZoomOut,
+    } = useLogViewPreferences();
 
-    const [perfDashboardHeight, setPerfDashboardHeight] = useState(320);
-
-    // Load preferences
-    useEffect(() => {
-        getStoredValue('perfDashboardHeight').then(saved => {
-            if (saved) setPerfDashboardHeight(parseInt(saved) || 320);
-        });
-
-        getStoredValue('logViewPreferences').then(saved => {
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    // Merge with defaults to ensure all fields exist
-                    setLogViewPreferences({ ...defaultLogViewPreferences, ...parsed });
-                } catch (e) {
-                    console.error('Failed to parse logViewPreferences', e);
-                }
-            }
-        });
-    }, []);
-
-    const updateLogViewPreferences = useCallback((updates: Partial<LogViewPreferences>) => {
-        setLogViewPreferences(prev => {
-            const next = { ...prev, ...updates };
-
-            // ✅ 형님, 수동으로 폰트나 줄간격을 바꿨을 때의 "취향 차이값(Offset)"을 갱신합니다.
-            const standardFormula = (fs: number) => 20 + (fs - 11) * 2;
-            const currentFS = next.fontSize || 11;
-            const currentRH = next.rowHeight || standardFormula(currentFS);
-
-            // 만약 업데이트에 rowHeight나 fontSize가 포함되어 있다면 오프셋을 새로 계산해서 저장합니다.
-            if ('rowHeight' in updates || 'fontSize' in updates) {
-                next.rowHeightOffset = currentRH - standardFormula(currentFS);
-            }
-
-            setStoredValue('logViewPreferences', JSON.stringify(next));
-            return next;
-        });
-    }, []);
-
-    // Load saved rule ID on mount
-    const hasRestoredFromDb = useRef(false);
-
-    // Load saved rule ID on mount, but respect manual selection (like Create Rule)
-    // Load saved rule ID on mount, but respect manual selection (like Create Rule)
-    useEffect(() => {
-        if (rules.length === 0) return;
-
-        if (!hasRestoredFromDb.current) {
-            hasRestoredFromDb.current = true;
-            // Try to load tab-specific rule first, then fall back to global last used
-            const tabKey = `lastSelectedRuleId_${tabId}`;
-
-            Promise.all([
-                getStoredValue(tabKey),
-                getStoredValue('lastSelectedRuleId')
-            ]).then(([tabSaved, globalSaved]) => {
-                const saved = tabSaved || globalSaved;
-                const target = saved && rules.find(r => r.id === saved) ? saved : (rules[0]?.id || '');
-                if (target) setSelectedRuleId(target);
-            });
-        } else {
-            // If the currently selected rule is deleted, fallback to the first one
-            if (!rules.find(r => r.id === selectedRuleId)) {
-                setSelectedRuleId(rules.length > 0 ? rules[0].id : '');
-            }
-        }
-    }, [rules, selectedRuleId, tabId]);
-
-    useEffect(() => {
-        if (selectedRuleId) {
-            // Save to both tab-specific and global (for new tabs/fallback)
-            setStoredValue(`lastSelectedRuleId_${tabId}`, selectedRuleId);
-            setStoredValue('lastSelectedRuleId', selectedRuleId);
-        }
-    }, [selectedRuleId, tabId]);
+    // === SELECTED RULE ID (탭별 저장/복원) ===
+    const { selectedRuleId, setSelectedRuleId } = useSelectedRuleId(rules, tabId);
 
     const [isDualView, setIsDualView] = useState(false);
 
@@ -719,65 +646,7 @@ export const useLogExtractorLogic = ({
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
     }, [isDualView, rawContextOpen, activeLineIndexRight, activeLineIndexLeft, logViewPreferences, isActive]); // Added dependency
 
-    const handleZoomIn = useCallback((source: 'mouse' | 'keyboard' = 'keyboard') => {
-        setLogViewPreferences(prev => {
-            const currentFontSize = prev.fontSize || 11;
-            const newFontSize = Math.min(30, currentFontSize + 1);
 
-            // ✅ 형님, 수동으로 조정한 줄간격 느낌(Offset)을 유지합니다.
-            const standardFormula = (fs: number) => 20 + (fs - 11) * 2;
-            const currentStandardRowHeight = standardFormula(currentFontSize);
-            const rowHeightOffset = prev.rowHeightOffset !== undefined
-                ? prev.rowHeightOffset
-                : (prev.rowHeight || currentStandardRowHeight) - currentStandardRowHeight;
-
-            // 새로운 폰트에 맞는 표준 높이에 기존 오프셋 적용
-            const newRowHeight = Math.max(12, standardFormula(newFontSize) + rowHeightOffset);
-
-            const zf = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
-            console.log(`[Zoom Debug] ${source} IN: Font ${prev.fontSize} -> ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight}, ZF: ${zf}`);
-
-            if (newFontSize !== currentFontSize || (prev.rowHeight !== newRowHeight)) {
-                const next = { ...prev, fontSize: newFontSize, rowHeight: newRowHeight, rowHeightOffset };
-                setStoredValue('logViewPreferences', JSON.stringify(next));
-                return next;
-            }
-            return prev;
-        });
-    }, []);
-
-    const handleZoomOut = useCallback((source: 'mouse' | 'keyboard' = 'keyboard') => {
-        setLogViewPreferences(prev => {
-            const currentFontSize = prev.fontSize || 11;
-            const newFontSize = Math.max(8, currentFontSize - 1);
-            const standardFormula = (fs: number) => 20 + (fs - 11) * 2;
-
-            // ✅ 영구 저장된 오프셋을 사용합니다.
-            const currentStandardRowHeight = standardFormula(currentFontSize);
-            const rowHeightOffset = prev.rowHeightOffset !== undefined
-                ? prev.rowHeightOffset
-                : (prev.rowHeight || currentStandardRowHeight) - currentStandardRowHeight;
-
-            // 새로운 폰트에 맞는 표준 높이에 "지워지지 않는" 기존 오프셋 적용
-            const newRowHeight = Math.max(12, standardFormula(newFontSize) + rowHeightOffset);
-
-            const zf = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
-            console.log(`[Zoom Debug] ${source} OUT: Font ${prev.fontSize} -> ${newFontSize}, Row ${prev.rowHeight} -> ${newRowHeight}, ZF: ${zf}`);
-
-            if (newFontSize !== currentFontSize || (prev.rowHeight !== newRowHeight)) {
-                const next = { ...prev, fontSize: newFontSize, rowHeight: newRowHeight, rowHeightOffset };
-                setStoredValue('logViewPreferences', JSON.stringify(next));
-                return next;
-            }
-            // Self-Correction at Limit
-            if (prev.rowHeight !== newRowHeight) {
-                const next = { ...prev, rowHeight: newRowHeight, rowHeightOffset };
-                setStoredValue('logViewPreferences', JSON.stringify(next));
-                return next;
-            }
-            return prev;
-        });
-    }, []);
 
     const currentConfig = rules.find(r => r.id === selectedRuleId);
 
@@ -823,54 +692,43 @@ export const useLogExtractorLogic = ({
         }
     }, [currentConfig]);
 
-    // Tizen Socket State
-    const [tizenSocket, setTizenSocket] = useState<Socket | null>(null);
-    const [clearCacheTick, setClearCacheTick] = useState(0);
+    // === TIZEN / SSH CONNECTION (소켓 관리 훅으로 위임) ===
+    const {
+        tizenSocket,
+        setTizenSocket,
+        connectionMode,
+        isLogging,
+        setIsLogging,
+        hasEverConnected,
+        shouldAutoScroll,
+        clearCacheTick,
+        setClearCacheTick,
+        handleTizenStreamStart,
+        sendTizenCommand,
+        handleClearLogs,
+        handleTizenDisconnect
+    } = useTizenConnection({
+        leftWorkerRef,
+        rules,
+        selectedRuleId,
+        quickFilter,
+        addToast,
+        leftFileName,
+        setLeftFileName,
+        setLeftFilePath,
+        setLeftWorkerReady,
+        setLeftIndexingProgress,
+        setLeftTotalLines,
+        setLeftFilteredCount,
+        setActiveLineIndexLeft,
+        setSelectedIndicesLeft,
+        setLeftBookmarks,
+    });
 
-    const tizenBuffer = useRef<string[]>([]);
-    const tizenBufferTimeout = useRef<NodeJS.Timeout | null>(null);
-    const shouldAutoScroll = useRef(true);
 
     const lastFilterHashLeft = useRef<string>('');
     const lastFilterHashRight = useRef<string>('');
 
-    const [hasEverConnected, setHasEverConnected] = useState(false);
-
-    const isWaitingForSshAuth = useRef(false);
-
-    const refineGroups = (rawGroups: string[][]) => {
-        const refinedGroups: string[][] = [];
-        const groupsByRoot = new Map<string, string[][]>();
-        rawGroups.forEach(group => {
-            const root = (group[0] || '').trim();
-            if (!root) return;
-            if (!groupsByRoot.has(root)) groupsByRoot.set(root, []);
-            groupsByRoot.get(root)!.push(group);
-        });
-
-        groupsByRoot.forEach((rootGroups) => {
-            const hasBranches = rootGroups.some(g => g.length > 1 && g.slice(1).some(t => t.trim() !== ''));
-            if (hasBranches) {
-                const branchOnly = rootGroups.filter(g => g.length > 1 && g.slice(1).some(t => t.trim() !== ''));
-                refinedGroups.push(...branchOnly);
-            } else {
-                refinedGroups.push(...rootGroups);
-            }
-        });
-        return refinedGroups;
-    };
-
-    const assembleIncludeGroups = (config: LogRule) => {
-        // Use happyGroups if available, otherwise fallback to includeGroups (legacy)
-        const sourceGroups = config.happyGroups
-            ? config.happyGroups.filter(h => h.enabled).map(h => h.tags)
-            : config.includeGroups;
-
-        const refinedGroups = refineGroups(sourceGroups);
-
-
-        return refinedGroups;
-    };
 
     // Auto-Apply Filter (Left)
     useEffect(() => {
@@ -917,209 +775,6 @@ export const useLogExtractorLogic = ({
 
 
 
-    const flushTizenBuffer = useCallback(() => {
-        const MAX_CHUNK_TEXT_SIZE = 1024 * 512; // ✅ 512KB limit to prevent main thread blocking
-
-        if (tizenBuffer.current.length === 0) return;
-
-        let combined = '';
-        let chunkCount = 0;
-
-        // ✅ Performance: Process buffer in chunks using array join (faster than string iter)
-        const chunksToProcess: string[] = [];
-        let currentSize = 0;
-
-        while (tizenBuffer.current.length > 0 && currentSize < MAX_CHUNK_TEXT_SIZE) {
-            const chunk = tizenBuffer.current.shift();
-            if (chunk) {
-                chunksToProcess.push(chunk);
-                currentSize += chunk.length;
-                chunkCount++;
-            }
-        }
-
-        if (chunksToProcess.length > 0) {
-            const combined = chunksToProcess.join('');
-            // console.log(`[useLog] Flushing ${combined.length} bytes (${chunkCount} chunks) to worker`);
-            leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: combined });
-        }
-
-        // ✅ If buffer still has data, schedule next flush in next frame
-        if (tizenBuffer.current.length > 0) {
-            requestAnimationFrame(() => flushTizenBuffer());
-        }
-    }, []);
-
-    const [connectionMode, setConnectionMode] = useState<'sdb' | 'ssh' | null>(null);
-    const [isLogging, setIsLogging] = useState(false);
-
-    const handleTizenStreamStart = useCallback((socket: Socket, deviceName: string, mode: 'sdb' | 'ssh' | 'test' = 'sdb') => {
-        setHasEverConnected(true);
-        setTizenSocket(socket); // Save socket for disconnect
-        setLeftFileName(deviceName);
-        setLeftFilePath(''); // ✅ Clear file path so we don't overwrite file persistence with stream state
-        setLeftWorkerReady(false);
-        setLeftIndexingProgress(0);
-        setLeftTotalLines(0);
-        setLeftFilteredCount(0);
-        setActiveLineIndexLeft(-1);
-        setSelectedIndicesLeft(new Set());
-        shouldAutoScroll.current = true; // Default to auto-scroll on start
-        lastFilterHashLeft.current = '';
-
-        setConnectionMode(mode === 'test' ? null : mode as 'sdb' | 'ssh');
-        // Reset logging state on new connection
-        setIsLogging(true);
-
-        leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM', payload: { isLive: true } });
-
-
-        // NOTE: SSH log command is now executed by the server upon connection (passed via connect_ssh).
-        // No need to send it manually here anymore.
-
-        if (mode === 'ssh') {
-            // console.log('[useLog] SSH Connected. Stream should start automatically via Server.');
-        }
-
-        // Apply current filter immediately to the worker
-        const config = rules.find(r => r.id === selectedRuleId);
-        if (config) {
-            const refined = assembleIncludeGroups(config);
-
-            // 🔍 DEBUG: Check what is being sent to the worker
-            console.log('[FilterDebug] (StreamStart) Sending includeGroups:', JSON.stringify(refined));
-
-            leftWorkerRef.current?.postMessage({
-                type: 'FILTER_LOGS',
-                payload: { ...config, includeGroups: refined, quickFilter } // Pass quickFilter
-            });
-        }
-
-
-        socket.on('log_data', (data: any) => {
-            const chunk = typeof data === 'string' ? data : (data.chunk || data.log || JSON.stringify(data));
-
-            // ✅ Reactive Ambient Lighting Logic (Optimized)
-            // ✅ Error Detection & Notification (Throttled Toast)
-            // Broader check including 'E/', 'level: e', etc. if needed, but 'error' is in the simulator msg.
-            const isError = /error|exception|fail|fatal|\be\//i.test(chunk);
-
-            if (isError) {
-                // const now = Date.now();
-                // // Throttle toasts: max 1 every 2 seconds (reduced from 5)
-                // if (now - lastErrorToastTime.current > 2000) {
-                //     // console.log('[useLog] 🚨 Error detected in stream:', chunk.substring(0, 100));
-                //     addToast('Error/Exception Detected!', 'error');
-                //     lastErrorToastTime.current = now;
-                // }
-            }
-
-
-            tizenBuffer.current.push(chunk);
-
-            // ✅ Performance: Adaptive buffering strategy for buttery smooth 30+ FPS Live Log Streaming
-            const MAX_BUFFER_SIZE = 100; // Emit immediately to worker once 100 lines received
-            const BUFFER_TIMEOUT_MS = 32; // Flush buffer every 32ms (~30 FPS) if not filled
-
-            // 1. If buffer is too large, flush immediately
-            if (tizenBuffer.current.length >= MAX_BUFFER_SIZE) {
-                if (tizenBufferTimeout.current) {
-                    clearTimeout(tizenBufferTimeout.current);
-                    tizenBufferTimeout.current = null;
-                }
-                flushTizenBuffer();
-                return;
-            }
-
-            // 2. Otherwise, buffer with shorter timeout for better UI responsiveness
-            if (!tizenBufferTimeout.current) {
-                tizenBufferTimeout.current = setTimeout(() => {
-                    flushTizenBuffer();
-                    tizenBufferTimeout.current = null;
-                }, BUFFER_TIMEOUT_MS);
-            }
-        });
-
-        socket.on('ssh_auth_request', (data: { prompt: string, echo: boolean }) => {
-            isWaitingForSshAuth.current = true;
-            // We rely on the log data emission to show the prompt, but we flag state here
-            // Additionally we can show a toast
-            showToast(`SSH Auth Input Required: ${data.prompt}`, 'info');
-        });
-
-        socket.on('ssh_error', (data: { message: string }) => {
-            showToast(`SSH Error: ${data.message}`, 'error');
-            // Also log it
-            const errLine = `[SSH ERROR] ${data.message}`;
-            tizenBuffer.current.push(errLine);
-            flushTizenBuffer();
-        });
-
-        // Handle disconnect from server side
-        socket.on('disconnect', () => {
-            setTizenSocket(null);
-            isWaitingForSshAuth.current = false;
-            setConnectionMode(null);
-            setIsLogging(false);
-        });
-
-        // Handle logical disconnects (e.g. commands failed or finished)
-        const handleLogicalDisconnect = (data: { status: string }) => {
-            if (data.status === 'disconnected') {
-                setTizenSocket(null);
-                setConnectionMode(null);
-                setIsLogging(false);
-            }
-        };
-
-        socket.on('sdb_status', handleLogicalDisconnect);
-        socket.on('ssh_status', handleLogicalDisconnect);
-    }, [rules, selectedRuleId, quickFilter, addToast]); // currentRule is derived from rules + selectedRuleId
-
-    // Auto-scroll effect is now handled by LogViewerPane's smart followOutput prop.
-    // We do NOT need to manually specific scrollTo calls here which override user scroll.
-
-    /* REMOVED: conflicting manual scroll logic
-    useEffect(() => {
-        if (tizenSocket && leftFilteredCount > 0 && shouldAutoScroll.current) {
-            if (leftViewerRef.current) {
-                const totalHeight = leftFilteredCount * 24; 
-                leftViewerRef.current.scrollTo(totalHeight);
-            }
-        }
-    }, [leftFilteredCount, tizenSocket]); 
-    */
-
-    const sendTizenCommand = useCallback((cmd: string) => {
-        if (tizenSocket) {
-            if (isWaitingForSshAuth.current) {
-                // Auth response (remove trailing newline usually added by UI)
-                tizenSocket.emit('ssh_auth_response', cmd.replace(/\n$/, ''));
-                isWaitingForSshAuth.current = false;
-            } else {
-                // FIX: Only send to the active connection mode to avoid duplicates
-                if (connectionMode === 'sdb') {
-                    console.log('[useLog] Sending SDB command:', cmd);
-                    tizenSocket.emit('sdb_write', cmd);
-                } else if (connectionMode === 'ssh') {
-                    console.log('[useLog] Sending SSH command:', cmd);
-                    tizenSocket.emit('ssh_write', cmd);
-                } else if (!connectionMode) {
-                    console.warn('[useLog] Connection mode is null, falling back to SDB write');
-                    // Fallback or Test mode? For safety, try both if null (though should be set)
-                    // actually if it's null it might be safe to try both or just ignore?
-                    // Let's assume SDB priority if unknown, or just both if really unsure (legacy behavior)
-                    // But we want to fix duplicates. So let's rely on state.
-                    // If connectionMode is null but socket exists, it might be test mode or undefined.
-                    // Test mode uses 'start_scroll_stream' usually, not sdb_write.
-                    // Let's safe guard:
-                    tizenSocket.emit('sdb_write', cmd);
-                    // tizenSocket.emit('ssh_write', cmd); // Disable SSH fallback to prevent dupe
-                }
-            }
-        }
-    }, [tizenSocket, connectionMode]);
-
     // Auto-Apply Filter (Right)
     useEffect(() => {
         if (isDualView && rightWorkerRef.current && currentConfig && rightTotalLines > 0) {
@@ -1155,55 +810,6 @@ export const useLogExtractorLogic = ({
         }
     }, [currentConfig, rightTotalLines, isDualView, quickFilter]);
 
-    const handleClearLogs = useCallback(() => {
-        // 1. Backend Clear (Device Buffer)
-        if (tizenSocket) {
-            if (connectionMode === 'sdb') {
-                // For SDB, we need the deviceId. 
-                // In handleTizenStreamStart, we set leftFileName to deviceName (which is deviceId for SDB).
-                tizenSocket.emit('sdb_clear', { deviceId: leftFileName });
-            } else if (connectionMode === 'ssh') {
-                tizenSocket.emit('ssh_clear');
-            }
-        }
-
-        // 2. Frontend Clear
-        if (leftWorkerRef.current) {
-            setLeftTotalLines(0);
-            setLeftFilteredCount(0);
-            setActiveLineIndexLeft(-1);
-            setSelectedIndicesLeft(new Set());
-            setLeftBookmarks(new Set()); // Clear bookmarks
-            setClearCacheTick(t => t + 1); // ✅ Explicitly trigger cache clear
-
-            // Clear pending buffer to prevent old logs from being processed after clear
-            tizenBuffer.current = [];
-
-            leftWorkerRef.current.postMessage({ type: 'INIT_STREAM' });
-
-            if (currentConfig) {
-                // Optional: Re-trigger filter if needed, but INIT_STREAM usually resets everything.
-                // If we want to ensure the worker knows the current filter for *future* logs:
-                /*
-                leftWorkerRef.current.postMessage({
-                    type: 'FILTER_LOGS',
-                    payload: { ...currentConfig, includeGroups: refineGroups(currentConfig.includeGroups) }
-                });
-                */
-            }
-        }
-    }, [currentConfig, tizenSocket, connectionMode, leftFileName]);
-
-    const handleTizenDisconnect = useCallback(() => {
-        if (tizenSocket) {
-            tizenSocket.emit('disconnect_sdb');
-            tizenSocket.emit('disconnect_ssh');
-            setTimeout(() => {
-                tizenSocket.disconnect();
-                setTizenSocket(null);
-            }, 100);
-        }
-    }, [tizenSocket]);
 
     useEffect(() => {
         return () => {

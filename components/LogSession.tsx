@@ -23,6 +23,7 @@ import { useLogSessionContextMenus } from '../hooks/useLogSessionContextMenus';
 import { useLogSessionHighlights } from '../hooks/useLogSessionHighlights';
 import { useLogSessionArchive } from '../hooks/useLogSessionArchive';
 import { useLogSessionPaneCallbacks } from '../hooks/useLogSessionPaneCallbacks';
+import { useLogSessionEffects } from '../hooks/useLogSessionEffects';
 
 const { X, Eraser, ChevronLeft, ChevronRight, GripHorizontal } = Lucide;
 
@@ -250,63 +251,22 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     // Prepare Effective Highlights (Explicit + Auto-generated Highlighting for Happy Combos)
     const effectiveHighlights = useLogSessionHighlights(currentConfig);
 
-    // ✅ Ctrl + Wheel Zoom Support (Uses shared logic)
-    // We use a native Ref and event listener because React's onWheel is passive by default in some browsers/versions
-    // and might not reliably prevent the native browser zoom (Ctrl+Wheel).
+    // containerRef: Ctrl+Wheel 이벤트와 JSX ref용 (이벤트는 useLogSessionEffects 훅으로 이동)
     const containerRef = React.useRef<HTMLDivElement>(null);
 
-    React.useEffect(() => {
-        if (!isActive) return;
-
-        const onWheel = (e: WheelEvent) => {
-            if (e.ctrlKey) {
-                // ✅ 형님, Perf Dashboard가 활성화된 경우 폰트 줌 대신 Flame Map 줌이 작동하도록 양보합니다.
-                const target = e.target as HTMLElement;
-                if (!target || typeof target.closest !== 'function') return;
-
-                const logPane = target.closest('.log-viewer-pane');
-                const targetPaneId = logPane?.getAttribute('data-pane-id');
-                const isOverDashboard = !!target.closest('.perf-dashboard-container');
-
-                // ✅ 형님, 오직 현재 마우스가 올라가 있는 Pane에 분석 결과가 있을 때만 폰트 줌을 양보합니다.
-                let shouldSkipForPerf = false;
-                if (targetPaneId === 'left') {
-                    shouldSkipForPerf = !!(leftPerfAnalysisResult || isAnalyzingPerformanceLeft);
-                } else if (targetPaneId === 'right') {
-                    shouldSkipForPerf = !!(rightPerfAnalysisResult || isAnalyzingPerformanceRight);
-                } else if (isOverDashboard) {
-                    // 대시보드 위라면 무조건 양보 (대시보드가 줌 처리)
-                    shouldSkipForPerf = true;
-                } else if (!targetPaneId && (leftPerfAnalysisResult || rightPerfAnalysisResult)) {
-                    // 싱글 뷰 모드 등
-                    shouldSkipForPerf = true;
-                }
-
-                if (shouldSkipForPerf) {
-                    return;
-                }
-
-                // ✅ Aggressively prevent default at the window level during capture phase
-                e.preventDefault();
-                e.stopPropagation();
-
-                const delta = e.deltaY; // Negative is UP (Zoom In), Positive is DOWN (Zoom Out)
-
-                if (delta < 0) {
-                    handleZoomIn('mouse');
-                } else {
-                    handleZoomOut('mouse');
-                }
-            }
-        };
-
-        // ✅ Use 'capture: true' to intercept the event before it reaches any children or the browser
-        window.addEventListener('wheel', onWheel, { passive: false, capture: true });
-
-        return () => {
-            window.removeEventListener('wheel', onWheel, { capture: true });
-        };
-    }, [isActive, handleZoomIn, handleZoomOut, leftPerfAnalysisResult, rightPerfAnalysisResult, isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight]);
+    // === SIDE EFFECTS: Tab Title + Ctrl+Wheel Zoom ===
+    useLogSessionEffects({
+        isActive,
+        leftFileName,
+        currentTitle,
+        onTitleChange,
+        handleZoomIn,
+        handleZoomOut,
+        leftPerfAnalysisResult,
+        rightPerfAnalysisResult,
+        isAnalyzingPerformanceLeft,
+        isAnalyzingPerformanceRight,
+    });
 
     // Track latest state for global shortcuts
     const stateRef = React.useRef({ activeLineIndexLeft, activeLineIndexRight, selectedIndicesLeft, selectedIndicesRight, leftBookmarks, rightBookmarks });
