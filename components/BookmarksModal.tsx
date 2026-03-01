@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { LogHighlight } from '../types';
 import { HighlightRenderer } from './LogViewer/HighlightRenderer';
 import { extractTimestamp, formatDuration } from '../utils/logTime';
-import { Copy, FileJson, Download, Table, ChevronDown } from 'lucide-react';
+import { Copy, FileJson, Download, Table, ChevronDown, X, Trash2 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
+import { Virtuoso } from 'react-virtuoso';
 
 interface BookmarksModalProps {
     isOpen: boolean;
@@ -19,11 +20,20 @@ interface BookmarksModalProps {
     onDeleteBookmark?: (index: number) => void;
 }
 
-export const BookmarksModal: React.FC<BookmarksModalProps> = ({
+interface BookmarkLine {
+    lineNum: number;
+    content: string;
+    formattedLineIndex: number;
+    originalLineNum?: string;
+    timeDiffStr?: string;
+    timeDiffClass?: string;
+}
+
+export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
     isOpen, onClose, requestLines, bookmarks, onJump, highlights, caseSensitive, title = "Bookmarks",
     onClearAll, onDeleteBookmark
 }) => {
-    const [lines, setLines] = useState<{ lineNum: number, content: string, formattedLineIndex: number, originalLineNum?: string }[]>([]);
+    const [lines, setLines] = useState<BookmarkLine[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const { addToast } = useToast();
 
@@ -57,7 +67,47 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
             setIsLoading(true);
             const indices = Array.from(bookmarks).sort((a, b) => a - b);
             requestLines(indices).then(fetched => {
-                setLines(fetched || []);
+                if (!fetched) {
+                    setLines([]);
+                    setIsLoading(false);
+                    return;
+                }
+
+                // ✅ 전처리: 렌더링 루프 밖에서 미리 모든 계산을 끝냅니다.
+                const processedLines: BookmarkLine[] = fetched.map((item, idx) => {
+                    let timeDiffStr = "";
+                    let timeDiffClass = "";
+
+                    if (idx > 0) {
+                        const prevItem = fetched[idx - 1];
+                        const currentTs = extractTimestamp(item.content);
+                        const prevTs = extractTimestamp(prevItem.content);
+
+                        if (currentTs !== null && prevTs !== null) {
+                            const diff = currentTs - prevTs;
+                            const absDiff = Math.abs(diff);
+                            const sign = diff >= 0 ? "+" : "-";
+                            let text = absDiff < 60000 ? (absDiff / 1000).toFixed(3) + "s" : formatDuration(absDiff);
+
+                            if (absDiff >= 1000) {
+                                timeDiffClass = "text-orange-600 dark:text-orange-400 font-bold";
+                            } else if (absDiff >= 100) {
+                                timeDiffClass = "text-blue-600 dark:text-blue-400 font-semibold";
+                            } else {
+                                timeDiffClass = "text-slate-400 dark:text-slate-500";
+                            }
+                            timeDiffStr = `${sign}${text}`;
+                        }
+                    }
+
+                    return {
+                        ...item,
+                        timeDiffStr,
+                        timeDiffClass
+                    };
+                });
+
+                setLines(processedLines);
                 setIsLoading(false);
             });
         } else {
@@ -128,9 +178,9 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" onClick={onClose}>
             <div
-                className="bg-white dark:bg-slate-900 w-[1400px] h-[600px] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in duration-200"
+                className="bg-white dark:bg-slate-900 w-[1400px] h-[600px] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in duration-150"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
@@ -193,17 +243,15 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
                         )}
                         <button
                             onClick={onClose}
-                            className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-slate-500"
+                            className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-slate-500 transition-colors"
                         >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            <X size={20} />
                         </button>
                     </div>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-auto bg-white dark:bg-slate-900 p-0">
+                <div className="flex-1 overflow-hidden bg-white dark:bg-slate-900">
                     {isLoading ? (
                         <div className="flex items-center justify-center h-full text-slate-400">
                             Loading bookmarks...
@@ -215,82 +263,21 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
                             <p className="text-sm opacity-70">Double-click the line number column to bookmark lines.</p>
                         </div>
                     ) : (
-                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {lines.map((item, idx) => {
-                                let timeDiffStr = "";
-                                let timeDiffClass = "";
-                                if (idx > 0) {
-                                    const prevItem = lines[idx - 1];
-                                    const currentTs = extractTimestamp(item.content);
-                                    const prevTs = extractTimestamp(prevItem.content);
-
-                                    if (currentTs !== null && prevTs !== null) {
-                                        const diff = currentTs - prevTs;
-                                        const absDiff = Math.abs(diff);
-                                        const sign = diff >= 0 ? "+" : "-";
-
-                                        let text = "";
-
-                                        if (absDiff < 60000) {
-                                            text = (absDiff / 1000).toFixed(3) + "s";
-                                        } else {
-                                            text = formatDuration(absDiff);
-                                        }
-
-                                        if (absDiff >= 1000) {
-                                            timeDiffClass = "text-orange-600 dark:text-orange-400 font-bold";
-                                        } else if (absDiff >= 100) {
-                                            timeDiffClass = "text-blue-600 dark:text-blue-400 font-semibold";
-                                        } else {
-                                            timeDiffClass = "text-slate-400 dark:text-slate-500";
-                                        }
-
-                                        timeDiffStr = `${sign}${text}`;
-                                    }
-                                }
-
-                                return (
-                                    <div
-                                        key={idx}
-                                        onClick={() => {
-                                            onJump(item.formattedLineIndex);
-                                            onClose();
-                                        }}
-                                        className="group flex hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
-                                    >
-                                        {/* Line Number */}
-                                        <div className="w-16 shrink-0 py-2 px-3 text-right font-mono text-xs text-slate-400 border-r border-slate-100 dark:border-slate-800 group-hover:text-yellow-600 dark:group-hover:text-yellow-500">
-                                            {item.originalLineNum || item.lineNum}
-                                        </div>
-
-                                        {/* Time Diff Column */}
-                                        <div className={`w-32 shrink-0 py-2 px-3 text-right font-mono text-[11px] border-r border-slate-100 dark:border-slate-800 whitespace-nowrap overflow-hidden text-ellipsis ${timeDiffStr ? (timeDiffClass || 'text-slate-500 dark:text-slate-400') : 'text-transparent'}`}>
-                                            {timeDiffStr || "-"}
-                                        </div>
-
-                                        {/* Content */}
-                                        <div className="flex-1 py-1 px-3 font-mono text-xs text-slate-700 dark:text-slate-300 break-all whitespace-pre-wrap overflow-hidden">
-                                            <HighlightRenderer text={item.content} highlights={highlights} caseSensitive={caseSensitive} />
-                                        </div>
-                                        {/* Delete Action */}
-                                        {onDeleteBookmark && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onDeleteBookmark(item.formattedLineIndex);
-                                                }}
-                                                className="w-8 shrink-0 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
-                                                title="Remove bookmark"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                </svg>
-                                            </button>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+                        <Virtuoso
+                            style={{ height: '100%' }}
+                            data={lines}
+                            itemContent={(index, item) => (
+                                <BookmarkRow
+                                    key={item.formattedLineIndex}
+                                    item={item}
+                                    onJump={onJump}
+                                    onClose={onClose}
+                                    onDelete={onDeleteBookmark}
+                                    highlights={highlights}
+                                    caseSensitive={caseSensitive}
+                                />
+                            )}
+                        />
                     )}
                 </div>
 
@@ -307,4 +294,53 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
         </div>,
         document.body
     );
-};
+});
+
+// ✅ 북마크 개별 행 컴포넌트 메모이제이션
+const BookmarkRow: React.FC<{
+    item: BookmarkLine;
+    onJump: (index: number) => void;
+    onClose: () => void;
+    onDelete?: (index: number) => void;
+    highlights?: LogHighlight[];
+    caseSensitive?: boolean;
+}> = React.memo(({ item, onJump, onClose, onDelete, highlights, caseSensitive }) => {
+    return (
+        <div
+            onClick={() => {
+                onJump(item.formattedLineIndex);
+                onClose();
+            }}
+            className="group flex hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer border-b border-slate-100 dark:border-slate-800 transition-colors"
+        >
+            {/* Line Number */}
+            <div className="w-16 shrink-0 py-2 px-3 text-right font-mono text-xs text-slate-400 border-r border-slate-100 dark:border-slate-800 group-hover:text-yellow-600 dark:group-hover:text-yellow-500">
+                {item.originalLineNum || item.lineNum}
+            </div>
+
+            {/* Time Diff Column */}
+            <div className={`w-32 shrink-0 py-2 px-3 text-right font-mono text-[11px] border-r border-slate-100 dark:border-slate-800 whitespace-nowrap overflow-hidden text-ellipsis ${item.timeDiffStr ? (item.timeDiffClass || 'text-slate-500 dark:text-slate-400') : 'text-transparent'}`}>
+                {item.timeDiffStr || "-"}
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 py-1 px-3 font-mono text-xs text-slate-700 dark:text-slate-300 break-all whitespace-pre-wrap overflow-hidden">
+                <HighlightRenderer text={item.content} highlights={highlights} caseSensitive={caseSensitive} />
+            </div>
+
+            {/* Delete Action */}
+            {onDelete && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(item.formattedLineIndex);
+                    }}
+                    className="w-8 shrink-0 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
+                    title="Remove bookmark"
+                >
+                    <X size={14} />
+                </button>
+            )}
+        </div>
+    );
+});
