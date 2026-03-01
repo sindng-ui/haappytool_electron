@@ -376,7 +376,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className={`bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-[500px] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150 transition-all ${effectiveIsConnected ? 'h-[380px]' : 'h-[600px]'}`}>
+            <div className={`bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-[500px] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150 transition-all ${effectiveIsConnected ? 'h-[380px]' : 'h-[580px]'}`}>
                 <div className="bg-slate-950 p-5 border-b border-slate-800 flex justify-between items-center shrink-0">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                         <Server size={18} className="text-indigo-500" /> Tizen Connection
@@ -384,7 +384,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
                     <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
                 </div>
 
-                <div className={`flex-1 flex flex-col overflow-hidden space-y-6 ${effectiveIsConnected ? 'p-6' : 'p-8'}`}>
+                <div className="flex-1 flex flex-col p-6 space-y-4 overflow-hidden">
                     {/* Quick Connect Overlay */}
                     {isQuickConnect && !error && isConnecting && (
                         <div className="flex-1 flex flex-col items-center justify-center space-y-4">
@@ -396,7 +396,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
                             <div className="text-sm text-indigo-400/80 font-mono italic">{status}</div>
                             <button
                                 onClick={onClose}
-                                className="mt-6 px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-[10px] font-bold tracking-widest uppercase transition-all"
+                                className="mt-4 px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-[10px] font-bold tracking-widest uppercase transition-all"
                             >
                                 Cancel
                             </button>
@@ -414,7 +414,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
                                 <button
                                     key={tab.id}
                                     onClick={() => setMode(tab.id as any)}
-                                    className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 text-xs font-bold transition-all duration-200 ${mode === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : 'text-slate-500 hover:text-slate-300'}`}
+                                    className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 text-xs font-bold transition-all duration-200 ${mode === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : 'text-slate-500 hover:text-slate-300'}`}
                                 >
                                     <tab.icon size={14} />
                                     {tab.label}
@@ -424,19 +424,19 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
                     )}
 
                     {!effectiveIsConnected && (
-                        <div className="flex-1 flex flex-col overflow-hidden">
-                            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6">
+                        <div className="flex-1 flex flex-col space-y-4">
+                            <div className="space-y-4">
                                 {/* SDB Form */}
                                 {mode === 'sdb' && !isQuickConnect && (
-                                    <div className="space-y-4">
+                                    <div className="space-y-3">
                                         <div className="flex justify-between items-end">
-                                            <label className="text-xs font-bold text-slate-400 uppercase tracking-tight">Select Device</label>
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Select Device</label>
                                             <button onClick={handleScanSdb} className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 uppercase">
                                                 <RefreshCw size={12} className={isScanning ? 'animate-spin' : ''} /> Rescan
                                             </button>
                                         </div>
                                         <select
-                                            className="w-full bg-slate-800 text-slate-200 p-3.5 rounded-xl border border-slate-700 focus:border-indigo-500 focus:outline-none transition-all cursor-pointer"
+                                            className="w-full bg-slate-800 text-slate-200 p-3 rounded-xl border border-slate-700 focus:border-indigo-500 focus:outline-none transition-all cursor-pointer text-sm"
                                             value={selectedDeviceId}
                                             onKeyDown={e => e.stopPropagation()}
                                             onChange={(e) => setSelectedDeviceId(e.target.value)}
@@ -447,13 +447,13 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
                                             ))}
                                         </select>
 
-                                        <div className="pt-2">
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-2">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-1.5">
                                                 SDB Executable Path
                                             </label>
                                             <div className="relative group">
                                                 <input
-                                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-mono text-slate-300 placeholder-slate-800 focus:border-indigo-500/50 transition-all outline-none"
+                                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-mono text-slate-300 placeholder-slate-800 focus:border-indigo-500/50 transition-all outline-none"
                                                     placeholder="C:\tizen-studio\tools\sdb.exe"
                                                     value={sdbPath}
                                                     onKeyDown={e => e.stopPropagation()}
@@ -470,13 +470,13 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
 
                                 {/* SSH Form */}
                                 {mode === 'ssh' && !isQuickConnect && (
-                                    <div className="space-y-6">
-                                        <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-3 gap-3">
                                             <div className="col-span-2">
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Host IP Address</label>
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Host IP</label>
                                                 <div className="relative group">
                                                     <input
-                                                        className="w-full bg-slate-950 text-slate-200 p-3 rounded-xl border border-slate-800 focus:border-indigo-500/50 focus:outline-none transition-all font-mono"
+                                                        className="w-full bg-slate-950 text-slate-200 p-2.5 rounded-xl border border-slate-800 focus:border-indigo-500/50 focus:outline-none transition-all font-mono text-xs"
                                                         value={sshHost}
                                                         onChange={e => setSshHost(e.target.value)}
                                                         onKeyDown={e => e.stopPropagation()}
@@ -486,10 +486,10 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
                                                 </div>
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Port</label>
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Port</label>
                                                 <div className="relative group">
                                                     <input
-                                                        className="w-full bg-slate-950 text-slate-200 p-3 rounded-xl border border-slate-800 focus:border-indigo-500/50 focus:outline-none transition-all font-mono text-center"
+                                                        className="w-full bg-slate-950 text-slate-200 p-2.5 rounded-xl border border-slate-800 focus:border-indigo-500/50 focus:outline-none transition-all font-mono text-center text-xs"
                                                         value={sshPort}
                                                         onChange={e => setSshPort(e.target.value)}
                                                         onKeyDown={e => e.stopPropagation()}
@@ -499,12 +499,12 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-2 gap-3">
                                             <div>
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Username</label>
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Username</label>
                                                 <div className="relative group">
                                                     <input
-                                                        className="w-full bg-slate-950 text-slate-200 p-3 rounded-xl border border-slate-800 focus:border-indigo-500/50 focus:outline-none transition-all font-mono"
+                                                        className="w-full bg-slate-950 text-slate-200 p-2.5 rounded-xl border border-slate-800 focus:border-indigo-500/50 focus:outline-none transition-all font-mono text-xs"
                                                         value={sshUser}
                                                         onChange={e => setSshUser(e.target.value)}
                                                         onKeyDown={e => e.stopPropagation()}
@@ -513,11 +513,11 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
                                                 </div>
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Password</label>
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Password</label>
                                                 <div className="relative group">
                                                     <input
                                                         type="password"
-                                                        className="w-full bg-slate-950 text-slate-200 p-3 rounded-xl border border-slate-800 focus:border-indigo-500/50 focus:outline-none transition-all font-mono"
+                                                        className="w-full bg-slate-950 text-slate-200 p-2.5 rounded-xl border border-slate-800 focus:border-indigo-500/50 focus:outline-none transition-all font-mono text-xs"
                                                         value={sshPassword}
                                                         onChange={e => setSshPassword(e.target.value)}
                                                         onKeyDown={e => e.stopPropagation()}
@@ -532,53 +532,52 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
 
                                 {/* Test Simulation Form */}
                                 {mode === 'test' && !isQuickConnect && (
-                                    <div className="p-8 bg-slate-800/30 rounded-2xl border border-dashed border-slate-700 text-center space-y-3">
-                                        <div className="inline-flex p-3 bg-indigo-500/10 rounded-full mb-2">
-                                            <RefreshCw size={24} className="text-indigo-400" />
+                                    <div className="p-6 bg-slate-800/30 rounded-2xl border border-dashed border-slate-700 text-center space-y-2">
+                                        <div className="inline-flex p-2 bg-indigo-500/10 rounded-full">
+                                            <RefreshCw size={20} className="text-indigo-400" />
                                         </div>
-                                        <h3 className="text-slate-200 font-bold">Traffic Simulation Mode</h3>
-                                        <p className="text-xs text-slate-400 leading-relaxed">
-                                            로컬 서버로부터 가상의 로그 스트림(초당 10라인)을 생성하여 <br />
-                                            무한 스크롤 및 자동 스크롤 성능을 테스트합니다.
+                                        <h3 className="text-slate-200 font-bold text-sm">Simulation Mode</h3>
+                                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                                            로컬 서버로부터 가상의 로그 스트림(초당 10라인)을 생성합니다.
                                         </p>
                                     </div>
                                 )}
 
                                 {/* Options */}
-                                <div className="pt-2 flex flex-col gap-3">
-                                    <label className="flex items-center gap-3 text-xs font-bold text-slate-400 cursor-pointer select-none hover:text-slate-200 transition-colors">
+                                <div className="flex flex-col gap-2.5">
+                                    <label className="flex items-center gap-2.5 text-[11px] font-bold text-slate-400 cursor-pointer select-none hover:text-slate-200 transition-colors uppercase tracking-tight">
                                         <input
                                             type="checkbox"
                                             checked={debugMode}
                                             onKeyDown={e => e.stopPropagation()}
                                             onChange={e => setDebugMode(e.target.checked)}
-                                            className="accent-indigo-500 w-4 h-4 rounded border-slate-700 bg-slate-800"
+                                            className="accent-indigo-500 w-3.5 h-3.5 rounded border-slate-700 bg-slate-800"
                                         />
-                                        <span>Enable Debug Mode (Save to Server)</span>
+                                        <span>Debug Mode (Server Save)</span>
                                     </label>
-                                    <label className="flex items-center gap-3 text-xs font-bold text-slate-400 cursor-pointer select-none hover:text-slate-200 transition-colors">
+                                    <label className="flex items-center gap-2.5 text-[11px] font-bold text-slate-400 cursor-pointer select-none hover:text-slate-200 transition-colors uppercase tracking-tight">
                                         <input
                                             type="checkbox"
                                             checked={saveToFile}
                                             onKeyDown={e => e.stopPropagation()}
                                             onChange={e => setSaveToFile(e.target.checked)}
-                                            className="accent-indigo-500 w-4 h-4 rounded border-slate-700 bg-slate-800"
+                                            className="accent-indigo-500 w-3.5 h-3.5 rounded border-slate-700 bg-slate-800"
                                         />
-                                        <span>Automatically Save to Local File</span>
+                                        <span>Auto Save to Local File</span>
                                     </label>
                                 </div>
                             </div>
 
-                            {/* Status Area - Fixed Height */}
-                            <div className="h-[80px] bg-slate-950/80 rounded-2xl px-5 flex flex-col items-center justify-center border border-slate-800 mt-6 relative overflow-hidden group shrink-0">
+                            {/* Status Area - Compact */}
+                            <div className="h-[60px] bg-slate-950/80 rounded-2xl px-5 flex flex-col items-center justify-center border border-slate-800 relative overflow-hidden group shrink-0">
                                 {error ? (
-                                    <div className="text-red-400 text-[11px] flex items-start gap-3 relative z-10 w-full">
-                                        <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
+                                    <div className="text-red-400 text-[10px] flex items-start gap-3 relative z-10 w-full">
+                                        <ShieldAlert size={12} className="flex-shrink-0 mt-0.5" />
                                         <span className="whitespace-pre-line text-left leading-tight">{error}</span>
                                     </div>
                                 ) : (
-                                    <span className={`text-indigo-400 text-xs font-mono flex items-center gap-3 relative z-10 ${effectiveStatus ? 'animate-pulse' : ''}`}>
-                                        <Terminal size={14} /> {effectiveStatus || "TIZEN ENGINE READY"}
+                                    <span className={`text-indigo-400 text-[11px] font-mono flex items-center gap-3 relative z-10 ${effectiveStatus ? 'animate-pulse' : ''}`}>
+                                        <Terminal size={12} /> {effectiveStatus || "TIZEN ENGINE READY"}
                                     </span>
                                 )}
                                 <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/5 to-transparent pointer-events-none opacity-20" />
@@ -606,11 +605,11 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
                     )}
 
                     {/* Main Button */}
-                    <div className="shrink-0 pt-2">
+                    <div className="shrink-0">
                         <button
                             onClick={effectiveIsConnected ? (onExternalDisconnect || handleDisconnect) : handleConnect}
                             disabled={isConnecting}
-                            className={`w-full py-4 text-sm font-extrabold rounded-2xl shadow-xl active:scale-[0.98] transition-all disabled:opacity-50 ${effectiveIsConnected ? 'bg-red-600 hover:bg-red-500 shadow-red-900/40' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-900/40'}`}
+                            className={`w-full py-3.5 text-sm font-extrabold rounded-2xl shadow-xl active:scale-[0.98] transition-all disabled:opacity-50 ${effectiveIsConnected ? 'bg-red-600 hover:bg-red-500 shadow-red-900/40' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-900/40'}`}
                         >
                             {effectiveIsConnected ? (isConnecting ? 'DISCONNECTING...' : 'DISCONNECT SESSION') : (isConnecting ? 'CONNECT & START STREAM' : 'CONNECT & START STREAM')}
                         </button>
