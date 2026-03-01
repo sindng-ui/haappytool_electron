@@ -9,6 +9,7 @@ import { useLogViewPreferences, defaultLogViewPreferences } from './useLogViewPr
 import { useSelectedRuleId } from './useSelectedRuleId';
 import { refineGroups, assembleIncludeGroups } from '../utils/filterGroupUtils';
 import { useTizenConnection } from './useTizenConnection';
+import { useLogShortcuts } from './useLogShortcuts';
 
 
 
@@ -531,120 +532,8 @@ export const useLogExtractorLogic = ({
         };
     }, []);
 
-    // Global Keyboard Event Listener
-    useEffect(() => {
-        const handleGlobalKeyDown = (e: KeyboardEvent) => {
-            if (!isActive) return;
-
-            if (e.repeat) {
-                // Throttle repeated keys if necessary, but standard execution is usually fine
-            }
-
-            // Sync Scroll (Shift + Arrow Up/Down)
-            if (e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-                e.preventDefault();
-                const direction = e.key === 'ArrowUp' ? -1 : 1;
-                // We'll rely on refs to scroll both panes
-                if (isDualView) {
-                    leftViewerRef.current?.scrollByLines(direction);
-                    rightViewerRef.current?.scrollByLines(direction);
-                } else {
-                    leftViewerRef.current?.scrollByLines(direction);
-                }
-                return;
-            }
-
-            // Page Up / Down
-            if (e.key === 'PageUp' || e.key === 'PageDown') {
-                e.preventDefault();
-                const direction = e.key === 'PageUp' ? -1 : 1;
-                const targetRef = isDualView && activeLineIndexRight !== -1 ? rightViewerRef : leftViewerRef;
-                targetRef.current?.scrollByPage(direction);
-                return;
-            }
-
-            // Focus Switch (Ctrl + Arrow Left/Right)
-            if (e.ctrlKey && isDualView) {
-                if (e.key === 'ArrowLeft') {
-                    // Switch focus to Left
-                    setActiveLineIndexRight(-1);
-                    setSelectedIndicesRight(new Set());
-                    // Ideally we should set focus to left container, but here we just manage selection state mostly
-                } else if (e.key === 'ArrowRight') {
-                    // Switch focus to Right
-                    setActiveLineIndexLeft(-1);
-                    setSelectedIndicesLeft(new Set());
-                }
-            }
 
 
-
-            // Bookmark Navigation
-            if (e.key === 'F3') {
-                e.preventDefault();
-                if (e.shiftKey && isDualView) {
-                    rightViewerRef.current?.jumpToPrevBookmark();
-                } else {
-                    leftViewerRef.current?.jumpToPrevBookmark();
-                }
-            }
-            if (e.key === 'F4') {
-                e.preventDefault();
-                if (e.shiftKey && isDualView) {
-                    rightViewerRef.current?.jumpToNextBookmark();
-                } else {
-                    leftViewerRef.current?.jumpToNextBookmark();
-                }
-            }
-            if (e.key === 'Escape') {
-                if (rawContextOpen) {
-                    e.preventDefault();
-                    setRawContextOpen(false);
-                }
-                if (isTransactionDrawerOpen) {
-                    e.preventDefault();
-                    setIsTransactionDrawerOpen(false);
-                }
-            }
-
-            // Custom Zoom Handling (Electron Window Zoom)
-            if (e.ctrlKey) {
-                if (e.shiftKey) {
-                    if (e.key === '+' || e.key === '=') {
-                        e.preventDefault();
-                        const current = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
-                        window.electronAPI?.setZoomFactor && window.electronAPI.setZoomFactor(current + 0.05);
-                    } else if (e.key === '-' || e.key === '_') {
-                        e.preventDefault();
-                        const current = window.electronAPI?.getZoomFactor ? window.electronAPI.getZoomFactor() : 1;
-                        window.electronAPI?.setZoomFactor && window.electronAPI.setZoomFactor(Math.max(0.5, current - 0.05));
-                    }
-                } else {
-                    // Disable default Zoom Out (Ctrl -) to enforce Ctrl+Shift+-
-                    if (e.key === '-') {
-                        e.preventDefault();
-                    }
-                }
-                // Ctrl + 0 Reset
-                if (e.key === '0') {
-                    e.preventDefault();
-                    window.electronAPI?.setZoomFactor && window.electronAPI.setZoomFactor(1);
-                }
-
-                // Font Size Zoom (Ctrl + [ / ])
-                if (e.key === ']' || e.key === 'BracketRight') {
-                    e.preventDefault();
-                    handleZoomIn('keyboard');
-                }
-                if (e.key === '[' || e.key === 'BracketLeft') {
-                    e.preventDefault();
-                    handleZoomOut('keyboard');
-                }
-            }
-        };
-        window.addEventListener('keydown', handleGlobalKeyDown);
-        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [isDualView, rawContextOpen, activeLineIndexRight, activeLineIndexLeft, logViewPreferences, isActive]); // Added dependency
 
 
 
@@ -904,41 +793,7 @@ export const useLogExtractorLogic = ({
         }
     }, []); // Removed dependencies on activeLineIndex to prevent recreation during rapid events
 
-    // Handle Shift+C (Global Selection Extension)
-    useEffect(() => {
-        const handleShiftC = (e: KeyboardEvent) => {
-            if (e.shiftKey && (e.key === 'c' || e.key === 'C')) {
-                // Determine active pane
-                // If Dual View, decide based on which one has active selection or focus
-                // Default to left if single view.
-                const targetPane = (isDualView && activeLineIndexRight !== -1) ? 'right' : 'left';
 
-                const currentSelection = targetPane === 'left' ? selectedIndicesLeft : selectedIndicesRight;
-                const setSelection = targetPane === 'left' ? setSelectedIndicesLeft : setSelectedIndicesRight;
-                const totalLines = targetPane === 'left' ? leftTotalLines : rightTotalLines;
-
-                if (currentSelection.size > 0) {
-                    const sorted = Array.from(currentSelection).sort((a, b) => a - b);
-                    const last = sorted[sorted.length - 1];
-                    const next = last + 1;
-
-                    if (next < totalLines) {
-                        setSelection(prev => {
-                            const nextSet = new Set(prev);
-                            nextSet.add(next);
-                            return nextSet;
-                        });
-                        // Also scroll into view
-                        const viewer = targetPane === 'left' ? leftViewerRef.current : rightViewerRef.current;
-                        viewer?.scrollToIndex(next, { align: 'center' }); // align center or end?
-                    }
-                }
-            }
-        };
-
-        window.addEventListener('keydown', handleShiftC);
-        return () => window.removeEventListener('keydown', handleShiftC);
-    }, [isDualView, activeLineIndexRight, activeLineIndexLeft, selectedIndicesLeft, selectedIndicesRight, leftTotalLines, rightTotalLines]);
 
 
     const handleLeftFileChange = useCallback((file: File) => {
@@ -1764,6 +1619,34 @@ export const useLogExtractorLogic = ({
     const handleJumpToLineRight = useCallback((lineNum: number) => {
         jumpToGlobalLine(lineNum, 'right', 'center');
     }, [jumpToGlobalLine]);
+
+    // === Phase 1: Keyboard Shortcuts (Extracted) ===
+    useLogShortcuts({
+        isActive,
+        isDualView,
+        leftViewerRef,
+        rightViewerRef,
+        activeLineIndexLeft,
+        activeLineIndexRight,
+        setSelectedIndicesLeft,
+        setSelectedIndicesRight,
+        selectedIndicesLeft,
+        selectedIndicesRight,
+        leftTotalLines,
+        rightTotalLines,
+        rawContextOpen,
+        setRawContextOpen,
+        isTransactionDrawerOpen,
+        setIsTransactionDrawerOpen,
+        handleZoomIn,
+        handleZoomOut,
+        logViewPreferences,
+        setActiveLineIndexLeft,
+        setActiveLineIndexRight,
+        activeLineIndexAnchorLeft: activeLineIndexLeft, // Using state as anchor
+        activeLineIndexAnchorRight: activeLineIndexRight
+    });
+
 
     return {
         rules,

@@ -10,6 +10,24 @@
 - 헤더와 콘텐츠 사이의 구분선(`indigo-500/30`)이 뚜렷하게 보이는지 확인합니다.
 - 배경색이 검은색 계열(`#0b0f19`)로 일관되게 적용되었는지 확인합니다.
 
+## 최근 작업 내용: 보수적 상태 추출 리팩토링 (2026-03-01)
+
+복잡한 워커 로직이나 성능 분석 알고리즘은 건드리지 않고, `useLogExtractorLogic.ts` 내의 거대한 UI 상태 변수들만 기능별 훅으로 분리했습니다.
+
+### 1. 기능별 상태 훅 분리
+- **[useLogSelectionState.ts](file:///c:/AntigravityWorkspace/happytool_electron/haappytool_electron/hooks/useLogSelectionState.ts)**: 선택된 인덱스, 활성 라인, 하이라이트 범위 관리.
+- **[useLogPerformanceState.ts](file:///c:/AntigravityWorkspace/happytool_electron/haappytool_electron/hooks/useLogPerformanceState.ts)**: 성능 히트맵 및 분석 결과 관리.
+- **[useLogSpamState.ts](file:///c:/AntigravityWorkspace/happytool_electron/haappytool_electron/hooks/useLogSpamState.ts)**: 스팸 분석 결과 관리.
+- **[useLogBookmarkState.ts](file:///c:/AntigravityWorkspace/happytool_electron/haappytool_electron/hooks/useLogBookmarkState.ts)**: 북마크 상태 관리.
+
+### 2. 안정성 확보
+- **Alias 패턴 적용**: 기존 `useLogExtractorLogic.ts`에서 사용하던 변수명을 그대로 유지하여 비즈니스 로직 수정 없이 파일 크기만 축소.
+- **환경 정화**: 이전 실패한 리팩토링의 잔재 파일(`useLogWorker.ts`, `useLogSession*.ts`)을 삭제하고 `LogSession.tsx`를 안정적인 시점(`dcfed2b`)으로 복구.
+- **타입 검증**: `npx tsc --noEmit`을 통해 프로젝트 전체의 타입 정합성 확인 완료.
+
+### 3. 성능 분석 결과 유지
+- 형님께서 말씀하신 대로 성능 분석 로직은 건드리지 않았으며, 현재 11개 세그먼트가 정상적으로 출력되는 상태를 유지하고 있습니다.
+
 ## 3. 기능 점검
 - Post Tool의 환경 설정(Environment), 인증(Auth), 코드 생성(Code) 버튼이 축소된 헤더 내에서 정상적으로 동작하는지 확인합니다.
 - 로그 탭의 배경색이 통일되어 시각적 이질감이 없는지 확인합니다.
