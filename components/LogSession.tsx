@@ -18,6 +18,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useHappyTool } from '../contexts/HappyToolContext';
 import TransactionDrawer from './LogViewer/TransactionDrawer';
 import { extractTransactionIds } from '../utils/transactionAnalysis';
+import { useLogSessionShortcuts } from '../hooks/useLogSessionShortcuts';
 
 const { X, Eraser, ChevronLeft, ChevronRight, GripHorizontal } = Lucide;
 
@@ -488,12 +489,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const requestLeftBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'left'), [requestBookmarkedLines]);
     const requestRightBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'right'), [requestBookmarkedLines]);
 
-    // Track latest state for global shortcuts
-    const stateRef = React.useRef({ activeLineIndexLeft, activeLineIndexRight, selectedIndicesLeft, selectedIndicesRight, leftBookmarks, rightBookmarks });
-    React.useEffect(() => {
-        stateRef.current = { activeLineIndexLeft, activeLineIndexRight, selectedIndicesLeft, selectedIndicesRight, leftBookmarks, rightBookmarks };
-    });
-
     // Update Tab Title based on file name
     React.useEffect(() => {
         if (onTitleChange) {
@@ -779,6 +774,44 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         };
     }, [isActive, handleZoomIn, handleZoomOut, leftPerfAnalysisResult, rightPerfAnalysisResult, isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight]);
 
+    // Track latest state for global shortcuts
+    const stateRef = React.useRef({ activeLineIndexLeft, activeLineIndexRight, selectedIndicesLeft, selectedIndicesRight, leftBookmarks, rightBookmarks });
+    React.useEffect(() => {
+        stateRef.current = { activeLineIndexLeft, activeLineIndexRight, selectedIndicesLeft, selectedIndicesRight, leftBookmarks, rightBookmarks };
+    });
+
+    // Initialize global keyboard and copy shortcuts
+    useLogSessionShortcuts({
+        isActive,
+        isDualView,
+        isSaveDialogOpen,
+        isViewerOpen,
+        isTransactionDrawerOpen,
+        stateRef,
+        tizenSocket,
+        leftViewerRef,
+        rightViewerRef,
+        searchInputRef,
+        setIsTransactionDrawerOpen,
+        jumpToGlobalLine,
+        toggleLeftBookmark,
+        toggleRightBookmark,
+        handlePageNavRequestLeft,
+        handlePageNavRequestRight,
+        handleClearLogs,
+        setIsPanelOpen,
+        onShowBookmarksLeft,
+        onShowBookmarksRight,
+        jumpToHighlight,
+        setIsGoToLineModalOpen,
+        handleCopyLogs,
+        addToast,
+        leftPerfAnalysisResult,
+        rightPerfAnalysisResult,
+        isAnalyzingPerformanceLeft,
+        isAnalyzingPerformanceRight
+    });
+
     return (
         <div
             ref={containerRef}
@@ -807,296 +840,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             {/* Added transition-all to synchronize with header movement */}
             {/* Main Content Area - Placeholder for transition if needed, but real content is below */}
 
-
-            {/* Global Shortcut Handler for Ctrl+B */}
-            {React.createElement(
-                React.Fragment,
-                null,
-                // Inline effect for global shortcut
-                (() => {
-                    React.useEffect(() => {
-                        const handleGlobalKeyDown = (e: KeyboardEvent) => {
-                            // 1. ESC: Close Transaction Drawer (Highest priority, works even if not "active" tab context)
-                            if (e.key === 'Escape') {
-                                if (isTransactionDrawerOpen) {
-                                    setIsTransactionDrawerOpen(false);
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    return;
-                                }
-                            }
-
-                            // If Save Dialog or Archive Viewer is open, disable all shortcuts to allow typing/local shortcuts
-                            if (isSaveDialogOpen || isViewerOpen) return;
-
-                            // All other shortcuts require the session to be active
-                            if (!isActive) return;
-
-                            // F3: Next Bookmark, F4 (or Shift+F3): Prev Bookmark
-                            if (e.key === 'F3' || e.key === 'F4') {
-                                // If inside input, ignore? No, usually F3 works globally unless consumed.
-                                e.preventDefault();
-                                e.stopPropagation();
-
-                                if (!isActive) return;
-
-                                if (!isDualView && e.shiftKey) return;
-
-                                let targetPane = 'left';
-                                if (e.shiftKey) {
-                                    if (!isDualView) return;
-                                    targetPane = 'right';
-                                } else {
-                                    targetPane = 'left';
-                                }
-
-                                const isPrev = e.key === 'F3'; // F3 (and Shift+F3) = Prev, F4 (and Shift+F4) = Next
-                                const st = stateRef.current;
-                                const bookmarks = targetPane === 'right' ? st.rightBookmarks : st.leftBookmarks;
-                                const currentLine = targetPane === 'right' ? st.activeLineIndexRight : st.activeLineIndexLeft;
-
-                                const sorted = Array.from(bookmarks).sort((a, b) => a - b);
-                                if (sorted.length === 0) return;
-
-                                let targetIdx = -1;
-
-                                if (isPrev) {
-                                    // Find largest bookmark < currentLine
-                                    const prevs = sorted.filter(b => b < currentLine);
-                                    if (prevs.length > 0) targetIdx = prevs[prevs.length - 1];
-                                    else targetIdx = sorted[sorted.length - 1]; // Wrap to last
-                                } else {
-                                    // Find smallest bookmark > currentLine
-                                    const nexts = sorted.filter(b => b > currentLine);
-                                    if (nexts.length > 0) targetIdx = nexts[0];
-                                    else targetIdx = sorted[0]; // Wrap to first
-                                }
-
-                                if (targetIdx !== -1) {
-                                    jumpToGlobalLine(targetIdx, targetPane as 'left' | 'right');
-                                }
-
-                                return;
-                            }
-
-
-                            if (e.code === 'Space') {
-                                console.log('[LogSession] Space Key Pressed', { isActive, target: (e.target as HTMLElement).tagName });
-
-                                if (!isActive) {
-                                    console.log('[LogSession] Ignored: Not Active');
-                                    return;
-                                }
-
-                                // Ignore if typing in an input
-                                const target = e.target as HTMLElement;
-                                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-                                    console.log('[LogSession] Ignored: Input Focus');
-                                    return;
-                                }
-
-                                e.preventDefault();
-                                e.stopPropagation();
-
-                                let targetPane = 'left';
-                                if (isDualView) {
-                                    const activeEl = document.activeElement;
-                                    if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
-                                        targetPane = 'right';
-                                    }
-                                }
-
-                                const st = stateRef.current;
-                                const currentIndex = targetPane === 'right' ? st.activeLineIndexRight : st.activeLineIndexLeft;
-
-                                console.log(`[LogSession] Attempting Toggle: Pane=${targetPane}, Index=${currentIndex}`);
-
-                                if (currentIndex !== -1) {
-                                    if (targetPane === 'right') toggleRightBookmark(currentIndex);
-                                    else toggleLeftBookmark(currentIndex);
-                                } else {
-                                    console.warn('[LogSession] No line selected to bookmark');
-                                }
-                                return;
-                            }
-
-
-                            if (e.key === 'PageDown' || e.key === 'PageUp') {
-                                if (!isActive) return;
-
-                                let targetPane = 'left';
-                                if (isDualView) {
-                                    const activeEl = document.activeElement;
-                                    if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
-                                        targetPane = 'right';
-                                    }
-                                }
-
-                                const viewer = targetPane === 'left' ? leftViewerRef.current : rightViewerRef.current;
-                                if (!viewer) return;
-
-                                if (e.key === 'PageDown') {
-                                    if (viewer.isAtBottom()) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        const handler = targetPane === 'left' ? handlePageNavRequestLeft : handlePageNavRequestRight;
-                                        // We need to access the LATEST callback.
-                                        // Since we are inside useEffect with deps...
-                                        // We must depend on handlePageNavRequestLeft/Right in useEffect
-                                        // OR use stateRef approach?
-                                        // But handlePageNavRequestLeft depends on state.
-                                        // Adding handlePageNavRequestLeft to dependency array is correct.
-                                        if (targetPane === 'left') handlePageNavRequestLeft('next');
-                                        else handlePageNavRequestRight('next');
-                                    }
-                                } else {
-                                    if (viewer.isAtTop()) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        if (targetPane === 'left') handlePageNavRequestLeft('prev');
-                                        else handlePageNavRequestRight('prev');
-                                    }
-                                }
-                                return;
-                            }
-
-                            if (e.ctrlKey || e.metaKey) {
-                                // Check if we are in this session (should be active)
-                                if (!isActive) return;
-
-                                // Ctrl + Shift + X: Clear Logs (SSH/SDB connection only)
-                                if (e.shiftKey && (e.key === 'x' || e.key === 'X')) {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    if (tizenSocket) {
-                                        handleClearLogs();
-                                    }
-                                    return;
-                                }
-
-                                // Ctrl + ` : Toggle Configuration Panel
-                                if (e.key === '`' || e.key === '~') {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setIsPanelOpen(prev => !prev);
-                                    return;
-                                }
-
-                                // Ctrl + B: View Bookmarks
-                                if (e.key === 'b' || e.key === 'B') {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-
-                                    // Determine target based on focus or default to left
-                                    let target = 'left';
-                                    if (isDualView) {
-                                        const activeEl = document.activeElement;
-                                        if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
-                                            target = 'right';
-                                        }
-                                    }
-
-                                    if (target === 'right') onShowBookmarksRight();
-                                    else onShowBookmarksLeft();
-                                }
-
-                                // Ctrl + 1~5: Jump to Highlight #N
-                                if (['1', '2', '3', '4', '5'].includes(e.key)) {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-
-                                    const highlightIdx = parseInt(e.key, 10) - 1;
-
-                                    let targetPath = 'left';
-                                    if (isDualView) {
-                                        const activeEl = document.activeElement;
-                                        if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
-                                            targetPath = 'right';
-                                        }
-                                    }
-
-                                    jumpToHighlight(highlightIdx, targetPath as 'left' | 'right');
-                                }
-
-                                // Ctrl + F (Find) - Ensure Shift is NOT pressed so we don't trap Ctrl+Shift+F
-                                if ((e.key === 'f' || e.key === 'F') && !e.shiftKey) {
-                                    // If PerfDashboard is open, let PerfDashboard handle Ctrl+F
-                                    if (leftPerfAnalysisResult || rightPerfAnalysisResult || isAnalyzingPerformanceLeft || isAnalyzingPerformanceRight) {
-                                        return; // Don't intercept - PerfDashboard's listener will handle it
-                                    }
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    searchInputRef.current?.focus();
-                                }
-
-                                // Ctrl + G (Go To Line)
-                                if (e.key === 'g' || e.key === 'G') {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setIsGoToLineModalOpen((prev: boolean) => !prev);
-                                }
-
-                                // ✅ Ctrl + C (Copy) - Explicit Handling
-                                if (e.key === 'c' || e.key === 'C') {
-                                    // 1. Check native text selection first
-                                    const selection = window.getSelection()?.toString();
-                                    if (selection && selection.length > 0) {
-                                        // 🔥 Log Copy Precision: Remove trailing newline from native selection
-                                        navigator.clipboard.writeText(selection.replace(/\r?\n$/, ''));
-                                        addToast('Selection copied!', 'success'); // ✅ 형님, Alt+드래그 복사 피드백 추가했습니다!
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        return;
-                                    }
-
-                                    // 2. If no text selection, try copying selected lines (Custom Logic)
-                                    // Determine pane
-                                    let targetPane = 'left';
-                                    if (isDualView) {
-                                        const activeEl = document.activeElement;
-                                        if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
-                                            targetPane = 'right';
-                                        }
-                                    }
-
-                                    // Check if lines are selected
-                                    const st = stateRef.current;
-                                    const selectedIndices = targetPane === 'right' ? st.selectedIndicesRight : st.selectedIndicesLeft;
-
-                                    if (selectedIndices.size > 0) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleCopyLogs(targetPane as 'left' | 'right');
-                                    }
-                                }
-                            }
-                        };
-
-                        // ✅ 글로벌 복사 이벤트 감지 (우클릭 등 앱 전역 복사 피드백 보강)
-                        const handleGlobalCopy = () => {
-                            const selection = window.getSelection()?.toString();
-                            if (selection && selection.length > 0) {
-                                // 단, Ctrl+C 핸들러에서 이미 toast를 띄우므로 중복 방지를 위해 
-                                // activeElement가 input이나 textarea인 경우는 제외하거나 로직 고민 가능.
-                                // 여기서는 단순 텍스트 선택이 있는 경우에만 띄웁니다.
-                                // (Ctrl+C 핸들러에서 preventDefault를 하므로 이 이벤트는 trigger 되지 않을 수도 있음)
-                                console.log('[LogSession] Native copy detected');
-                                if (!document.activeElement?.matches('input, textarea')) {
-                                    addToast('Selection copied to clipboard!', 'success'); // ✅ 우클릭 복사 시에도 피드백 제공
-                                }
-                            }
-                        };
-
-                        window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
-                        window.addEventListener('copy', handleGlobalCopy);
-                        return () => {
-                            window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
-                            window.removeEventListener('copy', handleGlobalCopy);
-                        };
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, isSaveDialogOpen, isViewerOpen, tizenSocket, handleClearLogs, isTransactionDrawerOpen, setIsTransactionDrawerOpen, addToast, leftPerfAnalysisResult, rightPerfAnalysisResult, isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight]);
-                    return null;
-                })()
-            )}
 
             {/* Hidden File Inputs for Click-to-Upload */}
             <input type="file" ref={leftFileInputRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleLeftFileChange(e.target.files[0]); e.target.value = ''; } }} />

@@ -168,6 +168,7 @@ const getVisualBookmarks = (): number[] => {
 import { checkIsMatch } from '../utils/logFiltering';
 import { extractTimestamp } from '../utils/logTime';
 import { analyzePerfSegments, extractSourceMetadata } from '../utils/perfAnalysis';
+import * as AnalysisHandlers from './workerAnalysisHandlers';
 
 
 // ... (omitted file indexing / stream handlers)
@@ -1071,342 +1072,29 @@ const analyzeTransaction = async (identity: { type: 'pid' | 'tid' | 'tag', value
 };
 
 // --- Handler: Analyze Performance (New) ---
-const analyzePerformance = async (payload: { targetTime: number, updatedRule?: LogRule }, requestId: string) => {
-    if (payload.updatedRule) {
-        currentRule = payload.updatedRule;
-    }
-
-    if (!filteredIndices || !currentRule) {
-        respond({ type: 'PERF_ANALYSIS_RESULT', payload: null, requestId });
-        return;
-    }
-
-    respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
-
-    const results: string[] = [];
-    const lineIndices: number[] = [];
-    const isFile = !!currentFile && !!lineOffsets;
-    const isHappyCS = !!currentRule.happyCombosCaseSensitive;
-
-    const MAX_ANALYSIS_LINES = 100000;
-    let limit = filteredIndices.length;
-
-    if (limit > MAX_ANALYSIS_LINES) {
-        console.warn(`[Worker] Performance analysis limited to first ${MAX_ANALYSIS_LINES} lines to prevent OOM.`);
-        limit = MAX_ANALYSIS_LINES;
-        respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0, message: 'Analysis limited to 100k lines' } }); // Optional feedback
-    }
-
-    if (isStreamMode) {
-        for (let idx = 0; idx < limit; idx++) {
-            const i = filteredIndices[idx];
-            results.push(streamLines[i]);
-            lineIndices.push(idx); // Use visual index for jumping/highlighting
-        }
-    } else if (isFile) {
-        const reader = new FileReaderSync();
-        const BATCH_SIZE = 5000;
-
-        for (let idx = 0; idx < limit; idx += BATCH_SIZE) {
-            const maxBatch = Math.min(idx + BATCH_SIZE, limit);
-            let minByte = -1n;
-            let maxByte = -1n;
-
-            for (let k = idx; k < maxBatch; k++) {
-                const i = filteredIndices[k];
-                const start = lineOffsets![i];
-                const end = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(currentFile!.size);
-                if (minByte === -1n || start < minByte) minByte = start;
-                if (maxByte === -1n || end > maxByte) maxByte = end;
-            }
-
-            if (minByte !== -1n) {
-                const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
-                const buffer = reader.readAsArrayBuffer(fullBlob);
-                const decoder = new TextDecoder();
-
-                for (let k = idx; k < maxBatch; k++) {
-                    const i = filteredIndices[k];
-                    const lineStart = lineOffsets![i];
-                    const lineEnd = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(currentFile!.size);
-
-                    const relStart = Number(lineStart - minByte);
-                    const relEnd = Number(lineEnd - minByte);
-                    const lineBuffer = buffer.slice(relStart, relEnd);
-                    const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
-
-                    results.push(text);
-                    lineIndices.push(k); // Use visual index
-                }
-            }
-
-            if (idx % (BATCH_SIZE * 2) === 0) {
-                if (idx % (BATCH_SIZE * 2) === 0) {
-                    respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (idx / limit) * 100 } });
-                }
-            }
-        }
-    }
-
-    // Now run the actual segment analysis
-    const targetThreshold = currentRule.perfThreshold ?? payload.targetTime ?? 1000;
-    const segments = analyzePerfSegments(results, lineIndices, currentRule, targetThreshold, isHappyCS);
-
-    // ✅ Map back to absolute line numbers for Raw View
-    if (filteredIndices) {
-        segments.forEach(s => {
-            s.originalStartLine = (filteredIndices![s.startLine] ?? 0) + 1;
-            s.originalEndLine = (filteredIndices![s.endLine] ?? 0) + 1;
-        });
-    }
-
-    // Calculate full result
-    const hasSegments = segments.length > 0;
-    const firstTs = hasSegments ? Math.min(...segments.map(s => s.startTime)) : 0;
-    const lastTs = hasSegments ? Math.max(...segments.map(s => s.endTime)) : 0;
-
-    // ✅ TOP 100 Segments (Sorted by duration DESC for analysis)
-    const bottlenecks = [...segments]
-        .sort((a, b) => b.duration - a.duration)
-        .slice(0, 100);
-
-    const analysisResult = {
-        fileName: isFile ? currentFile!.name : 'Live Stream',
-        totalDuration: lastTs - firstTs,
-        segments: segments.sort((a, b) => a.startTime - b.startTime),
-        startTime: firstTs,
-        endTime: lastTs,
-        logCount: results.length,
-        passCount: segments.filter(s => s.status === 'pass').length,
-        failCount: segments.filter(s => s.status === 'fail').length,
-        bottlenecks,
-        perfThreshold: targetThreshold
-    };
-
-    respond({ type: 'PERF_ANALYSIS_RESULT', payload: analysisResult, requestId });
-    respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
-
-    // ✅ Memory Cleanup
-    results.length = 0;
-    lineIndices.length = 0;
-    segments.length = 0;
-};
+// MOVED TO workerAnalysisHandlers.ts
 
 // --- Helper: Get Performance Heatmap ---
-const getPerformanceHeatmap = async (points: number, requestId: string) => {
-    if (isCalculatingHeatmap) {
-        console.log(`[Worker] Heatmap calculation skipped: Already calculating. (req: ${requestId})`);
-        return;
-    }
-
-    // ✅ State Check: Support both File Mode and Stream Mode
-    const hasFileData = !isStreamMode && currentFile && lineOffsets;
-    const hasStreamData = isStreamMode && streamLines.length > 0;
-
-    if (!filteredIndices || (!hasFileData && !hasStreamData)) {
-        console.log(`[Worker] Heatmap calculation skipped: Missing required data.`, {
-            isStreamMode,
-            hasFilteredIndices: !!filteredIndices,
-            hasFileData,
-            hasStreamData,
-            req: requestId
-        });
-        return;
-    }
-
-    const totalLines = filteredIndices.length;
-    if (totalLines < 2) {
-        respond({ type: 'HEATMAP_DATA', payload: { heatmap: [] }, requestId });
-        return;
-    }
-
-    isCalculatingHeatmap = true;
-    try {
-        const heatmap = new Float32Array(points);
-        const sampleSize = Math.max(1, Math.floor(totalLines / points));
-        const decoder = new TextDecoder();
-
-        for (let i = 0; i < points; i++) {
-            const startIdx = i * sampleSize;
-            if (startIdx >= totalLines - 1) break;
-
-            try {
-                const idx1 = filteredIndices[startIdx];
-                const idx2 = filteredIndices[startIdx + 1];
-
-                let t1: number | null = null;
-                let t2: number | null = null;
-
-                if (isStreamMode) {
-                    // ✅ Stream Mode: Direct access from memory
-                    t1 = extractTimestamp(streamLines[idx1]);
-                    t2 = extractTimestamp(streamLines[idx2]);
-                } else if (currentFile && lineOffsets) {
-                    // ✅ File Mode: Read chunks from file handles
-                    const startByte1 = lineOffsets[idx1];
-                    const endByte1 = idx1 < lineOffsets.length - 1 ? lineOffsets[idx1 + 1] : BigInt(currentFile.size);
-                    const startByte2 = lineOffsets[idx2];
-                    const endByte2 = idx2 < lineOffsets.length - 1 ? lineOffsets[idx2 + 1] : BigInt(currentFile.size);
-
-                    const minByte = startByte1;
-                    const maxByte = endByte2;
-
-                    if (maxByte - minByte > 1024 * 1024) {
-                        heatmap[i] = 0;
-                        continue;
-                    }
-
-                    const chunk = await currentFile.slice(Number(minByte), Number(maxByte)).arrayBuffer();
-                    const text1 = decoder.decode(chunk.slice(0, Number(endByte1 - minByte))).replace(/\r?\n$/, '');
-                    const text2 = decoder.decode(chunk.slice(Number(startByte2 - minByte))).replace(/\r?\n$/, '');
-
-                    t1 = extractTimestamp(text1);
-                    t2 = extractTimestamp(text2);
-                }
-
-                if (t1 !== null && t2 !== null) {
-                    const diff = Math.abs(t2 - t1);
-                    heatmap[i] = Math.min(1.0, diff / 1000);
-                }
-            } catch (e) {
-                // Skip failed samples
-            }
-        }
-
-        console.log(`[Worker] Heatmap generated: ${points} points, requestId: ${requestId}`);
-        respond({ type: 'HEATMAP_DATA', payload: { heatmap: Array.from(heatmap) }, requestId });
-    } finally {
-        isCalculatingHeatmap = false;
-    }
-};
+// MOVED TO workerAnalysisHandlers.ts
 
 // --- Helper: Spam Log Analysis ---
-const analyzeSpamLogs = async (requestId: string) => {
-    // 📸 [SNAPSHOT] 비동기 처리 도중 filteredIndices가 변경되는 것을 방지하기 위해 캡처
-    const indicesSnapshot = filteredIndices ? new Int32Array(filteredIndices) : null;
-    const streamLinesSnapshot = isStreamMode ? [...streamLines] : null;
-    const isFile = !!currentFile && !!lineOffsets;
-
-    if (!indicesSnapshot || (!isFile && !streamLinesSnapshot)) {
-        respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results: [] }, requestId } as any);
-        return;
-    }
-
-    respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
-
-    const spamMap = new Map<string, { count: number, lineContent: string, fileName: string, functionName: string, lineNum: number, indices: number[] }>();
-
-    const processSpamLine = (line: string, lineNum: number, originalIndex: number) => {
-        const { fileName, functionName } = extractSourceMetadata(line);
-        let key = '';
-        let fName = fileName || 'Unknown File';
-        let fnName = functionName || 'Unknown Location';
-
-        if (fileName || functionName) {
-            key = `${fName}::${fnName}`;
-        } else {
-            const messagePart = line.split('>').slice(1).join('>').trim() || line;
-            const fingerprint = messagePart.replace(/[\d:\-\.\[\]\s]/g, '').substring(0, 60);
-            key = fingerprint;
-            if (key.length < 10) return;
-        }
-
-        const existing = spamMap.get(key);
-        if (existing) {
-            existing.count++;
-            existing.indices.push(originalIndex); // Store absolute index
-        } else {
-            spamMap.set(key, {
-                count: 1,
-                lineContent: line,
-                fileName: fName,
-                functionName: fnName,
-                lineNum,
-                indices: [originalIndex]
-            });
-        }
-    };
-
-    const totalLines = indicesSnapshot.length;
-
-    if (isStreamMode && streamLinesSnapshot) {
-        for (let i = 0; i < totalLines; i++) {
-            const originalIdx = indicesSnapshot[i];
-            if (originalIdx < streamLinesSnapshot.length) {
-                const line = streamLinesSnapshot[originalIdx];
-                processSpamLine(line, originalIdx + 1, originalIdx);
-            }
-            if (i % 20000 === 0) {
-                respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (i / totalLines) * 100 } });
-            }
-        }
-    } else if (isFile && currentFile && lineOffsets) {
-        const decoder = new TextDecoder();
-        const MAX_SPAM_CHUNK_BYTES = 10 * 1024 * 1024;
-
-        let i = 0;
-        while (i < totalLines) {
-            let chunkStartIdx = i;
-            let minByte = lineOffsets[indicesSnapshot[i]];
-            let maxByte = -1n;
-
-            let j = i;
-            while (j < totalLines) {
-                const idx = indicesSnapshot[j];
-                const endByte = idx < lineOffsets.length - 1 ? lineOffsets[idx + 1] : BigInt(currentFile.size);
-                if (maxByte === -1n || endByte > maxByte) maxByte = endByte;
-
-                if (j - i >= 50000) break;
-                if (j + 1 < totalLines) {
-                    const nextIdx = indicesSnapshot[j + 1];
-                    const nextEndByte = nextIdx < lineOffsets.length - 1 ? lineOffsets[nextIdx + 1] : BigInt(currentFile.size);
-                    if (nextEndByte - minByte > BigInt(MAX_SPAM_CHUNK_BYTES)) break;
-                }
-                j++;
-            }
-
-            const chunkEndIdx = Math.min(j + 1, totalLines);
-            if (maxByte > minByte) {
-                try {
-                    const chunkBlob = currentFile.slice(Number(minByte), Number(maxByte));
-                    const buffer = await chunkBlob.arrayBuffer();
-                    const uint8View = new Uint8Array(buffer);
-
-                    for (let k = chunkStartIdx; k < chunkEndIdx; k++) {
-                        const originalIdx = indicesSnapshot[k];
-                        const lineStart = lineOffsets[originalIdx];
-                        const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
-
-                        if (lineStart >= lineEnd) continue;
-
-                        const relStart = Number(lineStart - minByte);
-                        const relEnd = Number(lineEnd - minByte);
-
-                        const line = decoder.decode(uint8View.subarray(relStart, relEnd)).replace(/\r?\n$/, '');
-                        processSpamLine(line, originalIdx + 1, originalIdx);
-                    }
-                } catch (err) {
-                    console.error('[Worker] Spam chunk processing failed', err);
-                }
-            }
-
-            i = chunkEndIdx;
-            respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (i / totalLines) * 100 } });
-        }
-    }
-
-    const results = Array.from(spamMap.values())
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 100);
-
-    respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
-    respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results }, requestId } as any);
-};
+// MOVED TO workerAnalysisHandlers.ts
 
 // --- Message Listener ---
 ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
     const { type, payload, requestId } = evt.data;
     if (type !== 'PROCESS_CHUNK') console.log(`[Worker] Received message: ${type}`);
+    // Helper to get collective context for handlers
+    const getAnalysisContext = (): AnalysisHandlers.WorkerContext => ({
+        currentFile,
+        lineOffsets,
+        filteredIndices,
+        isStreamMode,
+        streamLines,
+        respond,
+        currentRule
+    });
+
     switch (type) {
         case 'INIT_FILE':
             buildFileIndex(payload);
@@ -1442,16 +1130,19 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             getFullText(requestId || '');
             break;
         case 'ANALYZE_TRANSACTION':
-            analyzeTransaction(payload.identity, requestId || '');
+            AnalysisHandlers.analyzeTransaction(getAnalysisContext(), payload.identity, requestId || '');
             break;
         case 'GET_PERFORMANCE_HEATMAP':
-            getPerformanceHeatmap(payload.points || 500, requestId || '');
+            AnalysisHandlers.getPerformanceHeatmap(getAnalysisContext(), payload.points || 500, requestId || '', {
+                get current() { return isCalculatingHeatmap; },
+                set current(val) { isCalculatingHeatmap = val; }
+            });
             break;
         case 'PERF_ANALYSIS':
-            analyzePerformance(payload, requestId || '');
+            AnalysisHandlers.analyzePerformance(getAnalysisContext(), payload, requestId || '');
             break;
         case 'ANALYZE_SPAM':
-            analyzeSpamLogs(requestId || '');
+            AnalysisHandlers.analyzeSpamLogs(getAnalysisContext(), requestId || '');
             break;
         case 'FIND_VISUAL_INDEX':
             if (filteredIndices) {
