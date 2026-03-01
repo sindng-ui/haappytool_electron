@@ -21,6 +21,8 @@ import { useLogSessionShortcuts } from '../hooks/useLogSessionShortcuts';
 import { RawContextViewer } from './LogViewer/RawContextViewer';
 import { useLogSessionContextMenus } from '../hooks/useLogSessionContextMenus';
 import { useLogSessionHighlights } from '../hooks/useLogSessionHighlights';
+import { useLogSessionArchive } from '../hooks/useLogSessionArchive';
+import { useLogSessionPaneCallbacks } from '../hooks/useLogSessionPaneCallbacks';
 
 const { X, Eraser, ChevronLeft, ChevronRight, GripHorizontal } = Lucide;
 
@@ -128,42 +130,29 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         isDualView ? undefined : (leftFileName || undefined)
     );
 
-    // === ARCHIVE SAVE (full file) === //
-    const MAX_ARCHIVE_LINES = 300_000; // ~30MB @ ~100 bytes/line
-    const isLeftArchiveEnabled = leftWorkerReady && leftFilteredCount > 0 && leftFilteredCount <= MAX_ARCHIVE_LINES && !tizenSocket;
-    const isRightArchiveEnabled = rightWorkerReady && rightFilteredCount > 0 && rightFilteredCount <= MAX_ARCHIVE_LINES;
-
-    const onArchiveSaveLeft = React.useCallback(async () => {
-        if (!leftWorkerReady || leftFilteredCount === 0) return;
-        try {
-            const lines = await requestLeftLines(0, leftFilteredCount);
-            const content = lines.map(l => l.content).join('\n');
-            openSaveDialog({
-                content,
-                sourceFile: leftFileName || undefined,
-                startLine: 1,
-                endLine: leftFilteredCount,
-            });
-        } catch (e) {
-            console.error('[LogSession] Failed to fetch lines for archive', e);
-        }
-    }, [leftWorkerReady, leftFilteredCount, requestLeftLines, leftFileName, openSaveDialog]);
-
-    const onArchiveSaveRight = React.useCallback(async () => {
-        if (!rightWorkerReady || rightFilteredCount === 0) return;
-        try {
-            const lines = await requestRightLines(0, rightFilteredCount);
-            const content = lines.map(l => l.content).join('\n');
-            openSaveDialog({
-                content,
-                sourceFile: rightFileName || undefined,
-                startLine: 1,
-                endLine: rightFilteredCount,
-            });
-        } catch (e) {
-            console.error('[LogSession] Failed to fetch lines for archive', e);
-        }
-    }, [rightWorkerReady, rightFilteredCount, requestRightLines, rightFileName, openSaveDialog]);
+    // === ARCHIVE SAVE & SELECTION DURATION === //
+    const {
+        isLeftArchiveEnabled,
+        isRightArchiveEnabled,
+        onArchiveSaveLeft,
+        onArchiveSaveRight,
+        leftSelectionDuration,
+        rightSelectionDuration,
+    } = useLogSessionArchive({
+        leftWorkerReady,
+        rightWorkerReady,
+        leftFilteredCount,
+        rightFilteredCount,
+        requestLeftLines,
+        requestRightLines,
+        leftFileName,
+        rightFileName,
+        openSaveDialog,
+        isDualView,
+        selectedIndicesLeft,
+        selectedIndicesRight,
+        tizenSocket,
+    });
 
     // === NEW CONTEXT MENU LOGIC === //
     const { handleContextMenu, handleUnifiedSave } = useLogSessionContextMenus({
@@ -185,62 +174,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         return () => window.removeEventListener('mousemove', handleMouseMove);
     }, []);
 
-
-    // --- Log Time Difference Calculation ---
-    const [leftSelectionDuration, setLeftSelectionDuration] = React.useState<string | null>(null);
-    const [rightSelectionDuration, setRightSelectionDuration] = React.useState<string | null>(null);
-
-    // Calculate Duration when selection changes
-    React.useEffect(() => {
-        const calculateDuration = async () => {
-            // Helper to calculation duration for a specific pane
-            const calc = async (indices: Set<number>, requestFn: (start: number, count: number) => Promise<any[]>) => {
-                if (!indices || indices.size < 2) return null;
-
-                const sorted = Array.from(indices).sort((a, b) => a - b);
-                const firstIdx = sorted[0];
-                const lastIdx = sorted[sorted.length - 1];
-
-                try {
-                    const [firstLine, lastLine] = await Promise.all([
-                        requestFn(firstIdx, 1),
-                        requestFn(lastIdx, 1)
-                    ]);
-
-                    if (firstLine && firstLine.length > 0 && lastLine && lastLine.length > 0) {
-                        const { extractTimestamp, formatDuration } = await import('../utils/logTime');
-                        const startTime = extractTimestamp(firstLine[0].content);
-                        const endTime = extractTimestamp(lastLine[0].content);
-
-                        if (startTime !== null && endTime !== null) {
-                            const diff = Math.abs(endTime - startTime);
-                            return formatDuration(diff);
-                        }
-                    }
-                } catch (e) {
-                    console.warn('Failed to calculate time difference', e);
-                }
-                return null;
-            };
-
-            // Left Pane
-            if (selectedIndicesLeft && selectedIndicesLeft.size > 1) {
-                setLeftSelectionDuration(await calc(selectedIndicesLeft, requestLeftLines));
-            } else {
-                setLeftSelectionDuration(null);
-            }
-
-            // Right Pane
-            if (isDualView && selectedIndicesRight && selectedIndicesRight.size > 1) {
-                setRightSelectionDuration(await calc(selectedIndicesRight, requestRightLines));
-            } else {
-                setRightSelectionDuration(null);
-            }
-        };
-
-        const timer = setTimeout(calculateDuration, 200); // Debounce
-        return () => clearTimeout(timer);
-    }, [selectedIndicesLeft, selectedIndicesRight, isDualView, requestLeftLines, requestRightLines]);
 
     // Native Selection Logic reused (no lineSelection state needed anymore)
     const activeSelection = nativeSelection; // Keep simple reference if needed, or remove usage
@@ -285,139 +218,37 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         }
     };
 
-    const rowHeight = logViewPreferences?.rowHeight || 24; // Use preference or default
+    const rowHeight = logViewPreferences?.rowHeight || 24;
 
-    const requestLeftBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'left'), [requestBookmarkedLines]);
-    const requestRightBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'right'), [requestBookmarkedLines]);
-
-    // Update Tab Title based on file name
-    React.useEffect(() => {
-        if (onTitleChange) {
-            const newTitle = leftFileName || 'New Log';
-            // Only update if title actually changed to prevent loops
-            if (newTitle !== currentTitle) {
-                onTitleChange(newTitle);
-            }
-        }
-    }, [leftFileName, onTitleChange, currentTitle]);
-
-    const handleFocusPaneRequest = (direction: 'left' | 'right', visualY?: number) => {
-        const targetRef = direction === 'left' ? leftViewerRef : rightViewerRef;
-        const targetSetter = direction === 'left' ? setActiveLineIndexLeft : setActiveLineIndexRight;
-        const targetSelectionSetter = direction === 'left' ? setSelectedIndicesLeft : setSelectedIndicesRight;
-        const targetCount = direction === 'left' ? leftFilteredCount : rightFilteredCount;
-        const targetOffset = direction === 'left' ? leftSegmentIndex * MAX_SEGMENT_SIZE : rightSegmentIndex * MAX_SEGMENT_SIZE;
-
-        targetRef.current?.focus();
-
-        if (visualY !== undefined && targetRef.current && targetCount > 0) {
-            const targetScrollTop = targetRef.current.getScrollTop();
-            const targetAbsY = targetScrollTop + visualY;
-            const targetLocalIndex = Math.floor(targetAbsY / rowHeight);
-            const targetGlobalIndex = targetLocalIndex + targetOffset;
-
-            const clampedIndex = Math.max(0, Math.min(targetGlobalIndex, targetCount - 1));
-            targetSetter(clampedIndex);
-            targetSelectionSetter(new Set([clampedIndex]));
-        }
-    };
-
-    const handleSyncScroll = React.useCallback((scrollTop: number, source: 'left' | 'right') => {
-        if (!isDualView) return;
-        const targetRef = source === 'left' ? rightViewerRef : leftViewerRef;
-        if (targetRef.current) {
-            // ✅ Only sync if the difference is significant (> 1px) to avoid jitter/rounding loops
-            const currentTop = targetRef.current.getScrollTop();
-            if (Math.abs(currentTop - scrollTop) >= 1) {
-                targetRef.current.scrollTo(scrollTop);
-            }
-        }
-    }, [isDualView]);
-
-    // Memoized handlers for Left Pane
-    const onLineClickLeft = React.useCallback((index: number, isShift?: boolean, isCtrl?: boolean) => handleLineClick('left', index, !!isShift, !!isCtrl), [handleLineClick]);
-    const onLineDoubleClickLeft = React.useCallback((index: number) => handleLineDoubleClickAction(index, 'left'), [handleLineDoubleClickAction]);
-    const onBrowseLeft = React.useCallback(() => leftFileInputRef.current?.click(), []);
-    const onCopyLeft = React.useCallback(() => handleCopyLogs('left'), [handleCopyLogs]);
-    const onSaveLeft = React.useCallback(() => handleSaveLogs('left'), [handleSaveLogs]);
-    const onSyncScrollLeft = React.useCallback((dy: number) => handleSyncScroll(dy, 'left'), [handleSyncScroll]);
-    const onHighlightJumpLeft = React.useCallback((idx: number) => jumpToHighlight(idx, 'left'), [jumpToHighlight]);
-    const onShowBookmarksLeft = React.useCallback(() => setLeftBookmarksOpen(true), []);
-
+    // === PANE CALLBACKS (click, scroll, nav, bookmarks) === //
+    const {
+        handleSyncScroll, handleFocusPaneRequest,
+        requestLeftBookmarkedLines, requestRightBookmarkedLines,
+        onBookmarkJumpLeft, onBookmarkJumpRight,
+        handlePageNavRequestLeft, handlePageNavRequestRight,
+        handleScrollToBottomRequestLeft, handleScrollToBottomRequestRight,
+        onLineClickLeft, onLineDoubleClickLeft, onBrowseLeft, onCopyLeft, onSaveLeft, onSyncScrollLeft, onHighlightJumpLeft, onShowBookmarksLeft,
+        onLineClickRight, onLineDoubleClickRight, onBrowseRight, onCopyRight, onSaveRight, onSyncScrollRight, onHighlightJumpRight, onShowBookmarksRight,
+    } = useLogSessionPaneCallbacks({
+        leftViewerRef, rightViewerRef, leftFileInputRef, rightFileInputRef,
+        isDualView,
+        handleLineClick, handleLineDoubleClickAction,
+        handleCopyLogs, handleSaveLogs,
+        jumpToHighlight, jumpToGlobalLine,
+        setActiveLineIndexLeft, setActiveLineIndexRight,
+        setSelectedIndicesLeft, setSelectedIndicesRight,
+        setLeftBookmarksOpen, setRightBookmarksOpen,
+        requestBookmarkedLines,
+        leftSegmentIndex, rightSegmentIndex,
+        leftTotalSegments, rightTotalSegments,
+        leftFilteredCount, rightFilteredCount,
+        rowHeight,
+        leftSegmentOffset: leftSegmentIndex * MAX_SEGMENT_SIZE,
+        rightSegmentOffset: rightSegmentIndex * MAX_SEGMENT_SIZE,
+    });
 
     // Prepare Effective Highlights (Explicit + Auto-generated Highlighting for Happy Combos)
     const effectiveHighlights = useLogSessionHighlights(currentConfig);
-
-    // Memoized handlers for Right Pane
-    const onLineClickRight = React.useCallback((index: number, isShift?: boolean, isCtrl?: boolean) => handleLineClick('right', index, !!isShift, !!isCtrl), [handleLineClick]);
-    const onLineDoubleClickRight = React.useCallback((index: number) => handleLineDoubleClickAction(index, 'right'), [handleLineDoubleClickAction]);
-    const onBrowseRight = React.useCallback(() => rightFileInputRef.current?.click(), []);
-    const onCopyRight = React.useCallback(() => handleCopyLogs('right'), [handleCopyLogs]);
-    const onSaveRight = React.useCallback(() => handleSaveLogs('right'), [handleSaveLogs]);
-    const onSyncScrollRight = React.useCallback((dy: number) => handleSyncScroll(dy, 'right'), [handleSyncScroll]);
-    const onHighlightJumpRight = React.useCallback((idx: number) => jumpToHighlight(idx, 'right'), [jumpToHighlight]);
-    const onShowBookmarksRight = React.useCallback(() => setRightBookmarksOpen(true), []);
-
-    const onBookmarkJumpLeft = React.useCallback((index: number) => {
-        setActiveLineIndexLeft(index);
-        setSelectedIndicesLeft(new Set([index]));
-        leftViewerRef.current?.scrollToIndex(index);
-    }, [setActiveLineIndexLeft, setSelectedIndicesLeft]);
-
-    const onBookmarkJumpRight = React.useCallback((index: number) => {
-        setActiveLineIndexRight(index);
-        setSelectedIndicesRight(new Set([index]));
-        rightViewerRef.current?.scrollToIndex(index);
-    }, [setActiveLineIndexRight, setSelectedIndicesRight]);
-
-    // Page Navigation Handlers
-    const handlePageNavRequestLeft = React.useCallback((direction: 'next' | 'prev') => {
-        if (direction === 'next') {
-            if (leftSegmentIndex < leftTotalSegments - 1) {
-                // Jump to the START of the NEXT page
-                const target = (leftSegmentIndex + 1) * MAX_SEGMENT_SIZE;
-                console.log(`[LogSession] PageDown (Left): Jumping to start of next segment (Index ${target})`);
-                jumpToGlobalLine(target, 'left', 'start');
-            }
-        } else {
-            if (leftSegmentIndex > 0) {
-                // Jump to the END of the PREVIOUS page
-                const target = (leftSegmentIndex * MAX_SEGMENT_SIZE) - 1;
-                console.log(`[LogSession] PageUp (Left): Jumping to end of prev segment (Index ${target})`);
-                jumpToGlobalLine(target, 'left', 'end');
-            }
-        }
-    }, [leftSegmentIndex, leftTotalSegments, jumpToGlobalLine]);
-
-    const handlePageNavRequestRight = React.useCallback((direction: 'next' | 'prev') => {
-        if (direction === 'next') {
-            if (rightSegmentIndex < rightTotalSegments - 1) {
-                const target = (rightSegmentIndex + 1) * MAX_SEGMENT_SIZE;
-                console.log(`[LogSession] PageDown (Right): Jumping to start of next segment (Index ${target})`);
-                jumpToGlobalLine(target, 'right', 'start');
-            }
-        } else {
-            if (rightSegmentIndex > 0) {
-                const target = (rightSegmentIndex * MAX_SEGMENT_SIZE) - 1;
-                console.log(`[LogSession] PageUp (Right): Jumping to end of prev segment (Index ${target})`);
-                jumpToGlobalLine(target, 'right', 'end');
-            }
-        }
-    }, [rightSegmentIndex, rightTotalSegments, jumpToGlobalLine]);
-
-    // Scroll To Bottom Handlers
-    const handleScrollToBottomRequestLeft = React.useCallback(() => {
-        // Jump to very last global line
-        if (leftFilteredCount > 0) {
-            jumpToGlobalLine(leftFilteredCount - 1, 'left', 'end');
-        }
-    }, [leftFilteredCount, jumpToGlobalLine]);
-
-    const handleScrollToBottomRequestRight = React.useCallback(() => {
-        if (rightFilteredCount > 0) {
-            jumpToGlobalLine(rightFilteredCount - 1, 'right', 'end');
-        }
-    }, [rightFilteredCount, jumpToGlobalLine]);
 
     // ✅ Ctrl + Wheel Zoom Support (Uses shared logic)
     // We use a native Ref and event listener because React's onWheel is passive by default in some browsers/versions

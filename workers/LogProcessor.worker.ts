@@ -2,6 +2,10 @@
 import { LogRule, LogWorkerMessage, LogWorkerResponse } from '../types';
 import { BookmarkManager } from './workerBookmarkHandlers';
 import * as DataReader from './workerDataReader';
+import { checkIsMatch } from '../utils/logFiltering';
+import { extractTimestamp } from '../utils/logTime';
+import { analyzePerfSegments, extractSourceMetadata } from '../utils/perfAnalysis';
+import * as AnalysisHandlers from './workerAnalysisHandlers';
 
 const ctx: Worker = self as any;
 
@@ -108,10 +112,7 @@ const getVisualBookmarks = (): number[] => BookmarkManager.getVisualBookmarks(fi
 
 // --- Helper: Match Logic ---
 // NOTE: Extracted to utils/logFiltering.ts for testability and reusability
-import { checkIsMatch } from '../utils/logFiltering';
-import { extractTimestamp } from '../utils/logTime';
-import { analyzePerfSegments, extractSourceMetadata } from '../utils/perfAnalysis';
-import * as AnalysisHandlers from './workerAnalysisHandlers';
+// (imports moved to top)
 
 
 // ... (omitted file indexing / stream handlers)
