@@ -1105,7 +1105,10 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             {/* Tizen Connection Modal */}
             <TizenConnectionModal
                 isOpen={isTizenModalOpen}
-                onClose={React.useCallback(() => setIsTizenModalOpen(false), [])}
+                onClose={React.useCallback(() => {
+                    setIsTizenModalOpen(false);
+                    setIsTizenQuickConnect(false);
+                }, [setIsTizenModalOpen, setIsTizenQuickConnect])}
                 onStreamStart={handleTizenStreamStart}
                 isConnected={!!tizenSocket}
                 onDisconnect={handleTizenDisconnect}

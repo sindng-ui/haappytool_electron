@@ -36,7 +36,10 @@ const TopBar: React.FC<{ onReturnFocus?: () => void }> = ({ onReturnFocus }) => 
     const onDeleteRule = handleDeleteRule;
     const onImportFile = handleImportFile;
     const onLogFileSelect = handleLogFileSelect;
-    const onConnectTizen = () => setIsTizenModalOpen(true);
+    const onConnectTizen = () => {
+        setIsTizenQuickConnect(false);
+        setIsTizenModalOpen(true);
+    };
 
     const handleCopyLogs = async () => {
         let content = '';
