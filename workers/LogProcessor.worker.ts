@@ -1,5 +1,7 @@
 /* eslint-disable no-restricted-globals */
 import { LogRule, LogWorkerMessage, LogWorkerResponse } from '../types';
+import { BookmarkManager } from './workerBookmarkHandlers';
+import * as DataReader from './workerDataReader';
 
 const ctx: Worker = self as any;
 
@@ -84,8 +86,7 @@ let filteredIndicesBuffer: Int32Array | null = null; // Backing buffer for dynam
 let currentRule: LogRule | null = null;
 let currentQuickFilter: 'none' | 'error' | 'exception' = 'none'; // ✅ New State
 
-// Bookmarks (0-based Original Index)
-let originalBookmarks: Set<number> = new Set();
+// Bookmarks managed by BookmarkManager
 
 // Concurrency Control for filtering
 let currentFilterRequestId = 0;
@@ -101,67 +102,9 @@ const respond = (response: LogWorkerResponse) => {
     ctx.postMessage(response);
 };
 
-// --- Helper: Binary Search ---
-function binarySearch(arr: Int32Array, val: number): number {
-    let low = 0;
-    let high = arr.length - 1;
-
-    while (low <= high) {
-        const mid = (low + high) >>> 1;
-        const midVal = arr[mid];
-
-        if (midVal === val) {
-            return mid;
-        } else if (midVal < val) {
-            low = mid + 1;
-        } else {
-            high = mid - 1;
-        }
-    }
-    return -1;
-}
-
-// --- Helper: Get Visual Bookmarks (with caching) ---
-// ✅ Performance: Cache bookmark positions to avoid repeated binary searches
-let bookmarkCache: number[] = [];
-let bookmarkCacheDirty = true;
-let lastFilteredIndicesLength = 0;
-
-const invalidateBookmarkCache = () => {
-    bookmarkCacheDirty = true;
-};
-
-const getVisualBookmarks = (): number[] => {
-    if (!filteredIndices) return [];
-
-    // ✅ Check if cache is still valid
-    if (!bookmarkCacheDirty && filteredIndices.length === lastFilteredIndicesLength) {
-        return bookmarkCache;
-    }
-
-    // Rebuild cache
-    const visualBookmarks: number[] = [];
-
-    // Optimization: filteredIndices is always sorted.
-    // Instead of iterating all N visible lines (can be millions),
-    // we iterate K bookmarks (usually small) and binary search them in filteredIndices.
-    // complexity: O(K * log N) where K << N usually.
-
-    originalBookmarks.forEach(originalIdx => {
-        const vIdx = binarySearch(filteredIndices!, originalIdx);
-        if (vIdx !== -1) {
-            visualBookmarks.push(vIdx);
-        }
-    });
-
-    // ✅ Update cache
-    bookmarkCache = visualBookmarks;
-    bookmarkCacheDirty = false;
-    lastFilteredIndicesLength = filteredIndices.length;
-
-    return visualBookmarks;
-};
-
+// --- Helper: Get Visual Bookmarks ---
+const invalidateBookmarkCache = () => BookmarkManager.invalidateCache();
+const getVisualBookmarks = (): number[] => BookmarkManager.getVisualBookmarks(filteredIndices);
 
 // --- Helper: Match Logic ---
 // NOTE: Extracted to utils/logFiltering.ts for testability and reusability
@@ -179,7 +122,7 @@ const buildFileIndex = async (file: File) => {
     isLiveStream = false;
     currentFile = file;
     streamLines = []; // Clear stream data
-    originalBookmarks.clear(); // Clear bookmarks for new file
+    BookmarkManager.clearAll(); // Clear bookmarks for new file
     isCalculatingHeatmap = false; // Reset heatmap state for new file
     currentFilterRequestId++; // ✅ Cancel any pending filters from previous file
 
@@ -257,7 +200,7 @@ const initStream = (payload?: { isLive?: boolean }) => {
     currentFile = null;
     lineOffsets = null;
     streamLines = [];
-    originalBookmarks.clear();
+    BookmarkManager.clearAll();
     streamBuffer = '';
     filteredIndices = new Int32Array(0);
     filteredIndicesBuffer = new Int32Array(1024 * 1024); // Start with 1M capacity
@@ -507,569 +450,17 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     }
 };
 
-// --- Handler: Get Lines ---
-const getLines = async (startFilterIndex: number, count: number, requestId: string) => {
-    // console.log(`[Worker] getLines request: start=${startFilterIndex}, count=${count}`);
-
-    if (!filteredIndices) {
-        console.warn('[Worker] No filteredIndices available');
-        respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
-        return;
-    }
-
-    const resultLines: { lineNum: number, content: string }[] = [];
-    const max = Math.min(startFilterIndex + count, filteredIndices.length);
-
-    if (isStreamMode) {
-        for (let i = startFilterIndex; i < max; i++) {
-            const originalIdx = filteredIndices[i];
-            if (originalIdx < streamLines.length) {
-                resultLines.push({ lineNum: originalIdx + 1, content: streamLines[originalIdx] });
-            }
-        }
-    } else {
-        if (!currentFile || !lineOffsets || !filteredIndices) {
-            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
-            return;
-        }
-
-        const maxFile = Math.min(startFilterIndex + count, filteredIndices.length);
-
-        if (startFilterIndex >= maxFile) {
-            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
-            return;
-        }
-
-        const decoder = new TextDecoder();
-
-        try {
-            // ✅ Smart Batching: 행 간격이 너무 벌어질 경우(5MB 초구) 분할 읽기 수행 🐧🎯
-            const MAX_BATCH_BYTES = 5 * 1024 * 1024;
-
-            let i = startFilterIndex;
-            while (i < maxFile) {
-                let batchStart = i;
-                let batchMinByte = lineOffsets[filteredIndices[i]];
-                let batchMaxByte = -1n;
-
-                // 현재 배치에 포함할 행들 결정 (최대 5MB)
-                let j = i;
-                while (j < maxFile) {
-                    const idx = filteredIndices[j];
-                    const startByte = lineOffsets[idx];
-                    const endByte = idx < lineOffsets.length - 1 ? lineOffsets[idx + 1] : BigInt(currentFile.size);
-
-                    if (batchMaxByte === -1n || endByte > batchMaxByte) batchMaxByte = endByte;
-
-                    // 다음 행을 포함했을 때 5MB를 초과하면 여기서 끊음
-                    if (j + 1 < maxFile) {
-                        const nextIdx = filteredIndices[j + 1];
-                        const nextEndByte = nextIdx < lineOffsets.length - 1 ? lineOffsets[nextIdx + 1] : BigInt(currentFile.size);
-                        if (nextEndByte - batchMinByte > BigInt(MAX_BATCH_BYTES)) break;
-                    }
-                    j++;
-                }
-
-                const batchEnd = j;
-                const chunkBlob = currentFile.slice(Number(batchMinByte), Number(batchMaxByte));
-                const buffer = await chunkBlob.arrayBuffer();
-                const uint8View = new Uint8Array(buffer);
-
-                for (let k = batchStart; k < batchEnd; k++) {
-                    const originalIdx = filteredIndices[k];
-                    const lineStart = lineOffsets[originalIdx];
-                    const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
-
-                    const relStart = Number(lineStart - batchMinByte);
-                    const relEnd = Number(lineEnd - batchMinByte);
-
-                    // ✅ Zero-copy: subarray로 필요한 부분만 참조하여 디코딩 🐧🚀
-                    const text = decoder.decode(uint8View.subarray(relStart, relEnd)).replace(/\r?\n$/, '');
-
-                    resultLines.push({
-                        lineNum: originalIdx + 1,
-                        content: text
-                    });
-                }
-
-                i = batchEnd;
-            }
-        } catch (err) {
-            console.error('[Worker] Smart batch read failed', err);
-            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
-            return;
-        }
-    }
-
-    respond({ type: 'LINES_DATA', payload: { lines: resultLines }, requestId });
-};
-
-// --- Handler: Get Raw Lines ---
-const getRawLines = async (startLineNum: number, count: number, requestId: string) => {
-    // startLineNum is 1-based index (global)
-    const startIdx = startLineNum; // 0-based for array logic? No, let's treat startLineNum as 0-based index into ALL lines
-    // Wait, caller passes 0-based index? 
-    // Standard: requestLeftRawLines passes startLine, count. 
-    // LogViewerPane passes `startIndex`.
-
-    // Let's assume input is 0-based index.
-
-    const resultLines: { lineNum: number, content: string }[] = [];
-
-    if (isStreamMode) {
-        const max = Math.min(startIdx + count, streamLines.length);
-        for (let i = startIdx; i < max; i++) {
-            resultLines.push({ lineNum: i + 1, content: streamLines[i] });
-        }
-    } else {
-        if (!currentFile || !lineOffsets) {
-            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
-            return;
-        }
-        const max = Math.min(startIdx + count, lineOffsets.length);
-
-        // ✅ Batch Reading Optimization for Raw Lines:
-        let minByte = -1n;
-        let maxByte = -1n;
-        for (let i = startIdx; i < max; i++) {
-            const startByte = lineOffsets[i];
-            const endByte = i < lineOffsets.length - 1 ? lineOffsets[i + 1] : BigInt(currentFile.size);
-            if (minByte === -1n || startByte < minByte) minByte = startByte;
-            if (maxByte === -1n || endByte > maxByte) maxByte = endByte;
-        }
-
-        try {
-            if (minByte !== -1n && maxByte !== -1n) {
-                const fullBlob = currentFile.slice(Number(minByte), Number(maxByte));
-                const buffer = await fullBlob.arrayBuffer();
-                const decoder = new TextDecoder();
-
-                for (let i = startIdx; i < max; i++) {
-                    const lineStart = lineOffsets[i];
-                    const lineEnd = i < lineOffsets.length - 1 ? lineOffsets[i + 1] : BigInt(currentFile.size);
-
-                    if (lineStart >= lineEnd) {
-                        resultLines.push({ lineNum: i + 1, content: '' });
-                        continue;
-                    }
-
-                    const relStart = Number(lineStart - minByte);
-                    const relEnd = Number(lineEnd - minByte);
-
-                    const lineBuffer = buffer.slice(relStart, relEnd);
-                    const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
-
-                    resultLines.push({ lineNum: i + 1, content: text });
-                }
-            }
-        } catch (err) {
-            console.error('[Worker] Raw batch read failed', err);
-            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
-            return;
-        }
-    }
-
-    respond({ type: 'LINES_DATA', payload: { lines: resultLines }, requestId });
-};
-
-
-// --- Handler: Get Lines By Indices (for Bookmarks) ---
-const getLinesByIndices = async (indices: number[], requestId: string) => {
-    if (!filteredIndices) {
-        respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
-        return;
-    }
-
-    const resultLines: any[] = [];
-
-    // Sort indices to optimize disk seeking (if OS optimizes)
-    // But we need to map results back to request order?
-    // Actually, responding with list is fine. The caller typically wants to show them in order.
-    // If we sort, we return in line order. That's usually desired for "Bookmarks List".
-    const sortedIndices = [...indices].sort((a, b) => a - b);
-
-    if (isStreamMode) {
-        for (const idx of sortedIndices) {
-            if (idx >= 0 && idx < filteredIndices.length) {
-                const originalIdx = filteredIndices[idx];
-                if (originalIdx < streamLines.length) {
-                    resultLines.push({
-                        lineNum: originalIdx + 1,
-                        content: streamLines[originalIdx],
-                        formattedLineIndex: idx // Pass back the view index for jumping
-                    });
-                }
-            }
-        }
-    } else {
-        if (!currentFile || !lineOffsets) {
-            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
-            return;
-        }
-
-        const readSlice = (blob: Blob): Promise<string> => {
-            return new Promise((resolve) => {
-                const r = new FileReader();
-                r.onload = (e) => resolve(e.target?.result as string);
-                r.onerror = (e) => resolve('');
-                r.readAsText(blob);
-            });
-        };
-
-        for (const idx of sortedIndices) {
-            if (idx >= 0 && idx < filteredIndices.length) {
-                const originalIdx = filteredIndices[idx];
-                if (originalIdx < lineOffsets.length) {
-                    const startByte = Number(lineOffsets[originalIdx]);
-                    const endByte = originalIdx < lineOffsets.length - 1 ? Number(lineOffsets[originalIdx + 1]) : currentFile.size;
-
-                    if (startByte < endByte) {
-                        const text = await readSlice(currentFile.slice(startByte, endByte));
-                        resultLines.push({
-                            lineNum: originalIdx + 1,
-                            content: text.replace(/\r?\n$/, ''),
-                            formattedLineIndex: idx
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    respond({ type: 'LINES_DATA', payload: { lines: resultLines }, requestId });
-};
-
-// --- Handler: Find Highlight ---
-const findHighlight = async (keyword: string, startFilterIndex: number, direction: 'next' | 'prev', requestId: string) => {
-    if (!filteredIndices) {
-        respond({ type: 'FIND_RESULT', payload: { foundIndex: -1 }, requestId });
-        return;
-    }
-
-    let searchIdx = startFilterIndex;
-    if (direction === 'next') searchIdx++; else searchIdx--;
-
-    // Safety check for cached FileReader logic if needed, but for now we create new one per request or reuse logic
-    const isCaseSensitive = currentRule?.colorHighlightsCaseSensitive || false;
-    const effectiveKeyword = isCaseSensitive ? keyword : keyword.toLowerCase();
-
-    if (isStreamMode) {
-        while (searchIdx >= 0 && searchIdx < filteredIndices.length) {
-            const originalIdx = filteredIndices[searchIdx];
-            if (originalIdx < streamLines.length) {
-                const line = streamLines[originalIdx];
-                const lineCheck = isCaseSensitive ? line : line.toLowerCase();
-                if (lineCheck.includes(effectiveKeyword)) {
-                    respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx, originalLineNum: originalIdx + 1 }, requestId });
-                    return;
-                }
-            }
-            if (direction === 'next') searchIdx++; else searchIdx--;
-        }
-    } else {
-        // File Mode
-        if (!currentFile || !lineOffsets) return;
-
-        const readSlice = (blob: Blob): Promise<string> => {
-            return new Promise((resolve) => {
-                const r = new FileReader();
-                r.onload = (e) => resolve(e.target?.result as string);
-                r.readAsText(blob);
-            });
-        };
-
-        // Limit search depth to prevent freezing?
-        // Let's search max 5000 lines for now to keep it responsive, or until end.
-        while (searchIdx >= 0 && searchIdx < filteredIndices.length) {
-            const originalLineNum = filteredIndices[searchIdx];
-            const startByte = Number(lineOffsets[originalLineNum]);
-            const endByte = originalLineNum < lineOffsets.length - 1 ? Number(lineOffsets[originalLineNum + 1]) : currentFile.size;
-
-            if (startByte < endByte) {
-                const line = await readSlice(currentFile.slice(startByte, endByte));
-                const lineCheck = isCaseSensitive ? line : line.toLowerCase();
-                if (lineCheck.includes(effectiveKeyword)) {
-                    respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx, originalLineNum: originalLineNum + 1 }, requestId });
-                    return;
-                }
-            }
-            if (direction === 'next') searchIdx++; else searchIdx--;
-        }
-    }
-
-    respond({ type: 'FIND_RESULT', payload: { foundIndex: -1, originalLineNum: -1 }, requestId });
-};
-
-
-// --- Handler: Get Full Text (Optimized) ---
-const getFullText = async (requestId: string) => {
-    if (!filteredIndices) {
-        respond({ type: 'FULL_TEXT_DATA', payload: { text: '' }, requestId } as any);
-        return;
-    }
-
-    // Stream Mode: Collect strings (cannot do binary seek easily on stream cache without tracking offsets)
-    if (isStreamMode) {
-        const lines: string[] = [];
-        for (let i = 0; i < filteredIndices.length; i++) {
-            const originalIdx = filteredIndices[i];
-            if (originalIdx < streamLines.length) {
-                lines.push(streamLines[originalIdx]);
-            }
-        }
-        const fullText = lines.join('\n');
-        try {
-            const encoder = new TextEncoder();
-            const raw = encoder.encode(fullText);
-            ctx.postMessage({ type: 'FULL_TEXT_DATA', payload: { buffer: raw.buffer }, requestId }, [raw.buffer]);
-        } catch (e) {
-            console.error('Failed to encode full text', e);
-            respond({ type: 'ERROR', payload: { error: 'Failed to encode text buffer' }, requestId });
-        }
-        return;
-    }
-
-    // File Mode: Binary Read Optimization
-    if (!currentFile || !lineOffsets) {
-        respond({ type: 'FULL_TEXT_DATA', payload: { text: '' }, requestId } as any);
-        return;
-    }
-
-    try {
-        // 1. Identify Contiguous Byte Ranges
-        const rawChunks: { start: number, end: number }[] = [];
-        let rangeStartIdx = 0;
-        let totalLen = 0;
-
-        for (let i = 0; i < filteredIndices.length; i++) {
-            const currentLine = filteredIndices[i];
-            const nextLine = (i + 1 < filteredIndices.length) ? filteredIndices[i + 1] : -2;
-
-            if (nextLine !== currentLine + 1) {
-                const startLine = filteredIndices[rangeStartIdx];
-                const endLine = currentLine;
-
-                const startByte = Number(lineOffsets[startLine]);
-                const endByteLine = endLine < lineOffsets.length - 1 ? endLine + 1 : -1;
-                const endByte = endByteLine !== -1 ? Number(lineOffsets[endByteLine]) : currentFile.size;
-
-                if (startByte < endByte) {
-                    rawChunks.push({ start: startByte, end: endByte });
-                    totalLen += (endByte - startByte);
-                }
-                rangeStartIdx = i + 1;
-            }
-        }
-
-        // 2. Merge Close Chunks (Read Clustering to reduce IOPS)
-        // If the gap between chunks is small, read the continuous block to avoid FS overhead
-        const GAP_THRESHOLD = 64 * 1024; // 64KB
-        const readOps: { fileStart: number, fileEnd: number, subCopies: { srcOffset: number, len: number, dstOffset: number }[] }[] = [];
-
-        let currentDstOffset = 0;
-
-        if (rawChunks.length > 0) {
-            let currentOp = {
-                fileStart: rawChunks[0].start,
-                fileEnd: rawChunks[0].end,
-                subCopies: [{ srcOffset: 0, len: rawChunks[0].end - rawChunks[0].start, dstOffset: 0 }]
-            };
-            currentDstOffset += (rawChunks[0].end - rawChunks[0].start);
-
-            for (let i = 1; i < rawChunks.length; i++) {
-                const chunk = rawChunks[i];
-                const gap = chunk.start - currentOp.fileEnd;
-
-                // Merge if gap is small or chunks are irrelevant (negative gap shouldn't happen here)
-                if (gap < GAP_THRESHOLD) {
-                    const srcOffset = chunk.start - currentOp.fileStart;
-                    const len = chunk.end - chunk.start;
-                    currentOp.subCopies.push({ srcOffset, len, dstOffset: currentDstOffset });
-                    currentOp.fileEnd = chunk.end;
-                } else {
-                    readOps.push(currentOp);
-                    currentOp = {
-                        fileStart: chunk.start,
-                        fileEnd: chunk.end,
-                        subCopies: [{ srcOffset: 0, len: chunk.end - chunk.start, dstOffset: currentDstOffset }]
-                    };
-                }
-                currentDstOffset += (chunk.end - chunk.start);
-            }
-            readOps.push(currentOp);
-        }
-
-        // 3. Execute Reads & Scatter-Gather Copy
-        const merged = new Uint8Array(totalLen);
-        const reader = new FileReaderSync();
-
-        for (const op of readOps) {
-            const blob = currentFile.slice(op.fileStart, op.fileEnd);
-            const buf = new Uint8Array(reader.readAsArrayBuffer(blob));
-
-            for (const copy of op.subCopies) {
-                // Safety subset copy
-                if (copy.srcOffset < buf.length) {
-                    const slice = buf.subarray(copy.srcOffset, Math.min(buf.length, copy.srcOffset + copy.len));
-                    merged.set(slice, copy.dstOffset);
-                }
-            }
-        }
-
-        // 4. Send Buffer Directly
-        ctx.postMessage({ type: 'FULL_TEXT_DATA', payload: { buffer: merged.buffer }, requestId }, [merged.buffer]);
-
-    } catch (e) {
-        console.error('Fast copy failed', e);
-        respond({ type: 'ERROR', payload: { error: 'Failed to copy logs' }, requestId });
-    }
-};
-
-// --- Handler: Toggle Bookmark ---
-const toggleBookmark = (visualIndex: number) => {
-    if (!filteredIndices) {
-        console.warn('[Worker] Toggle Bookmark: No filtered indices available');
-        return;
-    }
-    if (visualIndex < 0 || visualIndex >= filteredIndices.length) {
-        console.warn(`[Worker] Toggle Bookmark: Index out of bounds (visual=${visualIndex}, max=${filteredIndices.length})`);
-        return;
-    }
-
-    const originalIndex = filteredIndices[visualIndex];
-    console.log(`[Worker] Toggling Bookmark: Visual=${visualIndex} -> Original=${originalIndex}`);
-
-    if (originalBookmarks.has(originalIndex)) {
-        originalBookmarks.delete(originalIndex);
-        console.log(`[Worker] Bookmark REMOVED (Total: ${originalBookmarks.size})`);
-    } else {
-        originalBookmarks.add(originalIndex);
-        console.log(`[Worker] Bookmark ADDED (Total: ${originalBookmarks.size})`);
-    }
-
-    // Invalidate cache so getVisualBookmarks rebuilds with updated originalBookmarks
-    invalidateBookmarkCache();
-
-    // Return updated visual bookmarks list so frontend can sync
-    const vBookmarks = getVisualBookmarks();
-    console.log(`[Worker] Sending Updated Visual Bookmarks: count=${vBookmarks.length}`);
-    respond({ type: 'BOOKMARKS_UPDATED', payload: { visualBookmarks: vBookmarks }, requestId: '' });
-};
-
-// --- Handler: Clear Bookmarks ---
-const clearBookmarks = () => {
-    originalBookmarks.clear();
-    invalidateBookmarkCache();
-    respond({ type: 'BOOKMARKS_UPDATED', payload: { visualBookmarks: [] }, requestId: '' });
-};
-
-// --- Handler: Analyze Transaction ---
-const analyzeTransaction = async (identity: { type: 'pid' | 'tid' | 'tag', value: string }, requestId: string) => {
-    const results: { lineNum: number, content: string, visualIndex: number }[] = [];
-    const val = identity.value;
-    const isFile = !!currentFile && !!lineOffsets;
-
-    respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
-
-    if (!filteredIndices) {
-        respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
-        respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
-        return;
-    }
-
-    const lowerVal = val.toLowerCase();
-    let regex: RegExp | null = null;
-
-    if (identity.type === 'pid' || identity.type === 'tid') {
-        // P123 -> P\s*123, T456 -> T\s*456 변환하여 공백 허용
-        const regexVal = val.replace(/^(P|T)(\d+)$/i, '$1\\s*$2');
-        regex = new RegExp(`(?:^|[^0-9a-zA-Z])${regexVal}(?:$|[^0-9a-zA-Z])`, 'i');
-    }
-
-    const MAX_RESULTS = 100000; // ✅ 대폭 상향: 가상화 신뢰하고 10만 개까지 허용
-
-    if (isStreamMode) {
-        for (let idx = 0; idx < filteredIndices.length; idx++) {
-            if (results.length >= MAX_RESULTS) break;
-
-            const i = filteredIndices[idx];
-            const line = streamLines[i];
-            if (!line) continue;
-
-            let match = false;
-            if (regex) match = regex.test(line);
-            else match = line.toLowerCase().includes(lowerVal);
-
-            if (match) {
-                results.push({
-                    lineNum: i + 1,
-                    content: line,
-                    visualIndex: idx
-                });
-            }
-        }
-    } else if (isFile) {
-        const reader = new FileReaderSync();
-        const totalFiltered = filteredIndices.length;
-        const BATCH_SIZE = 5000;
-
-        for (let idx = 0; idx < totalFiltered; idx += BATCH_SIZE) {
-            if (results.length >= MAX_RESULTS) break;
-
-            const maxBatch = Math.min(idx + BATCH_SIZE, totalFiltered);
-
-            // Get range of bytes for this batch to optimize IO
-            let minByte = -1n;
-            let maxByte = -1n;
-            for (let k = idx; k < maxBatch; k++) {
-                const i = filteredIndices[k];
-                const start = lineOffsets![i];
-                const end = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(currentFile!.size);
-                if (minByte === -1n || start < minByte) minByte = start;
-                if (maxByte === -1n || end > maxByte) maxByte = end;
-            }
-
-            if (minByte !== -1n) {
-                const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
-                const buffer = reader.readAsArrayBuffer(fullBlob);
-                const decoder = new TextDecoder();
-
-                for (let k = idx; k < maxBatch; k++) {
-                    if (results.length >= MAX_RESULTS) break;
-
-                    const i = filteredIndices[k];
-                    const lineStart = lineOffsets![i];
-                    const lineEnd = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(currentFile!.size);
-
-                    const relStart = Number(lineStart - minByte);
-                    const relEnd = Number(lineEnd - minByte);
-                    const lineBuffer = buffer.slice(relStart, relEnd);
-                    const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
-
-                    let match = false;
-                    if (regex) match = regex.test(text);
-                    else match = text.toLowerCase().includes(lowerVal);
-
-                    if (match) {
-                        results.push({
-                            lineNum: i + 1,
-                            content: text,
-                            visualIndex: k // current index in filteredIndices
-                        });
-                    }
-                }
-            }
-
-            if (idx % (BATCH_SIZE * 2) === 0) {
-                respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (idx / totalFiltered) * 100 } });
-            }
-        }
-    }
-
-    console.log(`[Worker] Analysis complete. Found ${results.length} lines.`);
-    respond({ type: 'LINES_DATA', payload: { lines: results }, requestId });
-    respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
-};
+// --- Helper: Get DataReader Context ---
+const getDataReaderContext = (): DataReader.DataReaderContext => ({
+    filteredIndices,
+    isStreamMode,
+    streamLines,
+    currentFile,
+    lineOffsets,
+    currentRule,
+    respond,
+    postMessage: ctx.postMessage.bind(ctx)
+});
 
 // --- Handler: Analyze Performance (New) ---
 // MOVED TO workerAnalysisHandlers.ts
@@ -1109,25 +500,25 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             applyFilter(payload); // Payload now entails LogRule + quickFilter
             break;
         case 'TOGGLE_BOOKMARK':
-            toggleBookmark(payload.visualIndex);
+            BookmarkManager.toggleBookmark(payload.visualIndex, filteredIndices, respond);
             break;
         case 'CLEAR_BOOKMARKS':
-            clearBookmarks();
+            BookmarkManager.clearBookmarks(respond);
             break;
         case 'GET_LINES':
-            getLines(payload.startLine, payload.count, requestId || '');
+            DataReader.getLines(getDataReaderContext(), payload.startLine, payload.count, requestId || '');
             break;
         case 'GET_RAW_LINES':
-            getRawLines(payload.startLine, payload.count, requestId || '');
+            DataReader.getRawLines(getDataReaderContext(), payload.startLine, payload.count, requestId || '');
             break;
         case 'GET_LINES_BY_INDICES':
-            getLinesByIndices(payload.indices, requestId || '');
+            DataReader.getLinesByIndices(getDataReaderContext(), payload.indices, requestId || '');
             break;
         case 'FIND_HIGHLIGHT':
-            findHighlight(payload.keyword, payload.startIndex, payload.direction, requestId || '');
+            DataReader.findHighlight(getDataReaderContext(), payload.keyword, payload.startIndex, payload.direction, requestId || '');
             break;
         case 'GET_FULL_TEXT' as any: // Cast for now until types updated
-            getFullText(requestId || '');
+            DataReader.getFullText(getDataReaderContext(), requestId || '');
             break;
         case 'ANALYZE_TRANSACTION':
             AnalysisHandlers.analyzeTransaction(getAnalysisContext(), payload.identity, requestId || '');
