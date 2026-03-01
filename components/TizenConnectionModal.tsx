@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { X, Server, Terminal, RefreshCw, Wifi, Usb, ShieldAlert, Info } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 
@@ -14,7 +14,7 @@ interface TizenConnectionModalProps {
     tags?: string[]; // Optional tags for substitution
 }
 
-const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
+const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
     isOpen, onClose, onStreamStart,
     isConnected: isExternalConnected,
     onDisconnect: onExternalDisconnect,
@@ -263,15 +263,15 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
         };
     }, [isOpen]);
 
-    const refreshDeviceList = () => {
+    const refreshDeviceList = useCallback(() => {
         if (socket) {
             // Keep scanning true until list returns
             setSdbDevices([]);
             socket.emit('list_sdb_devices', { sdbPath });
         }
-    };
+    }, [socket, sdbPath]);
 
-    const handleScanSdb = () => {
+    const handleScanSdb = useCallback(() => {
         if (socket) {
             setIsScanning(true);
             setStatus('Connecting to 192.168.250.250...');
@@ -279,7 +279,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
             startTimeout();
             socket.emit('connect_sdb_remote', { ip: '192.168.250.250', sdbPath });
         }
-    };
+    }, [socket, sdbPath]);
 
     useEffect(() => {
         if (socket) {
@@ -297,7 +297,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
         }
     }, [socket]);
 
-    const handleConnect = () => {
+    const handleConnect = useCallback(() => {
         console.log('[TizenModal] ========== Manual Connect Initiated ==========');
         console.log('[TizenModal] Mode:', mode);
 
@@ -351,9 +351,9 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
                 sdbPath
             });
         }
-    };
+    }, [socket, mode, sshHost, sshPort, sshUser, sshPassword, debugMode, saveToFile, logCommand, tags, sdbPath, selectedDeviceId, onStreamStart, onClose]);
 
-    const handleDisconnect = () => {
+    const handleDisconnect = useCallback(() => {
         if (!socket) return;
         setIsConnecting(true);
 
@@ -366,7 +366,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
         setIsConnected(false);
         setIsConnecting(false);
         setStatus('Disconnected');
-    };
+    }, [socket, mode]);
 
     if (!isOpen) return null;
 
@@ -375,210 +375,250 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = ({
     const effectiveStatus = isExternalConnected ? 'Connected' : status;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl shadow-2xl w-[500px] overflow-hidden">
-                <div className="bg-slate-950 p-4 border-b border-slate-800 flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-indigo-400 flex items-center gap-2">
-                        <Server size={20} /> Tizen Log Connection
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className={`bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-[500px] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150 transition-all ${effectiveIsConnected ? 'h-[380px]' : 'h-[600px]'}`}>
+                <div className="bg-slate-950 p-5 border-b border-slate-800 flex justify-between items-center shrink-0">
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <Server size={18} className="text-indigo-500" /> Tizen Connection
                     </h2>
                     <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
                 </div>
 
-                <div className="p-6">
-                    {/* Quick Connect Overlay */}
+                <div className={`flex-1 flex flex-col overflow-hidden space-y-6 ${effectiveIsConnected ? 'p-6' : 'p-8'}`}>
                     {/* Quick Connect Overlay */}
                     {isQuickConnect && !error && isConnecting && (
-                        <div className="flex flex-col items-center justify-center py-10 space-y-4">
-                            <RefreshCw size={48} className="text-indigo-500 animate-spin" />
-                            <div className="text-lg font-bold text-slate-200">Connecting...</div>
-                            <div className="text-sm text-slate-400">{status}</div>
+                        <div className="flex-1 flex flex-col items-center justify-center space-y-4">
+                            <div className="relative">
+                                <RefreshCw size={56} className="text-indigo-500 animate-spin" />
+                                <div className="absolute inset-0 bg-indigo-500/10 blur-xl rounded-full" />
+                            </div>
+                            <div className="text-xl font-bold text-slate-200">Starting Stream</div>
+                            <div className="text-sm text-indigo-400/80 font-mono italic">{status}</div>
                             <button
                                 onClick={onClose}
-                                className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors"
+                                className="mt-6 px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-[10px] font-bold tracking-widest uppercase transition-all"
                             >
                                 Cancel
                             </button>
                         </div>
                     )}
 
-                    {/* Mode Selection - Hide if Quick Connect */}
+                    {/* Mode Selection - Sleek Tabs */}
                     {!effectiveIsConnected && !isQuickConnect && (
-                        <div className="flex gap-4 mb-6">
-                            <button
-                                onClick={() => setMode('sdb')}
-                                className={`flex-1 py-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${mode === 'sdb' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:bg-slate-700'}`}
-                            >
-                                <Usb size={24} />
-                                <span className="font-bold">SDB (USB/Bridge)</span>
-                            </button>
-                            <button
-                                onClick={() => setMode('ssh')}
-                                className={`flex-1 py-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${mode === 'ssh' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:bg-slate-700'}`}
-                            >
-                                <Wifi size={24} />
-                                <span className="font-bold">SSH (Network)</span>
-                            </button>
-                            <button
-                                onClick={() => setMode('test')}
-                                className={`flex-1 py-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${mode === 'test' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:bg-slate-700'}`}
-                            >
-                                <RefreshCw size={24} />
-                                <span className="font-bold">Simulate</span>
-                            </button>
-                        </div>
-                    )}
-
-                    {/* SDB Form */}
-                    {mode === 'sdb' && !effectiveIsConnected && !isQuickConnect && (
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-end">
-                                <label className="text-xs font-bold text-slate-400 uppercase">Device</label>
-                                <button onClick={handleScanSdb} className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
-                                    <RefreshCw size={12} className={isScanning ? 'animate-spin' : ''} /> Scan
+                        <div className="flex bg-slate-950/50 p-1 rounded-xl border border-slate-800 shrink-0">
+                            {[
+                                { id: 'sdb', label: 'SDB', icon: Usb },
+                                { id: 'ssh', label: 'SSH', icon: Wifi },
+                                { id: 'test', label: 'Simulate', icon: RefreshCw }
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setMode(tab.id as any)}
+                                    className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 text-xs font-bold transition-all duration-200 ${mode === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : 'text-slate-500 hover:text-slate-300'}`}
+                                >
+                                    <tab.icon size={14} />
+                                    {tab.label}
                                 </button>
-                            </div>
-                            <select
-                                className="w-full bg-slate-800 text-slate-200 p-3 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none mb-4"
-                                value={selectedDeviceId}
-                                onChange={(e) => setSelectedDeviceId(e.target.value)}
-                            >
-                                <option value="">Auto-detect (First Device)</option>
-                                {sdbDevices.map(d => (
-                                    <option key={d.id} value={d.id}>{d.id} ({d.type})</option>
-                                ))}
-                            </select>
+                            ))}
+                        </div>
+                    )}
 
-                            <div className="pt-2 border-t border-slate-800">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-1">
-                                    SDB Path (Optional)
-                                    <span title="Specify full path to sdb.exe if not in System PATH" className="cursor-help flex items-center">
-                                        <Info size={10} />
+                    {!effectiveIsConnected && (
+                        <div className="flex-1 flex flex-col overflow-hidden">
+                            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6">
+                                {/* SDB Form */}
+                                {mode === 'sdb' && !isQuickConnect && (
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-end">
+                                            <label className="text-xs font-bold text-slate-400 uppercase tracking-tight">Select Device</label>
+                                            <button onClick={handleScanSdb} className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 uppercase">
+                                                <RefreshCw size={12} className={isScanning ? 'animate-spin' : ''} /> Rescan
+                                            </button>
+                                        </div>
+                                        <select
+                                            className="w-full bg-slate-800 text-slate-200 p-3.5 rounded-xl border border-slate-700 focus:border-indigo-500 focus:outline-none transition-all cursor-pointer"
+                                            value={selectedDeviceId}
+                                            onKeyDown={e => e.stopPropagation()}
+                                            onChange={(e) => setSelectedDeviceId(e.target.value)}
+                                        >
+                                            <option value="">Auto-detect (Recommended)</option>
+                                            {sdbDevices.map(d => (
+                                                <option key={d.id} value={d.id}>{d.id} ({d.type})</option>
+                                            ))}
+                                        </select>
+
+                                        <div className="pt-2">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-2">
+                                                SDB Executable Path
+                                            </label>
+                                            <div className="relative group">
+                                                <input
+                                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-mono text-slate-300 placeholder-slate-800 focus:border-indigo-500/50 transition-all outline-none"
+                                                    placeholder="C:\tizen-studio\tools\sdb.exe"
+                                                    value={sdbPath}
+                                                    onKeyDown={e => e.stopPropagation()}
+                                                    onChange={(e) => {
+                                                        setSdbPath(e.target.value);
+                                                        localStorage.setItem('tizen_sdb_path', e.target.value);
+                                                    }}
+                                                />
+                                                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-[1px] bg-indigo-500 group-focus-within:w-2/3 transition-all duration-300 opacity-50" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* SSH Form */}
+                                {mode === 'ssh' && !isQuickConnect && (
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <div className="col-span-2">
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Host IP Address</label>
+                                                <div className="relative group">
+                                                    <input
+                                                        className="w-full bg-slate-950 text-slate-200 p-3 rounded-xl border border-slate-800 focus:border-indigo-500/50 focus:outline-none transition-all font-mono"
+                                                        value={sshHost}
+                                                        onChange={e => setSshHost(e.target.value)}
+                                                        onKeyDown={e => e.stopPropagation()}
+                                                        placeholder="192.168.1.xxx"
+                                                    />
+                                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-[1px] bg-indigo-500 group-focus-within:w-2/3 transition-all duration-300 opacity-50" />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Port</label>
+                                                <div className="relative group">
+                                                    <input
+                                                        className="w-full bg-slate-950 text-slate-200 p-3 rounded-xl border border-slate-800 focus:border-indigo-500/50 focus:outline-none transition-all font-mono text-center"
+                                                        value={sshPort}
+                                                        onChange={e => setSshPort(e.target.value)}
+                                                        onKeyDown={e => e.stopPropagation()}
+                                                        placeholder="22"
+                                                    />
+                                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-[1px] bg-indigo-500 group-focus-within:w-2/3 transition-all duration-300 opacity-50" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Username</label>
+                                                <div className="relative group">
+                                                    <input
+                                                        className="w-full bg-slate-950 text-slate-200 p-3 rounded-xl border border-slate-800 focus:border-indigo-500/50 focus:outline-none transition-all font-mono"
+                                                        value={sshUser}
+                                                        onChange={e => setSshUser(e.target.value)}
+                                                        onKeyDown={e => e.stopPropagation()}
+                                                    />
+                                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-[1px] bg-indigo-500 group-focus-within:w-2/3 transition-all duration-300 opacity-50" />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Password</label>
+                                                <div className="relative group">
+                                                    <input
+                                                        type="password"
+                                                        className="w-full bg-slate-950 text-slate-200 p-3 rounded-xl border border-slate-800 focus:border-indigo-500/50 focus:outline-none transition-all font-mono"
+                                                        value={sshPassword}
+                                                        onChange={e => setSshPassword(e.target.value)}
+                                                        onKeyDown={e => e.stopPropagation()}
+                                                        placeholder="••••••••"
+                                                    />
+                                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-[1px] bg-indigo-500 group-focus-within:w-2/3 transition-all duration-300 opacity-50" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Test Simulation Form */}
+                                {mode === 'test' && !isQuickConnect && (
+                                    <div className="p-8 bg-slate-800/30 rounded-2xl border border-dashed border-slate-700 text-center space-y-3">
+                                        <div className="inline-flex p-3 bg-indigo-500/10 rounded-full mb-2">
+                                            <RefreshCw size={24} className="text-indigo-400" />
+                                        </div>
+                                        <h3 className="text-slate-200 font-bold">Traffic Simulation Mode</h3>
+                                        <p className="text-xs text-slate-400 leading-relaxed">
+                                            로컬 서버로부터 가상의 로그 스트림(초당 10라인)을 생성하여 <br />
+                                            무한 스크롤 및 자동 스크롤 성능을 테스트합니다.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Options */}
+                                <div className="pt-2 flex flex-col gap-3">
+                                    <label className="flex items-center gap-3 text-xs font-bold text-slate-400 cursor-pointer select-none hover:text-slate-200 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={debugMode}
+                                            onKeyDown={e => e.stopPropagation()}
+                                            onChange={e => setDebugMode(e.target.checked)}
+                                            className="accent-indigo-500 w-4 h-4 rounded border-slate-700 bg-slate-800"
+                                        />
+                                        <span>Enable Debug Mode (Save to Server)</span>
+                                    </label>
+                                    <label className="flex items-center gap-3 text-xs font-bold text-slate-400 cursor-pointer select-none hover:text-slate-200 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={saveToFile}
+                                            onKeyDown={e => e.stopPropagation()}
+                                            onChange={e => setSaveToFile(e.target.checked)}
+                                            className="accent-indigo-500 w-4 h-4 rounded border-slate-700 bg-slate-800"
+                                        />
+                                        <span>Automatically Save to Local File</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Status Area - Fixed Height */}
+                            <div className="h-[80px] bg-slate-950/80 rounded-2xl px-5 flex flex-col items-center justify-center border border-slate-800 mt-6 relative overflow-hidden group shrink-0">
+                                {error ? (
+                                    <div className="text-red-400 text-[11px] flex items-start gap-3 relative z-10 w-full">
+                                        <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
+                                        <span className="whitespace-pre-line text-left leading-tight">{error}</span>
+                                    </div>
+                                ) : (
+                                    <span className={`text-indigo-400 text-xs font-mono flex items-center gap-3 relative z-10 ${effectiveStatus ? 'animate-pulse' : ''}`}>
+                                        <Terminal size={14} /> {effectiveStatus || "TIZEN ENGINE READY"}
                                     </span>
-                                </label>
-                                <input
-                                    className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-xs font-mono text-slate-400 placeholder-slate-700 focus:border-indigo-500/50 focus:text-indigo-300 transition-colors outline-none"
-                                    placeholder="e.g. C:\tizen-studio\tools\sdb.exe"
-                                    value={sdbPath}
-                                    onChange={(e) => {
-                                        setSdbPath(e.target.value);
-                                        localStorage.setItem('tizen_sdb_path', e.target.value);
-                                    }}
-                                />
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/5 to-transparent pointer-events-none opacity-20" />
                             </div>
                         </div>
                     )}
 
-                    {/* SSH Form */}
-                    {mode === 'ssh' && !effectiveIsConnected && !isQuickConnect && (
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="col-span-2">
-                                    <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Host IP</label>
-                                    <input className="w-full bg-slate-800 text-slate-200 p-2 rounded border border-slate-700 focus:border-indigo-500 focus:outline-none" value={sshHost} onChange={e => setSshHost(e.target.value)} placeholder="192.168.1.x" />
+                    {/* Connected State View */}
+                    {effectiveIsConnected && (
+                        <div className="flex-1 flex flex-col items-center justify-center space-y-6">
+                            <div className="bg-indigo-950/20 border border-indigo-500/20 p-6 rounded-2xl text-center w-full max-w-[340px] shadow-inner shadow-indigo-500/5">
+                                <div className="flex justify-center mb-3">
+                                    <div className="p-3 bg-indigo-500/10 rounded-full">
+                                        <Wifi size={28} className="text-indigo-500 animate-pulse" />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Port</label>
-                                    <input className="w-full bg-slate-800 text-slate-200 p-2 rounded border border-slate-700 focus:border-indigo-500 focus:outline-none" value={sshPort} onChange={e => setSshPort(e.target.value)} placeholder="22" />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-slate-400 uppercase block mb-1">User</label>
-                                    <input className="w-full bg-slate-800 text-slate-200 p-2 rounded border border-slate-700 focus:border-indigo-500 focus:outline-none" value={sshUser} onChange={e => setSshUser(e.target.value)} />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Password</label>
-                                    <input type="password" className="w-full bg-slate-800 text-slate-200 p-2 rounded border border-slate-700 focus:border-indigo-500 focus:outline-none" value={sshPassword} onChange={e => setSshPassword(e.target.value)} placeholder="Optional" />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Test Simulation Form */}
-                    {mode === 'test' && !effectiveIsConnected && !isQuickConnect && (
-                        <div className="p-4 bg-slate-800/50 rounded-xl border border-dashed border-slate-700 text-center">
-                            <h3 className="text-indigo-300 font-bold mb-2">Test Infinite Scroll</h3>
-                            <p className="text-xs text-slate-400 mb-4">
-                                Connects to the local server and generates 10 lines of simulated logs per second to test performance and auto-scroll behavior.
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Options (Debug) - Hide if connected */}
-                    {!effectiveIsConnected && (
-                        <div className="mt-4 flex flex-col gap-2">
-                            <label className="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer select-none hover:text-slate-300">
-                                <input type="checkbox" checked={debugMode} onChange={e => setDebugMode(e.target.checked)} className="accent-indigo-500 w-4 h-4 rounded border-slate-700 bg-slate-800" />
-                                <span>Enable Debug Mode (Save logs to server)</span>
-                            </label>
-                            {/* New checkbox for saveToFile */}
-                            <label className="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer select-none hover:text-slate-300">
-                                <input type="checkbox" checked={saveToFile} onChange={e => setSaveToFile(e.target.checked)} className="accent-indigo-500 w-4 h-4 rounded border-slate-700 bg-slate-800" />
-                                <span>Automatically save logs to file (TIMESTAMP.txt)</span>
-                            </label>
-                        </div>
-                    )}
-
-                    {/* Status Area */}
-                    {!effectiveIsConnected && (
-                        <div className="mt-4 bg-slate-950 rounded-lg p-3 min-h-[60px] flex items-start justify-center text-sm border border-slate-800">
-                            {error ? (
-                                <div className="text-red-400 flex items-start gap-2">
-                                    <ShieldAlert size={16} className="mt-0.5 flex-shrink-0" />
-                                    <span className="whitespace-pre-line text-left">{error}</span>
-                                </div>
-                            ) : effectiveStatus ? (
-                                <span className="text-indigo-400 flex items-center gap-2"><Terminal size={16} /> {effectiveStatus}</span>
-                            ) : (
-                                <span className="text-slate-600 italic">Ready to connect...</span>
-                            )}
-                        </div>
-                    )}
-
-                    {effectiveIsConnected ? (
-                        <>
-                            <div className="bg-emerald-950/30 border border-emerald-500/30 p-4 rounded-xl mb-4 text-center">
-                                <h3 className="text-emerald-400 font-bold mb-1 flex items-center justify-center gap-2">
-                                    <Wifi size={20} />
-                                    Current Status: Connected
+                                <h3 className="text-indigo-400 text-xs font-bold mb-2 uppercase tracking-widest">
+                                    Active Log Stream
                                 </h3>
-                                <p className="text-sm text-slate-400 font-mono bg-slate-900/50 p-2 rounded mt-2 inline-block">
+                                <p className="text-[12px] text-slate-400 font-mono bg-slate-950/50 px-4 py-2 rounded-xl border border-slate-800">
                                     {currentConnectionInfo || (mode === 'ssh' ? `SSH: ${sshHost}` : `SDB: ${selectedDeviceId || 'Device'}`)}
                                 </p>
                             </div>
-
-                            <button
-                                onClick={() => {
-                                    if (onExternalDisconnect) {
-                                        onExternalDisconnect();
-                                        onClose(); // Close modal after disconnect
-                                    } else {
-                                        handleDisconnect();
-                                    }
-                                }}
-                                disabled={isConnecting}
-                                className={`w-full py-3 rounded-xl font-bold text-white shadow-lg shadow-red-900/50 transition-all ${isConnecting ? 'bg-slate-700 cursor-wait' : 'bg-red-600 hover:bg-red-500 hover:scale-[1.02]'}`}
-                            >
-                                {isConnecting ? 'Disconnecting...' : 'Disconnect Current Session'}
-                            </button>
-                            <p className="text-xs text-center text-slate-500 mt-4">
-                                To connect to a different device, please disconnect first.
-                            </p>
-                        </>
-                    ) : (
-                        <button
-                            onClick={handleConnect}
-                            disabled={isConnecting}
-                            className={`w-full mt-4 py-3 rounded-xl font-bold text-white shadow-lg shadow-indigo-900/50 transition-all ${isConnecting ? 'bg-slate-700 cursor-wait' : 'bg-indigo-600 hover:bg-indigo-500 hover:scale-[1.02]'}`}
-                        >
-                            {isConnecting ? 'Connecting...' : 'Connect & Start Stream'}
-                        </button>
+                        </div>
                     )}
-                    {!socket && !effectiveIsConnected && <p className="text-center text-xs text-slate-500 mt-2">Connecting to local log server...</p>}
+
+                    {/* Main Button */}
+                    <div className="shrink-0 pt-2">
+                        <button
+                            onClick={effectiveIsConnected ? (onExternalDisconnect || handleDisconnect) : handleConnect}
+                            disabled={isConnecting}
+                            className={`w-full py-4 text-sm font-extrabold rounded-2xl shadow-xl active:scale-[0.98] transition-all disabled:opacity-50 ${effectiveIsConnected ? 'bg-red-600 hover:bg-red-500 shadow-red-900/40' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-900/40'}`}
+                        >
+                            {effectiveIsConnected ? (isConnecting ? 'DISCONNECTING...' : 'DISCONNECT SESSION') : (isConnecting ? 'CONNECT & START STREAM' : 'CONNECT & START STREAM')}
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div >
+        </div>
     );
-};
+});
 
 export default TizenConnectionModal;
