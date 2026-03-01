@@ -196,6 +196,11 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         clearCacheTick
     } = useLogContext();
 
+    const handleGoToLineClose = React.useCallback(() => setIsGoToLineModalOpen(false), [setIsGoToLineModalOpen]);
+    const handleGoToLineGo = React.useCallback((lineIndex: number, pane: 'left' | 'right') => {
+        jumpToGlobalLine(lineIndex, pane);
+    }, [jumpToGlobalLine]);
+
     // Log Archive: Text Selection
     // Log Archive: Text Selection & Line Selection
     const { openSaveDialog, isSaveDialogOpen, isViewerOpen } = useLogArchiveContext();
@@ -1370,8 +1375,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             {/* Go To Line Modal */}
             <GoToLineModal
                 isOpen={isGoToLineModalOpen}
-                onClose={() => setIsGoToLineModalOpen(false)}
-                onGo={(lineIndex, pane) => jumpToGlobalLine(lineIndex, pane)}
+                onClose={handleGoToLineClose}
+                onGo={handleGoToLineGo}
                 isDualView={isDualView}
                 leftTotalLines={leftFilteredCount || 0}
                 rightTotalLines={rightFilteredCount || 0}
