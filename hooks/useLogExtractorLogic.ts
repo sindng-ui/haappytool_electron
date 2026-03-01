@@ -13,6 +13,8 @@ import { useLogShortcuts } from './useLogShortcuts';
 import { useLogFileOperations } from './useLogFileOperations';
 import { useLogAnalysisActions } from './useLogAnalysisActions';
 import { useLogExportActions } from './useLogExportActions';
+import { useLogSelection } from './useLogSelection';
+import { useLogWorkerEvents } from './useLogWorkerEvents';
 
 
 
@@ -274,6 +276,8 @@ export const useLogExtractorLogic = ({
         showToast
     });
 
+    const { handleWorkerMessage } = useLogWorkerEvents();
+
 
 
     // Restore scroll position
@@ -398,66 +402,18 @@ export const useLogExtractorLogic = ({
 
         leftWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
             if (isStale) return;
-            const { type, payload, requestId } = e.data;
-            // ... (rest of onmessage logic)
-            if (type === 'ERROR') console.error('[useLog] Worker Error:', payload.error);
-            if (type === 'INDEX_COMPLETE') console.log('[useLog-Left] Worker INDEX_COMPLETE:', payload);
-            if (type === 'FILTER_COMPLETE') console.log('[useLog-Left] Worker FILTER_COMPLETE matches:', payload.matchCount, 'total:', payload.totalLines);
-
-            if (requestId && leftPendingRequests.current.has(requestId)) {
-                const resolve = leftPendingRequests.current.get(requestId);
-                if (type === 'LINES_DATA') {
-                    resolve && resolve(payload.lines);
-                } else if (type === 'FIND_RESULT') {
-                    resolve && resolve(payload);
-                } else if (type === 'FULL_TEXT_DATA') {
-                    resolve && resolve(payload);
-                }
-                leftPendingRequests.current.delete(requestId);
-                return;
-            }
-
-            switch (type) {
-                case 'STATUS_UPDATE':
-                    if (payload.status === 'indexing') setLeftIndexingProgress(payload.progress);
-                    if (payload.status === 'ready') setLeftWorkerReady(true);
-                    break;
-                case 'INDEX_COMPLETE':
-                    setLeftTotalLines(payload.totalLines);
-                    setLeftIndexingProgress(100); // Ensure 100% on completion
-                    break;
-                case 'FILTER_COMPLETE':
-                    setLeftFilteredCount(payload.matchCount);
-                    if (typeof payload.totalLines === 'number') setLeftTotalLines(payload.totalLines);
-                    if (payload.visualBookmarks) {
-                        setLeftBookmarks(new Set(payload.visualBookmarks));
-                    }
-                    setLeftWorkerReady(true);
-                    // 💡 성능 히트맵 요청 (500 포인트)
-                    leftWorkerRef.current?.postMessage({ type: 'GET_PERFORMANCE_HEATMAP', payload: { points: 500 } });
-                    break;
-                case 'HEATMAP_DATA':
-                    console.log(`[useLog] Received HEATMAP_DATA:`, {
-                        points: payload.heatmap?.length,
-                        hasData: payload.heatmap?.some((v: number) => v > 0)
-                    });
-                    setLeftPerformanceHeatmap(payload.heatmap || []);
-                    break;
-                case 'BOOKMARKS_UPDATED':
-                    if (payload.visualBookmarks) {
-                        setLeftBookmarks(new Set(payload.visualBookmarks));
-                    }
-                    break;
-                case 'ERROR':
-                    console.error('Left Worker Error:', payload.error);
-                    break;
-                case 'ERROR':
-                    console.error('Left Worker Error:', payload.error);
-                    break;
-                default:
-                    handleAnalysisMessage('left', type, payload);
-                    break;
-            }
+            handleWorkerMessage(e, {
+                setIndexingProgress: setLeftIndexingProgress,
+                setWorkerReady: setLeftWorkerReady,
+                setTotalLines: setLeftTotalLines,
+                setFilteredCount: setLeftFilteredCount,
+                setBookmarks: setLeftBookmarks,
+                setPerformanceHeatmap: setLeftPerformanceHeatmap,
+                handleAnalysisMessage,
+                workerRef: leftWorkerRef,
+                pendingRequests: leftPendingRequests,
+                pane: 'left'
+            });
         };
 
         return () => {
@@ -474,59 +430,20 @@ export const useLogExtractorLogic = ({
 
         rightWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
             if (isStale) return;
-            const { type, payload, requestId } = e.data;
-            // ...
-
-            if (requestId && rightPendingRequests.current.has(requestId)) {
-                const resolve = rightPendingRequests.current.get(requestId);
-                if (type === 'LINES_DATA') {
-                    resolve && resolve(payload.lines);
-                } else if (type === 'FIND_RESULT') {
-                    resolve && resolve(payload);
-                } else if (type === 'FULL_TEXT_DATA') {
-                    resolve && resolve(payload);
-                }
-                rightPendingRequests.current.delete(requestId);
-                return;
-            }
-
-            switch (type) {
-                case 'STATUS_UPDATE':
-                    if (payload.status === 'indexing') setRightIndexingProgress(payload.progress);
-                    if (payload.status === 'ready') setRightWorkerReady(true);
-                    break;
-                case 'INDEX_COMPLETE':
-                    setRightTotalLines(payload.totalLines);
-                    setRightIndexingProgress(100);
-                    break;
-                case 'FILTER_COMPLETE':
-                    setRightFilteredCount(payload.matchCount);
-                    if (typeof payload.totalLines === 'number') setRightTotalLines(payload.totalLines);
-                    if (payload.visualBookmarks) {
-                        setRightBookmarks(new Set(payload.visualBookmarks));
-                    }
-                    setRightWorkerReady(true);
-                    setActiveLineIndexRight(-1);
-                    setSelectedIndicesRight(new Set());
-                    // 💡 성능 히트맵 요청 (500 포인트)
-                    rightWorkerRef.current?.postMessage({ type: 'GET_PERFORMANCE_HEATMAP', payload: { points: 500 } });
-                    break;
-                case 'HEATMAP_DATA':
-                    console.log(`[useLog-Right] Received HEATMAP_DATA:`, {
-                        points: payload.heatmap?.length,
-                        hasData: payload.heatmap?.some((v: number) => v > 0)
-                    });
-                    setRightPerformanceHeatmap(payload.heatmap || []);
-                    break;
-                case 'BOOKMARKS_UPDATED':
-                    if (payload.visualBookmarks) {
-                        setRightBookmarks(new Set(payload.visualBookmarks));
-                    }
-                    break;
-                default:
-                    handleAnalysisMessage('right', type, payload);
-                    break;
-            }
+            handleWorkerMessage(e, {
+                setIndexingProgress: setRightIndexingProgress,
+                setWorkerReady: setRightWorkerReady,
+                setTotalLines: setRightTotalLines,
+                setFilteredCount: setRightFilteredCount,
+                setBookmarks: setRightBookmarks,
+                setPerformanceHeatmap: setRightPerformanceHeatmap,
+                setActiveLineIndex: setActiveLineIndexRight,
+                setSelectedIndices: setSelectedIndicesRight,
+                handleAnalysisMessage,
+                workerRef: rightWorkerRef,
+                pendingRequests: rightPendingRequests,
+                pane: 'right'
+            });
         };
 
         return () => {
@@ -641,68 +558,17 @@ export const useLogExtractorLogic = ({
 
 
 
-    // Selection Helpers
-    const handleLineClick = useCallback((pane: 'left' | 'right', index: number, isShift: boolean, isCtrl: boolean) => {
-        const setActive = pane === 'left' ? setActiveLineIndexLeft : setActiveLineIndexRight;
-        const setSelection = pane === 'left' ? setSelectedIndicesLeft : setSelectedIndicesRight;
-
-        const anchorRef = pane === 'left' ? activeLineIndexLeftRef : activeLineIndexRightRef;
-        const currentActive = anchorRef.current;
-        const snapshotRef = pane === 'left' ? selectionSnapshotLeftRef : selectionSnapshotRightRef;
-
-        // ✅ Handle Deselect (index === -1)
-        if (index === -1) {
-            setSelection(new Set());
-            snapshotRef.current = new Set();
-            anchorRef.current = -1;
-            setActive(-1);
-            return;
-        }
-
-        // console.log(`[useLog] Click: pane=${pane}, idx=${index}, shift=${isShift}, ctrl=${isCtrl}, currAnchor=${currentActive}`);
-
-        if (isShift && currentActive !== -1) {
-            // Range Selection (Drag or Shift+Click)
-            const start = Math.min(currentActive, index);
-            const end = Math.max(currentActive, index);
-            const range = new Set<number>();
-            for (let i = start; i <= end; i++) range.add(i);
-
-            // NOTE: isShift=true (Drag/ShiftClick) does not move the anchor.
-            if (isCtrl) {
-                // Union with SNAPSHOT (Ctrl + Shift/Drag)
-                // Usin snapshot allows shrinking the drag range correctly
-                setSelection(() => {
-                    const next = new Set(snapshotRef.current);
-                    range.forEach(idx => next.add(idx));
-                    return next;
-                });
-            } else {
-                // Replace selection (Standard Shift/Drag)
-                setSelection(range);
-            }
-        } else if (isCtrl) {
-            // Toggle Selection
-            setSelection(prev => {
-                const next = new Set(prev);
-                if (next.has(index)) next.delete(index);
-                else next.add(index);
-                // Update Snapshot after toggle
-                snapshotRef.current = new Set(next);
-                return next;
-            });
-            // Update Anchor
-            anchorRef.current = index;
-            setActive(index);
-        } else {
-            // Single Selection (Reset Anchor)
-            const next = new Set([index]);
-            setSelection(next);
-            snapshotRef.current = next; // Update Snapshot
-            anchorRef.current = index;
-            setActive(index);
-        }
-    }, []); // Removed dependencies on activeLineIndex to prevent recreation during rapid events
+    // === Phase 5: Selection Logic (Extracted) ===
+    const { handleLineClick } = useLogSelection({
+        setActiveLineIndexLeft,
+        setActiveLineIndexRight,
+        setSelectedIndicesLeft,
+        setSelectedIndicesRight,
+        activeLineIndexLeftRef,
+        activeLineIndexRightRef,
+        selectionSnapshotLeftRef,
+        selectionSnapshotRightRef
+    });
 
 
 
