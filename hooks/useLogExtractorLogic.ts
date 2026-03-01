@@ -12,6 +12,7 @@ import { useTizenConnection } from './useTizenConnection';
 import { useLogShortcuts } from './useLogShortcuts';
 import { useLogFileOperations } from './useLogFileOperations';
 import { useLogAnalysisActions } from './useLogAnalysisActions';
+import { useLogExportActions } from './useLogExportActions';
 
 
 
@@ -140,6 +141,11 @@ export const useLogExtractorLogic = ({
 
     const [selectedIndicesLeft, setSelectedIndicesLeft] = useState<Set<number>>(new Set());
     const [selectedIndicesRight, setSelectedIndicesRight] = useState<Set<number>>(new Set());
+    const selectedIndicesLeftRef = useRef<Set<number>>(new Set());
+    const selectedIndicesRightRef = useRef<Set<number>>(new Set());
+
+    useEffect(() => { selectedIndicesLeftRef.current = selectedIndicesLeft; }, [selectedIndicesLeft]);
+    useEffect(() => { selectedIndicesRightRef.current = selectedIndicesRight; }, [selectedIndicesRight]);
     const [activeLineIndexLeft, setActiveLineIndexLeft] = useState<number>(-1); // Anchor/Focus
     const [activeLineIndexRight, setActiveLineIndexRight] = useState<number>(-1); // Anchor/Focus
     const currentConfig = rules.find(r => r.id === selectedRuleId);
@@ -240,7 +246,8 @@ export const useLogExtractorLogic = ({
         leftFilteredCount, rightFilteredCount,
         activeLineIndexLeft, activeLineIndexRight,
         setActiveLineIndexLeft, setActiveLineIndexRight,
-        setSelectedIndicesLeft, setSelectedIndicesRight,
+        setSelectedIndicesLeft,
+        setSelectedIndicesRight,
         setRawContextOpen, setRawContextTargetLine, setRawContextSourcePane,
         setRawViewHighlightRange, showToast, addToast,
         leftPendingRequests, rightPendingRequests,
@@ -249,6 +256,24 @@ export const useLogExtractorLogic = ({
         leftWorkerReady, rightWorkerReady,
         setLeftWorkerReady, setRightWorkerReady
     });
+
+    // --- Export & Utility Actions (Extracted) ---
+    const {
+        handleCopyLogs, handleSaveLogs,
+        handleViewRawRangeLeft, handleViewRawRangeRight,
+        handleCopyRawRangeLeft, handleCopyRawRangeRight,
+        requestLeftRawLines, requestRightRawLines,
+        requestBookmarkedLines
+    } = useLogExportActions({
+        leftWorkerRef, rightWorkerRef,
+        leftPendingRequests, rightPendingRequests,
+        leftFilteredCount, rightFilteredCount,
+        selectedIndicesLeftRef, selectedIndicesRightRef,
+        setRawContextTargetLine, setRawContextSourcePane,
+        setRawViewHighlightRange, setRawContextOpen,
+        showToast
+    });
+
 
 
     // Restore scroll position
@@ -612,8 +637,7 @@ export const useLogExtractorLogic = ({
     useEffect(() => { activeLineIndexLeftRef.current = activeLineIndexLeft; }, [activeLineIndexLeft]);
     useEffect(() => { activeLineIndexRightRef.current = activeLineIndexRight; }, [activeLineIndexRight]);
 
-    const selectedIndicesLeftRef = useRef<Set<number>>(new Set());
-    const selectedIndicesRightRef = useRef<Set<number>>(new Set());
+
 
 
 
@@ -700,18 +724,7 @@ export const useLogExtractorLogic = ({
             });
             leftWorkerRef.current.postMessage({ type: 'GET_LINES', payload: { startLine: realStart, count }, requestId: reqId });
         });
-    }, [leftSegmentIndex]);
-
-    const requestLeftRawLines = useCallback((startLine: number, count: number) => {
-        return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
-            if (!leftWorkerRef.current) return resolve([]);
-            const reqId = Math.random().toString(36).substring(7);
-            leftPendingRequests.current.set(reqId, resolve);
-            leftWorkerRef.current.postMessage({ type: 'GET_RAW_LINES', payload: { startLine, count }, requestId: reqId });
-        });
-    }, []);
-
-
+    }, [leftSegmentIndex, MAX_SEGMENT_SIZE]);
 
     const requestRightLines = useCallback((startIndex: number, count: number) => {
         return new Promise<{ lineNum: number; content: string }[]>((resolve, reject) => {
@@ -729,123 +742,11 @@ export const useLogExtractorLogic = ({
             });
             rightWorkerRef.current.postMessage({ type: 'GET_LINES', payload: { startLine: realStart, count }, requestId: reqId });
         });
-    }, [rightSegmentIndex]);
+    }, [rightSegmentIndex, MAX_SEGMENT_SIZE]);
 
-    const requestRightRawLines = useCallback((startLine: number, count: number) => {
-        return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
-            if (!rightWorkerRef.current) return resolve([]);
-            const reqId = crypto.randomUUID();
-            rightPendingRequests.current.set(reqId, resolve);
-            rightWorkerRef.current.postMessage({ type: 'GET_RAW_LINES', payload: { startLine, count }, requestId: reqId });
-        });
-    }, []);
 
-    const handleViewRawRangeLeft = useCallback(async (start: number, end: number, filteredIndex?: number) => {
-        const relativeIndex = start - 1;
-        try {
-            const lines = await requestLeftRawLines(relativeIndex, 1);
-            if (lines && lines.length > 0) {
-                setRawContextTargetLine({ ...lines[0], formattedLineIndex: filteredIndex ?? '?' } as any);
-                setRawContextSourcePane('left');
-                setRawViewHighlightRange({ start, end });
-                setRawContextOpen(true);
-            }
-        } catch (e) {
-            console.error('[Perf] Failed to view raw range', e);
-        }
-    }, [requestLeftRawLines]);
 
-    const handleViewRawRangeRight = useCallback(async (start: number, end: number, filteredIndex?: number) => {
-        const relativeIndex = start - 1;
-        try {
-            const lines = await requestRightRawLines(relativeIndex, 1);
-            if (lines && lines.length > 0) {
-                setRawContextTargetLine({ ...lines[0], formattedLineIndex: filteredIndex ?? '?' } as any);
-                setRawContextSourcePane('right');
-                setRawViewHighlightRange({ start, end });
-                setRawContextOpen(true);
-            }
-        } catch (e) {
-            console.error('[Perf] Failed to view raw range', e);
-        }
-    }, [requestRightRawLines]);
 
-    const handleCopyRawRangeLeft = useCallback(async (start: number, end: number) => {
-        const count = end - start + 1;
-        if (count <= 0) return;
-        try {
-            const lines = await requestLeftRawLines(start - 1, count);
-            if (lines && lines.length > 0) {
-                const text = lines.map(l => l.content).join('\n');
-                await navigator.clipboard.writeText(text);
-                showToast(`${lines.length} lines copied to clipboard!`, 'success');
-            }
-        } catch (e) {
-            console.error('[Perf] Failed to copy logs', e);
-            showToast('Failed to copy logs.', 'error');
-        }
-    }, [requestLeftRawLines, showToast]);
-
-    const handleCopyRawRangeRight = useCallback(async (start: number, end: number) => {
-        const count = end - start + 1;
-        if (count <= 0) return;
-        try {
-            const lines = await requestRightRawLines(start - 1, count);
-            if (lines && lines.length > 0) {
-                const text = lines.map(l => l.content).join('\n');
-                await navigator.clipboard.writeText(text);
-                showToast(`${lines.length} lines copied to clipboard!`, 'success');
-            }
-        } catch (e) {
-            console.error('[Perf] Failed to copy logs', e);
-            showToast('Failed to copy logs.', 'error');
-        }
-    }, [requestRightRawLines, showToast]);
-
-    const requestLeftFullText = useCallback(() => {
-        return new Promise<string>((resolve) => {
-            if (!leftWorkerRef.current) return resolve('');
-            const reqId = Math.random().toString(36).substring(7);
-            leftPendingRequests.current.set(reqId, (payload: any) => {
-                if (payload.buffer) {
-                    const decoder = new TextDecoder();
-                    resolve(decoder.decode(payload.buffer));
-                } else {
-                    resolve(payload.text || '');
-                }
-            });
-            leftWorkerRef.current.postMessage({ type: 'GET_FULL_TEXT', requestId: reqId });
-        });
-    }, []);
-
-    const requestRightFullText = useCallback(() => {
-        return new Promise<string>((resolve) => {
-            if (!rightWorkerRef.current) return resolve('');
-            const reqId = Math.random().toString(36).substring(7);
-            rightPendingRequests.current.set(reqId, (payload: any) => {
-                if (payload.buffer) {
-                    const decoder = new TextDecoder();
-                    resolve(decoder.decode(payload.buffer));
-                } else {
-                    resolve(payload.text || '');
-                }
-            });
-            rightWorkerRef.current.postMessage({ type: 'GET_FULL_TEXT', requestId: reqId });
-        });
-    }, []);
-
-    const requestBookmarkedLines = useCallback((indices: number[], paneId: 'left' | 'right') => {
-        return new Promise<any[]>((resolve) => {
-            const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
-            const requestMap = paneId === 'left' ? leftPendingRequests.current : rightPendingRequests.current;
-
-            if (!worker || indices.length === 0) return resolve([]);
-
-            const reqId = Math.random().toString(36).substring(7);
-            requestMap.set(reqId, resolve);
-            worker.postMessage({ type: 'GET_LINES_BY_INDICES', payload: { indices }, requestId: reqId });
-        });
-    }, []);
 
     const handleLeftReset = useCallback(() => {
         setLeftFileName('');
@@ -871,123 +772,6 @@ export const useLogExtractorLogic = ({
 
 
 
-    const handleCopyLogs = useCallback(async (paneId: 'left' | 'right') => {
-        const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
-        const selectedIndices = paneId === 'left' ? selectedIndicesLeftRef.current : selectedIndicesRightRef.current;
-        const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
-        const requestSpecificLines = paneId === 'left'
-            ? (indices: number[]) => requestBookmarkedLines(indices, 'left')
-            : (indices: number[]) => requestBookmarkedLines(indices, 'right');
-
-        if (count <= 0) {
-            showToast('No logs to copy.', 'info');
-            return;
-        }
-
-        const isSelectionCopy = selectedIndices.size > 0;
-        // 안내 토스트 제거 (사용자 요청: 중복 방지)
-
-        try {
-            console.time('copy-fetch');
-            let content = '';
-
-            if (isSelectionCopy) {
-                const indices = Array.from(selectedIndices).sort((a, b) => a - b);
-                const lines = await requestSpecificLines(indices);
-                content = lines.map(l => l.content).join('\n');
-            } else {
-                content = await requestFullText();
-            }
-            console.timeEnd('copy-fetch');
-
-            // 🔥 Log Copy Precision: Remove trailing newline to prevent extra line breaks on paste
-            content = content.replace(/\r?\n$/, '');
-
-            if (!content) {
-                showToast('Failed to retrieve log content.', 'error');
-                return;
-            }
-
-            // Allow UI to breathe before heavy copy
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            if (window.electronAPI?.copyToClipboard) {
-                await window.electronAPI.copyToClipboard(content);
-            } else if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(content);
-            } else {
-                // Fallback
-                const textArea = document.createElement("textarea");
-                textArea.value = content;
-                textArea.style.position = "fixed";
-                textArea.style.left = "-9999px";
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                } catch (e) {
-                    console.error('Fallback copy failed', e);
-                    showToast('Failed to copy logs (Fallback error).', 'error');
-                    document.body.removeChild(textArea);
-                    return;
-                }
-                document.body.removeChild(textArea);
-            }
-            showToast(`Copied ${isSelectionCopy ? selectedIndices.size.toLocaleString() : count.toLocaleString()} lines!`, 'success');
-
-        } catch (e) {
-            console.error('[Copy] Failed', e);
-            showToast('Failed to copy logs.', 'error');
-        }
-    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, requestBookmarkedLines, showToast]);
-
-    const handleSaveLogs = useCallback(async (paneId: 'left' | 'right') => {
-        const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
-        const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
-        if (count <= 0) {
-            showToast('No logs to save.', 'info');
-            return;
-        }
-
-        try {
-            console.time('save-fetch');
-            const content = await requestFullText();
-            console.timeEnd('save-fetch');
-
-            if (!content) {
-                showToast('Failed to retrieve log content.', 'error');
-                return;
-            }
-
-            if (window.electronAPI?.saveFile) {
-                const result = await window.electronAPI.saveFile(content);
-                if (result.status === 'success') {
-                    console.log('[Save] Success', result.filePath);
-                    showToast(`Saved to ${result.filePath}`, 'success');
-                } else if (result.status === 'error') {
-                    showToast(`Save failed: ${(result as any).error}`, 'error');
-                } else {
-                    console.log('[Save] Canceled');
-                }
-            } else {
-                // Fallback for web
-                const blob = new Blob([content], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `filtered_logs_${paneId}_${new Date().getTime()}.txt`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                showToast('Download triggered (Web)', 'success');
-            }
-        } catch (e) {
-            console.error('[Save] Failed', e);
-            showToast('Failed to save logs.', 'error');
-        }
-    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, showToast]);
 
     const updateCurrentRule = useCallback((updates: Partial<LogRule>) => {
         const updatedRules = rules.map(r => r.id === selectedRuleId ? { ...r, ...updates } : r);

@@ -1,0 +1,284 @@
+import { useCallback } from 'react';
+import { useToast } from '../contexts/ToastContext';
+
+export interface UseLogExportActionsProps {
+    leftWorkerRef: React.MutableRefObject<Worker | null>;
+    rightWorkerRef: React.MutableRefObject<Worker | null>;
+    leftPendingRequests: React.MutableRefObject<Map<string, (data: any) => void>>;
+    rightPendingRequests: React.MutableRefObject<Map<string, (data: any) => void>>;
+    leftFilteredCount: number;
+    rightFilteredCount: number;
+    selectedIndicesLeftRef: React.MutableRefObject<Set<number>>;
+    selectedIndicesRightRef: React.MutableRefObject<Set<number>>;
+    setRawContextTargetLine: (target: any) => void;
+    setRawContextSourcePane: (pane: 'left' | 'right') => void;
+    setRawViewHighlightRange: (range: { start: number; end: number } | null) => void;
+    setRawContextOpen: (open: boolean) => void;
+    showToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+}
+
+export const useLogExportActions = (props: UseLogExportActionsProps) => {
+    const {
+        leftWorkerRef, rightWorkerRef,
+        leftPendingRequests, rightPendingRequests,
+        leftFilteredCount, rightFilteredCount,
+        selectedIndicesLeftRef, selectedIndicesRightRef,
+        setRawContextTargetLine, setRawContextSourcePane,
+        setRawViewHighlightRange, setRawContextOpen,
+        showToast
+    } = props;
+
+    const { addToast } = useToast();
+
+    // --- Internal Helpers: Request Full Text ---
+    const requestLeftFullText = useCallback(() => {
+        return new Promise<string>((resolve) => {
+            if (!leftWorkerRef.current) return resolve('');
+            const reqId = Math.random().toString(36).substring(7);
+            leftPendingRequests.current.set(reqId, (payload: any) => {
+                if (payload.buffer) {
+                    const decoder = new TextDecoder();
+                    resolve(decoder.decode(payload.buffer));
+                } else {
+                    resolve(payload.text || '');
+                }
+            });
+            leftWorkerRef.current.postMessage({ type: 'GET_FULL_TEXT', requestId: reqId });
+        });
+    }, [leftWorkerRef, leftPendingRequests]);
+
+    const requestRightFullText = useCallback(() => {
+        return new Promise<string>((resolve) => {
+            if (!rightWorkerRef.current) return resolve('');
+            const reqId = Math.random().toString(36).substring(7);
+            rightPendingRequests.current.set(reqId, (payload: any) => {
+                if (payload.buffer) {
+                    const decoder = new TextDecoder();
+                    resolve(decoder.decode(payload.buffer));
+                } else {
+                    resolve(payload.text || '');
+                }
+            });
+            rightWorkerRef.current.postMessage({ type: 'GET_FULL_TEXT', requestId: reqId });
+        });
+    }, [rightWorkerRef, rightPendingRequests]);
+
+    const requestBookmarkedLines = useCallback((indices: number[], paneId: 'left' | 'right') => {
+        return new Promise<any[]>((resolve) => {
+            const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
+            const requestMap = paneId === 'left' ? leftPendingRequests.current : rightPendingRequests.current;
+
+            if (!worker || indices.length === 0) return resolve([]);
+
+            const reqId = Math.random().toString(36).substring(7);
+            requestMap.set(reqId, resolve);
+            worker.postMessage({ type: 'GET_LINES_BY_INDICES', payload: { indices }, requestId: reqId });
+        });
+    }, [leftWorkerRef, rightWorkerRef, leftPendingRequests, rightPendingRequests]);
+
+
+    // --- Raw Line Utilities ---
+    const requestLeftRawLines = useCallback((startLine: number, count: number) => {
+        return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
+            if (!leftWorkerRef.current) return resolve([]);
+            const reqId = Math.random().toString(36).substring(7);
+            leftPendingRequests.current.set(reqId, resolve);
+            leftWorkerRef.current.postMessage({ type: 'GET_RAW_LINES', payload: { startLine, count }, requestId: reqId });
+        });
+    }, [leftWorkerRef, leftPendingRequests]);
+
+    const requestRightRawLines = useCallback((startLine: number, count: number) => {
+        return new Promise<{ lineNum: number; content: string }[]>((resolve) => {
+            if (!rightWorkerRef.current) return resolve([]);
+            const reqId = crypto.randomUUID();
+            rightPendingRequests.current.set(reqId, resolve);
+            rightWorkerRef.current.postMessage({ type: 'GET_RAW_LINES', payload: { startLine, count }, requestId: reqId });
+        });
+    }, [rightWorkerRef, rightPendingRequests]);
+
+    const handleViewRawRangeLeft = useCallback(async (start: number, end: number, filteredIndex?: number) => {
+        const relativeIndex = start - 1;
+        try {
+            const lines = await requestLeftRawLines(relativeIndex, 1);
+            if (lines && lines.length > 0) {
+                setRawContextTargetLine({ ...lines[0], formattedLineIndex: filteredIndex ?? '?' } as any);
+                setRawContextSourcePane('left');
+                setRawViewHighlightRange({ start, end });
+                setRawContextOpen(true);
+            }
+        } catch (e) {
+            console.error('[Export] Failed to view raw range', e);
+        }
+    }, [requestLeftRawLines, setRawContextTargetLine, setRawContextSourcePane, setRawViewHighlightRange, setRawContextOpen]);
+
+    const handleViewRawRangeRight = useCallback(async (start: number, end: number, filteredIndex?: number) => {
+        const relativeIndex = start - 1;
+        try {
+            const lines = await requestRightRawLines(relativeIndex, 1);
+            if (lines && lines.length > 0) {
+                setRawContextTargetLine({ ...lines[0], formattedLineIndex: filteredIndex ?? '?' } as any);
+                setRawContextSourcePane('right');
+                setRawViewHighlightRange({ start, end });
+                setRawContextOpen(true);
+            }
+        } catch (e) {
+            console.error('[Export] Failed to view raw range', e);
+        }
+    }, [requestRightRawLines, setRawContextTargetLine, setRawContextSourcePane, setRawViewHighlightRange, setRawContextOpen]);
+
+    const handleCopyRawRangeLeft = useCallback(async (start: number, end: number) => {
+        const count = end - start + 1;
+        if (count <= 0) return;
+        try {
+            const lines = await requestLeftRawLines(start - 1, count);
+            if (lines && lines.length > 0) {
+                const text = lines.map(l => l.content).join('\n');
+                await navigator.clipboard.writeText(text);
+                showToast(`${lines.length} lines copied to clipboard!`, 'success');
+            }
+        } catch (e) {
+            console.error('[Export] Failed to copy logs', e);
+            showToast('Failed to copy logs.', 'error');
+        }
+    }, [requestLeftRawLines, showToast]);
+
+    const handleCopyRawRangeRight = useCallback(async (start: number, end: number) => {
+        const count = end - start + 1;
+        if (count <= 0) return;
+        try {
+            const lines = await requestRightRawLines(start - 1, count);
+            if (lines && lines.length > 0) {
+                const text = lines.map(l => l.content).join('\n');
+                await navigator.clipboard.writeText(text);
+                showToast(`${lines.length} lines copied to clipboard!`, 'success');
+            }
+        } catch (e) {
+            console.error('[Export] Failed to copy logs', e);
+            showToast('Failed to copy logs.', 'error');
+        }
+    }, [requestRightRawLines, showToast]);
+
+
+    // --- Main Export Actions ---
+    const handleCopyLogs = useCallback(async (paneId: 'left' | 'right') => {
+        const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
+        const selectedIndices = paneId === 'left' ? selectedIndicesLeftRef.current : selectedIndicesRightRef.current;
+        const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
+        const requestSpecificLines = paneId === 'left'
+            ? (indices: number[]) => requestBookmarkedLines(indices, 'left')
+            : (indices: number[]) => requestBookmarkedLines(indices, 'right');
+
+        if (count <= 0) {
+            showToast('No logs to copy.', 'info');
+            return;
+        }
+
+        const isSelectionCopy = selectedIndices.size > 0;
+
+        try {
+            console.time('copy-fetch');
+            let content = '';
+
+            if (isSelectionCopy) {
+                const indices = Array.from(selectedIndices).sort((a, b) => a - b);
+                const lines = await requestSpecificLines(indices);
+                content = lines.map(l => l.content).join('\n');
+            } else {
+                content = await requestFullText();
+            }
+            console.timeEnd('copy-fetch');
+
+            content = content.replace(/\r?\n$/, '');
+
+            if (!content) {
+                showToast('Failed to retrieve log content.', 'error');
+                return;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            if ((window as any).electronAPI?.copyToClipboard) {
+                await (window as any).electronAPI.copyToClipboard(content);
+            } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(content);
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = content;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                } catch (e) {
+                    console.error('Fallback copy failed', e);
+                    showToast('Failed to copy logs (Fallback error).', 'error');
+                    document.body.removeChild(textArea);
+                    return;
+                }
+                document.body.removeChild(textArea);
+            }
+            showToast(`Copied ${isSelectionCopy ? selectedIndices.size.toLocaleString() : count.toLocaleString()} lines!`, 'success');
+
+        } catch (e) {
+            console.error('[Copy] Failed', e);
+            showToast('Failed to copy logs.', 'error');
+        }
+    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, requestBookmarkedLines, showToast, selectedIndicesLeftRef, selectedIndicesRightRef]);
+
+    const handleSaveLogs = useCallback(async (paneId: 'left' | 'right') => {
+        const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
+        const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
+        if (count <= 0) {
+            showToast('No logs to save.', 'info');
+            return;
+        }
+
+        try {
+            console.time('save-fetch');
+            const content = await requestFullText();
+            console.timeEnd('save-fetch');
+
+            if (!content) {
+                showToast('Failed to retrieve log content.', 'error');
+                return;
+            }
+
+            if ((window as any).electronAPI?.saveFile) {
+                const result = await (window as any).electronAPI.saveFile(content);
+                if (result.status === 'success') {
+                    showToast(`Saved to ${result.filePath}`, 'success');
+                } else if (result.status === 'error') {
+                    showToast(`Save failed: ${result.error}`, 'error');
+                }
+            } else {
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `filtered_logs_${paneId}_${new Date().getTime()}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('Download triggered (Web)', 'success');
+            }
+        } catch (e) {
+            console.error('[Save] Failed', e);
+            showToast('Failed to save logs.', 'error');
+        }
+    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, showToast]);
+
+    return {
+        handleCopyLogs,
+        handleSaveLogs,
+        handleViewRawRangeLeft,
+        handleViewRawRangeRight,
+        handleCopyRawRangeLeft,
+        handleCopyRawRangeRight,
+        requestLeftRawLines,
+        requestRightRawLines,
+        requestBookmarkedLines
+    };
+};
