@@ -17,10 +17,10 @@ import { useContextMenu } from './ContextMenu';
 import { useToast } from '../contexts/ToastContext';
 import { useHappyTool } from '../contexts/HappyToolContext';
 import TransactionDrawer from './LogViewer/TransactionDrawer';
-import { extractTransactionIds } from '../utils/transactionAnalysis';
 import { useLogSessionShortcuts } from '../hooks/useLogSessionShortcuts';
 import { RawContextViewer } from './LogViewer/RawContextViewer';
-import { stringToColor } from '../utils/colorUtils';
+import { useLogSessionContextMenus } from '../hooks/useLogSessionContextMenus';
+import { useLogSessionHighlights } from '../hooks/useLogSessionHighlights';
 
 const { X, Eraser, ChevronLeft, ChevronRight, GripHorizontal } = Lucide;
 
@@ -166,125 +166,11 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     }, [rightWorkerReady, rightFilteredCount, requestRightLines, rightFileName, openSaveDialog]);
 
     // === NEW CONTEXT MENU LOGIC === //
-    const handleUnifiedSave = async () => {
-        // 1. 브라우저의 현재 텍스트 선택 영역을 최우선으로 확인합니다 (Alt+Drag 대응)
-        const currentSel = window.getSelection();
-        const browserText = currentSel && !currentSel.isCollapsed ? currentSel.toString().trim() : null;
-
-        if (browserText || nativeSelection) {
-            const content = browserText || nativeSelection?.text || '';
-            const sourceFile = isDualView ? undefined : (leftFileName || undefined);
-
-            openSaveDialog({
-                content,
-                sourceFile,
-                // 텍스트 선택의 경우 정확한 라인 번호를 알기 어려우므로 undefined로 유지
-                startLine: undefined,
-                endLine: undefined,
-            });
-        } else {
-            // 2. 라인 단위 선택(클릭/드래그) 저장 로직
-            const targetIsLeft = (selectedIndicesLeft && selectedIndicesLeft.size > 0);
-            const indices = targetIsLeft ? selectedIndicesLeft : selectedIndicesRight;
-            const requestFn = targetIsLeft ? requestLeftLines : requestRightLines;
-            const fName = targetIsLeft ? leftFileName : rightFileName;
-
-            if (!indices || indices.size === 0) return;
-
-            const sorted = Array.from(indices).sort((a, b) => a - b);
-            const min = sorted[0];
-            const max = sorted[sorted.length - 1];
-            const count = max - min + 1;
-
-            try {
-                const lines = await requestFn(min, count);
-                const content = lines
-                    .filter((_, idx) => indices.has(min + idx))
-                    .map(l => l.content)
-                    .join('\n');
-
-                if (content) {
-                    openSaveDialog({
-                        content,
-                        sourceFile: fName,
-                        startLine: min + 1,
-                        endLine: max + 1
-                    });
-                }
-            } catch (e) {
-                console.error('[LogSession] Failed to retrieve selected lines', e);
-            }
-        }
-    };
-
-    const handleContextMenu = React.useCallback(async (e: React.MouseEvent) => {
-        // ✅ Prevent default immediately to ensure custom menu works correctly even with async logic
-        e.preventDefault();
-
-        // 브라우저의 실시간 선택 영역을 확인합니다.
-        const currentSelection = window.getSelection();
-        const hasTextSelection = currentSelection && !currentSelection.isCollapsed && currentSelection.toString().trim().length > 0;
-
-        const hasNative = !!nativeSelection || hasTextSelection;
-        const hasLeftLine = selectedIndicesLeft && selectedIndicesLeft.size > 0;
-        const hasRightLine = isDualView && selectedIndicesRight && selectedIndicesRight.size > 0;
-
-        const menuItems = [];
-
-        // Determine which pane we are clicking on (best effort)
-        const targetPane: 'left' | 'right' = (e.currentTarget as HTMLElement).closest('[data-pane-id="right"]') ? 'right' : 'left';
-
-        const hasSelectionInTarget = targetPane === 'left' ? hasLeftLine : hasRightLine;
-
-        if (hasNative || hasLeftLine || hasRightLine) {
-            menuItems.push({
-                label: 'Save Selection to Archive',
-                icon: <Lucide.Archive size={16} />,
-                action: handleUnifiedSave
-            });
-        }
-
-        // --- Transaction Analysis Entry Point ---
-        try {
-            const indices = targetPane === 'left' ? selectedIndicesLeft : selectedIndicesRight;
-            console.log(`[ContextMenu] Checking selection for ${targetPane}:`, {
-                indicesCount: indices?.size || 0,
-                indices: Array.from(indices || [])
-            });
-
-            if (indices && indices.size >= 1) {
-                const activeIdx = targetPane === 'left' ? activeLineIndexLeft : activeLineIndexRight;
-                const lineIdx = indices.has(activeIdx) ? activeIdx : Array.from(indices)[0];
-                const requestFn = targetPane === 'left' ? requestLeftLines : requestRightLines;
-
-                const lines = await requestFn(lineIdx, 1);
-                console.log(`[ContextMenu] Requested line content for idx ${lineIdx}:`, lines?.[0]?.content);
-
-                if (lines && lines.length > 0) {
-                    const content = lines[0].content;
-                    const extractedIds = extractTransactionIds(content);
-                    console.log(`[ContextMenu] IDs extracted from line:`, extractedIds);
-
-                    if (extractedIds.length > 0) {
-                        menuItems.push({ type: 'separator' });
-                        extractedIds.forEach(id => {
-                            menuItems.push({
-                                label: `Analyze Transaction: ${id.type.toUpperCase()} (${id.value})`,
-                                icon: <Lucide.Activity size={16} />,
-                                action: () => analyzeTransactionAction(id, targetPane)
-                            });
-                        });
-                    }
-                }
-            }
-        } catch (err) {
-            console.error('[LogSession] Context menu analysis check failed', err);
-        }
-
-        if (menuItems.length > 0) {
-            showContextMenu(e, menuItems);
-        }
-    }, [nativeSelection, selectedIndicesLeft, selectedIndicesRight, activeLineIndexLeft, activeLineIndexRight, isDualView, showContextMenu, requestLeftLines, requestRightLines, analyzeTransactionAction]);
+    const { handleContextMenu, handleUnifiedSave } = useLogSessionContextMenus({
+        nativeSelection, selectedIndicesLeft, selectedIndicesRight, activeLineIndexLeft,
+        activeLineIndexRight, isDualView, leftFileName, rightFileName,
+        showContextMenu, requestLeftLines, requestRightLines, analyzeTransactionAction, openSaveDialog
+    });
 
     // --- Line Selection Logic (Fallback for when native selection is blocked) ---
     const mousePosRef = React.useRef({ x: 0, y: 0 });
@@ -460,67 +346,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
 
     // Prepare Effective Highlights (Explicit + Auto-generated Highlighting for Happy Combos)
-    const effectiveHighlights = React.useMemo(() => {
-        const baseHighlights = currentConfig?.highlights || [];
-
-        // Determine case sensitivity for deduplication
-        // 형님, 어느 한 쪽이라도 켜져 있으면 중복 체크할 때 대소문자를 구분합니다.
-        const isCaseSensitive = !!currentConfig?.happyCombosCaseSensitive || !!currentConfig?.colorHighlightsCaseSensitive;
-
-        // Only classify highlights with ACTUAL color as "existing/colliding"
-        // Deduplicate based on case sensitivity setting
-        const validExistingKeywords = new Set(
-            baseHighlights
-                .filter(h => h.color && h.color.trim().length > 0)
-                .map(h => isCaseSensitive ? h.keyword : h.keyword.toLowerCase())
-        );
-
-        const autoHighlights: any[] = [];
-        const termsToHighlight = new Set<string>();
-
-        // Collect terms from Happy Groups
-        if (currentConfig?.happyGroups) {
-            currentConfig.happyGroups.forEach(group => {
-                // Check if group is enabled (default true if undefined)
-                if (group.enabled !== false) {
-                    group.tags.forEach(tag => {
-                        if (tag && tag.trim()) termsToHighlight.add(tag.trim());
-                    });
-                }
-            });
-        }
-
-        // Legacy Support
-        if (currentConfig?.includeGroups) {
-            currentConfig.includeGroups.forEach(group => {
-                group.forEach(tag => {
-                    if (tag && tag.trim()) termsToHighlight.add(tag.trim());
-                });
-            });
-        }
-
-
-
-        termsToHighlight.forEach(term => {
-            const checkTerm = isCaseSensitive ? term : term.toLowerCase();
-            // Only add auto-highlight if NO manual highlight exists for this term
-            if (!validExistingKeywords.has(checkTerm)) {
-                const color = stringToColor(term);
-                autoHighlights.push({
-                    id: `auto-${term}`,
-                    keyword: term,
-                    color: color,
-                    lineEffect: false,
-                    enabled: true // EXPLICITLY ENABLE
-                });
-            }
-        });
-
-        // Precedence: Manual Updates > Auto Generated
-        // We put baseHighlights FIRST so find() returns manual highlight if both exist 
-        // (though we try to filter duplicates, partial matches might still occur)
-        return [...baseHighlights, ...autoHighlights];
-    }, [currentConfig?.highlights, currentConfig?.happyGroups, currentConfig?.includeGroups, currentConfig?.colorHighlightsCaseSensitive, currentConfig?.happyCombosCaseSensitive]);
+    const effectiveHighlights = useLogSessionHighlights(currentConfig);
 
     // Memoized handlers for Right Pane
     const onLineClickRight = React.useCallback((index: number, isShift?: boolean, isCtrl?: boolean) => handleLineClick('right', index, !!isShift, !!isCtrl), [handleLineClick]);
