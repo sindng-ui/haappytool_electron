@@ -57,71 +57,14 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
     onJumpToRange, onViewRawRange, isActive, isOpen, setIsInitialDrawComplete, exportCanvasRef,
     generateTicks, flameChartContainerRef, dragCleanupRef
 }) => {
+    // TID 컬럼 제외 실제 차트 영역의 ref — 이 div 기준으로 마우스 좌표를 계산하면 오프셋 보정 불필요
+    const innerChartRef = React.useRef<HTMLDivElement>(null);
+
     return (
         <div className="flex-1 w-full relative flex flex-col min-h-0 bg-slate-900 overflow-hidden">
             <div
                 className="flex-1 overflow-auto custom-scrollbar relative flex bg-black/40"
                 ref={flameChartContainerRef}
-                onMouseDown={(e) => {
-                    if (isShiftPressed) {
-                        e.preventDefault();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const scrollLeft = e.currentTarget.scrollLeft;
-                        // TID 컬럼이 sticky로 붙어있어 실제 차트 영역의 시작점 오프셋을 보정
-                        const TID_COL_WIDTH = showTidColumn ? 52 : 0;
-                        const startX = e.clientX - rect.left + scrollLeft - TID_COL_WIDTH;
-                        const viewStart = flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime);
-                        const viewEnd = flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime);
-                        const viewDuration = Math.max(1, viewEnd - viewStart);
-                        const containerWidth = Math.max(1, rect.width - TID_COL_WIDTH);
-
-                        /**
-                         * Magnet snap: 픽셀 기준으로 가장 가까운 세그먼트 경계를 찾아 스냅
-                         */
-                        const SNAP_THRESHOLD = 12; // px
-                        const snapToSegmentBoundary = (rawTime: number): number => {
-                            let closestTime = rawTime;
-                            let closestDistPx = SNAP_THRESHOLD + 1;
-
-                            for (let i = 0; i < flameSegments.length; i++) {
-                                const seg = flameSegments[i];
-                                const candidates = [seg.startTime, seg.endTime];
-                                for (const t of candidates) {
-                                    const distPx = Math.abs(((t - rawTime) / viewDuration) * containerWidth);
-                                    if (distPx < closestDistPx) {
-                                        closestDistPx = distPx;
-                                        closestTime = t;
-                                    }
-                                }
-                            }
-                            return closestTime;
-                        };
-
-                        const timeAtX = snapToSegmentBoundary(
-                            viewStart + (startX / containerWidth) * viewDuration
-                        );
-                        setMeasureRange({ startTime: timeAtX, endTime: timeAtX });
-
-                        const onMove = (moveEvent: MouseEvent) => {
-                            const currentX = moveEvent.clientX - rect.left + flameChartContainerRef.current!.scrollLeft - TID_COL_WIDTH;
-                            const rawTime = viewStart + (currentX / containerWidth) * viewDuration;
-                            const snappedTime = snapToSegmentBoundary(rawTime);
-                            setMeasureRange(prev => prev ? { ...prev, endTime: snappedTime } : null);
-                        };
-
-                        const onUp = () => {
-                            window.removeEventListener('mousemove', onMove);
-                            window.removeEventListener('mouseup', onUp);
-                            dragCleanupRef.current = null;
-                        };
-                        dragCleanupRef.current = onUp;
-                        window.addEventListener('mousemove', onMove);
-                        window.addEventListener('mouseup', onUp);
-                    } else {
-                        // Shift 없이 클릭 → 선택 영역 초기화
-                        if (measureRange) setMeasureRange(null);
-                    }
-                }}
             >
                 <div
                     className="flex flex-row min-w-full relative"
@@ -178,8 +121,67 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                         </div>
                     )}
 
-                    {/* Scrollable Map Area */}
-                    <div className="flex-1 relative bg-slate-950/20">
+                    {/* Scrollable Map Area — TID 제외 순수 차트 영역, 마우스 좌표 기준점 */}
+                    <div
+                        className="flex-1 relative bg-slate-950/20"
+                        ref={innerChartRef}
+                        onMouseDown={(e) => {
+                            if (isShiftPressed) {
+                                e.preventDefault();
+                                // rect가 이미 차트 영역(TID 제외) 기준 → 오프셋 보정 불필요!
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const containerWidth = Math.max(1, rect.width);
+                                const viewStart = flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime);
+                                const viewEnd = flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime);
+                                const viewDuration = Math.max(1, viewEnd - viewStart);
+
+                                /**
+                                 * Magnet snap: 픽셀 기준으로 가장 가까운 세그먼트 경계를 찾아 스냅
+                                 */
+                                const SNAP_THRESHOLD = 12; // px
+                                const snapToSegmentBoundary = (rawTime: number): number => {
+                                    let closestTime = rawTime;
+                                    let closestDistPx = SNAP_THRESHOLD + 1;
+                                    for (let i = 0; i < flameSegments.length; i++) {
+                                        const seg = flameSegments[i];
+                                        for (const t of [seg.startTime, seg.endTime]) {
+                                            const distPx = Math.abs(((t - rawTime) / viewDuration) * containerWidth);
+                                            if (distPx < closestDistPx) {
+                                                closestDistPx = distPx;
+                                                closestTime = t;
+                                            }
+                                        }
+                                    }
+                                    return closestTime;
+                                };
+
+                                const startX = e.clientX - rect.left;
+                                const timeAtX = snapToSegmentBoundary(
+                                    viewStart + (startX / containerWidth) * viewDuration
+                                );
+                                setMeasureRange({ startTime: timeAtX, endTime: timeAtX });
+
+                                const onMove = (moveEvent: MouseEvent) => {
+                                    const currentX = moveEvent.clientX - rect.left;
+                                    const rawTime = viewStart + (currentX / containerWidth) * viewDuration;
+                                    const snappedTime = snapToSegmentBoundary(rawTime);
+                                    setMeasureRange(prev => prev ? { ...prev, endTime: snappedTime } : null);
+                                };
+
+                                const onUp = () => {
+                                    window.removeEventListener('mousemove', onMove);
+                                    window.removeEventListener('mouseup', onUp);
+                                    dragCleanupRef.current = null;
+                                };
+                                dragCleanupRef.current = onUp;
+                                window.addEventListener('mousemove', onMove);
+                                window.addEventListener('mouseup', onUp);
+                            } else {
+                                // Shift 없이 클릭 → 선택 영역 초기화
+                                if (measureRange) setMeasureRange(null);
+                            }
+                        }}
+                    >
                         {/* Global Divider Line */}
                         <div
                             className="absolute left-0 right-0 h-px bg-white/10 z-[10] shadow-[0_1px_3px_rgba(0,0,0,0.5)]"

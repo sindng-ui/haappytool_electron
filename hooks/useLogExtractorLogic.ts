@@ -392,6 +392,41 @@ export const useLogExtractorLogic = ({
     });
 
     // Initialize Left Worker & Load State
+    /**
+     * 파일 인덱싱 완료 직후 FILTER_LOGS를 강제 전송하기 위한 ref 함수
+     * useEffect deps를 거치지 않고, 현재 currentConfig / quickFilter 를 실시간으로 줄이는 방식
+     */
+    const currentConfigRef = React.useRef(currentConfig);
+    React.useEffect(() => { currentConfigRef.current = currentConfig; }, [currentConfig]);
+    const quickFilterRef = React.useRef(quickFilter);
+    React.useEffect(() => { quickFilterRef.current = quickFilter; }, [quickFilter]);
+
+    const sendFilterLogsLeft = React.useCallback(() => {
+        const config = currentConfigRef.current;
+        if (!config || !leftWorkerRef.current) return;
+        const refinedGroups = assembleIncludeGroups(config);
+        lastFilterHashLeft.current = ''; // 해시 리셋 → Auto-Apply Filter도 재실행되도록
+        console.log('[useLog-Left] onIndexComplete → FILTER_LOGS 전송');
+        setLeftWorkerReady(false);
+        leftWorkerRef.current.postMessage({
+            type: 'FILTER_LOGS',
+            payload: { ...config, includeGroups: refinedGroups, quickFilter: quickFilterRef.current }
+        });
+    }, []);
+
+    const sendFilterLogsRight = React.useCallback(() => {
+        const config = currentConfigRef.current;
+        if (!config || !rightWorkerRef.current) return;
+        const refinedGroups = assembleIncludeGroups(config);
+        lastFilterHashRight.current = '';
+        console.log('[useLog-Right] onIndexComplete → FILTER_LOGS 전송');
+        setRightWorkerReady(false);
+        rightWorkerRef.current.postMessage({
+            type: 'FILTER_LOGS',
+            payload: { ...config, includeGroups: refinedGroups, quickFilter: quickFilterRef.current }
+        });
+    }, []);
+
     useEffect(() => {
         let isStale = false;
         leftWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
@@ -409,6 +444,7 @@ export const useLogExtractorLogic = ({
                 setFilteredCount: setLeftFilteredCount,
                 setBookmarks: setLeftBookmarks,
                 setPerformanceHeatmap: setLeftPerformanceHeatmap,
+                onIndexComplete: sendFilterLogsLeft,
                 handleAnalysisMessage,
                 workerRef: leftWorkerRef,
                 pendingRequests: leftPendingRequests,
@@ -439,6 +475,7 @@ export const useLogExtractorLogic = ({
                 setPerformanceHeatmap: setRightPerformanceHeatmap,
                 setActiveLineIndex: setActiveLineIndexRight,
                 setSelectedIndices: setSelectedIndicesRight,
+                onIndexComplete: sendFilterLogsRight,
                 handleAnalysisMessage,
                 workerRef: rightWorkerRef,
                 pendingRequests: rightPendingRequests,

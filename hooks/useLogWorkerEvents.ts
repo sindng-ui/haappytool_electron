@@ -19,6 +19,8 @@ export function useLogWorkerEvents() {
             setPerformanceHeatmap: (h: number[]) => void;
             setActiveLineIndex?: (i: number) => void;
             setSelectedIndices?: (s: Set<number>) => void;
+            /** Index 완료 후 바로 FILTER_LOGS를 보내기 위한 콜백 */
+            onIndexComplete?: () => void;
             handleAnalysisMessage: (paneId: 'left' | 'right', type: string, payload: any) => void;
             workerRef: React.MutableRefObject<Worker | null>;
             pendingRequests: React.MutableRefObject<Map<string, (data: any) => void>>;
@@ -35,6 +37,7 @@ export function useLogWorkerEvents() {
             setPerformanceHeatmap,
             setActiveLineIndex,
             setSelectedIndices,
+            onIndexComplete,
             handleAnalysisMessage,
             workerRef,
             pendingRequests,
@@ -65,6 +68,10 @@ export function useLogWorkerEvents() {
             case 'INDEX_COMPLETE':
                 setTotalLines(payload.totalLines);
                 setIndexingProgress(100);
+                // 파일 인덱싱 완료 직후 즉시 필터 적용 트리거
+                // (Auto-Apply Filter useEffect deps에 workerReady가 없어서
+                //  파일 재로드 후 config 미변경 시 필터가 실행되지 않는 race condition 수정)
+                onIndexComplete?.();
                 break;
 
             case 'FILTER_COMPLETE':
