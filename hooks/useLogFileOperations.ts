@@ -53,6 +53,8 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
 
     // Use a ref to track staleness (similar to original code's isStale)
     const isComponentStale = useRef(false);
+    const lastLoadingPathRef = useRef<string | null>(null);
+
     useEffect(() => {
         isComponentStale.current = false;
         return () => { isComponentStale.current = true; };
@@ -80,6 +82,13 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
 
     const loadFile = useCallback((targetPath: string) => {
         if (window.electronAPI) {
+            // 중복 로딩 방지 (동일 파일이 이미 로딩 중인 경우 무시)
+            if (lastLoadingPathRef.current === targetPath && !tizenSocket) {
+                console.log('[useLog] Skip redundant loadFile for:', targetPath);
+                return;
+            }
+            lastLoadingPathRef.current = targetPath;
+
             const fileName = targetPath.split(/[/\\]/).pop() || 'log_file.log';
             setLeftFileName(fileName);
             setLeftFilePath(targetPath);
@@ -92,6 +101,8 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
             setLeftIndexingProgress(0);
             setLeftTotalLines(0);
             setLeftFilteredCount(0);
+            // 필터 캐시 강제 무효화를 위해 해시 리셋
+            lastFilterHashLeft.current = '';
 
             if (window.electronAPI.streamReadFile) {
                 const requestId = `stream-${Date.now()}-${Math.random().toString(36).substring(7)}`;

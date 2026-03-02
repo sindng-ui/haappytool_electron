@@ -503,18 +503,13 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             processChunk(payload);
             break;
         case 'STREAM_DONE':
-            // 파일 읽기 스트림 완료: 마지막 버퍼 처리 후 최종 결과 한번만 전송
+            // 파일 읽기 스트림 완료: 마지막 버퍼 처리 후 최종 상태 업데이트
             if (streamBuffer.length > 0) {
                 processChunk(''); // flush remaining buffer
             }
-            respond({
-                type: 'FILTER_COMPLETE',
-                payload: {
-                    matchCount: filteredIndices?.length ?? 0,
-                    totalLines: streamLines.length,
-                    visualBookmarks: getVisualBookmarks()
-                }
-            });
+            // ⚠️ 여기서 FILTER_COMPLETE를 보내지 않음!
+            // 프론트엔드의 useEffect가 ready 상태를 감지하여 FILTER_LOGS를 보내게 유도.
+            respond({ type: 'STREAM_DONE' });
             respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
             break;
         case 'FILTER_LOGS':

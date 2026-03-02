@@ -392,40 +392,6 @@ export const useLogExtractorLogic = ({
     });
 
     // Initialize Left Worker & Load State
-    /**
-     * 파일 인덱싱 완료 직후 FILTER_LOGS를 강제 전송하기 위한 ref 함수
-     * useEffect deps를 거치지 않고, 현재 currentConfig / quickFilter 를 실시간으로 줄이는 방식
-     */
-    const currentConfigRef = React.useRef(currentConfig);
-    React.useEffect(() => { currentConfigRef.current = currentConfig; }, [currentConfig]);
-    const quickFilterRef = React.useRef(quickFilter);
-    React.useEffect(() => { quickFilterRef.current = quickFilter; }, [quickFilter]);
-
-    const sendFilterLogsLeft = React.useCallback(() => {
-        const config = currentConfigRef.current;
-        if (!config || !leftWorkerRef.current) return;
-        const refinedGroups = assembleIncludeGroups(config);
-        lastFilterHashLeft.current = ''; // 해시 리셋 → Auto-Apply Filter도 재실행되도록
-        console.log('[useLog-Left] onIndexComplete → FILTER_LOGS 전송');
-        setLeftWorkerReady(false);
-        leftWorkerRef.current.postMessage({
-            type: 'FILTER_LOGS',
-            payload: { ...config, includeGroups: refinedGroups, quickFilter: quickFilterRef.current }
-        });
-    }, []);
-
-    const sendFilterLogsRight = React.useCallback(() => {
-        const config = currentConfigRef.current;
-        if (!config || !rightWorkerRef.current) return;
-        const refinedGroups = assembleIncludeGroups(config);
-        lastFilterHashRight.current = '';
-        console.log('[useLog-Right] onIndexComplete → FILTER_LOGS 전송');
-        setRightWorkerReady(false);
-        rightWorkerRef.current.postMessage({
-            type: 'FILTER_LOGS',
-            payload: { ...config, includeGroups: refinedGroups, quickFilter: quickFilterRef.current }
-        });
-    }, []);
 
     useEffect(() => {
         let isStale = false;
@@ -444,8 +410,6 @@ export const useLogExtractorLogic = ({
                 setFilteredCount: setLeftFilteredCount,
                 setBookmarks: setLeftBookmarks,
                 setPerformanceHeatmap: setLeftPerformanceHeatmap,
-                onIndexComplete: sendFilterLogsLeft,
-                onStreamDone: sendFilterLogsLeft,
                 handleAnalysisMessage,
                 workerRef: leftWorkerRef,
                 pendingRequests: leftPendingRequests,
@@ -476,8 +440,6 @@ export const useLogExtractorLogic = ({
                 setPerformanceHeatmap: setRightPerformanceHeatmap,
                 setActiveLineIndex: setActiveLineIndexRight,
                 setSelectedIndices: setSelectedIndicesRight,
-                onIndexComplete: sendFilterLogsRight,
-                onStreamDone: sendFilterLogsRight,
                 handleAnalysisMessage,
                 workerRef: rightWorkerRef,
                 pendingRequests: rightPendingRequests,
@@ -494,9 +456,8 @@ export const useLogExtractorLogic = ({
 
     // Auto-Apply Filter (Left)
     useEffect(() => {
-        // ✅ Optimization: Allow filtering if worker exists, even if not "ready" (unless indexing)
-        // This ensures the loader displays immediately when config changes.
-        if (leftWorkerRef.current && currentConfig) {
+        // ✅ Serialized Flow: Only filter when worker is ready or config changed
+        if (leftWorkerRef.current && currentConfig && (leftWorkerReady || lastFilterHashLeft.current === '')) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
 
             const effectiveIncludes = refinedGroups.map(g =>
@@ -512,17 +473,15 @@ export const useLogExtractorLogic = ({
                 quickFilter
             });
 
-            if (payloadHash === lastFilterHashLeft.current) {
+            if (payloadHash === lastFilterHashLeft.current && leftWorkerReady) {
                 return;
             }
             lastFilterHashLeft.current = payloadHash;
 
-            // Immediately set to not ready to show loader without delay
+            // Immediately set to not ready to show loader
             setLeftWorkerReady(false);
 
-            // 🔍 DEBUG: Check what is being sent to the worker
-            console.log('[useLog-Left] Sending FILTER_LOGS. hash:', payloadHash, 'ruleId:', currentConfig.id);
-
+            console.log('[useLog-Left] Auto-Apply FILTER_LOGS. hash:', payloadHash);
             leftWorkerRef.current.postMessage({
                 type: 'FILTER_LOGS',
                 payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
@@ -533,17 +492,15 @@ export const useLogExtractorLogic = ({
                 setSelectedIndicesLeft(new Set());
             }
         }
-    }, [currentConfig, tizenSocket, quickFilter]);
+    }, [currentConfig, tizenSocket, quickFilter, leftWorkerReady]);
 
 
 
     // Auto-Apply Filter (Right)
     useEffect(() => {
-        if (isDualView && rightWorkerRef.current && currentConfig && rightTotalLines > 0) {
+        if (isDualView && rightWorkerRef.current && currentConfig && (rightWorkerReady || lastFilterHashRight.current === '') && rightTotalLines > 0) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
 
-            // Optimization: Check if effective filter changed
-            // Optimization: Check if effective filter changed
             const effectiveIncludes = refinedGroups.map(g =>
                 g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
             ).filter(g => g.length > 0);
@@ -557,20 +514,19 @@ export const useLogExtractorLogic = ({
                 quickFilter
             });
 
-            if (payloadHash === lastFilterHashRight.current) {
+            if (payloadHash === lastFilterHashRight.current && rightWorkerReady) {
                 return;
             }
             lastFilterHashRight.current = payloadHash;
 
-
-            console.log('[useLog-Right] Sending FILTER_LOGS. hash:', payloadHash, 'ruleId:', currentConfig.id);
+            console.log('[useLog-Right] Auto-Apply FILTER_LOGS. hash:', payloadHash);
             setRightWorkerReady(false);
             rightWorkerRef.current.postMessage({
                 type: 'FILTER_LOGS',
                 payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
             });
         }
-    }, [currentConfig, rightTotalLines, isDualView, quickFilter]);
+    }, [currentConfig, rightTotalLines, isDualView, quickFilter, rightWorkerReady]);
 
 
     useEffect(() => {
