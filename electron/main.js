@@ -133,17 +133,19 @@ async function createWindow() {
 app.whenReady().then(async () => {
     // ✅ CSP(Content Security Policy) 설정 추가
     const { session } = require('electron');
+    const csp = "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " + // Vite HMR을 위해 unsafe-eval 허용 (개발모드)
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data:; " +
+        "connect-src 'self' ws://127.0.0.1:3000 ws://localhost:3000 http://127.0.0.1:3003 http://localhost:3003;";
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
         callback({
             responseHeaders: {
                 ...details.responseHeaders,
-                'Content-Security-Policy': [
-                    "default-src 'self'; " +
-                    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " + // Vite HMR을 위해 unsafe-eval 허용 (개발모드)
-                    "style-src 'self' 'unsafe-inline'; " +
-                    "img-src 'self' data:; " +
-                    "connect-src 'self' ws://127.0.0.1:3000 ws://localhost:3000 http://127.0.0.1:3003 http://localhost:3003;"
-                ]
+                'Content-Security-Policy': [csp],
+                // ✅ 형님, SharedArrayBuffer를 쓰기 위해 필요한 보안 헤더들을 추가합니다! 🐧🛡️
+                'Cross-Origin-Opener-Policy': ['same-origin'],
+                'Cross-Origin-Embedder-Policy': ['require-corp']
             }
         });
     });

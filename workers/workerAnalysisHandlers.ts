@@ -7,7 +7,10 @@ export interface WorkerContext {
     lineOffsets: BigInt64Array | null;
     filteredIndices: Int32Array | null;
     isStreamMode: boolean;
-    streamLines: string[];
+    // ✅ 바이너리 저장소 멤버 추가
+    logBuffer?: Uint8Array;
+    lineOffsetsStream?: Uint32Array;
+    lineLengthsStream?: Uint32Array;
     respond: (response: LogWorkerResponse) => void;
     currentRule: LogRule | null;
 }
@@ -18,7 +21,7 @@ export const analyzePerformance = async (
     payload: { targetTime: number, updatedRule?: LogRule },
     requestId: string
 ) => {
-    let { currentRule, filteredIndices, currentFile, lineOffsets, isStreamMode, streamLines, respond } = ctx;
+    let { currentRule, filteredIndices, currentFile, lineOffsets, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, respond } = ctx;
 
     if (payload.updatedRule) {
         currentRule = payload.updatedRule;
@@ -35,6 +38,7 @@ export const analyzePerformance = async (
     const lineIndices: number[] = [];
     const isFile = !!currentFile && !!lineOffsets;
     const isHappyCS = !!currentRule.happyCombosCaseSensitive;
+    const decoder = new TextDecoder();
 
     const MAX_ANALYSIS_LINES = 100000;
     let limit = filteredIndices.length;
@@ -46,9 +50,15 @@ export const analyzePerformance = async (
     }
 
     if (isStreamMode) {
+        if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) {
+            respond({ type: 'PERF_ANALYSIS_RESULT', payload: null, requestId });
+            return;
+        }
         for (let idx = 0; idx < limit; idx++) {
             const i = filteredIndices[idx];
-            results.push(streamLines[i]);
+            const start = lineOffsetsStream[i];
+            const len = lineLengthsStream[i];
+            results.push(decoder.decode(logBuffer.subarray(start, start + len)));
             lineIndices.push(idx);
         }
     } else if (isFile) {
@@ -71,7 +81,6 @@ export const analyzePerformance = async (
             if (minByte !== -1n) {
                 const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
                 const buffer = reader.readAsArrayBuffer(fullBlob);
-                const decoder = new TextDecoder();
 
                 for (let k = idx; k < maxBatch; k++) {
                     const i = filteredIndices[k];
@@ -140,7 +149,7 @@ export const getPerformanceHeatmap = async (
     requestId: string,
     isCalculatingHeatmapRef: { current: boolean }
 ) => {
-    const { filteredIndices, isStreamMode, streamLines, currentFile, lineOffsets, respond } = ctx;
+    const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = ctx;
 
     if (isCalculatingHeatmapRef.current) {
         console.log(`[Worker] Heatmap calculation skipped: Already calculating. (req: ${requestId})`);
@@ -148,7 +157,7 @@ export const getPerformanceHeatmap = async (
     }
 
     const hasFileData = !isStreamMode && currentFile && lineOffsets;
-    const hasStreamData = isStreamMode && streamLines.length > 0;
+    const hasStreamData = isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream;
 
     if (!filteredIndices || (!hasFileData && !hasStreamData)) {
         return;
@@ -177,9 +186,13 @@ export const getPerformanceHeatmap = async (
                 let t1: number | null = null;
                 let t2: number | null = null;
 
-                if (isStreamMode) {
-                    t1 = extractTimestamp(streamLines[idx1]);
-                    t2 = extractTimestamp(streamLines[idx2]);
+                if (isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream) {
+                    const s1 = lineOffsetsStream[idx1];
+                    const l1 = lineLengthsStream[idx1];
+                    const s2 = lineOffsetsStream[idx2];
+                    const l2 = lineLengthsStream[idx2];
+                    t1 = extractTimestamp(decoder.decode(logBuffer.subarray(s1, s1 + l1)));
+                    t2 = extractTimestamp(decoder.decode(logBuffer.subarray(s2, s2 + l2)));
                 } else if (currentFile && lineOffsets) {
                     const startByte1 = lineOffsets[idx1];
                     const endByte1 = idx1 < lineOffsets.length - 1 ? lineOffsets[idx1 + 1] : BigInt(currentFile.size);
@@ -220,13 +233,12 @@ export const analyzeSpamLogs = async (
     ctx: WorkerContext,
     requestId: string
 ) => {
-    const { filteredIndices, isStreamMode, streamLines, currentFile, lineOffsets, respond } = ctx;
+    const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = ctx;
 
     const indicesSnapshot = filteredIndices ? new Int32Array(filteredIndices) : null;
-    const streamLinesSnapshot = isStreamMode ? [...streamLines] : null;
     const isFile = !!currentFile && !!lineOffsets;
 
-    if (!indicesSnapshot || (!isFile && !streamLinesSnapshot)) {
+    if (!indicesSnapshot || (!isFile && !isStreamMode)) {
         respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results: [] }, requestId } as any);
         return;
     }
@@ -267,20 +279,22 @@ export const analyzeSpamLogs = async (
     };
 
     const totalLines = indicesSnapshot.length;
+    const decoder = new TextDecoder();
 
-    if (isStreamMode && streamLinesSnapshot) {
+    if (isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream) {
         for (let i = 0; i < totalLines; i++) {
             const originalIdx = indicesSnapshot[i];
-            if (originalIdx < streamLinesSnapshot.length) {
-                const line = streamLinesSnapshot[originalIdx];
-                processSpamLine(line, originalIdx + 1, originalIdx);
-            }
+            const start = lineOffsetsStream[originalIdx];
+            const len = lineLengthsStream[originalIdx];
+            const line = decoder.decode(logBuffer.subarray(start, start + len));
+            processSpamLine(line, originalIdx + 1, originalIdx);
+
             if (i % 20000 === 0) {
                 respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (i / totalLines) * 100 } });
             }
         }
     } else if (isFile && currentFile && lineOffsets) {
-        const decoder = new TextDecoder();
+        const reader = new FileReaderSync();
         const MAX_SPAM_CHUNK_BYTES = 10 * 1024 * 1024;
 
         let i = 0;
@@ -308,7 +322,7 @@ export const analyzeSpamLogs = async (
             if (maxByte > minByte) {
                 try {
                     const chunkBlob = currentFile.slice(Number(minByte), Number(maxByte));
-                    const buffer = await chunkBlob.arrayBuffer();
+                    const buffer = reader.readAsArrayBuffer(chunkBlob);
                     const uint8View = new Uint8Array(buffer);
 
                     for (let k = chunkStartIdx; k < chunkEndIdx; k++) {
@@ -348,10 +362,11 @@ export const analyzeTransaction = async (
     identity: { type: 'pid' | 'tid' | 'tag', value: string },
     requestId: string
 ) => {
-    const { filteredIndices, isStreamMode, streamLines, currentFile, lineOffsets, respond } = ctx;
+    const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = ctx;
     const results: { lineNum: number, content: string, visualIndex: number }[] = [];
     const val = identity.value;
     const isFile = !!currentFile && !!lineOffsets;
+    const decoder = new TextDecoder();
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
 
@@ -371,12 +386,14 @@ export const analyzeTransaction = async (
 
     const MAX_RESULTS = 100000;
 
-    if (isStreamMode) {
+    if (isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream) {
         for (let idx = 0; idx < filteredIndices.length; idx++) {
             if (results.length >= MAX_RESULTS) break;
 
             const i = filteredIndices[idx];
-            const line = streamLines[i];
+            const start = lineOffsetsStream[i];
+            const len = lineLengthsStream[i];
+            const line = decoder.decode(logBuffer.subarray(start, start + len));
             if (!line) continue;
 
             let match = false;
@@ -413,7 +430,6 @@ export const analyzeTransaction = async (
             if (minByte !== -1n) {
                 const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
                 const buffer = reader.readAsArrayBuffer(fullBlob);
-                const decoder = new TextDecoder();
 
                 for (let k = idx; k < maxBatch; k++) {
                     if (results.length >= MAX_RESULTS) break;

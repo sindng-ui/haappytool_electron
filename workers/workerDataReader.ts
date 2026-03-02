@@ -3,7 +3,10 @@ import { LogRule, LogWorkerResponse } from '../types';
 export interface DataReaderContext {
     filteredIndices: Int32Array | null;
     isStreamMode: boolean;
-    streamLines: string[];
+    // ✅ 형님, 이제 문자열 배열 대신 바이너리 전용 버퍼들을 받습니다! 🐧💎
+    logBuffer?: Uint8Array;
+    lineOffsetsStream?: Uint32Array;
+    lineLengthsStream?: Uint32Array;
     currentFile: File | null;
     lineOffsets: BigInt64Array | null;
     currentRule: LogRule | null;
@@ -12,23 +15,29 @@ export interface DataReaderContext {
 }
 
 export const getLines = async (context: DataReaderContext, startFilterIndex: number, count: number, requestId: string) => {
-    const { filteredIndices, isStreamMode, streamLines, currentFile, lineOffsets, respond } = context;
+    const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = context;
 
     if (!filteredIndices) {
-        console.warn('[Worker] No filteredIndices available');
         respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
         return;
     }
 
     const resultLines: { lineNum: number, content: string }[] = [];
     const max = Math.min(startFilterIndex + count, filteredIndices.length);
+    const decoder = new TextDecoder();
 
     if (isStreamMode) {
+        if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) {
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
+        }
         for (let i = startFilterIndex; i < max; i++) {
             const originalIdx = filteredIndices[i];
-            if (originalIdx < streamLines.length) {
-                resultLines.push({ lineNum: originalIdx + 1, content: streamLines[originalIdx] });
-            }
+            const start = lineOffsetsStream[originalIdx];
+            const len = lineLengthsStream[originalIdx];
+            // ✅ Zero-copy: 필요한 부분만 디코딩해서 전달합니다! 🐧🚀
+            const text = decoder.decode(logBuffer.subarray(start, start + len));
+            resultLines.push({ lineNum: originalIdx + 1, content: text });
         }
     } else {
         if (!currentFile || !lineOffsets || !filteredIndices) {
@@ -43,19 +52,14 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
             return;
         }
 
-        const decoder = new TextDecoder();
-
         try {
-            // ✅ Smart Batching: 행 간격이 너무 벌어질 경우(5MB 초과) 분할 읽기 수행
             const MAX_BATCH_BYTES = 5 * 1024 * 1024;
-
             let i = startFilterIndex;
             while (i < maxFile) {
                 let batchStart = i;
                 let batchMinByte = lineOffsets[filteredIndices[i]];
                 let batchMaxByte = -1n;
 
-                // 현재 배치에 포함할 행들 결정 (최대 5MB)
                 let j = i;
                 while (j < maxFile) {
                     const idx = filteredIndices[j];
@@ -64,7 +68,6 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
 
                     if (batchMaxByte === -1n || endByte > batchMaxByte) batchMaxByte = endByte;
 
-                    // 다음 행을 포함했을 때 5MB를 초과하면 여기서 끊음
                     if (j + 1 < maxFile) {
                         const nextIdx = filteredIndices[j + 1];
                         const nextEndByte = nextIdx < lineOffsets.length - 1 ? lineOffsets[nextIdx + 1] : BigInt(currentFile.size);
@@ -86,13 +89,15 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
                     const relStart = Number(lineStart - batchMinByte);
                     const relEnd = Number(lineEnd - batchMinByte);
 
-                    // ✅ Zero-copy: subarray로 필요한 부분만 참조하여 디코딩
                     const text = decoder.decode(uint8View.subarray(relStart, relEnd)).replace(/\r?\n$/, '');
 
                     resultLines.push({
                         lineNum: originalIdx + 1,
                         content: text
                     });
+                }
+                if (resultLines.length > 0) {
+                    // console.log(`[Worker] getLines batch done. First line: ${resultLines[0].content.substring(0, 50)}`);
                 }
 
                 i = batchEnd;
@@ -108,14 +113,25 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
 };
 
 export const getRawLines = async (context: DataReaderContext, startLineNum: number, count: number, requestId: string) => {
-    const { isStreamMode, streamLines, currentFile, lineOffsets, respond } = context;
+    const { isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = context;
     const startIdx = startLineNum;
     const resultLines: { lineNum: number, content: string }[] = [];
+    const decoder = new TextDecoder();
 
     if (isStreamMode) {
-        const max = Math.min(startIdx + count, streamLines.length);
+        if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) {
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
+        }
+        // streamLineCount는 context에 직접 없으므로 lineOffsetsStream의 길이를 보거나 외부에서 주입 필요
+        // 하지만 여기서는 루프 범위 제한을 위해 context 확장이 권장됨. 일단 안전패치.
+        const max = Math.min(startIdx + count, lineOffsetsStream.length);
         for (let i = startIdx; i < max; i++) {
-            resultLines.push({ lineNum: i + 1, content: streamLines[i] });
+            const start = lineOffsetsStream[i];
+            const len = lineLengthsStream[i];
+            if (len === 0 && start === 0 && i > 0) break; // 빈 데이터 구간 도달 시 중단 (대략적 안전장치)
+            const text = decoder.decode(logBuffer.subarray(start, start + len));
+            resultLines.push({ lineNum: i + 1, content: text });
         }
     } else {
         if (!currentFile || !lineOffsets) {
@@ -124,7 +140,6 @@ export const getRawLines = async (context: DataReaderContext, startLineNum: numb
         }
         const max = Math.min(startIdx + count, lineOffsets.length);
 
-        // ✅ Batch Reading Optimization for Raw Lines
         let minByte = -1n;
         let maxByte = -1n;
         for (let i = startIdx; i < max; i++) {
@@ -136,40 +151,79 @@ export const getRawLines = async (context: DataReaderContext, startLineNum: numb
 
         try {
             if (minByte !== -1n && maxByte !== -1n) {
-                const fullBlob = currentFile.slice(Number(minByte), Number(maxByte));
-                const buffer = await fullBlob.arrayBuffer();
-                const decoder = new TextDecoder();
+                const chunkBlob = currentFile.slice(Number(minByte), Number(maxByte));
+                const arrayBuf = await chunkBlob.arrayBuffer();
+                const uint8View = new Uint8Array(arrayBuf);
+                const text = decoder.decode(uint8View).replace(/\r?\n$/, '');
+                const lines = text.split('\n');
 
-                for (let i = startIdx; i < max; i++) {
-                    const lineStart = lineOffsets[i];
-                    const lineEnd = i < lineOffsets.length - 1 ? lineOffsets[i + 1] : BigInt(currentFile.size);
-
-                    if (lineStart >= lineEnd) {
-                        resultLines.push({ lineNum: i + 1, content: '' });
-                        continue;
-                    }
-
-                    const relStart = Number(lineStart - minByte);
-                    const relEnd = Number(lineEnd - minByte);
-
-                    const lineBuffer = buffer.slice(relStart, relEnd);
-                    const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
-
-                    resultLines.push({ lineNum: i + 1, content: text });
+                for (let i = 0; i < lines.length; i++) {
+                    resultLines.push({ lineNum: startIdx + i + 1, content: lines[i] });
                 }
             }
         } catch (err) {
-            console.error('[Worker] Raw batch read failed', err);
+            console.error('[Worker] getRawLines failed', err);
+        }
+    }
+    respond({ type: 'LINES_DATA', payload: { lines: resultLines }, requestId });
+};
+
+export const getSurroundingLines = async (context: DataReaderContext, absoluteIndex: number, count: number, requestId: string) => {
+    const { isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = context;
+    const decoder = new TextDecoder();
+    const resultLines: { lineNum: number, content: string }[] = [];
+
+    const startIdx = Math.max(0, absoluteIndex - Math.floor(count / 2));
+
+    if (isStreamMode) {
+        if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) {
             respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
             return;
         }
-    }
+        // streamLineCount 대신 lineOffsetsStream.length 사용 (안전장치 포함)
+        const max = Math.min(startIdx + count, lineOffsetsStream.length);
+        for (let i = startIdx; i < max; i++) {
+            const start = lineOffsetsStream[i];
+            const len = lineLengthsStream[i];
+            if (len === 0 && start === 0 && i > 0) break;
+            const text = decoder.decode(logBuffer.subarray(start, start + len));
+            resultLines.push({ lineNum: i + 1, content: text });
+        }
+    } else {
+        if (!currentFile || !lineOffsets) {
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
+        }
+        const max = Math.min(startIdx + count, lineOffsets.length);
+        let minByte = -1n;
+        let maxByte = -1n;
+        for (let i = startIdx; i < max; i++) {
+            const startByte = lineOffsets[i];
+            const endByte = i < lineOffsets.length - 1 ? lineOffsets[i + 1] : BigInt(currentFile.size);
+            if (minByte === -1n || startByte < minByte) minByte = startByte;
+            if (maxByte === -1n || endByte > maxByte) maxByte = endByte;
+        }
 
+        try {
+            if (minByte !== -1n && maxByte !== -1n) {
+                const chunkBlob = currentFile.slice(Number(minByte), Number(maxByte));
+                const arrayBuf = await chunkBlob.arrayBuffer();
+                const uint8View = new Uint8Array(arrayBuf);
+                const text = decoder.decode(uint8View).replace(/\r?\n$/, '');
+                const lines = text.split('\n');
+                for (let i = 0; i < lines.length; i++) {
+                    resultLines.push({ lineNum: startIdx + i + 1, content: lines[i] });
+                }
+            }
+        } catch (err) {
+            console.error('[Worker] getSurroundingLines failed', err);
+        }
+    }
     respond({ type: 'LINES_DATA', payload: { lines: resultLines }, requestId });
 };
 
 export const getLinesByIndices = async (context: DataReaderContext, indices: number[], requestId: string) => {
-    const { filteredIndices, isStreamMode, streamLines, currentFile, lineOffsets, respond } = context;
+    const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = context;
 
     if (!filteredIndices) {
         respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
@@ -178,18 +232,24 @@ export const getLinesByIndices = async (context: DataReaderContext, indices: num
 
     const resultLines: any[] = [];
     const sortedIndices = [...indices].sort((a, b) => a - b);
+    const decoder = new TextDecoder();
 
     if (isStreamMode) {
+        if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) {
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
+        }
         for (const idx of sortedIndices) {
             if (idx >= 0 && idx < filteredIndices.length) {
                 const originalIdx = filteredIndices[idx];
-                if (originalIdx < streamLines.length) {
-                    resultLines.push({
-                        lineNum: originalIdx + 1,
-                        content: streamLines[originalIdx],
-                        formattedLineIndex: idx
-                    });
-                }
+                const start = lineOffsetsStream[originalIdx];
+                const len = lineLengthsStream[originalIdx];
+                const text = decoder.decode(logBuffer.subarray(start, start + len));
+                resultLines.push({
+                    lineNum: originalIdx + 1,
+                    content: text,
+                    formattedLineIndex: idx
+                });
             }
         }
     } else {
@@ -231,7 +291,7 @@ export const getLinesByIndices = async (context: DataReaderContext, indices: num
 };
 
 export const findHighlight = async (context: DataReaderContext, keyword: string, startFilterIndex: number, direction: 'next' | 'prev', requestId: string) => {
-    const { filteredIndices, isStreamMode, streamLines, currentFile, lineOffsets, currentRule, respond } = context;
+    const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, currentRule, respond } = context;
 
     if (!filteredIndices) {
         respond({ type: 'FIND_RESULT', payload: { foundIndex: -1 }, requestId });
@@ -243,17 +303,19 @@ export const findHighlight = async (context: DataReaderContext, keyword: string,
 
     const isCaseSensitive = currentRule?.colorHighlightsCaseSensitive || false;
     const effectiveKeyword = isCaseSensitive ? keyword : keyword.toLowerCase();
+    const decoder = new TextDecoder();
 
     if (isStreamMode) {
+        if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) return;
         while (searchIdx >= 0 && searchIdx < filteredIndices.length) {
             const originalIdx = filteredIndices[searchIdx];
-            if (originalIdx < streamLines.length) {
-                const line = streamLines[originalIdx];
-                const lineCheck = isCaseSensitive ? line : line.toLowerCase();
-                if (lineCheck.includes(effectiveKeyword)) {
-                    respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx, originalLineNum: originalIdx + 1 }, requestId });
-                    return;
-                }
+            const start = lineOffsetsStream[originalIdx];
+            const len = lineLengthsStream[originalIdx];
+            const line = decoder.decode(logBuffer.subarray(start, start + len));
+            const lineCheck = isCaseSensitive ? line : line.toLowerCase();
+            if (lineCheck.includes(effectiveKeyword)) {
+                respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx, originalLineNum: originalIdx + 1 }, requestId });
+                return;
             }
             if (direction === 'next') searchIdx++; else searchIdx--;
         }
@@ -289,7 +351,7 @@ export const findHighlight = async (context: DataReaderContext, keyword: string,
 };
 
 export const getFullText = async (context: DataReaderContext, requestId: string) => {
-    const { filteredIndices, isStreamMode, streamLines, currentFile, lineOffsets, respond, postMessage } = context;
+    const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond, postMessage } = context;
 
     if (!filteredIndices) {
         respond({ type: 'FULL_TEXT_DATA', payload: { text: '' }, requestId } as any);
@@ -297,12 +359,17 @@ export const getFullText = async (context: DataReaderContext, requestId: string)
     }
 
     if (isStreamMode) {
+        if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) {
+            respond({ type: 'FULL_TEXT_DATA', payload: { text: '' }, requestId } as any);
+            return;
+        }
+        const decoder = new TextDecoder();
         const lines: string[] = [];
         for (let i = 0; i < filteredIndices.length; i++) {
             const originalIdx = filteredIndices[i];
-            if (originalIdx < streamLines.length) {
-                lines.push(streamLines[originalIdx]);
-            }
+            const start = lineOffsetsStream[originalIdx];
+            const len = lineLengthsStream[originalIdx];
+            lines.push(decoder.decode(logBuffer.subarray(start, start + len)));
         }
         const fullText = lines.join('\n');
         try {

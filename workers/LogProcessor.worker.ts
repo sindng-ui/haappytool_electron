@@ -8,6 +8,9 @@ import { analyzePerfSegments, extractSourceMetadata } from '../utils/perfAnalysi
 import * as AnalysisHandlers from './workerAnalysisHandlers';
 
 const ctx: Worker = self as any;
+ctx.onerror = (e) => {
+    console.error('[Worker] Global Error:', e);
+};
 
 // --- State ---
 // WASM Filter Engine & Memory
@@ -20,25 +23,16 @@ const textEncoder = new TextEncoder();
 let wasmModule: any = null;
 const initWasm = async () => {
     try {
-        // Use location.origin to ensure we are loading from the public directory at runtime
-        // and to bypass Vite's static analysis which might fail if it tries to resolve /wasm/...
+        console.log('[Worker] Initializing WASM Filter Engine...');
         const wasmPath = `${self.location.origin}/wasm/happy_filter.js`;
-
-        // Use @vite-ignore to prevent Vite from trying to bundle this file.
-        // The file is served as a static asset from the public folder.
-        // @ts-ignore
         const wasm = await import(/* @vite-ignore */ wasmPath);
         wasmModule = wasm;
-
-        // Initialize the WASM module. 
-        // Note: happy_filter.js expects happy_filter_bg.wasm to be in the same directory.
         const instance = await wasm.default();
-
         wasmMemory = (instance as any).memory;
         wasmEngine = new wasm.FilterEngine(false);
-        console.log('WASM Filter Engine initialized from public/wasm');
+        console.log('[Worker] WASM Filter Engine initialized successfully');
     } catch (e) {
-        console.warn('WASM initialization failed. Falling back to JS-based filtering.', e);
+        console.warn('[Worker] WASM initialization failed. Falling back to JS-based filtering.', e);
     }
 };
 
@@ -64,10 +58,15 @@ const resetSubWorkerIdleTimer = () => {
 
 const initSubWorkers = () => {
     if (subWorkerIdleTimer) clearTimeout(subWorkerIdleTimer); // 일단 작업 시작하면 타이머 해제
-    if (subWorkers.length > 0) return;
+    if (subWorkers.length > 0) {
+        console.log(`[Worker] Using existing ${subWorkers.length} sub-workers`);
+        return;
+    }
+    console.log(`[Worker] Spawning ${numSubWorkers} sub-workers...`);
     for (let i = 0; i < numSubWorkers; i++) {
         try {
             const sw = new Worker(new URL('./LogFilterSub.worker.ts', import.meta.url), { type: 'module' });
+            sw.onerror = (e) => console.error(`[Worker] SubWorker ${i} error:`, e);
             subWorkers.push(sw);
         } catch (e) {
             console.error('[Worker] Failed to spawn sub-worker', i, e);
@@ -79,10 +78,15 @@ const initSubWorkers = () => {
 let currentFile: File | null = null;
 let lineOffsets: BigInt64Array | null = null; // Map LineNum -> ByteOffset
 
-// Stream Mode
+// Stream Mode (Binary Optimized)
 let isStreamMode = false;
-let isLiveStream = false; // Separate flag for "Shell Log Logic" (Live Tizen Stream) vs "Stream Delivery" (Large File Read)
-let streamLines: string[] = [];
+let isLiveStream = false;
+// ✅ 형님, 문자열 배열 대신 바이너리 버퍼와 오프셋을 써서 메모리를 다이어트합니다! 🐧💎
+let logBuffer = new Uint8Array(10 * 1024 * 1024); // 초기 10MB
+let logBufferPtr = 0;
+let lineOffsetsStream = new Uint32Array(1024 * 1024); // 초기 1M 줄
+let lineLengthsStream = new Uint32Array(1024 * 1024);
+let streamLineCount = 0;
 
 // Common
 let filteredIndices: Int32Array | null = null; // Line numbers (0-based) that match
@@ -115,14 +119,14 @@ const getVisualBookmarks = (): number[] => BookmarkManager.getVisualBookmarks(fi
 // (imports moved to top)
 
 
-// ... (omitted file indexing / stream handlers)
+
 
 // --- Handler: File Indexing ---
 const buildFileIndex = async (file: File) => {
     isStreamMode = false;
     isLiveStream = false;
     currentFile = file;
-    streamLines = []; // Clear stream data
+    // streamLines = []; // Clear stream data - REMOVED
     BookmarkManager.clearAll(); // Clear bookmarks for new file
     isCalculatingHeatmap = false; // Reset heatmap state for new file
     currentFilterRequestId++; // ✅ Cancel any pending filters from previous file
@@ -202,7 +206,12 @@ const initStream = (payload?: { isLive?: boolean }) => {
     isLiveStream = payload?.isLive !== false; // Default to true (legacy behavior) unless explicitly false
     currentFile = null;
     lineOffsets = null;
-    streamLines = [];
+    // streamLines = []; // REMOVED
+
+    // Reset Binary Store
+    logBufferPtr = 0;
+    streamLineCount = 0;
+
     BookmarkManager.clearAll();
     streamBuffer = '';
     filteredIndices = new Int32Array(0);
@@ -237,41 +246,54 @@ const processChunk = (chunk: string) => {
 
     if (lines.length === 0) return;
 
-    // Clean ANSI codes from lines and remove trailing carriage returns
-    // eslint-disable-next-line no-control-regex
-    const cleanLines = lines.map(line => line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').replace(/\r$/, ''));
+    // ✅ 바이너리 저장소에 기록 루프
+    for (const line of lines) {
+        // ANSI 제거 및 CR 제거 (기존 로직 유지)
+        // eslint-disable-next-line no-control-regex
+        const cleanLine = line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').replace(/\r$/, '');
+        const encoded = textEncoder.encode(cleanLine);
+        const len = encoded.length;
 
-    const startIdx = streamLines.length;
-    streamLines.push(...cleanLines);
-
-    const newMatches: number[] = [];
-    cleanLines.forEach((line, i) => {
-        if (checkIsMatch(line, currentRule, isLiveStream, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) { // ✅ Pass Zero-copy params
-            newMatches.push(startIdx + i);
+        // 버퍼 확장 체크
+        if (logBufferPtr + len > logBuffer.length) {
+            const newBuffer = new Uint8Array(logBuffer.length * 2 + len);
+            newBuffer.set(logBuffer.subarray(0, logBufferPtr)); // Copy only used part
+            logBuffer = newBuffer;
         }
-    });
-
-    // Append to filteredIndices using Buffer Strategy
-    const currentLen = filteredIndices ? filteredIndices.length : 0;
-    const requiredLen = currentLen + newMatches.length;
-
-    // Ensure buffer exists and has capacity
-    if (!filteredIndicesBuffer || filteredIndicesBuffer.length < requiredLen) {
-        let newCap = filteredIndicesBuffer ? filteredIndicesBuffer.length * 2 : 1024 * 1024;
-        if (newCap < requiredLen) newCap = requiredLen;
-
-        const newBuffer = new Int32Array(newCap);
-        if (filteredIndices) {
-            newBuffer.set(filteredIndices);
+        // 오프셋 배열 확장 체크
+        if (streamLineCount >= lineOffsetsStream.length) {
+            const newOffsets = new Uint32Array(lineOffsetsStream.length * 2);
+            newOffsets.set(lineOffsetsStream.subarray(0, streamLineCount));
+            lineOffsetsStream = newOffsets;
+            const newLengths = new Uint32Array(lineLengthsStream.length * 2);
+            newLengths.set(lineLengthsStream.subarray(0, streamLineCount));
+            lineLengthsStream = newLengths;
         }
-        filteredIndicesBuffer = newBuffer;
+
+        // 저장
+        logBuffer.set(encoded, logBufferPtr);
+        lineOffsetsStream[streamLineCount] = logBufferPtr;
+        lineLengthsStream[streamLineCount] = len;
+
+        // 필터링 체크 (실시간 매칭을 위해 바이너리 상태에서 바로 체크)
+        if (checkIsMatch(cleanLine, currentRule, isLiveStream, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+            // Append to filteredIndices (Buffer Strategy)
+            const currentLen = filteredIndices ? filteredIndices.length : 0;
+            const requiredLen = currentLen + 1;
+
+            if (!filteredIndicesBuffer || filteredIndicesBuffer.length < requiredLen) {
+                const newCap = filteredIndicesBuffer ? filteredIndicesBuffer.length * 2 : 1024 * 1024;
+                const newBuffer = new Int32Array(newCap);
+                if (filteredIndices) newBuffer.set(filteredIndices);
+                filteredIndicesBuffer = newBuffer;
+            }
+            filteredIndicesBuffer[currentLen] = streamLineCount;
+            filteredIndices = filteredIndicesBuffer.subarray(0, requiredLen);
+        }
+
+        logBufferPtr += len;
+        streamLineCount++;
     }
-
-    // Append new matches
-    filteredIndicesBuffer.set(newMatches, currentLen);
-
-    // Update active view
-    filteredIndices = filteredIndicesBuffer.subarray(0, requiredLen);
 
     // ✅ Performance: Invalidate bookmark cache when filtered indices change
     invalidateBookmarkCache();
@@ -284,8 +306,8 @@ const processChunk = (chunk: string) => {
             respond({
                 type: 'FILTER_COMPLETE',
                 payload: {
-                    matchCount: filteredIndices.length,
-                    totalLines: streamLines.length,
+                    matchCount: filteredIndices ? filteredIndices.length : 0,
+                    totalLines: streamLineCount, // Changed from streamLines.length
                     visualBookmarks: getVisualBookmarks()
                 }
             });
@@ -342,30 +364,34 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
 
     // --- High Performance Parallel Filtering (Common for File and Stream) ---
     initSubWorkers();
-    const totalLines = isStreamMode ? streamLines.length : lineOffsets.length;
+    const totalLines = isStreamMode ? streamLineCount : (lineOffsets ? lineOffsets.length : 0);
+    console.log(`[Worker] Preparing filter for ${totalLines} lines (isStream: ${isStreamMode})`);
 
     // 최소 10,000줄당 1개 청크, 최대 서브워커 수만큼 분할
-    const numChunks = Math.min(numSubWorkers, Math.max(1, Math.ceil(totalLines / 10000)));
+    const numChunks = Math.min(numSubWorkers * 4, Math.max(1, Math.ceil(totalLines / 10000)));
     const linesPerChunk = Math.ceil(totalLines / numChunks);
+    console.log(`[Worker] Splitting into ${numChunks} chunks (${linesPerChunk} lines each)`);
 
     const chunkResults: any[] = new Array(numChunks);
     let completedChunks = 0;
 
     const onChunkDone = (chunkId: number, matches: Int32Array, receivedRequestId: number) => {
-        if (receivedRequestId !== filterRequestId) {
-            console.warn(`[Worker] Ignoring stale filter chunk (RequestID: ${receivedRequestId}, Current: ${filterRequestId})`);
-            return;
-        }
+        if (receivedRequestId !== filterRequestId) return;
 
         chunkResults[chunkId] = matches;
         completedChunks++;
-        console.log(`[Worker] Chunk Done: ${chunkId + 1}/${numChunks} (RequestID: ${filterRequestId}) matches: ${matches.length}`);
+
+        if (numChunks > 5 && completedChunks % Math.ceil(numChunks / 10) === 0) {
+            console.log(`[Worker] Filtering Progress: ${((completedChunks / numChunks) * 100).toFixed(1)}%`);
+        }
 
         respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (completedChunks / numChunks) * 100 } });
 
         if (completedChunks === numChunks) {
+            console.log(`[Worker] Filtering complete. Aggregating results for ${numChunks} chunks...`);
             // 결과 취합
             const totalMatches = chunkResults.reduce((sum, res) => sum + res.length, 0);
+            console.log(`[Worker] Total matches found: ${totalMatches}`);
             const finalMatches = new Int32Array(totalMatches);
 
             let currentIdx = 0;
@@ -384,7 +410,6 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                 filteredIndices = filteredIndicesBuffer.subarray(0, finalMatches.length);
             }
 
-            console.log(`[Worker] Filter Complete (RequestID: ${filterRequestId}) totalMatches: ${filteredIndices.length}`);
             respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
             respond({
                 type: 'FILTER_COMPLETE', payload: {
@@ -398,22 +423,62 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
         }
     };
 
+    const decoder = new TextDecoder();
     for (let i = 0; i < numChunks; i++) {
         const startLine = i * linesPerChunk;
         const endLine = Math.min(startLine + linesPerChunk, totalLines);
-        const sw = subWorkers[i % subWorkers.length];
+        const sw = subWorkers.length > 0 ? subWorkers[i % subWorkers.length] : null;
+
+        if (!sw) {
+            // ✅ Fallback: 서브 워커가 없는 경우 메인 워커에서 직접 처리 (성능은 약간 희생하지만 동작은 보장)
+            console.warn('[Worker] No sub-workers available. Processing chunk on main worker.');
+            const matchesList: number[] = [];
+            if (isStreamMode) {
+                const chunkLines: string[] = [];
+                for (let j = startLine; j < endLine; j++) {
+                    const s = lineOffsetsStream[j];
+                    const l = lineLengthsStream[j];
+                    chunkLines.push(decoder.decode(logBuffer.subarray(s, s + l)));
+                }
+                for (let j = 0; j < chunkLines.length; j++) {
+                    if (checkIsMatch(chunkLines[j], normalizedRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+                        matchesList.push(startLine + j);
+                    }
+                }
+            } else if (currentFile) {
+                const chunkBlob = currentFile.slice(Number(lineOffsets![startLine]), Number(endLine < lineOffsets!.length ? lineOffsets![endLine] : currentFile.size));
+                const reader = new FileReaderSync();
+                const text = reader.readAsText(chunkBlob);
+                const lines = text.split('\n');
+                if (text.endsWith('\n')) lines.pop(); // Remove tailing empty line
+                for (let j = 0; j < lines.length; j++) {
+                    if (checkIsMatch(lines[j], normalizedRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+                        matchesList.push(startLine + j);
+                    }
+                }
+            }
+            onChunkDone(i, new Int32Array(matchesList), filterRequestId);
+            continue;
+        }
 
         if (isStreamMode) {
-            const chunkLines = streamLines.slice(startLine, endLine);
-            const handler = (e: MessageEvent) => {
+            // ... (기존 로직)
+            const chunkLines: string[] = [];
+            for (let j = startLine; j < endLine; j++) {
+                const s = lineOffsetsStream[j];
+                const l = lineLengthsStream[j];
+                chunkLines.push(decoder.decode(logBuffer.subarray(s, s + l)));
+            }
+
+            const messageHandler = (e: MessageEvent) => {
                 if (e.data.type === 'FILTER_LINES_COMPLETE' && e.data.payload.chunkId === i) {
                     if (e.data.payload.requestId === filterRequestId) {
-                        sw.removeEventListener('message', handler);
+                        sw.removeEventListener('message', messageHandler);
                         onChunkDone(i, e.data.payload.matches, e.data.payload.requestId);
                     }
                 }
             };
-            sw.addEventListener('message', handler);
+            sw.addEventListener('message', messageHandler);
             sw.postMessage({
                 type: 'FILTER_LINES',
                 payload: {
@@ -425,28 +490,24 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                     requestId: filterRequestId
                 }
             });
-        } else {
-            // File Mode
-            const startByte = Number(lineOffsets![startLine]);
-            const endByte = endLine < totalLines ? Number(lineOffsets![endLine]) : currentFile!.size;
-            const blob = currentFile!.slice(startByte, endByte);
-
-            const handler = (e: MessageEvent) => {
+        } else if (currentFile) {
+            // File 모드는 기존 로직과 동일
+            const chunkBlob = currentFile.slice(Number(lineOffsets[startLine]), Number(endLine < lineOffsets.length ? lineOffsets[endLine] : currentFile.size));
+            const messageHandler = (e: MessageEvent) => {
                 if (e.data.type === 'CHUNK_COMPLETE' && e.data.payload.chunkId === i) {
                     if (e.data.payload.requestId === filterRequestId) {
-                        sw.removeEventListener('message', handler);
-                        // File mode results now come with absolute offsets from sub-worker
-                        onChunkDone(i, e.data.payload.matches as Int32Array, e.data.payload.requestId);
+                        sw.removeEventListener('message', messageHandler);
+                        onChunkDone(i, e.data.payload.matches, e.data.payload.requestId);
                     }
                 }
             };
-            sw.addEventListener('message', handler);
+            sw.addEventListener('message', messageHandler);
             sw.postMessage({
                 type: 'FILTER_CHUNK',
                 payload: {
                     chunkId: i,
-                    blob,
-                    offset: startLine, // Pass absolute start line to sub-worker
+                    blob: chunkBlob,
+                    offset: startLine,
                     rule: currentRule,
                     quickFilter: currentQuickFilter,
                     requestId: filterRequestId
@@ -456,11 +517,14 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     }
 };
 
+
 // --- Helper: Get DataReader Context ---
 const getDataReaderContext = (): DataReader.DataReaderContext => ({
     filteredIndices,
     isStreamMode,
-    streamLines,
+    logBuffer,
+    lineOffsetsStream,
+    lineLengthsStream,
     currentFile,
     lineOffsets,
     currentRule,
@@ -468,33 +532,27 @@ const getDataReaderContext = (): DataReader.DataReaderContext => ({
     postMessage: ctx.postMessage.bind(ctx)
 });
 
-// --- Handler: Analyze Performance (New) ---
-// MOVED TO workerAnalysisHandlers.ts
-
-// --- Helper: Get Performance Heatmap ---
-// MOVED TO workerAnalysisHandlers.ts
-
-// --- Helper: Spam Log Analysis ---
-// MOVED TO workerAnalysisHandlers.ts
+// --- Helper: Get Analysis Context ---
+const getAnalysisContext = (): AnalysisHandlers.WorkerContext => ({
+    currentFile,
+    lineOffsets,
+    filteredIndices,
+    isStreamMode,
+    logBuffer,
+    lineOffsetsStream,
+    lineLengthsStream,
+    respond,
+    currentRule
+});
 
 // --- Message Listener ---
-ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
+ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
     const { type, payload, requestId } = evt.data;
     if (type !== 'PROCESS_CHUNK') console.log(`[Worker] Received message: ${type}`);
-    // Helper to get collective context for handlers
-    const getAnalysisContext = (): AnalysisHandlers.WorkerContext => ({
-        currentFile,
-        lineOffsets,
-        filteredIndices,
-        isStreamMode,
-        streamLines,
-        respond,
-        currentRule
-    });
 
     switch (type) {
         case 'INIT_FILE':
-            buildFileIndex(payload);
+            await buildFileIndex(payload.file);
             break;
         case 'INIT_STREAM':
             initStream(payload);
@@ -503,16 +561,14 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             processChunk(payload);
             break;
         case 'STREAM_DONE':
-            // 파일 읽기 스트림 완료: 마지막 버퍼 처리 후 최종 상태 업데이트
             if (streamBuffer.length > 0) {
-                processChunk(''); // flush remaining buffer
+                processChunk('');
             }
-            // 최종 필터 결과를 UI에 전송하여 즉각적인 화면 갱신 보장
             respond({
                 type: 'FILTER_COMPLETE',
                 payload: {
-                    matchCount: filteredIndices.length,
-                    totalLines: streamLines.length,
+                    matchCount: filteredIndices ? filteredIndices.length : 0,
+                    totalLines: streamLineCount,
                     visualBookmarks: getVisualBookmarks()
                 }
             });
@@ -520,7 +576,7 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
             break;
         case 'FILTER_LOGS':
-            applyFilter(payload); // Payload now entails LogRule + quickFilter
+            await applyFilter(payload);
             break;
         case 'TOGGLE_BOOKMARK':
             BookmarkManager.toggleBookmark(payload.visualIndex, filteredIndices, respond);
@@ -529,19 +585,32 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             BookmarkManager.clearBookmarks(respond);
             break;
         case 'GET_LINES':
-            DataReader.getLines(getDataReaderContext(), payload.startLine, payload.count, requestId || '');
+            if (payload.startLine === undefined && payload.startFilterIndex !== undefined) {
+                payload.startLine = payload.startFilterIndex; // Fallback for transition
+            }
+            console.log(`[Worker] GET_LINES: start=${payload.startLine}, count=${payload.count}, filteredLen=${filteredIndices?.length}`);
+            await DataReader.getLines(getDataReaderContext(), payload.startLine, payload.count, requestId || '');
+            break;
+        case 'GET_SURROUNDING_LINES':
+            await DataReader.getSurroundingLines(getDataReaderContext(), payload.absoluteIndex, payload.count, requestId || '');
             break;
         case 'GET_RAW_LINES':
-            DataReader.getRawLines(getDataReaderContext(), payload.startLine, payload.count, requestId || '');
+            if (payload.startLine === undefined && payload.startLineNum !== undefined) {
+                payload.startLine = payload.startLineNum;
+            }
+            await DataReader.getRawLines(getDataReaderContext(), payload.startLine, payload.count, requestId || '');
             break;
         case 'GET_LINES_BY_INDICES':
-            DataReader.getLinesByIndices(getDataReaderContext(), payload.indices, requestId || '');
+            await DataReader.getLinesByIndices(getDataReaderContext(), payload.indices, requestId || '');
             break;
         case 'FIND_HIGHLIGHT':
-            DataReader.findHighlight(getDataReaderContext(), payload.keyword, payload.startIndex, payload.direction, requestId || '');
+            if (payload.startIndex === undefined && payload.startFilterIndex !== undefined) {
+                payload.startIndex = payload.startFilterIndex;
+            }
+            await DataReader.findHighlight(getDataReaderContext(), payload.keyword, payload.startIndex, payload.direction, requestId || '');
             break;
-        case 'GET_FULL_TEXT' as any: // Cast for now until types updated
-            DataReader.getFullText(getDataReaderContext(), requestId || '');
+        case 'GET_FULL_TEXT':
+            await DataReader.getFullText(getDataReaderContext(), requestId || '');
             break;
         case 'ANALYZE_TRANSACTION':
             AnalysisHandlers.analyzeTransaction(getAnalysisContext(), payload.identity, requestId || '');

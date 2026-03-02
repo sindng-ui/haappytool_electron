@@ -47,16 +47,19 @@
 
 ### [[Log Extractor Engine]]
 - **ID**: `logic-log-extractor-core`
-- **Keywords**: [`필터링`, `인덱싱`, `filtering`, `indexing`, `applyFilter`, `file load`]
+- **Keywords**: [`필터링`, `인덱싱`, `바이너리 저장소`, `SharedArrayBuffer`, `filtering`, `indexing`, `applyFilter`, `logBuffer`]
 - **Location**:
   - `Main Logic`: [useLogExtractorLogic.ts](./hooks/useLogExtractorLogic.ts)
   - `Worker`: [LogProcessor.worker.ts](./workers/LogProcessor.worker.ts)
-  - `WASM Engine`: [src-wasm/](./src-wasm/)
-- **Core Interface**:
-  - `applyFilter(rule, quickFilter)`: 필터링 요청 트리거
-  - `buildFileIndex(file)`: 파일 초기 인덱싱 스캔
-  - `filteredIndices`: 필터링된 결과 라인 번호 배열 (Int32Array)
-- **Data Flow**: `File/Stream` -> `Worker(Indexing)` -> `WASM/SubWorker(Filtering)` -> `filteredIndices` -> `UI Rendering`
+  - `Data Reader`: [workerDataReader.ts](./workers/workerDataReader.ts)
+  - `Analysis`: [workerAnalysisHandlers.ts](./workers/workerAnalysisHandlers.ts)
+- **데이터 흐름**: Log Worker(Main) ↔ Log Worker(Sub/WASM) ↔ Worker Data Reader (Zero-copy Binary Read)
+- **최근 최적화**: `LogProcessor.worker.ts` 내 메시지 전달 루프를 `async/await` 구조로 개편하여 레이스 컨디션 해결 및 안정성 확보.
+- **Core Messages**:
+  - `GET_LINES`: `{ startLine, count }` -> 필터링된 결과에서 지정된 오프셋의 로그 반환
+  - `GET_RAW_LINES`: `{ startLine, count }` -> 필터링 무시, 절대 위치 기준 로그 반환
+  - `FILTER_LOGS`: `{ happyGroups, excludes, quickFilter, ... }` -> 필터 룰 적용
+- **Data Flow**: `File/Stream` -> `Worker(Binary Logging)` -> `logBuffer/Offsets` -> `WASM/SubWorker(Filtering)` -> `filteredIndices` -> `Zero-copy Reading` -> `UI Rendering`
 
 ### [[Log Viewer UI Architecture]]
 - **ID**: `ui-log-viewer-hierarchy`
@@ -212,6 +215,18 @@
   3. `LogProcessor.worker.ts` -> `applyFilter()` 호출 (인덱싱 및 필터링)
   4. `LogViewerPane.tsx` -> `onScrollRequest` 트리거
   5. `HyperLogRenderer.tsx` -> `Canvas`에 텍스트 드로잉
+
+---
+
+## 8. Important Documents (중유 문서) 📚
+프로젝트의 성능 기준 및 설계 철학이 담긴 문서들입니다.
+
+### [[Performance & Standards]]
+- **ID**: `docs-performance-standards`
+- **Location**:
+    - `Performance History`: [performance_history.md](./important/performance_history.md) [NEW]
+    - `Standards`: [performance_standards.md](./important/performance_standards.md)
+    - `Blueprint`: [LOG_EXTRACTOR_PERFORMANCE_BLUEPRINT.md](./important/LOG_EXTRACTOR_PERFORMANCE_BLUEPRINT.md)
 
 ---
 
