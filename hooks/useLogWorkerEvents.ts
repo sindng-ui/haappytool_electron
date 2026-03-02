@@ -20,6 +20,7 @@ export function useLogWorkerEvents() {
             setActiveLineIndex?: (i: number) => void;
             setSelectedIndices?: (s: Set<number>) => void;
             handleAnalysisMessage: (paneId: 'left' | 'right', type: string, payload: any) => void;
+            setSharedBuffers?: (buffers: any) => void;
             workerRef: React.MutableRefObject<Worker | null>;
             pendingRequests: React.MutableRefObject<Map<string, (data: any) => void>>;
             pane: 'left' | 'right';
@@ -102,6 +103,13 @@ export function useLogWorkerEvents() {
             case 'BOOKMARKS_UPDATED':
                 if (payload.visualBookmarks) {
                     setBookmarks(new Set(payload.visualBookmarks));
+                }
+                break;
+
+            case 'BUFFER_SHARED':
+                // console.log(`[useLog-${pane}] Received BUFFER_SHARED`, payload);
+                if (props.setSharedBuffers) {
+                    props.setSharedBuffers(payload);
                 }
                 break;
 

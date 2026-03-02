@@ -53,13 +53,15 @@
   - `Worker`: [LogProcessor.worker.ts](./workers/LogProcessor.worker.ts)
   - `Data Reader`: [workerDataReader.ts](./workers/workerDataReader.ts)
   - `Analysis`: [workerAnalysisHandlers.ts](./workers/workerAnalysisHandlers.ts)
-- **데이터 흐름**: Log Worker(Main) ↔ Log Worker(Sub/WASM) ↔ Worker Data Reader (Zero-copy Binary Read)
-- **최근 최적화**: `LogProcessor.worker.ts` 내 메시지 전달 루프를 `async/await` 구조로 개편하여 레이스 컨디션 해결 및 안정성 확보.
+- **데이터 흐름**: Log Worker(Main) ↔ Log Worker(Sub/WASM) ↔ UI (SharedArrayBuffer Zero-copy Binary Read) 🚀
+- **최근 최적화**:
+  - `LogProcessor.worker.ts` 내 메시지 전달 루프를 `async/await` 구조로 개편하여 레이스 컨디션 해결 및 안정성 확보.
+  - **SharedArrayBuffer 기반 Zero-copy Binary Read** 구현. 워커에 데이터를 요청하는 대신 UI(HyperLogRenderer)에서 직접 공유 메모리를 읽어 렌더링 속도 비약적 향상 및 RAM 다이어트 성공! 🐧💎🚀
 - **Core Messages**:
-  - `GET_LINES`: `{ startLine, count }` -> 필터링된 결과에서 지정된 오프셋의 로그 반환
-  - `GET_RAW_LINES`: `{ startLine, count }` -> 필터링 무시, 절대 위치 기준 로그 반환
+  - `GET_LINES`: `{ startLine, count }` -> 필터링된 결과에서 지정된 오프셋의 로그 반환 (SAB 미지원 시 폴백)
+  - `BUFFER_SHARED`: `{ logBuffer, lineOffsets, ... }` -> UI에 공유 메모리 주소 전달 (Zero-copy 시작 알림)
   - `FILTER_LOGS`: `{ happyGroups, excludes, quickFilter, ... }` -> 필터 룰 적용
-- **Data Flow**: `File/Stream` -> `Worker(Binary Logging)` -> `logBuffer/Offsets` -> `WASM/SubWorker(Filtering)` -> `filteredIndices` -> `Zero-copy Reading` -> `UI Rendering`
+- **Data Flow**: `File/Stream` -> `Worker(Binary Logging)` -> `Shared Log Buffer/Offsets` -> `WASM/SubWorker(Filtering)` -> `Shared filterIndices` -> `UI (Zero-copy Reading)` -> `HyperLogRenderer`
 
 ### [[Log Viewer UI Architecture]]
 - **ID**: `ui-log-viewer-hierarchy`

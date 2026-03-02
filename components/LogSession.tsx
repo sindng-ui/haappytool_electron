@@ -193,7 +193,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         quickFilter, setQuickFilter,
         isSpamAnalyzerOpen, setIsSpamAnalyzerOpen,
         isAnalyzingSpam, spamResultsLeft, requestSpamAnalysisLeft,
-        clearCacheTick
+        clearCacheTick,
+        leftSharedBuffers, rightSharedBuffers
     } = useLogContext();
 
     const handleGoToLineClose = React.useCallback(() => setIsGoToLineModalOpen(false), [setIsGoToLineModalOpen]);
@@ -1122,6 +1123,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     onArchiveSave={onArchiveSaveLeft}
                                     isArchiveSaveEnabled={isLeftArchiveEnabled}
                                     clearCacheTick={clearCacheTick}
+                                    sharedBuffers={leftSharedBuffers}
                                 />
                                 {(leftTotalSegments > 1 || leftSelectionDuration) && (
                                     <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
@@ -1216,6 +1218,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             onArchiveSave={onArchiveSaveRight}
                                             isArchiveSaveEnabled={isRightArchiveEnabled}
                                             clearCacheTick={clearCacheTick}
+                                            sharedBuffers={rightSharedBuffers}
                                         />
                                         {(rightTotalSegments > 1 || rightSelectionDuration) && (
                                             <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">

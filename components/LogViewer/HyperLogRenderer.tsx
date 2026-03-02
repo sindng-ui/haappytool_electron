@@ -25,6 +25,13 @@ interface HyperLogRendererProps {
     onKeyDown?: (e: React.KeyboardEvent) => void;
     isActive: boolean;
     clearCacheTick?: number;
+    sharedBuffers?: {
+        logBuffer: SharedArrayBuffer;
+        lineOffsets: SharedArrayBuffer;
+        lineLengths: SharedArrayBuffer;
+        filteredIndices: SharedArrayBuffer;
+        isStreamMode: boolean;
+    } | null;
 }
 
 interface CachedLine {
@@ -85,30 +92,23 @@ const decodeHTMLEntities = (text: string) => {
         .replace(/\t/g, '    '); // 👈 탭 문자를 공백으로 치환하여 Canvas/DOM 일치
 };
 
-export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, HyperLogRendererProps>(({
-    totalCount,
-    rowHeight,
-    onScrollRequest,
-    preferences,
-    activeLineIndex = -1,
-    selectedIndices,
-    bookmarks,
-    textHighlights = [],
-    lineHighlights = [],
-    lineHighlightRanges = [],
-    highlightCaseSensitive = false,
-    levelMatchers = [],
-    onLineClick,
-    onLineDoubleClick,
-    onAtBottomChange,
-    onScroll,
-    absoluteOffset,
-    isRawMode,
-    performanceHeatmap = [],
-    onKeyDown,
-    isActive,
-    clearCacheTick
-}, ref) => {
+export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, HyperLogRendererProps>((props, ref) => {
+    const {
+        totalCount, rowHeight, onScrollRequest, preferences,
+        selectedIndices, bookmarks, onLineClick, onLineDoubleClick,
+        onAtBottomChange, onScroll, absoluteOffset, isRawMode,
+        onKeyDown, isActive, clearCacheTick, sharedBuffers
+    } = props;
+
+    // Apply default values for optional props
+    const activeLineIndex = props.activeLineIndex ?? -1;
+    const textHighlights = props.textHighlights ?? [];
+    const lineHighlights = props.lineHighlights ?? [];
+    const lineHighlightRanges = props.lineHighlightRanges ?? [];
+    const highlightCaseSensitive = props.highlightCaseSensitive ?? false;
+    const levelMatchers = props.levelMatchers ?? [];
+    const performanceHeatmap = props.performanceHeatmap ?? [];
+
     // ✅ 형님, 레이아웃 상수들을 컴포넌트 내부에서 계산하여 HMR이나 설정 변경에 즉각 대응하게 합니다.
     const {
         GUTTER_STAR_WIDTH,
@@ -233,61 +233,96 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             const batchStart = Math.max(0, needed[0] - 1000); // 👈 (500 -> 1000)
             const batchCount = Math.min(totalCount - batchStart, (needed[needed.length - 1] - batchStart) + 5000); // 👈 5000줄뭉텅이
 
+            // --- Phase 2: Zero-copy Binary Load (SharedArrayBuffer) ---
+            if (sharedBuffers && sharedBuffers.isStreamMode && sharedBuffers.logBuffer) {
+                try {
+                    const logArr = new Uint8Array(sharedBuffers.logBuffer);
+                    const offsets = new Uint32Array(sharedBuffers.lineOffsets);
+                    const lengths = new Uint32Array(sharedBuffers.lineLengths);
+                    const indices = new Int32Array(sharedBuffers.filteredIndices);
+
+                    const decodedLines = [];
+                    const actualAbsoluteOffset = absoluteOffset || 0;
+
+                    const decoder = new TextDecoder();
+                    for (let i = batchStart; i < batchStart + batchCount; i++) {
+                        const globalIdx = i + actualAbsoluteOffset;
+                        if (globalIdx >= indices.length) break;
+                        const realLineNum = indices[globalIdx];
+                        const off = offsets[realLineNum];
+                        const len = lengths[realLineNum];
+
+                        const bytes = logArr.subarray(off, off + len);
+                        const content = decoder.decode(bytes.slice());
+                        decodedLines.push({ lineNum: globalIdx, content });
+                    }
+
+                    if (decodedLines.length > 0) {
+                        // console.log(`[HyperLog] Zero-copy loaded ${decodedLines.length} lines`);
+                        processLines(batchStart, batchCount, decodedLines);
+                        return; // Done! No need for onScrollRequest
+                    }
+                } catch (err) {
+                    console.error('[HyperLog] Binary load failed, falling back to IPC', err);
+                }
+            }
+
+            // Fallback: Legacy IPC Fetch
             for (let i = batchStart; i < batchStart + batchCount; i++) pendingIndices.current.add(i);
 
             try {
                 const lines = await onScrollRequest(batchStart, batchCount);
                 if (!lines || lines.length === 0) {
-                    // ✅ Recovery: If fetch fails or returns empty, allow retry
                     for (let i = batchStart; i < batchStart + batchCount; i++) pendingIndices.current.delete(i);
                     return;
                 }
-
-                setCachedLines(prev => {
-                    const next = new Map(prev);
-                    // Clear all pending indices for this entire batch range immediately to prevent deadlocks
-                    for (let i = batchStart; i < batchStart + batchCount; i++) {
-                        pendingIndices.current.delete(i);
-                    }
-
-                    lines.forEach((l, idx) => {
-                        if (!l) return;
-                        const content = typeof l === 'string' ? l : (l.content || '');
-                        const decodedContent = decodeHTMLEntities(content);
-
-                        let levelColor = '#ccc';
-                        if (levelMatchers && levelMatchers.length > 0) {
-                            const prefix = content.substring(0, 100);
-                            for (const m of levelMatchers) {
-                                if (m.regex.test(prefix)) {
-                                    levelColor = m.color;
-                                    break;
-                                }
-                            }
-                        }
-
-                        const cached: CachedLine = {
-                            lineNum: typeof l === 'string' ? batchStart + idx : (l.lineNum ?? batchStart + idx),
-                            content: content,
-                            decodedContent,
-                            levelColor
-                        };
-                        next.set(batchStart + idx, cached);
-                    });
-
-                    if (next.size > 150000) {
-                        const keys = Array.from(next.keys());
-                        for (let k = 0; k < (keys.length - 120000); k++) next.delete(keys[k]);
-                    }
-                    cachedLinesRef.current = next;
-                    return next;
-                });
-            } catch (e) {
-                console.error('[HyperLog] Fetch failed', e);
-                for (let i = batchStart; i < batchStart + batchCount; i++) pendingIndices.current.delete(i);
+                processLines(batchStart, batchCount, lines);
+            } catch (err) {
+                console.error('[Renderer] Batch fetch failed', err);
             }
         }
-    }, [onScrollRequest, totalCount, levelMatchers, CONTENT_X_OFFSET]);
+    }, [totalCount, onScrollRequest, levelMatchers, sharedBuffers, absoluteOffset]);
+
+    // Helper to unify processing
+    const processLines = useCallback((batchStart: number, batchCount: number, lines: any[]) => {
+        setCachedLines(prev => {
+            const next = new Map(prev);
+            for (let i = batchStart; i < batchStart + batchCount; i++) {
+                pendingIndices.current.delete(i);
+            }
+
+            lines.forEach((l, idx) => {
+                if (!l) return;
+                const content = typeof l === 'string' ? l : (l.content || '');
+                const decodedContent = decodeHTMLEntities(content);
+
+                let levelColor = '#ccc';
+                if (levelMatchers && levelMatchers.length > 0) {
+                    const prefix = content.substring(0, 100);
+                    for (const m of levelMatchers) {
+                        if (m.regex.test(prefix)) {
+                            levelColor = m.color;
+                            break;
+                        }
+                    }
+                }
+
+                const cached: CachedLine = {
+                    lineNum: typeof l === 'string' ? batchStart + idx : (l.lineNum ?? batchStart + idx),
+                    content: '',
+                    decodedContent,
+                    levelColor
+                };
+                next.set(batchStart + idx, cached);
+            });
+
+            if (next.size > 50000) {
+                const keys = Array.from(next.keys());
+                for (let k = 0; k < (keys.length - 30000); k++) next.delete(keys[k]);
+            }
+            return next;
+        });
+    }, [levelMatchers]); // Dependencies for processLines
 
     // 🔥 Pre-compile Regexes and Colors for Performance
     const compiledTextHighlights = useMemo(() => {

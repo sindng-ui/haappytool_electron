@@ -66,6 +66,7 @@ export interface LogViewerPaneProps {
     dashboardHeight?: number;
     onDashboardHeightChange?: (height: number) => void;
     clearCacheTick?: number;
+    sharedBuffers?: any;
     onAnalyzeSpam?: () => void; // Added
 }
 
@@ -90,11 +91,11 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         highlights, highlightCaseSensitive = false, activeLineIndex = -1, selectedIndices,
         onLineClick, onLineDoubleClick, onDrop, onBrowse, paneId = 'single', fileName, onViewBookmarks, onCopy, onSave, onCopyAsConfluenceTable,
         bookmarks = new Set(), onToggleBookmark, onFocusPaneRequest, onShowBookmarks, absoluteOffset = 0,
-        initialScrollIndex, onScrollToBottomRequest, preferences, onContextMenu, onArchiveSave,
+        initialScrollIndex, onPageNavRequest, onScrollToBottomRequest, preferences, onContextMenu, onArchiveSave,
         isArchiveSaveEnabled = false, lineHighlightRanges, performanceHeatmap, onAnalyzePerformance,
         perfAnalysisResult, isAnalyzingPerformance = false, isActive, onJumpToLine, onJumpToRange,
         onViewRawRange, onCopyRawRange, dashboardHeight: propDashboardHeight, onDashboardHeightChange,
-        clearCacheTick, onAnalyzeSpam
+        clearCacheTick, sharedBuffers, onAnalyzeSpam
     } = props;
 
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
@@ -317,6 +318,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                 onKeyDown={keyboardHook.handleKeyDown}
                                 onScroll={scrollHook.handleScroll}
                                 clearCacheTick={clearCacheTick}
+                                sharedBuffers={sharedBuffers}
                             />
                             {showScrollToBottom && (
                                 <button

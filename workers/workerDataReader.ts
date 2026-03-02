@@ -35,8 +35,9 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
             const originalIdx = filteredIndices[i];
             const start = lineOffsetsStream[originalIdx];
             const len = lineLengthsStream[originalIdx];
-            // ✅ Zero-copy: 필요한 부분만 디코딩해서 전달합니다! 🐧🚀
-            const text = decoder.decode(logBuffer.subarray(start, start + len));
+            // ✅ Zero-copy (with slice fallback): SharedArrayBuffer cannot be decoded directly by TextDecoder
+            // slice() creates a tiny non-shared copy for the decoder.
+            const text = decoder.decode(logBuffer.subarray(start, start + len).slice());
             resultLines.push({ lineNum: originalIdx + 1, content: text });
         }
     } else {
@@ -130,7 +131,7 @@ export const getRawLines = async (context: DataReaderContext, startLineNum: numb
             const start = lineOffsetsStream[i];
             const len = lineLengthsStream[i];
             if (len === 0 && start === 0 && i > 0) break; // 빈 데이터 구간 도달 시 중단 (대략적 안전장치)
-            const text = decoder.decode(logBuffer.subarray(start, start + len));
+            const text = decoder.decode(logBuffer.subarray(start, start + len).slice());
             resultLines.push({ lineNum: i + 1, content: text });
         }
     } else {
@@ -186,7 +187,7 @@ export const getSurroundingLines = async (context: DataReaderContext, absoluteIn
             const start = lineOffsetsStream[i];
             const len = lineLengthsStream[i];
             if (len === 0 && start === 0 && i > 0) break;
-            const text = decoder.decode(logBuffer.subarray(start, start + len));
+            const text = decoder.decode(logBuffer.subarray(start, start + len).slice());
             resultLines.push({ lineNum: i + 1, content: text });
         }
     } else {
@@ -244,7 +245,7 @@ export const getLinesByIndices = async (context: DataReaderContext, indices: num
                 const originalIdx = filteredIndices[idx];
                 const start = lineOffsetsStream[originalIdx];
                 const len = lineLengthsStream[originalIdx];
-                const text = decoder.decode(logBuffer.subarray(start, start + len));
+                const text = decoder.decode(logBuffer.subarray(start, start + len).slice());
                 resultLines.push({
                     lineNum: originalIdx + 1,
                     content: text,
@@ -311,7 +312,7 @@ export const findHighlight = async (context: DataReaderContext, keyword: string,
             const originalIdx = filteredIndices[searchIdx];
             const start = lineOffsetsStream[originalIdx];
             const len = lineLengthsStream[originalIdx];
-            const line = decoder.decode(logBuffer.subarray(start, start + len));
+            const line = decoder.decode(logBuffer.subarray(start, start + len).slice());
             const lineCheck = isCaseSensitive ? line : line.toLowerCase();
             if (lineCheck.includes(effectiveKeyword)) {
                 respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx, originalLineNum: originalIdx + 1 }, requestId });
@@ -369,7 +370,7 @@ export const getFullText = async (context: DataReaderContext, requestId: string)
             const originalIdx = filteredIndices[i];
             const start = lineOffsetsStream[originalIdx];
             const len = lineLengthsStream[originalIdx];
-            lines.push(decoder.decode(logBuffer.subarray(start, start + len)));
+            lines.push(decoder.decode(logBuffer.subarray(start, start + len).slice()));
         }
         const fullText = lines.join('\n');
         try {

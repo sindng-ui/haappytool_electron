@@ -78,21 +78,48 @@ const initSubWorkers = () => {
 let currentFile: File | null = null;
 let lineOffsets: BigInt64Array | null = null; // Map LineNum -> ByteOffset
 
-// Stream Mode (Binary Optimized)
+// Stream Mode (Binary Optimized with SharedArrayBuffer)
 let isStreamMode = false;
 let isLiveStream = false;
-// ✅ 형님, 문자열 배열 대신 바이너리 버퍼와 오프셋을 써서 메모리를 다이어트합니다! 🐧💎
-let logBuffer = new Uint8Array(10 * 1024 * 1024); // 초기 10MB
+
+// ✅ 형님! 이제 SharedArrayBuffer를 사용해 UI와 데이터를 공유합니다! 🐧💎🚀
+const LOG_SAB_SIZE = 100 * 1024 * 1024; // 100MB Shared Log Store
+const MAX_LINES = 2048 * 1024; // 2M Lines maximum
+
+const logSharedBuffer = new SharedArrayBuffer(LOG_SAB_SIZE);
+let logBuffer = new Uint8Array(logSharedBuffer);
 let logBufferPtr = 0;
-let lineOffsetsStream = new Uint32Array(1024 * 1024); // 초기 1M 줄
-let lineLengthsStream = new Uint32Array(1024 * 1024);
+
+const offsetSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
+let lineOffsetsStream = new Uint32Array(offsetSharedBuffer);
+
+const lengthSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
+let lineLengthsStream = new Uint32Array(lengthSharedBuffer);
+
 let streamLineCount = 0;
 
 // Common
 let filteredIndices: Int32Array | null = null; // Line numbers (0-based) that match
-let filteredIndicesBuffer: Int32Array | null = null; // Backing buffer for dynamic growth
+// ✅ 형님, 필터 결과 인덱스도 공유 버퍼로 관리하여 UI에서 즉시 알 수 있게 합니다! 🐧💎
+const indexSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
+let filteredIndicesBuffer = new Int32Array(indexSharedBuffer);
+
 let currentRule: LogRule | null = null;
 let currentQuickFilter: 'none' | 'error' | 'exception' = 'none'; // ✅ New State
+
+// Helper: UI에게 공유 버퍼 정보 전송
+const sendSharedBuffers = () => {
+    respond({
+        type: 'BUFFER_SHARED',
+        payload: {
+            logBuffer: logSharedBuffer,
+            lineOffsets: offsetSharedBuffer,
+            lineLengths: lengthSharedBuffer,
+            filteredIndices: indexSharedBuffer,
+            isStreamMode
+        }
+    });
+};
 
 // Bookmarks managed by BookmarkManager
 
@@ -189,24 +216,26 @@ const buildFileIndex = async (file: File) => {
     lineOffsets = tempOffsets.subarray(0, lineCount);
 
     // ✅ Order Fix: Initialize filteredIndices BEFORE notifying the UI
-    const all = new Int32Array(lineCount);
-    for (let i = 0; i < lineCount; i++) all[i] = i;
-    filteredIndices = all;
+    if (lineCount <= filteredIndicesBuffer.length) {
+        for (let i = 0; i < lineCount; i++) filteredIndicesBuffer[i] = i;
+        filteredIndices = (filteredIndicesBuffer as any).subarray(0, lineCount);
+    } else {
+        // Fallback for extremely large files
+        const all = new Int32Array(lineCount);
+        for (let i = 0; i < lineCount; i++) all[i] = i;
+        filteredIndices = all as any;
+    }
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 100 } });
     respond({ type: 'INDEX_COMPLETE', payload: { totalLines: lineCount } });
-    // ⚠️ FILTER_COMPLETE를 여기서 보내지 않음!
-    // INDEX_COMPLETE를 받은 프론트에서 즉시 FILTER_LOGS를 보내고,
-    // applyFilter() 완료 시 단 한번만 FILTER_COMPLETE가 전송됨.
 };
 
 // --- Handler: Stream Init ---
 const initStream = (payload?: { isLive?: boolean }) => {
     isStreamMode = true;
-    isLiveStream = payload?.isLive !== false; // Default to true (legacy behavior) unless explicitly false
+    isLiveStream = payload?.isLive !== false;
     currentFile = null;
     lineOffsets = null;
-    // streamLines = []; // REMOVED
 
     // Reset Binary Store
     logBufferPtr = 0;
@@ -214,10 +243,9 @@ const initStream = (payload?: { isLive?: boolean }) => {
 
     BookmarkManager.clearAll();
     streamBuffer = '';
-    filteredIndices = new Int32Array(0);
-    filteredIndicesBuffer = new Int32Array(1024 * 1024); // Start with 1M capacity
-    lastFilterNotifyTime = 0; // ✅ Reset throttle timer
-    currentFilterRequestId++; // ✅ Cancel any pending filters
+    filteredIndices = (filteredIndicesBuffer as any).subarray(0, 0);
+    lastFilterNotifyTime = 0;
+    currentFilterRequestId++;
     respond({ type: 'STATUS_UPDATE', payload: { status: 'loading', mode: 'stream' } });
 };
 
@@ -254,20 +282,24 @@ const processChunk = (chunk: string) => {
         const encoded = textEncoder.encode(cleanLine);
         const len = encoded.length;
 
-        // 버퍼 확장 체크
+        // 버퍼 확장 체크 (SAB인 경우 확장이 불가능하므로 새로운 SAB를 생성하거나 일반 버퍼로 전환해야 함)
+        // 여기서는 유연성을 위해 일반 Uint8Array 타입으로 다룹니다.
         if (logBufferPtr + len > logBuffer.length) {
-            const newBuffer = new Uint8Array(logBuffer.length * 2 + len);
-            newBuffer.set(logBuffer.subarray(0, logBufferPtr)); // Copy only used part
-            logBuffer = newBuffer;
+            const newSize = logBuffer.length * 2 + len;
+            console.log(`[Worker] Growing logBuffer to ${newSize / (1024 * 1024)} MB`);
+            const newBuffer = new Uint8Array(newSize);
+            newBuffer.set(logBuffer.subarray(0, logBufferPtr));
+            logBuffer = newBuffer as any;
         }
         // 오프셋 배열 확장 체크
         if (streamLineCount >= lineOffsetsStream.length) {
-            const newOffsets = new Uint32Array(lineOffsetsStream.length * 2);
+            const newSize = lineOffsetsStream.length * 2;
+            const newOffsets = new Uint32Array(newSize);
             newOffsets.set(lineOffsetsStream.subarray(0, streamLineCount));
-            lineOffsetsStream = newOffsets;
-            const newLengths = new Uint32Array(lineLengthsStream.length * 2);
+            lineOffsetsStream = newOffsets as any;
+            const newLengths = new Uint32Array(newSize);
             newLengths.set(lineLengthsStream.subarray(0, streamLineCount));
-            lineLengthsStream = newLengths;
+            lineLengthsStream = newLengths as any;
         }
 
         // 저장
@@ -277,18 +309,16 @@ const processChunk = (chunk: string) => {
 
         // 필터링 체크 (실시간 매칭을 위해 바이너리 상태에서 바로 체크)
         if (checkIsMatch(cleanLine, currentRule, isLiveStream, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
-            // Append to filteredIndices (Buffer Strategy)
+            // Append to filteredIndices (Shared Buffer Strategy)
             const currentLen = filteredIndices ? filteredIndices.length : 0;
             const requiredLen = currentLen + 1;
 
-            if (!filteredIndicesBuffer || filteredIndicesBuffer.length < requiredLen) {
-                const newCap = filteredIndicesBuffer ? filteredIndicesBuffer.length * 2 : 1024 * 1024;
-                const newBuffer = new Int32Array(newCap);
-                if (filteredIndices) newBuffer.set(filteredIndices);
-                filteredIndicesBuffer = newBuffer;
+            if (requiredLen <= filteredIndicesBuffer.length) {
+                filteredIndicesBuffer[currentLen] = streamLineCount;
+                filteredIndices = (filteredIndicesBuffer as any).subarray(0, requiredLen);
+            } else {
+                console.warn('[Worker] Filtered indices buffer overflow (MAX_LINES reached)');
             }
-            filteredIndicesBuffer[currentLen] = streamLineCount;
-            filteredIndices = filteredIndicesBuffer.subarray(0, requiredLen);
         }
 
         logBufferPtr += len;
@@ -400,24 +430,21 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                 currentIdx += chunkResults[i].length;
             }
 
-            filteredIndices = finalMatches;
-
-            // Re-init buffer with results for future dynamic growth in stream mode
-            if (isStreamMode) {
-                const initialCap = Math.max(finalMatches.length + 100000, 1024 * 1024);
-                filteredIndicesBuffer = new Int32Array(initialCap);
-                filteredIndicesBuffer.set(finalMatches);
-                filteredIndices = filteredIndicesBuffer.subarray(0, finalMatches.length);
-            }
+            // ✅ 형님, 결과를 공유 버퍼에 쓰고 그 지점만 슬라이스해서 공유합니다! 🐧💎🚀
+            filteredIndicesBuffer.set(finalMatches);
+            filteredIndices = (filteredIndicesBuffer as any).subarray(0, finalMatches.length);
 
             respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
             respond({
                 type: 'FILTER_COMPLETE', payload: {
-                    matchCount: filteredIndices.length,
+                    matchCount: filteredIndices!.length,
                     totalLines: totalLines,
                     visualBookmarks: getVisualBookmarks()
                 }
             });
+
+            // 공유 버퍼 갱신 시점 알림
+            sendSharedBuffers();
 
             resetSubWorkerIdleTimer();
         }
@@ -438,7 +465,7 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                 for (let j = startLine; j < endLine; j++) {
                     const s = lineOffsetsStream[j];
                     const l = lineLengthsStream[j];
-                    chunkLines.push(decoder.decode(logBuffer.subarray(s, s + l)));
+                    chunkLines.push(decoder.decode(logBuffer.subarray(s, s + l).slice()));
                 }
                 for (let j = 0; j < chunkLines.length; j++) {
                     if (checkIsMatch(chunkLines[j], normalizedRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
@@ -467,7 +494,7 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
             for (let j = startLine; j < endLine; j++) {
                 const s = lineOffsetsStream[j];
                 const l = lineLengthsStream[j];
-                chunkLines.push(decoder.decode(logBuffer.subarray(s, s + l)));
+                chunkLines.push(decoder.decode(logBuffer.subarray(s, s + l).slice()));
             }
 
             const messageHandler = (e: MessageEvent) => {

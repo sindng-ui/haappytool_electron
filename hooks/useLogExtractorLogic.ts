@@ -138,6 +138,10 @@ export const useLogExtractorLogic = ({
     const [rightFileName, setRightFileName] = useState<string>('');
     const rightPendingRequests = useRef<Map<string, (data: any) => void>>(new Map());
 
+    // --- Shared Memory Buffers (Phase 2) ---
+    const [leftSharedBuffers, setLeftSharedBuffers] = useState<any>(null);
+    const [rightSharedBuffers, setRightSharedBuffers] = useState<any>(null);
+
     // Stream Request ID (to prevent duplication from React Strict Mode)
     const activeStreamRequestId = useRef<string | null>(null);
 
@@ -395,6 +399,7 @@ export const useLogExtractorLogic = ({
                 setBookmarks: setLeftBookmarks,
                 setPerformanceHeatmap: setLeftPerformanceHeatmap,
                 handleAnalysisMessage,
+                setSharedBuffers: setLeftSharedBuffers,
                 workerRef: leftWorkerRef,
                 pendingRequests: leftPendingRequests,
                 pane: 'left'
@@ -425,6 +430,7 @@ export const useLogExtractorLogic = ({
                 setActiveLineIndex: setActiveLineIndexRight,
                 setSelectedIndices: setSelectedIndicesRight,
                 handleAnalysisMessage,
+                setSharedBuffers: setRightSharedBuffers,
                 workerRef: rightWorkerRef,
                 pendingRequests: rightPendingRequests,
                 pane: 'right'
@@ -947,6 +953,7 @@ export const useLogExtractorLogic = ({
         isSpamAnalyzerOpen, setIsSpamAnalyzerOpen,
         isAnalyzingSpam, spamResultsLeft, requestSpamAnalysisLeft,
         leftPerformanceHeatmap, rightPerformanceHeatmap,
+        leftSharedBuffers, rightSharedBuffers,
         clearCacheTick,
         handleViewRawRangeLeft, handleViewRawRangeRight,
         handleCopyRawRangeLeft, handleCopyRawRangeRight,
