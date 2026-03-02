@@ -22,7 +22,7 @@ interface ContextMenuProps {
 export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
     const menuRef = useRef<HTMLDivElement>(null);
 
-    // ✅ Performance: Close on click outside
+    // 외부 클릭 시 메뉴 닫기
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -36,14 +36,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
             }
         };
 
-        // Small delay to prevent immediate close from the triggering click
-        setTimeout(() => {
-            document.addEventListener('mousedown', handleClickOutside);
-            document.addEventListener('keydown', handleEscape);
-        }, 0);
+        // capture: true — 로그 뷰어의 stopPropagation에도 불구하고 감지 가능
+        // setTimeout 제거: 즉시 등록해야 드래그 후 첫 클릭에서 바로 닫힘
+        document.addEventListener('mousedown', handleClickOutside, { capture: true });
+        document.addEventListener('keydown', handleEscape);
 
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('mousedown', handleClickOutside, { capture: true });
             document.removeEventListener('keydown', handleEscape);
         };
     }, [onClose]);

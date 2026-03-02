@@ -162,30 +162,17 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
     // --- Main Export Actions ---
     const handleCopyLogs = useCallback(async (paneId: 'left' | 'right') => {
         const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
-        const selectedIndices = paneId === 'left' ? selectedIndicesLeftRef.current : selectedIndicesRightRef.current;
         const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
-        const requestSpecificLines = paneId === 'left'
-            ? (indices: number[]) => requestBookmarkedLines(indices, 'left')
-            : (indices: number[]) => requestBookmarkedLines(indices, 'right');
 
         if (count <= 0) {
             showToast('No logs to copy.', 'info');
             return;
         }
 
-        const isSelectionCopy = selectedIndices.size > 0;
-
         try {
             console.time('copy-fetch');
-            let content = '';
-
-            if (isSelectionCopy) {
-                const indices = Array.from(selectedIndices).sort((a, b) => a - b);
-                const lines = await requestSpecificLines(indices);
-                content = lines.map(l => l.content).join('\n');
-            } else {
-                content = await requestFullText();
-            }
+            // 항상 필터링된 전체 로그를 복사 (선택 여부 무관)
+            let content = await requestFullText();
             console.timeEnd('copy-fetch');
 
             content = content.replace(/\r?\n$/, '');
@@ -219,13 +206,13 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
                 }
                 document.body.removeChild(textArea);
             }
-            showToast(`Copied ${isSelectionCopy ? selectedIndices.size.toLocaleString() : count.toLocaleString()} lines!`, 'success');
+            showToast(`Copied ${count.toLocaleString()} lines!`, 'success');
 
         } catch (e) {
             console.error('[Copy] Failed', e);
             showToast('Failed to copy logs.', 'error');
         }
-    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, requestBookmarkedLines, showToast, selectedIndicesLeftRef, selectedIndicesRightRef]);
+    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, showToast]);
 
     const handleSaveLogs = useCallback(async (paneId: 'left' | 'right') => {
         const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
