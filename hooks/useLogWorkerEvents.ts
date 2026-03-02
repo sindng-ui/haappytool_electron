@@ -58,8 +58,12 @@ export function useLogWorkerEvents() {
         // 2. 공통 이벤트 처리 (switch-case)
         switch (type) {
             case 'STATUS_UPDATE':
-                if (payload.status === 'indexing') setIndexingProgress(payload.progress);
-                if (payload.status === 'ready') setWorkerReady(true);
+                if (payload.status === 'indexing' || payload.status === 'filtering' || payload.status === 'loading') {
+                    setWorkerReady?.(false);
+                    if (payload.status === 'indexing') setIndexingProgress?.(payload.progress);
+                } else if (payload.status === 'ready') {
+                    setWorkerReady?.(true);
+                }
                 break;
 
             case 'STREAM_DONE':

@@ -209,7 +209,7 @@ const initStream = (payload?: { isLive?: boolean }) => {
     filteredIndicesBuffer = new Int32Array(1024 * 1024); // Start with 1M capacity
     lastFilterNotifyTime = 0; // ✅ Reset throttle timer
     currentFilterRequestId++; // ✅ Cancel any pending filters
-    respond({ type: 'STATUS_UPDATE', payload: { status: 'ready', mode: 'stream' } });
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'loading', mode: 'stream' } });
 };
 
 // --- Handler: Process Chunk (Stream) ---
@@ -507,8 +507,15 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             if (streamBuffer.length > 0) {
                 processChunk(''); // flush remaining buffer
             }
-            // ⚠️ 여기서 FILTER_COMPLETE를 보내지 않음!
-            // 프론트엔드의 useEffect가 ready 상태를 감지하여 FILTER_LOGS를 보내게 유도.
+            // 최종 필터 결과를 UI에 전송하여 즉각적인 화면 갱신 보장
+            respond({
+                type: 'FILTER_COMPLETE',
+                payload: {
+                    matchCount: filteredIndices.length,
+                    totalLines: streamLines.length,
+                    visualBookmarks: getVisualBookmarks()
+                }
+            });
             respond({ type: 'STREAM_DONE' });
             respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
             break;

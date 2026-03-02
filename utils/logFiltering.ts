@@ -57,25 +57,20 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
         }
     }
 
-    // 3. Performance: Pre-calculate lowercase line if needed to avoid redundant work
-    let lowerLine: string | null = null;
-    const getLowerLine = () => {
-        if (lowerLine === null) lowerLine = line.toLowerCase();
-        return lowerLine;
-    };
+    // 3. Performance: Lazy lowercase line to avoid redundant work
+    let lowerLine: string | undefined = undefined;
 
     // 3. Excludes (Block List)
-    const excludes = rule.excludes; // Assumed to be normalized by the caller
+    const excludes = rule.excludes;
     if (excludes.length > 0) {
-        const isBlockCaseSensitive = rule.blockListCaseSensitive;
-        const lineForBlock = isBlockCaseSensitive ? line : getLowerLine();
+        const lineForBlock = rule.blockListCaseSensitive ? line : (lowerLine = line.toLowerCase());
         for (let i = 0; i < excludes.length; i++) {
             if (lineForBlock.includes(excludes[i])) return false;
         }
     }
 
     // 4. Includes (Happy Combos)
-    const groups = rule.includeGroups; // Assumed to be normalized [ [word, word], [word] ]
+    const groups = rule.includeGroups;
     if (groups.length === 0) return true;
 
     // ✅ WASM Path: Only use if no AND logic (all groups have 1 term) for maximum speed
@@ -83,21 +78,18 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
     if (wasmEngine && isSimpleOrFilter) {
         // Zero-copy 지원 버전 (WASM 메모리에 직접 쓰기)
         if (wasmMemory && textEncoder) {
-            const requiredSize = line.length * 3; // Safe UTF-8 upper bound
+            const requiredSize = line.length * 3;
             wasmEngine.reserve_buffer(requiredSize);
-
             const ptr = wasmEngine.get_buffer_ptr();
             const view = new Uint8Array(wasmMemory.buffer, ptr, requiredSize);
             const { written } = textEncoder.encodeInto(line, view);
-
             return wasmEngine.check_match_ptr(written);
         }
         return wasmEngine.check_match(line);
     }
 
     // JS Fallback: OR of ANDs
-    const isHappyCaseSensitive = rule.happyCombosCaseSensitive;
-    const lineForHappy = isHappyCaseSensitive ? line : getLowerLine();
+    const lineForHappy = rule.happyCombosCaseSensitive ? line : (lowerLine || line.toLowerCase());
 
     for (let i = 0; i < groups.length; i++) {
         const group = groups[i];
