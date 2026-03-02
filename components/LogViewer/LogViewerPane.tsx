@@ -35,8 +35,10 @@ export interface LogViewerPaneProps {
     onBrowse?: () => void;
     paneId?: 'left' | 'right' | 'single';
     fileName?: string;
+    onViewBookmarks?: () => void;
     onReset?: () => void;
     onCopy?: () => void;
+    onCopyAsConfluenceTable?: () => void;
     onSave?: () => void;
     bookmarks?: Set<number>;
     onToggleBookmark?: (index: number) => void;
@@ -86,7 +88,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     const {
         workerReady, totalMatches, onScrollRequest, placeholderText, onSyncScroll, isRawMode = false,
         highlights, highlightCaseSensitive = false, activeLineIndex = -1, selectedIndices,
-        onLineClick, onLineDoubleClick, onDrop, onBrowse, paneId = 'single', fileName, onCopy, onSave,
+        onLineClick, onLineDoubleClick, onDrop, onBrowse, paneId = 'single', fileName, onViewBookmarks, onCopy, onSave, onCopyAsConfluenceTable,
         bookmarks = new Set(), onToggleBookmark, onFocusPaneRequest, onShowBookmarks, absoluteOffset = 0,
         initialScrollIndex, onScrollToBottomRequest, preferences, onContextMenu, onArchiveSave,
         isArchiveSaveEnabled = false, lineHighlightRanges, performanceHeatmap, onAnalyzePerformance,
@@ -248,6 +250,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 onShowBookmarks={onShowBookmarks}
                 bookmarksSize={bookmarks.size}
                 onCopy={onCopy}
+                onCopyAsConfluenceTable={onCopyAsConfluenceTable}
                 onSave={onSave}
                 onAnalyzePerformance={onAnalyzePerformance}
                 perfAnalysisResult={perfAnalysisResult}

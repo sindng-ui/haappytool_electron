@@ -259,22 +259,6 @@ export const useLogExtractorLogic = ({
         setLeftWorkerReady, setRightWorkerReady
     });
 
-    // --- Export & Utility Actions (Extracted) ---
-    const {
-        handleCopyLogs, handleSaveLogs,
-        handleViewRawRangeLeft, handleViewRawRangeRight,
-        handleCopyRawRangeLeft, handleCopyRawRangeRight,
-        requestLeftRawLines, requestRightRawLines,
-        requestBookmarkedLines
-    } = useLogExportActions({
-        leftWorkerRef, rightWorkerRef,
-        leftPendingRequests, rightPendingRequests,
-        leftFilteredCount, rightFilteredCount,
-        selectedIndicesLeftRef, selectedIndicesRightRef,
-        setRawContextTargetLine, setRawContextSourcePane,
-        setRawViewHighlightRange, setRawContextOpen,
-        showToast
-    });
 
     const { handleWorkerMessage } = useLogWorkerEvents();
 
@@ -605,6 +589,25 @@ export const useLogExtractorLogic = ({
         });
     }, [rightSegmentIndex, MAX_SEGMENT_SIZE]);
 
+    // --- Export & Utility Actions (Extracted) ---
+    const {
+        handleCopyLogs, handleSaveLogs, handleCopyAsConfluenceTable,
+        handleViewRawRangeLeft, handleViewRawRangeRight,
+        handleCopyRawRangeLeft, handleCopyRawRangeRight,
+        requestLeftRawLines, requestRightRawLines,
+        requestBookmarkedLines
+    } = useLogExportActions({
+        leftWorkerRef, rightWorkerRef,
+        leftPendingRequests, rightPendingRequests,
+        leftFilteredCount, rightFilteredCount,
+        selectedIndicesLeftRef, selectedIndicesRightRef,
+        setRawContextTargetLine, setRawContextSourcePane,
+        setRawViewHighlightRange, setRawContextOpen,
+        showToast,
+        requestLinesLeft: requestLeftLines,
+        requestLinesRight: requestRightLines
+    });
+
 
 
 
@@ -915,7 +918,7 @@ export const useLogExtractorLogic = ({
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
         clearLeftBookmarks, clearRightBookmarks,
         handleRightFileChange, handleRightReset, requestRightLines, requestRightRawLines,
-        handleCopyLogs, handleSaveLogs, jumpToHighlight, findText,
+        handleCopyLogs, handleSaveLogs, handleCopyAsConfluenceTable, jumpToHighlight, findText,
         requestBookmarkedLines, sendTizenCommand, hasEverConnected, handleClearLogs,
         jumpToGlobalLine, handleLineClick,
         leftSegmentIndex, setLeftSegmentIndex, leftTotalSegments, leftCurrentSegmentLines,

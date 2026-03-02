@@ -158,7 +158,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
         rightViewerRef, rightWorkerReady, rightFilteredCount, requestRightLines, setActiveLineIndexRight,
         activeLineIndexRight, selectedIndicesRight, setSelectedIndicesRight, handleRightFileChange, handleRightReset, rightIndexingProgress,
-        handleCopyLogs, handleSaveLogs,
+        handleCopyLogs, handleSaveLogs, handleCopyAsConfluenceTable,
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
         clearLeftBookmarks, clearRightBookmarks,
         jumpToHighlight, requestBookmarkedLines, jumpToGlobalLine,
@@ -548,6 +548,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const onLineDoubleClickLeft = React.useCallback((index: number) => handleLineDoubleClickAction(index, 'left'), [handleLineDoubleClickAction]);
     const onBrowseLeft = React.useCallback(() => leftFileInputRef.current?.click(), []);
     const onCopyLeft = React.useCallback(() => handleCopyLogs('left'), [handleCopyLogs]);
+    const onCopyAsConfluenceTableLeft = React.useCallback(() => handleCopyAsConfluenceTable('left'), [handleCopyAsConfluenceTable]);
     const onSaveLeft = React.useCallback(() => handleSaveLogs('left'), [handleSaveLogs]);
     const onSyncScrollLeft = React.useCallback((dy: number) => handleSyncScroll(dy, 'left'), [handleSyncScroll]);
     const onHighlightJumpLeft = React.useCallback((idx: number) => jumpToHighlight(idx, 'left'), [jumpToHighlight]);
@@ -660,6 +661,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const onLineDoubleClickRight = React.useCallback((index: number) => handleLineDoubleClickAction(index, 'right'), [handleLineDoubleClickAction]);
     const onBrowseRight = React.useCallback(() => rightFileInputRef.current?.click(), []);
     const onCopyRight = React.useCallback(() => handleCopyLogs('right'), [handleCopyLogs]);
+    const onCopyAsConfluenceTableRight = React.useCallback(() => handleCopyAsConfluenceTable('right'), [handleCopyAsConfluenceTable]);
     const onSaveRight = React.useCallback(() => handleSaveLogs('right'), [handleSaveLogs]);
     const onSyncScrollRight = React.useCallback((dy: number) => handleSyncScroll(dy, 'right'), [handleSyncScroll]);
     const onHighlightJumpRight = React.useCallback((idx: number) => jumpToHighlight(idx, 'right'), [jumpToHighlight]);
@@ -1092,6 +1094,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     fileName={leftFileName || undefined}
                                     onReset={handleLeftReset}
                                     onCopy={onCopyLeft}
+                                    onCopyAsConfluenceTable={onCopyAsConfluenceTableLeft}
                                     onSave={onSaveLeft}
                                     bookmarks={leftBookmarks}
                                     onToggleBookmark={toggleLeftBookmark}
@@ -1188,6 +1191,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                             fileName={rightFileName || undefined}
                                             onReset={handleRightReset}
                                             onCopy={onCopyRight}
+                                            onCopyAsConfluenceTable={onCopyAsConfluenceTableRight}
                                             onSave={onSaveRight}
                                             bookmarks={rightBookmarks}
                                             onToggleBookmark={toggleRightBookmark}

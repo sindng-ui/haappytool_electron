@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useToast } from '../contexts/ToastContext';
+import { convertToConfluenceTable } from '../utils/confluenceUtils';
 
 export interface UseLogExportActionsProps {
     leftWorkerRef: React.MutableRefObject<Worker | null>;
@@ -15,6 +16,8 @@ export interface UseLogExportActionsProps {
     setRawViewHighlightRange: (range: { start: number; end: number } | null) => void;
     setRawContextOpen: (open: boolean) => void;
     showToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+    requestLinesLeft: (start: number, count: number) => Promise<any[]>;
+    requestLinesRight: (start: number, count: number) => Promise<any[]>;
 }
 
 export const useLogExportActions = (props: UseLogExportActionsProps) => {
@@ -25,7 +28,8 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
         selectedIndicesLeftRef, selectedIndicesRightRef,
         setRawContextTargetLine, setRawContextSourcePane,
         setRawViewHighlightRange, setRawContextOpen,
-        showToast
+        showToast,
+        requestLinesLeft, requestLinesRight
     } = props;
 
     const { addToast } = useToast();
@@ -257,9 +261,49 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
         }
     }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, showToast]);
 
+    const handleCopyAsConfluenceTable = useCallback(async (paneId: 'left' | 'right') => {
+        const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
+        const requestLines = paneId === 'left' ? requestLinesLeft : requestLinesRight;
+
+        if (count <= 0) {
+            showToast('No logs to copy.', 'info');
+            return;
+        }
+
+        // 대용량 경고 (약 5만 줄 이상)
+        if (count > 50000) {
+            showToast('Large amount of logs. Processing might take a few seconds...', 'info');
+        }
+
+        try {
+            console.time('confluence-copy-fetch');
+            const lines = await requestLines(0, count);
+            console.timeEnd('confluence-copy-fetch');
+
+            if (!lines || lines.length === 0) {
+                showToast('Failed to retrieve log content.', 'error');
+                return;
+            }
+
+            const confluenceTable = convertToConfluenceTable(lines);
+
+            if ((window as any).electronAPI?.copyToClipboard) {
+                await (window as any).electronAPI.copyToClipboard(confluenceTable);
+            } else {
+                await navigator.clipboard.writeText(confluenceTable);
+            }
+
+            showToast(`Copied ${count.toLocaleString()} lines as Confluence Table!`, 'success');
+        } catch (e) {
+            console.error('[Confluence Copy] Failed', e);
+            showToast('Failed to copy Confluence table.', 'error');
+        }
+    }, [leftFilteredCount, rightFilteredCount, requestLinesLeft, requestLinesRight, showToast]);
+
     return {
         handleCopyLogs,
         handleSaveLogs,
+        handleCopyAsConfluenceTable,
         handleViewRawRangeLeft,
         handleViewRawRangeRight,
         handleCopyRawRangeLeft,

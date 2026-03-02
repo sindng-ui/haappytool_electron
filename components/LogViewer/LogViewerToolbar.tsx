@@ -1,5 +1,8 @@
 import React from 'react';
-import { Zap, Split, Archive, Bookmark, Copy, Download, BarChart3, Activity } from 'lucide-react';
+import {
+    Archive, Bookmark, Copy, Download, BarChart3, Activity,
+    Zap, Split, Table
+} from 'lucide-react';
 
 interface LogViewerToolbarProps {
     isRawMode?: boolean;
@@ -12,11 +15,39 @@ interface LogViewerToolbarProps {
     bookmarksSize: number;
     onCopy?: () => void;
     onSave?: () => void;
+    onCopyAsConfluenceTable?: () => void;
     onAnalyzePerformance?: () => void;
     perfAnalysisResult?: any;
     isAnalyzingPerformance?: boolean;
-    onAnalyzeSpam?: () => void; // Added
+    onAnalyzeSpam?: () => void;
+    isAnalyzingSpam?: boolean;
 }
+
+const ToolbarButton: React.FC<{
+    icon: React.ElementType;
+    onClick?: () => void;
+    tooltip: string;
+    disabled?: boolean;
+    className?: string;
+    active?: boolean;
+    pulse?: boolean;
+    fill?: string;
+}> = ({ icon: Icon, onClick, tooltip, disabled, className, active, pulse, fill }) => (
+    <button
+        onClick={onClick}
+        disabled={disabled}
+        className={`p-1.5 rounded-lg transition-colors 
+            ${active
+                ? 'bg-indigo-500/10 text-indigo-500'
+                : 'text-slate-400 dark:text-slate-400 hover:text-indigo-500 hover:bg-slate-200 dark:hover:bg-white/10'
+            } 
+            ${disabled ? 'cursor-not-allowed opacity-30' : ''} 
+            ${className || ''}`}
+        title={tooltip}
+    >
+        <Icon size={14} className={pulse ? 'animate-pulse' : ''} fill={fill || 'none'} />
+    </button>
+);
 
 export const LogViewerToolbar: React.FC<LogViewerToolbarProps> = ({
     isRawMode = false,
@@ -29,13 +60,13 @@ export const LogViewerToolbar: React.FC<LogViewerToolbarProps> = ({
     bookmarksSize,
     onCopy,
     onSave,
+    onCopyAsConfluenceTable,
     onAnalyzePerformance,
     perfAnalysisResult,
     isAnalyzingPerformance = false,
-    onAnalyzeSpam // Added
+    onAnalyzeSpam,
+    isAnalyzingSpam = false
 }) => {
-    if (isRawMode) return null;
-
     return (
         <div
             className={`h-11 border-b border-slate-200 dark:border-white/5 flex items-center justify-between shrink-0 z-50 relative group/toolbar px-3 
@@ -52,54 +83,74 @@ export const LogViewerToolbar: React.FC<LogViewerToolbarProps> = ({
                     </span>
                 </div>
             </div>
+
             <div className="flex items-center gap-1 transition-opacity duration-200">
                 {workerReady && !isRawMode && onArchiveSave && (
-                    <button
+                    <ToolbarButton
+                        icon={Archive}
                         onClick={onArchiveSave}
                         disabled={!isArchiveSaveEnabled}
-                        className={`p-1.5 rounded-lg transition-colors ${isArchiveSaveEnabled
-                            ? 'hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 dark:text-slate-400 hover:text-purple-500 dark:hover:text-purple-400'
-                            : 'text-slate-600/30 dark:text-slate-600/30 cursor-not-allowed'
-                            }`}
-                        title={isArchiveSaveEnabled ? 'Save to Archive (30MB 이하)' : '로그 사이즈가 30MB를 초과하여 아카이브 저장 불가'}
-                    >
-                        <Archive size={14} />
-                    </button>
+                        tooltip={isArchiveSaveEnabled ? 'Save to Archive (30MB 이하)' : '로그 사이즈가 30MB를 초과하여 아카이브 저장 불가'}
+                        className="hover:text-purple-500"
+                    />
                 )}
+
                 {workerReady && !isRawMode && onShowBookmarks && (
-                    <button onClick={onShowBookmarks} className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors" title="View Bookmarks">
-                        <Bookmark size={14} fill={bookmarksSize > 0 ? "currentColor" : "none"} />
-                    </button>
+                    <ToolbarButton
+                        icon={Bookmark}
+                        onClick={onShowBookmarks}
+                        tooltip="View Bookmarks"
+                        fill={bookmarksSize > 0 ? "currentColor" : "none"}
+                        className="hover:text-yellow-600 dark:hover:text-yellow-400"
+                    />
                 )}
+
+                {workerReady && !isRawMode && onCopyAsConfluenceTable && (
+                    <ToolbarButton
+                        icon={Table}
+                        onClick={onCopyAsConfluenceTable}
+                        tooltip="Copy as Confluence Table"
+                        className="hover:text-blue-500"
+                    />
+                )}
+
                 {workerReady && !isRawMode && onCopy && (
-                    <button onClick={onCopy} className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" title="Copy Filtered Logs">
-                        <Copy size={14} />
-                    </button>
+                    <ToolbarButton
+                        icon={Copy}
+                        onClick={onCopy}
+                        tooltip="Copy Filtered Logs"
+                        className="hover:text-indigo-500"
+                    />
                 )}
+
                 {workerReady && !isRawMode && onSave && (
-                    <button onClick={onSave} className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 dark:text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors" title="Save Filtered Logs">
-                        <Download size={14} />
-                    </button>
+                    <ToolbarButton
+                        icon={Download}
+                        onClick={onSave}
+                        tooltip="Save Filtered Logs"
+                        className="hover:text-emerald-500"
+                    />
                 )}
 
                 {workerReady && !isRawMode && onAnalyzePerformance && (
-                    <button
+                    <ToolbarButton
+                        icon={BarChart3}
                         onClick={onAnalyzePerformance}
-                        className={`p-1.5 rounded-lg transition-colors ${perfAnalysisResult || isAnalyzingPerformance ? 'bg-indigo-500/10 text-indigo-500' : 'text-slate-400 hover:text-indigo-500 hover:bg-slate-200 dark:hover:bg-white/10'}`}
-                        title="Analyze Performance (Flame Map)"
-                    >
-                        <BarChart3 size={14} className={isAnalyzingPerformance ? 'animate-pulse' : ''} />
-                    </button>
+                        tooltip="Analyze Performance (Flame Map)"
+                        active={!!perfAnalysisResult || isAnalyzingPerformance}
+                        pulse={isAnalyzingPerformance}
+                    />
                 )}
 
                 {workerReady && !isRawMode && onAnalyzeSpam && (
-                    <button
+                    <ToolbarButton
+                        icon={Activity}
                         onClick={onAnalyzeSpam}
-                        className={`p-1.5 rounded-lg transition-colors text-slate-400 hover:text-indigo-500 hover:bg-slate-200 dark:hover:bg-white/10`}
-                        title="Spam Analyzer (Find repeatedly executed logs)"
-                    >
-                        <Activity size={14} />
-                    </button>
+                        tooltip="Spam Analyzer"
+                        active={isAnalyzingSpam}
+                        pulse={isAnalyzingSpam}
+                        className="hover:text-rose-500"
+                    />
                 )}
             </div>
         </div>
