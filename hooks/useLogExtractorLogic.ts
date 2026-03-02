@@ -456,8 +456,8 @@ export const useLogExtractorLogic = ({
 
     // Auto-Apply Filter (Left)
     useEffect(() => {
-        // ✅ Serialized Flow: Only filter when worker is ready or config changed
-        if (leftWorkerRef.current && currentConfig && (leftWorkerReady || lastFilterHashLeft.current === '')) {
+        // ✅ Serialized Flow: Only filter when worker is ready
+        if (leftWorkerRef.current && currentConfig && leftWorkerReady) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
 
             const effectiveIncludes = refinedGroups.map(g =>
@@ -498,7 +498,7 @@ export const useLogExtractorLogic = ({
 
     // Auto-Apply Filter (Right)
     useEffect(() => {
-        if (isDualView && rightWorkerRef.current && currentConfig && (rightWorkerReady || lastFilterHashRight.current === '') && rightTotalLines > 0) {
+        if (isDualView && rightWorkerRef.current && currentConfig && rightWorkerReady && rightTotalLines > 0) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
 
             const effectiveIncludes = refinedGroups.map(g =>
