@@ -67,17 +67,46 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                         e.preventDefault();
                         const rect = e.currentTarget.getBoundingClientRect();
                         const scrollLeft = e.currentTarget.scrollLeft;
-                        const startX = e.clientX - rect.left + scrollLeft;
+                        // TID 컬럼이 sticky로 붙어있어 실제 차트 영역의 시작점 오프셋을 보정
+                        const TID_COL_WIDTH = showTidColumn ? 52 : 0;
+                        const startX = e.clientX - rect.left + scrollLeft - TID_COL_WIDTH;
                         const viewStart = flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime);
-                        const viewDuration = Math.max(1, (flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime)) - viewStart);
+                        const viewEnd = flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime);
+                        const viewDuration = Math.max(1, viewEnd - viewStart);
+                        const containerWidth = Math.max(1, rect.width - TID_COL_WIDTH);
 
-                        const timeAtX = viewStart + (startX / Math.max(1, rect.width)) * viewDuration;
+                        /**
+                         * Magnet snap: 픽셀 기준으로 가장 가까운 세그먼트 경계를 찾아 스냅
+                         */
+                        const SNAP_THRESHOLD = 12; // px
+                        const snapToSegmentBoundary = (rawTime: number): number => {
+                            let closestTime = rawTime;
+                            let closestDistPx = SNAP_THRESHOLD + 1;
+
+                            for (let i = 0; i < flameSegments.length; i++) {
+                                const seg = flameSegments[i];
+                                const candidates = [seg.startTime, seg.endTime];
+                                for (const t of candidates) {
+                                    const distPx = Math.abs(((t - rawTime) / viewDuration) * containerWidth);
+                                    if (distPx < closestDistPx) {
+                                        closestDistPx = distPx;
+                                        closestTime = t;
+                                    }
+                                }
+                            }
+                            return closestTime;
+                        };
+
+                        const timeAtX = snapToSegmentBoundary(
+                            viewStart + (startX / containerWidth) * viewDuration
+                        );
                         setMeasureRange({ startTime: timeAtX, endTime: timeAtX });
 
                         const onMove = (moveEvent: MouseEvent) => {
-                            const currentX = moveEvent.clientX - rect.left + flameChartContainerRef.current!.scrollLeft;
-                            const currentTime = viewStart + (currentX / Math.max(1, rect.width)) * viewDuration;
-                            setMeasureRange(prev => prev ? { ...prev, endTime: currentTime } : null);
+                            const currentX = moveEvent.clientX - rect.left + flameChartContainerRef.current!.scrollLeft - TID_COL_WIDTH;
+                            const rawTime = viewStart + (currentX / containerWidth) * viewDuration;
+                            const snappedTime = snapToSegmentBoundary(rawTime);
+                            setMeasureRange(prev => prev ? { ...prev, endTime: snappedTime } : null);
                         };
 
                         const onUp = () => {
@@ -88,6 +117,9 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                         dragCleanupRef.current = onUp;
                         window.addEventListener('mousemove', onMove);
                         window.addEventListener('mouseup', onUp);
+                    } else {
+                        // Shift 없이 클릭 → 선택 영역 초기화
+                        if (measureRange) setMeasureRange(null);
                     }
                 }}
             >
