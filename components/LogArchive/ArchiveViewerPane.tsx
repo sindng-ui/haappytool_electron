@@ -177,17 +177,17 @@ export function ArchiveViewerPane({
         <AnimatePresence>
             {archive && (
                 <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
                     className="archive-viewer-pane"
                 >
                     <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
+                        initial={{ scale: 0.98, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.9, opacity: 0 }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        exit={{ scale: 0.98, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
                         className="viewer-modal"
                     >
                         <ViewerHeader

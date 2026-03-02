@@ -25,16 +25,13 @@
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 9999px;
-    /* Fully rounded pill shape */
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-    box-shadow:
-        0 4px 15px rgba(59, 130, 246, 0.4),
-        0 0 0 1px rgba(255, 255, 255, 0.1) inset;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    transition: all 0.2s ease;
     z-index: 100;
-    backdrop-filter: blur(8px);
+    /* backdrop-filter removed for performance */
     letter-spacing: 0.3px;
 }
 
@@ -67,14 +64,12 @@
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    /* Reduced from 0.6 */
-    backdrop-filter: blur(3px);
+    background: rgba(0, 0, 0, 0.82);
+    /* Darker and Opaque */
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 9999;
-    /* Higher than main UI but lower than Sidebar/Modal */
 }
 
 .save-archive-dialog {
@@ -759,19 +754,15 @@
    =========================== */
 
 .archive-card {
-    background: var(--archive-bg-card);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(30, 41, 59, 0.95);
     border: 1px solid var(--archive-glass-border);
     border-radius: 12px;
     padding: 11px 13px;
-    /* Reduced from 16px */
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.15s ease;
     position: relative;
     overflow: hidden;
     margin-bottom: 4px;
-    /* Optimized gap */
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
@@ -929,15 +920,13 @@
     position: fixed;
     inset: 0;
     z-index: 11000;
-    /* Above sidebar (10001) for total focus */
-    background: rgba(2, 6, 23, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(2, 6, 23, 0.85);
+    /* 블러 대신 더 어둡게 */
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 30px;
-    animation: fadeIn 0.4s ease-out;
+    /* backdrop-filter: blur 제거 */
 }
 
 .viewer-modal {
@@ -959,7 +948,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 24px;
-    background: rgba(30, 41, 59, 0.4);
+    background: #1e293b;
+    /* 반투명 제거 */
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -1169,6 +1159,8 @@
     background: #020617;
     position: relative;
     display: flex;
+    contain: content;
+    /* 레이아웃 격리 */
 }
 
 .viewer-code-wrapper {
