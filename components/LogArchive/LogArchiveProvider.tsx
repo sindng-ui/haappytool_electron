@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 import { ArchivedLog } from './db/LogArchiveDB';
 
 /**
@@ -96,7 +96,7 @@ export function LogArchiveProvider({ children }: { children: ReactNode }) {
         setRefreshArchivesRaw(() => fn);
     }, []);
 
-    const value: LogArchiveContextType = {
+    const value = useMemo<LogArchiveContextType>(() => ({
         isSidebarOpen,
         isViewerOpen,
         isSaveDialogOpen,
@@ -114,7 +114,25 @@ export function LogArchiveProvider({ children }: { children: ReactNode }) {
         setLoadArchiveToTab,
         refreshArchives,
         setRefreshArchives,
-    };
+    }), [
+        isSidebarOpen,
+        isViewerOpen,
+        isSaveDialogOpen,
+        selectedArchive,
+        selectedText,
+        openSidebar,
+        closeSidebar,
+        toggleSidebar,
+        openViewer,
+        closeViewer,
+        openSaveDialog,
+        closeSaveDialog,
+        setSelectedArchive,
+        loadArchiveToTab,
+        setLoadArchiveToTab,
+        refreshArchives,
+        setRefreshArchives,
+    ]);
 
     return (
         <LogArchiveContext.Provider value={value}>

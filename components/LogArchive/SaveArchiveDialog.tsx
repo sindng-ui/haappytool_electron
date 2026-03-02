@@ -1,10 +1,24 @@
-import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
+import React, { useState, useEffect, useRef, KeyboardEvent, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Tag as TagIcon, Save, Loader2, Folder, Palette, StickyNote } from 'lucide-react';
 import { useLogArchive } from './hooks/useLogArchive';
 import { useLogArchiveContext } from './LogArchiveProvider';
 import { extractFirstLine, suggestTags } from './utils';
 import { db } from './db/LogArchiveDB';
+
+/** 컬러 팔레트 상수 (모듈 스코프) — 매 렌더링마다 배열 재생성 방지 */
+const COLOR_PALETTE = [
+    { name: 'Blue', value: '#3b82f6' },
+    { name: 'Purple', value: '#8b5cf6' },
+    { name: 'Pink', value: '#ec4899' },
+    { name: 'Red', value: '#ef4444' },
+    { name: 'Orange', value: '#f97316' },
+    { name: 'Yellow', value: '#eab308' },
+    { name: 'Green', value: '#10b981' },
+    { name: 'Teal', value: '#14b8a6' },
+    { name: 'Cyan', value: '#06b6d4' },
+    { name: 'Indigo', value: '#6366f1' },
+] as const;
 
 interface SaveArchiveDialogProps {
     /**
@@ -33,8 +47,8 @@ interface SaveArchiveDialogProps {
  * 
  * 선택한 로그를 아카이브에 저장하는 모달 다이얼로그
  */
-export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchiveDialogProps) {
-    const { saveArchive, getAllTags, getFolderStatistics } = useLogArchive();
+export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchiveDialogProps) {
+    const { saveArchive } = useLogArchive();
 
     const [title, setTitle] = useState('');
     const [tags, setTags] = useState<string[]>([]);
@@ -48,19 +62,6 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
     const [selectedColor, setSelectedColor] = useState<string>('#3b82f6'); // 기본 파란색
     const [isSaving, setIsSaving] = useState(false);
 
-    // 컬러 팔레트
-    const colorPalette = [
-        { name: 'Blue', value: '#3b82f6' },
-        { name: 'Purple', value: '#8b5cf6' },
-        { name: 'Pink', value: '#ec4899' },
-        { name: 'Red', value: '#ef4444' },
-        { name: 'Orange', value: '#f97316' },
-        { name: 'Yellow', value: '#eab308' },
-        { name: 'Green', value: '#10b981' },
-        { name: 'Teal', value: '#14b8a6' },
-        { name: 'Cyan', value: '#06b6d4' },
-        { name: 'Indigo', value: '#6366f1' },
-    ];
 
     const titleInputRef = useRef<HTMLInputElement>(null);
     const tagInputRef = useRef<HTMLInputElement>(null);
@@ -68,15 +69,34 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
     /**
      * 폴더 목록을 개수 많은 순으로 정렬
      */
-    const sortedFolders = React.useMemo(() => {
+    const sortedFolders = useMemo(() => {
         return Object.entries(folderStats)
-            .filter(([folder]) => folder !== 'Uncategorized') // 'Uncategorized'는 선택지에서 제외
-            .sort((a, b) => b[1] - a[1]) // 개수 많은 순 (내림차순)
+            .filter(([folder]) => folder !== 'Uncategorized')
+            .sort((a, b) => b[1] - a[1])
             .map(([folder]) => folder);
     }, [folderStats]);
 
+    /** 컬러 팔레트 렌더링 (상수이므로 useMemo 불필요하지만 JSX 안정성을 위해 메모) */
+    const colorSwatches = useMemo(() => (
+        COLOR_PALETTE.map(color => (
+            <button
+                key={color.value}
+                type="button"
+                className={`color-swatch ${selectedColor === color.value ? 'selected' : ''}`}
+                style={{ backgroundColor: color.value }}
+                onClick={() => setSelectedColor(color.value)}
+                disabled={isSaving}
+                title={color.name}
+                aria-label={`Select ${color.name}`}
+            />
+        ))
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    ), [selectedColor, isSaving]);
+
     /**
      * 기존 태그 로드 및 스마트 태그 추천
+     * getAllTags, getFolderStatistics는 useCallback으로 안정된 참조이지만
+     * deps에서 제거하고 직접 함수 참조를 메모이제이션하여 안정성 확보
      */
     useEffect(() => {
         if (isOpen && selectedText) {
@@ -90,16 +110,16 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
                 setSuggestedTags(suggested);
             });
 
-            // 기존 태그 로드
-            getAllTags().then(setAvailableTags);
+            // 기존 태그 로드 (DB 직접 호출로 함수 참조 의존성 제거)
+            db.getAllTags().then(setAvailableTags);
 
             // 기존 폴더 통계 로드
-            getFolderStatistics().then(setFolderStats);
+            db.getFolderStatistics().then(setFolderStats);
 
             // 제목 입력창에 포커스
             setTimeout(() => titleInputRef.current?.focus(), 100);
         }
-    }, [isOpen, selectedText, getAllTags, getFolderStatistics]);
+    }, [isOpen, selectedText]);
 
     /**
      * 모달 닫기 시 상태 초기화
@@ -121,20 +141,20 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
     /**
      * 태그 추가
      */
-    const addTag = (tag: string) => {
+    const addTag = useCallback((tag: string) => {
         const trimmedTag = tag.trim().toUpperCase();
         if (trimmedTag && !tags.includes(trimmedTag)) {
-            setTags([...tags, trimmedTag]);
+            setTags(prev => [...prev, trimmedTag]);
             setTagInput('');
         }
-    };
+    }, [tags]);
 
     /**
      * 태그 제거
      */
-    const removeTag = (tagToRemove: string) => {
-        setTags(tags.filter(tag => tag !== tagToRemove));
-    };
+    const removeTag = useCallback((tagToRemove: string) => {
+        setTags(prev => prev.filter(tag => tag !== tagToRemove));
+    }, []);
 
     /**
      * 태그 입력 핸들러
@@ -152,7 +172,7 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
     /**
      * 저장 핸들러
      */
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         if (!selectedText || !title.trim()) {
             return;
         }
@@ -182,18 +202,18 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
         } finally {
             setIsSaving(false);
         }
-    };
+    }, [selectedText, title, tags, memo, folder, selectedColor, saveArchive, onClose]);
 
     /**
      * 키보드 단축키
      */
-    const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
         if (e.key === 'Escape') {
             onClose();
         } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             handleSave();
         }
-    };
+    }, [onClose, handleSave]);
 
     return (
         <AnimatePresence>
@@ -362,18 +382,7 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
                                     <span>Color Label</span>
                                 </label>
                                 <div className="color-palette">
-                                    {colorPalette.map(color => (
-                                        <button
-                                            key={color.value}
-                                            type="button"
-                                            className={`color-swatch ${selectedColor === color.value ? 'selected' : ''}`}
-                                            style={{ backgroundColor: color.value }}
-                                            onClick={() => setSelectedColor(color.value)}
-                                            disabled={isSaving}
-                                            title={color.name}
-                                            aria-label={`Select ${color.name}`}
-                                        />
-                                    ))}
+                                    {colorSwatches}
                                 </div>
                             </div>
 
@@ -426,4 +435,4 @@ export function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchive
             )}
         </AnimatePresence>
     );
-}
+});

@@ -204,6 +204,11 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     // Log Archive: Text Selection
     // Log Archive: Text Selection & Line Selection
     const { openSaveDialog, isSaveDialogOpen, isViewerOpen } = useLogArchiveContext();
+    // ref로 최신값 추적: useEffect 클로저에서 리렌더링 없이 접근하기 위함
+    const archiveDialogOpenRef = React.useRef(isSaveDialogOpen);
+    const archiveViewerOpenRef = React.useRef(isViewerOpen);
+    React.useEffect(() => { archiveDialogOpenRef.current = isSaveDialogOpen; }, [isSaveDialogOpen]);
+    React.useEffect(() => { archiveViewerOpenRef.current = isViewerOpen; }, [isViewerOpen]);
     const { showContextMenu, ContextMenuComponent } = useContextMenu();
     const { addToast } = useToast(); // ✅ Use Toast for copy feedback
     const logContentRef = React.useRef<HTMLDivElement>(null);
@@ -821,7 +826,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                             // 3. Space: Bookmark Toggle - Handled by useLogShortcuts
 
                             // If Save Dialog or Archive Viewer is open, disable all shortcuts to allow typing/local shortcuts
-                            if (isSaveDialogOpen || isViewerOpen) return;
+                            if (archiveDialogOpenRef.current || archiveViewerOpenRef.current) return;
 
 
                             if (e.key === 'PageDown' || e.key === 'PageUp') {
@@ -996,7 +1001,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                             window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
                             window.removeEventListener('copy', handleGlobalCopy);
                         };
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, isSaveDialogOpen, isViewerOpen, tizenSocket, handleClearLogs, isTransactionDrawerOpen, setIsTransactionDrawerOpen, addToast, leftPerfAnalysisResult, rightPerfAnalysisResult, isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight]);
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, tizenSocket, handleClearLogs, isTransactionDrawerOpen, setIsTransactionDrawerOpen, addToast, leftPerfAnalysisResult, rightPerfAnalysisResult, isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight]);
                     return null;
                 })()
             )}
