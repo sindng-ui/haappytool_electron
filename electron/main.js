@@ -36,6 +36,7 @@ async function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
+            sandbox: true, // 보안 강화: 샌드박스 활성화
             preload: path.join(__dirname, 'preload.js')
         },
         autoHideMenuBar: true,
@@ -130,6 +131,23 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+    // ✅ CSP(Content Security Policy) 설정 추가
+    const { session } = require('electron');
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+            responseHeaders: {
+                ...details.responseHeaders,
+                'Content-Security-Policy': [
+                    "default-src 'self'; " +
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " + // Vite HMR을 위해 unsafe-eval 허용 (개발모드)
+                    "style-src 'self' 'unsafe-inline'; " +
+                    "img-src 'self' data:; " +
+                    "connect-src 'self' ws://127.0.0.1:3000 ws://localhost:3000 http://127.0.0.1:3003 http://localhost:3003;"
+                ]
+            }
+        });
+    });
+
     // IPC Handler for file reading
     ipcMain.handle('readFile', async (event, filePath) => {
         try {

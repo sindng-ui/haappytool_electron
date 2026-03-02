@@ -1,0 +1,232 @@
+﻿
+ RUN  v4.0.18 C:/AntigravityWorkspace/happytool_electron/haappytool_electron
+
+stdout | test/connector_integration.test.js
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ?숋툘  suppress all logs with { quiet: true }
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Full Scenario: Manual Connect with substituted TAGS and interactive stop
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Full Scenario: Manual Connect with substituted TAGS and interactive stop
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'TV_001'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil $(TAGS) kerneltime'[39m,
+  tags: [ [32m'TAG_X'[39m, [32m'TAG_Y'[39m ]
+}
+[SDB] Substituted $(TAGS) -> "TAG_X TAG_Y"
+[SDB] Effective command: dlogutil TAG_X TAG_Y kerneltime
+[SDB] Using custom command: dlogutil TAG_X TAG_Y kerneltime
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'TV_001'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'TAG_X'[39m, [32m'TAG_Y'[39m, [32m'kerneltime'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] ??Device verified, starting log stream...
+[SDB] ??Process spawned successfully, PID: [33m999[39m
+[SDB] Emitting connected status...
+[SDB] All event listeners attached, waiting for data...
+[SDB] ??First stdout data received: [33m13[39m bytes
+[SDB] First stdout preview: TEST_LOG_DATA
+[SDB] Writing to process: pkill dlogutil
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Quick Connect: Uses pre-substituted tags correctly
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Quick Connect: Uses pre-substituted tags correctly
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'AUTO'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil $(TAGS)'[39m,
+  tags: [ [32m'QUICK_TAG'[39m ]
+}
+[SDB] Substituted $(TAGS) -> "QUICK_TAG"
+[SDB] Effective command: dlogutil QUICK_TAG
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil QUICK_TAG
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'AUTO'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'QUICK_TAG'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] ??Device verified, starting log stream...
+[SDB] ??Process spawned successfully, PID: [33m999[39m
+[SDB] Emitting connected status...
+[SDB] All event listeners attached, waiting for data...
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Error: Device not found (Verification fail)
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+node.exe : stderr | test/connector_inte
+gration.test.js > Live Logging Ecosyste
+m Integration > SDB Pipeline (Verificat
+ion -> $TAGS -> Stream -> Interactive) 
+> SDB Error: Device not found (Verifica
+tion fail)
+위치 줄:1 문자:1
++ & "C:\Program Files\nodejs/node.exe" 
+"C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpeci 
+   fied: (stderr | test/c...ification  
+   fail):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCo 
+   mmandError
+ 
+[SDB] ??Connection verification failed:
+ error: device not found
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Error: Device not found (Verification fail)
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'WRONG_ID'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime $(TAGS)'[39m,
+  tags: []
+}
+[SDB] Substituted $(TAGS) -> ""
+[SDB] Effective command: dlogutil -v kerneltime 
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil -v kerneltime 
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'WRONG_ID'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'-v'[39m, [32m'kerneltime'[39m ]
+[SDB] Verifying device connection before streaming...
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Full Scenario: Command substitution and data streaming
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Full Scenario: Command substitution and data streaming
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: [32m'1.2.3.4'[39m,
+  port: [90mundefined[39m,
+  username: [90mundefined[39m,
+  passwordProvided: [33mfalse[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil $(TAGS) kerneltime'[39m,
+  tags: [ [32m'SSH_1'[39m, [32m'SSH_2'[39m ]
+}
+[SSH] Substituted $(TAGS) -> "SSH_1 SSH_2"
+[SSH] Effective command: dlogutil SSH_1 SSH_2 kerneltime
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+[SSH] ??SSH connection ready, requesting shell...
+[SSH] ??Shell created successfully
+[SSH] Using custom command: dlogutil SSH_1 SSH_2 kerneltime
+[SSH] Writing command to stream: dlogutil SSH_1 SSH_2 kerneltime
+[SSH] Command sent, waiting for log data...
+[SSH] ??First data received: [33m15[39m bytes
+[SSH] First data preview: SSH_STREAM_DATA
+[SSH] Writing to stream: pkill dlogutil
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Authentication: Password request/response flow
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Authentication: Password request/response flow
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: [32m'dev'[39m,
+  port: [90mundefined[39m,
+  username: [90mundefined[39m,
+  passwordProvided: [33mfalse[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &'[39m,
+  tags: []
+}
+[SSH] Substituted $(TAGS) -> ""
+[SSH] Effective command: dlogutil -c;logger-mgr --filter ; dlogutil -v kerneltime  &
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+[SSH] Keyboard-Interactive Auth Requested
+[SSH] Auth prompts count: [33m1[39m
+[SSH] Password not provided for keyboard-interactive. Sending request to client.
+[SSH] Received auth response from client
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Error: Handle Connection Refused
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stderr | test/connector_integration.tes
+t.js > Live Logging Ecosystem Integrati
+on > SSH Pipeline (Substitution -> Comm
+and -> Stream -> Interactive) > SSH Err
+or: Handle Connection Refused
+[SSH] ??Connection Error: Error: Refuse
+d
+    at C:/AntigravityWorkspace/happytoo
+l_electron/haappytool_electron/test/con
+nector_integration.test.js:160:25
+    at [90mfile:///C:/AntigravityWorks
+pace/happytool_electron/haappytool_elec
+tron/[39mnode_modules/[4m@vitest/runn
+er[24m/dist/index.js:145:11
+    at [90mfile:///C:/AntigravityWorks
+pace/happytool_electron/haappytool_elec
+tron/[39mnode_modules/[4m@vitest/runn
+er[24m/dist/index.js:915:26
+    at [90mfile:///C:/AntigravityWorks
+pace/happytool_electron/haappytool_elec
+tron/[39mnode_modules/[4m@vitest/runn
+er[24m/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout [90m(file:///C:/
+AntigravityWorkspace/happytool_electron
+/haappytool_electron/[39mnode_modules/
+[4m@vitest/runner[24m/dist/index.js:1
+209:10[90m)[39m
+    at [90mfile:///C:/AntigravityWorks
+pace/happytool_electron/haappytool_elec
+tron/[39mnode_modules/[4m@vitest/runn
+er[24m/dist/index.js:1653:37
+    at Traces.$ [90m(file:///C:/Antigr
+avityWorkspace/happytool_electron/haapp
+ytool_electron/[39mnode_modules/[4mvi
+test[24m/dist/chunks/traces.CCmnQaNT.j
+s:142:27[90m)[39m
+    at trace [90m(file:///C:/Antigravi
+tyWorkspace/happytool_electron/haappyto
+ol_electron/[39mnode_modules/[4mvites
+t[24m/dist/chunks/test.B8ej_ZHS.js:239
+:21[90m)[39m
+    at runTest [90m(file:///C:/Antigra
+vityWorkspace/happytool_electron/haappy
+tool_electron/[39mnode_modules/[4m@vi
+test/runner[24m/dist/index.js:1653:12
+[90m)[39m {
+  code: [32m'ECONNREFUSED'[39m
+}
+[SSH] Error details: {
+  message: [32m'Refused'[39m,
+  code: [32m'ECONNREFUSED'[39m,
+  level: [90mundefined[39m,
+  errno: [90mundefined[39m
+}
+[SSH] Connection refused - SSH service 
+may not be running
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Error: Handle Connection Refused
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: [32m'dead-dev'[39m,
+  port: [90mundefined[39m,
+  username: [90mundefined[39m,
+  passwordProvided: [33mfalse[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &'[39m,
+  tags: []
+}
+[SSH] Substituted $(TAGS) -> ""
+[SSH] Effective command: dlogutil -c;logger-mgr --filter ; dlogutil -v kerneltime  &
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+
+ ??test/connector_integration.test.js (6 tests) 34ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  21:57:15
+   Duration  1.71s (transform 114ms, setup 97ms, import 464ms, tests 34ms, environment 665ms)
+

@@ -1,0 +1,75 @@
+﻿
+> happytool@0.9.9 test:perf:json
+> vitest run --no-color test/performance/json-tools.perf.test.ts --reporter=verbose
+
+
+ RUN  v4.0.18 C:/AntigravityWorkspace/happytool_electron/haappytool_electron
+
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should parse 1MB JSON within threshold
+  ?뱤 Parse 1.00MB JSON: 2.63ms
+
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should stringify 1MB JSON within threshold
+  ?뱤 Stringify 1.00MB JSON: 1.98ms
+
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should handle deeply nested JSON efficiently
+  ?뱤 Deep Nested (10 levels): Stringify 1385.09ms, Parse 3730.95ms
+
+ ??test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should parse 1MB JSON within threshold 12ms
+ ??test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should stringify 1MB JSON within threshold 7ms
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should handle large array JSON efficiently
+  ?뱤 Large Array (10K items, 0.70MB): Parse 1.36ms
+
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should parse 10MB JSON within threshold (stress test)
+  ?뱤 Parse 10.02MB JSON (Stress): 26.34ms
+
+ 횞 test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should handle deeply nested JSON efficiently 6497ms
+   ??Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ??test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should handle large array JSON efficiently 6ms
+ ??test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should parse 10MB JSON within threshold (stress test) 100ms
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Diff > should calculate diff for large objects efficiently
+  ?뱤 Diff Large Objects: 2.67ms
+
+ ??test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Diff > should calculate diff for large objects efficiently 8ms
+node.exe : 
+위치 줄:1 문자:1
++ & "C:\Program Files\nodejs/node.exe"
+ "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpec 
+   ified: (:String) [], RemoteExcept  
+  ion
+    + FullyQualifiedErrorId : NativeC 
+   ommandError
+ 
+??렞??렞??렞??Failed Tests 1 ??렞??렞??렞??
+ FAIL  test/performance/json-tools.per
+f.test.ts > Performance Benchmarks - J
+SON Tools > should handle deeply neste
+d JSON efficiently
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a
+ timeout value as the last argument or
+ configure it globally with "testTimeo
+ut".
+ ??test/performance/json-tools.perf.te
+st.ts:101:5
+     99|     });
+    100| 
+    101|     it('should handle deeply 
+nested JSON efficiently', () => {
+       |     ^
+    102|         const depth = 10; // 
+10 levels deep
+    103|         const testData = gene
+rateDeeplyNestedJSON(depth);
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞[1
+/1]??
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  19:44:45
+   Duration  7.72s (transform 31ms, setup 94ms, import 19ms, tests 6.63s, environment 560ms)
+

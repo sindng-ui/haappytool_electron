@@ -1,0 +1,826 @@
+﻿
+> happytool@0.9.9 test
+> vitest run --no-color
+
+
+ RUN  v4.0.18 C:/AntigravityWorkspace/happytool_electron/haappytool_electron
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Post Tool > should handle 1MB API response efficiently
+  ?뱤 1MB Response - Size: 1.00MB, Parse: 1.37ms
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Post Tool > should format JSON response efficiently
+  ?뱤 Format response: 1.18ms
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should parse 10,000 log lines efficiently
+  ?뱤 Parse 10K lines: 0.36ms
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Post Tool > should handle large array response efficiently
+  ?뱤 Large Array (10K items, 1.12MB): Parse 2.97ms
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Post Tool > should extract response headers efficiently
+  ?뱤 Process 8 headers: 0.00ms
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Post Tool > should handle 10MB response (stress test)
+  ?뱤 10MB Response (Stress) - Size: 10.01MB, Parse: 18.49ms
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Response Viewer > should search through large response efficiently
+  ?뱤 Search in 1MB response: 0.37ms, Found: 3213
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Response Viewer > should navigate through search results efficiently
+  ?뱤 Index search results: 0.54ms, Matches: 179
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should parse 100,000 log lines efficiently
+  ?뱤 Parse 100K lines: 4.22ms
+
+node.exe : stderr | test/log-archive.t
+est.ts > LogArchiveDB - Search Operati
+ons > RegEx Search > should handle inv
+alid regex gracefully
+위치 줄:1 문자:1
++ & "C:\Program Files\nodejs/node.exe"
+ "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpec 
+   ified: (stderr | test/l...egex gr  
+  acefully:String) [], RemoteExcept   
+ ion
+    + FullyQualifiedErrorId : NativeC 
+   ommandError
+ 
+Invalid regex pattern: [invalid(regex
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Response Viewer > should switch between view modes efficiently
+  ?뱤 Switch view modes: 4.93ms
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should filter 10,000 log lines by keyword efficiently
+  ?뱤 Filter 10K lines: 1.42ms, Found: 2000
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should filter with RegEx efficiently
+  ?뱤 RegEx Filter 10K lines: 3.10ms, Found: 4000
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should handle highlight pattern matching efficiently
+  ?뱤 Highlight 1K lines: 0.39ms, Found: 200
+
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should parse 1MB JSON within threshold
+  ?뱤 Parse 1.00MB JSON: 2.34ms
+
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should stringify 1MB JSON within threshold
+  ?뱤 Stringify 1.00MB JSON: 2.05ms
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should initialize and spawn workers
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should initialize and spawn workers
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle Tizen connection start (sdb)
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle Tizen connection start (sdb)
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should BUFFER log_data for 250ms before sending to worker
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should BUFFER log_data for 250ms before sending to worker
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should FLUSH IMMEDIATELY if buffer exceeds limit (>500 items)
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should FLUSH IMMEDIATELY if buffer exceeds limit (>500 items)
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should reset state on disconnect
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should reset state on disconnect
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle SSH Error event
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+[useLog] SSH Connected. Stream should start automatically via Server.
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle SSH Auth Request and Response
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+[useLog] SSH Connected. Stream should start automatically via Server.
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/performance/post-tool.perf.test.ts > Performance Benchmarks - Memory Management > should not leak memory when handling multiple requests
+  ?뱤 Memory after 10 requests: +0.00MB
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle logical disconnect (sdb_status)
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should handle logical disconnect (sdb_status)
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+ ??test/performance/post-tool.perf.test.ts (9 tests) 276ms
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should load logViewPreferences from DB on mount
+[useLog] Mounting tab test-tab. initialFilePath: [90mundefined[39m
+
+stdout | test/hooks/useLogExtractorLogic.test.tsx > useLogExtractorLogic (Frontend Logic) > should load logViewPreferences from DB on mount
+[useLog] Raw saved state for test-tab: [1mnull[22m
+[useLog] Final targetPath: [90mundefined[39m
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should chunk large log file efficiently (2GB simulation)
+  ?뱤 Process 10 chunks (100000 lines): 134.97ms
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Extractor > should handle rapid log streaming (100 logs/sec)
+  ?뱤 Handle 100 rapid logs: 0.09ms
+
+stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should insert 1,000 items within performance threshold
+  ?뱤 Insert 1K: 146.75ms, Memory: +0.00MB
+
+ ??test/log-archive.test.ts (41 tests | 1 failed) 252ms
+       ??should save a new archive with all required fields 13ms
+       ??should auto-generate timestamps on save 2ms
+       ??should handle archives without optional fields 1ms
+       ??should retrieve archive by ID 1ms
+       ??should return undefined for non-existent ID 1ms
+       ??should update existing archive 18ms
+       ??should update only specified fields 5ms
+       ??should delete archive by ID 1ms
+       ??should not throw error when deleting non-existent ID 6ms
+       ??should search by title 8ms
+       ??should search by content 8ms
+       ??should be case-insensitive 3ms
+       ??should return empty array for no matches 2ms
+       ??should search with regex pattern 8ms
+       ??should handle invalid regex gracefully 10ms
+       ??should filter by single tag 3ms
+       ??should filter by multiple tags (AND condition) 15ms
+       ??should return empty for non-matching tags 6ms
+       ??should filter by folder 6ms
+       ??should return empty for non-matching folder 5ms
+       ??should combine query and tags 4ms
+       횞 should sort by createdAt desc (default) 29ms
+       ??should sort by createdAt asc 21ms
+       ??should sort by title 28ms
+       ??should limit results 6ms
+       ??should offset results 5ms
+       ??should combine limit and offset 3ms
+     ??should get all unique tags 3ms
+     ??should get all unique folders 1ms
+     ??should get tag statistics 1ms
+     ??should get folder statistics 3ms
+     ??should get archive count 4ms
+     ??should get filtered archive count 5ms
+     ??should clear all archives 2ms
+     ??should export to JSON 1ms
+     ??should import from JSON 1ms
+     ??should handle statistics summary 4ms
+     ??should handle empty tags array 2ms
+     ??should handle very long content 1ms
+     ??should handle special characters in content 1ms
+     ??should handle unicode characters 2ms
+stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should retrieve all tags efficiently
+  ?뱤 Get Tags: 3.75ms, Found: 3
+
+stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should retrieve all folders efficiently
+  ?뱤 Get Folders: 1.47ms, Found: 2
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Processing > should parse timestamp from logs efficiently
+  ?뱤 Extract timestamps from 10K lines: 3.12ms
+
+stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should search and return 50 results efficiently
+  ?뱤 Search (50): 3.40ms, Found: 50
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Processing > should parse log level efficiently
+  ?뱤 Extract log levels from 10K lines: 8.22ms
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Log Processing > should handle line selection operations efficiently
+  ?뱤 Line selection operations: 0.91ms, Selected: 1000
+
+stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should perform tag statistics without memory bloat
+  ?뱤 Tag Stats: 31.91ms, Memory: +0.00MB
+
+ ??test/hooks/useLogExtractorLogic.test.tsx (9 tests) 135ms
+stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should perform folder statistics without memory bloat
+  ?뱤 Folder Stats: 19.39ms, Memory: +0.00MB
+
+stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should handle regex search efficiently
+  ?뱤 Regex Search: 3.54ms, Found: 50
+
+stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Log Archive > should handle tag filter search efficiently
+  ?뱤 Tag Filter: 8.00ms, Found: 50
+
+stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Large Scale Log Archive > should handle 10,000 items search efficiently
+  ?벀 Inserting 10,000 items for large-scale test...
+
+stdout | test/performance/log-extractor.perf.test.ts > Performance Benchmarks - Memory Efficiency > should not leak memory when processing large logs
+  ?뱤 Memory increase after 5 batches: 0.00MB
+
+ ??test/performance/log-extractor.perf.test.ts (11 tests) 427ms
+stderr | components/PostTool.test.tsx 
+> PostTool Integration > performs vari
+able substitution correctly (URL and H
+eaders)
+An update to PostTool inside a test wa
+s not wrapped in act(...).
+
+When testing, code that causes React s
+tate updates should be wrapped into ac
+t(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the b
+ehavior the user would see in the brow
+ser. Learn more at https://react.dev/l
+ink/wrap-tests-with-act
+An update to PostTool inside a test wa
+s not wrapped in act(...).
+
+When testing, code that causes React s
+tate updates should be wrapped into ac
+t(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the b
+ehavior the user would see in the brow
+ser. Learn more at https://react.dev/l
+ink/wrap-tests-with-act
+
+stderr | components/PostTool.test.tsx 
+> PostTool Integration > substitutes b
+ody variables for POST requests
+An update to PostTool inside a test wa
+s not wrapped in act(...).
+
+When testing, code that causes React s
+tate updates should be wrapped into ac
+t(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the b
+ehavior the user would see in the brow
+ser. Learn more at https://react.dev/l
+ink/wrap-tests-with-act
+An update to PostTool inside a test wa
+s not wrapped in act(...).
+
+When testing, code that causes React s
+tate updates should be wrapped into ac
+t(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the b
+ehavior the user would see in the brow
+ser. Learn more at https://react.dev/l
+ink/wrap-tests-with-act
+
+ ??components/PostTool.test.tsx (4 tests) 88ms
+ ??utils/settingsHelper.test.ts (7 tests) 4ms
+stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Large Scale Log Archive > should handle 10,000 items search efficiently
+  ??Inserted 10K in 1180.39ms
+
+stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Large Scale Log Archive > should handle 10,000 items search efficiently
+  ?뱤 Search 10K dataset: 1.60ms
+
+ ??test/workers/LogProcessor.worker.test.ts (12 tests) 4ms
+stdout | test/sdb_connection.test.js
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ?뵎 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | test/connector_integration.test.js
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ?뾺截?backup and recover secrets: https://dotenvx.com/ops
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status with status:connected after successful device verification
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status with status:connected after successful device verification
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'test-device'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SDB] Using custom command: dlogutil -v kerneltime
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'test-device'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'-v'[39m, [32m'kerneltime'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s test-device shell echo READY
+[SDB] ??Device verified, starting log stream...
+[SDB] ??Process spawned successfully, PID: [33m12345[39m
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST NOT emit sdb_status:connected if verification fails
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST NOT emit sdb_status:connected if verification fails
+[SDB] Using smart default command: dlogutil -v kerneltime
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'bad-device'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+stderr | test/sdb_connection.test.js >
+ SDB Connection Critical Path > ?뵶 CRI
+TICAL: sdb_status "connected" event em
+ission > MUST NOT emit sdb_status:conn
+ected if verification fails
+[SDB] ??Connection verification failed
+: error: device not found
+
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil -v kerneltime
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'bad-device'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'-v'[39m, [32m'kerneltime'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s bad-device shell echo READY
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status:connected even with auto-detect deviceId
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?뵶 CRITICAL: sdb_status "connected" event emission > MUST emit sdb_status:connected even with auto-detect deviceId
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'auto-detect'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil'[39m,
+  tags: []
+}
+[SDB] Using custom command: dlogutil
+[SDB] Final sdb args: [ [32m'shell'[39m, [32m'dlogutil'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb shell echo READY
+[SDB] ??Device verified, starting log stream...
+[SDB] ??Process spawned successfully, PID: [33m12345[39m
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윞 Device verification timeout (5s) > MUST timeout and emit error if device verification hangs
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stderr | test/sdb_connection.test.js >
+ SDB Connection Critical Path > ?윞 Dev
+ice verification timeout (5s) > MUST t
+imeout and emit error if device verifi
+cation hangs
+[SDB] Verification timed out (5s). Kil
+ling checker...
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Full Scenario: Manual Connect with substituted TAGS and interactive stop
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윞 Device verification timeout (5s) > MUST timeout and emit error if device verification hangs
+[SDB] Using smart default command: dlogutil -v kerneltime
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'slow-device'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil -v kerneltime
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'slow-device'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'-v'[39m, [32m'kerneltime'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s slow-device shell echo READY
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윞 Device verification timeout (5s) > MUST NOT timeout if device responds within 5s
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윞 Device verification timeout (5s) > MUST NOT timeout if device responds within 5s
+[SDB] Using smart default command: dlogutil -v kerneltime
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'fast-device'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SDB] Using custom command: dlogutil -v kerneltime
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'fast-device'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'-v'[39m, [32m'kerneltime'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s fast-device shell echo READY
+[SDB] ??Device verified, starting log stream...
+[SDB] ??Process spawned successfully, PID: [33m12345[39m
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윞 Custom SDB path handling > MUST use custom sdbPath when provided
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/performance/log-archive.perf.test.ts > Performance Benchmarks - Large Scale Log Archive > should handle statistics on 10,000 items efficiently
+  ?뱤 Stats on 10K: 218.37ms, Memory: +0.00MB
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Full Scenario: Manual Connect with substituted TAGS and interactive stop
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'TV_001'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil $(TAGS) kerneltime'[39m,
+  tags: [ [32m'TAG_X'[39m, [32m'TAG_Y'[39m ]
+}
+[SDB] Substituted $(TAGS) -> "TAG_X TAG_Y"
+[SDB] Effective command: dlogutil TAG_X TAG_Y kerneltime
+[SDB] Using custom command: dlogutil TAG_X TAG_Y kerneltime
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'TV_001'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'TAG_X'[39m, [32m'TAG_Y'[39m, [32m'kerneltime'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s TV_001 shell echo READY
+[SDB] ??Device verified, starting log stream...
+[SDB] ??Process spawned successfully, PID: [33m999[39m
+[SDB] Writing to process: pkill dlogutil
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윞 Custom SDB path handling > MUST use custom sdbPath when provided
+[SDB] Using smart default command: dlogutil -v kerneltime
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'test'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil -v kerneltime
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'test'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'-v'[39m, [32m'kerneltime'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: D:\custom\path\sdb.exe -s test shell echo READY
+
+ ??test/performance/log-archive.perf.test.ts (10 tests) 1664ms
+     ??should handle 10,000 items search efficiently  1187ms
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Quick Connect: Uses pre-substituted tags correctly
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Quick Connect: Uses pre-substituted tags correctly
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'AUTO'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil $(TAGS)'[39m,
+  tags: [ [32m'QUICK_TAG'[39m ]
+}
+[SDB] Substituted $(TAGS) -> "QUICK_TAG"
+[SDB] Effective command: dlogutil QUICK_TAG
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil QUICK_TAG
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'AUTO'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'QUICK_TAG'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s AUTO shell echo READY
+[SDB] ??Device verified, starting log stream...
+[SDB] ??Process spawned successfully, PID: [33m999[39m
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Error: Device not found (Verification fail)
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윞 Custom SDB path handling > MUST use system "sdb" when sdbPath is empty/undefined
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윞 Custom SDB path handling > MUST use system "sdb" when sdbPath is empty/undefined
+[SDB] Using smart default command: dlogutil -v kerneltime
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'test'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SDB] Using custom command: dlogutil -v kerneltime
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'test'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'-v'[39m, [32m'kerneltime'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s test shell echo READY
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윟 Log streaming after connection > MUST stream log data from sdb dlogutil to client
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윟 Log streaming after connection > MUST stream log data from sdb dlogutil to client
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'test'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SDB] Using custom command: dlogutil -v kerneltime
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'test'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'-v'[39m, [32m'kerneltime'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s test shell echo READY
+[SDB] ??Device verified, starting log stream...
+[SDB] ??Process spawned successfully, PID: [33m12345[39m
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윟 Command and tag substitution > MUST substitute $(TAGS) with actual tag values
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윟 Command and tag substitution > MUST substitute $(TAGS) with actual tag values
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'test'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil $(TAGS) -v kerneltime'[39m,
+  tags: [ [32m'MyTag1'[39m, [32m'MyTag2'[39m ]
+}
+[SDB] Substituted $(TAGS) -> "MyTag1 MyTag2"
+[SDB] Effective command: dlogutil MyTag1 MyTag2 -v kerneltime
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil MyTag1 MyTag2 -v kerneltime
+[SDB] Final sdb args: [
+  [32m'-s'[39m,     [32m'test'[39m,
+  [32m'shell'[39m,  [32m'dlogutil'[39m,
+  [32m'MyTag1'[39m, [32m'MyTag2'[39m,
+  [32m'-v'[39m,     [32m'kerneltime'[39m
+]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s test shell echo READY
+[SDB] ??Device verified, starting log stream...
+[SDB] ??Process spawned successfully, PID: [33m12345[39m
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윟 Command and tag substitution > MUST handle empty tags gracefully
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윟 Command and tag substitution > MUST handle empty tags gracefully
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'test'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil $(TAGS)'[39m,
+  tags: []
+}
+[SDB] Substituted $(TAGS) -> ""
+[SDB] Effective command: dlogutil
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'test'[39m, [32m'shell'[39m, [32m'dlogutil'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s test shell echo READY
+[SDB] ??Device verified, starting log stream...
+[SDB] ??Process spawned successfully, PID: [33m12345[39m
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윟 Process cleanup on disconnect > MUST kill SDB process when disconnect_sdb is called
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/sdb_connection.test.js > SDB Connection Critical Path > ?윟 Process cleanup on disconnect > MUST kill SDB process when disconnect_sdb is called
+[SDB] Using smart default command: dlogutil -v kerneltime
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'test'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil -v kerneltime
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'test'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'-v'[39m, [32m'kerneltime'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s test shell echo READY
+[SDB] ??Device verified, starting log stream...
+[SDB] ??Process spawned successfully, PID: [33m12345[39m
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SDB Pipeline (Verification -> $TAGS -> Stream -> Interactive) > SDB Error: Device not found (Verification fail)
+[SDB] Using smart default command: dlogutil -v kerneltime
+[SDB] ========== SDB Connection Request ==========
+[SDB] Connection initiated with params: {
+  deviceId: [32m'WRONG_ID'[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SDB] Killing existing SDB process...
+[SDB] Using custom command: dlogutil -v kerneltime
+[SDB] Final sdb args: [ [32m'-s'[39m, [32m'WRONG_ID'[39m, [32m'shell'[39m, [32m'dlogutil'[39m, [32m'-v'[39m, [32m'kerneltime'[39m ]
+[SDB] Verifying device connection before streaming...
+[SDB] Verifying device with: sdb -s WRONG_ID shell echo READY
+
+ ??test/sdb_connection.test.js (11 tests) 33ms
+stderr | test/connector_integration.te
+st.js > Live Logging Ecosystem Integra
+tion > SDB Pipeline (Verification -> $
+TAGS -> Stream -> Interactive) > SDB E
+rror: Device not found (Verification f
+ail)
+[SDB] ??Connection verification failed
+: error: device not found
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Full Scenario: Command substitution and data streaming
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Full Scenario: Command substitution and data streaming
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: [32m'1.2.3.4'[39m,
+  port: [90mundefined[39m,
+  username: [90mundefined[39m,
+  passwordProvided: [33mfalse[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil $(TAGS) kerneltime'[39m,
+  tags: [ [32m'SSH_1'[39m, [32m'SSH_2'[39m ]
+}
+[SSH] Substituted $(TAGS) -> "SSH_1 SSH_2"
+[SSH] Effective command: dlogutil SSH_1 SSH_2 kerneltime
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+[SSH] ??SSH connection ready, requesting shell...
+[SSH] ??Shell created successfully
+[SSH] Using custom command: dlogutil SSH_1 SSH_2 kerneltime
+[SSH] Writing command to stream: dlogutil SSH_1 SSH_2 kerneltime
+[SSH] Command sent, waiting for log data...
+[SSH] ??First data received: [33m15[39m bytes
+[SSH] First data preview: SSH_STREAM_DATA
+[SSH] Writing to stream: pkill dlogutil
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Authentication: Password request/response flow
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Authentication: Password request/response flow
+[SSH] Using smart default command: dlogutil -v kerneltime
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: [32m'dev'[39m,
+  port: [90mundefined[39m,
+  username: [90mundefined[39m,
+  passwordProvided: [33mfalse[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+[SSH] Keyboard-Interactive Auth Requested
+[SSH] Auth prompts count: [33m1[39m
+[SSH] Password not provided for keyboard-interactive. Sending request to client.
+[SSH] Received auth response from client
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Error: Handle Connection Refused
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > SSH Error: Handle Connection Refused
+[SSH] Using smart default command: dlogutil -v kerneltime
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: [32m'dead-dev'[39m,
+  port: [90mundefined[39m,
+  username: [90mundefined[39m,
+  passwordProvided: [33mfalse[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+stderr | test/connector_integration.te
+st.js > Live Logging Ecosystem Integra
+tion > SSH Pipeline (Substitution -> C
+ommand -> Stream -> Interactive) > SSH
+ Error: Handle Connection Refused
+
+[SSH] ??Connection Error: Error: Refus
+ed
+    at C:/AntigravityWorkspace/happyto
+ol_electron/haappytool_electron/test/c
+onnector_integration.test.js:168:25
+    at [90mfile:///C:/AntigravityWork
+space/happytool_electron/haappytool_el
+ectron/[39mnode_modules/[4m@vitest/r
+unner[24m/dist/index.js:145:11
+    at [90mfile:///C:/AntigravityWork
+space/happytool_electron/haappytool_el
+ectron/[39mnode_modules/[4m@vitest/r
+unner[24m/dist/index.js:915:26
+    at [90mfile:///C:/AntigravityWork
+space/happytool_electron/haappytool_el
+ectron/[39mnode_modules/[4m@vitest/r
+unner[24m/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout [90m(file:///C:
+/AntigravityWorkspace/happytool_electr
+on/haappytool_electron/[39mnode_modul
+es/[4m@vitest/runner[24m/dist/index.
+js:1209:10[90m)[39m
+    at [90mfile:///C:/AntigravityWork
+space/happytool_electron/haappytool_el
+ectron/[39mnode_modules/[4m@vitest/r
+unner[24m/dist/index.js:1653:37
+    at Traces.$ [90m(file:///C:/Antig
+ravityWorkspace/happytool_electron/haa
+ppytool_electron/[39mnode_modules/[4
+mvitest[24m/dist/chunks/traces.CCmnQa
+NT.js:142:27[90m)[39m
+    at trace [90m(file:///C:/Antigrav
+ityWorkspace/happytool_electron/haappy
+tool_electron/[39mnode_modules/[4mvi
+test[24m/dist/chunks/test.B8ej_ZHS.js
+:239:21[90m)[39m
+    at runTest [90m(file:///C:/Antigr
+avityWorkspace/happytool_electron/haap
+pytool_electron/[39mnode_modules/[4m
+@vitest/runner[24m/dist/index.js:1653
+:12[90m)[39m {
+  code: [32m'ECONNREFUSED'[39m
+}
+[SSH] Error details: {
+  message: [32m'Refused'[39m,
+  code: [32m'ECONNREFUSED'[39m,
+  level: [90mundefined[39m,
+  errno: [90mundefined[39m
+}
+[SSH] Connection refused - SSH service
+ may not be running
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > Smart Builder: Should NOT have empty filter or trailing semicolon when tags are empty (SSH)
+SERVER_STARTUP: BLOCK_TEST_DIR = C:\AntigravityWorkspace\happytool_electron\haappytool_electron\BlockTest
+
+stdout | test/connector_integration.test.js > Live Logging Ecosystem Integration > SSH Pipeline (Substitution -> Command -> Stream -> Interactive) > Smart Builder: Should NOT have empty filter or trailing semicolon when tags are empty (SSH)
+[SSH] Using smart default command: dlogutil -v kerneltime
+[SSH] ========== SSH Connection Request ==========
+[SSH] Connection initiated with params: {
+  host: [32m'1.2.3.4'[39m,
+  port: [90mundefined[39m,
+  username: [90mundefined[39m,
+  passwordProvided: [33mfalse[39m,
+  debug: [90mundefined[39m,
+  saveToFile: [90mundefined[39m,
+  command: [32m'dlogutil -v kerneltime'[39m,
+  tags: []
+}
+[SSH] Closing existing SSH connection...
+[SSH] Creating SSH client...
+[SSH] Connection attempt started...
+[SSH] ??SSH connection ready, requesting shell...
+[SSH] ??Shell created successfully
+[SSH] Using custom command: dlogutil -v kerneltime
+[SSH] Writing command to stream: dlogutil -v kerneltime
+[SSH] Command sent, waiting for log data...
+
+ ??test/connector_integration.test.js (7 tests) 38ms
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should handle deeply nested JSON efficiently
+  ?뱤 Deep Nested (10 levels): Stringify 1404.19ms, Parse 3454.75ms
+
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should handle large array JSON efficiently
+  ?뱤 Large Array (10K items, 0.70MB): Parse 2.90ms
+
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Tools > should parse 10MB JSON within threshold (stress test)
+  ?뱤 Parse 10.02MB JSON (Stress): 18.62ms
+
+stdout | test/performance/json-tools.perf.test.ts > Performance Benchmarks - JSON Diff > should calculate diff for large objects efficiently
+  ?뱤 Diff Large Objects: 1.53ms
+
+ ??test/performance/json-tools.perf.test.ts (6 tests) 6852ms
+     ??should handle deeply nested JSON efficiently  6743ms
+
+??렞??렞??렞??Failed Tests 1 ??렞??렞??렞??
+ FAIL  test/log-archive.test.ts > LogA
+rchiveDB - Search Operations > Sorting
+ > should sort by createdAt desc (defa
+ult)
+AssertionError: expected 1770633976400
+ to be greater than or equal to 177063
+3976401
+ ??test/log-archive.test.ts:289:50
+    287| 
+    288|             for (let i = 1; i
+ < results.length; i++) {
+    289|                 expect(result
+s[i - 1].createdAt).toBeGreaterThanOrE
+qua??       |                         
+                         ^
+    290|             }
+    291|         });
+
+??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞??렞[1
+/1]??
+
+ Test Files  1 failed | 10 passed (11)
+      Tests  1 failed | 126 passed (127)
+   Start at  19:46:14
+   Duration  8.29s (transform 684ms, setup 1.23s, import 1.84s, tests 9.77s, environment 9.15s)
+

@@ -1,0 +1,137 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90mC:/AntigravityWorkspace/happytool_electron/haappytool_electron[39m
+
+ [31m❯[39m test/components/PerfDashboard.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[32m 141[2mms[22m[39m
+[31m     [31m×[31m should not render when isOpen is false[39m[32m 39[2mms[22m[39m
+     [32m✓[39m should show "Ready to Analyze" when no result and not analyzing[32m 15[2mms[22m[39m
+[31m     [31m×[31m should render header with result summary when result is provided[39m[32m 50[2mms[22m[39m
+[31m     [31m×[31m should render scorecards in full screen mode[39m[32m 14[2mms[22m[39m
+[31m     [31m×[31m should show search input[39m[32m 10[2mms[22m[39m
+[31m     [31m×[31m should allow toggling thread lock mode via TID label click[39m[32m 13[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 5 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m test/components/PerfDashboard.test.tsx[2m > [22mPerfDashboard Component[2m > [22mshould not render when isOpen is false
+[31m[1mAssertionError[22m: expected <div …(2)>…(3)</div> to be null[39m
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+<div
+  class="w-full z-10 flex flex-col transition-all duration-300 ease-in-out relative group/dashboard perf-dashboard-container border-b-[6px] border-[#080b14] shadow-[0_8px_16px_rgba(0,0,0,0.6)]"
+  style="height: 400px; background-color: rgb(15, 23, 42);"
+>
+  <div
+    class="absolute -bottom-2 left-0 right-0 h-4 cursor-ns-resize z-[100] flex justify-end px-12 group/resizer"
+  >
+    <div
+      class="w-10 h-3 bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-b-full flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.5)] border-x border-b border-white/20 group-hover/resizer:h-4 group-hover/resizer:from-indigo-400 group-hover/resizer:to-indigo-600 transition-all duration-200 origin-top"
+    >
+      <div
+        class="flex gap-0.5"
+      >
+        <div
+          class="w-0.5 h-0.5 bg-white/80 rounded-full shadow-sm"
+        />
+        <div
+          class="w-0.5 h-0.5 bg-white/80 rounded-full shadow-sm"
+        />
+        <div
+          class="w-0.5 h-0.5 bg-white/80 rounded-full shadow-sm"
+        />
+      </div>
+    </div>
+  </div>
+  <div
+    class="h-10 shrink-0 flex items-center justify-between px-4 bg-slate-900 border-b border-white/5 select-none"
+  >
+    <div
+      class="flex items-center gap-3"
+    >
+      <div
+        class="flex items-center gap-2 text-slate-400"
+      >
+        <div
+          data-testid="icon-layout"
+        />
+        <span
+          class="text-xs font-bold uppercase tracking-wider"
+        >
+          Performance Dashboard
+        </span>
+      </div>
+    </div>
+    <div
+      class="flex items-center gap-1"
+    >
+      <button
+        class="p-1.5 hover:bg-white/10 rounded-md text-slate-400 transition-colors"
+      >
+        <div
+          data-testid="icon-chevron-up"
+        />
+      </button>
+      <button
+        class="p-1.5 hover:bg-red-500/20 hover:text-red-400 rounded-md text-slate-400 transition-colors"
+      >
+        <div
+          data-testid="icon-x"
+        />
+      </button>
+    </div>
+  </div>
+  <div
+    class="flex-1 flex items-center justify-center text-slate-600 gap-2"
+  >
+    <div
+      data-testid="icon-activity"
+    />
+    <span
+      class="text-xs font-bold uppercase tracking-widest opacity-50"
+    >
+      Ready to Analyze
+    </span>
+  </div>
+</div>
+
+[36m [2m❯[22m test/components/PerfDashboard.test.tsx:[2m91:38[22m[39m
+    [90m 89| [39m            [33m<[39m[33m/[39m[33mToastProvider[39m[33m>[39m
+    [90m 90| [39m        )[33m;[39m
+    [90m 91| [39m        [34mexpect[39m(container[33m.[39mfirstChild)[33m.[39m[34mtoBeNull[39m()[33m;[39m
+    [90m   | [39m                                     [31m^[39m
+    [90m 92| [39m    })[33m;[39m
+    [90m 93| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m test/components/PerfDashboard.test.tsx[2m > [22mPerfDashboard Component[2m > [22mshould render header with result summary when result is provided
+[41m[1m FAIL [22m[49m test/components/PerfDashboard.test.tsx[2m > [22mPerfDashboard Component[2m > [22mshould render scorecards in full screen mode
+[41m[1m FAIL [22m[49m test/components/PerfDashboard.test.tsx[2m > [22mPerfDashboard Component[2m > [22mshould show search input
+[41m[1m FAIL [22m[49m test/components/PerfDashboard.test.tsx[2m > [22mPerfDashboard Component[2m > [22mshould allow toggling thread lock mode via TID label click
+[31m[1mReferenceError[22m: ResizeObserver is not defined[39m
+[36m [2m❯[22m components/LogViewer/PerfDashboard.tsx:[2m812:26[22m[39m
+    [90m810| [39m        if (!canvas || !minimapCanvas) return;
+    [90m811| [39m
+    [90m812| [39m        const observer = new ResizeObserver(() => {
+    [90m   | [39m                         [31m^[39m
+    [90m813| [39m            // Flush size caches so next draw picks up new dimensions
+    [90m814| [39m            rectCacheRef.current = null;
+[90m [2m❯[22m Object.react_stack_bottom_frame node_modules/react-dom/cjs/react-dom-client.development.js:[2m25989:20[22m[39m
+[90m [2m❯[22m runWithFiberInDEV node_modules/react-dom/cjs/react-dom-client.development.js:[2m874:13[22m[39m
+[90m [2m❯[22m commitHookEffectListMount node_modules/react-dom/cjs/react-dom-client.development.js:[2m13249:29[22m[39m
+[90m [2m❯[22m commitHookPassiveMountEffects node_modules/react-dom/cjs/react-dom-client.development.js:[2m13336:11[22m[39m
+[90m [2m❯[22m commitPassiveMountOnFiber node_modules/react-dom/cjs/react-dom-client.development.js:[2m15484:13[22m[39m
+[90m [2m❯[22m recursivelyTraversePassiveMountEffects node_modules/react-dom/cjs/react-dom-client.development.js:[2m15439:11[22m[39m
+[90m [2m❯[22m commitPassiveMountOnFiber node_modules/react-dom/cjs/react-dom-client.development.js:[2m15718:11[22m[39m
+[90m [2m❯[22m recursivelyTraversePassiveMountEffects node_modules/react-dom/cjs/react-dom-client.development.js:[2m15439:11[22m[39m
+[90m [2m❯[22m commitPassiveMountOnFiber node_modules/react-dom/cjs/react-dom-client.development.js:[2m15476:11[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (6)[39m
+[2m   Start at [22m 17:43:14
+[2m   Duration [22m 1.46s[2m (transform 211ms, setup 125ms, import 281ms, tests 141ms, environment 663ms)[22m
+
