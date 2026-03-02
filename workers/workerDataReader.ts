@@ -3,6 +3,10 @@ import { LogRule, LogWorkerResponse } from '../types';
 export interface DataReaderContext {
     filteredIndices: Int32Array | null;
     isStreamMode: boolean;
+    isLocalFileMode?: boolean;
+    localFilePath?: string | null;
+    localFileSize?: number;
+    rpcCall?: (method: string, args: any) => Promise<any>;
     // ✅ 형님, 이제 문자열 배열 대신 바이너리 전용 버퍼들을 받습니다! 🐧💎
     logBuffer?: Uint8Array;
     lineOffsetsStream?: Uint32Array;
@@ -41,7 +45,12 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
             resultLines.push({ lineNum: originalIdx + 1, content: text });
         }
     } else {
-        if (!currentFile || !lineOffsets || !filteredIndices) {
+        if (!context.isLocalFileMode && !currentFile) {
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
+        }
+
+        if (!lineOffsets || !filteredIndices) {
             respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
             return;
         }
@@ -78,14 +87,20 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
                 }
 
                 const batchEnd = j;
-                const chunkBlob = currentFile.slice(Number(batchMinByte), Number(batchMaxByte));
-                const buffer = await chunkBlob.arrayBuffer();
-                const uint8View = new Uint8Array(buffer);
+                let uint8View: Uint8Array;
+                if (context.isLocalFileMode) {
+                    uint8View = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: Number(batchMinByte), end: Number(batchMaxByte) });
+                } else {
+                    const chunkBlob = currentFile!.slice(Number(batchMinByte), Number(batchMaxByte));
+                    const buffer = await chunkBlob.arrayBuffer();
+                    uint8View = new Uint8Array(buffer);
+                }
 
                 for (let k = batchStart; k < batchEnd; k++) {
                     const originalIdx = filteredIndices[k];
                     const lineStart = lineOffsets[originalIdx];
-                    const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
+                    const fileSize = context.isLocalFileMode ? context.localFileSize! : currentFile!.size;
+                    const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(fileSize);
 
                     const relStart = Number(lineStart - batchMinByte);
                     const relEnd = Number(lineEnd - batchMinByte);
@@ -135,7 +150,11 @@ export const getRawLines = async (context: DataReaderContext, startLineNum: numb
             resultLines.push({ lineNum: i + 1, content: text });
         }
     } else {
-        if (!currentFile || !lineOffsets) {
+        if (!context.isLocalFileMode && !currentFile) {
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
+        }
+        if (!lineOffsets) {
             respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
             return;
         }
@@ -145,16 +164,22 @@ export const getRawLines = async (context: DataReaderContext, startLineNum: numb
         let maxByte = -1n;
         for (let i = startIdx; i < max; i++) {
             const startByte = lineOffsets[i];
-            const endByte = i < lineOffsets.length - 1 ? lineOffsets[i + 1] : BigInt(currentFile.size);
+            const fileSize = context.isLocalFileMode ? context.localFileSize! : currentFile!.size;
+            const endByte = i < lineOffsets.length - 1 ? lineOffsets[i + 1] : BigInt(fileSize);
             if (minByte === -1n || startByte < minByte) minByte = startByte;
             if (maxByte === -1n || endByte > maxByte) maxByte = endByte;
         }
 
         try {
             if (minByte !== -1n && maxByte !== -1n) {
-                const chunkBlob = currentFile.slice(Number(minByte), Number(maxByte));
-                const arrayBuf = await chunkBlob.arrayBuffer();
-                const uint8View = new Uint8Array(arrayBuf);
+                let uint8View: Uint8Array;
+                if (context.isLocalFileMode) {
+                    uint8View = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: Number(minByte), end: Number(maxByte) });
+                } else {
+                    const chunkBlob = currentFile!.slice(Number(minByte), Number(maxByte));
+                    const arrayBuf = await chunkBlob.arrayBuffer();
+                    uint8View = new Uint8Array(arrayBuf);
+                }
                 const text = decoder.decode(uint8View).replace(/\r?\n$/, '');
                 const lines = text.split('\n');
 
@@ -191,7 +216,11 @@ export const getSurroundingLines = async (context: DataReaderContext, absoluteIn
             resultLines.push({ lineNum: i + 1, content: text });
         }
     } else {
-        if (!currentFile || !lineOffsets) {
+        if (!context.isLocalFileMode && !currentFile) {
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
+        }
+        if (!lineOffsets) {
             respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
             return;
         }
@@ -200,16 +229,22 @@ export const getSurroundingLines = async (context: DataReaderContext, absoluteIn
         let maxByte = -1n;
         for (let i = startIdx; i < max; i++) {
             const startByte = lineOffsets[i];
-            const endByte = i < lineOffsets.length - 1 ? lineOffsets[i + 1] : BigInt(currentFile.size);
+            const fileSize = context.isLocalFileMode ? context.localFileSize! : currentFile!.size;
+            const endByte = i < lineOffsets.length - 1 ? lineOffsets[i + 1] : BigInt(fileSize);
             if (minByte === -1n || startByte < minByte) minByte = startByte;
             if (maxByte === -1n || endByte > maxByte) maxByte = endByte;
         }
 
         try {
             if (minByte !== -1n && maxByte !== -1n) {
-                const chunkBlob = currentFile.slice(Number(minByte), Number(maxByte));
-                const arrayBuf = await chunkBlob.arrayBuffer();
-                const uint8View = new Uint8Array(arrayBuf);
+                let uint8View: Uint8Array;
+                if (context.isLocalFileMode) {
+                    uint8View = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: Number(minByte), end: Number(maxByte) });
+                } else {
+                    const chunkBlob = currentFile!.slice(Number(minByte), Number(maxByte));
+                    const arrayBuf = await chunkBlob.arrayBuffer();
+                    uint8View = new Uint8Array(arrayBuf);
+                }
                 const text = decoder.decode(uint8View).replace(/\r?\n$/, '');
                 const lines = text.split('\n');
                 for (let i = 0; i < lines.length; i++) {
@@ -254,7 +289,11 @@ export const getLinesByIndices = async (context: DataReaderContext, indices: num
             }
         }
     } else {
-        if (!currentFile || !lineOffsets) {
+        if (!context.isLocalFileMode && !currentFile) {
+            respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
+            return;
+        }
+        if (!lineOffsets) {
             respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
             return;
         }
@@ -273,10 +312,17 @@ export const getLinesByIndices = async (context: DataReaderContext, indices: num
                 const originalIdx = filteredIndices[idx];
                 if (originalIdx < lineOffsets.length) {
                     const startByte = Number(lineOffsets[originalIdx]);
-                    const endByte = originalIdx < lineOffsets.length - 1 ? Number(lineOffsets[originalIdx + 1]) : currentFile.size;
+                    const fileSize = context.isLocalFileMode ? context.localFileSize! : currentFile!.size;
+                    const endByte = originalIdx < lineOffsets.length - 1 ? Number(lineOffsets[originalIdx + 1]) : fileSize;
 
                     if (startByte < endByte) {
-                        const text = await readSlice(currentFile.slice(startByte, endByte));
+                        let text = '';
+                        if (context.isLocalFileMode) {
+                            const buffer = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: startByte, end: endByte });
+                            text = decoder.decode(buffer);
+                        } else {
+                            text = await readSlice(currentFile!.slice(startByte, endByte));
+                        }
                         resultLines.push({
                             lineNum: originalIdx + 1,
                             content: text.replace(/\r?\n$/, ''),
@@ -321,7 +367,8 @@ export const findHighlight = async (context: DataReaderContext, keyword: string,
             if (direction === 'next') searchIdx++; else searchIdx--;
         }
     } else {
-        if (!currentFile || !lineOffsets) return;
+        if (!context.isLocalFileMode && !currentFile) return;
+        if (!lineOffsets) return;
 
         const readSlice = (blob: Blob): Promise<string> => {
             return new Promise((resolve) => {
@@ -334,10 +381,17 @@ export const findHighlight = async (context: DataReaderContext, keyword: string,
         while (searchIdx >= 0 && searchIdx < filteredIndices.length) {
             const originalLineNum = filteredIndices[searchIdx];
             const startByte = Number(lineOffsets[originalLineNum]);
-            const endByte = originalLineNum < lineOffsets.length - 1 ? Number(lineOffsets[originalLineNum + 1]) : currentFile.size;
+            const fileSize = context.isLocalFileMode ? context.localFileSize! : currentFile!.size;
+            const endByte = originalLineNum < lineOffsets.length - 1 ? Number(lineOffsets[originalLineNum + 1]) : fileSize;
 
             if (startByte < endByte) {
-                const line = await readSlice(currentFile.slice(startByte, endByte));
+                let line = '';
+                if (context.isLocalFileMode) {
+                    const buffer = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: startByte, end: endByte });
+                    line = decoder.decode(buffer);
+                } else {
+                    line = await readSlice(currentFile!.slice(startByte, endByte));
+                }
                 const lineCheck = isCaseSensitive ? line : line.toLowerCase();
                 if (lineCheck.includes(effectiveKeyword)) {
                     respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx, originalLineNum: originalLineNum + 1 }, requestId });
@@ -384,7 +438,11 @@ export const getFullText = async (context: DataReaderContext, requestId: string)
         return;
     }
 
-    if (!currentFile || !lineOffsets) {
+    if (!context.isLocalFileMode && !currentFile) {
+        respond({ type: 'FULL_TEXT_DATA', payload: { text: '' }, requestId } as any);
+        return;
+    }
+    if (!lineOffsets) {
         respond({ type: 'FULL_TEXT_DATA', payload: { text: '' }, requestId } as any);
         return;
     }
@@ -404,7 +462,8 @@ export const getFullText = async (context: DataReaderContext, requestId: string)
 
                 const startByte = Number(lineOffsets[startLine]);
                 const endByteLine = endLine < lineOffsets.length - 1 ? endLine + 1 : -1;
-                const endByte = endByteLine !== -1 ? Number(lineOffsets[endByteLine]) : currentFile.size;
+                const fileSize = context.isLocalFileMode ? context.localFileSize! : currentFile!.size;
+                const endByte = endByteLine !== -1 ? Number(lineOffsets[endByteLine]) : fileSize;
 
                 if (startByte < endByte) {
                     rawChunks.push({ start: startByte, end: endByte });
@@ -453,8 +512,13 @@ export const getFullText = async (context: DataReaderContext, requestId: string)
         const reader = new FileReaderSync();
 
         for (const op of readOps) {
-            const blob = currentFile.slice(op.fileStart, op.fileEnd);
-            const buf = new Uint8Array(reader.readAsArrayBuffer(blob));
+            let buf: Uint8Array;
+            if (context.isLocalFileMode) {
+                buf = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: op.fileStart, end: op.fileEnd });
+            } else {
+                const blob = currentFile!.slice(op.fileStart, op.fileEnd);
+                buf = new Uint8Array(reader.readAsArrayBuffer(blob));
+            }
 
             for (const copy of op.subCopies) {
                 if (copy.srcOffset < buf.length) {

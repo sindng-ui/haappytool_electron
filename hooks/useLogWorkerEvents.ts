@@ -58,6 +58,28 @@ export function useLogWorkerEvents() {
 
         // 2. 공통 이벤트 처리 (switch-case)
         switch (type) {
+            case 'RPC_REQUEST': {
+                if (payload?.method === 'readFileSegment') {
+                    const { path, start, end } = payload.args;
+                    if (!window.electronAPI?.readFileSegment) return;
+                    window.electronAPI.readFileSegment({ path, start, end })
+                        .then(chunkBuffer => {
+                            workerRef.current?.postMessage({
+                                type: 'RPC_RESPONSE',
+                                requestId,
+                                payload: chunkBuffer
+                            }, [chunkBuffer.buffer]); // 제로 카피 버퍼 트랜스퍼 🚀
+                        })
+                        .catch(err => {
+                            workerRef.current?.postMessage({
+                                type: 'RPC_ERROR',
+                                requestId,
+                                payload: err?.message || 'Read failed'
+                            });
+                        });
+                }
+                break;
+            }
             case 'STATUS_UPDATE':
                 if (payload.status === 'indexing' || payload.status === 'filtering' || payload.status === 'loading') {
                     setWorkerReady?.(false);

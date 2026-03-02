@@ -62,25 +62,33 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
 
     // ✅ Register listeners ONCE to prevent duplication
     useEffect(() => {
-        if (!window.electronAPI || !window.electronAPI.onFileChunk) return;
+        if (!window.electronAPI) return;
 
-        const unsubChunk = window.electronAPI.onFileChunk((data: any) => {
-            if (isComponentStale.current || data.requestId !== activeStreamRequestId.current) return;
-            leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: data.chunk });
-        });
-        const unsubComplete = window.electronAPI.onFileStreamComplete((data: any) => {
-            if (isComponentStale.current || data?.requestId !== activeStreamRequestId.current) return;
-            // 스트림 완료 신호를 워커에게 전달하여 최종 필터링 결과를 단 한번만 갱신하도록 함
-            leftWorkerRef.current?.postMessage({ type: 'STREAM_DONE' });
-        });
+        let unsubChunk: (() => void) | undefined;
+        let unsubComplete: (() => void) | undefined;
+
+        if (window.electronAPI.onFileChunk) {
+            unsubChunk = window.electronAPI.onFileChunk((data: any) => {
+                if (isComponentStale.current || data.requestId !== activeStreamRequestId.current) return;
+                leftWorkerRef.current?.postMessage({ type: 'PROCESS_CHUNK', payload: data.chunk });
+            });
+        }
+
+        if (window.electronAPI.onFileStreamComplete) {
+            unsubComplete = window.electronAPI.onFileStreamComplete((data: any) => {
+                if (isComponentStale.current || data?.requestId !== activeStreamRequestId.current) return;
+                // 스트림 완료 신호를 워커에게 전달하여 최종 필터링 결과를 단 한번만 갱신하도록 함
+                leftWorkerRef.current?.postMessage({ type: 'STREAM_DONE' });
+            });
+        }
 
         return () => {
-            unsubChunk();
-            unsubComplete();
+            if (unsubChunk) unsubChunk();
+            if (unsubComplete) unsubComplete();
         };
-    }, []); // Run once on mount
+    }, [leftWorkerRef, rightWorkerRef]); // Need refs in deps or handle dynamically
 
-    const loadFile = useCallback((targetPath: string) => {
+    const loadFile = useCallback(async (targetPath: string) => {
         if (window.electronAPI) {
             // 중복 로딩 방지 (동일 파일이 이미 로딩 중인 경우 무시)
             if (lastLoadingPathRef.current === targetPath && !tizenSocket) {
@@ -104,6 +112,22 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
             // 필터 캐시 강제 무효화를 위해 해시 리셋
             lastFilterHashLeft.current = '';
 
+            // ✅ OOM-Safe Local File Loading Route! (2GB+ Support)
+            if (window.electronAPI.getFileSize) {
+                try {
+                    const size = await window.electronAPI.getFileSize(targetPath);
+                    console.log(`[useLog] Initiating LOCAL_FILE_STREAM for ${fileName}, size: ${Math.round(size / 1024 / 1024)}MB`);
+                    leftWorkerRef.current?.postMessage({
+                        type: 'INIT_LOCAL_FILE_STREAM',
+                        payload: { path: targetPath, size }
+                    });
+                    return; // 🚀 Use the new efficient route instead of string buffers!
+                } catch (e) {
+                    console.error('[useLog] Failed to get file size, falling back to string mode', e);
+                }
+            }
+
+            // Fallback (old memory-heavy way)
             if (window.electronAPI.streamReadFile) {
                 const requestId = `stream-${Date.now()}-${Math.random().toString(36).substring(7)}`;
                 activeStreamRequestId.current = requestId;
@@ -111,7 +135,7 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
                 leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM', payload: { isLive: false } });
                 window.electronAPI.streamReadFile(targetPath, requestId).catch(() => {
                     if (isComponentStale.current) return;
-                    window.electronAPI.readFile(targetPath).then(content => {
+                    window.electronAPI!.readFile(targetPath).then(content => {
                         if (isComponentStale.current) return;
                         const file = new File([content], fileName);
                         (file as any).path = targetPath;

@@ -33,7 +33,7 @@ ctx.onmessage = async (e) => {
     const { type, payload } = e.data;
 
     if (type === 'FILTER_CHUNK') {
-        const { blob, rule, quickFilter, chunkId, offset = 0, requestId } = payload;
+        const { blob, buffer, rule, quickFilter, chunkId, offset = 0, requestId } = payload;
         const startTime = Date.now();
         console.log(`[SubWorker ${chunkId}] FILTER_CHUNK Start (RequestID: ${requestId})`);
 
@@ -47,34 +47,47 @@ ctx.onmessage = async (e) => {
             wasmEngine.update_keywords(allKeywords);
         }
 
-        const reader = (blob as Blob).stream().getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
         let relativeLineIndex = 0;
         const matchesList: number[] = [];
 
         try {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+            if (blob) {
+                const reader = (blob as Blob).stream().getReader();
+                const decoder = new TextDecoder();
+                let textBuf = '';
 
-                const chunkText = decoder.decode(value, { stream: true });
-                buffer += chunkText;
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
+                    const chunkText = decoder.decode(value, { stream: true });
+                    textBuf += chunkText;
+                    const lines = textBuf.split('\n');
+                    textBuf = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (checkIsMatch(line, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+                            matchesList.push(offset + relativeLineIndex);
+                        }
+                        relativeLineIndex++;
+                    }
+                }
+                if (textBuf) {
+                    if (checkIsMatch(textBuf, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+                        matchesList.push(offset + relativeLineIndex);
+                    }
+                    relativeLineIndex++;
+                }
+            } else if (buffer) {
+                const decoder = new TextDecoder();
+                const text = decoder.decode(buffer).replace(/\r?\n$/, '');
+                const lines = text.split('\n');
                 for (const line of lines) {
                     if (checkIsMatch(line, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
                         matchesList.push(offset + relativeLineIndex);
                     }
                     relativeLineIndex++;
                 }
-            }
-            if (buffer) {
-                if (checkIsMatch(buffer, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
-                    matchesList.push(offset + relativeLineIndex);
-                }
-                relativeLineIndex++;
             }
         } catch (err) {
             console.error(`[SubWorker ${chunkId}] Error`, err);

@@ -14,6 +14,7 @@ interface HappyComboSectionProps {
     onToggleRootCollapse: (root: string) => void;
     handleToggleRoot: (root: string, enabled: boolean) => void;
     happyCombosCaseSensitive: boolean;
+    tabId: string;
 }
 
 // Helper to check if a specific tag is being edited
@@ -30,7 +31,8 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
     collapsedRoots,
     onToggleRootCollapse,
     handleToggleRoot,
-    happyCombosCaseSensitive
+    happyCombosCaseSensitive,
+    tabId
 }) => {
     // editingTarget only stores COORDINATES. Value is local to EditableTag.
     const [editingTarget, setEditingTarget] = useState<{ groupIdx: number, termIdx: number, isActive: boolean, value?: string } | null>(null);
@@ -54,7 +56,7 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
     useEffect(() => {
         if (pendingBranchFocus.current) {
             const { rootIdx, branchIdx } = pendingBranchFocus.current;
-            const input = document.querySelector(`input[data-add-tag="${rootIdx}-${branchIdx}"]`) as HTMLInputElement;
+            const input = document.querySelector(`input[data-add-tag="hc-${tabId}-${rootIdx}-${branchIdx}"]`) as HTMLInputElement;
             if (input) {
                 input.focus();
                 pendingBranchFocus.current = null;
@@ -158,30 +160,49 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
     };
 
     const handleNavigate = (key: string, rootIdx: number, itemIdx: number, tIdx: number, root: string, itemsLength: number, branchTagsLength: number, itemOriginalIdx?: number, itemActive?: boolean) => {
+        // Selector helper for unique tab-based access
+        const getAddTagInput = (rIdx: number, iIdx: number) => document.querySelector(`input[data-add-tag="hc-${tabId}-${rIdx}-${iIdx}"]`) as HTMLInputElement;
+
         if (key === 'Down') {
             if (itemIdx < itemsLength - 1) {
-                const nextInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx + 1}"]`) as HTMLInputElement;
-                nextInput?.focus();
+                const nextBranch = groupedRoots[rootIdx].items[itemIdx + 1];
+                const nextBranchTags = nextBranch.group.slice(1);
+                // Try to find same tIdx tag in next branch
+                if (tIdx > 0 && tIdx <= nextBranchTags.length) {
+                    setEditingTarget({ groupIdx: nextBranch.originalIdx, termIdx: tIdx, isActive: nextBranch.active });
+                } else {
+                    getAddTagInput(rootIdx, itemIdx + 1)?.focus();
+                }
             } else {
                 handleCreateBranch(rootIdx, root, itemsLength);
             }
         } else if (key === 'Up') {
             if (itemIdx > 0) {
-                const prevInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx - 1}"]`) as HTMLInputElement;
-                prevInput?.focus();
+                const prevBranch = groupedRoots[rootIdx].items[itemIdx - 1];
+                const prevBranchTags = prevBranch.group.slice(1);
+                // Try to find same tIdx tag in previous branch
+                if (tIdx > 0 && tIdx <= prevBranchTags.length) {
+                    setEditingTarget({ groupIdx: prevBranch.originalIdx, termIdx: tIdx, isActive: prevBranch.active });
+                } else {
+                    getAddTagInput(rootIdx, itemIdx - 1)?.focus();
+                }
             } else {
+                // Focus root tag
                 setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root } as any);
             }
         } else if (key === 'Left' || key === 'Backspace') {
             if (tIdx > 1) {
                 setEditingTarget({ groupIdx: itemOriginalIdx!, termIdx: tIdx - 1, isActive: itemActive! });
             } else if (tIdx === 1) {
-                // Do nothing: Stay on the first tag (Remove Root jump)
+                // Jump to Root
+                setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root } as any);
             } else if (tIdx === 0) { // Coming from + tag
                 if (branchTagsLength > 0) {
                     setEditingTarget({ groupIdx: itemOriginalIdx!, termIdx: branchTagsLength, isActive: itemActive! });
+                } else {
+                    // Jump to Root
+                    setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root } as any);
                 }
-                // If branchTagsLength === 0, stay on + tag (Remove Root jump)
             }
         } else if (key === 'PreviousInput') {
             if (tIdx > 1) {
@@ -194,8 +215,7 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
             if (tIdx < branchTagsLength) {
                 setEditingTarget({ groupIdx: itemOriginalIdx!, termIdx: tIdx + 1, isActive: itemActive! });
             } else {
-                const nextTagInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx}"]`) as HTMLInputElement;
-                nextTagInput?.focus();
+                getAddTagInput(rootIdx, itemIdx)?.focus();
             }
         }
     };
@@ -279,14 +299,14 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
                                                     if (items[0].group.length > 1) {
                                                         setEditingTarget({ groupIdx: items[0].originalIdx, termIdx: 1, isActive: items[0].active });
                                                     } else {
-                                                        const firstBranchPlusInput = document.querySelector(`input[data-add-tag="${rootIdx}-0"]`) as HTMLInputElement;
+                                                        const firstBranchPlusInput = document.querySelector(`input[data-add-tag="hc-${tabId}-${rootIdx}-0"]`) as HTMLInputElement;
                                                         firstBranchPlusInput?.focus();
                                                     }
                                                 }
                                             } else if (e.key === 'ArrowDown') {
                                                 e.preventDefault();
                                                 if (items.length > 0) {
-                                                    const firstBranchPlusInput = document.querySelector(`input[data-add-tag="${rootIdx}-0"]`) as HTMLInputElement;
+                                                    const firstBranchPlusInput = document.querySelector(`input[data-add-tag="hc-${tabId}-${rootIdx}-0"]`) as HTMLInputElement;
                                                     firstBranchPlusInput?.focus();
                                                 }
                                             }
@@ -356,7 +376,7 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
                                                     <input
                                                         className="bg-transparent text-[11px] text-slate-500 placeholder-slate-600 focus:text-indigo-300 focus:placeholder-indigo-500/50 focus:outline-none min-w-[60px] py-1 px-2 border border-transparent focus:border-indigo-500/30 rounded-lg transition-all hover:bg-white/5"
                                                         placeholder="+ tag"
-                                                        data-add-tag={`${rootIdx}-${itemIdx}`}
+                                                        data-add-tag={`hc-${tabId}-${rootIdx}-${itemIdx}`}
                                                         onBlur={(e) => { e.currentTarget.value = ''; }}
                                                         onKeyDown={(e) => {
                                                             if (e.key === 'Enter' && e.currentTarget.value.trim()) {
@@ -390,7 +410,7 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
                                                                         if (nextBranchTags.length > 0) {
                                                                             setEditingTarget({ groupIdx: nextBranch.originalIdx, termIdx: 1, isActive: nextBranch.active });
                                                                         } else {
-                                                                            const nextInput = document.querySelector(`input[data-add-tag="${rootIdx}-${itemIdx + 1}"]`) as HTMLInputElement;
+                                                                            const nextInput = document.querySelector(`input[data-add-tag="hc-${tabId}-${rootIdx}-${itemIdx + 1}"]`) as HTMLInputElement;
                                                                             nextInput?.focus();
                                                                         }
                                                                     }

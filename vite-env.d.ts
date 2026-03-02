@@ -2,6 +2,8 @@
 
 interface ElectronAPI {
     readFile: (path: string) => Promise<string>;
+    getFileSize: (path: string) => Promise<number>;
+    readFileSegment: (args: { path: string, start: number, end: number }) => Promise<Uint8Array>;
     streamReadFile: (path: string, requestId: string, options?: { start?: number }) => Promise<{ status: string; requestId: string }>;
     cancelStream: (requestId: string) => Promise<{ status: string; requestId: string }>;
     onFileChunk: (callback: (data: { chunk: string; requestId: string }) => void) => () => void;

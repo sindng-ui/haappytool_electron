@@ -160,6 +160,42 @@ app.whenReady().then(async () => {
         }
     });
 
+    ipcMain.handle('getFileSize', async (event, filePath) => {
+        try {
+            const stat = await fs.stat(filePath);
+            return stat.size;
+        } catch (error) {
+            console.error('Error getting file size:', error);
+            throw error;
+        }
+    });
+
+
+
+    // IPC Handler for file segment reading (Binary/Buffer)
+    ipcMain.handle('readFileSegment', async (event, { path: filePath, start, end }) => {
+        let fileHandle = null;
+        try {
+            const length = end - start;
+            if (length <= 0) return Buffer.alloc(0);
+
+            fileHandle = await fs.open(filePath, 'r');
+            const buffer = Buffer.alloc(length);
+            const { bytesRead } = await fileHandle.read(buffer, 0, length, start);
+
+            // Return only the exact bytes read (in case of EOF)
+            return buffer.subarray(0, bytesRead);
+        } catch (error) {
+            console.error('Error reading file segment:', error);
+            throw error;
+        } finally {
+            if (fileHandle) {
+                await fileHandle.close().catch(console.error);
+            }
+        }
+    });
+
+
     // Toggle Fullscreen IPC
     ipcMain.handle('toggle-fullscreen', (event, flag) => {
         if (mainWindow) {

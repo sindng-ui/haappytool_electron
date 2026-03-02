@@ -7,6 +7,10 @@ export interface WorkerContext {
     lineOffsets: BigInt64Array | null;
     filteredIndices: Int32Array | null;
     isStreamMode: boolean;
+    isLocalFileMode?: boolean;
+    localFilePath?: string | null;
+    localFileSize?: number;
+    rpcCall?: (method: string, args: any) => Promise<any>;
     // ✅ 바이너리 저장소 멤버 추가
     logBuffer?: Uint8Array;
     lineOffsetsStream?: Uint32Array;
@@ -37,6 +41,7 @@ export const analyzePerformance = async (
     const results: string[] = [];
     const lineIndices: number[] = [];
     const isFile = !!currentFile && !!lineOffsets;
+    const isLocal = !!ctx.isLocalFileMode && !!lineOffsets;
     const isHappyCS = !!currentRule.happyCombosCaseSensitive;
     const decoder = new TextDecoder();
 
@@ -62,7 +67,7 @@ export const analyzePerformance = async (
             results.push(decoder.decode(logBuffer.subarray(start, start + len).slice()));
             lineIndices.push(idx);
         }
-    } else if (isFile) {
+    } else if (isFile || isLocal) {
         const reader = new FileReaderSync();
         const BATCH_SIZE = 5000;
 
@@ -74,19 +79,27 @@ export const analyzePerformance = async (
             for (let k = idx; k < maxBatch; k++) {
                 const i = filteredIndices[k];
                 const start = lineOffsets![i];
-                const end = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(currentFile!.size);
+                const fileSize = isLocal ? ctx.localFileSize! : currentFile!.size;
+                const end = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(fileSize);
                 if (minByte === -1n || start < minByte) minByte = start;
                 if (maxByte === -1n || end > maxByte) maxByte = end;
             }
 
             if (minByte !== -1n) {
-                const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
-                const buffer = reader.readAsArrayBuffer(fullBlob);
+                let buffer: ArrayBuffer;
+                if (isLocal) {
+                    const chunkBuffer = await ctx.rpcCall!('readFileSegment', { path: ctx.localFilePath, start: Number(minByte), end: Number(maxByte) });
+                    buffer = chunkBuffer.buffer;
+                } else {
+                    const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
+                    buffer = reader.readAsArrayBuffer(fullBlob);
+                }
 
                 for (let k = idx; k < maxBatch; k++) {
                     const i = filteredIndices[k];
                     const lineStart = lineOffsets![i];
-                    const lineEnd = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(currentFile!.size);
+                    const fileSize = isLocal ? ctx.localFileSize! : currentFile!.size;
+                    const lineEnd = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(fileSize);
 
                     const relStart = Number(lineStart - minByte);
                     const relEnd = Number(lineEnd - minByte);
@@ -158,7 +171,7 @@ export const getPerformanceHeatmap = async (
         return;
     }
 
-    const hasFileData = !isStreamMode && currentFile && lineOffsets;
+    const hasFileData = (!isStreamMode && currentFile && lineOffsets) || (ctx.isLocalFileMode && lineOffsets);
     const hasStreamData = isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream;
 
     if (!filteredIndices || (!hasFileData && !hasStreamData)) {
@@ -195,11 +208,12 @@ export const getPerformanceHeatmap = async (
                     const l2 = lineLengthsStream[idx2];
                     t1 = extractTimestamp(decoder.decode(logBuffer.subarray(s1, s1 + l1)));
                     t2 = extractTimestamp(decoder.decode(logBuffer.subarray(s2, s2 + l2)));
-                } else if (currentFile && lineOffsets) {
+                } else if ((currentFile || ctx.isLocalFileMode) && lineOffsets) {
                     const startByte1 = lineOffsets[idx1];
-                    const endByte1 = idx1 < lineOffsets.length - 1 ? lineOffsets[idx1 + 1] : BigInt(currentFile.size);
+                    const fileSize = ctx.isLocalFileMode ? ctx.localFileSize! : currentFile!.size;
+                    const endByte1 = idx1 < lineOffsets.length - 1 ? lineOffsets[idx1 + 1] : BigInt(fileSize);
                     const startByte2 = lineOffsets[idx2];
-                    const endByte2 = idx2 < lineOffsets.length - 1 ? lineOffsets[idx2 + 1] : BigInt(currentFile.size);
+                    const endByte2 = idx2 < lineOffsets.length - 1 ? lineOffsets[idx2 + 1] : BigInt(fileSize);
 
                     const minByte = startByte1;
                     const maxByte = endByte2;
@@ -209,9 +223,16 @@ export const getPerformanceHeatmap = async (
                         continue;
                     }
 
-                    const chunk = await currentFile.slice(Number(minByte), Number(maxByte)).arrayBuffer();
-                    const text1 = decoder.decode(chunk.slice(0, Number(endByte1 - minByte))).replace(/\r?\n$/, '');
-                    const text2 = decoder.decode(chunk.slice(Number(startByte2 - minByte))).replace(/\r?\n$/, '');
+                    let chunkBuf: ArrayBuffer;
+                    if (ctx.isLocalFileMode) {
+                        const chunkBuffer = await ctx.rpcCall!('readFileSegment', { path: ctx.localFilePath, start: Number(minByte), end: Number(maxByte) });
+                        chunkBuf = chunkBuffer.buffer;
+                    } else {
+                        chunkBuf = await currentFile!.slice(Number(minByte), Number(maxByte)).arrayBuffer();
+                    }
+
+                    const text1 = decoder.decode(chunkBuf.slice(0, Number(endByte1 - minByte))).replace(/\r?\n$/, '');
+                    const text2 = decoder.decode(chunkBuf.slice(Number(startByte2 - minByte))).replace(/\r?\n$/, '');
 
                     t1 = extractTimestamp(text1);
                     t2 = extractTimestamp(text2);
@@ -238,7 +259,7 @@ export const analyzeSpamLogs = async (
     const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = ctx;
 
     const indicesSnapshot = filteredIndices ? new Int32Array(filteredIndices) : null;
-    const isFile = !!currentFile && !!lineOffsets;
+    const isFile = (!!currentFile || !!ctx.isLocalFileMode) && !!lineOffsets;
 
     if (!indicesSnapshot || (!isFile && !isStreamMode)) {
         respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results: [] }, requestId } as any);
@@ -296,7 +317,7 @@ export const analyzeSpamLogs = async (
                 respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (i / totalLines) * 100 } });
             }
         }
-    } else if (isFile && currentFile && lineOffsets) {
+    } else if (isFile) {
         const reader = new FileReaderSync();
         const MAX_SPAM_CHUNK_BYTES = 10 * 1024 * 1024;
 
@@ -309,13 +330,14 @@ export const analyzeSpamLogs = async (
             let j = i;
             while (j < totalLines) {
                 const idx = indicesSnapshot[j];
-                const endByte = idx < lineOffsets.length - 1 ? lineOffsets[idx + 1] : BigInt(currentFile.size);
+                const fileSize = ctx.isLocalFileMode ? ctx.localFileSize! : currentFile!.size;
+                const endByte = idx < lineOffsets!.length - 1 ? lineOffsets![idx + 1] : BigInt(fileSize);
                 if (maxByte === -1n || endByte > maxByte) maxByte = endByte;
 
                 if (j - i >= 50000) break;
                 if (j + 1 < totalLines) {
                     const nextIdx = indicesSnapshot[j + 1];
-                    const nextEndByte = nextIdx < lineOffsets.length - 1 ? lineOffsets[nextIdx + 1] : BigInt(currentFile.size);
+                    const nextEndByte = nextIdx < lineOffsets!.length - 1 ? lineOffsets![nextIdx + 1] : BigInt(fileSize);
                     if (nextEndByte - minByte > BigInt(MAX_SPAM_CHUNK_BYTES)) break;
                 }
                 j++;
@@ -324,14 +346,20 @@ export const analyzeSpamLogs = async (
             const chunkEndIdx = Math.min(j + 1, totalLines);
             if (maxByte > minByte) {
                 try {
-                    const chunkBlob = currentFile.slice(Number(minByte), Number(maxByte));
-                    const buffer = reader.readAsArrayBuffer(chunkBlob);
-                    const uint8View = new Uint8Array(buffer);
+                    let uint8View: Uint8Array;
+                    if (ctx.isLocalFileMode) {
+                        uint8View = await ctx.rpcCall!('readFileSegment', { path: ctx.localFilePath, start: Number(minByte), end: Number(maxByte) });
+                    } else {
+                        const chunkBlob = currentFile!.slice(Number(minByte), Number(maxByte));
+                        const buffer = reader.readAsArrayBuffer(chunkBlob);
+                        uint8View = new Uint8Array(buffer);
+                    }
 
                     for (let k = chunkStartIdx; k < chunkEndIdx; k++) {
                         const originalIdx = indicesSnapshot[k];
-                        const lineStart = lineOffsets[originalIdx];
-                        const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
+                        const lineStart = lineOffsets![originalIdx];
+                        const fileSize = ctx.isLocalFileMode ? ctx.localFileSize! : currentFile!.size;
+                        const lineEnd = originalIdx < lineOffsets!.length - 1 ? lineOffsets![originalIdx + 1] : BigInt(fileSize);
 
                         if (lineStart >= lineEnd) continue;
 
@@ -368,7 +396,7 @@ export const analyzeTransaction = async (
     const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = ctx;
     const results: { lineNum: number, content: string, visualIndex: number }[] = [];
     const val = identity.value;
-    const isFile = !!currentFile && !!lineOffsets;
+    const isFile = (!!currentFile || !!ctx.isLocalFileMode) && !!lineOffsets;
     const decoder = new TextDecoder();
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
@@ -425,21 +453,29 @@ export const analyzeTransaction = async (
             for (let k = idx; k < maxBatch; k++) {
                 const i = filteredIndices[k];
                 const start = lineOffsets![i];
-                const end = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(currentFile!.size);
+                const fileSize = ctx.isLocalFileMode ? ctx.localFileSize! : currentFile!.size;
+                const end = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(fileSize);
                 if (minByte === -1n || start < minByte) minByte = start;
                 if (maxByte === -1n || end > maxByte) maxByte = end;
             }
 
             if (minByte !== -1n) {
-                const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
-                const buffer = reader.readAsArrayBuffer(fullBlob);
+                let buffer: ArrayBuffer;
+                if (ctx.isLocalFileMode) {
+                    const chunkBuffer = await ctx.rpcCall!('readFileSegment', { path: ctx.localFilePath, start: Number(minByte), end: Number(maxByte) });
+                    buffer = chunkBuffer.buffer;
+                } else {
+                    const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
+                    buffer = reader.readAsArrayBuffer(fullBlob);
+                }
 
                 for (let k = idx; k < maxBatch; k++) {
                     if (results.length >= MAX_RESULTS) break;
 
                     const i = filteredIndices[k];
                     const lineStart = lineOffsets![i];
-                    const lineEnd = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(currentFile!.size);
+                    const fileSize = ctx.isLocalFileMode ? ctx.localFileSize! : currentFile!.size;
+                    const lineEnd = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(fileSize);
 
                     const relStart = Number(lineStart - minByte);
                     const relEnd = Number(lineEnd - minByte);

@@ -23,7 +23,8 @@ const ConfigurationPanel = React.memo(() => {
         sendTizenCommand,
         logViewPreferences, updateLogViewPreferences,
         isLogging, setIsLogging, connectionMode,
-        hasEverConnected, setIsTizenQuickConnect, setIsTizenModalOpen
+        hasEverConnected, setIsTizenQuickConnect, setIsTizenModalOpen,
+        tabId
     } = useLogContext();
 
     const onToggle = React.useCallback(() => setIsPanelOpen(prev => !prev), [setIsPanelOpen]);
@@ -144,6 +145,7 @@ const ConfigurationPanel = React.memo(() => {
                             onToggleRootCollapse={onToggleRootCollapse}
                             handleToggleRoot={handleToggleRoot}
                             happyCombosCaseSensitive={currentConfig.happyCombosCaseSensitive || false}
+                            tabId={tabId}
                         />
                     </div>
 

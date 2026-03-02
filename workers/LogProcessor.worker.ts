@@ -81,6 +81,9 @@ let lineOffsets: BigInt64Array | null = null; // Map LineNum -> ByteOffset
 // Stream Mode (Binary Optimized with SharedArrayBuffer)
 let isStreamMode = false;
 let isLiveStream = false;
+let isLocalFileMode = false;
+let localFilePath: string | null = null;
+let localFileSize: number = 0;
 
 // ✅ 형님! 이제 SharedArrayBuffer를 사용해 UI와 데이터를 공유합니다! 🐧💎🚀
 const LOG_SAB_SIZE = 100 * 1024 * 1024; // 100MB Shared Log Store
@@ -146,6 +149,18 @@ const getVisualBookmarks = (): number[] => BookmarkManager.getVisualBookmarks(fi
 // (imports moved to top)
 
 
+
+
+// --- RPC Helper ---
+let _rpcCallIndex = 0;
+const rpcWaiters = new Map<string, { resolve: (val: any) => void; reject: (err: any) => void }>();
+const rpcCall = (method: string, args: any): Promise<any> => {
+    return new Promise((resolve, reject) => {
+        const requestId = `rpc-${Date.now()}-${_rpcCallIndex++}`;
+        rpcWaiters.set(requestId, { resolve, reject });
+        postMessage({ type: 'RPC_REQUEST', requestId, payload: { method, args } } as any);
+    });
+};
 
 
 // --- Handler: File Indexing ---
@@ -221,6 +236,76 @@ const buildFileIndex = async (file: File) => {
         filteredIndices = (filteredIndicesBuffer as any).subarray(0, lineCount);
     } else {
         // Fallback for extremely large files
+        const all = new Int32Array(lineCount);
+        for (let i = 0; i < lineCount; i++) all[i] = i;
+        filteredIndices = all as any;
+    }
+
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 100 } });
+    respond({ type: 'INDEX_COMPLETE', payload: { totalLines: lineCount } });
+};
+
+// --- Handler: Local File Indexing (RPC 2GB+ OOM Free) ---
+const buildLocalFileIndex = async (path: string, size: number) => {
+    isStreamMode = false;
+    isLiveStream = false;
+    isLocalFileMode = true;
+    localFilePath = path;
+    localFileSize = size;
+    currentFile = null;
+    BookmarkManager.clearAll();
+    isCalculatingHeatmap = false;
+    currentFilterRequestId++;
+
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 0 } });
+
+    // Memory efficient indexing
+    let capacity = 5 * 1024 * 1024; // Start with 5M lines
+    let tempOffsets = new BigInt64Array(capacity);
+    tempOffsets[0] = 0n;
+    let lineCount = 1;
+
+    let offset = 0n;
+    let processedBytes = 0;
+    const chunkSize = 5 * 1024 * 1024; // 5MB chunk
+
+    try {
+        while (processedBytes < size) {
+            const end = Math.min(processedBytes + chunkSize, size);
+            const chunk: Uint8Array = await rpcCall('readFileSegment', { path, start: processedBytes, end });
+
+            let pos = -1;
+            while ((pos = chunk.indexOf(10, pos + 1)) !== -1) {
+                if (lineCount >= capacity) {
+                    const newCapacity = capacity * 2;
+                    const newArr = new BigInt64Array(newCapacity);
+                    newArr.set(tempOffsets);
+                    tempOffsets = newArr;
+                    capacity = newCapacity;
+                }
+                tempOffsets[lineCount++] = offset + BigInt(pos) + 1n;
+            }
+
+            offset += BigInt(chunk.length);
+            processedBytes += chunk.length;
+
+            if (processedBytes % (100 * 1024 * 1024) === 0 || processedBytes >= size) {
+                const progress = (processedBytes / size) * 100;
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress } });
+            }
+        }
+    } catch (e) {
+        console.error('Local File Indexing failed', e);
+        respond({ type: 'ERROR', payload: 'Failed to index local file via RPC' });
+        return;
+    }
+
+    lineOffsets = tempOffsets.subarray(0, lineCount);
+
+    if (lineCount <= filteredIndicesBuffer.length) {
+        for (let i = 0; i < lineCount; i++) filteredIndicesBuffer[i] = i;
+        filteredIndices = (filteredIndicesBuffer as any).subarray(0, lineCount);
+    } else {
         const all = new Int32Array(lineCount);
         for (let i = 0; i < lineCount; i++) all[i] = i;
         filteredIndices = all as any;
@@ -472,6 +557,24 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                         matchesList.push(startLine + j);
                     }
                 }
+            } else if (isLocalFileMode) {
+                const startByte = Number(lineOffsets![startLine]);
+                const fileSize = localFileSize;
+                const endByte = Number(endLine < lineOffsets!.length ? lineOffsets![endLine] : fileSize);
+
+                rpcCall('readFileSegment', { path: localFilePath, start: startByte, end: endByte }).then(chunkBuffer => {
+                    const text = decoder.decode(chunkBuffer);
+                    const lines = text.split('\n');
+                    if (text.endsWith('\n')) lines.pop(); // Remove tailing empty line
+                    const mList: number[] = [];
+                    for (let j = 0; j < lines.length; j++) {
+                        if (checkIsMatch(lines[j], normalizedRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+                            mList.push(startLine + j);
+                        }
+                    }
+                    onChunkDone(i, new Int32Array(mList), filterRequestId);
+                });
+                continue; // Async
             } else if (currentFile) {
                 const chunkBlob = currentFile.slice(Number(lineOffsets![startLine]), Number(endLine < lineOffsets!.length ? lineOffsets![endLine] : currentFile.size));
                 const reader = new FileReaderSync();
@@ -517,9 +620,37 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                     requestId: filterRequestId
                 }
             });
+        } else if (isLocalFileMode) {
+            const startByte = Number(lineOffsets![startLine]);
+            const fileSize = localFileSize;
+            const endByte = Number(endLine < lineOffsets!.length ? lineOffsets![endLine] : fileSize);
+
+            // fetch chunk
+            rpcCall('readFileSegment', { path: localFilePath, start: startByte, end: endByte }).then((chunkBuffer: Uint8Array) => {
+                const messageHandler = (e: MessageEvent) => {
+                    if (e.data.type === 'CHUNK_COMPLETE' && e.data.payload.chunkId === i) {
+                        if (e.data.payload.requestId === filterRequestId) {
+                            sw.removeEventListener('message', messageHandler);
+                            onChunkDone(i, e.data.payload.matches, e.data.payload.requestId);
+                        }
+                    }
+                };
+                sw.addEventListener('message', messageHandler);
+                sw.postMessage({
+                    type: 'FILTER_CHUNK',
+                    payload: {
+                        chunkId: i,
+                        buffer: chunkBuffer,
+                        offset: startLine,
+                        rule: currentRule,
+                        quickFilter: currentQuickFilter,
+                        requestId: filterRequestId
+                    }
+                }, [chunkBuffer.buffer]); // Zero copy transfer! 🚀
+            });
         } else if (currentFile) {
             // File 모드는 기존 로직과 동일
-            const chunkBlob = currentFile.slice(Number(lineOffsets[startLine]), Number(endLine < lineOffsets.length ? lineOffsets[endLine] : currentFile.size));
+            const chunkBlob = currentFile.slice(Number(lineOffsets![startLine]), Number(endLine < lineOffsets!.length ? lineOffsets![endLine] : currentFile.size));
             const messageHandler = (e: MessageEvent) => {
                 if (e.data.type === 'CHUNK_COMPLETE' && e.data.payload.chunkId === i) {
                     if (e.data.payload.requestId === filterRequestId) {
@@ -549,6 +680,10 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
 const getDataReaderContext = (): DataReader.DataReaderContext => ({
     filteredIndices,
     isStreamMode,
+    isLocalFileMode,
+    localFilePath,
+    localFileSize,
+    rpcCall,
     logBuffer,
     lineOffsetsStream,
     lineLengthsStream,
@@ -578,9 +713,24 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
     if (type !== 'PROCESS_CHUNK') console.log(`[Worker] Received message: ${type}`);
 
     switch (type) {
+        case 'RPC_RESPONSE':
+            if (requestId && rpcWaiters.has(requestId)) {
+                rpcWaiters.get(requestId)!.resolve(payload);
+                rpcWaiters.delete(requestId);
+            }
+            break;
+        case 'RPC_ERROR':
+            if (requestId && rpcWaiters.has(requestId)) {
+                rpcWaiters.get(requestId)!.reject(payload);
+                rpcWaiters.delete(requestId);
+            }
+            break;
         case 'INIT_FILE':
             // 핫픽스: payload 자체가 File 객체이므로 바로 전달합니다. 🐧🛠️
             await buildFileIndex(payload);
+            break;
+        case 'INIT_LOCAL_FILE_STREAM':
+            await buildLocalFileIndex(payload.path, payload.size);
             break;
         case 'INIT_STREAM':
             initStream(payload);
