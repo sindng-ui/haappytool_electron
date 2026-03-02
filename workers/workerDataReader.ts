@@ -71,16 +71,17 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
                 let batchMaxByte = -1n;
 
                 let j = i;
+                const batchFileSize = context.isLocalFileMode ? context.localFileSize! : currentFile!.size;
                 while (j < maxFile) {
                     const idx = filteredIndices[j];
                     const startByte = lineOffsets[idx];
-                    const endByte = idx < lineOffsets.length - 1 ? lineOffsets[idx + 1] : BigInt(currentFile.size);
+                    const endByte = idx < lineOffsets.length - 1 ? lineOffsets[idx + 1] : BigInt(batchFileSize);
 
                     if (batchMaxByte === -1n || endByte > batchMaxByte) batchMaxByte = endByte;
 
                     if (j + 1 < maxFile) {
                         const nextIdx = filteredIndices[j + 1];
-                        const nextEndByte = nextIdx < lineOffsets.length - 1 ? lineOffsets[nextIdx + 1] : BigInt(currentFile.size);
+                        const nextEndByte = nextIdx < lineOffsets.length - 1 ? lineOffsets[nextIdx + 1] : BigInt(batchFileSize);
                         if (nextEndByte - batchMinByte > BigInt(MAX_BATCH_BYTES)) break;
                     }
                     j++;

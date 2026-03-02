@@ -86,13 +86,14 @@ export const analyzePerformance = async (
             }
 
             if (minByte !== -1n) {
-                let buffer: ArrayBuffer;
+                let uint8View: Uint8Array;
                 if (isLocal) {
                     const chunkBuffer = await ctx.rpcCall!('readFileSegment', { path: ctx.localFilePath, start: Number(minByte), end: Number(maxByte) });
-                    buffer = chunkBuffer.buffer;
+                    uint8View = chunkBuffer;
                 } else {
                     const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
-                    buffer = reader.readAsArrayBuffer(fullBlob);
+                    const arrayBuf = reader.readAsArrayBuffer(fullBlob);
+                    uint8View = new Uint8Array(arrayBuf);
                 }
 
                 for (let k = idx; k < maxBatch; k++) {
@@ -103,8 +104,7 @@ export const analyzePerformance = async (
 
                     const relStart = Number(lineStart - minByte);
                     const relEnd = Number(lineEnd - minByte);
-                    const lineBuffer = buffer.slice(relStart, relEnd);
-                    const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
+                    const text = decoder.decode(uint8View.subarray(relStart, relEnd)).replace(/\r?\n$/, '');
 
                     results.push(text);
                     lineIndices.push(k);
@@ -223,16 +223,20 @@ export const getPerformanceHeatmap = async (
                         continue;
                     }
 
-                    let chunkBuf: ArrayBuffer;
+                    let uint8View: Uint8Array;
                     if (ctx.isLocalFileMode) {
-                        const chunkBuffer = await ctx.rpcCall!('readFileSegment', { path: ctx.localFilePath, start: Number(minByte), end: Number(maxByte) });
-                        chunkBuf = chunkBuffer.buffer;
+                        uint8View = await ctx.rpcCall!('readFileSegment', { path: ctx.localFilePath, start: Number(minByte), end: Number(maxByte) });
                     } else {
-                        chunkBuf = await currentFile!.slice(Number(minByte), Number(maxByte)).arrayBuffer();
+                        const chunkBlob = currentFile!.slice(Number(minByte), Number(maxByte));
+                        const buffer = await chunkBlob.arrayBuffer();
+                        uint8View = new Uint8Array(buffer);
                     }
 
-                    const text1 = decoder.decode(chunkBuf.slice(0, Number(endByte1 - minByte))).replace(/\r?\n$/, '');
-                    const text2 = decoder.decode(chunkBuf.slice(Number(startByte2 - minByte))).replace(/\r?\n$/, '');
+                    const relEnd1 = Number(endByte1 - minByte);
+                    const relStart2 = Number(startByte2 - minByte);
+
+                    const text1 = decoder.decode(uint8View.subarray(0, relEnd1)).replace(/\r?\n$/, '');
+                    const text2 = decoder.decode(uint8View.subarray(relStart2)).replace(/\r?\n$/, '');
 
                     t1 = extractTimestamp(text1);
                     t2 = extractTimestamp(text2);

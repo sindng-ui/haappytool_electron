@@ -480,13 +480,15 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             const y = (i * rowHeight) - currentScrollTop;
             if (y + rowHeight < 0 || y > height) continue;
 
+            const globalIdx = i + (absoluteOffset || 0);
+
             let bgColor: string | null = null;
-            if (selectedIndices?.has(i)) bgColor = selectionColor;
-            else if (activeLineIndex === i) bgColor = activeColor;
+            if (selectedIndices?.has(globalIdx)) bgColor = selectionColor;
+            else if (activeLineIndex === globalIdx) bgColor = activeColor;
             else if (hoveredIndex === i) bgColor = 'rgba(255, 255, 255, 0.04)'; // ✅ NEW: Subtle Hover Effect
-            // else if (bookmarks.has(i)) bgColor = bookmarkColor; // 👈 Removed: No more full-line bookmark background
+            // else if (bookmarks.has(globalIdx)) bgColor = bookmarkColor; // 👈 Removed: No more full-line bookmark background
             else {
-                const rangeMatch = compiledLineHighlightRanges.find(r => i >= r.start && i <= r.end);
+                const rangeMatch = compiledLineHighlightRanges.find(r => globalIdx >= r.start && globalIdx <= r.end);
                 if (rangeMatch) bgColor = rangeMatch.canvasColor;
             }
 
@@ -558,8 +560,10 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             if (y + rowHeight < 0 || y > height) continue;
             const centerY = y + (rowHeight / 2);
 
+            const globalIdx = i + (absoluteOffset || 0);
+
             // --- 🌟 Restoration: Bookmark Highlight in Gutter ---
-            if (bookmarks.has(i)) {
+            if (bookmarks.has(globalIdx)) {
                 // Draw Star - smaller (11px) and brighter
                 ctx.save();
                 ctx.shadowBlur = 3;
@@ -576,10 +580,10 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 ctx.font = gutterFont;
                 // #Index - 🎯 형님, 인덱스는 조금 더 어둡게!
                 ctx.fillStyle = '#475569'; // Slate-500
-                ctx.fillText(`#${i + 1}`, GUTTER_STAR_WIDTH, centerY);
+                ctx.fillText(`#${globalIdx + 1}`, GUTTER_STAR_WIDTH, centerY);
 
                 // Line Number - Yellow only if bookmarked, else neutral-400
-                ctx.fillStyle = bookmarks.has(i) ? '#fef08a' : '#94a3b8'; // neutral-400
+                ctx.fillStyle = bookmarks.has(globalIdx) ? '#fef08a' : '#94a3b8'; // neutral-400
                 ctx.fillText(String(lineData.lineNum), GUTTER_STAR_WIDTH + GUTTER_INDEX_WIDTH, centerY);
             }
         }

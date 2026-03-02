@@ -95,7 +95,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         isArchiveSaveEnabled = false, lineHighlightRanges, performanceHeatmap, onAnalyzePerformance,
         perfAnalysisResult, isAnalyzingPerformance = false, isActive, onJumpToLine, onJumpToRange,
         onViewRawRange, onCopyRawRange, dashboardHeight: propDashboardHeight, onDashboardHeightChange,
-        clearCacheTick, sharedBuffers, onAnalyzeSpam
+        clearCacheTick, sharedBuffers, onAnalyzeSpam, onHighlightJump
     } = props;
 
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
@@ -167,27 +167,35 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
             callbacks.scrollToIndex(index, options);
         },
         jumpToNextBookmark: () => {
-            const viewportTopIdx = Math.floor(scrollHook.scrollTopRef.current / rowHeight);
+            const viewportTopIdx = Math.floor(scrollHook.scrollTopRef.current / rowHeight) + (absoluteOffset || 0);
             const currentIdx = activeLineIndex >= 0 ? activeLineIndex : viewportTopIdx;
             const sorted = (Array.from(bookmarks)).sort((a, b) => a - b);
             const next = sorted.find((b) => b > currentIdx);
             const target = next !== undefined ? next : (sorted.length > 0 ? sorted[0] : -1);
 
             if (target !== -1) {
-                callbacks.scrollToIndex(target, { align: 'center' });
-                if (onLineClick) onLineClick(target);
+                if (target >= (absoluteOffset || 0) && target < (absoluteOffset || 0) + totalMatches) {
+                    callbacks.scrollToIndex(target - (absoluteOffset || 0), { align: 'center' });
+                    if (onLineClick) onLineClick(target);
+                } else if (onJumpToLine) {
+                    onJumpToLine(target);
+                }
             }
         },
         jumpToPrevBookmark: () => {
-            const viewportTopIdx = Math.floor(scrollHook.scrollTopRef.current / rowHeight);
+            const viewportTopIdx = Math.floor(scrollHook.scrollTopRef.current / rowHeight) + (absoluteOffset || 0);
             const currentIdx = activeLineIndex >= 0 ? activeLineIndex : viewportTopIdx;
             const sorted = (Array.from(bookmarks)).sort((a, b) => b - a);
             const prev = sorted.find((b) => b < currentIdx);
             const target = prev !== undefined ? prev : (sorted.length > 0 ? sorted[0] : -1);
 
             if (target !== -1) {
-                callbacks.scrollToIndex(target, { align: 'center' });
-                if (onLineClick) onLineClick(target);
+                if (target >= (absoluteOffset || 0) && target < (absoluteOffset || 0) + totalMatches) {
+                    callbacks.scrollToIndex(target - (absoluteOffset || 0), { align: 'center' });
+                    if (onLineClick) onLineClick(target);
+                } else if (onJumpToLine) {
+                    onJumpToLine(target);
+                }
             }
         },
         isAtTop: () => (hyperRef.current?.getScrollTop() || 0) === 0,

@@ -263,6 +263,27 @@ export const useLogExtractorLogic = ({
         setLeftWorkerReady, setRightWorkerReady
     });
 
+    // --- Execute Pending Jumps after Render (Page/Segment Switch) ---
+    useEffect(() => {
+        if (pendingJumpLineLeft.current && leftWorkerReady && leftCurrentSegmentLines > 0) {
+            const { index, align } = pendingJumpLineLeft.current;
+            pendingJumpLineLeft.current = null;
+            setTimeout(() => {
+                leftViewerRef.current?.scrollToIndex(index, { align });
+            }, 50);
+        }
+    }, [leftSegmentIndex, leftWorkerReady, leftCurrentSegmentLines, leftViewerRef]);
+
+    useEffect(() => {
+        // Dual view일 때만 right logic 발동
+        if (pendingJumpLineRight.current && rightWorkerReady && rightCurrentSegmentLines > 0 && isDualView) {
+            const { index, align } = pendingJumpLineRight.current;
+            pendingJumpLineRight.current = null;
+            setTimeout(() => {
+                rightViewerRef.current?.scrollToIndex(index, { align });
+            }, 50);
+        }
+    }, [rightSegmentIndex, rightWorkerReady, rightCurrentSegmentLines, rightViewerRef, isDualView]);
 
     const { handleWorkerMessage } = useLogWorkerEvents();
 
