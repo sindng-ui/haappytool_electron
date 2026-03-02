@@ -579,7 +579,8 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
 
     switch (type) {
         case 'INIT_FILE':
-            await buildFileIndex(payload.file);
+            // 핫픽스: payload 자체가 File 객체이므로 바로 전달합니다. 🐧🛠️
+            await buildFileIndex(payload);
             break;
         case 'INIT_STREAM':
             initStream(payload);
@@ -640,7 +641,12 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             await DataReader.getFullText(getDataReaderContext(), requestId || '');
             break;
         case 'ANALYZE_TRANSACTION':
-            AnalysisHandlers.analyzeTransaction(getAnalysisContext(), payload.identity, requestId || '');
+            try {
+                await AnalysisHandlers.analyzeTransaction(getAnalysisContext(), payload.identity, requestId || '');
+            } catch (e) {
+                console.error('[Worker] ANALYZE_TRANSACTION failed', e);
+                respond({ type: 'ERROR', payload: { error: 'Transaction analysis failed' }, requestId });
+            }
             break;
         case 'GET_PERFORMANCE_HEATMAP':
             AnalysisHandlers.getPerformanceHeatmap(getAnalysisContext(), payload.points || 500, requestId || '', {
@@ -649,10 +655,20 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             });
             break;
         case 'PERF_ANALYSIS':
-            AnalysisHandlers.analyzePerformance(getAnalysisContext(), payload, requestId || '');
+            try {
+                await AnalysisHandlers.analyzePerformance(getAnalysisContext(), payload, requestId || '');
+            } catch (e) {
+                console.error('[Worker] PERF_ANALYSIS failed', e);
+                respond({ type: 'PERF_ANALYSIS_RESULT', payload: null, requestId });
+            }
             break;
         case 'ANALYZE_SPAM':
-            AnalysisHandlers.analyzeSpamLogs(getAnalysisContext(), requestId || '');
+            try {
+                await AnalysisHandlers.analyzeSpamLogs(getAnalysisContext(), requestId || '');
+            } catch (e) {
+                console.error('[Worker] ANALYZE_SPAM failed', e);
+                respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results: [] }, requestId } as any);
+            }
             break;
         case 'FIND_VISUAL_INDEX':
             if (filteredIndices) {

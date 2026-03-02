@@ -58,7 +58,8 @@ export const analyzePerformance = async (
             const i = filteredIndices[idx];
             const start = lineOffsetsStream[i];
             const len = lineLengthsStream[i];
-            results.push(decoder.decode(logBuffer.subarray(start, start + len)));
+            // ✅ SharedArrayBuffer는 직접 디코딩이 안되므로 .slice()로 복사본 생성 🐧💎
+            results.push(decoder.decode(logBuffer.subarray(start, start + len).slice()));
             lineIndices.push(idx);
         }
     } else if (isFile) {
@@ -137,6 +138,7 @@ export const analyzePerformance = async (
     respond({ type: 'PERF_ANALYSIS_RESULT', payload: analysisResult, requestId });
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
 
+    // Clean up to free memory
     results.length = 0;
     lineIndices.length = 0;
     segments.length = 0;
@@ -286,7 +288,8 @@ export const analyzeSpamLogs = async (
             const originalIdx = indicesSnapshot[i];
             const start = lineOffsetsStream[originalIdx];
             const len = lineLengthsStream[originalIdx];
-            const line = decoder.decode(logBuffer.subarray(start, start + len));
+            // ✅ SharedArrayBuffer 디코딩 제약 우회 (.slice()) 🐧🚀
+            const line = decoder.decode(logBuffer.subarray(start, start + len).slice());
             processSpamLine(line, originalIdx + 1, originalIdx);
 
             if (i % 20000 === 0) {
