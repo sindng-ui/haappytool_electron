@@ -191,7 +191,9 @@ const buildFileIndex = async (file: File) => {
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 100 } });
     respond({ type: 'INDEX_COMPLETE', payload: { totalLines: lineCount } });
-    respond({ type: 'FILTER_COMPLETE', payload: { matchCount: all.length, totalLines: lineCount, visualBookmarks: getVisualBookmarks() } });
+    // ⚠️ FILTER_COMPLETE를 여기서 보내지 않음!
+    // INDEX_COMPLETE를 받은 프론트에서 즉시 FILTER_LOGS를 보내고,
+    // applyFilter() 완료 시 단 한번만 FILTER_COMPLETE가 전송됨.
 };
 
 // --- Handler: Stream Init ---
@@ -274,18 +276,21 @@ const processChunk = (chunk: string) => {
     // ✅ Performance: Invalidate bookmark cache when filtered indices change
     invalidateBookmarkCache();
 
-    // ✅ Performance: Only send update if enough time has passed (throttle)
-    const now = Date.now();
-    if (now - lastFilterNotifyTime >= MIN_NOTIFY_INTERVAL_MS) {
-        respond({
-            type: 'FILTER_COMPLETE',
-            payload: {
-                matchCount: filteredIndices.length,
-                totalLines: streamLines.length,
-                visualBookmarks: getVisualBookmarks()
-            }
-        });
-        lastFilterNotifyTime = now;
+    // ✅ isLiveStream이 true인 경우(Tizen 실시간 스트림)에만 중간 FILTER_COMPLETE 전송
+    // isLive: false인 파일 읽기 스트림은 STREAM_DONE에서 단 한번만 보냄 → 깜박임 방지
+    if (isLiveStream) {
+        const now = Date.now();
+        if (now - lastFilterNotifyTime >= MIN_NOTIFY_INTERVAL_MS) {
+            respond({
+                type: 'FILTER_COMPLETE',
+                payload: {
+                    matchCount: filteredIndices.length,
+                    totalLines: streamLines.length,
+                    visualBookmarks: getVisualBookmarks()
+                }
+            });
+            lastFilterNotifyTime = now;
+        }
     }
 };
 
@@ -496,6 +501,21 @@ ctx.onmessage = (evt: MessageEvent<LogWorkerMessage>) => {
             break;
         case 'PROCESS_CHUNK':
             processChunk(payload);
+            break;
+        case 'STREAM_DONE':
+            // 파일 읽기 스트림 완료: 마지막 버퍼 처리 후 최종 결과 한번만 전송
+            if (streamBuffer.length > 0) {
+                processChunk(''); // flush remaining buffer
+            }
+            respond({
+                type: 'FILTER_COMPLETE',
+                payload: {
+                    matchCount: filteredIndices?.length ?? 0,
+                    totalLines: streamLines.length,
+                    visualBookmarks: getVisualBookmarks()
+                }
+            });
+            respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
             break;
         case 'FILTER_LOGS':
             applyFilter(payload); // Payload now entails LogRule + quickFilter

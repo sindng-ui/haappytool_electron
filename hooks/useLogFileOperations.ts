@@ -68,7 +68,8 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
         });
         const unsubComplete = window.electronAPI.onFileStreamComplete((data: any) => {
             if (isComponentStale.current || data?.requestId !== activeStreamRequestId.current) return;
-            // Any completion logic if needed
+            // 스트림 완료 신호를 워커에게 전달하여 최종 필터링 결과를 단 한번만 갱신하도록 함
+            leftWorkerRef.current?.postMessage({ type: 'STREAM_DONE' });
         });
 
         return () => {

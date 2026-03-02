@@ -21,6 +21,8 @@ export function useLogWorkerEvents() {
             setSelectedIndices?: (s: Set<number>) => void;
             /** Index 완료 후 바로 FILTER_LOGS를 보내기 위한 콜백 */
             onIndexComplete?: () => void;
+            /** 스트림(파일 읽기 전용) 완료 후 바로 FILTER_LOGS를 보내기 위한 콜백 */
+            onStreamDone?: () => void;
             handleAnalysisMessage: (paneId: 'left' | 'right', type: string, payload: any) => void;
             workerRef: React.MutableRefObject<Worker | null>;
             pendingRequests: React.MutableRefObject<Map<string, (data: any) => void>>;
@@ -38,6 +40,7 @@ export function useLogWorkerEvents() {
             setActiveLineIndex,
             setSelectedIndices,
             onIndexComplete,
+            onStreamDone,
             handleAnalysisMessage,
             workerRef,
             pendingRequests,
@@ -63,6 +66,11 @@ export function useLogWorkerEvents() {
             case 'STATUS_UPDATE':
                 if (payload.status === 'indexing') setIndexingProgress(payload.progress);
                 if (payload.status === 'ready') setWorkerReady(true);
+                break;
+
+            case 'STREAM_DONE':
+                // 스트림 로딩 완료 시점에 필터 적용 트리거
+                onStreamDone?.();
                 break;
 
             case 'INDEX_COMPLETE':
