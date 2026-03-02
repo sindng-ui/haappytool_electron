@@ -47,6 +47,189 @@ interface SaveArchiveDialogProps {
  * 
  * 선택한 로그를 아카이브에 저장하는 모달 다이얼로그
  */
+/**
+ * 개별 태그 칩 (메모이제이션)
+ */
+const TagChip = React.memo(({ tag, onRemove, disabled }: { tag: string, onRemove: (tag: string) => void, disabled: boolean }) => (
+    <div className="tag-chip">
+        <span>{tag}</span>
+        <button
+            onClick={() => onRemove(tag)}
+            disabled={disabled}
+            aria-label={`Remove ${tag}`}
+        >
+            <X size={14} />
+        </button>
+    </div>
+));
+
+/**
+ * 태그 입력 및 추천 섹션 (메모이제이션)
+ */
+const TagSection = React.memo(({
+    tags,
+    tagInput,
+    setTagInput,
+    onAddTag,
+    onRemoveTag,
+    suggestedTags,
+    disabled,
+    inputRef
+}: {
+    tags: string[],
+    tagInput: string,
+    setTagInput: (val: string) => void,
+    onAddTag: (tag: string) => void,
+    onRemoveTag: (tag: string) => void,
+    suggestedTags: string[],
+    disabled: boolean,
+    inputRef: React.RefObject<HTMLInputElement>
+}) => {
+    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            onAddTag(tagInput);
+        } else if (e.key === 'Backspace' && tagInput === '' && tags.length > 0) {
+            onRemoveTag(tags[tags.length - 1]);
+        }
+    };
+
+    return (
+        <div className="form-group">
+            <label htmlFor="archive-tags">
+                <TagIcon size={16} />
+                <span>Tags</span>
+            </label>
+            <div className="tag-container">
+                {tags.map(tag => (
+                    <TagChip key={tag} tag={tag} onRemove={onRemoveTag} disabled={disabled} />
+                ))}
+                <input
+                    id="archive-tags"
+                    ref={inputRef}
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Add tags..."
+                    disabled={disabled}
+                    className="tag-input"
+                />
+            </div>
+            {suggestedTags.length > 0 && (
+                <div className="suggested-tags">
+                    <span className="suggested-tags-label">Suggested:</span>
+                    {suggestedTags.map(tag => (
+                        <button
+                            key={tag}
+                            className="suggested-tag"
+                            onClick={() => onAddTag(tag)}
+                            disabled={disabled || tags.includes(tag)}
+                        >
+                            {tag}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+});
+
+/**
+ * 컬러 팔레트 섹션 (메모이제이션)
+ */
+const ColorPaletteSection = React.memo(({
+    selectedColor,
+    onSelectColor,
+    disabled
+}: {
+    selectedColor: string,
+    onSelectColor: (color: string) => void,
+    disabled: boolean
+}) => (
+    <div className="form-group">
+        <label>
+            <Palette size={16} />
+            <span>Color Label</span>
+        </label>
+        <div className="color-palette">
+            {COLOR_PALETTE.map(color => (
+                <button
+                    key={color.value}
+                    type="button"
+                    className={`color-swatch ${selectedColor === color.value ? 'selected' : ''}`}
+                    style={{ backgroundColor: color.value }}
+                    onClick={() => onSelectColor(color.value)}
+                    disabled={disabled}
+                    title={color.name}
+                    aria-label={`Select ${color.name}`}
+                />
+            ))}
+        </div>
+    </div>
+));
+
+/**
+ * 폴더 입력 섹션 (메모이제이션)
+ */
+const FolderSection = React.memo(({
+    folderInput,
+    setFolderInput,
+    sortedFolders,
+    disabled
+}: {
+    folderInput: string,
+    setFolderInput: (val: string) => void,
+    sortedFolders: string[],
+    disabled: boolean
+}) => (
+    <div className="form-group">
+        <label htmlFor="archive-folder">
+            <Folder size={16} />
+            <span>Folder (Optional)</span>
+        </label>
+        <input
+            id="archive-folder"
+            type="text"
+            value={folderInput}
+            onChange={(e) => setFolderInput(e.target.value)}
+            placeholder="Enter folder name..."
+            disabled={disabled}
+            list="folder-suggestions"
+            className="folder-input"
+        />
+        <datalist id="folder-suggestions">
+            {sortedFolders.map(f => (
+                <option key={f} value={f} />
+            ))}
+        </datalist>
+    </div>
+));
+
+/**
+ * 미리보기 섹션 (메모이제이션)
+ */
+const ContentPreview = React.memo(({ content }: { content?: string }) => {
+    const previewText = useMemo(() => {
+        if (!content) return '';
+        return content.length > 500 ? content.substring(0, 500) + '...' : content;
+    }, [content]);
+
+    return (
+        <div className="form-group">
+            <label>Preview</label>
+            <div className="content-preview">
+                {previewText}
+            </div>
+        </div>
+    );
+});
+
+/**
+ * Save Archive Dialog
+ * 
+ * 선택한 로그를 아카이브에 저장하는 모달 다이얼로그
+ */
 export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen, onClose, selectedText }: SaveArchiveDialogProps) {
     const { saveArchive } = useLogArchive();
 
@@ -59,16 +242,12 @@ export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen,
     const [folder, setFolder] = useState<string>('');
     const [folderInput, setFolderInput] = useState<string>('');
     const [folderStats, setFolderStats] = useState<Record<string, number>>({});
-    const [selectedColor, setSelectedColor] = useState<string>('#3b82f6'); // 기본 파란색
+    const [selectedColor, setSelectedColor] = useState<string>('#3b82f6');
     const [isSaving, setIsSaving] = useState(false);
-
 
     const titleInputRef = useRef<HTMLInputElement>(null);
     const tagInputRef = useRef<HTMLInputElement>(null);
 
-    /**
-     * 폴더 목록을 개수 많은 순으로 정렬
-     */
     const sortedFolders = useMemo(() => {
         return Object.entries(folderStats)
             .filter(([folder]) => folder !== 'Uncategorized')
@@ -76,54 +255,20 @@ export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen,
             .map(([folder]) => folder);
     }, [folderStats]);
 
-    /** 컬러 팔레트 렌더링 (상수이므로 useMemo 불필요하지만 JSX 안정성을 위해 메모) */
-    const colorSwatches = useMemo(() => (
-        COLOR_PALETTE.map(color => (
-            <button
-                key={color.value}
-                type="button"
-                className={`color-swatch ${selectedColor === color.value ? 'selected' : ''}`}
-                style={{ backgroundColor: color.value }}
-                onClick={() => setSelectedColor(color.value)}
-                disabled={isSaving}
-                title={color.name}
-                aria-label={`Select ${color.name}`}
-            />
-        ))
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    ), [selectedColor, isSaving]);
-
-    /**
-     * 기존 태그 로드 및 스마트 태그 추천
-     * getAllTags, getFolderStatistics는 useCallback으로 안정된 참조이지만
-     * deps에서 제거하고 직접 함수 참조를 메모이제이션하여 안정성 확보
-     */
     useEffect(() => {
         if (isOpen && selectedText) {
-            // 제목 자동 입력
             const autoTitle = extractFirstLine(selectedText.content);
             setTitle(autoTitle);
-
-            // 태그 통계 로드 후 스마트 태그 추천 (빈도 기반 정렬)
             db.getTagStatistics().then(tagStats => {
                 const suggested = suggestTags(selectedText.content, tagStats);
                 setSuggestedTags(suggested);
             });
-
-            // 기존 태그 로드 (DB 직접 호출로 함수 참조 의존성 제거)
             db.getAllTags().then(setAvailableTags);
-
-            // 기존 폴더 통계 로드
             db.getFolderStatistics().then(setFolderStats);
-
-            // 제목 입력창에 포커스
             setTimeout(() => titleInputRef.current?.focus(), 100);
         }
     }, [isOpen, selectedText]);
 
-    /**
-     * 모달 닫기 시 상태 초기화
-     */
     useEffect(() => {
         if (!isOpen) {
             setTitle('');
@@ -138,9 +283,6 @@ export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen,
         }
     }, [isOpen]);
 
-    /**
-     * 태그 추가
-     */
     const addTag = useCallback((tag: string) => {
         const trimmedTag = tag.trim().toUpperCase();
         if (trimmedTag && !tags.includes(trimmedTag)) {
@@ -149,36 +291,13 @@ export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen,
         }
     }, [tags]);
 
-    /**
-     * 태그 제거
-     */
     const removeTag = useCallback((tagToRemove: string) => {
         setTags(prev => prev.filter(tag => tag !== tagToRemove));
     }, []);
 
-    /**
-     * 태그 입력 핸들러
-     */
-    const handleTagInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            addTag(tagInput);
-        } else if (e.key === 'Backspace' && tagInput === '' && tags.length > 0) {
-            // Backspace로 마지막 태그 제거
-            removeTag(tags[tags.length - 1]);
-        }
-    };
-
-    /**
-     * 저장 핸들러
-     */
     const handleSave = useCallback(async () => {
-        if (!selectedText || !title.trim()) {
-            return;
-        }
-
+        if (!selectedText || !title.trim()) return;
         setIsSaving(true);
-
         try {
             await saveArchive({
                 title: title.trim(),
@@ -193,8 +312,6 @@ export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen,
                     color: selectedColor,
                 },
             });
-
-            // 성공 시 모달 닫기
             onClose();
         } catch (err) {
             console.error('[SaveArchiveDialog] Failed to save:', err);
@@ -204,9 +321,6 @@ export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen,
         }
     }, [selectedText, title, tags, memo, folder, selectedColor, saveArchive, onClose]);
 
-    /**
-     * 키보드 단축키
-     */
     const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
         if (e.key === 'Escape') {
             onClose();
@@ -227,25 +341,17 @@ export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen,
                         className="save-archive-dialog"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Header */}
                         <div className="dialog-header">
                             <h2>
                                 <Save size={20} />
                                 <span>Save to Archive</span>
                             </h2>
-                            <button
-                                className="icon-button"
-                                onClick={onClose}
-                                aria-label="Close"
-                                disabled={isSaving}
-                            >
+                            <button className="icon-button" onClick={onClose} disabled={isSaving}>
                                 <X size={20} />
                             </button>
                         </div>
 
-                        {/* Content */}
                         <div className="dialog-content">
-                            {/* Title Input */}
                             <div className="form-group">
                                 <label htmlFor="archive-title">Title</label>
                                 <input
@@ -260,7 +366,6 @@ export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen,
                                 />
                             </div>
 
-                            {/* Memo Input */}
                             <div className="form-group">
                                 <label htmlFor="archive-memo">
                                     <StickyNote size={16} />
@@ -290,119 +395,41 @@ export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen,
                                         outline: 'none',
                                         transition: 'border-color 0.2s',
                                     }}
-                                    onFocus={(e) => e.target.style.borderColor = 'rgba(99, 102, 241, 0.5)'}
-                                    onBlur={(e) => e.target.style.borderColor = 'rgba(99, 102, 241, 0.2)'}
                                 />
                             </div>
 
-                            {/* Tags Input */}
-                            <div className="form-group">
-                                <label htmlFor="archive-tags">
-                                    <TagIcon size={16} />
-                                    <span>Tags</span>
-                                </label>
+                            <TagSection
+                                tags={tags}
+                                tagInput={tagInput}
+                                setTagInput={setTagInput}
+                                onAddTag={addTag}
+                                onRemoveTag={removeTag}
+                                suggestedTags={suggestedTags}
+                                disabled={isSaving}
+                                inputRef={tagInputRef}
+                            />
 
-                                {/* Tag Chips */}
-                                <div className="tag-container">
-                                    {tags.map(tag => (
-                                        <div key={tag} className="tag-chip">
-                                            <span>{tag}</span>
-                                            <button
-                                                onClick={() => removeTag(tag)}
-                                                disabled={isSaving}
-                                                aria-label={`Remove ${tag}`}
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
+                            <FolderSection
+                                folderInput={folderInput}
+                                setFolderInput={(val) => {
+                                    setFolderInput(val);
+                                    setFolder(val);
+                                }}
+                                sortedFolders={sortedFolders}
+                                disabled={isSaving}
+                            />
 
-                                    {/* Tag Input */}
-                                    <input
-                                        id="archive-tags"
-                                        ref={tagInputRef}
-                                        type="text"
-                                        value={tagInput}
-                                        onChange={(e) => setTagInput(e.target.value)}
-                                        onKeyDown={handleTagInputKeyDown}
-                                        placeholder="Add tags..."
-                                        disabled={isSaving}
-                                        className="tag-input"
-                                    />
-                                </div>
+                            <ColorPaletteSection
+                                selectedColor={selectedColor}
+                                onSelectColor={setSelectedColor}
+                                disabled={isSaving}
+                            />
 
-                                {/* Suggested Tags */}
-                                {suggestedTags.length > 0 && (
-                                    <div className="suggested-tags">
-                                        <span className="suggested-tags-label">Suggested:</span>
-                                        {suggestedTags.map(tag => (
-                                            <button
-                                                key={tag}
-                                                className="suggested-tag"
-                                                onClick={() => addTag(tag)}
-                                                disabled={isSaving || tags.includes(tag)}
-                                            >
-                                                {tag}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Folder Input */}
-                            <div className="form-group">
-                                <label htmlFor="archive-folder">
-                                    <Folder size={16} />
-                                    <span>Folder (Optional)</span>
-                                </label>
-                                <input
-                                    id="archive-folder"
-                                    type="text"
-                                    value={folderInput}
-                                    onChange={(e) => {
-                                        setFolderInput(e.target.value);
-                                        setFolder(e.target.value);
-                                    }}
-                                    placeholder="Enter folder name..."
-                                    disabled={isSaving}
-                                    list="folder-suggestions"
-                                    className="folder-input"
-                                />
-                                <datalist id="folder-suggestions">
-                                    {sortedFolders.map(f => (
-                                        <option key={f} value={f} />
-                                    ))}
-                                </datalist>
-                            </div>
-
-                            {/* Color Label */}
-                            <div className="form-group">
-                                <label>
-                                    <Palette size={16} />
-                                    <span>Color Label</span>
-                                </label>
-                                <div className="color-palette">
-                                    {colorSwatches}
-                                </div>
-                            </div>
-
-                            {/* Preview */}
-                            <div className="form-group">
-                                <label>Preview</label>
-                                <div className="content-preview">
-                                    {selectedText?.content.substring(0, 500)}
-                                    {selectedText && selectedText.content.length > 500 && '...'}
-                                </div>
-                            </div>
+                            <ContentPreview content={selectedText?.content} />
                         </div>
 
-                        {/* Footer */}
                         <div className="dialog-footer">
-                            <button
-                                className="button-secondary"
-                                onClick={onClose}
-                                disabled={isSaving}
-                            >
+                            <button className="button-secondary" onClick={onClose} disabled={isSaving}>
                                 Cancel
                             </button>
                             <button
@@ -424,7 +451,6 @@ export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen,
                             </button>
                         </div>
 
-                        {/* Keyboard Hints */}
                         <div className="keyboard-hints">
                             <span><kbd>Enter</kbd> Add Tag</span>
                             <span><kbd>Ctrl+Enter</kbd> Save</span>

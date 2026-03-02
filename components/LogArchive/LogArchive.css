@@ -1179,13 +1179,29 @@
 
 .viewer-code {
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 14px;
-    line-height: 1.7;
+    font-size: 13px;
+    line-height: 1.6;
     color: #e2e8f0;
     margin: 0;
-    padding: 32px;
+    padding: 24px;
     white-space: pre-wrap;
     word-break: break-all;
+    display: flex;
+    flex-direction: column;
+}
+
+.log-line {
+    min-height: 1.6em;
+    padding: 0 8px;
+    border-radius: 4px;
+    transition: background-color 0.1s;
+    position: relative;
+    border-left: 3px solid transparent;
+}
+
+.log-line:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-left-color: rgba(59, 130, 246, 0.3);
 }
 
 /* Scrollbar refinement */

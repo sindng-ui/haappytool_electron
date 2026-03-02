@@ -9,8 +9,13 @@
 export function suggestTags(content: string, tagFrequency?: Record<string, number>): string[] {
     const suggestions: string[] = [];
 
+    // ✅ Performance: Only scan the first 100KB for tag suggestions in large logs
+    const scanLimit = 100 * 1024;
+    const contentToScan = content.length > scanLimit ? content.substring(0, scanLimit) : content;
+
     // 패턴 매칭 (우선순위 높은 것부터)
     const patterns: Array<{ tag: string; regex: RegExp }> = [
+        // ... (생략된 기존 패턴들)
         // 로그 레벨
         { tag: 'ERROR', regex: /\b(error|err|exception|fatal|critical)\b/i },
         { tag: 'WARNING', regex: /\b(warn|warning)\b/i },
@@ -43,7 +48,7 @@ export function suggestTags(content: string, tagFrequency?: Record<string, numbe
     ];
 
     for (const { tag, regex } of patterns) {
-        if (regex.test(content)) {
+        if (regex.test(contentToScan)) {
             suggestions.push(tag);
         }
     }
@@ -80,10 +85,32 @@ export function decodeHtmlEntities(text: string): string {
  * HTML 엔티티 디코딩 적용
  */
 export function extractFirstLine(content: string, maxLength: number = 100): string {
-    const lines = content.split('\n').filter(line => line.trim().length > 0);
-    if (lines.length === 0) return 'Untitled';
+    if (!content) return 'Untitled';
 
-    let firstLine = lines[0].trim();
+    // ✅ Performance: Avoid split('\n') for large content
+    let firstLineEnd = content.indexOf('\n');
+    let firstLine = firstLineEnd === -1 ? content.trim() : content.substring(0, firstLineEnd).trim();
+
+    // If first line is empty, try to find the next non-empty line (up to 1KB scan)
+    if (firstLine === '' && firstLineEnd !== -1) {
+        const scanMax = Math.min(content.length, firstLineEnd + 1024);
+        let nextStart = firstLineEnd + 1;
+        while (nextStart < scanMax) {
+            let nextEnd = content.indexOf('\n', nextStart);
+            let candidate = nextEnd === -1
+                ? content.substring(nextStart).trim()
+                : content.substring(nextStart, nextEnd).trim();
+
+            if (candidate !== '') {
+                firstLine = candidate;
+                break;
+            }
+            if (nextEnd === -1) break;
+            nextStart = nextEnd + 1;
+        }
+    }
+
+    if (firstLine === '') return 'Untitled';
 
     // HTML 엔티티 디코딩
     firstLine = decodeHtmlEntities(firstLine);
