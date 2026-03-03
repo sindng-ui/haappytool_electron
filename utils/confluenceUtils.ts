@@ -7,7 +7,9 @@ export const cleanConfluenceContent = (text: string): string => {
     // 1. 파이프(|)는 테이블 구분자이므로 ¦ (broken bar)로 교체하여 구조를 보호합니다.
     // 2. {, [ 는 매크로나 링크 동작을 유발하므로 탈출합니다.
     let safe = text
-        .replace(/\|/g, '¦') // 파이프는 테이블 구분자이므로 ¦ 로 교체
+        .replace(/\|/g, '｜') // 전각 파이프로 교체 (테이블 구조 보호 + 시각적 동일성)
+        .replace(/\[/g, '[\u200B') // 제로 너비 공백을 추가하여 링크 오인식 방지 (백슬래시 대체)
+        .replace(/{/g, '{\u200B')   // 제로 너비 공백을 추가하여 매크로 오인식 방지
         .replace(/\n/g, ' ')
         .replace(/\r/g, '');
 
