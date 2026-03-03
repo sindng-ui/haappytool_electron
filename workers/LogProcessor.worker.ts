@@ -434,10 +434,8 @@ const processChunk = (chunk: string) => {
 
 // --- Handler: Apply Filter ---
 const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' | 'exception' }) => {
-    // 💡 Unified Happy Combos: If happyGroups exist (even if empty), prioritize them over legacy includeGroups
-    const rawIncludeGroups = (payload.happyGroups !== undefined)
-        ? payload.happyGroups.filter(g => g.enabled).map(g => g.tags.map(t => t.trim()).filter(t => t !== ''))
-        : payload.includeGroups;
+    // 💡 Unified Happy Combos: includeGroups in payload has already been refined by assembleIncludeGroups in the main thread.
+    const rawIncludeGroups = payload.includeGroups;
 
     const currentQuickFilterVal = payload.quickFilter || 'none';
     currentQuickFilter = currentQuickFilterVal;
