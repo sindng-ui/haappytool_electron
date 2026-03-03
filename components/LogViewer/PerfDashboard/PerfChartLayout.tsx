@@ -200,19 +200,26 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                         })}
                         {/* Time Axis */}
                         <div className="absolute top-0 left-0 right-0 h-6 border-b border-white/5 text-slate-400 font-mono text-[9px] select-none pointer-events-none z-[110] overflow-visible">
-                            {generateTicks(flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime), flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime), 8).map(t => {
-                                const viewStart = flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime);
-                                const viewDuration = Math.max(1, (flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime)) - viewStart);
-                                const left = ((t - viewStart) / viewDuration) * 100;
-                                // hide ticks that are off-screen
-                                if (left < 0 || left > 100) return null;
-                                return (
-                                    <div key={t} className="absolute flex flex-col items-center transform -translate-x-1/2" style={{ left: `${left}%`, top: 0 }}>
-                                        <span className="opacity-70 leading-none pt-1">{(t - result.startTime).toFixed(0)}</span>
-                                        <div className="w-px h-2 bg-white/20 mt-0.5" />
-                                    </div>
-                                );
-                            })}</div>
+                            {(() => {
+                                const baseTime = flameSegments.length > 0
+                                    ? Math.min(...flameSegments.map(s => s.startTime))
+                                    : result.startTime;
+
+                                return generateTicks(flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime), flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime), 8).map(t => {
+                                    const viewStart = flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime);
+                                    const viewDuration = Math.max(1, (flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime)) - viewStart);
+                                    const left = ((t - viewStart) / viewDuration) * 100;
+                                    // hide ticks that are off-screen
+                                    if (left < 0 || left > 100) return null;
+                                    return (
+                                        <div key={t} className="absolute flex flex-col items-center transform -translate-x-1/2" style={{ left: `${left}%`, top: 0 }}>
+                                            <span className="opacity-70 leading-none pt-1">{(t - baseTime).toFixed(0)}</span>
+                                            <div className="w-px h-2 bg-white/20 mt-0.5" />
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
 
                         {/* Time Ruler UI */}
                         {measureRange && (() => {

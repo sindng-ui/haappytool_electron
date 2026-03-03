@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { LogHighlight } from '../types';
 import { HighlightRenderer } from './LogViewer/HighlightRenderer';
 import { extractTimestamp, formatDuration } from '../utils/logTime';
+import { convertToConfluenceTable } from '../utils/confluenceUtils';
 import { Copy, FileJson, Download, Table, ChevronDown, X, Trash2 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { Virtuoso } from 'react-virtuoso';
@@ -159,16 +160,8 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
                 addToast('Bookmarks copied to clipboard as JSON', 'success');
             }
         } else if (format === 'confluence') {
-            // Confluence Markdown Table
-            // || Line || Time Diff || Content ||
-            let md = '|| Line || Time Diff || Content ||\n';
-            data.forEach(row => {
-                // Escape pipes in content to avoid breaking table
-                const safeContent = row.content.replace(/\|/g, '\\|').replace(/\n/g, ' ');
-                md += `| ${row.line} | ${row.timeDiff || '-'} | ${safeContent} |\n`;
-            });
-
-            await navigator.clipboard.writeText(md);
+            const confluenceTable = convertToConfluenceTable(lines.map(l => ({ lineNum: l.lineNum, content: l.content })));
+            await navigator.clipboard.writeText(confluenceTable);
             addToast('Bookmarks copied as Confluence Table', 'success');
         }
 
