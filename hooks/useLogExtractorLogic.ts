@@ -404,7 +404,7 @@ export const useLogExtractorLogic = ({
 
     useEffect(() => {
         let isStale = false;
-        leftWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
+        leftWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url));
 
         let cleanupListeners: (() => void)[] = [];
 
@@ -437,7 +437,7 @@ export const useLogExtractorLogic = ({
     // Initialize Right Worker
     useEffect(() => {
         let isStale = false;
-        rightWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
+        rightWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url));
 
         rightWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
             if (isStale) return;

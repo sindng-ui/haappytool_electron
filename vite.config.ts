@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
       react()
     ],
     worker: {
-      format: 'es',
+      format: 'iife',
       plugins: () => []
     },
     build: {
