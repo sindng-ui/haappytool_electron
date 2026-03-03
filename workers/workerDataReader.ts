@@ -88,9 +88,17 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
                 }
 
                 const batchEnd = j;
+                const batchSize = Number(batchMaxByte - batchMinByte);
+                // console.log(`[Worker] Smart batch read: lines ${batchStart}-${batchEnd}, size: ${(batchSize / 1024).toFixed(1)} KB`);
+
                 let uint8View: Uint8Array;
                 if (context.isLocalFileMode) {
+                    const startRead = performance.now();
                     uint8View = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: Number(batchMinByte), end: Number(batchMaxByte) });
+                    const endRead = performance.now();
+                    if (endRead - startRead > 1000) {
+                        console.warn(`[Worker] Slow disk read: ${(endRead - startRead).toFixed(0)}ms for ${batchSize} bytes`);
+                    }
                 } else {
                     const chunkBlob = currentFile!.slice(Number(batchMinByte), Number(batchMaxByte));
                     const buffer = await chunkBlob.arrayBuffer();

@@ -529,6 +529,8 @@ export const useLogExtractorLogic = ({
 
             // Immediately set to not ready to show loader
             setLeftWorkerReady(false);
+            setLeftSegmentIndex(0); // ✅ Reset to first page
+            if (setClearCacheTick) setClearCacheTick(prev => prev + 1); // ✅ Clear renderer cache
 
             console.log('[useLog-Left] Auto-Apply FILTER_LOGS. hash:', payloadHash);
             leftWorkerRef.current.postMessage({
@@ -536,10 +538,8 @@ export const useLogExtractorLogic = ({
                 payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
             });
 
-            if (!tizenSocket) {
-                setActiveLineIndexLeft(-1);
-                setSelectedIndicesLeft(new Set());
-            }
+            setActiveLineIndexLeft(-1);
+            setSelectedIndicesLeft(new Set());
         }
     }, [currentConfig, tizenSocket, quickFilter, leftWorkerReady]);
 
@@ -570,10 +570,15 @@ export const useLogExtractorLogic = ({
 
             console.log('[useLog-Right] Auto-Apply FILTER_LOGS. hash:', payloadHash);
             setRightWorkerReady(false);
+            setRightSegmentIndex(0); // ✅ Reset to first page
+            if (setClearCacheTick) setClearCacheTick(prev => prev + 1); // ✅ Clear renderer cache
+
             rightWorkerRef.current.postMessage({
                 type: 'FILTER_LOGS',
                 payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
             });
+            setActiveLineIndexRight(-1);
+            setSelectedIndicesRight(new Set());
         }
     }, [currentConfig, rightTotalLines, isDualView, quickFilter, rightWorkerReady]);
 

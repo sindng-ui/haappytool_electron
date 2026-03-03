@@ -549,7 +549,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const onLineDoubleClickLeft = React.useCallback((index: number) => handleLineDoubleClickAction(index, 'left'), [handleLineDoubleClickAction]);
     const onBrowseLeft = React.useCallback(() => leftFileInputRef.current?.click(), []);
     const onCopyLeft = React.useCallback(() => handleCopyLogs('left'), [handleCopyLogs]);
-    const onCopyAsConfluenceTableLeft = React.useCallback(() => handleCopyAsConfluenceTable('left'), [handleCopyAsConfluenceTable]);
+    const onCopyAsConfluenceTableLeft = React.useCallback(() => handleCopyAsConfluenceTable('left', true), [handleCopyAsConfluenceTable]);
     const onSaveLeft = React.useCallback(() => handleSaveLogs('left'), [handleSaveLogs]);
     const onSyncScrollLeft = React.useCallback((dy: number) => handleSyncScroll(dy, 'left'), [handleSyncScroll]);
     const onHighlightJumpLeft = React.useCallback((idx: number) => jumpToHighlight(idx, 'left'), [jumpToHighlight]);
@@ -662,7 +662,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     const onLineDoubleClickRight = React.useCallback((index: number) => handleLineDoubleClickAction(index, 'right'), [handleLineDoubleClickAction]);
     const onBrowseRight = React.useCallback(() => rightFileInputRef.current?.click(), []);
     const onCopyRight = React.useCallback(() => handleCopyLogs('right'), [handleCopyLogs]);
-    const onCopyAsConfluenceTableRight = React.useCallback(() => handleCopyAsConfluenceTable('right'), [handleCopyAsConfluenceTable]);
+    const onCopyAsConfluenceTableRight = React.useCallback(() => handleCopyAsConfluenceTable('right', true), [handleCopyAsConfluenceTable]);
     const onSaveRight = React.useCallback(() => handleSaveLogs('right'), [handleSaveLogs]);
     const onSyncScrollRight = React.useCallback((dy: number) => handleSyncScroll(dy, 'right'), [handleSyncScroll]);
     const onHighlightJumpRight = React.useCallback((idx: number) => jumpToHighlight(idx, 'right'), [jumpToHighlight]);

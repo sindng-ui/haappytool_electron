@@ -86,7 +86,7 @@ let localFileSize: number = 0;
 
 // --- Shared Buffer Initialization ---
 const LOG_SAB_SIZE = 100 * 1024 * 1024; // 100MB Shared Log Store
-const MAX_LINES = 2048 * 1024; // 2M Lines maximum
+const MAX_LINES = 10 * 1024 * 1024; // 10M Lines maximum (for 1GB+ files)
 
 let logSharedBuffer: any;
 let logBuffer: Uint8Array;

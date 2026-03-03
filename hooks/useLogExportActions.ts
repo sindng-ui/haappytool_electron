@@ -282,9 +282,9 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
         }
     }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, requestBookmarkedLines, selectedIndicesLeftRef, selectedIndicesRightRef, showToast]);
 
-    const handleCopyAsConfluenceTable = useCallback(async (paneId: 'left' | 'right') => {
+    const handleCopyAsConfluenceTable = useCallback(async (paneId: 'left' | 'right', forceIgnoreSelection: boolean = false) => {
         const selectedIndicesRef = paneId === 'left' ? selectedIndicesLeftRef : selectedIndicesRightRef;
-        const hasSelection = selectedIndicesRef.current.size > 0;
+        const hasSelection = !forceIgnoreSelection && selectedIndicesRef.current.size > 0;
         const count = hasSelection ? selectedIndicesRef.current.size : (paneId === 'left' ? leftFilteredCount : rightFilteredCount);
         const requestLines = paneId === 'left' ? requestLinesLeft : requestLinesRight;
 

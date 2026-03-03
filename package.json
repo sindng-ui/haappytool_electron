@@ -84,12 +84,13 @@
     "directories": {
       "output": "dist_electron"
     },
+    "asar": false,
     "icon": "build/icon.png",
     "files": [
-      "dist/**/*",
-      "electron/**/*",
-      "server/**/*",
-      "USER_GUIDE.md"
+      "dist",
+      "electron",
+      "server",
+      "package.json"
     ],
     "win": {
       "target": "nsis",

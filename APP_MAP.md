@@ -89,9 +89,9 @@
 - **Interactions & Shortcuts**:
   - `Mouse Drag`: 로그 라인 선택
   - `Ctrl+C`: **선택된 라인이 있을 경우 해당 라인만 복사하도록 개선**. 선택 영역이 없으면 기존처럼 전체 복사 유지. [NEW] 🐧🎯
-  - `Right Click`: 컨퍼런스 테이블 복사 (`Copy as Confluence Table`) 등 지원. 선택 영역 우선 적용 로직 탑재. [NEW]
-  - **최근 개선**: Confluence 테이블 복사 시 특수문자(`|`, `{`, `[`, `\`) 이스케이프 강화. 특히 `\[` 결합 시 표가 깨지는 현상을 해결하기 위해 백슬래시 우선 이스케이프 로직 적용! 🐧💎
+  - `Tab Header Button`: **Copy as Confluence Table 버튼은 현재 선택 여부와 상관없이 항상 전체 필터링된 로그를 복사**하도록 정책 고정! [MOD] 🐧💎
   - `Shift + Click`: 범위 선택
+  - **최근 개선 (Big Log Fix)**: 1GB 이상 대용량 로그 필터링 시 페이지(Segment Index)가 초기화되지 않아 화면이 비어 보이던 버그 해결. 필터 변경 시 자동으로 1페이지로 이동 및 캐시 클리어 적용! [FIX] 🐧🚀
 
 ---
 
