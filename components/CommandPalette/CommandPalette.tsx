@@ -96,12 +96,12 @@ const CommandPalette: React.FC = () => {
         <div className="fixed inset-0 z-[1000000] flex items-start justify-center pt-[20vh] px-4">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+                className="absolute inset-0 bg-slate-950/80"
                 onClick={closePalette}
             />
 
             {/* Modal */}
-            <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col animate-fade-in-down transform transition-all">
+            <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
 
                 {/* Search Bar */}
                 <div className="flex items-center px-4 py-3 border-b border-slate-200 dark:border-slate-800">
@@ -133,7 +133,7 @@ const CommandPalette: React.FC = () => {
                     ) : (
                         Object.keys(groupedCommands).sort().map(section => (
                             <div key={section} className="mb-2">
-                                <div className="px-4 py-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur z-10">
+                                <div className="px-4 py-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider sticky top-0 bg-white/95 dark:bg-slate-900/95 z-10">
                                     {section}
                                 </div>
                                 {groupedCommands[section].map(cmd => {
