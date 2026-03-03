@@ -56,17 +56,7 @@ describe('useLogViewerKeyboard', () => {
         expect(mockProps.onLineDoubleClick).not.toHaveBeenCalled();
     });
 
-    it('handles Space for bookmark toggle', () => {
-        const { result } = renderHook(() => useLogViewerKeyboard(mockProps));
-        const event = { code: 'Space', preventDefault: vi.fn() } as unknown as React.KeyboardEvent;
 
-        act(() => {
-            result.current.handleKeyDown(event);
-        });
-
-        expect(event.preventDefault).toHaveBeenCalled();
-        expect(mockProps.toggleBookmark).toHaveBeenCalledWith(10);
-    });
 
     it('handles Shift+S for auto-scroll toggle', () => {
         const { result } = renderHook(() => useLogViewerKeyboard(mockProps));

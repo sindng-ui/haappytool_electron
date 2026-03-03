@@ -3,6 +3,9 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 // 형님, HTML 엔터티를 완벽하게 디코딩해야 폰트 너비 계산 시 오차가 생기지 않습니다.
 export const decodeHTMLEntities = (text: string) => {
     if (!text) return '';
+    if (text.indexOf('&') === -1 && text.indexOf('\t') === -1) {
+        return text;
+    }
     return text
         .replace(/&quot;/g, '"')
         .replace(/&amp;/g, '&')
@@ -105,8 +108,13 @@ export const useHyperLogData = ({
                     });
 
                     if (next.size > 150000) {
-                        const keys = Array.from(next.keys());
-                        for (let k = 0; k < (keys.length - 120000); k++) next.delete(keys[k]);
+                        const amountToDelete = next.size - 120000;
+                        let deleteCount = 0;
+                        for (const key of next.keys()) {
+                            next.delete(key);
+                            deleteCount++;
+                            if (deleteCount >= amountToDelete) break;
+                        }
                     }
                     cachedLinesRef.current = next;
                     return next;
