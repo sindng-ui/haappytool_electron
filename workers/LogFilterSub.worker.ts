@@ -84,8 +84,9 @@ ctx.onmessage = async (e) => {
                 let next;
                 // ✅ Optimization: uint8View.indexOf(10) is much faster than string split for large chunks
                 while ((next = buffer.indexOf(10, start)) !== -1) {
-                    const lineBytes = buffer.subarray(start, next);
-                    const line = decoder.decode(lineBytes).replace(/\r$/, '');
+                    const hasCr = next > start && buffer[next - 1] === 13; // 바이트 레벨 체크로 정규식 대체
+                    const lineBytes = buffer.subarray(start, hasCr ? next - 1 : next);
+                    const line = decoder.decode(lineBytes); // 이제 정규식 replace가 없으므로 더 빠름
                     if (checkIsMatch(line, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
                         matchesList.push(offset + relativeLineIndex);
                     }
@@ -94,7 +95,10 @@ ctx.onmessage = async (e) => {
                 }
                 // Handle the last segment if it doesn't end with a newline
                 if (start < buffer.length) {
-                    const line = decoder.decode(buffer.subarray(start)).replace(/\r$/, '');
+                    const len = buffer.length;
+                    const hasCr = len > start && buffer[len - 1] === 13;
+                    const lineBytes = buffer.subarray(start, hasCr ? len - 1 : len);
+                    const line = decoder.decode(lineBytes);
                     if (checkIsMatch(line, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
                         matchesList.push(offset + relativeLineIndex);
                     }

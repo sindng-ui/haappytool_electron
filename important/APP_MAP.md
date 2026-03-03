@@ -72,6 +72,10 @@
   - `Worker Events`: [useLogWorkerEvents.ts](./hooks/useLogWorkerEvents.ts) (워커 메시지 디스패처)
   - `Bookmark Handler`: [workerBookmarkHandlers.ts](./workers/workerBookmarkHandlers.ts)
   - `Analysis Handler`: [workerAnalysisHandlers.ts](./workers/workerAnalysisHandlers.ts)
+- **Resource Optimizations**:
+  - `Lazy SAB Allocation`: 로컬 파일 모드 시 불필요한 260MB SharedArrayBuffer 할당 지연 (RAM 절약)
+  - `Active State Sync`: `SET_ACTIVE_STATE` 이벤트를 통한 백그라운드 탭의 유령 워커(`subWorkers`) 자동 정리
+  - `Auto-Filter Suppression`: 비활성 탭에서의 중복 필터링 연산 차단 (CPU 절약)
 
 ### [[Log Viewer Components (The Alleys)]]
 - **ID**: `ui-log-viewer-sub`

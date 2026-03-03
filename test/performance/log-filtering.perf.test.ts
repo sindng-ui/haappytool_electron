@@ -5,7 +5,7 @@ import { LogRule } from '../../types';
 
 // Goal: Fast reaction for UX
 const PERF_THRESHOLD_10K_MS = 15;
-const PERF_THRESHOLD_100K_MS = 100;
+const PERF_THRESHOLD_100K_MS = 200; // 💡 병렬 테스트 실행 시 CPU 부하 감안 (단독: 30ms, 병렬: ~110ms)
 
 function generateLogLines(count: number): string[] {
     const lines = [];

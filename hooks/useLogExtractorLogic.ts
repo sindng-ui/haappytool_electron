@@ -139,6 +139,16 @@ export const useLogExtractorLogic = ({
     const [rightFileName, setRightFileName] = useState<string>('');
     const rightPendingRequests = useRef<Map<string, (data: any) => void>>(new Map());
 
+    // --- Tab Background Optimization ---
+    useEffect(() => {
+        if (leftWorkerRef.current) {
+            leftWorkerRef.current.postMessage({ type: 'SET_ACTIVE_STATE', payload: isActive });
+        }
+        if (rightWorkerRef.current) {
+            rightWorkerRef.current.postMessage({ type: 'SET_ACTIVE_STATE', payload: isActive });
+        }
+    }, [isActive]);
+
     // --- Shared Memory Buffers (Phase 2) ---
     const [leftSharedBuffers, setLeftSharedBuffers] = useState<any>(null);
     const [rightSharedBuffers, setRightSharedBuffers] = useState<any>(null);
@@ -505,21 +515,22 @@ export const useLogExtractorLogic = ({
 
     // Auto-Apply Filter (Left)
     useEffect(() => {
-        // ✅ Serialized Flow: Only filter when worker is ready
-        if (leftWorkerRef.current && currentConfig && leftWorkerReady) {
+        // ✅ Optimization: Only filter when active and worker is ready
+        if (isActive && leftWorkerRef.current && currentConfig && leftWorkerReady) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
-
             const effectiveIncludes = refinedGroups.map(g =>
                 g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
             ).filter(g => g.length > 0);
             const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
 
+            // 💡 isActive를 hash에서 제거: 해피콤보 체크박스 토글 시마다 불필요한 재필터링 방지
+            // 탭 활성화 시 재실행은 isActive 변경 시 lastFilterHashLeft 초기화로 보장 (아래 useEffect)
             const payloadHash = JSON.stringify({
                 inc: effectiveIncludes,
                 exc: effectiveExcludes,
                 happyCase: !!currentConfig.happyCombosCaseSensitive,
                 blockCase: !!currentConfig.blockListCaseSensitive,
-                quickFilter
+                quickFilter,
             });
 
             if (payloadHash === lastFilterHashLeft.current && leftWorkerReady) {
@@ -533,7 +544,7 @@ export const useLogExtractorLogic = ({
             leftViewerRef.current?.scrollTo(0); // ✅ Reset scroll position to top
             if (setClearCacheTick) setClearCacheTick(prev => prev + 1); // ✅ Clear renderer cache
 
-            console.log('[useLog-Left] Auto-Apply FILTER_LOGS. hash:', payloadHash);
+            console.log('[useLog-Left] Auto-Apply FILTER_LOGS (Active Check). hash:', payloadHash);
             leftWorkerRef.current.postMessage({
                 type: 'FILTER_LOGS',
                 payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
@@ -542,13 +553,20 @@ export const useLogExtractorLogic = ({
             setActiveLineIndexLeft(-1);
             setSelectedIndicesLeft(new Set());
         }
-    }, [currentConfig, tizenSocket, quickFilter, leftWorkerReady]);
+    }, [currentConfig, tizenSocket, quickFilter, leftWorkerReady, isActive]);
+
+    // 💡 탭 활성화 시 hash 초기화 -> 다시 필터링하도록 보장
+    useEffect(() => {
+        if (isActive) {
+            lastFilterHashLeft.current = '';
+        }
+    }, [isActive]);
 
 
 
     // Auto-Apply Filter (Right)
     useEffect(() => {
-        if (isDualView && rightWorkerRef.current && currentConfig && rightWorkerReady && rightTotalLines > 0) {
+        if (isActive && isDualView && rightWorkerRef.current && currentConfig && rightWorkerReady && rightTotalLines > 0) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
 
             const effectiveIncludes = refinedGroups.map(g =>
@@ -556,12 +574,13 @@ export const useLogExtractorLogic = ({
             ).filter(g => g.length > 0);
             const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
 
+            // 💡 isActive를 hash에서 제거 (Left와 동일)
             const payloadHash = JSON.stringify({
                 inc: effectiveIncludes,
                 exc: effectiveExcludes,
                 happyCase: !!currentConfig.happyCombosCaseSensitive,
                 blockCase: !!currentConfig.blockListCaseSensitive,
-                quickFilter
+                quickFilter,
             });
 
             if (payloadHash === lastFilterHashRight.current && rightWorkerReady) {
@@ -569,7 +588,7 @@ export const useLogExtractorLogic = ({
             }
             lastFilterHashRight.current = payloadHash;
 
-            console.log('[useLog-Right] Auto-Apply FILTER_LOGS. hash:', payloadHash);
+            console.log('[useLog-Right] Auto-Apply FILTER_LOGS (Active Check). hash:', payloadHash);
             setRightWorkerReady(false);
             setRightSegmentIndex(0); // ✅ Reset to first page
             rightViewerRef.current?.scrollTo(0); // ✅ Reset scroll position to top
@@ -582,7 +601,14 @@ export const useLogExtractorLogic = ({
             setActiveLineIndexRight(-1);
             setSelectedIndicesRight(new Set());
         }
-    }, [currentConfig, rightTotalLines, isDualView, quickFilter, rightWorkerReady]);
+    }, [currentConfig, rightTotalLines, isDualView, quickFilter, rightWorkerReady, isActive]);
+
+    // 💡 탭 활성화 시 Right hash도 초기화
+    useEffect(() => {
+        if (isActive) {
+            lastFilterHashRight.current = '';
+        }
+    }, [isActive]);
 
 
     useEffect(() => {

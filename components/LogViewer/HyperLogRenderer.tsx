@@ -220,8 +220,16 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     const loadVisibleLines = useCallback(async (startIdx: number, endIdx: number) => {
         const needed: number[] = [];
         const currentCache = cachedLinesRef.current;
-        const checkStart = Math.max(0, startIdx - 1000); // 👈 위쪽도 넓게 감시
-        const checkEnd = Math.min(totalCount - 1, endIdx + 3000); // 👈 아래쪽은 더 넓게 (보통 아래로 많이 가시니까요)
+        const isSAB = !!(sharedBuffers && sharedBuffers.isStreamMode && sharedBuffers.logBuffer);
+
+        // 💡 최적화: SAB 모드일 때는 5,000줄도 순식간이지만, 로컬 파일(IPC) 모드에선 5,000줄이 독입니다.
+        // insbesondere Sparse 로그일 경우 IPC 통신 횟수가 폭증하므로, 비-SAB 모드에선 범위를 대폭 줄입니다. 🐧🛡️
+        const PREFETCH_BUFFER = isSAB ? 5000 : 1000;
+        const LOOKAHEAD_LIMIT = isSAB ? 3000 : 500;
+        const LOOKBEHIND_LIMIT = isSAB ? 1000 : 200;
+
+        const checkStart = Math.max(0, startIdx - LOOKBEHIND_LIMIT);
+        const checkEnd = Math.min(totalCount - 1, endIdx + LOOKAHEAD_LIMIT);
 
         for (let i = checkStart; i <= checkEnd; i++) {
             if (!currentCache.has(i) && !pendingIndices.current.has(i)) {
@@ -230,8 +238,9 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         }
 
         if (needed.length > 0) {
-            const batchStart = Math.max(0, needed[0] - 1000); // 👈 (500 -> 1000)
-            const batchCount = Math.min(totalCount - batchStart, (needed[needed.length - 1] - batchStart) + 5000); // 👈 5000줄뭉텅이
+            const batchStart = Math.max(0, needed[0] - LOOKBEHIND_LIMIT);
+            const lastNeeded = needed[needed.length - 1];
+            const batchCount = Math.min(totalCount - batchStart, (lastNeeded - batchStart) + PREFETCH_BUFFER);
 
             // --- Phase 2: Zero-copy Binary Load (SharedArrayBuffer) ---
             if (sharedBuffers && sharedBuffers.isStreamMode && sharedBuffers.logBuffer) {

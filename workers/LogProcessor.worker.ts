@@ -40,23 +40,17 @@ initWasm();
 // --- Parallelism: Worker Pool for Heavy Filtering ---
 const numSubWorkers = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
 const subWorkers: Worker[] = [];
-let subWorkerIdleTimer: any = null;
-const SUB_WORKER_IDLE_TIMEOUT = 30000; // 30초 후 워커 종료
+// 💡 idle 타이머 제거: 30초 idle 후 terminate는 WASM 재로드 5초 지연을 유발했습니다.
+// 서브워커는 탭이 비활성화(SET_ACTIVE_STATE)될 때만 종료합니다. 🐧🔥
 
 const terminateSubWorkers = () => {
     if (subWorkers.length === 0) return;
-    console.log('[Worker] Idle timeout reached. Terminating sub-workers to save RAM.');
+    console.log('[Worker] Terminating sub-workers (tab inactive).');
     subWorkers.forEach(sw => sw.terminate());
     subWorkers.length = 0;
 };
 
-const resetSubWorkerIdleTimer = () => {
-    if (subWorkerIdleTimer) clearTimeout(subWorkerIdleTimer);
-    subWorkerIdleTimer = setTimeout(terminateSubWorkers, SUB_WORKER_IDLE_TIMEOUT);
-};
-
 const initSubWorkers = () => {
-    if (subWorkerIdleTimer) clearTimeout(subWorkerIdleTimer); // 일단 작업 시작하면 타이머 해제
     if (subWorkers.length > 0) {
         console.log(`[Worker] Using existing ${subWorkers.length} sub-workers`);
         return;
@@ -98,38 +92,45 @@ let indexSharedBuffer: any;
 let filteredIndicesBuffer: Int32Array;
 
 try {
-    // ✅ Check if SharedArrayBuffer is available (COOP/COEP check)
     if (typeof SharedArrayBuffer !== 'undefined') {
-        logSharedBuffer = new SharedArrayBuffer(LOG_SAB_SIZE);
-        logBuffer = new Uint8Array(logSharedBuffer);
-
-        offsetSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
-        lineOffsetsStream = new Uint32Array(offsetSharedBuffer);
-
-        lengthSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
-        lineLengthsStream = new Uint32Array(lengthSharedBuffer);
-
         indexSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
         filteredIndicesBuffer = new Int32Array(indexSharedBuffer);
-        console.log('[Worker] SharedArrayBuffer initialized successfully');
+        console.log('[Worker] indexSharedBuffer initialized successfully');
     } else {
         throw new Error('SharedArrayBuffer is NOT available');
     }
 } catch (e) {
-    console.warn('[Worker] SharedArrayBuffer not supported. Falling back to regular ArrayBuffer.', e);
-    // Fallback to regular buffers (less efficient but works)
-    logSharedBuffer = new ArrayBuffer(LOG_SAB_SIZE);
-    logBuffer = new Uint8Array(logSharedBuffer);
-
-    offsetSharedBuffer = new ArrayBuffer(MAX_LINES * 4);
-    lineOffsetsStream = new Uint32Array(offsetSharedBuffer);
-
-    lengthSharedBuffer = new ArrayBuffer(MAX_LINES * 4);
-    lineLengthsStream = new Uint32Array(lengthSharedBuffer);
-
+    console.warn('[Worker] SharedArrayBuffer not supported.', e);
     indexSharedBuffer = new ArrayBuffer(MAX_LINES * 4);
     filteredIndicesBuffer = new Int32Array(indexSharedBuffer);
 }
+
+// ✅ Lazy Allocation for Stream mode (Saves 260MB per background tab in LocalFileMode)
+let streamBuffersAllocated = false;
+const allocateStreamBuffers = () => {
+    if (streamBuffersAllocated) return;
+    try {
+        if (typeof SharedArrayBuffer !== 'undefined') {
+            logSharedBuffer = new SharedArrayBuffer(LOG_SAB_SIZE);
+            logBuffer = new Uint8Array(logSharedBuffer);
+            offsetSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
+            lineOffsetsStream = new Uint32Array(offsetSharedBuffer);
+            lengthSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
+            lineLengthsStream = new Uint32Array(lengthSharedBuffer);
+            console.log('[Worker] Stream SharedArrayBuffers generated lazily (260MB)');
+        } else {
+            throw new Error('SAB NA');
+        }
+    } catch (e) {
+        logSharedBuffer = new ArrayBuffer(LOG_SAB_SIZE);
+        logBuffer = new Uint8Array(logSharedBuffer);
+        offsetSharedBuffer = new ArrayBuffer(MAX_LINES * 4);
+        lineOffsetsStream = new Uint32Array(offsetSharedBuffer);
+        lengthSharedBuffer = new ArrayBuffer(MAX_LINES * 4);
+        lineLengthsStream = new Uint32Array(lengthSharedBuffer);
+    }
+    streamBuffersAllocated = true;
+};
 
 let currentRule: LogRule | null = null;
 let currentQuickFilter: 'none' | 'error' | 'exception' = 'none'; // ✅ New State
@@ -297,15 +298,14 @@ const buildLocalFileIndex = async (path: string, size: number) => {
 
     let offset = 0n;
     let processedBytes = 0;
-    const chunkSize = 5 * 1024 * 1024; // 5MB chunk
+    // 💡 50MB 청크: IPC 왕복 횟수를 290번 -> 29번으로 줄여 멀티탭 시 경쟁 최소화 🐧🚀
+    const chunkSize = 50 * 1024 * 1024;
 
     try {
-        console.log(`[Worker] Starting Local File Indexing: ${path} (${size} bytes)`);
+        console.log(`[Worker] Starting Local File Indexing: ${path} (${Math.round(size / 1024 / 1024)}MB, chunkSize=50MB)`);
         while (processedBytes < size) {
             const end = Math.min(processedBytes + chunkSize, size);
-            console.log(`[Worker] Requesting chunk: ${processedBytes} to ${end}`);
             const chunk: Uint8Array = await rpcCall('readFileSegment', { path, start: processedBytes, end });
-            console.log(`[Worker] Received chunk, length: ${chunk.length}`);
 
             let pos = -1;
             while ((pos = chunk.indexOf(10, pos + 1)) !== -1) {
@@ -354,6 +354,8 @@ const initStream = (payload?: { isLive?: boolean }) => {
     isLiveStream = payload?.isLive !== false;
     currentFile = null;
     lineOffsets = null;
+
+    allocateStreamBuffers(); // ✅ Lazily allocate 260MB buffers ONLY when stream starts
 
     // Reset Binary Store
     logBufferPtr = 0;
@@ -513,11 +515,27 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     const totalLines = isStreamMode ? streamLineCount : (lineOffsets ? lineOffsets.length : 0);
     console.log(`[Worker] Preparing filter for ${totalLines} lines (isStream: ${isStreamMode})`);
 
-    // ✅ IPC 부하 및 메모리 안전을 위해 청크 크기를 고정합니다. (20k lines max per chunk)
-    const MAX_LINES_PER_CHUNK = 20000;
+    // ✅ 동적 스케일링 (파일 크기 비례): 라인 수에 따라 청크 크기 및 동시성을 가변적으로 적용하여 처리 속도 극대화.
+    let MAX_LINES_PER_CHUNK = 20000;
+    let dynamicConcurrency = Math.max(2, numSubWorkers);
+
+    if (totalLines > 5000000) {
+        // 초거대 용량 (5M 라인 이상) -> 청크 크기 극대화로 IPC/스트림 오버헤드 최소화 (최대 250k)
+        MAX_LINES_PER_CHUNK = 250000;
+        dynamicConcurrency = Math.max(6, numSubWorkers + 2); // 가용 코어 초과 허용 (강력한 멀티태스킹 유도)
+    } else if (totalLines > 1000000) {
+        // 대용량 (1M ~ 5M 라인) -> 100k 청크
+        MAX_LINES_PER_CHUNK = 100000;
+        dynamicConcurrency = Math.max(4, numSubWorkers);
+    } else {
+        // 일반 용량 (1M 미만) -> UI 반응성에 유리하게 잘게 쪼갬
+        MAX_LINES_PER_CHUNK = 20000;
+        dynamicConcurrency = numSubWorkers;
+    }
+
     const numChunks = Math.ceil(totalLines / MAX_LINES_PER_CHUNK);
     const linesPerChunk = MAX_LINES_PER_CHUNK;
-    console.log(`[Worker] Splitting into ${numChunks} chunks (${linesPerChunk} lines each)`);
+    console.log(`[Worker] Dynamic Strategy: ${numChunks} chunks (${linesPerChunk} lines each), Concurrency: ${dynamicConcurrency}`);
 
     const chunkResults: (Int32Array | null)[] = new Array(numChunks).fill(null);
     let completedChunks = 0;
@@ -572,13 +590,13 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                 }
             });
 
-            resetSubWorkerIdleTimer();
         }
     };
 
+
     const decoder = new TextDecoder();
     let nextChunkIdx = 0;
-    const MAX_CONCURRENT_CHUNKS = 4; // ✅ 동시 작업 제한 (1GB+ 대응)
+    const MAX_CONCURRENT_CHUNKS = dynamicConcurrency; // ✅ 계산된 동적 동시성 적용
 
     const processNextChunk = async () => {
         if (nextChunkIdx >= numChunks || filterRequestId !== currentFilterRequestId) return;
@@ -739,9 +757,15 @@ const getAnalysisContext = (): AnalysisHandlers.WorkerContext => ({
 // --- Message Listener ---
 ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
     const { type, payload, requestId } = evt.data;
-    if (type !== 'PROCESS_CHUNK') console.log(`[Worker] Received message: ${type}`);
+    if (type !== 'PROCESS_CHUNK' && type !== 'SET_ACTIVE_STATE') console.log(`[Worker] Received message: ${type}`);
 
     switch (type) {
+        case 'SET_ACTIVE_STATE':
+            if (payload === false) {
+                console.log('[Worker] Tab became inactive, terminating idle sub-workers to save CPU/RAM');
+                terminateSubWorkers();
+            }
+            break;
         case 'RPC_RESPONSE':
             if (requestId && rpcWaiters.has(requestId)) {
                 rpcWaiters.get(requestId)!.resolve(payload);
@@ -757,6 +781,16 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
         case 'INIT_FILE':
             // 핫픽스: payload 자체가 File 객체이므로 바로 전달합니다. 🐧🛠️
             await buildFileIndex(payload);
+            break;
+        case 'SET_ACTIVE_STATE':
+            // 💡 탭 비활성화 시 서브워커 즉시 종료 → 탭 10개여도 서브워커는 active 1개분만 유지
+            // 재활성화 시 다음 FILTER_LOGS에서 initSubWorkers()가 자동으로 재생성
+            if (payload === false) {
+                terminateSubWorkers();
+                console.log('[Worker] Tab deactivated → SubWorkers terminated to save RAM');
+            } else {
+                console.log('[Worker] Tab activated → SubWorkers will be respawned on next filter');
+            }
             break;
         case 'INIT_LOCAL_FILE_STREAM':
             await buildLocalFileIndex(payload.path, payload.size);

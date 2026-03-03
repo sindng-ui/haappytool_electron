@@ -63,73 +63,89 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
         }
 
         try {
-            const MAX_BATCH_BYTES = 5 * 1024 * 1024;
-            let i = startFilterIndex;
-            while (i < maxFile) {
-                let batchStart = i;
-                let batchMinByte = lineOffsets[filteredIndices[i]];
-                let batchMaxByte = -1n;
+            const MAX_GAP_BYTES = 10 * 1024 * 1024; // 💡 512KB -> 10MB 상향: 현대 SSD에선 적게 자주 읽는 것보다 뭉쳐 읽는 게 훨씬 빠름! 🐧🚀
+            const MAX_CHUNK_BYTES = 20 * 1024 * 1024; // 10MB -> 20MB 상향
 
-                let j = i;
-                const batchFileSize = context.isLocalFileMode ? context.localFileSize! : currentFile!.size;
-                while (j < maxFile) {
-                    const idx = filteredIndices[j];
-                    const startByte = lineOffsets[idx];
-                    const endByte = idx < lineOffsets.length - 1 ? lineOffsets[idx + 1] : BigInt(batchFileSize);
-
-                    if (batchMaxByte === -1n || endByte > batchMaxByte) batchMaxByte = endByte;
-
-                    if (j + 1 < maxFile) {
-                        const nextIdx = filteredIndices[j + 1];
-                        const nextEndByte = nextIdx < lineOffsets.length - 1 ? lineOffsets[nextIdx + 1] : BigInt(batchFileSize);
-                        if (nextEndByte - batchMinByte > BigInt(MAX_BATCH_BYTES)) break;
-                    }
-                    j++;
-                }
-
-                const batchEnd = j;
-                const batchSize = Number(batchMaxByte - batchMinByte);
-                // console.log(`[Worker] Smart batch read: lines ${batchStart}-${batchEnd}, size: ${(batchSize / 1024).toFixed(1)} KB`);
-
-                let uint8View: Uint8Array;
-                if (context.isLocalFileMode) {
-                    const startRead = performance.now();
-                    uint8View = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: Number(batchMinByte), end: Number(batchMaxByte) });
-                    const endRead = performance.now();
-                    if (endRead - startRead > 1000) {
-                        console.warn(`[Worker] Slow disk read: ${(endRead - startRead).toFixed(0)}ms for ${batchSize} bytes`);
-                    }
-                    if (!uint8View || uint8View.length === 0) {
-                        console.error(`[Worker] readFileSegment returned EMPTY buffer for ${context.localFilePath}`);
-                    }
-                } else {
-                    const chunkBlob = currentFile!.slice(Number(batchMinByte), Number(batchMaxByte));
-                    const buffer = await chunkBlob.arrayBuffer();
-                    uint8View = new Uint8Array(buffer);
-                }
-
-                for (let k = batchStart; k < batchEnd; k++) {
-                    const originalIdx = filteredIndices[k];
-                    const lineStart = lineOffsets[originalIdx];
-                    const fileSize = context.isLocalFileMode ? context.localFileSize! : currentFile!.size;
-                    const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(fileSize);
-
-                    const relStart = Number(lineStart - batchMinByte);
-                    const relEnd = Number(lineEnd - batchMinByte);
-
-                    const text = decoder.decode(uint8View.subarray(relStart, relEnd)).replace(/\r?\n$/, '');
-
-                    resultLines.push({
-                        lineNum: originalIdx + 1,
-                        content: text
-                    });
-                }
-                if (resultLines.length > 0) {
-                    // console.log(`[Worker] getLines batch done. First line: ${resultLines[0].content.substring(0, 50)}`);
-                }
-
-                i = batchEnd;
+            interface ReadChunk {
+                minByte: bigint;
+                maxByte: bigint;
+                lineIndices: number[];
             }
+
+            const chunks: ReadChunk[] = [];
+            let currentChunk: ReadChunk | null = null;
+            const fileSize = context.isLocalFileMode ? context.localFileSize! : currentFile!.size;
+
+            for (let i = startFilterIndex; i < maxFile; i++) {
+                const idx = filteredIndices[i];
+                const startByte = lineOffsets[idx];
+                const endByte = idx < lineOffsets.length - 1 ? lineOffsets[idx + 1] : BigInt(fileSize);
+
+                if (!currentChunk) {
+                    currentChunk = { minByte: startByte, maxByte: endByte, lineIndices: [i] };
+                } else {
+                    const gap = startByte - currentChunk.maxByte;
+                    const newChunkSize = endByte - currentChunk.minByte;
+
+                    if (gap <= BigInt(MAX_GAP_BYTES) && newChunkSize <= BigInt(MAX_CHUNK_BYTES)) {
+                        currentChunk.maxByte = endByte;
+                        currentChunk.lineIndices.push(i);
+                    } else {
+                        chunks.push(currentChunk);
+                        currentChunk = { minByte: startByte, maxByte: endByte, lineIndices: [i] };
+                    }
+                }
+            }
+            if (currentChunk) chunks.push(currentChunk);
+
+            // 📊 형님, 청크 통계를 찍어서 병합이 잘 되는지 확인합니다!
+            const totalBytes = chunks.reduce((sum, c) => sum + (c.maxByte - c.minByte), 0n);
+            console.log(`[DataReader] Batch Fetching: ${chunks.length} chunks, total ${Number(totalBytes / 1024n)}KB (Avg: ${chunks.length > 0 ? Number(totalBytes / BigInt(chunks.length) / 1024n) : 0}KB per chunk)`);
+
+            // 💡 병렬 처리 최적화: 동시성을 15개로 소폭 조정하여 IPC 대역폭을 더 효율적으로 사용합니다.
+            const CONCURRENCY_LIMIT = 15;
+            const results: { lineNum: number, content: string }[] = [];
+
+            const processChunk = async (chunk: ReadChunk) => {
+                let uint8View: Uint8Array;
+                try {
+                    if (context.isLocalFileMode) {
+                        uint8View = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: Number(chunk.minByte), end: Number(chunk.maxByte) });
+                    } else {
+                        const chunkBlob = currentFile!.slice(Number(chunk.minByte), Number(chunk.maxByte));
+                        const buffer = await chunkBlob.arrayBuffer();
+                        uint8View = new Uint8Array(buffer);
+                    }
+
+                    for (const k of chunk.lineIndices) {
+                        const originalIdx = filteredIndices[k];
+                        const lineStart = lineOffsets[originalIdx];
+                        const lineEnd = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(fileSize);
+
+                        const relStart = Number(lineStart - chunk.minByte);
+                        const relEnd = Number(lineEnd - chunk.minByte);
+
+                        let realEnd = relEnd;
+                        if (realEnd > relStart && uint8View[realEnd - 1] === 10) realEnd--; // \n
+                        if (realEnd > relStart && uint8View[realEnd - 1] === 13) realEnd--; // \r
+
+                        const text = decoder.decode(uint8View.subarray(relStart, realEnd));
+                        results.push({ lineNum: originalIdx + 1, content: text });
+                    }
+                } catch (e) {
+                    console.error('[DataReader] Chunk process error:', e);
+                }
+            };
+
+            // 동시성 제어 루핑
+            for (let i = 0; i < chunks.length; i += CONCURRENCY_LIMIT) {
+                const batch = chunks.slice(i, i + CONCURRENCY_LIMIT);
+                await Promise.all(batch.map(processChunk));
+            }
+
+            resultLines.push(...results);
+            resultLines.sort((a, b) => a.lineNum - b.lineNum);
+
         } catch (err) {
             console.error('[Worker] Smart batch read failed', err);
             respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
