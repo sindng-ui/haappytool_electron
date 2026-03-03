@@ -96,7 +96,7 @@ export const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ filePath, fileName
 
         let isStale = false;
         // Adjust path based on location: components/PerfRawViewer.tsx -> ../workers/LogProcessor.worker.ts
-        workerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url));
+        workerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
 
         const cleanupListeners: (() => void)[] = [];
 

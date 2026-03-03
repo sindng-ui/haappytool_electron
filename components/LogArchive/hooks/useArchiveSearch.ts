@@ -93,7 +93,8 @@ export function useArchiveSearch(debounceMs: number = 1000): UseArchiveSearchRet
     useEffect(() => {
         // Worker 생성
         workerRef.current = new Worker(
-            new URL('../workers/ArchiveSearch.worker.ts', import.meta.url)
+            new URL('../workers/ArchiveSearch.worker.ts', import.meta.url),
+            { type: 'module' }
         );
 
         // Worker 메시지 리스너

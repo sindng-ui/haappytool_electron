@@ -63,7 +63,7 @@ const initSubWorkers = () => {
     console.log(`[Worker] Spawning ${numSubWorkers} sub-workers...`);
     for (let i = 0; i < numSubWorkers; i++) {
         try {
-            const sw = new Worker(new URL('./LogFilterSub.worker.ts', import.meta.url));
+            const sw = new Worker(new URL('./LogFilterSub.worker.ts', import.meta.url), { type: 'module' });
             sw.onerror = (e) => console.error(`[Worker] SubWorker ${i} error:`, e);
             subWorkers.push(sw);
         } catch (e) {

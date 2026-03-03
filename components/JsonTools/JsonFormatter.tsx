@@ -280,7 +280,7 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
     }, [searchQuery, parsedData, isViewerMode]);
 
     useEffect(() => {
-        workerRef.current = new Worker(new URL('../../workers/JsonParser.worker.ts', import.meta.url));
+        workerRef.current = new Worker(new URL('../../workers/JsonParser.worker.ts', import.meta.url), { type: 'module' });
         workerRef.current.onmessage = (e) => {
             const { type, payload, error: errMsg, requestId } = e.data;
             setIsProcessing(false);
