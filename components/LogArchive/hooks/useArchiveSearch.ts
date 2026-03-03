@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ArchivedLog, SearchOptions } from '../db/LogArchiveDB';
-import ArchiveSearchWorker from '../../workers/ArchiveSearch.worker.ts?worker';
+import ArchiveSearchWorker from '../../../workers/Search.worker.ts?worker';
 
 /**
  * Worker 메시지 타입
