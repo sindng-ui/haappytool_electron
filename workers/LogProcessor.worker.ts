@@ -86,7 +86,7 @@ let localFileSize: number = 0;
 
 // --- Shared Buffer Initialization ---
 const LOG_SAB_SIZE = 100 * 1024 * 1024; // 100MB Shared Log Store
-const MAX_LINES = 10 * 1024 * 1024; // 10M Lines maximum (for 1GB+ files)
+const MAX_LINES = 20 * 1024 * 1024; // 20M Lines maximum (for 1GB+ very dense files)
 
 let logSharedBuffer: any;
 let logBuffer: Uint8Array;
@@ -567,15 +567,20 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     };
 
     const decoder = new TextDecoder();
-    for (let i = 0; i < numChunks; i++) {
+    let nextChunkIdx = 0;
+    const MAX_CONCURRENT_CHUNKS = 4; // ✅ 동시 RPC/Worker 요청 제한 (1GB+ 대응) 🐧🚀
+
+    const processNextChunk = () => {
+        // 이미 새로운 필터 요청이 들어왔거나 모든 청크를 처리했으면 중단
+        if (nextChunkIdx >= numChunks || filterRequestId !== currentFilterRequestId) return;
+
+        const i = nextChunkIdx++;
         const startLine = i * linesPerChunk;
         const endLine = Math.min(startLine + linesPerChunk, totalLines);
         const sw = subWorkers.length > 0 ? subWorkers[i % subWorkers.length] : null;
 
         if (!sw) {
-            // ✅ Fallback: 서브 워커가 없는 경우 메인 워커에서 직접 처리 (성능은 약간 희생하지만 동작은 보장)
-            console.warn('[Worker] No sub-workers available. Processing chunk on main worker.');
-            const matchesList: number[] = [];
+            // ✅ Fallback: 서브 워커가 없는 경우 메인 워커에서 직접 처리
             if (isStreamMode) {
                 const chunkLines: string[] = [];
                 for (let j = startLine; j < endLine; j++) {
@@ -583,11 +588,14 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                     const l = lineLengthsStream[j];
                     chunkLines.push(decoder.decode(logBuffer.subarray(s, s + l).slice()));
                 }
+                const mList: number[] = [];
                 for (let j = 0; j < chunkLines.length; j++) {
                     if (checkIsMatch(chunkLines[j], normalizedRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
-                        matchesList.push(startLine + j);
+                        mList.push(startLine + j);
                     }
                 }
+                onChunkDone(i, new Int32Array(mList), filterRequestId);
+                processNextChunk();
             } else if (isLocalFileMode) {
                 const startByte = Number(lineOffsets![startLine]);
                 const fileSize = localFileSize;
@@ -604,26 +612,32 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                         }
                     }
                     onChunkDone(i, new Int32Array(mList), filterRequestId);
+                    processNextChunk();
+                }).catch(err => {
+                    console.error(`[Worker] Fallback RPC failed for chunk ${i}`, err);
+                    onChunkDone(i, new Int32Array(0), filterRequestId);
+                    processNextChunk();
                 });
-                continue; // Async
             } else if (currentFile) {
                 const chunkBlob = currentFile.slice(Number(lineOffsets![startLine]), Number(endLine < lineOffsets!.length ? lineOffsets![endLine] : currentFile.size));
                 const reader = new FileReaderSync();
                 const text = reader.readAsText(chunkBlob);
                 const lines = text.split('\n');
-                if (text.endsWith('\n')) lines.pop(); // Remove tailing empty line
+                if (text.endsWith('\n')) lines.pop();
+                const mList: number[] = [];
                 for (let j = 0; j < lines.length; j++) {
                     if (checkIsMatch(lines[j], normalizedRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
-                        matchesList.push(startLine + j);
+                        mList.push(startLine + j);
                     }
                 }
+                onChunkDone(i, new Int32Array(mList), filterRequestId);
+                processNextChunk();
             }
-            onChunkDone(i, new Int32Array(matchesList), filterRequestId);
-            continue;
+            return;
         }
 
+        // --- SubWorker Path ---
         if (isStreamMode) {
-            // ... (기존 로직)
             const chunkLines: string[] = [];
             for (let j = startLine; j < endLine; j++) {
                 const s = lineOffsetsStream[j];
@@ -636,20 +650,14 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                     if (e.data.payload.requestId === filterRequestId) {
                         sw.removeEventListener('message', messageHandler);
                         onChunkDone(i, e.data.payload.matches, e.data.payload.requestId);
+                        processNextChunk();
                     }
                 }
             };
             sw.addEventListener('message', messageHandler);
             sw.postMessage({
                 type: 'FILTER_LINES',
-                payload: {
-                    chunkId: i,
-                    lines: chunkLines,
-                    offset: startLine,
-                    rule: currentRule,
-                    quickFilter: currentQuickFilter,
-                    requestId: filterRequestId
-                }
+                payload: { chunkId: i, lines: chunkLines, offset: startLine, rule: currentRule, quickFilter: currentQuickFilter, requestId: filterRequestId }
             });
         } else if (isLocalFileMode) {
             const startByte = Number(lineOffsets![startLine]);
@@ -663,46 +671,42 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                         if (e.data.payload.requestId === filterRequestId) {
                             sw.removeEventListener('message', messageHandler);
                             onChunkDone(i, e.data.payload.matches, e.data.payload.requestId);
+                            processNextChunk();
                         }
                     }
                 };
                 sw.addEventListener('message', messageHandler);
                 sw.postMessage({
                     type: 'FILTER_CHUNK',
-                    payload: {
-                        chunkId: i,
-                        buffer: chunkBuffer,
-                        offset: startLine,
-                        rule: currentRule,
-                        quickFilter: currentQuickFilter,
-                        requestId: filterRequestId
-                    }
+                    payload: { chunkId: i, buffer: chunkBuffer, offset: startLine, rule: currentRule, quickFilter: currentQuickFilter, requestId: filterRequestId }
                 }, [chunkBuffer.buffer]); // Zero copy transfer! 🚀
+            }).catch(err => {
+                console.error(`[Worker] RPC failed for chunk ${i}`, err);
+                onChunkDone(i, new Int32Array(0), filterRequestId);
+                processNextChunk();
             });
         } else if (currentFile) {
-            // File 모드는 기존 로직과 동일
             const chunkBlob = currentFile.slice(Number(lineOffsets![startLine]), Number(endLine < lineOffsets!.length ? lineOffsets![endLine] : currentFile.size));
             const messageHandler = (e: MessageEvent) => {
                 if (e.data.type === 'CHUNK_COMPLETE' && e.data.payload.chunkId === i) {
                     if (e.data.payload.requestId === filterRequestId) {
                         sw.removeEventListener('message', messageHandler);
                         onChunkDone(i, e.data.payload.matches, e.data.payload.requestId);
+                        processNextChunk();
                     }
                 }
             };
             sw.addEventListener('message', messageHandler);
             sw.postMessage({
                 type: 'FILTER_CHUNK',
-                payload: {
-                    chunkId: i,
-                    blob: chunkBlob,
-                    offset: startLine,
-                    rule: currentRule,
-                    quickFilter: currentQuickFilter,
-                    requestId: filterRequestId
-                }
+                payload: { chunkId: i, blob: chunkBlob, offset: startLine, rule: currentRule, quickFilter: currentQuickFilter, requestId: filterRequestId }
             });
         }
+    };
+
+    // 처음에 병렬 한도만큼 청크 프로세싱 시작 (보폭 조절! 🐧🚀)
+    for (let k = 0; k < Math.min(MAX_CONCURRENT_CHUNKS, numChunks); k++) {
+        processNextChunk();
     }
 };
 

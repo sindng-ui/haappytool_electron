@@ -80,9 +80,21 @@ ctx.onmessage = async (e) => {
                 }
             } else if (buffer) {
                 const decoder = new TextDecoder();
-                const text = decoder.decode(buffer).replace(/\r?\n$/, '');
-                const lines = text.split('\n');
-                for (const line of lines) {
+                let start = 0;
+                let next;
+                // ✅ Optimization: uint8View.indexOf(10) is much faster than string split for large chunks
+                while ((next = buffer.indexOf(10, start)) !== -1) {
+                    const lineBytes = buffer.subarray(start, next);
+                    const line = decoder.decode(lineBytes).replace(/\r$/, '');
+                    if (checkIsMatch(line, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+                        matchesList.push(offset + relativeLineIndex);
+                    }
+                    relativeLineIndex++;
+                    start = next + 1;
+                }
+                // Handle the last segment if it doesn't end with a newline
+                if (start < buffer.length) {
+                    const line = decoder.decode(buffer.subarray(start)).replace(/\r$/, '');
                     if (checkIsMatch(line, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
                         matchesList.push(offset + relativeLineIndex);
                     }

@@ -273,9 +273,11 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             try {
                 const lines = await onScrollRequest(batchStart, batchCount);
                 if (!lines || lines.length === 0) {
-                    for (let i = batchStart; i < batchStart + batchCount; i++) pendingIndices.current.delete(i);
+                    console.warn(`[HyperLog] onScrollRequest returned NO lines for range ${batchStart}-${batchStart + batchCount}`);
+                    for (let i = batchStart; i < batchStart + batchCount; i++) pendingIndices.current.add(i); // Mark as failed?
                     return;
                 }
+                console.debug(`[HyperLog] Loaded ${lines.length} lines via IPC for range ${batchStart}`);
                 processLines(batchStart, batchCount, lines);
             } catch (err) {
                 console.error('[Renderer] Batch fetch failed', err);

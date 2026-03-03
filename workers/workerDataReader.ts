@@ -99,6 +99,9 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
                     if (endRead - startRead > 1000) {
                         console.warn(`[Worker] Slow disk read: ${(endRead - startRead).toFixed(0)}ms for ${batchSize} bytes`);
                     }
+                    if (!uint8View || uint8View.length === 0) {
+                        console.error(`[Worker] readFileSegment returned EMPTY buffer for ${context.localFilePath}`);
+                    }
                 } else {
                     const chunkBlob = currentFile!.slice(Number(batchMinByte), Number(batchMaxByte));
                     const buffer = await chunkBlob.arrayBuffer();
