@@ -165,7 +165,9 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
 
     // --- Main Export Actions ---
     const handleCopyLogs = useCallback(async (paneId: 'left' | 'right') => {
-        const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
+        const selectedIndicesRef = paneId === 'left' ? selectedIndicesLeftRef : selectedIndicesRightRef;
+        const hasSelection = selectedIndicesRef.current.size > 0;
+        const count = hasSelection ? selectedIndicesRef.current.size : (paneId === 'left' ? leftFilteredCount : rightFilteredCount);
         const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
 
         if (count <= 0) {
@@ -175,18 +177,25 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
 
         try {
             console.time('copy-fetch');
-            // 항상 필터링된 전체 로그를 복사 (선택 여부 무관)
-            let content = await requestFullText();
+            let content = '';
+
+            if (hasSelection) {
+                // 선택된 라인만 가져오기 🐧🎯
+                const sortedIndices = Array.from(selectedIndicesRef.current).sort((a, b) => a - b);
+                const lines = await requestBookmarkedLines(sortedIndices, paneId);
+                content = lines.map(l => l.content).join('\n');
+            } else {
+                // 선택 영역 없으면 전체 복사
+                content = await requestFullText();
+            }
             console.timeEnd('copy-fetch');
 
             content = content.replace(/\r?\n$/, '');
 
-            if (!content) {
+            if (!content && count > 0) {
                 showToast('Failed to retrieve log content.', 'error');
                 return;
             }
-
-            await new Promise(resolve => setTimeout(resolve, 50));
 
             if ((window as any).electronAPI?.copyToClipboard) {
                 await (window as any).electronAPI.copyToClipboard(content);
@@ -210,17 +219,22 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
                 }
                 document.body.removeChild(textArea);
             }
-            showToast(`Copied ${count.toLocaleString()} lines!`, 'success');
+
+            const label = hasSelection ? 'selected lines' : 'lines';
+            showToast(`Copied ${count.toLocaleString()} ${label}!`, 'success');
 
         } catch (e) {
             console.error('[Copy] Failed', e);
             showToast('Failed to copy logs.', 'error');
         }
-    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, showToast]);
+    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, requestBookmarkedLines, selectedIndicesLeftRef, selectedIndicesRightRef, showToast]);
 
     const handleSaveLogs = useCallback(async (paneId: 'left' | 'right') => {
-        const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
+        const selectedIndicesRef = paneId === 'left' ? selectedIndicesLeftRef : selectedIndicesRightRef;
+        const hasSelection = selectedIndicesRef.current.size > 0;
+        const count = hasSelection ? selectedIndicesRef.current.size : (paneId === 'left' ? leftFilteredCount : rightFilteredCount);
         const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
+
         if (count <= 0) {
             showToast('No logs to save.', 'info');
             return;
@@ -228,10 +242,17 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
 
         try {
             console.time('save-fetch');
-            const content = await requestFullText();
+            let content = '';
+            if (hasSelection) {
+                const sortedIndices = Array.from(selectedIndicesRef.current).sort((a, b) => a - b);
+                const lines = await requestBookmarkedLines(sortedIndices, paneId);
+                content = lines.map(l => l.content).join('\n');
+            } else {
+                content = await requestFullText();
+            }
             console.timeEnd('save-fetch');
 
-            if (!content) {
+            if (!content && count > 0) {
                 showToast('Failed to retrieve log content.', 'error');
                 return;
             }
@@ -248,7 +269,7 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `filtered_logs_${paneId}_${new Date().getTime()}.txt`;
+                a.download = `logs_${paneId}_${new Date().getTime()}.txt`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -259,10 +280,12 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
             console.error('[Save] Failed', e);
             showToast('Failed to save logs.', 'error');
         }
-    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, showToast]);
+    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, requestBookmarkedLines, selectedIndicesLeftRef, selectedIndicesRightRef, showToast]);
 
     const handleCopyAsConfluenceTable = useCallback(async (paneId: 'left' | 'right') => {
-        const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
+        const selectedIndicesRef = paneId === 'left' ? selectedIndicesLeftRef : selectedIndicesRightRef;
+        const hasSelection = selectedIndicesRef.current.size > 0;
+        const count = hasSelection ? selectedIndicesRef.current.size : (paneId === 'left' ? leftFilteredCount : rightFilteredCount);
         const requestLines = paneId === 'left' ? requestLinesLeft : requestLinesRight;
 
         if (count <= 0) {
@@ -270,14 +293,19 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
             return;
         }
 
-        // 대용량 경고 (약 5만 줄 이상)
         if (count > 50000) {
             showToast('Large amount of logs. Processing might take a few seconds...', 'info');
         }
 
         try {
             console.time('confluence-copy-fetch');
-            const lines = await requestLines(0, count);
+            let lines: any[] = [];
+            if (hasSelection) {
+                const sortedIndices = Array.from(selectedIndicesRef.current).sort((a, b) => a - b);
+                lines = await requestBookmarkedLines(sortedIndices, paneId);
+            } else {
+                lines = await requestLines(0, count);
+            }
             console.timeEnd('confluence-copy-fetch');
 
             if (!lines || lines.length === 0) {
@@ -293,12 +321,13 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
                 await navigator.clipboard.writeText(confluenceTable);
             }
 
-            showToast(`Copied ${count.toLocaleString()} lines as Confluence Table!`, 'success');
+            const label = hasSelection ? 'selected lines' : 'lines';
+            showToast(`Copied ${count.toLocaleString()} ${label} as Confluence Table!`, 'success');
         } catch (e) {
             console.error('[Confluence Copy] Failed', e);
             showToast('Failed to copy Confluence table.', 'error');
         }
-    }, [leftFilteredCount, rightFilteredCount, requestLinesLeft, requestLinesRight, showToast]);
+    }, [leftFilteredCount, rightFilteredCount, requestLinesLeft, requestLinesRight, requestBookmarkedLines, selectedIndicesLeftRef, selectedIndicesRightRef, showToast]);
 
     return {
         handleCopyLogs,

@@ -405,10 +405,15 @@ export const useLogExtractorLogic = ({
 
     useEffect(() => {
         let isStale = false;
-        leftWorkerRef.current = new LogProcessorWorker();
+        try {
+            leftWorkerRef.current = new LogProcessorWorker();
+        } catch (err) {
+            console.error('[useLog-left] FATAL: Worker instantiation failed', err);
+            addToast('Worker Load Error', 'error');
+            return;
+        }
 
         let cleanupListeners: (() => void)[] = [];
-
         loadState();
 
         leftWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
@@ -428,6 +433,21 @@ export const useLogExtractorLogic = ({
             });
         };
 
+        leftWorkerRef.current.onerror = (e: any) => {
+            console.error('[useLog-left] --- WORKER ERROR START ---');
+            console.error('[useLog-left] Event:', e);
+            const detail = {
+                message: e.message,
+                filename: e.filename,
+                lineno: e.lineno,
+                colno: e.colno,
+                error: String(e.error || 'N/A')
+            };
+            console.warn('[useLog-left] Detailed Info:', detail);
+            console.error('[useLog-left] --- WORKER ERROR END ---');
+            addToast(`Left Worker error: ${e.message || 'Check console'}`, 'error');
+        };
+
         return () => {
             isStale = true;
             leftWorkerRef.current?.terminate();
@@ -438,7 +458,12 @@ export const useLogExtractorLogic = ({
     // Initialize Right Worker
     useEffect(() => {
         let isStale = false;
-        rightWorkerRef.current = new LogProcessorWorker();
+        try {
+            rightWorkerRef.current = new LogProcessorWorker();
+        } catch (err) {
+            console.error('[useLog-right] FATAL: Worker instantiation failed', err);
+            return;
+        }
 
         rightWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
             if (isStale) return;
@@ -457,6 +482,18 @@ export const useLogExtractorLogic = ({
                 pendingRequests: rightPendingRequests,
                 pane: 'right'
             });
+        };
+
+        rightWorkerRef.current.onerror = (e: any) => {
+            console.error('[useLog-right] Worker Error:', e);
+            const detail = {
+                message: e.message,
+                filename: e.filename,
+                lineno: e.lineno,
+                colno: e.colno,
+                error: String(e.error || 'N/A')
+            };
+            console.warn('[useLog-right] Detailed Info:', detail);
         };
 
         return () => {

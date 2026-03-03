@@ -38,7 +38,7 @@ async function createWindow() {
             nodeIntegration: false,
             contextIsolation: true,
             sandbox: false, // ✅ 형님, 생산 빌드에서도 워커와 SharedArrayBuffer가 원활하도록 샌드박스를 끕니다! 🐧🧼
-            preload: path.join(__dirname, 'preload.js')
+            preload: path.join(__dirname, 'preload.cjs')
         },
         autoHideMenuBar: true,
         backgroundColor: '#0f172a',
@@ -134,13 +134,15 @@ async function createWindow() {
 app.whenReady().then(async () => {
     // ✅ CSP(Content Security Policy) 설정 추가
     const { session } = require('electron');
-    const csp = "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; " + // ✅ Workers from blob/file support
-        "worker-src 'self' blob:; " + // ✅ Explicitly allow workers
-        "style-src 'self' 'unsafe-inline'; " +
-        "img-src 'self' data:; " +
-        "connect-src 'self' * ws://127.0.0.1:3000 ws://localhost:3000 http://127.0.0.1:3003 http://localhost:3003;";
+    const csp = "default-src 'self' app:; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: app:; " + // ✅ Workers from blob/file support
+        "worker-src 'self' blob: app:; " + // ✅ Explicitly allow workers
+        "style-src 'self' 'unsafe-inline' app:; " +
+        "font-src 'self' data: app:; " + // ✅ 폰트 로딩 허용
+        "img-src 'self' data: app:; " +
+        "connect-src 'self' * ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:3003 ws://localhost:3003 http://127.0.0.1:3003 http://localhost:3003 app:;";
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        console.log('[Main] Applying CSP:', csp);
         callback({
             responseHeaders: {
                 ...details.responseHeaders,

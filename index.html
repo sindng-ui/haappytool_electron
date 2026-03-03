@@ -5,9 +5,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HappyTool</title>
-  <!-- Electron CSP -->
+  <!-- ✅ 하이브리드 CSP: Electron 메인과 HTML 양쪽에서 권한을 확보하여 차단을 방지합니다. 🐧🛡️ -->
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://127.0.0.1:3000 ws://localhost:3000 http://127.0.0.1:3003 http://localhost:3003;" />
+    content="default-src 'self' app:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: app:; worker-src 'self' blob: app:; style-src 'self' 'unsafe-inline' app:; font-src 'self' data: app:; img-src 'self' data: app:; connect-src 'self' * ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:3003 ws://localhost:3003 http://127.0.0.1:3003 http://localhost:3003 app:;" />
 </head>
 
 <body>

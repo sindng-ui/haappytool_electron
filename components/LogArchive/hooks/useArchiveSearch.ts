@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ArchivedLog, SearchOptions } from '../db/LogArchiveDB';
-import ArchiveSearchWorker from '../../../workers/Search.worker.ts?worker';
+import ArchiveSearchWorker from '../workers/ArchiveSearch.worker.ts?worker';
 
 /**
  * Worker 메시지 타입
@@ -113,9 +113,17 @@ export function useArchiveSearch(debounceMs: number = 1000): UseArchiveSearchRet
             }
         };
 
-        workerRef.current.onerror = (e) => {
-            console.error('[ArchiveSearch] Worker error:', e);
-            setError(new Error('Worker error occurred'));
+        workerRef.current.onerror = (e: any) => {
+            console.error('[ArchiveSearch] Worker Error event caught:', e);
+            const detail = {
+                message: e.message,
+                filename: e.filename,
+                lineno: e.lineno,
+                colno: e.colno,
+                error: String(e.error || 'N/A')
+            };
+            console.warn('[ArchiveSearch] Detailed Info:', detail);
+            setError(new Error(`Worker error: ${e.message || 'Unknown error'}`));
             setIsSearching(false);
         };
 
