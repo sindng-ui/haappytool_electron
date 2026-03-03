@@ -187,7 +187,8 @@ const rpcCall = (method: string, args: any): Promise<any> => {
     return new Promise((resolve, reject) => {
         const requestId = `rpc-${Date.now()}-${_rpcCallIndex++}`;
         rpcWaiters.set(requestId, { resolve, reject });
-        postMessage({ type: 'RPC_REQUEST', requestId, payload: { method, args } } as any);
+        console.log(`[Worker] Initiating RPC_REQUEST: ${method}`, args);
+        respond({ type: 'RPC_REQUEST', requestId, payload: { method, args } } as any);
     });
 };
 
@@ -299,9 +300,12 @@ const buildLocalFileIndex = async (path: string, size: number) => {
     const chunkSize = 5 * 1024 * 1024; // 5MB chunk
 
     try {
+        console.log(`[Worker] Starting Local File Indexing: ${path} (${size} bytes)`);
         while (processedBytes < size) {
             const end = Math.min(processedBytes + chunkSize, size);
+            console.log(`[Worker] Requesting chunk: ${processedBytes} to ${end}`);
             const chunk: Uint8Array = await rpcCall('readFileSegment', { path, start: processedBytes, end });
+            console.log(`[Worker] Received chunk, length: ${chunk.length}`);
 
             let pos = -1;
             while ((pos = chunk.indexOf(10, pos + 1)) !== -1) {

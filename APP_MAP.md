@@ -80,13 +80,15 @@
 
 ### [[Text Selection & Context Menu]]
 - **ID**: `interaction-log-selection`
-- **Keywords**: [`텍스트 선택`, `복사`, `우클릭 메뉴`, `selection`, `context menu`]
+- **Keywords**: [`텍스트 선택`, `복사`, `우클릭 메뉴`, `selection`, `context menu`, `Confluence Table`, `이스케이프`]
 - **Location**:
   - `Logic`: [useLogSelection.ts](./hooks/useLogSelection.ts)
+  - `Exporter`: [confluenceUtils.ts](./utils/confluenceUtils.ts)
   - `View`: [ContextMenu.tsx](./components/ContextMenu.tsx)
 - **Interactions & Shortcuts**:
   - `Mouse Drag`: 로그 라인 선택
-  - `Right Click`: 컨텍스트 메뉴 표시 (복사, 구글 검색, 아카이브 저장 등)
+  - `Right Click`: 컨퍼런스 테이블 복사 (`Copy as Confluence Table`) 등 지원
+  - **최근 개선**: Confluence 테이블 복사 시 특수문자(`|`, `{`, `[`, `\`) 이스케이프 강화. 특히 `\[` 결합 시 표가 깨지는 현상을 해결하기 위해 백슬래시 우선 이스케이프 로직 적용! 🐧💎
   - `Shift + Click`: 범위 선택
 
 ---

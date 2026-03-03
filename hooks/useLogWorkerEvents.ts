@@ -61,11 +61,16 @@ export function useLogWorkerEvents() {
             case 'RPC_REQUEST': {
                 if (payload?.method === 'readFileSegment') {
                     const { path, start, end } = payload.args;
-                    if (!window.electronAPI?.readFileSegment) return;
+                    console.log(`[useLog-${pane}] Handling RPC_REQUEST: readFileSegment`, { path, start, end });
+                    if (!window.electronAPI?.readFileSegment) {
+                        console.error(`[useLog-${pane}] window.electronAPI.readFileSegment is missing!`);
+                        return;
+                    }
                     window.electronAPI.readFileSegment({ path, start, end })
                         .then(chunkBuffer => {
                             // Ensure we have a clean ArrayBuffer for transfer
                             const finalBuffer = new Uint8Array(chunkBuffer);
+                            console.log(`[useLog-${pane}] RPC_RESPONSE success, length:`, finalBuffer.length);
                             workerRef.current?.postMessage({
                                 type: 'RPC_RESPONSE',
                                 requestId,
@@ -73,6 +78,7 @@ export function useLogWorkerEvents() {
                             }, [finalBuffer.buffer]); // 제로 카피 버퍼 트랜스퍼 🚀
                         })
                         .catch(err => {
+                            console.error(`[useLog-${pane}] RPC_RESPONSE error:`, err);
                             workerRef.current?.postMessage({
                                 type: 'RPC_ERROR',
                                 requestId,
