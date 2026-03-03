@@ -450,7 +450,7 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
         ...payload,
         excludes: payload.excludes.map(e => e.trim()).filter(e => e !== '').map(e => isBlockCase ? e : e.toLowerCase()),
         includeGroups: rawIncludeGroups.map(group =>
-            group.map(t => isHappyCase ? t : t.toLowerCase())
+            group.map(t => isHappyCase ? t.trim() : t.trim().toLowerCase()).filter(t => t !== '')
         ).filter(g => g.length > 0)
     };
 
