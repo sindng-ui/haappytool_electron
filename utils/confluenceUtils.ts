@@ -23,12 +23,13 @@ export const cleanConfluenceContent = (text: string): string => {
 
 /**
  * 로그 데이터 배열을 Confluence Markdown 테이블 형식으로 변환합니다.
- * 형식: || Line || Time Diff || Content ||
+ * 형식: | Line | Time Diff | Content |
+ *       | :--- | :--- | :--- |
  */
 export const convertToConfluenceTable = (lines: { lineNum: number; content: string }[]): string => {
     if (lines.length === 0) return '';
 
-    let md = '|| Line || Time Diff || Content ||\n';
+    let md = '| Line | Time Diff | Content |\n| :--- | :--- | :--- |\n';
 
     lines.forEach((line, idx) => {
         let timeDiff = '';

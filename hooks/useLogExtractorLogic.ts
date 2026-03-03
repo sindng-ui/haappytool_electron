@@ -530,6 +530,7 @@ export const useLogExtractorLogic = ({
             // Immediately set to not ready to show loader
             setLeftWorkerReady(false);
             setLeftSegmentIndex(0); // ✅ Reset to first page
+            leftViewerRef.current?.scrollTo(0); // ✅ Reset scroll position to top
             if (setClearCacheTick) setClearCacheTick(prev => prev + 1); // ✅ Clear renderer cache
 
             console.log('[useLog-Left] Auto-Apply FILTER_LOGS. hash:', payloadHash);
@@ -571,6 +572,7 @@ export const useLogExtractorLogic = ({
             console.log('[useLog-Right] Auto-Apply FILTER_LOGS. hash:', payloadHash);
             setRightWorkerReady(false);
             setRightSegmentIndex(0); // ✅ Reset to first page
+            rightViewerRef.current?.scrollTo(0); // ✅ Reset scroll position to top
             if (setClearCacheTick) setClearCacheTick(prev => prev + 1); // ✅ Clear renderer cache
 
             rightWorkerRef.current.postMessage({

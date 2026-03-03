@@ -513,21 +513,22 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     const totalLines = isStreamMode ? streamLineCount : (lineOffsets ? lineOffsets.length : 0);
     console.log(`[Worker] Preparing filter for ${totalLines} lines (isStream: ${isStreamMode})`);
 
-    // 최소 10,000줄당 1개 청크, 최대 서브워커 수만큼 분할
-    const numChunks = Math.min(numSubWorkers * 4, Math.max(1, Math.ceil(totalLines / 10000)));
-    const linesPerChunk = Math.ceil(totalLines / numChunks);
+    // ✅ IPC 부하 및 메모리 안전을 위해 청크 크기를 고정합니다. (20k lines max per chunk)
+    const MAX_LINES_PER_CHUNK = 20000;
+    const numChunks = Math.ceil(totalLines / MAX_LINES_PER_CHUNK);
+    const linesPerChunk = MAX_LINES_PER_CHUNK;
     console.log(`[Worker] Splitting into ${numChunks} chunks (${linesPerChunk} lines each)`);
 
-    const chunkResults: any[] = new Array(numChunks);
+    const chunkResults: (Int32Array | null)[] = new Array(numChunks).fill(null);
     let completedChunks = 0;
 
-    const onChunkDone = (chunkId: number, matches: Int32Array, receivedRequestId: number) => {
-        if (receivedRequestId !== filterRequestId) return;
+    const onChunkDone = (chunkId: number, matches: Int32Array | null, receivedRequestId: number) => {
+        if (receivedRequestId !== filterRequestId || filterRequestId !== currentFilterRequestId) return;
 
         chunkResults[chunkId] = matches;
         completedChunks++;
 
-        if (numChunks > 5 && completedChunks % Math.ceil(numChunks / 10) === 0) {
+        if (numChunks > 10 && completedChunks % Math.ceil(numChunks / 10) === 0) {
             console.log(`[Worker] Filtering Progress: ${((completedChunks / numChunks) * 100).toFixed(1)}%`);
         }
 
@@ -535,20 +536,32 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
 
         if (completedChunks === numChunks) {
             console.log(`[Worker] Filtering complete. Aggregating results for ${numChunks} chunks...`);
-            // 결과 취합
-            const totalMatches = chunkResults.reduce((sum, res) => sum + res.length, 0);
-            console.log(`[Worker] Total matches found: ${totalMatches}`);
-            const finalMatches = new Int32Array(totalMatches);
 
+            // ✅ 실패한 청크가 있을 수 있으므로 방어적 취합
+            const totalMatches = chunkResults.reduce((sum, res) => sum + (res ? res.length : 0), 0);
+            console.log(`[Worker] Total matches found: ${totalMatches}`);
+
+            const finalMatches = new Int32Array(totalMatches);
             let currentIdx = 0;
             for (let i = 0; i < numChunks; i++) {
-                finalMatches.set(chunkResults[i], currentIdx);
-                currentIdx += chunkResults[i].length;
+                const res = chunkResults[i];
+                if (res && res.length > 0) {
+                    finalMatches.set(res, currentIdx);
+                    currentIdx += res.length;
+                }
             }
 
-            // ✅ 형님, 결과를 공유 버퍼에 쓰고 그 지점만 슬라이스해서 공유합니다! 🐧💎🚀
-            filteredIndicesBuffer.set(finalMatches);
-            filteredIndices = (filteredIndicesBuffer as any).subarray(0, finalMatches.length);
+            // ✅ Shared Buffer 크기 초과 방지
+            const safeMatchCount = Math.min(finalMatches.length, MAX_LINES);
+            filteredIndicesBuffer.set(finalMatches.subarray(0, safeMatchCount));
+            filteredIndices = (filteredIndicesBuffer as any).subarray(0, safeMatchCount);
+
+            if (finalMatches.length > MAX_LINES) {
+                console.warn(`[Worker] Match count (${finalMatches.length}) exceeds SharedBuffer capacity (${MAX_LINES}). Truncating results.`);
+            }
+
+            // ✅ Order Fix: Send shared buffers BEFORE completing filtering notification
+            sendSharedBuffers();
 
             respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
             respond({
@@ -559,19 +572,15 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                 }
             });
 
-            // 공유 버퍼 갱신 시점 알림
-            sendSharedBuffers();
-
             resetSubWorkerIdleTimer();
         }
     };
 
     const decoder = new TextDecoder();
     let nextChunkIdx = 0;
-    const MAX_CONCURRENT_CHUNKS = 4; // ✅ 동시 RPC/Worker 요청 제한 (1GB+ 대응) 🐧🚀
+    const MAX_CONCURRENT_CHUNKS = 4; // ✅ 동시 작업 제한 (1GB+ 대응)
 
-    const processNextChunk = () => {
-        // 이미 새로운 필터 요청이 들어왔거나 모든 청크를 처리했으면 중단
+    const processNextChunk = async () => {
         if (nextChunkIdx >= numChunks || filterRequestId !== currentFilterRequestId) return;
 
         const i = nextChunkIdx++;
@@ -580,31 +589,29 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
         const sw = subWorkers.length > 0 ? subWorkers[i % subWorkers.length] : null;
 
         if (!sw) {
-            // ✅ Fallback: 서브 워커가 없는 경우 메인 워커에서 직접 처리
-            if (isStreamMode) {
-                const chunkLines: string[] = [];
-                for (let j = startLine; j < endLine; j++) {
-                    const s = lineOffsetsStream[j];
-                    const l = lineLengthsStream[j];
-                    chunkLines.push(decoder.decode(logBuffer.subarray(s, s + l).slice()));
-                }
-                const mList: number[] = [];
-                for (let j = 0; j < chunkLines.length; j++) {
-                    if (checkIsMatch(chunkLines[j], normalizedRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
-                        mList.push(startLine + j);
+            // Fallback: Main Worker
+            try {
+                if (isStreamMode) {
+                    const chunkLines: string[] = [];
+                    for (let j = startLine; j < endLine; j++) {
+                        const s = lineOffsetsStream[j];
+                        const l = lineLengthsStream[j];
+                        chunkLines.push(decoder.decode(logBuffer.subarray(s, s + l).slice()));
                     }
-                }
-                onChunkDone(i, new Int32Array(mList), filterRequestId);
-                processNextChunk();
-            } else if (isLocalFileMode) {
-                const startByte = Number(lineOffsets![startLine]);
-                const fileSize = localFileSize;
-                const endByte = Number(endLine < lineOffsets!.length ? lineOffsets![endLine] : fileSize);
-
-                rpcCall('readFileSegment', { path: localFilePath, start: startByte, end: endByte }).then(chunkBuffer => {
+                    const mList: number[] = [];
+                    for (let j = 0; j < chunkLines.length; j++) {
+                        if (checkIsMatch(chunkLines[j], normalizedRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+                            mList.push(startLine + j);
+                        }
+                    }
+                    onChunkDone(i, new Int32Array(mList), filterRequestId);
+                } else if (isLocalFileMode) {
+                    const startByte = Number(lineOffsets![startLine]);
+                    const endByte = Number(endLine < lineOffsets!.length ? lineOffsets![endLine] : localFileSize);
+                    const chunkBuffer = await rpcCall('readFileSegment', { path: localFilePath, start: startByte, end: endByte });
                     const text = decoder.decode(chunkBuffer);
                     const lines = text.split('\n');
-                    if (text.endsWith('\n')) lines.pop(); // Remove tailing empty line
+                    if (text.endsWith('\n')) lines.pop();
                     const mList: number[] = [];
                     for (let j = 0; j < lines.length; j++) {
                         if (checkIsMatch(lines[j], normalizedRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
@@ -612,31 +619,16 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                         }
                     }
                     onChunkDone(i, new Int32Array(mList), filterRequestId);
-                    processNextChunk();
-                }).catch(err => {
-                    console.error(`[Worker] Fallback RPC failed for chunk ${i}`, err);
-                    onChunkDone(i, new Int32Array(0), filterRequestId);
-                    processNextChunk();
-                });
-            } else if (currentFile) {
-                const chunkBlob = currentFile.slice(Number(lineOffsets![startLine]), Number(endLine < lineOffsets!.length ? lineOffsets![endLine] : currentFile.size));
-                const reader = new FileReaderSync();
-                const text = reader.readAsText(chunkBlob);
-                const lines = text.split('\n');
-                if (text.endsWith('\n')) lines.pop();
-                const mList: number[] = [];
-                for (let j = 0; j < lines.length; j++) {
-                    if (checkIsMatch(lines[j], normalizedRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
-                        mList.push(startLine + j);
-                    }
                 }
-                onChunkDone(i, new Int32Array(mList), filterRequestId);
-                processNextChunk();
+            } catch (err) {
+                console.error(`[Worker] Main worker chunk processing failed: ${i}`, err);
+                onChunkDone(i, null, filterRequestId);
             }
+            processNextChunk();
             return;
         }
 
-        // --- SubWorker Path ---
+        // Parallel: SubWorker
         if (isStreamMode) {
             const chunkLines: string[] = [];
             for (let j = startLine; j < endLine; j++) {
@@ -661,10 +653,8 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
             });
         } else if (isLocalFileMode) {
             const startByte = Number(lineOffsets![startLine]);
-            const fileSize = localFileSize;
-            const endByte = Number(endLine < lineOffsets!.length ? lineOffsets![endLine] : fileSize);
+            const endByte = Number(endLine < lineOffsets!.length ? lineOffsets![endLine] : localFileSize);
 
-            // fetch chunk
             rpcCall('readFileSegment', { path: localFilePath, start: startByte, end: endByte }).then((chunkBuffer: Uint8Array) => {
                 const messageHandler = (e: MessageEvent) => {
                     if (e.data.type === 'CHUNK_COMPLETE' && e.data.payload.chunkId === i) {
@@ -679,10 +669,10 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                 sw.postMessage({
                     type: 'FILTER_CHUNK',
                     payload: { chunkId: i, buffer: chunkBuffer, offset: startLine, rule: currentRule, quickFilter: currentQuickFilter, requestId: filterRequestId }
-                }, [chunkBuffer.buffer]); // Zero copy transfer! 🚀
+                }, [chunkBuffer.buffer]);
             }).catch(err => {
                 console.error(`[Worker] RPC failed for chunk ${i}`, err);
-                onChunkDone(i, new Int32Array(0), filterRequestId);
+                onChunkDone(i, null, filterRequestId);
                 processNextChunk();
             });
         } else if (currentFile) {
@@ -704,7 +694,7 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
         }
     };
 
-    // 처음에 병렬 한도만큼 청크 프로세싱 시작 (보폭 조절! 🐧🚀)
+    // 초기 실행
     for (let k = 0; k < Math.min(MAX_CONCURRENT_CHUNKS, numChunks); k++) {
         processNextChunk();
     }
