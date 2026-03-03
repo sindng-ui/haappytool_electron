@@ -491,7 +491,7 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
         <div className={`flex-1 flex flex-col h-full relative ${THEME.editor.container}`}>
             {toast.visible && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4 pointer-events-none">
-                    <div className="bg-red-500/90 backdrop-blur text-white px-4 py-2 rounded-lg shadow-xl border border-red-400 font-bold flex items-center gap-2">
+                    <div className="bg-red-500/90  text-white px-4 py-2 rounded-lg shadow-xl border border-red-400 font-bold flex items-center gap-2">
                         <Lucide.AlertCircle size={18} />
                         {toast.message}
                     </div>
@@ -609,7 +609,7 @@ const GraphFlow: React.FC<{
                     <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all group-hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] shadow-[0_0_20px_rgba(34,197,94,0.3)] ${THEME.editor.node.start}`}>
                         <Lucide.Cpu size={24} className="text-green-400" />
                     </div>
-                    <div className={`absolute ${isRow ? 'top-full left-1/2 -translate-x-1/2 mt-2' : 'left-full top-1/2 -translate-y-1/2 ml-2'} text-[10px] font-bold text-green-500 tracking-wider uppercase bg-slate-900/80 px-2 py-0.5 rounded-full border border-green-900/50 backdrop-blur-sm whitespace-nowrap`}>Start</div>
+                    <div className={`absolute ${isRow ? 'top-full left-1/2 -translate-x-1/2 mt-2' : 'left-full top-1/2 -translate-y-1/2 ml-2'} text-[10px] font-bold text-green-500 tracking-wider uppercase bg-slate-900/80 px-2 py-0.5 rounded-full border border-green-900/50  whitespace-nowrap`}>Start</div>
                 </div>
             )}
 
@@ -793,7 +793,7 @@ const BlockNode: React.FC<{
     onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string, message?: string }>;
 }> = ({ item, blocks, selected, onChange, editingHintId, onEditHint, onUploadTemplate }) => {
     const block = blocks.find(b => b.id === item.blockId);
-    if (!block) return <div className="p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-xl backdrop-blur-md">Unknown</div>;
+    if (!block) return <div className="p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-xl ">Unknown</div>;
     const isPredefined = block.type === 'predefined';
     const isSpecial = block.type === 'special';
 
@@ -1009,7 +1009,7 @@ const LoopNode: React.FC<{
     return (
         <div
             className={`
-                min-w-[200px] rounded-2xl border-2 backdrop-blur-sm relative flex flex-col cursor-default transition-all
+                min-w-[200px] rounded-2xl border-2  relative flex flex-col cursor-default transition-all
                 ${selected ? THEME.editor.node.loopSelected : THEME.editor.node.loop}
                 ${isDragOver ? 'ring-4 ring-indigo-500/50 bg-indigo-900/30 scale-105' : ''}
             `}
@@ -1156,7 +1156,7 @@ const ConditionalNode: React.FC<{
     return (
         <div
             className={`
-                min-w-[300px] rounded-2xl border-2 backdrop-blur-sm relative flex flex-col cursor-default transition-all
+                min-w-[300px] rounded-2xl border-2  relative flex flex-col cursor-default transition-all
                 ${selected ? 'border-sky-400 bg-sky-900/30' : 'border-sky-500/30 bg-sky-900/20'}
             `}
             onDoubleClick={(e) => {

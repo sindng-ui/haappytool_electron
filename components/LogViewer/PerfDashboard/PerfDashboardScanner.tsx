@@ -18,7 +18,7 @@ export const PerfDashboardScanner: React.FC<PerfDashboardScannerProps> = ({ mini
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex-1 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-sm z-50 relative overflow-hidden"
+            className="flex-1 flex flex-col items-center justify-center bg-slate-900/90  z-50 relative overflow-hidden"
         >
             {/* Colorful Loading / Scanning Animation */}
             <div className="relative w-24 h-24 mb-6 flex items-center justify-center">

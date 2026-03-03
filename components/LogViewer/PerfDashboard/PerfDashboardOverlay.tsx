@@ -21,7 +21,7 @@ export const PerfDashboardOverlay: React.FC<PerfDashboardOverlayProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[200] bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center pointer-events-auto"
+            className="absolute inset-0 z-[200] bg-slate-900/80  flex flex-col items-center justify-center pointer-events-auto"
         >
             <div className="relative mb-6">
                 <div className="absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full" />

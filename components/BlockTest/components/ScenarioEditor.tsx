@@ -56,7 +56,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({ scenario, pipelines, on
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900/50">
+        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900/80">
             {/* Header */}
             <div className={`shrink-0 p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 ${THEME.editor.container}`}>
                 <div className="flex items-center gap-3">
@@ -98,7 +98,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({ scenario, pipelines, on
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                 <div className="max-w-3xl mx-auto">
                     {scenario.steps.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/50">
+                        <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/80">
                             <div className="p-4 bg-white dark:bg-slate-800 rounded-full shadow-sm mb-4">
                                 <Lucide.ListPlus size={32} className="text-slate-300" />
                             </div>
@@ -197,7 +197,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({ scenario, pipelines, on
 
             {/* Add Pipeline Modal */}
             {isAddModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20  animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-xl w-96 max-h-[80vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">Add Pipeline</h3>

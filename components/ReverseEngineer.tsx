@@ -251,7 +251,7 @@ const ReverseEngineer: React.FC = () => {
 
             {/* Drag Overlay */}
             {dragActive && (
-                <div className="absolute inset-0 z-50 bg-indigo-500/10 backdrop-blur-sm flex items-center justify-center border-4 border-indigo-500 border-dashed m-4 rounded-3xl pointer-events-none">
+                <div className="absolute inset-0 z-50 bg-indigo-500/10  flex items-center justify-center border-4 border-indigo-500 border-dashed m-4 rounded-3xl pointer-events-none">
                     <div className="flex flex-col items-center gap-4 bg-slate-900/80 p-8 rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200">
                         <Upload size={48} className="text-indigo-400 animate-bounce" />
                         <span className="text-xl font-bold text-white">Release to analyze log</span>
@@ -292,7 +292,7 @@ const ReverseEngineer: React.FC = () => {
                 )}
 
                 {status === 'PROCESSING' && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-50">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/50 dark:bg-slate-900/80  z-50">
                         <div className="w-16 h-16 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-6"></div>
                         <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">Analyzing Log Structure...</h3>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{fileName}</p>
@@ -317,7 +317,7 @@ const ReverseEngineer: React.FC = () => {
 
                                 <div className="space-y-6">
                                     {loc.rooms.map(room => (
-                                        <div key={room.id} className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl overflow-hidden shadow-sm">
+                                        <div key={room.id} className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700/50 rounded-2xl overflow-hidden shadow-sm">
                                             <div className="px-6 py-4 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
                                                     <Box size={16} className="text-slate-400" />

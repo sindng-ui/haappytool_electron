@@ -140,7 +140,7 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
             {/* Main Content Area */}
             <div className="flex-1 flex overflow-hidden min-h-0">
                 {/* Left Sidebar */}
-                <div className="flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                <div className="flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/80 ">
                     {/* Sidebar Tabs */}
                     <div className="flex border-b border-slate-200 dark:border-slate-800">
                         <button

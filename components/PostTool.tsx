@@ -688,9 +688,9 @@ const PostTool: React.FC = () => {
 
             {/* Code Snippet Modal */}
             {showCodeModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowCodeModal(false)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 " onClick={() => setShowCodeModal(false)}>
                     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl border border-slate-200 dark:border-white/10 m-4 overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 shrink-0">
+                        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900/80 shrink-0">
                             <div className="flex items-center gap-4">
                                 <h3 className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                                     <Terminal size={16} /> Code Snippet
@@ -720,7 +720,7 @@ const PostTool: React.FC = () => {
                                 <Copy size={14} />
                             </button>
                         </div>
-                        <div className="p-4 border-t border-slate-200 dark:border-white/5 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900/50 shrink-0">
+                        <div className="p-4 border-t border-slate-200 dark:border-white/5 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900/80 shrink-0">
                             <button
                                 onClick={() => { navigator.clipboard.writeText(generateCode(codeLanguage)); setShowCodeModal(false); }}
                                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-xs flex items-center gap-2 transition-colors"

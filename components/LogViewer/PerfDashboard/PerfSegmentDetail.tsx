@@ -30,7 +30,7 @@ export const PerfSegmentDetail: React.FC<PerfSegmentDetailProps> = ({
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="shrink-0 bg-slate-950/80 backdrop-blur-2xl border-t border-white/10 overflow-hidden relative"
+                        className="shrink-0 bg-slate-950/80  border-t border-white/10 overflow-hidden relative"
                     >
                         <div className="p-3 md:p-4 flex items-center justify-between gap-4 max-w-screen-2xl mx-auto">
                             <div className="flex-1 min-w-0 flex items-center gap-4">

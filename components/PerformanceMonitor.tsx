@@ -90,7 +90,7 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({ enabled 
                 className="fixed bottom-4 right-4 z-[9999] cursor-pointer"
                 onClick={() => setIsMinimized(false)}
             >
-                <div className="p-2 bg-slate-900/95 backdrop-blur-sm border border-indigo-500/30 rounded-lg shadow-xl hover:shadow-indigo-500/20 transition-all">
+                <div className="p-2 bg-slate-900/95  border border-indigo-500/30 rounded-lg shadow-xl hover:shadow-indigo-500/20 transition-all">
                     <div className="flex items-center gap-2">
                         <Activity size={14} className={fpsColor} />
                         <span className={`text-xs font-mono font-bold ${fpsColor}`}>{metrics.fps}</span>
@@ -103,7 +103,7 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({ enabled 
 
     return (
         <div className="fixed bottom-4 right-4 z-[9999] no-drag">
-            <div className="bg-slate-900/95 backdrop-blur-sm border border-indigo-500/30 rounded-lg shadow-xl p-3 min-w-[240px]">
+            <div className="bg-slate-900/95  border border-indigo-500/30 rounded-lg shadow-xl p-3 min-w-[240px]">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/10">
                     <div className="flex items-center gap-2">

@@ -11,7 +11,7 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ isVisible, fileName, pr
     if (!isVisible) return null;
 
     return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-600 dark:text-slate-400 bg-slate-100/50 dark:bg-slate-900/50 backdrop-blur-sm z-50 pointer-events-auto">
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-600 dark:text-slate-400 bg-slate-100/50 dark:bg-slate-900/80  z-50 pointer-events-auto">
             <div className="relative mb-8">
                 <div className="absolute inset-0 -m-6 bg-indigo-500/30 rounded-full animate-pulse blur-xl"></div>
                 <div className="relative w-20 h-20">

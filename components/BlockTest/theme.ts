@@ -18,7 +18,7 @@ export const THEME = {
     },
     sidebar: { // BlockManager
         container: "bg-slate-100 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800",
-        header: "bg-slate-50/50 dark:bg-slate-900/50",
+        header: "bg-slate-50/50 dark:bg-slate-900/80",
         text: "text-slate-800 dark:text-slate-200",
         search: {
             container: "border-b border-slate-200/50 dark:border-slate-800/50",
@@ -46,7 +46,7 @@ export const THEME = {
         node: {
             start: "bg-slate-800 border-green-500/50",
             end: "bg-slate-900 border-slate-700",
-            base: "backdrop-blur-md shadow-xl",
+            base: " shadow-xl",
             selected: "ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0B0F19] bg-indigo-900/90 border-indigo-400",
             predefined: "bg-slate-800/90 border-slate-600 shadow-slate-900/50",
             special: "bg-violet-950/40 border-violet-500/30 shadow-violet-900/40",

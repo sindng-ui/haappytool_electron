@@ -579,7 +579,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({ currentRequest, onChangeC
                     className="fixed z-[100] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden min-w-[200px] flex flex-col animate-in fade-in zoom-in-95 duration-100"
                     style={{ top: autocompleteState.position.top, left: autocompleteState.position.left }}
                 >
-                    <div className="bg-slate-50 dark:bg-slate-900/50 px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <div className="bg-slate-50 dark:bg-slate-900/80 px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                         Suggestions
                     </div>
                     {autocompleteState.list.map((v, idx) => (

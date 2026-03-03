@@ -143,7 +143,7 @@ const EnvironmentModal: React.FC<EnvironmentModalProps> = ({ isOpen, onClose }) 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 " onClick={onClose}>
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-[900px] h-[600px] flex overflow-hidden border border-slate-200 dark:border-white/10 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
 
                 {/* Sidebar: Profiles */}
@@ -227,7 +227,7 @@ const EnvironmentModal: React.FC<EnvironmentModalProps> = ({ isOpen, onClose }) 
                         )}
                     </div>
 
-                    <div className="p-4 border-t border-slate-200 dark:border-white/10 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900/50">
+                    <div className="p-4 border-t border-slate-200 dark:border-white/10 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900/80">
                         <button
                             onClick={onClose}
                             className="px-5 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"

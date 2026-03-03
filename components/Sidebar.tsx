@@ -127,7 +127,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                   onDragEnter={(e) => handleDragEnter(e, plugin.id)}
                   onClick={() => onSelectPlugin(plugin.id)}
                   className={`w-full flex items-center h-12 rounded-xl transition-all duration-200 group relative cursor-pointer outline-none border border-transparent ${isActive
-                    ? 'bg-gradient-to-r from-indigo-600/90 to-indigo-500/90 backdrop-blur-md text-white shadow-lg shadow-indigo-500/25 border-indigo-400/20 scale-[1.02]'
+                    ? 'bg-gradient-to-r from-indigo-600/90 to-indigo-500/90  text-white shadow-lg shadow-indigo-500/25 border-indigo-400/20 scale-[1.02]'
                     : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:border-white/5 active:scale-95 hover:shadow-lg hover:shadow-indigo-500/10'
                     } ${isDragging ? 'opacity-20 border-dashed border-slate-600' : ''}`}
                 >
@@ -142,7 +142,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                     }`}>
                     {plugin.name}
                   </span>
-                  <div className={`absolute left-full ml-4 px-3 py-1.5 bg-slate-900/90 backdrop-blur border border-slate-700 text-white text-xs font-semibold rounded-lg pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-[100] shadow-xl ${!isExpanded && !isDragging ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'}`}>
+                  <div className={`absolute left-full ml-4 px-3 py-1.5 bg-slate-900/90  border border-slate-700 text-white text-xs font-semibold rounded-lg pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-[100] shadow-xl ${!isExpanded && !isDragging ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'}`}>
                     {plugin.name}
                     <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900/90 rotate-45 border-l border-b border-slate-700"></div>
                   </div>
@@ -175,7 +175,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                   <div className={`border border-white/5 rounded p-0.5 bg-white/5 transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                     {isLabExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   </div>
-                  <div className={`absolute left-full ml-4 px-3 py-1.5 bg-slate-900/90 backdrop-blur border border-slate-700 text-white text-xs font-semibold rounded-lg pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-[100] shadow-xl ${!isExpanded ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'}`}>
+                  <div className={`absolute left-full ml-4 px-3 py-1.5 bg-slate-900/90  border border-slate-700 text-white text-xs font-semibold rounded-lg pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-[100] shadow-xl ${!isExpanded ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'}`}>
                     Lab Features
                     <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900/90 rotate-45 border-l border-b border-slate-700"></div>
                   </div>
@@ -223,7 +223,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
                 }`}>
                 Settings
               </span>
-              <div className={`absolute left-full ml-4 px-3 py-1.5 bg-slate-900/90 backdrop-blur border border-slate-700 text-white text-xs font-semibold rounded-lg pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-[100] shadow-xl ${!isExpanded ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'}`}>
+              <div className={`absolute left-full ml-4 px-3 py-1.5 bg-slate-900/90  border border-slate-700 text-white text-xs font-semibold rounded-lg pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-[100] shadow-xl ${!isExpanded ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'}`}>
                 Settings
                 <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900/90 rotate-45 border-l border-b border-slate-700"></div>
               </div>

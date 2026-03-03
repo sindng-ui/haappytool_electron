@@ -120,7 +120,7 @@ const PipelineGraphRenderer: React.FC<PipelineGraphRendererProps> = ({ items, bl
             ref={containerRef}
         >
             <div className="absolute bottom-4 right-4 z-50 flex flex-col gap-2">
-                <div className={`flex items-center gap-1 rounded-lg px-2 py-1 border font-mono text-xs bg-black/50 text-white backdrop-blur`}>
+                <div className={`flex items-center gap-1 rounded-lg px-2 py-1 border font-mono text-xs bg-black/80 text-white `}>
                     <span>{Math.round(scale * 100)}%</span>
                     <button onClick={() => { setPan({ x: 0, y: 0 }); setScale(1); }} className="ml-2 hover:text-green-400" title="Reset View">
                         <Lucide.Maximize size={12} />
@@ -360,7 +360,7 @@ const LoopNodeReadOnly = React.memo(({ item, blocks, activeItemId, stats, isActi
     }, [childIsActive, isOpen]);
 
     return (
-        <div className={`min-w-[200px] rounded-2xl border-2 backdrop-blur-sm relative flex flex-col transition-all duration-500
+        <div className={`min-w-[200px] rounded-2xl border-2  relative flex flex-col transition-all duration-500
             ${THEME.editor.node.loop}
             ${childIsActive ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : 'border-slate-700/50 opacity-80'}
         `}
@@ -421,7 +421,7 @@ const ConditionalNodeReadOnly = React.memo(({ item, blocks, activeItemId, stats,
 
     // Styles matching PipelineEditor.tsx ConditionalNode
     const containerClasses = `
-        min-w-[300px] rounded-2xl border-2 backdrop-blur-sm relative flex flex-col transition-all duration-300
+        min-w-[300px] rounded-2xl border-2  relative flex flex-col transition-all duration-300
         ${isActive ? 'border-sky-400 bg-sky-900/40 shadow-[0_0_30px_rgba(56,189,248,0.3)] scale-105' : 'border-sky-500/30 bg-sky-900/20'}
         ${isCompleted && !isActive ? 'opacity-90' : 'opacity-100'}
     `;

@@ -200,7 +200,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
         <div className={`flex flex-col h-full w-72 ${THEME.sidebar.container}`}>
             {/* ... Header ... */}
             {/* [LEFT SIDEBAR HEADER BACKGROUND] */}
-            <div className={`p-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center backdrop-blur-sm ${THEME.sidebar.header}`}>
+            <div className={`p-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center  ${THEME.sidebar.header}`}>
                 <h2 className={`font-bold ${THEME.sidebar.text}`}>Blocks</h2>
                 <button
                     onClick={handleCreate}
@@ -250,7 +250,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                         e.dataTransfer.setData('application/json', JSON.stringify({ type: 'add_block', blockId: block.id }));
                                         e.dataTransfer.effectAllowed = 'copy';
                                     }}
-                                    className={`group p-2.5 rounded-lg border cursor-grab transition-all shadow-sm hover:shadow-md backdrop-blur-sm ${THEME.sidebar.item.special}`}
+                                    className={`group p-2.5 rounded-lg border cursor-grab transition-all shadow-sm hover:shadow-md  ${THEME.sidebar.item.special}`}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex items-center gap-2 min-w-0">
@@ -302,7 +302,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                         e.dataTransfer.setData('application/json', JSON.stringify({ type: 'add_block', blockId: block.id }));
                                         e.dataTransfer.effectAllowed = 'copy';
                                     }}
-                                    className={`group p-0.5 rounded-lg border cursor-grab transition-all shadow-sm hover:shadow-md backdrop-blur-sm ${THEME.sidebar.item.predefined}`}
+                                    className={`group p-0.5 rounded-lg border cursor-grab transition-all shadow-sm hover:shadow-md  ${THEME.sidebar.item.predefined}`}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex items-center gap-2 min-w-0">
@@ -358,7 +358,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                                 <div className="text-xs text-slate-500 mt-0.5 truncate">{block.commands.length} cmds</div>
                                             </div>
                                         </div>
-                                        <div className="hidden group-hover:flex gap-1.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg pl-1 shrink-0 ml-2">
+                                        <div className="hidden group-hover:flex gap-1.5 bg-white/90 dark:bg-slate-800/90  rounded-lg pl-1 shrink-0 ml-2">
                                             <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEdit(block); }} onMouseDown={(e) => e.stopPropagation()} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all">
                                                 <Lucide.Edit2 size={16} />
                                             </button>
@@ -381,7 +381,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
 
 
                 {isEditing && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20  animate-in fade-in duration-200">
                         <div className="bg-white dark:bg-slate-900 p-6 rounded-lg w-96 shadow-2xl border border-slate-200 dark:border-slate-700 scale-100 animate-in zoom-in-95 duration-200">
                             <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">
                                 {editingBlock ? 'Edit Block' : 'New Block'}

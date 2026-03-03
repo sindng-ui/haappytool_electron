@@ -556,7 +556,7 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
                             disabled={isProcessing}
                         />
                         {isProcessing && (
-                            <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 rounded-2xl flex items-center justify-center">
+                            <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/80 rounded-2xl flex items-center justify-center">
                                 <Lucide.Loader2 className="animate-spin text-indigo-500" size={32} />
                             </div>
                         )}

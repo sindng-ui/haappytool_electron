@@ -907,7 +907,7 @@ const TizenFileExplorer: React.FC<TizenFileExplorerProps> = ({ deviceId, sdbPath
             {/* File Viewer Modal */}
             {viewingFile && (
                 <div
-                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60  animate-in fade-in duration-300"
                     onKeyDown={(e) => {
                         if (e.ctrlKey && e.key === 'a') {
                             e.preventDefault();

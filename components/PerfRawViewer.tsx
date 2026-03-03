@@ -214,10 +214,10 @@ export const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ filePath, fileName
     if (!isOpen) return null;
 
     return (
-        <div ref={containerRef} tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 outline-none">
+        <div ref={containerRef} tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60  animate-in fade-in duration-200 outline-none">
             <div className="w-[90vw] h-[90vh] bg-white dark:bg-[#0b0f19] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-700">
                 {/* Header */}
-                <div className="h-12 border-b border-slate-200 dark:border-white/10 flex items-center justify-between px-5 bg-slate-50 dark:bg-slate-900/50">
+                <div className="h-12 border-b border-slate-200 dark:border-white/10 flex items-center justify-between px-5 bg-slate-50 dark:bg-slate-900/80">
                     <div className="flex items-center gap-3">
                         <span className="bg-amber-500/10 text-amber-500 px-2 py-1 rounded-md text-xs font-black uppercase">Raw View</span>
                         <span className="font-bold text-slate-700 dark:text-slate-200">{fileName}</span>

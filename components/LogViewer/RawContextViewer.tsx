@@ -45,7 +45,7 @@ export const RawContextViewer: React.FC<RawContextViewerProps> = ({
     return (
         <div className="absolute left-0 right-0 top-16 bottom-0 z-40 flex flex-col pointer-events-none">
             <div className="flex flex-col bg-slate-950 pointer-events-auto border-b-2 border-indigo-500 shadow-2xl relative" style={{ height: `${heightPercent}%` }}>
-                <div className="bg-indigo-950/80 px-4 py-1 flex justify-between items-center border-b border-indigo-500/30 backdrop-blur">
+                <div className="bg-indigo-950/80 px-4 py-1 flex justify-between items-center border-b border-indigo-500/30 ">
                     <span className="text-xs font-bold text-indigo-300">
                         Raw View ({sourcePane === 'left' ? leftFileName : rightFileName})
                         <span className="mx-2 opacity-50">|</span>

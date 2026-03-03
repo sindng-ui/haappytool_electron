@@ -1508,7 +1508,7 @@ const EasyUML: React.FC = () => {
                 ref={canvasRef}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
-                className="flex-1 overflow-auto relative bg-slate-50 dark:bg-slate-900/50"
+                className="flex-1 overflow-auto relative bg-slate-50 dark:bg-slate-900/80"
             >
                 <div
                     className="relative min-w-full min-h-[200px] origin-top-left transition-all duration-75 ease-out bg-white dark:bg-slate-900"
@@ -2590,7 +2590,7 @@ const EasyUML: React.FC = () => {
                 {/* Export Modal */}
                 {
                     showExportModal && (
-                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 ">
                             <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-[600px] flex flex-col max-h-[80vh] border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-200">
                                 <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 rounded-t-lg">
                                     <h3 className="font-bold flex items-center gap-2">

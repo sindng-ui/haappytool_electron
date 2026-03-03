@@ -427,7 +427,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({ response }) => {
 
     if (!response) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 bg-slate-50 dark:bg-slate-900/50">
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 bg-slate-50 dark:bg-slate-900/80">
                 <Lucide.Send size={48} className="mb-4 opacity-50" />
                 <p className="text-sm font-medium">Send a request to see the response here</p>
             </div>

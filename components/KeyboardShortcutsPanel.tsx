@@ -75,14 +75,14 @@ export const KeyboardShortcutsPanel: React.FC = () => {
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] transition-opacity duration-200"
+                className="fixed inset-0 bg-black/80  z-[9998] transition-opacity duration-200"
                 onClick={() => setIsOpen(false)}
             />
 
             {/* Panel */}
             <div className="fixed inset-0 flex items-center justify-center z-[9999] pointer-events-none">
                 <div
-                    className="bg-slate-900/95 backdrop-blur-md border border-indigo-500/30 rounded-2xl shadow-2xl shadow-indigo-500/20 max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden pointer-events-auto transition-all duration-200 scale-100"
+                    className="bg-slate-900/95  border border-indigo-500/30 rounded-2xl shadow-2xl shadow-indigo-500/20 max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden pointer-events-auto transition-all duration-200 scale-100"
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Header */}

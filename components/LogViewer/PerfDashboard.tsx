@@ -293,7 +293,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                         e.stopPropagation();
                                         applyZoom(null);
                                     }}
-                                    className="absolute bottom-16 right-8 z-[60] px-3.5 py-1.5 bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold text-indigo-400 hover:text-white hover:bg-indigo-600 shadow-2xl transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
+                                    className="absolute bottom-16 right-8 z-[60] px-3.5 py-1.5 bg-slate-900/80  border border-white/10 rounded-full text-[10px] font-bold text-indigo-400 hover:text-white hover:bg-indigo-600 shadow-2xl transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
                                     title="Reset View"
                                 >
                                     <Lucide.Maximize2 size={12} />
@@ -314,7 +314,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                             setMeasureRange(null);
                                         }
                                     }}
-                                    className="absolute bottom-28 right-8 z-[60] px-3.5 py-1.5 bg-indigo-600/90 backdrop-blur-md border border-indigo-400/30 rounded-full text-[10px] font-bold text-white shadow-2xl hover:bg-indigo-500 transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
+                                    className="absolute bottom-28 right-8 z-[60] px-3.5 py-1.5 bg-indigo-600/90  border border-indigo-400/30 rounded-full text-[10px] font-bold text-white shadow-2xl hover:bg-indigo-500 transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
                                     title="Trim to Selected Range"
                                 >
                                     <Lucide.Scissors size={12} />
@@ -328,7 +328,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                         setTrimRange(null);
                                         applyZoom(null);
                                     }}
-                                    className="absolute bottom-28 right-8 z-[60] px-3.5 py-1.5 bg-amber-500/90 backdrop-blur-md border border-amber-400/30 rounded-full text-[10px] font-bold text-white shadow-2xl hover:bg-amber-400 transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
+                                    className="absolute bottom-28 right-8 z-[60] px-3.5 py-1.5 bg-amber-500/90  border border-amber-400/30 rounded-full text-[10px] font-bold text-white shadow-2xl hover:bg-amber-400 transition-all flex items-center gap-1.5 animate-in fade-in zoom-in duration-300"
                                     title="Reset Trim"
                                 >
                                     <Lucide.RotateCcw size={12} />

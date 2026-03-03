@@ -577,7 +577,7 @@ const ForceGraphView: React.FC<{ data: Record<string, Location> }> = ({ data }) 
 
             {/* Context Overlay (Selected Node Info) */}
             {selectedNode && (
-                <div className="absolute bottom-4 right-4 w-64 bg-white/90 dark:bg-slate-900/90 backdrop-blur border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-xl animate-in fade-in slide-in-from-bottom-2">
+                <div className="absolute bottom-4 right-4 w-64 bg-white/90 dark:bg-slate-900/90  border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-xl animate-in fade-in slide-in-from-bottom-2">
                     <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200 dark:border-slate-800">
                         <div className={`w-3 h-3 rounded-full ${selectedNode.type === 'LOCATION' ? 'bg-[#6366f1]' :
                             selectedNode.type === 'ROOM' ? 'bg-[#10b981]' : 'bg-[#f43f5e]'
@@ -788,7 +788,7 @@ const MapView: React.FC<{ data: Record<string, Location> }> = ({ data }) => {
 
                 {/* Weather Widget (Floating) */}
                 {primaryLocation && (primaryLocation.weather || primaryLocation.airQuality) && (
-                    <div className="absolute top-6 left-6 bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-xl hover:bg-white/20 transition-all cursor-default group">
+                    <div className="absolute top-6 left-6 bg-white/10  border border-white/20 p-4 rounded-2xl shadow-xl hover:bg-white/20 transition-all cursor-default group">
                         <div className="flex items-center gap-3 mb-3">
                             <MapPin className="text-white drop-shadow-md" size={18} />
                             <div>
@@ -844,28 +844,28 @@ const MapView: React.FC<{ data: Record<string, Location> }> = ({ data }) => {
 
             {/* Zoom Controls */}
             <div className="absolute top-6 right-6 flex flex-col gap-2 z-50">
-                <button onClick={handleZoomIn} className="p-2 bg-white/10 backdrop-blur hover:bg-white/20 text-white rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Zoom In">
+                <button onClick={handleZoomIn} className="p-2 bg-white/10  hover:bg-white/20 text-white rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Zoom In">
                     <Plus size={20} />
                 </button>
-                <button onClick={handleZoomOut} className="p-2 bg-white/10 backdrop-blur hover:bg-white/20 text-white rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Zoom Out">
+                <button onClick={handleZoomOut} className="p-2 bg-white/10  hover:bg-white/20 text-white rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Zoom Out">
                     <Minus size={20} />
                 </button>
-                <button onClick={handleRotateCcw} className="p-2 bg-white/10 backdrop-blur hover:bg-white/20 text-white rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Rotate Left">
+                <button onClick={handleRotateCcw} className="p-2 bg-white/10  hover:bg-white/20 text-white rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Rotate Left">
                     <RotateCcw size={20} />
                 </button>
-                <button onClick={handleRotateCw} className="p-2 bg-white/10 backdrop-blur hover:bg-white/20 text-white rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Rotate Right">
+                <button onClick={handleRotateCw} className="p-2 bg-white/10  hover:bg-white/20 text-white rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Rotate Right">
                     <RotateCw size={20} />
                 </button>
-                <button onClick={handleReset} className="p-2 bg-white/10 backdrop-blur hover:bg-white/20 text-white-400 rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Reset View">
+                <button onClick={handleReset} className="p-2 bg-white/10  hover:bg-white/20 text-white-400 rounded-lg shadow-lg border border-white/10 transition-all active:scale-95" title="Reset View">
                     <Box size={20} />
                 </button>
             </div>
 
             {/* Device Detail Card (Absolute Positioned outside the map, or bottom right) */}
             {selectedDevice && (
-                <div className="absolute bottom-8 right-8 w-72 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-0 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-right-4 overflow-hidden z-50">
+                <div className="absolute bottom-8 right-8 w-72 bg-white/95 dark:bg-slate-900/95  border border-slate-200 dark:border-slate-700 p-0 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-right-4 overflow-hidden z-50">
                     <div className="h-24 bg-gradient-to-r from-indigo-500 to-purple-600 relative p-4 flex flex-col justify-end">
-                        <div className="absolute top-3 right-3 text-white/80 bg-black/20 px-2 py-0.5 rounded-full text-[10px] font-mono backdrop-blur-sm">
+                        <div className="absolute top-3 right-3 text-white/80 bg-black/20 px-2 py-0.5 rounded-full text-[10px] font-mono ">
                             {selectedDevice.roomName}
                         </div>
                         <h3 className="text-white font-bold text-lg drop-shadow-md truncate">{selectedDevice.label || selectedDevice.name}</h3>
@@ -1443,7 +1443,7 @@ const SmartThingsDevicesPane: React.FC = () => {
                 {groupedData && viewMode === 'GRAPH' && (
                     <div className="flex-1 w-full h-[800px] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-inner relative">
                         {/* Legend overlay */}
-                        <div className="absolute top-4 left-4 z-10 bg-white/80 dark:bg-slate-900/80 p-2 rounded-lg border border-slate-200 dark:border-slate-800 backdrop-blur-sm shadow-sm pointer-events-none">
+                        <div className="absolute top-4 left-4 z-10 bg-white/80 dark:bg-slate-900/80 p-2 rounded-lg border border-slate-200 dark:border-slate-800  shadow-sm pointer-events-none">
                             <div className="flex items-center gap-2 text-xs mb-1"><div className="w-2 h-2 rounded-full bg-[#6366f1]"></div><span className="text-slate-600 dark:text-slate-300">Location</span></div>
                             <div className="flex items-center gap-2 text-xs mb-1"><div className="w-2 h-2 rounded-full bg-[#10b981]"></div><span className="text-slate-600 dark:text-slate-300">Room</span></div>
                             <div className="flex items-center gap-2 text-xs"><div className="w-2 h-2 rounded-full bg-[#f43f5e]"></div><span className="text-slate-600 dark:text-slate-300">Device</span></div>

@@ -74,7 +74,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
     return (
         <div
             ref={menuRef}
-            className="fixed z-[9999] bg-[#0f172a]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8)] min-w-[220px] p-1.5 animate-in fade-in zoom-in-95 duration-200 ring-1 ring-white/5"
+            className="fixed z-[9999] bg-[#0f172a]/95  border border-white/10 rounded-xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8)] min-w-[220px] p-1.5 animate-in fade-in zoom-in-95 duration-200 ring-1 ring-white/5"
             style={{
                 left: `${adjustedPosition.x}px`,
                 top: `${adjustedPosition.y}px`,

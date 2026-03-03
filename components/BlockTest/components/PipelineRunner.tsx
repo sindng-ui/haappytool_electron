@@ -264,7 +264,7 @@ const RunnerItemList: React.FC<{
                                     )}
                                 </div>
                             </div>
-                            <div className="p-3 pl-4 bg-orange-50 dark:bg-slate-900/50">
+                            <div className="p-3 pl-4 bg-orange-50 dark:bg-slate-900/80">
                                 <RunnerItemList items={item.children || []} blocks={blocks} activeItemId={activeItemId} stats={stats} />
                             </div>
                         </div>

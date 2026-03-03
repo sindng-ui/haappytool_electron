@@ -121,7 +121,7 @@ const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
             style={{ width: LOG_VIEW_CONFIG.DRAWER.WIDTH }}
         >
             {/* Header */}
-            <div className="p-4 pt-5 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-3 bg-slate-50 dark:bg-slate-900/50 relative">
+            <div className="p-4 pt-5 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-3 bg-slate-50 dark:bg-slate-900/80 relative">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 overflow-hidden mr-10">
                         <div className={`p-2 rounded-lg shrink-0 ${stats?.isBad ? 'bg-red-500 text-white animate-pulse' : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'}`}>

@@ -193,7 +193,7 @@ const SmartThingsLabPlugin: React.FC<SmartThingsLabPluginProps> = ({ isActive = 
     return (
         <div className="flex h-full w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 overflow-hidden">
             {/* Sidebar */}
-            <div className="w-80 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50">
+            <div className="w-80 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80">
                 <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
                     <h2 className="font-bold flex items-center gap-2">
                         <Smartphone size={18} className="text-indigo-500" />

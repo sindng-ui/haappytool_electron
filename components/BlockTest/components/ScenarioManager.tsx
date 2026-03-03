@@ -71,7 +71,7 @@ const ScenarioManager: React.FC<ScenarioManagerProps> = ({
     return (
         <div className={`flex flex-col h-full w-72 ${THEME.sidebar.container}`}>
             {/* Header */}
-            <div className={`p-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center backdrop-blur-sm ${THEME.sidebar.header}`}>
+            <div className={`p-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center  ${THEME.sidebar.header}`}>
                 <h2 className={`font-bold ${THEME.sidebar.text}`}>Scenarios</h2>
                 <button
                     onClick={handleCreate}
@@ -107,7 +107,7 @@ const ScenarioManager: React.FC<ScenarioManagerProps> = ({
                         <div
                             key={scenario.id}
                             onClick={() => onSelectScenario(scenario.id)}
-                            className={`group p-3 rounded-lg border transition-all cursor-pointer shadow-sm hover:shadow-md backdrop-blur-sm
+                            className={`group p-3 rounded-lg border transition-all cursor-pointer shadow-sm hover:shadow-md 
                                 ${selectedScenarioId === scenario.id
                                     ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 ring-1 ring-indigo-500/20'
                                     : 'bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-slate-600'
@@ -128,7 +128,7 @@ const ScenarioManager: React.FC<ScenarioManagerProps> = ({
                                         </div>
                                     </div>
                                 </div>
-                                <div className="hidden group-hover:flex gap-1.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg pl-1 shrink-0 ml-2">
+                                <div className="hidden group-hover:flex gap-1.5 bg-white/90 dark:bg-slate-800/90  rounded-lg pl-1 shrink-0 ml-2">
                                     <button onClick={(e) => handleEdit(scenario, e)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all">
                                         <Lucide.Edit2 size={16} />
                                     </button>
@@ -144,7 +144,7 @@ const ScenarioManager: React.FC<ScenarioManagerProps> = ({
 
             {/* Edit Modal */}
             {isEditing && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20  animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-xl w-96 shadow-2xl border border-slate-200 dark:border-slate-700 scale-100 animate-in zoom-in-95 duration-200">
                         <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">
                             {editingScenario ? 'Edit Scenario' : 'New Scenario'}

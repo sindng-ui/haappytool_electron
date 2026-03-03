@@ -72,7 +72,7 @@ const GoToLineModal: React.FC<GoToLineModalProps> = ({
                 className="bg-white dark:bg-slate-900 w-[320px] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in duration-150"
                 onClick={e => e.stopPropagation()}
             >
-                <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/80">
                     <h2 className="text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Go to Line</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
                         <X size={16} />

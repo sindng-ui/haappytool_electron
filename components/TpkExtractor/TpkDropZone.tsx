@@ -20,7 +20,7 @@ export const TpkDropZone: React.FC<TpkDropZoneProps> = ({
 }) => {
     return (
         <div
-            className={`flex-1 border-4 border-dashed rounded-3xl flex flex-col items-center justify-center transition-all cursor-pointer group relative overflow-hidden bg-slate-50/50 dark:bg-slate-900/50
+            className={`flex-1 border-4 border-dashed rounded-3xl flex flex-col items-center justify-center transition-all cursor-pointer group relative overflow-hidden bg-slate-50/50 dark:bg-slate-900/80
             ${dragActive ? 'border-orange-500 bg-orange-500/10 scale-[0.98]' : 'border-slate-200 dark:border-slate-800 hover:border-orange-500/50 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
             onDragEnter={onDragEnter}
             onDragLeave={onDragLeave}

@@ -139,7 +139,7 @@ const JsonTableViewer: React.FC<JsonTableProps> = ({ data, name, isRoot = false,
     };
 
     const Content = (
-        <div className="border border-slate-200 dark:border-slate-700 rounded overflow-hidden bg-white dark:bg-slate-900/50" ref={tableRef}>
+        <div className="border border-slate-200 dark:border-slate-700 rounded overflow-hidden bg-white dark:bg-slate-900/80" ref={tableRef}>
             <table className="w-full text-left border-collapse table-fixed">
                 <colgroup>
                     <col className="w-[30%] min-w-[150px]" />

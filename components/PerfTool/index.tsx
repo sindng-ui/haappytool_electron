@@ -369,7 +369,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
 
             <main className="flex-1 flex overflow-hidden relative">
                 {/* Config Sidebar */}
-                <aside className="w-[340px] shrink-0 border-r border-white/5 flex flex-col bg-slate-900/80 backdrop-blur-sm z-20">
+                <aside className="w-[340px] shrink-0 border-r border-white/5 flex flex-col bg-slate-900/80  z-20">
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-7">
 
                         {/* 1. File Upload */}

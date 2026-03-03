@@ -177,7 +177,7 @@ export const PerfMinimap: React.FC<PerfMinimapProps> = ({
 
                 {/* Viewport Overlay */}
                 <div
-                    className="absolute top-0 bottom-0 bg-indigo-500/10 border-x border-indigo-400 cursor-grab active:cursor-grabbing hover:bg-indigo-500/20 transition-colors z-10 shadow-[0_0_15px_rgba(99,102,241,0.2)] backdrop-blur-[1px] group"
+                    className="absolute top-0 bottom-0 bg-indigo-500/10 border-x border-indigo-400 cursor-grab active:cursor-grabbing hover:bg-indigo-500/20 transition-colors z-10 shadow-[0_0_15px_rgba(99,102,241,0.2)] -[1px] group"
                     style={{
                         left: `${leftPercent}%`,
                         width: `${widthPercent}%`

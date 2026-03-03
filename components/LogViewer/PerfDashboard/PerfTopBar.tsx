@@ -24,7 +24,7 @@ export interface PerfTopBarProps {
 }
 
 const Scorecard: React.FC<{ label: string; value: string | number; icon: React.ReactNode; color: string; subValue?: string }> = ({ label, value, icon, color, subValue }) => (
-    <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl px-3.5 py-1.5 flex flex-col justify-center shadow-xl relative overflow-hidden group min-w-[120px]">
+    <div className="bg-slate-900/40  border border-white/5 rounded-2xl px-3.5 py-1.5 flex flex-col justify-center shadow-xl relative overflow-hidden group min-w-[120px]">
         <div className={`absolute top-0 right-0 w-12 h-12 -mr-4 -mt-4 rounded-full blur-2xl opacity-10 group-hover:opacity-20 transition-opacity`} style={{ backgroundColor: color }} />
         <div className="flex items-center justify-between gap-3">
             <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] truncate">{label}</span>
@@ -57,7 +57,7 @@ export const PerfTopBar: React.FC<PerfTopBarProps> = ({
     setMinimized
 }) => {
     return (
-        <div className="h-20 shrink-0 border-b border-white/5 bg-slate-900/60 backdrop-blur-xl px-4 flex items-center justify-between z-50">
+        <div className="h-20 shrink-0 border-b border-white/5 bg-slate-900/60  px-4 flex items-center justify-between z-50">
             <div className="flex items-center gap-3">
                 <Scorecard
                     label="Segments"
@@ -89,7 +89,7 @@ export const PerfTopBar: React.FC<PerfTopBarProps> = ({
             <div className="flex-1" />
 
             <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 bg-slate-950/40 backdrop-blur-2xl border border-white/10 rounded-2xl p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                <div className="flex items-center gap-1 bg-slate-950/40  border border-white/10 rounded-2xl p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                     {/* All Fails & Fail Only */}
                     <div className="flex items-center gap-1 mr-1">
                         <button

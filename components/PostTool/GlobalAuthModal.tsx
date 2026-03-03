@@ -114,10 +114,10 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 " onClick={onClose}>
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
+                <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900/80">
                     <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-lg ${localAuth.enabled ? 'bg-indigo-500/10 text-indigo-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'}`}>
                             {localAuth.enabled ? <ShieldCheck size={20} /> : <Shield size={20} />}
@@ -284,7 +284,7 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 flex justify-end gap-2">
+                <div className="p-4 border-t border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900/80 flex justify-end gap-2">
                     <button onClick={onClose} className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors">
                         Cancel
                     </button>
@@ -301,7 +301,7 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
                     style={{ top: autocompleteState.position.top, left: autocompleteState.position.left }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div className="bg-slate-50 dark:bg-slate-900/50 px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <div className="bg-slate-50 dark:bg-slate-900/80 px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                         Variables
                     </div>
                     {autocompleteState.list.map((v, idx) => (

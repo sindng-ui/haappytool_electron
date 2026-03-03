@@ -80,7 +80,7 @@ export const PerfDashboardHeaderBar: React.FC<PerfDashboardHeaderBarProps> = ({
         {/* Right: Controls */}
         <div className="flex items-center gap-1">
             {!isFullScreen && result && (
-                <div className="flex items-center gap-1.5 bg-slate-950/40 backdrop-blur-2xl rounded-xl p-1 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                <div className="flex items-center gap-1.5 bg-slate-950/40  rounded-xl p-1 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                     <div className="flex items-center gap-0.5">
                         <button
                             onClick={() => {

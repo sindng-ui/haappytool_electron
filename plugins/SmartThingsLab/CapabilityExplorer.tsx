@@ -57,7 +57,7 @@ export const CapabilityExplorer: React.FC<CapabilityExplorerProps> = ({ capabili
                     </button>
 
                     {expandedIds.has(cap.id) && (
-                        <div className="p-4 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                        <div className="p-4 bg-slate-50/50 dark:bg-slate-900/80 border-t border-slate-100 dark:border-slate-800 space-y-4">
                             {/* Attributes */}
                             <div>
                                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
