@@ -16,6 +16,7 @@ interface FlattenedNode {
 const { Trash2, AlignLeft, Minimize2, CheckCircle, AlertCircle, Copy, FileJson, PlusSquare, MinusSquare, ChevronDown, ChevronRight, Search, ArrowUp, ArrowDown } = Lucide;
 import { useToast } from '../../contexts/ToastContext';
 import { useTextSelectionMenu } from '../LogArchive/hooks/useTextSelectionMenu';
+import JsonParserWorker from '../../workers/JsonParser.worker.ts?worker';
 
 // --- Helper Components ---
 
@@ -280,7 +281,7 @@ const JsonFormatter: React.FC<JsonFormatterProps> = ({ data, search, triggerNext
     }, [searchQuery, parsedData, isViewerMode]);
 
     useEffect(() => {
-        workerRef.current = new Worker(new URL('../../workers/JsonParser.worker.ts', import.meta.url), { type: 'module' });
+        workerRef.current = new JsonParserWorker();
         workerRef.current.onmessage = (e) => {
             const { type, payload, error: errMsg, requestId } = e.data;
             setIsProcessing(false);

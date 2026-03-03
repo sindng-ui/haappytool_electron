@@ -15,6 +15,7 @@ import { useLogAnalysisActions } from './useLogAnalysisActions';
 import { useLogExportActions } from './useLogExportActions';
 import { useLogSelection } from './useLogSelection';
 import { useLogWorkerEvents } from './useLogWorkerEvents';
+import LogProcessorWorker from '../workers/LogProcessor.worker.ts?worker';
 
 
 
@@ -404,7 +405,7 @@ export const useLogExtractorLogic = ({
 
     useEffect(() => {
         let isStale = false;
-        leftWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
+        leftWorkerRef.current = new LogProcessorWorker();
 
         let cleanupListeners: (() => void)[] = [];
 
@@ -437,7 +438,7 @@ export const useLogExtractorLogic = ({
     // Initialize Right Worker
     useEffect(() => {
         let isStale = false;
-        rightWorkerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
+        rightWorkerRef.current = new LogProcessorWorker();
 
         rightWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
             if (isStale) return;

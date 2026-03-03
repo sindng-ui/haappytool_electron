@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ArchivedLog, SearchOptions } from '../db/LogArchiveDB';
+import ArchiveSearchWorker from '../../workers/ArchiveSearch.worker.ts?worker';
 
 /**
  * Worker 메시지 타입
@@ -92,10 +93,7 @@ export function useArchiveSearch(debounceMs: number = 1000): UseArchiveSearchRet
      */
     useEffect(() => {
         // Worker 생성
-        workerRef.current = new Worker(
-            new URL('../workers/ArchiveSearch.worker.ts', import.meta.url),
-            { type: 'module' }
-        );
+        workerRef.current = new ArchiveSearchWorker();
 
         // Worker 메시지 리스너
         workerRef.current.onmessage = (e: MessageEvent<WorkerResponse>) => {

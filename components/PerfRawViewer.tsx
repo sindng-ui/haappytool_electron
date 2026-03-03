@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import LogViewerPane, { LogViewerHandle } from './LogViewer/LogViewerPane';
 import { X, Loader2, ChevronUp, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { LogWorkerResponse } from '../types';
+import LogProcessorWorker from '../workers/LogProcessor.worker.ts?worker';
 
 interface PerfRawViewerProps {
     filePath: string;
@@ -96,7 +97,7 @@ export const PerfRawViewer: React.FC<PerfRawViewerProps> = ({ filePath, fileName
 
         let isStale = false;
         // Adjust path based on location: components/PerfRawViewer.tsx -> ../workers/LogProcessor.worker.ts
-        workerRef.current = new Worker(new URL('../workers/LogProcessor.worker.ts', import.meta.url), { type: 'module' });
+        workerRef.current = new LogProcessorWorker();
 
         const cleanupListeners: (() => void)[] = [];
 

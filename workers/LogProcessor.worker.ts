@@ -6,6 +6,7 @@ import { checkIsMatch } from '../utils/logFiltering';
 import { extractTimestamp } from '../utils/logTime';
 import { analyzePerfSegments, extractSourceMetadata } from '../utils/perfAnalysis';
 import * as AnalysisHandlers from './workerAnalysisHandlers';
+import LogFilterSubWorker from './LogFilterSub.worker.ts?worker';
 
 const ctx: Worker = self as any;
 ctx.onerror = (e) => {
@@ -63,7 +64,7 @@ const initSubWorkers = () => {
     console.log(`[Worker] Spawning ${numSubWorkers} sub-workers...`);
     for (let i = 0; i < numSubWorkers; i++) {
         try {
-            const sw = new Worker(new URL('./LogFilterSub.worker.ts', import.meta.url), { type: 'module' });
+            const sw = new LogFilterSubWorker();
             sw.onerror = (e) => console.error(`[Worker] SubWorker ${i} error:`, e);
             subWorkers.push(sw);
         } catch (e) {

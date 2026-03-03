@@ -7,6 +7,7 @@ import { extractTimestamp, formatDuration } from '../../utils/logTime';
 import { AnalysisResult, AnalysisSegment, extractLogIds, extractSourceMetadata } from '../../utils/perfAnalysis';
 import { PerfDashboard } from '../LogViewer/PerfDashboard';
 import { getStoredValue, setStoredValue, deleteStoredValue } from '../../utils/db';
+import PerfToolWorker from '../../workers/PerfTool.worker.ts?worker';
 
 const {
     Play, Target, Loader2, UploadCloud, Activity,
@@ -49,7 +50,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
 
     const getWorker = useCallback(() => {
         if (!workerRef.current) {
-            workerRef.current = new Worker(new URL('../../workers/PerfTool.worker.ts', import.meta.url), { type: 'module' });
+            workerRef.current = new PerfToolWorker();
         }
         return workerRef.current;
     }, []);
