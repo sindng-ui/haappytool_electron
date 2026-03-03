@@ -64,11 +64,13 @@ export function useLogWorkerEvents() {
                     if (!window.electronAPI?.readFileSegment) return;
                     window.electronAPI.readFileSegment({ path, start, end })
                         .then(chunkBuffer => {
+                            // Ensure we have a clean ArrayBuffer for transfer
+                            const finalBuffer = new Uint8Array(chunkBuffer);
                             workerRef.current?.postMessage({
                                 type: 'RPC_RESPONSE',
                                 requestId,
-                                payload: chunkBuffer
-                            }, [chunkBuffer.buffer]); // 제로 카피 버퍼 트랜스퍼 🚀
+                                payload: finalBuffer
+                            }, [finalBuffer.buffer]); // 제로 카피 버퍼 트랜스퍼 🚀
                         })
                         .catch(err => {
                             workerRef.current?.postMessage({

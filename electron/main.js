@@ -3,6 +3,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('disable-software-rasterizer');
 app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer');
 app.disableHardwareAcceleration();
 const path = require('path');
 const fs = require('fs/promises'); // For async/await helper if needed
@@ -36,7 +37,7 @@ async function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            sandbox: true, // 보안 강화: 샌드박스 활성화
+            sandbox: false, // ✅ 형님, 생산 빌드에서도 워커와 SharedArrayBuffer가 원활하도록 샌드박스를 끕니다! 🐧🧼
             preload: path.join(__dirname, 'preload.js')
         },
         autoHideMenuBar: true,
@@ -134,10 +135,11 @@ app.whenReady().then(async () => {
     // ✅ CSP(Content Security Policy) 설정 추가
     const { session } = require('electron');
     const csp = "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " + // Vite HMR을 위해 unsafe-eval 허용 (개발모드)
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; " + // ✅ Workers from blob/file support
+        "worker-src 'self' blob:; " + // ✅ Explicitly allow workers
         "style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data:; " +
-        "connect-src 'self' ws://127.0.0.1:3000 ws://localhost:3000 http://127.0.0.1:3003 http://localhost:3003;";
+        "connect-src 'self' * ws://127.0.0.1:3000 ws://localhost:3000 http://127.0.0.1:3003 http://localhost:3003;";
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
         callback({
             responseHeaders: {

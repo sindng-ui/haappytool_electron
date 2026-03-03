@@ -25,7 +25,6 @@ export default defineConfig(({ mode }) => {
     ],
     worker: {
       format: 'iife',
-      plugins: () => []
     },
     build: {
       sourcemap: false,

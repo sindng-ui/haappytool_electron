@@ -4,28 +4,28 @@ import { checkIsMatch } from '../utils/logFiltering';
 
 const ctx: Worker = self as any;
 
+// --- WASM Filter Engine ---
+import initWasmModule, { FilterEngine } from '../public/wasm/happy_filter.js';
+import wasmUrl from '../public/wasm/happy_filter_bg.wasm?url';
+
 let wasmEngine: any = null;
 let wasmMemory: WebAssembly.Memory | null = null;
-const textEncoder = new TextEncoder();
+let wasmModule: any = { FilterEngine }; // Store reference
 
-// Initialize WASM Engine (Vite handles the loading)
-// Initialize WASM Engine (Vite handles the loading)
-let wasmModule: any = null;
 const initWasm = async () => {
     try {
-        // public/wasm에서 WASM 로드
-        const wasmPath = `${self.location.origin}/wasm/happy_filter.js`;
-        // @ts-ignore
-        const wasm = await import(/* @vite-ignore */ wasmPath);
-        wasmModule = wasm;
-        const instance = await wasm.default();
+        console.log('[SubWorker] Initializing WASM Filter Engine (Bundled)...');
+        console.log('[SubWorker] wasmUrl:', wasmUrl);
+        const instance = await initWasmModule(wasmUrl);
         wasmMemory = (instance as any).memory;
-        wasmEngine = new wasm.FilterEngine(false);
-        console.log('[SubWorker] WASM Filter Engine initialized');
+        wasmEngine = new FilterEngine(false);
+        console.log('[SubWorker] WASM Filter Engine initialized successfully');
     } catch (e) {
-        console.error('[SubWorker] WASM init failed, using JS fallback', e);
+        console.warn('[SubWorker] WASM init failed, using JS fallback', e);
     }
 };
+
+const textEncoder = new TextEncoder();
 
 initWasm();
 

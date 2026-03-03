@@ -10,7 +10,10 @@
 
 ### [[Global Entry Point]]
 - **ID**: `global-entry-app`
-- **Keywords**: [`진입점`, `entry`, `main`, `app root`, `초기화`]
+- **Keywords**: [`진입점`, `entry`, `main`, `app root`, `초기화`, `iife worker`, `sandbox false`]
+- **Tech Spec**:
+  - **빌드 시스템**: Vite 6 (Worker format: IIFE로 번들링하여 생산 빌드 호환성 확보)
+  - **데스크톱 프레임워크**: Electron 39 (Sandbox: false, SharedArrayBuffer 활성화)
 - **Location**:
 - [ ] Location:
   - `Html`: [index.html](./index.html) (Vite Entry Point)
@@ -245,11 +248,13 @@
 
 ### [[Utility Belt (Infrastructure)]]
 - **ID**: `infra-utils`
-- **Keywords**: [`시간 분석`, `색상`, `정규식`, `logTime`, `colorUtils`, `filterGroupUtils`]
+- **Keywords**: [`시간 분석`, `색상`, `정규식`, `logTime`, `colorUtils`, `filterGroupUtils`, `build config`, `electron main`]
 - **Location**:
   - `Time`: [logTime.ts](./utils/logTime.ts)
   - `Color`: [colorUtils.ts](./utils/colorUtils.ts)
   - `Filter Logic`: [filterGroupUtils.ts](./utils/filterGroupUtils.ts) (Happy Combo 트리 연산)
+  - `Build Config`: [vite.config.ts](./vite.config.ts) (Worker IIFE 및 플러그인 설정)
+  - `Main Process`: [electron/main.js](./electron/main.js) (보안 정책 및 SharedArrayBuffer 설정)
 - **Core Interface**:
   - `extractTimestamp(text)`: 로그 라인에서 시간 정보 추출 (성능 분석의 기초)
   - `getLighterColor(color)`: UI 테마에 맞는 색상 변환

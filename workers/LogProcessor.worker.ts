@@ -12,24 +12,22 @@ ctx.onerror = (e) => {
     console.error('[Worker] Global Error:', e);
 };
 
-// --- State ---
-// WASM Filter Engine & Memory
+// --- WASM Filter Engine ---
+import initWasmModule, { FilterEngine } from '../public/wasm/happy_filter.js';
+import wasmUrl from '../public/wasm/happy_filter_bg.wasm?url';
+
 let wasmEngine: any = null;
 let wasmMemory: WebAssembly.Memory | null = null;
-const textEncoder = new TextEncoder();
+let wasmModule: any = { FilterEngine }; // Store reference for sub-workers
 
-// Initialize WASM Engine (Vite handles the loading)
-// Initialize WASM Engine (Vite handles the loading)
-let wasmModule: any = null;
 const initWasm = async () => {
     try {
-        console.log('[Worker] Initializing WASM Filter Engine...');
-        const wasmPath = `${self.location.origin}/wasm/happy_filter.js`;
-        const wasm = await import(/* @vite-ignore */ wasmPath);
-        wasmModule = wasm;
-        const instance = await wasm.default();
+        console.log('[Worker] Initializing WASM Filter Engine (Bundled)...');
+        console.log('[Worker] wasmUrl:', wasmUrl);
+        // Vite handles the WASM URL resolution via wasmUrl import
+        const instance = await initWasmModule(wasmUrl);
         wasmMemory = (instance as any).memory;
-        wasmEngine = new wasm.FilterEngine(false);
+        wasmEngine = new FilterEngine(false);
         console.log('[Worker] WASM Filter Engine initialized successfully');
     } catch (e) {
         console.warn('[Worker] WASM initialization failed. Falling back to JS-based filtering.', e);
@@ -85,30 +83,60 @@ let isLocalFileMode = false;
 let localFilePath: string | null = null;
 let localFileSize: number = 0;
 
-// ✅ 형님! 이제 SharedArrayBuffer를 사용해 UI와 데이터를 공유합니다! 🐧💎🚀
+// --- Shared Buffer Initialization ---
 const LOG_SAB_SIZE = 100 * 1024 * 1024; // 100MB Shared Log Store
 const MAX_LINES = 2048 * 1024; // 2M Lines maximum
 
-const logSharedBuffer = new SharedArrayBuffer(LOG_SAB_SIZE);
-let logBuffer = new Uint8Array(logSharedBuffer);
-let logBufferPtr = 0;
+let logSharedBuffer: any;
+let logBuffer: Uint8Array;
+let offsetSharedBuffer: any;
+let lineOffsetsStream: Uint32Array;
+let lengthSharedBuffer: any;
+let lineLengthsStream: Uint32Array;
+let indexSharedBuffer: any;
+let filteredIndicesBuffer: Int32Array;
 
-const offsetSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
-let lineOffsetsStream = new Uint32Array(offsetSharedBuffer);
+try {
+    // ✅ Check if SharedArrayBuffer is available (COOP/COEP check)
+    if (typeof SharedArrayBuffer !== 'undefined') {
+        logSharedBuffer = new SharedArrayBuffer(LOG_SAB_SIZE);
+        logBuffer = new Uint8Array(logSharedBuffer);
 
-const lengthSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
-let lineLengthsStream = new Uint32Array(lengthSharedBuffer);
+        offsetSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
+        lineOffsetsStream = new Uint32Array(offsetSharedBuffer);
 
-let streamLineCount = 0;
+        lengthSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
+        lineLengthsStream = new Uint32Array(lengthSharedBuffer);
 
-// Common
-let filteredIndices: Int32Array | null = null; // Line numbers (0-based) that match
-// ✅ 형님, 필터 결과 인덱스도 공유 버퍼로 관리하여 UI에서 즉시 알 수 있게 합니다! 🐧💎
-const indexSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
-let filteredIndicesBuffer = new Int32Array(indexSharedBuffer);
+        indexSharedBuffer = new SharedArrayBuffer(MAX_LINES * 4);
+        filteredIndicesBuffer = new Int32Array(indexSharedBuffer);
+        console.log('[Worker] SharedArrayBuffer initialized successfully');
+    } else {
+        throw new Error('SharedArrayBuffer is NOT available');
+    }
+} catch (e) {
+    console.warn('[Worker] SharedArrayBuffer not supported. Falling back to regular ArrayBuffer.', e);
+    // Fallback to regular buffers (less efficient but works)
+    logSharedBuffer = new ArrayBuffer(LOG_SAB_SIZE);
+    logBuffer = new Uint8Array(logSharedBuffer);
+
+    offsetSharedBuffer = new ArrayBuffer(MAX_LINES * 4);
+    lineOffsetsStream = new Uint32Array(offsetSharedBuffer);
+
+    lengthSharedBuffer = new ArrayBuffer(MAX_LINES * 4);
+    lineLengthsStream = new Uint32Array(lengthSharedBuffer);
+
+    indexSharedBuffer = new ArrayBuffer(MAX_LINES * 4);
+    filteredIndicesBuffer = new Int32Array(indexSharedBuffer);
+}
 
 let currentRule: LogRule | null = null;
 let currentQuickFilter: 'none' | 'error' | 'exception' = 'none'; // ✅ New State
+
+let logBufferPtr = 0;
+let streamLineCount = 0;
+let filteredIndices: Int32Array | null = null;
+const textEncoder = new TextEncoder();
 
 // Helper: UI에게 공유 버퍼 정보 전송
 const sendSharedBuffers = () => {
