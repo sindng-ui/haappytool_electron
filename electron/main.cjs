@@ -157,17 +157,43 @@ app.whenReady().then(async () => {
         catch (error) { console.error('Error getting file size:', error); throw error; }
     });
 
+    const openFileHandles = new Map();
+
+    async function getOrCreateFileHandle(filePath) {
+        // 캐시에 없으면 "파일을 여는 Promise" 자체를 즉시 캐시에 등록하여 동시 다발적 접근(Race Condition)을 방지합니다.
+        if (!openFileHandles.has(filePath)) {
+            const openPromise = (async () => {
+                const handle = await fs.open(filePath, 'r');
+                return { handle, timeout: null };
+            })();
+            openFileHandles.set(filePath, openPromise);
+        }
+
+        // Promise를 await 하여 핸들 객체를 확보합니다.
+        const item = await openFileHandles.get(filePath);
+
+        if (item.timeout) clearTimeout(item.timeout);
+        item.timeout = setTimeout(() => {
+            item.handle.close().catch(console.error);
+            openFileHandles.delete(filePath);
+        }, 15000);
+
+        return item.handle;
+    }
+
     ipcMain.handle('readFileSegment', async (event, { path: filePath, start, end }) => {
-        let fileHandle = null;
         try {
             const length = end - start;
             if (length <= 0) return Buffer.alloc(0);
-            fileHandle = await fs.open(filePath, 'r');
+
+            const fileHandle = await getOrCreateFileHandle(filePath);
             const buffer = Buffer.alloc(length);
             const { bytesRead } = await fileHandle.read(buffer, 0, length, start);
             return buffer.subarray(0, bytesRead);
-        } catch (error) { console.error('Error reading file segment:', error); throw error; }
-        finally { if (fileHandle) await fileHandle.close().catch(console.error); }
+        } catch (error) {
+            console.error('Error reading file segment:', error);
+            throw error;
+        }
     });
 
     ipcMain.handle('toggle-fullscreen', (event, flag) => {

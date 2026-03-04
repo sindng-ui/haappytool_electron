@@ -19,7 +19,26 @@ const initWasm = async () => {
         const instance = await initWasmModule(wasmUrl);
         wasmMemory = (instance as any).memory;
         wasmEngine = new FilterEngine(false);
-        console.log('[SubWorker] WASM Filter Engine initialized successfully');
+
+        // --- WASM & JIT Warmup (Cold Start Optimization) ---
+        // V8 엔진(TurboFan)과 WASM 브릿지를 초기 필터링 전에 최적화 상태로 예열합니다.
+        try {
+            const dummyRule = { excludes: [], includeGroups: [['___warmup___']], happyCombosCaseSensitive: false, showRawLogLines: true };
+            wasmEngine.update_keywords(['___warmup___']);
+            const dummyLine = "01-01 12:00:00.000  1000  1000 I WARMUP  : Warmup V8 JIT and WASM Bridge for fast first filter";
+            // ✅ 효율적 예열: 무조건 5만 번 도는 대신, 최대 10ms 이내에서만 JIT 최적화를 유도하여 불필요한 CPU 낭비 방지
+            const startTime = performance.now();
+            let iterations = 0;
+            while (performance.now() - startTime < 10 && iterations < 15000) {
+                checkIsMatch(dummyLine, dummyRule as any, false, 'none', wasmEngine, wasmMemory, textEncoder);
+                iterations++;
+            }
+            console.log(`[SubWorker] JIT warmed up with ${iterations} iterations in ${(performance.now() - startTime).toFixed(1)}ms`);
+        } catch (warmupErr) {
+            console.warn('[SubWorker] JIT warmup failed:', warmupErr);
+        }
+
+        console.log('[SubWorker] WASM Filter Engine initialized and JIT warmed up successfully');
     } catch (e) {
         console.warn('[SubWorker] WASM init failed, using JS fallback', e);
     }
@@ -27,9 +46,11 @@ const initWasm = async () => {
 
 const textEncoder = new TextEncoder();
 
-initWasm();
+const wasmInitPromise = initWasm();
 
 ctx.onmessage = async (e) => {
+    await wasmInitPromise; // 🚨 WASM 준비 전 처리 시 JS Fallback(5.5s)로 빠지는 문제 핵심 수정!
+
     const { type, payload } = e.data;
 
     if (type === 'FILTER_CHUNK') {
@@ -80,26 +101,18 @@ ctx.onmessage = async (e) => {
                 }
             } else if (buffer) {
                 const decoder = new TextDecoder();
-                let start = 0;
-                let next;
-                // ✅ Optimization: uint8View.indexOf(10) is much faster than string split for large chunks
-                while ((next = buffer.indexOf(10, start)) !== -1) {
-                    const hasCr = next > start && buffer[next - 1] === 13; // 바이트 레벨 체크로 정규식 대체
-                    const lineBytes = buffer.subarray(start, hasCr ? next - 1 : next);
-                    const line = decoder.decode(lineBytes); // 이제 정규식 replace가 없으므로 더 빠름
-                    if (checkIsMatch(line, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
-                        matchesList.push(offset + relativeLineIndex);
-                    }
-                    relativeLineIndex++;
-                    start = next + 1;
-                }
-                // Handle the last segment if it doesn't end with a newline
-                if (start < buffer.length) {
-                    const len = buffer.length;
-                    const hasCr = len > start && buffer[len - 1] === 13;
-                    const lineBytes = buffer.subarray(start, hasCr ? len - 1 : len);
-                    const line = decoder.decode(lineBytes);
-                    if (checkIsMatch(line, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+                const textBuf = decoder.decode(buffer);
+                const lines = textBuf.split('\n');
+
+                // If it ends exactly with \n, the last element is an empty string we should ignore.
+                if (textBuf.endsWith('\n')) lines.pop();
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    // Strip CR if exists (Windows log format compat)
+                    const cleanLine = line.endsWith('\r') ? line.slice(0, -1) : line;
+
+                    if (checkIsMatch(cleanLine, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
                         matchesList.push(offset + relativeLineIndex);
                     }
                     relativeLineIndex++;

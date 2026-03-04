@@ -64,6 +64,11 @@ export function useLogWorkerEvents() {
                     console.log(`[useLog-${pane}] Handling RPC_REQUEST: readFileSegment`, { path, start, end });
                     if (!window.electronAPI?.readFileSegment) {
                         console.error(`[useLog-${pane}] window.electronAPI.readFileSegment is missing!`);
+                        workerRef.current?.postMessage({
+                            type: 'RPC_ERROR',
+                            requestId,
+                            payload: 'electronAPI.readFileSegment is missing'
+                        });
                         return;
                     }
                     window.electronAPI.readFileSegment({ path, start, end })

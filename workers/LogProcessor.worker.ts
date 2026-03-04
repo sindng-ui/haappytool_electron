@@ -40,8 +40,9 @@ initWasm();
 // --- Parallelism: Worker Pool for Heavy Filtering ---
 const numSubWorkers = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
 const subWorkers: Worker[] = [];
-// 💡 idle 타이머 제거: 30초 idle 후 terminate는 WASM 재로드 5초 지연을 유발했습니다.
-// 서브워커는 탭이 비활성화(SET_ACTIVE_STATE)될 때만 종료합니다. 🐧🔥
+let isTabActive = true; // ✅ 현재 탭 활성화 여부 추적
+
+// 서브워커는 탭이 비활성화(SET_ACTIVE_STATE)될 때만 종료합니다.
 
 const terminateSubWorkers = () => {
     if (subWorkers.length === 0) return;
@@ -51,6 +52,10 @@ const terminateSubWorkers = () => {
 };
 
 const initSubWorkers = () => {
+    if (!isTabActive) {
+        console.log('[Worker] Tab is inactive. Skipping sub-worker spawn.');
+        return;
+    }
     if (subWorkers.length > 0) {
         console.log(`[Worker] Using existing ${subWorkers.length} sub-workers`);
         return;
@@ -204,6 +209,8 @@ const buildFileIndex = async (file: File) => {
     isCalculatingHeatmap = false; // Reset heatmap state for new file
     currentFilterRequestId++; // ✅ Cancel any pending filters from previous file
 
+    initSubWorkers(); // ✅ 스폰하여 병렬로 WASM 초기화 진행 (WASM Cold Start 최적화)
+
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 0 } });
 
     const fileSize = file.size;
@@ -287,6 +294,8 @@ const buildLocalFileIndex = async (path: string, size: number) => {
     BookmarkManager.clearAll();
     isCalculatingHeatmap = false;
     currentFilterRequestId++;
+
+    initSubWorkers(); // ✅ 스폰하여 병렬로 WASM 초기화 진행 (WASM Cold Start 최적화)
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 0 } });
 
@@ -632,7 +641,9 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                     if (text.endsWith('\n')) lines.pop();
                     const mList: number[] = [];
                     for (let j = 0; j < lines.length; j++) {
-                        if (checkIsMatch(lines[j], normalizedRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+                        const line = lines[j];
+                        const cleanLine = line.endsWith('\r') ? line.slice(0, -1) : line;
+                        if (checkIsMatch(cleanLine, normalizedRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
                             mList.push(startLine + j);
                         }
                     }
@@ -761,9 +772,15 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
 
     switch (type) {
         case 'SET_ACTIVE_STATE':
-            if (payload === false) {
+            isTabActive = payload !== false;
+            if (!isTabActive) {
                 console.log('[Worker] Tab became inactive, terminating idle sub-workers to save CPU/RAM');
                 terminateSubWorkers();
+            } else {
+                console.log('[Worker] Tab activated → SubWorkers will be respawned on next filter or index');
+                if (currentFile || isLocalFileMode || isStreamMode) {
+                    initSubWorkers(); // 활성화 시 즉시 스폰하여 예열
+                }
             }
             break;
         case 'RPC_RESPONSE':
@@ -781,16 +798,6 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
         case 'INIT_FILE':
             // 핫픽스: payload 자체가 File 객체이므로 바로 전달합니다. 🐧🛠️
             await buildFileIndex(payload);
-            break;
-        case 'SET_ACTIVE_STATE':
-            // 💡 탭 비활성화 시 서브워커 즉시 종료 → 탭 10개여도 서브워커는 active 1개분만 유지
-            // 재활성화 시 다음 FILTER_LOGS에서 initSubWorkers()가 자동으로 재생성
-            if (payload === false) {
-                terminateSubWorkers();
-                console.log('[Worker] Tab deactivated → SubWorkers terminated to save RAM');
-            } else {
-                console.log('[Worker] Tab activated → SubWorkers will be respawned on next filter');
-            }
             break;
         case 'INIT_LOCAL_FILE_STREAM':
             await buildLocalFileIndex(payload.path, payload.size);
