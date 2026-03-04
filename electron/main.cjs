@@ -4,11 +4,23 @@ const fs = require('fs/promises');
 const originalFs = require('fs');
 const { startServer } = require('../server/index.cjs');
 
+// ✅ CLI 실행 시 GUI와 데이터 잠금 충돌을 피하기 위해 전용 경로 설정
+// 이 로직은 app.whenReady() 이전에 실행되어야 안전합니다.
+const args = process.defaultApp ? process.argv.slice(2) : process.argv.slice(1);
+const isCliMode = args.length > 0 && args[0] === 'cli';
+if (isCliMode) {
+    const cliDataPath = path.join(app.getPath('userData'), 'cli-session');
+    app.setPath('userData', cliDataPath);
+}
+
 // ✅ WSL/Virtual Drive(Y:) Environment Fixes & SharedArrayBuffer Enable
 app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('disable-software-rasterizer');
 app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer');
+// ✅ GPU 캐시 오류 수정: 캐시 크기 0으로 설정하여 캐시 생성 시도를 막음 🐧🔧
+app.commandLine.appendSwitch('disk-cache-size', '0');
+app.commandLine.appendSwitch('media-cache-size', '0');
 app.disableHardwareAcceleration();
 
 // ✅ 하위 호환성 및 보안을 위해 프로토콜 등록을 최상단으로 이동 (whenReady 이전) 🐧🛡️
@@ -46,8 +58,8 @@ async function createWindow() {
             preload: path.join(__dirname, 'preload.cjs')
         },
         autoHideMenuBar: true,
-        backgroundColor: '#0f172a',
-        show: false
+        backgroundColor: '#000000', // ✅ React LoadingSplash(bg-black)와 정확히 일치! 🐧
+        show: true  // ✅ 창을 즉시 표시: 검정 배경이 바로 보이고 React가 로드되면 스플래시 등장! 빠름! 🐧🚀
     };
 
     mainWindow = new BrowserWindow(winOptions);
@@ -56,20 +68,17 @@ async function createWindow() {
         mainWindow.maximize();
     }
 
-    // ✅ Enforce Strict Zoom Limits
-    mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
-    mainWindow.webContents.setZoomFactor(1.0);
-
+    // ✅ Zoom 제한: did-finish-load 시점에만 적용 (창 표시와 분리)
     const isDev = !app.isPackaged;
     console.log('[DEBUG] isDev:', isDev, 'NODE_ENV:', process.env.NODE_ENV);
 
-    mainWindow.once('ready-to-show', () => {
-        mainWindow.show();
-    });
-
+    //  ✅ 전략: did-finish-load에서 Zoom 설정만 처리함다. 창 표시는 show:true가 담당.
     const pageLoadedPromise = new Promise((resolve) => {
         mainWindow.webContents.once('did-finish-load', () => {
             console.log('[DEBUG] did-finish-load fired inside createWindow');
+            // Zoom 제한 (렌더러 준비된 후 설정)
+            mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
+            mainWindow.webContents.setZoomFactor(1.0);
             resolve();
         });
     });
@@ -107,7 +116,8 @@ app.whenReady().then(async () => {
 
     // ✅ 'app://' 프로토콜 핸들러 등록 (SharedArrayBuffer를 위해 Response에 헤더 주입 가능)
     protocol.handle('app', async (request) => {
-        const url = request.url.replace('app://./', '');
+        let url = request.url.replace('app://./', '');
+        url = url.split('?')[0].split('#')[0];
         const decodedUrl = decodeURIComponent(url);
         const filePath = path.join(__dirname, '../dist', decodedUrl);
 
@@ -150,6 +160,13 @@ app.whenReady().then(async () => {
     ipcMain.handle('readFile', async (event, filePath) => {
         try { return await fs.readFile(filePath, 'utf-8'); }
         catch (error) { console.error('Error reading file:', error); throw error; }
+    });
+
+    // ✅ Startup Status 핸들러 추가: 리액트가 뜨자마자 현재 상태를 물어볼 수 있게 함다.
+    let startupStatus = { progress: 0, status: 'Initializing...', isComplete: false };
+    const bootLogs = [];
+    ipcMain.handle('get-startup-status', () => {
+        return { ...startupStatus, logs: bootLogs };
     });
 
     ipcMain.handle('getFileSize', async (event, filePath) => {
@@ -200,6 +217,38 @@ app.whenReady().then(async () => {
         if (mainWindow) mainWindow.setFullScreen(flag);
     });
 
+    // ✅ 설정 파일 저장 핸들러 (CLI 공유용) 🐧📁
+    ipcMain.handle('save-settings-file', async (event, settingsJson) => {
+        try {
+            // CLI 모드일 경우 패런트 디렉토리(원본 userData)에 저장
+            const realUserData = isCliMode
+                ? path.join(app.getPath('userData'), '..')
+                : app.getPath('userData');
+            const settingsPath = path.join(realUserData, 'settings.json');
+            await fs.writeFile(settingsPath, settingsJson, 'utf-8');
+            return { status: 'success' };
+        } catch (error) {
+            console.error('Error saving settings file:', error);
+            throw error;
+        }
+    });
+
+    // ✅ 설정 파일 로드 핸들러 (CLI 모드에서 GUI 설정 복구용)
+    ipcMain.handle('get-cli-settings', async () => {
+        try {
+            // CLI 전용 세션 폴더의 상위(원본 userData)에서 탐색
+            const realUserData = isCliMode
+                ? path.join(app.getPath('userData'), '..')
+                : app.getPath('userData');
+            const settingsPath = path.join(realUserData, 'settings.json');
+            const content = await originalFs.promises.readFile(settingsPath, 'utf-8');
+            return JSON.parse(content);
+        } catch (error) {
+            // 파일이 없으면 에러 내지 않고 null 반환
+            return null;
+        }
+    });
+
     ipcMain.handle('saveFile', async (event, content) => {
         const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
             filters: [{ name: 'Text Files', extensions: ['txt', 'log'] }]
@@ -207,6 +256,20 @@ app.whenReady().then(async () => {
         if (canceled || !filePath) return { status: 'canceled' };
         try { await fs.writeFile(filePath, content, 'utf-8'); return { status: 'success', filePath }; }
         catch (error) { return { status: 'error', error: error.message }; }
+    });
+
+    // ✅ CLI 전용: 다이얼로그 없이 지정 경로에 직접 저장! 🐧🎯
+    ipcMain.handle('saveFileDirect', async (event, { data, filePath, isBase64 }) => {
+        try {
+            const buffer = isBase64
+                ? Buffer.from(data, 'base64')
+                : Buffer.from(data);
+            await fs.writeFile(filePath, buffer);
+            return { status: 'success', filePath };
+        } catch (error) {
+            console.error('[saveFileDirect] Error:', error);
+            return { status: 'error', error: error.message };
+        }
     });
 
     ipcMain.handle('saveBinaryFile', async (event, { data, fileName }) => {
@@ -310,29 +373,42 @@ app.whenReady().then(async () => {
         });
     });
 
-    console.log('[DEBUG] HappyTool Main Process Started');
-    await createWindow();
+    if (isCliMode) {
+        require('./cli.cjs').runCli(args.slice(1));
+        return;
+    }
+
+    // ✅ 병렬 실행 시작 (윈도우 생성 & 서버 시작)
+    const windowLoadPromise = createWindow();
 
     const originalLog = console.log;
-    const originalError = console.error;
-
     const sendProgress = (progress, status) => {
+        startupStatus = { progress, status, isComplete: progress >= 100 };
         if (mainWindow && mainWindow.webContents) {
             mainWindow.webContents.send('loading-progress', { progress, status });
         }
     };
 
     const sendLog = (message) => {
+        if (bootLogs.length > 500) bootLogs.shift();
+        bootLogs.push(message);
         if (mainWindow && mainWindow.webContents) {
             mainWindow.webContents.send('loading-log', message);
         }
     };
 
     console.log = (...args) => {
-        const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-        if (message.includes('Server') || message.includes('running') || message.includes('VITE') || message.includes('Loading')) {
-            sendLog(message);
-        }
+        const message = args.map(arg => {
+            if (typeof arg === 'object' && arg !== null) {
+                try {
+                    const str = JSON.stringify(arg);
+                    return str.length > 1000 ? '[Large Object]' : str;
+                } catch (e) { return '[Circular or Non-Serializable Object]'; }
+            }
+            return String(arg);
+        }).join(' ');
+
+        sendLog(message);
         originalLog.apply(console, args);
     };
 
@@ -343,8 +419,18 @@ app.whenReady().then(async () => {
         catch (e) { serverError = e; console.error('Failed to start internal server:', e); }
     })();
 
-    sendProgress(0, 'Initializing...');
-    await serverStartPromise;
+    // ✅ 서버가 켜질 때까지 가짜 진행률
+    let fakeProgress = 0;
+    const progressInterval = setInterval(() => {
+        if (fakeProgress < 95) {
+            fakeProgress += (95 - fakeProgress) * 0.1;
+            sendProgress(fakeProgress, 'Starting internal services...');
+        }
+    }, 400);
+
+    // 둘 다 기다림
+    await Promise.all([windowLoadPromise, serverStartPromise]);
+    clearInterval(progressInterval);
 
     if (serverStarted) {
         sendProgress(100, 'Ready!');

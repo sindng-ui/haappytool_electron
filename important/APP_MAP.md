@@ -23,6 +23,10 @@
   - `AppContent`: 전역 상태(Settings, Plugin 등) 관리의 핵심 컴포넌트
   - `HappyToolProvider`: 전역 Context 공급
 - **Data Flow**: `localStorage` -> `Settings Load` -> `Context State` -> `Plugin Injection`
+- **Startup UX Optimization**:
+  - `Fake Progress`: 서버 기동 시 0->95%까지 서서히 증가하여 대기 시간 시각화 (`main.cjs`)
+  - `Progress Creep`: 플러그인 로드 대기 시 98->99.9%까지 점진적으로 증가하여 활동성 확보 (`LoadingSplash.tsx`)
+  - `Log Streaming`: 부팅 로그 필터 완화로 실시간 초기화 과정 노출 (`main.cjs` console override)
 
 ### [[Plugin Registry & Injection]]
 - **ID**: `system-plugin-registry`
@@ -306,6 +310,20 @@
 - **Data Flow**:
     - `File Open` -> `INIT_STREAM` -> `PROCESS_CHUNK` (Worker) -> `STREAM_DONE` -> `Indexing`
     - `Rule Update` -> `applyFilter` (Worker) -> `LRU Cache Check` -> `Render`
+
+### [[CLI Mode (Headless) Architecture]] 🐧💻
+- **ID**: `system-cli-headless`
+- **Keywords**: [`CLI`, `headless`, `hidden renderer`, `commander`, `automation`]
+- **Location**:
+    - `Main Control`: [electron/main.cjs](./electron/main.cjs) (Argument parsing via `commander`)
+    - `Logic Entry`: [CliApp.tsx](./CliApp.tsx) (Hidden renderer's UI wrapper)
+- **Core Interface**:
+    - `HappyTool.exe cli log-extractor`: 로그 필터링 및 추출 명령
+- **Data Flow**:
+    - `CLI Args` -> `main.cjs` -> `Hidden BrowserWindow` -> `CliApp.tsx` -> `LogProcessorWorker` -> `Result Export` -> `Process Exit`
+- **Optimizations**:
+    - `cli-session`: CLI 전용 userData 경로를 사용하여 GUI와 데이터 잠금 충돌 방지
+    - `saveSettingsToFile`: 설정 변경 시 `settings.json`으로 동기화하여 CLI와 GUI 간 필터 규칙 공유
 
 ---
 

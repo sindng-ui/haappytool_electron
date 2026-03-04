@@ -17,6 +17,17 @@ const LoadNotifier: React.FC<{ onLoaded?: () => void }> = ({ onLoaded }) => {
 
 const PluginContainer: React.FC<PluginContainerProps> = ({ plugin, isActive, onLoaded }) => {
     const Component = plugin.component;
+    const [hasBeenActive, setHasBeenActive] = React.useState(false);
+
+    React.useEffect(() => {
+        if (isActive && !hasBeenActive) {
+            setHasBeenActive(true);
+        }
+    }, [isActive, hasBeenActive]);
+
+    if (!isActive && !hasBeenActive) {
+        return null;
+    }
 
     return (
         <React.Suspense fallback={

@@ -129,6 +129,7 @@ const AppContent: React.FC = () => {
   const [postGlobalAuth, setPostGlobalAuth] = useState<PostGlobalAuth>({ enabled: true, type: 'none' });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const importInputRef = React.useRef<HTMLInputElement>(null);
+  const [defaultOutputFolder, setDefaultOutputFolder] = useState<string>('');
 
   // Tool Order State - now generic strings
   const [toolOrder, setToolOrder] = useState<string[]>(
@@ -225,6 +226,7 @@ const AppContent: React.FC = () => {
           setPostGlobalAuth(parsed.postGlobalAuth);
         }
         if (parsed.lastEndpoint) setLastApiUrl(parsed.lastEndpoint);
+        if (parsed.defaultOutputFolder) setDefaultOutputFolder(parsed.defaultOutputFolder);
 
       } catch (e) {
         console.error("Failed to load settings", e);
@@ -254,19 +256,27 @@ const AppContent: React.FC = () => {
         postGlobalAuth,
         lastEndpoint: lastApiUrl,
         lastMethod,
-        enabledPlugins
+        enabledPlugins,
+        defaultOutputFolder
       };
 
       try {
         localStorage.setItem('devtool_suite_settings', JSON.stringify(settings));
-        // console.log('[App] Settings auto-saved to localStorage');
+
+        // ✅ CLI와 공유를 위해 파일로도 저장 🐧📁
+        if (window.electronAPI?.saveSettingsToFile) {
+          const settingsJson = JSON.stringify(settings);
+          window.electronAPI.saveSettingsToFile(settingsJson).catch(err => {
+            console.error("Failed to sync settings to file:", err);
+          });
+        }
       } catch (e) {
         console.error('[App] Failed to save settings:', e);
       }
     }, 1000); // ✅ 1-second debounce
 
     return () => clearTimeout(timer);
-  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins]);
+  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins, defaultOutputFolder]);
 
   // ✅ Performance: Memoize export/import handlers
   const handleExportSettings = React.useCallback(() => {
@@ -280,6 +290,7 @@ const AppContent: React.FC = () => {
       lastEndpoint: lastApiUrl,
       lastMethod,
       enabledPlugins,
+      defaultOutputFolder,
       blocks: JSON.parse(localStorage.getItem('happytool_blocks') || '[]'),
       pipelines: JSON.parse(localStorage.getItem('happytool_pipelines') || '[]')
     };
@@ -292,7 +303,7 @@ const AppContent: React.FC = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [logRules, savedRequests, savedRequestGroups, envProfiles, activeEnvId, postGlobalAuth, lastApiUrl, lastMethod, enabledPlugins]);
+  }, [logRules, savedRequests, savedRequestGroups, envProfiles, activeEnvId, postGlobalAuth, lastApiUrl, lastMethod, enabledPlugins, defaultOutputFolder]);
 
   const handleImportSettings = React.useCallback((settings: AppSettings) => {
     if (settings.logRules) {
@@ -352,6 +363,7 @@ const AppContent: React.FC = () => {
     if (settings.lastEndpoint) setLastApiUrl(settings.lastEndpoint);
     if (settings.lastMethod) setLastMethod(settings.lastMethod);
     if (settings.enabledPlugins) setEnabledPlugins(settings.enabledPlugins);
+    if (settings.defaultOutputFolder !== undefined) setDefaultOutputFolder(settings.defaultOutputFolder);
 
     // Import BlockTest Data
     if (settings.blocks) {
@@ -430,6 +442,8 @@ const AppContent: React.FC = () => {
     setPostGlobalAuth,
     handleExportSettings,
     handleImportSettings,
+    defaultOutputFolder,
+    setDefaultOutputFolder,
     isFocusMode,
     toggleFocusMode,
     ambientMood,
@@ -446,6 +460,7 @@ const AppContent: React.FC = () => {
     activeEnvId,
     setActiveEnvId,
     postGlobalAuth,
+    defaultOutputFolder,
     isFocusMode,
     toggleFocusMode
     // ✅ Removed duplicates: requestHistory, lastApiUrl, lastMethod
@@ -508,7 +523,7 @@ const AppContent: React.FC = () => {
       const timer = setTimeout(() => {
         console.warn('Plugin loading timed out, forcing ready');
         setIsInitialPluginReady(true);
-      }, 5000);
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [isBackendReady, isInitialPluginReady]);

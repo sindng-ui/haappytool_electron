@@ -12,10 +12,38 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete, waitFo
     const [progress, setProgress] = useState(0);
     const [status, setStatus] = useState('Initializing...');
     const [isComplete, setIsComplete] = useState(false);
-    const [isBackendComplete, setIsBackendComplete] = useState(false); // New state
+    const [isBackendComplete, setIsBackendComplete] = useState(false);
     const startTimeRef = React.useRef<number>(Date.now());
-    const MIN_DISPLAY_TIME = 1500; // 최소 1.5초 표시
+    const logContainerRef = React.useRef<HTMLDivElement>(null);
+    const MIN_DISPLAY_TIME = 2000; // ✅ 2초 최소 표시 🐧
     const completeTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    // ✅ 마운트 시: pre-loader 스피너 제거 (React가 준비된 신호) + splashReady IPC 발송
+    useEffect(() => {
+        // pre-loader를 쿠르게 제거
+        const preLoader = document.getElementById('pre-loader');
+        if (preLoader) {
+            preLoader.style.opacity = '0';
+            preLoader.style.transition = 'opacity 0.2s ease';
+            setTimeout(() => preLoader.remove(), 200);
+        }
+        window.electronAPI?.splashReady?.();
+    }, []);
+
+    // Auto-scroll logs
+    useEffect(() => {
+        if (logContainerRef.current) {
+            const scroll = () => {
+                if (logContainerRef.current) {
+                    logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+                }
+            };
+            scroll();
+            // Busy thread 대비 한 번 더 시도
+            const raf = requestAnimationFrame(scroll);
+            return () => cancelAnimationFrame(raf);
+        }
+    }, [logs]);
 
     // Watch for both completions
     useEffect(() => {
@@ -28,16 +56,26 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete, waitFo
             return;
         }
 
-        // If backend is done, but plugins are not
+        // ✅ 형님, 98%에서 딱 멈추지 않고 99.9%까지 아주 조금씩 늘어나는 Creep 효과를 넣었습니다! 🐧🐢
+        let creepInterval: any = null;
         if (isBackendComplete && waitForPlugins) {
             setStatus('Loading plugins...');
-            setProgress(98); // Hold at 98%
+            if (progress < 98) setProgress(98); // 일단 98%까지는 바로 올림
+
+            creepInterval = setInterval(() => {
+                setProgress(prev => {
+                    if (prev >= 99.9) return 99.9;
+                    const remaining = 100 - prev;
+                    return prev + remaining * 0.05; // 남은 거리의 5%씩 야금야금 이동
+                });
+            }, 500);
         }
 
         // Check if fully complete
         const safeToClose = isBackendComplete && !waitForPlugins;
 
         if (safeToClose && !isComplete && !completeTimeoutRef.current) {
+            if (creepInterval) clearInterval(creepInterval);
             console.log('[LoadingSplash] All systems ready. Initiating closing sequence.');
             setProgress(100);
             setStatus('Ready!');
@@ -54,12 +92,33 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete, waitFo
                 }, 800);
             }, remainingTime);
         }
-    }, [isBackendComplete, waitForPlugins, isComplete, onLoadingComplete]);
+
+        return () => {
+            if (creepInterval) clearInterval(creepInterval);
+        };
+    }, [isBackendComplete, waitForPlugins, isComplete, onLoadingComplete, progress]);
 
     useEffect(() => {
         console.log('[LoadingSplash] Component mounted');
 
-        // ... existing log/progress handlers ...
+        // ✅ 초기 상태 동기화: 메인 프로세스에서 버퍼링된 로그와 현재 진행률을 가져옴다.
+        if (window.electronAPI?.getStartupStatus) {
+            window.electronAPI.getStartupStatus().then((status: any) => {
+                if (status) {
+                    if (status.logs && status.logs.length > 0) {
+                        setLogs(status.logs.slice(-29));
+                    }
+                    if (status.progress > 0) {
+                        setProgress(status.progress);
+                        setStatus(status.status);
+                    }
+                    if (status.isComplete) {
+                        setIsBackendComplete(true);
+                    }
+                }
+            });
+        }
+
         const handleProgress = (...args: any[]) => {
             const data = args[0] || args[1];
             if (data && typeof data === 'object') {
@@ -123,24 +182,27 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete, waitFo
 
     return (
         <div
-            className={`fixed inset-0 z-50 bg-black transition-opacity duration-700 ${isComplete ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            className={`fixed inset-0 z-50 bg-black ${isComplete ? 'opacity-0 pointer-events-none transition-opacity duration-700' : 'opacity-100'
                 }`}
         >
             {/* 전체 화면 커맨드 라인 로그 (배경) */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="w-full h-full p-8 font-mono text-8xl text-green-400/40 space-y-2 overflow-auto">
+                <div
+                    ref={logContainerRef}
+                    className="w-full h-full p-8 font-mono text-8xl text-green-400/40 space-y-2 overflow-auto no-scrollbar flex flex-col justify-end"
+                >
                     {logs.length === 0 ? (
-                        <>
+                        <div className="flex flex-col justify-end h-full">
                             <div className="animate-pulse">&gt; Waiting for system initialization...</div>
                             <div>&gt;</div>
-                        </>
+                        </div>
                     ) : (
                         logs.map((log, index) => (
                             <div
                                 key={index}
                                 className="animate-fade-in"
                                 style={{
-                                    animationDelay: `${index * 50}ms`,
+                                    animationDelay: `${index * 30}ms`,
                                     animationFillMode: 'forwards'
                                 }}
                             >
@@ -184,8 +246,8 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete, waitFo
                         {/* 프로그레스 바 */}
                         <div className="relative h-3 bg-slate-800/80 rounded-full overflow-hidden shadow-2xl border border-slate-700/50">
                             <div
-                                className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-500 ease-out animate-shimmer"
-                                style={{ width: `${progress}%` }}
+                                className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-500 ease-out"
+                                style={{ width: progress >= 100 ? '100%' : `${progress}%` }}
                             >
                                 <div className="absolute inset-0 bg-white opacity-30 animate-pulse"></div>
                             </div>

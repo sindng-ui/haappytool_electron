@@ -28,6 +28,10 @@ export interface HappyToolContextType {
     handleExportSettings: () => void;
     handleImportSettings: (settings: AppSettings) => void;
 
+    // Default Output Folder for CLI
+    defaultOutputFolder: string;
+    setDefaultOutputFolder: React.Dispatch<React.SetStateAction<string>>;
+
     // Focus Mode (F11)
     isFocusMode: boolean;
     toggleFocusMode: () => void;

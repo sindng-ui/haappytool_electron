@@ -29,6 +29,22 @@ export default defineConfig(({ mode }) => {
     build: {
       sourcemap: false,
       chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          // ✅ App과 LoadingSplash를 별도 청크로 분리하여 초기 로딩 속도 향상 🐧🚀
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom'],
+          }
+        }
+      }
+    },
+    // ✅ Vite dev 서버 첫 접근 시 핵심 deps를 미리 번들링하여 로딩 속도 향상 🐧⚡
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'lucide-react',
+      ],
     },
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),

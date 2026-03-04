@@ -3,6 +3,7 @@ import { X, Moon, Sun, Keyboard, Info, Type, RotateCcw, BookOpen, Puzzle } from 
 import { Button } from './ui/Button';
 import { useToast } from '../contexts/ToastContext';
 import { ALL_PLUGINS } from '../plugins/registry';
+import { useHappyTool } from '../contexts/HappyToolContext';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -14,6 +15,7 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, enabledPlugins, setEnabledPlugins }) => {
     const { addToast } = useToast();
+    const { defaultOutputFolder, setDefaultOutputFolder } = useHappyTool();
     const [activeTab, setActiveTab] = useState<'general' | 'shortcuts' | 'about' | 'guide' | 'plugins'>('general');
     const [theme, setTheme] = useState<'dark' | 'light'>(() => {
         return localStorage.getItem('theme') as 'dark' | 'light' || 'dark';
@@ -151,6 +153,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                         <button onClick={() => handleZoomChange(1.0)} className="text-xs text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors ml-2" title="Reset Zoom"><RotateCcw size={12} /> Reset</button>
                                     </div>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 ml-1">Use Ctrl + Shift + +/- to zoom quickly.</p>
+                                </div>
+
+                                {/* Default Output Folder for CLI */}
+                                <div>
+                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-700 dark:text-slate-300">📁 CLI Default Output Folder</h3>
+                                    <div className="flex items-center gap-4 bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-white/5">
+                                        <input
+                                            type="text"
+                                            value={defaultOutputFolder || ''}
+                                            onChange={(e) => setDefaultOutputFolder(e.target.value)}
+                                            placeholder="e.g. C:\Users\YourName\Documents\HappyTool_Outputs (Leave blank for CLI current dir)"
+                                            className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 ml-1">If set, HappyTool CLI will use this as the base folder when saving logs or extracted files unless --output parameter is provided.</p>
                                 </div>
                             </div>
                         )}

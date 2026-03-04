@@ -66,6 +66,18 @@
   - `FILTER_LOGS`: `{ happyGroups, excludes, quickFilter, ... }` -> 필터 룰 적용
 - **Data Flow**: `fs.read (Main)` -> `UI RPC` -> `Worker(Binary Logging)` -> `Shared Log Buffer/Offsets` -> `WASM/SubWorker(Filtering)` -> `Shared filterIndices` -> `UI (Zero-copy Reading)` -> `HyperLogRenderer`
 
+### [[Headless CLI Engine]]
+- **ID**: `logic-headless-cli-core`
+- **Keywords**: [`CLI`, `커맨드라인`, `headless`, `background`, `commander`, `CliApp`, `CLI모드`]
+- **Location**:
+  - `Main CLI Entry`: [cli.cjs](./electron/cli.cjs)
+  - `Headless Component`: [CliApp.tsx](./src/CliApp.tsx)
+- **Core Interface**:
+  - `cli-run-command`: Main -> Renderer 커맨드 하달
+  - `cli-ready`: Renderer -> Main 준비 완료 알림
+  - `cli-stdout` / `cli-stderr` / `cli-exit`: Renderer -> Main 터미널 콘솔 파이프
+- **Data Flow**: `Terminal Argv` -> `commander (cli.cjs)` -> `app://./index.html?mode=cli` -> `index.tsx (Conditionally Route)` -> `CliApp.tsx` -> `LogProcessorWorker` -> `Terminal Output`
+
 ### [[Log Viewer UI Architecture]]
 - **ID**: `ui-log-viewer-hierarchy`
 - **Keywords**: [`로그 뷰어`, `렌더러`, `virtual scroll`, `pane`, `HyperLogRenderer`]
@@ -92,7 +104,8 @@
   - `Tab Header Button`: **Copy as Confluence Table 버튼은 현재 선택 여부와 상관없이 항상 전체 필터링된 로그를 복사**하도록 정책 고정! [MOD] 🐧💎
   - `Shift + Click`: 범위 선택
   - **최근 개선 (Big Log Fix)**: 1GB 이상 대용량 로그 필터링 시 페이지(Segment Index)가 초기화되지 않아 화면이 비어 보이던 버그 해결. 
-  - **최신 최적화 (Extreme Performance)**: 
+  - **최근 최적화 (Extreme Performance)**: 
+    - **Loading Splash & Plugin Lazy Mount**: 앱 초기 로딩 시 모든 플러그인을 한꺼번에 마운트하여 메인 스레드를 점유하던 병목을 해결했슴다. `PluginContainer`에 지연 마운팅(Lazy Mount)을 도입하여 활성화된 적이 있는 플러그인만 메모리에 유지하도록 개선, 로딩 화면의 애니메이션이 끊김 없이 부드럽게 동작하도록 최적화했슴다. [TURBO] 🐧🚀💎
     - **WASM Cold Start & JIT 예열 완벽 해결**: 앱 최초 실행 시 V8 엔진의 JIT 컴파일 지연과 WASM 초기화 미동기화로 인해 첫 필터링이 JS Fallback으로 빠지며 5.5초가 걸리던 고질적 문제를 완전히 뽑았습니다! 인덱싱과 동시에 워커를 스폰(`initSubWorkers`)하고, 더미 텍스트로 5만 번 엔진을 예열하여 첫 필터링도 무조건 3초대 최고 속도를 냅니다. [TURBO] 🐧🚀
     - 필터링 시 동시 RPC 요청을 4개로 제한(Throttling)하여 IPC 부하 및 메모리 스파이크 차단. [STABLE]
     - 청크당 라인수를 최대 20,000개로 제한하여 Electron IPC 대역폭 초과 방지. [RELIABLE]
@@ -264,5 +277,20 @@
 
 ---
 
+## 10. Build & Maintenance Systems 🛠️
+패키징 안정성 및 개발 환경 정리를 위한 도구 모음입니다.
+
+### [[Build Cleanup Utility]]
+- **ID**: `tool-build-cleanup`
+- **Keywords**: [`빌드 정리`, `cleanup`, `taskkill`, `debug.log cleanup`, `build preprocess`]
+- **Location**:
+  - `Script`: [cleanup_build.cjs](./scripts/cleanup_build.cjs)
+- **Functions**:
+  - `Process Kill`: 빌드 전 실행 중인 `HappyTool.exe` 강제 종료로 파일 잠금 방지
+  - `Resource Cleanup`: `dist_electron` 내의 잔여 로그 파일 및 임시 파일 정리
+- **Usage**: `npm run electron:build` 등 모든 빌드 명령어 시작 시 자동 실행
+
+---
+
 > [!TIP]
-> **형님, 모든 지도가 완벽하게 최신화되었습니다!** 이제 무한 로딩 이슈도 잡혔고, 성능 데이터도 기록되었으니 마음 편히 작업하시면 됩니다! 🐧🚀🥊
+> **형님, 패키징 시 발생하던 파일 잠금 문제까지 완벽하게 해결되었습니다!** 이제 프로세스 충돌 걱정 없이 빌드하시면 됩니다! 🐧🚀🏗️

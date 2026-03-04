@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     copyToClipboard: (text) => ipcRenderer.invoke('copyToClipboard', text),
     saveFile: (content) => ipcRenderer.invoke('saveFile', content),
     saveBinaryFile: (data, fileName) => ipcRenderer.invoke('saveBinaryFile', { data, fileName }),
+    saveFileDirect: (data, filePath) => ipcRenderer.invoke('saveFileDirect', { data, filePath }),
     openExternal: (url) => ipcRenderer.invoke('openExternal', url),
     fetchUrl: (url, type) => ipcRenderer.invoke('fetchUrl', { url, type }),
     proxyRequest: (request) => ipcRenderer.invoke('proxyRequest', request),
@@ -34,6 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     validateRoslyn: (code) => ipcRenderer.invoke('validateRoslyn', code),
     parseRxCode: (code) => ipcRenderer.invoke('parseRxCode', code),
     toggleFullscreen: (flag) => ipcRenderer.invoke('toggle-fullscreen', flag),
+    getStartupStatus: () => ipcRenderer.invoke('get-startup-status'),
+    splashReady: () => ipcRenderer.send('splash-ready'),
 
     // Loading events
     on: (channel, callback) => {
@@ -54,7 +57,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getFilePath: (file) => {
         const { webUtils } = require('electron');
         return webUtils.getPathForFile(file);
-    }
+    },
+
+    // ✅ CLI Methods
+    onCliCommand: (callback) => {
+        const subscription = (_event, data) => callback(data);
+        ipcRenderer.on('cli-run-command', subscription);
+        return () => ipcRenderer.removeListener('cli-run-command', subscription);
+    },
+    cliReady: () => ipcRenderer.send('cli-ready'),
+    cliStdout: (msg) => ipcRenderer.send('cli-stdout', msg),
+    cliStderr: (msg) => ipcRenderer.send('cli-stderr', msg),
+    cliExit: (code) => ipcRenderer.send('cli-exit', code),
+
+    // ✅ Settings Sync
+    saveSettingsToFile: (settings) => ipcRenderer.invoke('save-settings-file', settings),
+    getCliSettings: () => ipcRenderer.invoke('get-cli-settings')
 });
 
 // ✅ Enforce Strict Zoom Limits globally to prevent native browser zoom from interfering with custom UI scaling

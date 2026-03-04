@@ -114,6 +114,7 @@ export interface AppSettings {
   blocks?: CommandBlock[];
   pipelines?: Pipeline[];
   mockEndpoints?: MockEndpoint[];
+  defaultOutputFolder?: string; // ✅ NEW: CLI Default Output Folder
 }
 
 export interface RequestGroup {
