@@ -84,7 +84,11 @@
     "directories": {
       "output": "dist_electron"
     },
-    "asar": false,
+    "asar": true,
+    "asarUnpack": [
+      "**/public/wasm/*.wasm",
+      "**/*.node"
+    ],
     "icon": "build/icon.png",
     "files": [
       "dist",
