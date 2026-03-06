@@ -223,6 +223,7 @@ const buildFileIndex = async (file: File) => {
 
     let offset = 0n;
     let processedBytes = 0;
+    let pendingCROffset = -1n;
 
     const stream = file.stream() as any;
     const reader = stream.getReader();
@@ -233,19 +234,79 @@ const buildFileIndex = async (file: File) => {
             if (done) break;
 
             const chunk: Uint8Array = value;
-            const chunkLen = chunk.length;
 
-            // ✅ Optimization: Native indexOf is significantly faster than JS loop
-            let pos = -1;
-            while ((pos = chunk.indexOf(10, pos + 1)) !== -1) {
-                if (lineCount >= capacity) {
-                    const newCapacity = capacity * 2;
-                    const newArr = new BigInt64Array(newCapacity);
-                    newArr.set(tempOffsets);
-                    tempOffsets = newArr;
-                    capacity = newCapacity;
+            // ✅ Optimization: Single-pass scanner to support \n, \r, and \r\n exactly like Notepad++
+            const chunkLen = chunk.length;
+            let i = 0;
+
+            // 1. Handle cross-chunk \r\n
+            if (pendingCROffset !== -1n) {
+                if (chunkLen > 0 && chunk[0] === 10) {
+                    // \r\n across boundary -> line break ends after \n at chunk[0]
+                    if (lineCount >= capacity) {
+                        const newCapacity = capacity * 2;
+                        const newArr = new BigInt64Array(newCapacity);
+                        newArr.set(tempOffsets);
+                        tempOffsets = newArr;
+                        capacity = newCapacity;
+                    }
+                    tempOffsets[lineCount++] = offset + 1n; // new line starts after \n
+                    i = 1;
+                } else {
+                    // standalone \r from previous chunk -> line break ended after \r
+                    if (lineCount >= capacity) {
+                        const newCapacity = capacity * 2;
+                        const newArr = new BigInt64Array(newCapacity);
+                        newArr.set(tempOffsets);
+                        tempOffsets = newArr;
+                        capacity = newCapacity;
+                    }
+                    tempOffsets[lineCount++] = pendingCROffset + 1n; // new line starts after \r
                 }
-                tempOffsets[lineCount++] = offset + BigInt(pos) + 1n;
+                pendingCROffset = -1n;
+            }
+
+            // 2. Scan chunk
+            for (; i < chunkLen; i++) {
+                const b = chunk[i];
+                if (b === 10) { // \n (LF)
+                    if (lineCount >= capacity) {
+                        const newCapacity = capacity * 2;
+                        const newArr = new BigInt64Array(newCapacity);
+                        newArr.set(tempOffsets);
+                        tempOffsets = newArr;
+                        capacity = newCapacity;
+                    }
+                    tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
+                } else if (b === 13) { // \r (CR)
+                    if (i + 1 < chunkLen) {
+                        if (chunk[i + 1] === 10) {
+                            // \r\n
+                            i++; // skip \n
+                            if (lineCount >= capacity) {
+                                const newCapacity = capacity * 2;
+                                const newArr = new BigInt64Array(newCapacity);
+                                newArr.set(tempOffsets);
+                                tempOffsets = newArr;
+                                capacity = newCapacity;
+                            }
+                            tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
+                        } else {
+                            // standalone \r
+                            if (lineCount >= capacity) {
+                                const newCapacity = capacity * 2;
+                                const newArr = new BigInt64Array(newCapacity);
+                                newArr.set(tempOffsets);
+                                tempOffsets = newArr;
+                                capacity = newCapacity;
+                            }
+                            tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
+                        }
+                    } else {
+                        // \r at the very end of chunk
+                        pendingCROffset = offset + BigInt(i);
+                    }
+                }
             }
 
             offset += BigInt(chunkLen);
@@ -258,6 +319,16 @@ const buildFileIndex = async (file: File) => {
             }
         }
         // Ensure a final 100% progress update is sent after the loop finishes
+        if (pendingCROffset !== -1n) {
+            if (lineCount >= capacity) {
+                const newCapacity = capacity * 2;
+                const newArr = new BigInt64Array(newCapacity);
+                newArr.set(tempOffsets);
+                tempOffsets = newArr;
+                capacity = newCapacity;
+            }
+            tempOffsets[lineCount++] = pendingCROffset + 1n;
+        }
         respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 100 } });
     } catch (e) {
         console.error('Indexing failed', e);
@@ -307,6 +378,7 @@ const buildLocalFileIndex = async (path: string, size: number) => {
 
     let offset = 0n;
     let processedBytes = 0;
+    let pendingCROffset = -1n;
     // 💡 50MB 청크: IPC 왕복 횟수를 290번 -> 29번으로 줄여 멀티탭 시 경쟁 최소화 🐧🚀
     const chunkSize = 50 * 1024 * 1024;
 
@@ -316,16 +388,71 @@ const buildLocalFileIndex = async (path: string, size: number) => {
             const end = Math.min(processedBytes + chunkSize, size);
             const chunk: Uint8Array = await rpcCall('readFileSegment', { path, start: processedBytes, end });
 
-            let pos = -1;
-            while ((pos = chunk.indexOf(10, pos + 1)) !== -1) {
-                if (lineCount >= capacity) {
-                    const newCapacity = capacity * 2;
-                    const newArr = new BigInt64Array(newCapacity);
-                    newArr.set(tempOffsets);
-                    tempOffsets = newArr;
-                    capacity = newCapacity;
+            // ✅ Optimization: Single-pass scanner to support \n, \r, and \r\n exactly like Notepad++
+            const chunkLen = chunk.length;
+            let i = 0;
+
+            if (pendingCROffset !== -1n) {
+                if (chunkLen > 0 && chunk[0] === 10) {
+                    if (lineCount >= capacity) {
+                        const newCapacity = capacity * 2;
+                        const newArr = new BigInt64Array(newCapacity);
+                        newArr.set(tempOffsets);
+                        tempOffsets = newArr;
+                        capacity = newCapacity;
+                    }
+                    tempOffsets[lineCount++] = offset + 1n;
+                    i = 1;
+                } else {
+                    if (lineCount >= capacity) {
+                        const newCapacity = capacity * 2;
+                        const newArr = new BigInt64Array(newCapacity);
+                        newArr.set(tempOffsets);
+                        tempOffsets = newArr;
+                        capacity = newCapacity;
+                    }
+                    tempOffsets[lineCount++] = pendingCROffset + 1n;
                 }
-                tempOffsets[lineCount++] = offset + BigInt(pos) + 1n;
+                pendingCROffset = -1n;
+            }
+
+            for (; i < chunkLen; i++) {
+                const b = chunk[i];
+                if (b === 10) {
+                    if (lineCount >= capacity) {
+                        const newCapacity = capacity * 2;
+                        const newArr = new BigInt64Array(newCapacity);
+                        newArr.set(tempOffsets);
+                        tempOffsets = newArr;
+                        capacity = newCapacity;
+                    }
+                    tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
+                } else if (b === 13) {
+                    if (i + 1 < chunkLen) {
+                        if (chunk[i + 1] === 10) {
+                            i++;
+                            if (lineCount >= capacity) {
+                                const newCapacity = capacity * 2;
+                                const newArr = new BigInt64Array(newCapacity);
+                                newArr.set(tempOffsets);
+                                tempOffsets = newArr;
+                                capacity = newCapacity;
+                            }
+                            tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
+                        } else {
+                            if (lineCount >= capacity) {
+                                const newCapacity = capacity * 2;
+                                const newArr = new BigInt64Array(newCapacity);
+                                newArr.set(tempOffsets);
+                                tempOffsets = newArr;
+                                capacity = newCapacity;
+                            }
+                            tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
+                        }
+                    } else {
+                        pendingCROffset = offset + BigInt(i);
+                    }
+                }
             }
 
             offset += BigInt(chunk.length);
@@ -335,6 +462,16 @@ const buildLocalFileIndex = async (path: string, size: number) => {
                 const progress = (processedBytes / size) * 100;
                 respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress } });
             }
+        }
+        if (pendingCROffset !== -1n) {
+            if (lineCount >= capacity) {
+                const newCapacity = capacity * 2;
+                const newArr = new BigInt64Array(newCapacity);
+                newArr.set(tempOffsets);
+                tempOffsets = newArr;
+                capacity = newCapacity;
+            }
+            tempOffsets[lineCount++] = pendingCROffset + 1n;
         }
     } catch (e) {
         console.error('Local File Indexing failed', e);
