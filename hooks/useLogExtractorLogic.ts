@@ -760,9 +760,14 @@ export const useLogExtractorLogic = ({
     }, [rules, onUpdateRules, isPanelOpen]);
 
     const handleDeleteRule = useCallback(() => {
-        const updated = rules.filter(r => r.id !== selectedRuleId);
-        onUpdateRules(updated);
-        setSelectedRuleId(updated.length > 0 ? updated[0].id : '');
+        const currentRule = rules.find(r => r.id === selectedRuleId);
+        const ruleName = currentRule?.name || '이 미션';
+
+        if (window.confirm(`"${ruleName}" 미션을 정말 삭제하시겠습니까?\n중요한 필터 및 하이라이트 규칙이 모두 삭제됩니다.`)) {
+            const updated = rules.filter(r => r.id !== selectedRuleId);
+            onUpdateRules(updated);
+            setSelectedRuleId(updated.length > 0 ? updated[0].id : '');
+        }
     }, [rules, selectedRuleId, onUpdateRules]);
 
     const handleImportFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

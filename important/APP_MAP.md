@@ -66,6 +66,8 @@
   - `buildFileIndex(file)`: 파일 초기 인덱싱 스캔
   - `filteredIndices`: 필터링된 결과 라인 번호 배열 (Int32Array)
 - **Data Flow**: `File/Stream` -> `Worker(Indexing)` -> `WASM/SubWorker(Filtering)` -> `filteredIndices` -> `UI Rendering`
+- **Interactions**:
+  - `Delete Mission`: `handleDeleteRule` 호출 시 `window.confirm`을 통한 안전 삭제 절차 수행 (실수 방지용 안내 메시지 적용)
 - **Sub-Modules (Worker Engine)**:
   - `Main Processor`: [LogProcessor.worker.ts](./workers/LogProcessor.worker.ts) (중앙 제어)
   - `Stream Reader`: [LogStream.worker.ts](./workers/LogStream.worker.ts) + [workerDataReader.ts](./workers/workerDataReader.ts)
