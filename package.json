@@ -11,6 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"set CHOKIDAR_USEPOLLING=true && vite\" \"wait-on tcp:3000 && electron .\"",
+    "cli": "electron . cli",
     "electron:build": "node scripts/cleanup_build.cjs && vite build && electron-builder",
     "electron:build:dir": "node scripts/cleanup_build.cjs && vite build && electron-builder --dir --win --x64",
     "electron:build:fast": "node scripts/cleanup_build.cjs && vite build && electron-builder --win --x64 --config.compression=store",
@@ -110,6 +111,10 @@
       {
         "from": "USER_GUIDE.md",
         "to": "USER_GUIDE.md"
+      },
+      {
+        "from": "important/cli_user_guide.md",
+        "to": "important/cli_user_guide.md"
       }
     ]
   }

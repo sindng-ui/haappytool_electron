@@ -1,35 +1,25 @@
-# 구현 계획: 로그 분석 미션 순서 조정 기능 🐧📋
+# CLI 가이드 열기 기능 수정 계획 🐧🛠️
 
-형님, 로그 분석 미션(분석 규칙)들이 많아지면 순서가 중요해지죠! 이를 위해 드래그 앤 드롭으로 간편하게 순서를 조정할 수 있는 '미션 매니저' 기능을 추가하겠습니다.
+형님, 가이드 버튼이 안 눌리는 이유는 패키징 시에 가이드 파일(`cli_user_guide.md`)이 포함되지 않았고, 경로 처리 로직이 패키징된 환경을 완벽하게 고려하지 못했기 때문입니다.
 
-## 1. 주요 변경 사항
-
-### 🏗️ 컴포넌트 추가
-- `components/LogViewer/MissionManagerModal.tsx` 생성
-    - `framer-motion`의 `Reorder` 컴포넌트를 사용하여 프리미엄한 드래그 앤 드롭 경험 제공
-    - 현재 등록된 모든 미션(규칙) 리스트 표시
-    - 순서 변경 시 `onUpdateRules`를 호출하여 전역 상태 업데이트
-
-### 🛠️ 기존 컴포넌트 수정
-- `components/LogViewer/TopBar.tsx` 수정
-    - 미션 선택 드롭다운 옆에 '순서 관리' 버튼 추가 (아이콘: `Settings2`)
-    - 버튼 클릭 시 `MissionManagerModal` 표시
+## 1. 개요
+- **목표**: 설정창의 'Open Full Guide' 버튼이 패키징된 배포판에서도 가이드 파일을 정상적으로 열 수 있도록 수정.
+- **주요 변경 사항**:
+    - `package.json`: `extraResources`에 `important/cli_user_guide.md` 추가.
+    - `SettingsModal.tsx`: 파일 경로 조합 로직 최적화.
 
 ## 2. 세부 구현 계획
 
-### [Step 1] 미션 매니저 모달 구현
-- 모든 규칙을 리스트로 렌더링
-- 드래그 핸들을 통한 직관적인 정렬 기능
-- 각 항목에 미션 이름 표시
+### 📦 빌드 설정 수정 (`package.json`)
+- `extraResources` 섹션에 `important/cli_user_guide.md`를 명시적으로 추가하여 패키징 시 `resources` 폴더 아래에 복사되도록 설정합니다.
+- 이렇게 하면 `app.asar` 외부로 추출되므로 외부 뷰어(메모장, 마크다운 뷰어 등)에서 열 수 있습니다.
 
-### [Step 2] TopBar 연동
-- 드롭다운 우측에 설정 버튼 배치
-- 모달 열기/닫기 상태 관리
+### 🛠 로직 수정 (`SettingsModal.tsx`)
+- 현재 경로 조합 로직을 점검하고, 패키징된 환경(`resourcesPath`)에서도 정확한 파일 경로를 가리키도록 수정합니다.
+- `window.electronAPI.openExternal` 호출 시 유효한 `file://` URL 또는 파일 시스템 경로를 전달합니다.
 
-### [Step 3] 영속성 및 성능 확인
-- 순서 변경 시 `localStorage`에 즉시 반영되는지 확인
-- 대량의 미션이 있을 경우에도 부드러운 애니메이션이 유지되는지 체크
+## 3. 검증 계획
+- 개발 환경(`npm run electron:dev`)에서 버튼 동작 확인.
+- (필요 시) `win-unpacked` 환경에서 파일 존재 여부 수동 확인 안내.
 
-형님, 계획대로 진행할까요? `proceed` 버튼 눌러주시면 바로 고고하겠습니다! 🐧🔥
-
-<button id="proceed">proceed</button>
+형님, 이대로 진행해도 될까요? 승인해 주시면 바로 수정 들어갑니다! 🐧🔥 [proceed]

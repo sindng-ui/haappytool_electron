@@ -251,6 +251,19 @@
   - `View`: [CommandPalette.tsx](./components/CommandPalette/CommandPalette.tsx)
   - `Context`: [CommandContext.tsx](./contexts/CommandContext.tsx)
 
+### [[Global Settings & CLI Guide]]
+- **ID**: `ui-global-settings`
+- **Keywords**: [`설정`, `settings`, `CLI 설정`, `CLI guide`, `zoom`, `theme`]
+- **Location**:
+  - `Modal`: [SettingsModal.tsx](./components/SettingsModal.tsx)
+  - `Context`: [HappyToolContext.tsx](./contexts/HappyToolContext.tsx)
+- **Core Interface**:
+  - `CLI Tab`: CLI 전용 출력 폴더 설정 및 명령어 퀵 가이드(복사 가능) 제공
+  - `General Tab`: 테마(Dark 선호) 및 UI 확대/축소(Zoom) 관리
+  - `Plugins Tab`: 사이드바 플러그인 활성화/비활성화 제어
+- **Interactions**:
+  - `Copy Command`: 설정창 내에서 CLI 실행 명령어를 즉시 클립보드에 복사 가능 [NEW] 🐧🚀
+
 ---
 
 ## 6. Advanced Features & Persistence

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Moon, Sun, Keyboard, Info, Type, RotateCcw, BookOpen, Puzzle } from 'lucide-react';
+import { X, Moon, Sun, Keyboard, Info, Type, RotateCcw, BookOpen, Puzzle, Terminal, ExternalLink, Copy, Folder } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useToast } from '../contexts/ToastContext';
 import { ALL_PLUGINS } from '../plugins/registry';
@@ -16,7 +16,7 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, enabledPlugins, setEnabledPlugins }) => {
     const { addToast } = useToast();
     const { defaultOutputFolder, setDefaultOutputFolder } = useHappyTool();
-    const [activeTab, setActiveTab] = useState<'general' | 'shortcuts' | 'about' | 'guide' | 'plugins'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'plugins' | 'shortcuts' | 'cli' | 'guide' | 'about'>('general');
     const [theme, setTheme] = useState<'dark' | 'light'>(() => {
         return localStorage.getItem('theme') as 'dark' | 'light' || 'dark';
     });
@@ -92,6 +92,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                             <Keyboard size={16} /> Shortcuts
                         </button>
                         <button
+                            onClick={() => setActiveTab('cli')}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all outline-none ${activeTab === 'cli' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
+                        >
+                            <Terminal size={16} /> Headless CLI
+                        </button>
+                        <button
                             onClick={() => setActiveTab('guide')}
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all outline-none ${activeTab === 'guide' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
                         >
@@ -155,20 +161,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 ml-1">Use Ctrl + Shift + +/- to zoom quickly.</p>
                                 </div>
 
-                                {/* Default Output Folder for CLI */}
-                                <div>
-                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-700 dark:text-slate-300">📁 CLI Default Output Folder</h3>
-                                    <div className="flex items-center gap-4 bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-white/5">
-                                        <input
-                                            type="text"
-                                            value={defaultOutputFolder || ''}
-                                            onChange={(e) => setDefaultOutputFolder(e.target.value)}
-                                            placeholder="e.g. C:\Users\YourName\Documents\HappyTool_Outputs (Leave blank for CLI current dir)"
-                                            className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        />
-                                    </div>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 ml-1">If set, HappyTool CLI will use this as the base folder when saving logs or extracted files unless --output parameter is provided.</p>
-                                </div>
                             </div>
                         )}
 
@@ -205,6 +197,153 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             </div>
                                         );
                                     })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* CLI Tab */}
+                        {activeTab === 'cli' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                                        <Terminal size={18} className="text-indigo-500" /> CLI Settings & Guide
+                                    </h3>
+                                    <button
+                                        onClick={async () => {
+                                            if (window.electronAPI?.openExternal && window.electronAPI?.getAppPath) {
+                                                const appPath = await window.electronAPI.getAppPath();
+                                                // 패키징 환경과 개발 환경 모두 대응 가능한 경로 조합
+                                                const guidePath = appPath.includes('resources')
+                                                    ? `${appPath}/important/cli_user_guide.md`
+                                                    : `${appPath}/important/cli_user_guide.md`;
+
+                                                // 절대 경로를 그대로 전달 (openExternal이 인지하도록 처리)
+                                                window.electronAPI.openExternal(guidePath);
+                                            }
+                                        }}
+                                        className="text-[10px] items-center gap-1 font-bold text-slate-500 hover:text-indigo-400 transition-colors uppercase flex"
+                                    >
+                                        <ExternalLink size={10} /> Open Full Guide
+                                    </button>
+                                </div>
+
+                                {/* Configuration */}
+                                <div className="bg-white dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-white/5 p-6 space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                                            <Folder size={20} />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-sm text-slate-800 dark:text-slate-100">Default Output Folder</h4>
+                                            <p className="text-[10px] text-slate-500 dark:text-slate-400">Used for saving logs/files unless --output is specified.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="relative group">
+                                        <input
+                                            type="text"
+                                            value={defaultOutputFolder || ''}
+                                            onChange={(e) => setDefaultOutputFolder(e.target.value)}
+                                            placeholder="e.g. C:\HappyTool_Outputs (Leave blank for current dir)"
+                                            className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* CLI Usage Guide */}
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-400 flex items-center gap-2 px-1">
+                                        🚀 Quick Commands
+                                    </h4>
+
+                                    <div className="grid grid-cols-1 gap-4">
+                                        {/* Command Card: Log Extractor */}
+                                        <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-white/5 overflow-hidden group/card hover:border-indigo-500/20 transition-all">
+                                            <div className="px-4 py-3 bg-slate-100/50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm">📡</span>
+                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Log Extractor</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText('.\\HappyTool.exe cli log-extractor -f "FilterName" -i "test.log"');
+                                                        addToast('Command copied to clipboard', 'info');
+                                                    }}
+                                                    className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-400 hover:text-indigo-400 transition-all"
+                                                >
+                                                    <Copy size={14} />
+                                                </button>
+                                            </div>
+                                            <div className="p-4 space-y-2">
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">거대 로그 파일을 백그라운드 필터링 및 내보내기</p>
+                                                <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
+                                                    .\HappyTool.exe cli log-extractor -f "Filter" -i "path"
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Command Card: BlockTest */}
+                                        <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-white/5 overflow-hidden group/card hover:border-indigo-500/20 transition-all">
+                                            <div className="px-4 py-3 bg-slate-100/50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm">🤖</span>
+                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">BlockTest</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText('.\\HappyTool.exe cli block-test --scenario "Sanity Check"');
+                                                        addToast('Command copied to clipboard', 'info');
+                                                    }}
+                                                    className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-400 hover:text-indigo-400 transition-all"
+                                                >
+                                                    <Copy size={14} />
+                                                </button>
+                                            </div>
+                                            <div className="p-4 space-y-2">
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">시나리오/파이프라인 자동화 봇 실행</p>
+                                                <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
+                                                    .\HappyTool.exe cli block-test --scenario "Name"
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Command Card: JSON Tools */}
+                                        <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-white/5 overflow-hidden group/card hover:border-indigo-500/20 transition-all">
+                                            <div className="px-4 py-3 bg-slate-100/50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm">🛠️</span>
+                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">JSON Tools</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText('.\\HappyTool.exe cli json-tool -i "dirty.json" -o "pretty.json"');
+                                                        addToast('Command copied to clipboard', 'info');
+                                                    }}
+                                                    className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-400 hover:text-indigo-400 transition-all"
+                                                >
+                                                    <Copy size={14} />
+                                                </button>
+                                            </div>
+                                            <div className="p-4 space-y-2">
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">대용량 JSON 파일 고속 포매팅</p>
+                                                <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
+                                                    .\HappyTool.exe cli json-tool -i "in.json" -o "out.json"
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Advanced Tip Block */}
+                                    <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 mt-6 group">
+                                        <div className="flex items-center gap-2 text-indigo-400 font-bold text-[11px] uppercase tracking-widest mb-2">
+                                            <Info size={12} /> Advanced Technical Tip
+                                        </div>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                            HappyTool CLI는 내부적으로 **Hidden BrowserWindow**를 호출하여 구동됩니다.
+                                            덕분에 터미널 환경에서도 **WASM(WebAssembly)** 엔진과 **SharedArrayBuffer**의 고성능 멀티스레딩 필터링을 완벽하게 지원합니다.
+                                            IndexedDB에 저장된 GUI 필터 목록을 그대로 공유하여 쓰기 때문에 별도의 동기화가 필요 없습니다! 🐧💎
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         )}

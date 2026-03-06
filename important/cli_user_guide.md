@@ -4,18 +4,23 @@
 
 ---
 
-## 🏗️ 기본 실행 방법 (CLI 진입점)
+HappyTool의 CLI 기반 모듈은 실행 환경에 따라 아래와 같은 방법으로 진입할 수 있습니다.
 
-HappyTool의 CLI 기반 모듈은 모두 아래와 같은 방법으로 진입할 수 있습니다. NPM 런타임 환경에서 `cli` 스크립트를 통해 실행 가능합니다.
+### 📦 패키징 배포판 세팅 (Production)
+`HappyTool.exe` 파일이 있는 위치(보통 설치 폴더)에서 터미널을 열고 실행합니다.
+```powershell
+# 기본 사용법
+.\HappyTool.exe cli [command] [options]
 
+# 도움말 확인
+.\HappyTool.exe cli --help
+```
+
+### 👨‍💻 개발 환경 세팅 (Development)
+소스 코드 환경에서는 `npm run cli`를 활용합니다.
 ```bash
 # 기본 사용법
 npm run cli -- [command] [options]
-```
-
-터미널에서 명령어 확인 및 도움말은 아래와 같이 사용할 수 있습니다.
-```bash
-npm run cli -- --help
 ```
 
 ---
@@ -32,8 +37,8 @@ GUI에서 미리 저장해 둔 `Mission (Filter)`을 불러와, 터미널 환경
 
 - **사용 예시:**
   ```bash
-  # 'Crash Hunt' 필터를 사용하여 /var/log/syslog 파일을 파싱하고 바탕화면에 저장
-  npm run cli -- log-extractor -f "Crash Hunt" -i "/var/log/syslog" -o "./desktop/filtered-log.txt"
+  # EXE 사용 시
+  .\HappyTool.exe cli log-extractor -f "Crash Hunt" -i "C:\logs\syslog.txt"
   ```
 
 ### 2. `block-test` (시나리오 & 파이프라인 자동화 봇) 🤖
