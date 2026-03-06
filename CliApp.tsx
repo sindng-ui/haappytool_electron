@@ -1,8 +1,70 @@
 import React, { useEffect, useState } from 'react';
 import { db } from './utils/db'; // Dexie database
+import { useBlockTest } from './components/BlockTest/hooks/useBlockTest';
+
+const CliBlockTestWrapper: React.FC<{
+    payload: any,
+    stdout: (msg: string) => void,
+    stderr: (msg: string) => void,
+    exit: (code: number) => void
+}> = ({ payload, stdout, stderr, exit }) => {
+    const { scenarioName, pipelineName } = payload;
+    const blockTest = useBlockTest(true, (msg) => stdout(`[BlockTest] ${msg}`));
+    const [started, setStarted] = useState(false);
+
+    useEffect(() => {
+        if (started) return;
+
+        // Give it some time to load JSON files from socket and initialize
+        const timer = setTimeout(async () => {
+            stdout('[CLI BlockTest] Initializing execution...');
+            setStarted(true);
+
+            if (scenarioName) {
+                const scenario = blockTest.scenarios.find(s => s.name === scenarioName);
+                if (!scenario) {
+                    stderr(`[Error] Scenario "${scenarioName}" not found.`);
+                    return exit(1);
+                }
+                stdout(`[BlockTest] Found Scenario: "${scenarioName}"`);
+                try {
+                    await blockTest.executeScenario(scenario);
+                    stdout(`[BlockTest] Successfully completed scenario.`);
+                    setTimeout(() => exit(0), 1000); // Give time for logs
+                } catch (e: any) {
+                    stderr(`[Error] Scenario execution failed: ${e.message}`);
+                    setTimeout(() => exit(1), 1000);
+                }
+            } else if (pipelineName) {
+                const pipeline = blockTest.pipelines.find(p => p.name === pipelineName);
+                if (!pipeline) {
+                    stderr(`[Error] Pipeline "${pipelineName}" not found.`);
+                    return exit(1);
+                }
+                stdout(`[BlockTest] Found Pipeline: "${pipelineName}"`);
+                try {
+                    await blockTest.executePipeline(pipeline);
+                    stdout(`[BlockTest] Successfully completed pipeline.`);
+                    setTimeout(() => exit(0), 1000);
+                } catch (e: any) {
+                    stderr(`[Error] Pipeline execution failed: ${e.message}`);
+                    setTimeout(() => exit(1), 1000);
+                }
+            } else {
+                stderr(`[Error] No scenario or pipeline specified.`);
+                exit(1);
+            }
+        }, 3000); // 3 seconds to wait for socket load
+
+        return () => clearTimeout(timer);
+    }, [blockTest.scenarios, blockTest.pipelines, blockTest.executePipeline, blockTest.executeScenario, scenarioName, pipelineName, started, stdout, stderr, exit]);
+
+    return null;
+};
 
 export const CliApp: React.FC = () => {
     const [status, setStatus] = useState('Initializing CLI Mode...');
+    const [blockTestPayload, setBlockTestPayload] = useState<any>(null);
 
     useEffect(() => {
         if (!window.electronAPI || !window.electronAPI.onCliCommand) {
@@ -29,17 +91,23 @@ export const CliApp: React.FC = () => {
 
                 if (command === 'log-extractor') {
                     await handleLogExtractor(payload, logOut, logErr);
+                    exit(0);
+                } else if (command === 'block-test') {
+                    setBlockTestPayload(payload);
+                    return; // exit() will be called internally by CliBlockTestWrapper
                 } else if (command === 'json-tool') {
-                    // await handleJsonTool(payload, logOut, logErr);
-                    logOut('json-tool not yet implemented in renderer');
+                    await handleJsonTool(payload, logOut, logErr);
+                    exit(0);
                 } else if (command === 'post-tool') {
-                    // await handlePostTool(payload, logOut, logErr);
-                    logOut('post-tool not yet implemented in renderer');
+                    await handlePostTool(payload, logOut, logErr);
+                    exit(0);
+                } else if (command === 'tpk-extractor') {
+                    await handleTpkExtractor(payload, logOut, logErr);
+                    exit(0);
                 } else {
                     logErr(`Unknown CLI command: ${command}`);
+                    exit(1);
                 }
-
-                exit(0);
             } catch (error: any) {
                 logErr(`[CLI Error] ${error.message}`);
                 exit(1);
@@ -214,11 +282,136 @@ export const CliApp: React.FC = () => {
         });
     };
 
+    const handleJsonTool = async (payload: any, stdout: (msg: string) => void, stderr: (msg: string) => void) => {
+        const { inputPath, outputPath, cwd } = payload;
+        try {
+            stdout(`[Json Tool] Reading from ${inputPath}`);
+            const content = await window.electronAPI!.readFile(inputPath);
+            const parsed = JSON.parse(content);
+            const beautified = JSON.stringify(parsed, null, 4);
+
+            const defaultName = inputPath.split(/[/\\]/).pop()?.replace('.json', '_beautified.json') || `beautified_${Date.now()}.json`;
+            const finalOutputPath = outputPath || `${cwd}\\${defaultName}`;
+            stdout(`[Json Tool] Writing to ${finalOutputPath}...`);
+
+            const encoder = new TextEncoder();
+            const uint8 = encoder.encode(beautified);
+            const result = await window.electronAPI!.saveFileDirect(uint8, finalOutputPath);
+
+            if (result && result.status === 'success') {
+                stdout(`[Success] JSON saved to: ${result.filePath}`);
+            } else {
+                throw new Error(result?.error || 'Failed to save JSON');
+            }
+        } catch (e: any) {
+            stderr(`[Error] json-tool failed: ${e.message}`);
+            throw e;
+        }
+    };
+
+    const handlePostTool = async (payload: any, stdout: (msg: string) => void, stderr: (msg: string) => void) => {
+        const { requestName, cwd } = payload;
+        try {
+            let settings: any = window.electronAPI?.getCliSettings ? await window.electronAPI.getCliSettings() : null;
+            if (!settings) {
+                const settingsStr = localStorage.getItem('devtool_suite_settings');
+                if (settingsStr) settings = JSON.parse(settingsStr);
+            }
+            if (!settings || !settings.savedRequests) {
+                throw new Error('No HappyTool settings/requests found. Please run GUI first.');
+            }
+
+            const req = settings.savedRequests.find((r: any) => r.name === requestName);
+            if (!req) {
+                throw new Error(`Request named "${requestName}" not found.`);
+            }
+
+            stdout(`[Post Tool] Found Request: ${req.name}`);
+            stdout(`[Post Tool] Executing ${req.method} ${req.url}`);
+
+            const startTime = performance.now();
+            const finalHeaders = req.headers.reduce((acc: any, h: any) => {
+                if (h.key) acc[h.key] = h.value;
+                return acc;
+            }, {});
+
+            const res = await window.electronAPI!.proxyRequest({
+                method: req.method,
+                url: req.url,
+                headers: finalHeaders,
+                body: ['GET', 'HEAD'].includes(req.method) ? undefined : req.body
+            });
+
+            const timeTaken = performance.now() - startTime;
+
+            if (res.error) {
+                stderr(`[Error] Request failed: ${res.message}`);
+            } else {
+                stdout(`[Post Tool] Response: ${res.status} ${res.statusText} (${timeTaken.toFixed(0)}ms)`);
+                const dataPreview = typeof res.data === 'string' ? res.data : JSON.stringify(res.data, null, 2);
+                stdout(`[Post Tool] Data preview:\n${dataPreview.substring(0, 1500)}${dataPreview.length > 1500 ? '...' : ''}`);
+            }
+        } catch (e: any) {
+            stderr(`[Error] Request execution failed: ${e.message}`);
+            throw e;
+        }
+    };
+
+    const handleTpkExtractor = async (payload: any, stdout: (msg: string) => void, stderr: (msg: string) => void) => {
+        const { input, outputPath, cwd } = payload;
+        try {
+            stdout(`[TPK Extractor] Analyzing input: ${input}`);
+            let fileBuffer: any; // Using any to handle Uint8Array/Buffer from IPC
+            let finalName = 'extracted.tpk';
+
+            if (input.startsWith('http://') || input.startsWith('https://')) {
+                // Fetch directly from URL if it's an RPM URL
+                stdout(`[TPK Extractor] Downloading from URL...`);
+                fileBuffer = await window.electronAPI!.fetchUrl(input, 'buffer');
+                finalName = input.split('/').pop()?.replace('.rpm', '.tpk') || 'extracted.tpk';
+            } else {
+                const size = await window.electronAPI!.getFileSize(input);
+                fileBuffer = await window.electronAPI!.readFileSegment({ path: input, start: 0, end: size });
+                finalName = input.split(/[/\\]/).pop()?.replace('.rpm', '.tpk') || 'extracted.tpk';
+            }
+
+            const file = new File([fileBuffer], "input.rpm", { type: 'application/x-rpm' });
+
+            const { extractTpkFromRpm } = await import('./utils/rpmParser');
+            const result = await extractTpkFromRpm(file, (msg) => stdout(`[TPK Extractor] ${msg}`));
+
+            const finalOutputPath = outputPath || `${cwd}\\${result.name || finalName}`;
+            stdout(`[TPK Extractor] Saving to ${finalOutputPath}...`);
+
+            const arrayBuffer = await (new Blob([result.data as BlobPart])).arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+
+            // `saveFileDirect` in preload expects (data, filePath)
+            const saveRes = await window.electronAPI!.saveFileDirect(uint8Array, finalOutputPath);
+            if (saveRes && saveRes.status === 'success') {
+                stdout(`[Success] TPK saved to: ${saveRes.filePath}`);
+            } else {
+                throw new Error(saveRes?.error || 'Failed to save TPK');
+            }
+        } catch (e: any) {
+            stderr(`[Error] TPK Extraction failed: ${e.message}`);
+            throw e;
+        }
+    };
+
     return (
         <div style={{ padding: 20, background: '#000', color: '#0f0', fontFamily: 'monospace', height: '100vh', width: '100vw' }}>
             <h1>HappyTool CLI Runner (Hidden window)</h1>
             <p>Status: {status}</p>
             <p>This window handles IndexedDB and WASM capabilities in the background.</p>
+            {blockTestPayload && (
+                <CliBlockTestWrapper
+                    payload={blockTestPayload}
+                    stdout={(msg) => window.electronAPI.cliStdout(msg + '\n')}
+                    stderr={(msg) => window.electronAPI.cliStderr(msg + '\n')}
+                    exit={(code) => window.electronAPI.cliExit(code)}
+                />
+            )}
         </div>
     );
 };

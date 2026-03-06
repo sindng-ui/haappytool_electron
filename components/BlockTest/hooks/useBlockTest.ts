@@ -12,7 +12,7 @@ import { io, Socket } from 'socket.io-client';
 // I'll assume I can get a socket or create one.
 // EXISTING PATTERN: `const socket = io('http://localhost:3002');` in components.
 
-export const useBlockTest = (isActive: boolean = true) => {
+export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => void) => {
     const [blocks, setBlocks] = useState<CommandBlock[]>(() => {
         try {
             const saved = localStorage.getItem('happytool_blocks');
@@ -398,6 +398,7 @@ export const useBlockTest = (isActive: boolean = true) => {
                 if (next.length > 5000) return next.slice(next.length - 5000);
                 return next;
             });
+            if (onLog) onLog(msg);
         };
 
         log(`Starting Pipeline: ${pipeline.name}`);
@@ -465,6 +466,7 @@ export const useBlockTest = (isActive: boolean = true) => {
                 if (next.length > 5000) return next.slice(next.length - 5000);
                 return next;
             });
+            if (onLog) onLog(msg);
         };
 
         log(`Starting Scenario: ${scenario.name}`);

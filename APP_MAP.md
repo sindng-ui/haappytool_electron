@@ -40,6 +40,18 @@
   - `Click`: 플러그인 전환 (`setActiveTool`)
   - `Drag & Drop`: 플러그인 아이콘 순서 변경 (Reorder)
 
+### [[Headless CLI Infrastructure]]
+- **ID**: `system-headless-cli`
+- **Keywords**: [`CLI`, `Headless`, `Automated Test`, `Background Execution`, `commander`, `hidden window`]
+- **Location**:
+  - `Main Process`: [cli.cjs](./electron/cli.cjs)
+  - `Renderer Logic`: [CliApp.tsx](./CliApp.tsx)
+- **Core Interface**:
+  - `runCli(args)`: 커맨드라인 매개변수 파싱 및 Headless(Hidden) BrowserWindow 생성
+  - `CliApp`: 렌더러 측 CLI 핸들러. IndexedDB, Web Worker, WASM 등을 CLI에서도 GUI와 동일하게 활용할 수 있도록 브릿지 역할 수행
+- **Data Flow**: `Terminal` -> `cli.cjs` -> `IPC (cli-run-command)` -> `CliApp.tsx` -> `IPC (cli-stdout/stderr)` -> `Terminal`
+
+
 ---
 
 ## 2. Core Feature: Log Extractor
@@ -68,15 +80,17 @@
 
 ### [[Headless CLI Engine]]
 - **ID**: `logic-headless-cli-core`
-- **Keywords**: [`CLI`, `커맨드라인`, `headless`, `background`, `commander`, `CliApp`, `CLI모드`]
+- **Keywords**: [`CLI`, `커맨드라인`, `headless`, `background`, `commander`, `CliApp`, `CLI모드`, `block-test`]
 - **Location**:
   - `Main CLI Entry`: [cli.cjs](./electron/cli.cjs)
-  - `Headless Component`: [CliApp.tsx](./src/CliApp.tsx)
+  - `Headless Component`: [CliApp.tsx](./CliApp.tsx)
 - **Core Interface**:
-  - `cli-run-command`: Main -> Renderer 커맨드 하달
+  - `cli-run-command`: Main -> Renderer 커맨드 하달 (`log-extractor`, `block-test` 등)
   - `cli-ready`: Renderer -> Main 준비 완료 알림
   - `cli-stdout` / `cli-stderr` / `cli-exit`: Renderer -> Main 터미널 콘솔 파이프
-- **Data Flow**: `Terminal Argv` -> `commander (cli.cjs)` -> `app://./index.html?mode=cli` -> `index.tsx (Conditionally Route)` -> `CliApp.tsx` -> `LogProcessorWorker` -> `Terminal Output`
+- **최근 개선**:
+  - `CliApp.test.tsx`의 `block-test` 시나리오 테스트에서 발생하던 5초 타임아웃 문제를 가상 타이머(`vi.useFakeTimers`) 최적화를 통해 해결하고, 테스트 실행 속도를 50배 이상 향상시켰습니다! 🐧🚀💎
+- **Data Flow**: `Terminal Argv` -> `commander (cli.cjs)` -> `app://./index.html?mode=cli` -> `index.tsx (Conditionally Route)` -> `CliApp.tsx` -> `Task Execution (LogExt / BlockTest)` -> `Terminal Output`
 
 ### [[Log Viewer UI Architecture]]
 - **ID**: `ui-log-viewer-hierarchy`
@@ -145,21 +159,37 @@
 
 ### [[PostTool Plugin]]
 - **ID**: `plugin-post-tool`
-- **Keywords**: [`HTTP`, `REST`, `Postman`, `API Test`]
+- **Keywords**: [`HTTP`, `REST`, `Postman`, `API Test`, `post-tool`]
 - **Location**:
   - `Main Logic`: [PostToolPlugin.tsx](./plugins/core/PostToolPlugin.tsx)
+- **Core Interface**:
+  - **CLI 연동**: `npm run cli -- post-tool` 명령어를 통해 저장된 백그라운드 API 발송 기능 지원. [NEW]
 
 ### [[JsonTools Plugin]]
 - **ID**: `plugin-json-tools`
-- **Keywords**: [`JSON`, `Formatter`, `Beautify`, `Validator`]
+- **Keywords**: [`JSON`, `Formatter`, `Beautify`, `Validator`, `json-tool`]
 - **Location**:
   - `Main Logic`: [JsonToolsPlugin.tsx](./plugins/core/JsonToolsPlugin.tsx)
+- **Core Interface**:
+  - **CLI 연동**: `npm run cli -- json-tool` 명령어로 대규모 JSON 파일 즉각 Beautify 지원. [NEW]
 
 ### [[TpkExtractor Plugin]]
 - **ID**: `plugin-tpk-extractor`
-- **Keywords**: [`TPK`, `Tizen Package`, `Extractor`, `Decompile`]
+- **Keywords**: [`TPK`, `Tizen Package`, `Extractor`, `Decompile`, `tpk-extractor`]
 - **Location**:
   - `Main Logic`: [TpkExtractorPlugin.tsx](./plugins/core/TpkExtractorPlugin.tsx)
+- **Core Interface**:
+  - **CLI 연동**: 웹 워커 없이 터미널 모드에서 RPM 파싱 및 TPK 추출 지원 (URL/로컬경로 모두 허용). [NEW]
+
+### [[BlockTest Plugin]]
+- **ID**: `plugin-block-test`
+- **Keywords**: [`BlockTest`, `Scenario`, `Pipeline`, `Automation`, `블록테스트`, `자동화`]
+- **Location**:
+  - `Main Component`: [index.tsx](./components/BlockTest/index.tsx)
+  - `Hook`: [useBlockTest.ts](./components/BlockTest/hooks/useBlockTest.ts)
+- **Core Interface**:
+  - `executePipeline()` & `executeScenario()`: 블록 단위 테스트 묶음 실행 및 Socket.io 기반 원격 제어
+  - **CLI 연동**: GUI 환경뿐만 아니라 `Headless CLI`를 통해서도 미리 저장된 Scenario 및 Pipeline 실행을 완벽하게 지원합니다. [NEW] 🐧🚀
 
 ---
 
@@ -262,6 +292,12 @@
     - `Performance History`: [performance_history.md](./important/performance_history.md) [NEW]
     - `Standards`: [performance_standards.md](./important/performance_standards.md)
     - `Blueprint`: [LOG_EXTRACTOR_PERFORMANCE_BLUEPRINT.md](./important/LOG_EXTRACTOR_PERFORMANCE_BLUEPRINT.md)
+
+### [[CLI Automation Guide]]
+- **ID**: `docs-cli-automation`
+- **Location**:
+    - `CLI User Guide`: [cli_user_guide.md](./important/cli_user_guide.md) [NEW]
+- **Description**: 터미널 환경에서 백그라운드로 대규모 로그 추출기(Log Extractor)와 자동화 시나리오(BlockTest)를 구동하는 방법 및 예제를 담은 매뉴얼입니다. 🐧🚀
 
 ---
 

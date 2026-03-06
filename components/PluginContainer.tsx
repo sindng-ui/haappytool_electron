@@ -17,7 +17,7 @@ const LoadNotifier: React.FC<{ onLoaded?: () => void }> = ({ onLoaded }) => {
 
 const PluginContainer: React.FC<PluginContainerProps> = ({ plugin, isActive, onLoaded }) => {
     const Component = plugin.component;
-    const [hasBeenActive, setHasBeenActive] = React.useState(false);
+    const [hasBeenActive, setHasBeenActive] = React.useState(isActive);
 
     React.useEffect(() => {
         if (isActive && !hasBeenActive) {

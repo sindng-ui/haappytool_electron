@@ -130,6 +130,50 @@ async function runCli(args) {
             });
         });
 
+    program.command('block-test')
+        .description('Execute a saved Block Test Scenario or Pipeline')
+        .option('-s, --scenario <name>', 'Name of the scenario to run')
+        .option('-p, --pipeline <name>', 'Name of the pipeline to run')
+        .action(async (options) => {
+            if (!options.scenario && !options.pipeline) {
+                logError('[Error] You must specify either --scenario or --pipeline');
+                app.exit(1);
+            }
+            logInfo(`Starting Block Test CLI...`);
+            if (options.scenario) {
+                logInfo(`Scenario: ${options.scenario}`);
+            } else {
+                logInfo(`Pipeline: ${options.pipeline}`);
+            }
+
+            await createHiddenWindow();
+            hiddenWindow.webContents.send('cli-run-command', {
+                command: 'block-test',
+                payload: {
+                    scenarioName: options.scenario,
+                    pipelineName: options.pipeline,
+                    cwd: process.cwd()
+                }
+            });
+        });
+
+    program.command('tpk-extractor')
+        .description('Extract TPK from RPM file or URL')
+        .requiredOption('-i, --input <path_or_url>', 'Input RPM file path or URL')
+        .option('-o, --output <path>', 'Output TPK file path')
+        .action(async (options) => {
+            logInfo(`Starting TPK Extractor CLI...`);
+            await createHiddenWindow();
+            hiddenWindow.webContents.send('cli-run-command', {
+                command: 'tpk-extractor',
+                payload: {
+                    input: options.input,
+                    outputPath: options.output ? path.resolve(options.output) : null,
+                    cwd: process.cwd()
+                }
+            });
+        });
+
     // 지원되지 않는 옵션 처리
     program.on('command:*', function () {
         logError('Invalid command: ' + program.args.join(' '));
