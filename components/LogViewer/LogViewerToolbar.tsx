@@ -90,7 +90,7 @@ export const LogViewerToolbar: React.FC<LogViewerToolbarProps> = ({
                         icon={Archive}
                         onClick={onArchiveSave}
                         disabled={!isArchiveSaveEnabled}
-                        tooltip={isArchiveSaveEnabled ? 'Save to Archive (30MB 이하)' : '로그 사이즈가 30MB를 초과하여 아카이브 저장 불가'}
+                        tooltip={isArchiveSaveEnabled ? 'Save to Archive (Max 30MB)' : 'Log exceeds 30MB limit for archive'}
                         className="hover:text-purple-500"
                     />
                 )}

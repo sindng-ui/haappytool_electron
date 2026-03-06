@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
 import { useLogContext } from './LogContext';
 import { useToast } from '../../contexts/ToastContext';
+import MissionManagerModal from './MissionManagerModal';
+import { Settings2, ListOrdered } from 'lucide-react';
 
 
 const { Plus, Trash2, Maximize, Columns, Sparkles } = Lucide;
@@ -11,6 +13,7 @@ const TopBar: React.FC<{ onReturnFocus?: () => void }> = ({ onReturnFocus }) => 
     const {
         rules, selectedRuleId, setSelectedRuleId,
         handleCreateRule, handleDeleteRule, onExportSettings,
+        onUpdateRules, // ✅ Added for Mission Manager
         fileInputRef, logFileInputRef,
         leftFileName, leftIndexingProgress,
         isDualView, setIsDualView, toggleDualView,
@@ -30,6 +33,8 @@ const TopBar: React.FC<{ onReturnFocus?: () => void }> = ({ onReturnFocus }) => 
         setIsTizenQuickConnect(true);
         setIsTizenModalOpen(true);
     };
+
+    const [isMissionManagerOpen, setIsMissionManagerOpen] = useState(false);
 
     const onSelectRule = setSelectedRuleId;
     const onCreateRule = handleCreateRule;
@@ -98,6 +103,13 @@ const TopBar: React.FC<{ onReturnFocus?: () => void }> = ({ onReturnFocus }) => 
                     <select className="border-none bg-transparent font-bold text-slate-200 text-lg focus:outline-none cursor-pointer hover:text-indigo-400 transition-colors [&>option]:bg-slate-900 w-64 truncate" value={selectedRuleId || ''} onChange={(e) => onSelectRule(e.target.value)}>
                         {rules.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </select>
+                    <button
+                        onClick={() => setIsMissionManagerOpen(true)}
+                        className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all"
+                        title="Manage Mission Order"
+                    >
+                        <ListOrdered size={18} />
+                    </button>
                 </div>
                 <div className="h-6 w-px bg-slate-700"></div>
                 <div className="flex items-center space-x-2">
@@ -204,7 +216,12 @@ const TopBar: React.FC<{ onReturnFocus?: () => void }> = ({ onReturnFocus }) => 
             <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={onImportFile} />
             <input type="file" ref={logFileInputRef} className="hidden" onChange={onLogFileSelect} />
 
-
+            <MissionManagerModal
+                isOpen={isMissionManagerOpen}
+                onClose={() => setIsMissionManagerOpen(false)}
+                rules={rules}
+                onUpdateRules={onUpdateRules}
+            />
         </div>
     );
 };

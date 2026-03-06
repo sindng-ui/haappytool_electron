@@ -134,7 +134,7 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
             downloadJSON(json, filename);
         } catch (err) {
             console.error('[ArchiveSidebar] Export failed:', err);
-            alert('내보내기에 실패했습니다.');
+            alert('Export failed.');
         }
     }, [exportToJSON]);
 
@@ -149,14 +149,14 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
             const content = await readFileAsText(file);
             const count = await importFromJSON(content);
 
-            alert(`${count}개의 아카이브를 가져왔습니다.`);
+            alert(`Imported ${count} archives.`);
 
             // 목록 새로고침
             search({});
             getTotalCount().then(setTotalCount);
         } catch (err) {
             console.error('[ArchiveSidebar] Import failed:', err);
-            alert('가져오기에 실패했습니다.');
+            alert('Import failed.');
         }
     }, [importFromJSON, search, getTotalCount]);
 
@@ -164,20 +164,20 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
      * Clear All
      */
     const handleClearAll = useCallback(async () => {
-        if (!confirm('정말 모든 아카이브를 삭제하시겠습니까?')) {
+        if (!confirm('Are you sure you want to delete all archives?')) {
             return;
         }
 
         try {
             await clearAll();
-            alert('모든 아카이브가 삭제되었습니다.');
+            alert('All archives deleted.');
 
             // 목록 새로고침
             search({});
             setTotalCount(0);
         } catch (err) {
             console.error('[ArchiveSidebar] Clear failed:', err);
-            alert('삭제에 실패했습니다.');
+            alert('Delete failed.');
         }
     }, [clearAll, search]);
 

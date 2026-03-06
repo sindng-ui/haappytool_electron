@@ -86,7 +86,7 @@ export const PerfSettingsSection = React.memo<PerfSettingsSectionProps>(({ curre
                         placeholder="1000"
                     />
                     <p className="mt-2 text-[10px] text-slate-500 leading-relaxed">
-                        구간 소요 시간이 이 값보다 크면 <span className="text-rose-400 font-bold">FAIL</span>로 표시됩니다.
+                        If the interval is greater than this value, it will be marked as <span className="text-rose-400 font-bold">FAIL</span>.
                     </p>
                 </div>
 

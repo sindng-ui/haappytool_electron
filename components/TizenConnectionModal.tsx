@@ -538,7 +538,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
                                         </div>
                                         <h3 className="text-slate-200 font-bold text-sm">Simulation Mode</h3>
                                         <p className="text-[11px] text-slate-400 leading-relaxed">
-                                            로컬 서버로부터 가상의 로그 스트림(초당 10라인)을 생성합니다.
+                                            Generates a virtual log stream (10 lines/sec) from the local server.
                                         </p>
                                     </div>
                                 )}

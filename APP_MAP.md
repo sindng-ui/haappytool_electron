@@ -104,6 +104,17 @@
   - `Ctrl+F`: 검색 바 활성화
   - `Double Click`: 북마크 토글
 
+### [[Mission Manager]]
+- **ID**: `ui-mission-manager`
+- **Keywords**: [`미션 매니저`, `순서 변경`, `rule order`, `reorder`, `drag and drop`]
+- **Location**:
+  - `Modal`: [MissionManagerModal.tsx](./components/LogViewer/MissionManagerModal.tsx)
+  - `Trigger`: [TopBar.tsx](./components/LogViewer/TopBar.tsx)
+- **Interactions**:
+  - `Drag & Drop`: `framer-motion`의 `Reorder`를 사용하여 분석 규칙(Mission)의 표시 순서를 변경합니다.
+  - `Apply`: 변경된 순서를 전역 상태와 `localStorage`에 즉시 반영합니다.
+  - `UI Polish`: 불필요한 UUID 정보를 제거하고 UI 전체를 영문화하여 시인성을 높였습니다. [NEW] 🐧📋
+
 ### [[Text Selection & Context Menu]]
 - **ID**: `interaction-log-selection`
 - **Keywords**: [`텍스트 선택`, `복사`, `우클릭 메뉴`, `selection`, `context menu`, `Confluence Table`, `이스케이프`, `Ctrl+C`]

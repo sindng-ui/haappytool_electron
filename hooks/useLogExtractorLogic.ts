@@ -994,7 +994,7 @@ export const useLogExtractorLogic = ({
 
 
     return {
-        rules, tabId, onExportSettings, onImportSettings,
+        rules, onUpdateRules, tabId, onExportSettings, onImportSettings,
         selectedRuleId, setSelectedRuleId, currentConfig,
         groupedRoots, collapsedRoots, setCollapsedRoots,
         updateCurrentRule, handleCreateRule, handleDeleteRule, handleToggleRoot,
