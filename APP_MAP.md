@@ -99,6 +99,9 @@
   - `Container`: [LogSession.tsx](./components/LogSession.tsx)
   - `Pane`: [LogViewerPane.tsx](./components/LogViewer/LogViewerPane.tsx)
   - `Renderer`: [HyperLogRenderer.tsx](./components/LogViewer/HyperLogRenderer.tsx)
+  - `Raw View`: [RawContextViewer.tsx](./components/LogViewer/RawContextViewer.tsx) [REFACTORED]
+- **Core Interface**:
+  - `RawContextViewer`: 로그 라인 더블 클릭 시 원본 로그 문맥을 보여주는 오버레이 뷰. `z-index` 충돌 문제 해결 및 `LogSession`에서의 중복 정의 제거. [NEW] 🐧💎
 - **Interactions**:
   - `Scroll`: 가상 스크롤을 통한 세그먼트 단위 로딩 (`onScrollRequest`)
   - `Ctrl+F`: 검색 바 활성화

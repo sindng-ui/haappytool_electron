@@ -19,95 +19,11 @@ import { useHappyTool } from '../contexts/HappyToolContext';
 import TransactionDrawer from './LogViewer/TransactionDrawer';
 import { extractTransactionIds } from '../utils/transactionAnalysis';
 
+import { RawContextViewer } from './LogViewer/RawContextViewer';
+
 const { X, Eraser, ChevronLeft, ChevronRight, GripHorizontal } = Lucide;
 
-interface RawContextViewerProps {
-    sourcePane: 'left' | 'right';
-    leftFileName: string;
-    rightFileName: string;
-    targetLine: { lineNum: number; content: string; formattedLineIndex?: number | string };
-    onClose: () => void;
-    heightPercent: number;
-    onResizeStart: (e: React.MouseEvent) => void;
-    leftTotalLines: number;
-    rightTotalLines: number;
-    requestLeftRawLines: (start: number, count: number) => Promise<any>;
-    requestRightRawLines: (start: number, count: number) => Promise<any>;
-    highlightCaseSensitive?: boolean;
-    preferences?: any;
-    highlightRange?: { start: number; end: number } | null;
-    clearCacheTick?: number;
-}
 
-const RawContextViewer: React.FC<RawContextViewerProps> = ({
-    sourcePane, leftFileName, rightFileName, targetLine, onClose, heightPercent, onResizeStart,
-    leftTotalLines, rightTotalLines, requestLeftRawLines, requestRightRawLines, preferences,
-    highlightRange,
-    clearCacheTick
-}) => {
-    const rawViewerRef = React.useRef<LogViewerHandle>(null);
-    const rawTotalLines = sourcePane === 'left' ? leftTotalLines : rightTotalLines;
-    const rawTargetLineIndex = targetLine.lineNum - 1;
-    const rawSegmentIndex = Math.floor(rawTargetLineIndex / MAX_SEGMENT_SIZE);
-    const rawSegmentOffset = rawSegmentIndex * MAX_SEGMENT_SIZE;
-    const rawSegmentLength = Math.min(MAX_SEGMENT_SIZE, Math.max(0, rawTotalLines - rawSegmentOffset));
-
-    const handleRawScrollRequest = React.useCallback((start: number, count: number) => {
-        const globalStart = start + rawSegmentOffset;
-        const fn = sourcePane === 'left' ? requestLeftRawLines : requestRightRawLines;
-        return fn(globalStart, count);
-    }, [rawSegmentOffset, sourcePane, requestLeftRawLines, requestRightRawLines]);
-
-    return (
-        <div className="absolute left-0 right-0 top-16 bottom-0 z-40 flex flex-col pointer-events-none">
-            <div className="flex flex-col bg-slate-950 pointer-events-auto border-b-2 border-indigo-500 shadow-2xl relative" style={{ height: `${heightPercent}%` }}>
-                <div className="bg-indigo-950/80 px-4 py-1 flex justify-between items-center border-b border-indigo-500/30 ">
-                    <span className="text-xs font-bold text-indigo-300">
-                        Raw View ({sourcePane === 'left' ? leftFileName : rightFileName})
-                        <span className="mx-2 opacity-50">|</span>
-                        Original Line: <span className="text-white">{targetLine.lineNum}</span>
-                        <span className="mx-2 opacity-50">|</span>
-                        Filtered Row: <span className="text-yellow-400">#{targetLine.formattedLineIndex ?? '?'}</span>
-                    </span>
-                    <button onClick={onClose} className="text-indigo-400 hover:text-white"><X size={14} /></button>
-                </div>
-                <LogViewerPane
-                    key={`raw-${sourcePane}-${rawTargetLineIndex}`}
-                    ref={rawViewerRef}
-                    workerReady={true}
-                    totalMatches={rawSegmentLength}
-                    onScrollRequest={handleRawScrollRequest}
-                    absoluteOffset={rawSegmentOffset}
-                    placeholderText=""
-                    isRawMode={true}
-                    activeLineIndex={rawTargetLineIndex}
-                    initialScrollIndex={rawTargetLineIndex - rawSegmentOffset}
-                    isActive={true} // Raw View is an modal-like overlay, usually only active when visible
-                    preferences={preferences}
-                    lineHighlightRanges={highlightRange ? [{
-                        start: highlightRange.start - 1,
-                        end: highlightRange.end - 1,
-                        color: 'rgba(99, 102, 241, 0.3)'
-                    }] : []}
-                    clearCacheTick={clearCacheTick}
-                />
-                {/* Resizer Handle (Bottom) - Refined Pill Design */}
-                <div
-                    className="absolute -bottom-2 left-0 right-0 h-4 cursor-ns-resize z-[100] flex justify-end px-12 group/resizer"
-                    onMouseDown={onResizeStart}
-                >
-                    <div className="w-10 h-3 bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-b-full flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.5)] border-x border-b border-white/20 group-hover/resizer:h-4 group-hover/resizer:from-indigo-400 group-hover/resizer:to-indigo-600 transition-all duration-200 origin-top">
-                        <div className="flex gap-0.5">
-                            <div className="w-0.5 h-0.5 bg-white/80 rounded-full shadow-sm" />
-                            <div className="w-0.5 h-0.5 bg-white/80 rounded-full shadow-sm" />
-                            <div className="w-0.5 h-0.5 bg-white/80 rounded-full shadow-sm" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 interface LogSessionProps {
     isActive: boolean;
@@ -790,9 +706,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     return (
         <div
             ref={containerRef}
-            className="flex h-full flex-col font-sans overflow-hidden"
+            className="flex h-full flex-col font-sans overflow-hidden relative"
             style={{ display: isActive ? 'flex' : 'none' }}
-        // onWheel={handleWheel} // Removed in favor of native listener
         >
 
             {/* Header Area with Hide Animation in Focus Mode */}
@@ -1035,25 +950,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
 
 
-            {/* Raw Context View */}
-            {rawContextOpen && rawContextTargetLine && (
-                <RawContextViewer
-                    sourcePane={rawContextSourcePane}
-                    leftFileName={leftFileName || ''}
-                    rightFileName={rightFileName || ''}
-                    targetLine={rawContextTargetLine}
-                    onClose={() => setRawContextOpen(false)}
-                    heightPercent={rawContextHeight}
-                    onResizeStart={handleRawContextResizeStart}
-                    leftTotalLines={leftTotalLines}
-                    rightTotalLines={rightTotalLines}
-                    requestLeftRawLines={requestLeftRawLines}
-                    requestRightRawLines={requestRightRawLines}
-                    preferences={logViewPreferences}
-                    highlightRange={rawViewHighlightRange}
-                    clearCacheTick={clearCacheTick}
-                />
-            )}
+
 
             <div ref={logContentRef} className="flex-1 flex overflow-hidden h-full relative group/layout">
                 {/* 1. Left Sidebar (Configuration) */}
@@ -1352,6 +1249,26 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             />
 
             {/* Removed SpamAnalyzerModal in favor of integrated SpamAnalyzerPanel */}
+
+            {/* Raw Context View - Moved to bottom for better stacking hierarchy */}
+            {rawContextOpen && rawContextTargetLine && (
+                <RawContextViewer
+                    sourcePane={rawContextSourcePane}
+                    leftFileName={leftFileName || ''}
+                    rightFileName={rightFileName || ''}
+                    targetLine={rawContextTargetLine}
+                    onClose={() => setRawContextOpen(false)}
+                    heightPercent={rawContextHeight}
+                    onResizeStart={handleRawContextResizeStart}
+                    leftTotalLines={leftTotalLines}
+                    rightTotalLines={rightTotalLines}
+                    requestLeftRawLines={requestLeftRawLines}
+                    requestRightRawLines={requestRightRawLines}
+                    preferences={logViewPreferences}
+                    highlightRange={rawViewHighlightRange}
+                    clearCacheTick={clearCacheTick}
+                />
+            )}
         </div>
     );
 };

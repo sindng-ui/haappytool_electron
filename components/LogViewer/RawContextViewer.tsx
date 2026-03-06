@@ -43,9 +43,9 @@ export const RawContextViewer: React.FC<RawContextViewerProps> = ({
     }, [rawSegmentOffset, sourcePane, requestLeftRawLines, requestRightRawLines]);
 
     return (
-        <div className="absolute left-0 right-0 top-16 bottom-0 z-40 flex flex-col pointer-events-none">
-            <div className="flex flex-col bg-slate-950 pointer-events-auto border-b-2 border-indigo-500 shadow-2xl relative" style={{ height: `${heightPercent}%` }}>
-                <div className="bg-indigo-950/80 px-4 py-1 flex justify-between items-center border-b border-indigo-500/30 ">
+        <div className="fixed left-0 right-0 top-[65px] bottom-0 z-[99999] flex flex-col pointer-events-none no-drag">
+            <div className="flex flex-col bg-slate-950 pointer-events-auto border-b-2 border-indigo-500 shadow-2xl relative overflow-hidden" style={{ height: `${heightPercent}%` }}>
+                <div className="bg-indigo-950/80 px-4 py-1 flex justify-between items-center border-b border-indigo-500/30 shrink-0 z-10 no-drag">
                     <span className="text-xs font-bold text-indigo-300">
                         Raw View ({sourcePane === 'left' ? leftFileName : rightFileName})
                         <span className="mx-2 opacity-50">|</span>
@@ -53,7 +53,19 @@ export const RawContextViewer: React.FC<RawContextViewerProps> = ({
                         <span className="mx-2 opacity-50">|</span>
                         Filtered Row: <span className="text-yellow-400">#{targetLine.formattedLineIndex ?? '?'}</span>
                     </span>
-                    <button onClick={onClose} className="text-indigo-400 hover:text-white"><X size={14} /></button>
+                    <button
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('[RawContextViewer] onClose triggered (Click)');
+                            onClose();
+                        }}
+                        className="p-2 mr-4 text-indigo-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer no-drag active:scale-90"
+                        title="Close Raw View"
+                        type="button"
+                    >
+                        <X size={18} />
+                    </button>
                 </div>
                 <LogViewerPane
                     key={`raw-${sourcePane}-${rawTargetLineIndex}`}
@@ -89,6 +101,6 @@ export const RawContextViewer: React.FC<RawContextViewerProps> = ({
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };

@@ -1,25 +1,35 @@
-# CLI 가이드 열기 기능 수정 계획 🐧🛠️
+# 로그 상세 보기(Raw View) 닫기 버튼 오동작 수정 계획서 🐧🛠️
 
-형님, 가이드 버튼이 안 눌리는 이유는 패키징 시에 가이드 파일(`cli_user_guide.md`)이 포함되지 않았고, 경로 처리 로직이 패키징된 환경을 완벽하게 고려하지 못했기 때문입니다.
+형님, 로그 상세 보기 창에서 X 버튼인 닫기 버튼이 클릭되지 않는 문제를 해결하고, 관련 코드를 정리하기 위한 계획입니다.
 
-## 1. 개요
-- **목표**: 설정창의 'Open Full Guide' 버튼이 패키징된 배포판에서도 가이드 파일을 정상적으로 열 수 있도록 수정.
-- **주요 변경 사항**:
-    - `package.json`: `extraResources`에 `important/cli_user_guide.md` 추가.
-    - `SettingsModal.tsx`: 파일 경로 조합 로직 최적화.
+## 문제 현상
+*   로그 상세 보기(Raw View)의 우측 상단 'X' 버튼이 클릭되지 않음.
+*   `LogSession.tsx` 내부에 `RawContextViewer` 컴포넌트가 중복 정의되어 있어 유지보수가 어려움.
 
-## 2. 세부 구현 계획
+## 원인 분석
+1.  **Z-Index 및 DOM 순서 문제**: `RawContextViewer`가 DOM 상에서 툴바보다 앞에 위치하거나 `z-index`가 충분하지 않아 클릭이 가로막힐 가능성이 여전히 존재합니다.
+2.  **클릭 영역 협소**: 버튼 크기(`size={14}`)가 작아 정확한 클릭이 어려울 수 있습니다.
 
-### 📦 빌드 설정 수정 (`package.json`)
-- `extraResources` 섹션에 `important/cli_user_guide.md`를 명시적으로 추가하여 패키징 시 `resources` 폴더 아래에 복사되도록 설정합니다.
-- 이렇게 하면 `app.asar` 외부로 추출되므로 외부 뷰어(메모장, 마크다운 뷰어 등)에서 열 수 있습니다.
+## 제안하는 변경 사항
 
-### 🛠 로직 수정 (`SettingsModal.tsx`)
-- 현재 경로 조합 로직을 점검하고, 패키징된 환경(`resourcesPath`)에서도 정확한 파일 경로를 가리키도록 수정합니다.
-- `window.electronAPI.openExternal` 호출 시 유효한 `file://` URL 또는 파일 시스템 경로를 전달합니다.
+### [Component] RawContextViewer
+*   `components/LogViewer/RawContextViewer.tsx` 수정
+    *   최상단 컨테이너의 `z-index`를 `z-[70]`에서 `z-[1000]`으로 대폭 상향합니다.
+    *   닫기 버튼에 `p-2` 패딩과 `cursor-pointer`를 추가하여 클릭 영역을 넓히고 피드백을 강화합니다.
+    *   이벤트 도달 확인을 위한 `console.log`를 추가합니다.
 
-## 3. 검증 계획
-- 개발 환경(`npm run electron:dev`)에서 버튼 동작 확인.
-- (필요 시) `win-unpacked` 환경에서 파일 존재 여부 수동 확인 안내.
+### [Component] LogSession
+*   `components/LogSession.tsx` 수정
+    *   `RawContextViewer` 렌더링 위치를 DOM의 가장 마지막(닫는 `div` 직전)으로 이동시켜 자연스러운 쌓임 순서(Stacking Order)에서도 가장 위에 오게 합니다.
 
-형님, 이대로 진행해도 될까요? 승인해 주시면 바로 수정 들어갑니다! 🐧🔥 [proceed]
+## 검증 계획
+### 수동 검증
+1.  로그 추출기(Log Extractor)에서 로그 라인을 더블 클릭하여 Raw View를 띄웁니다.
+2.  우측 상단의 'X' 버튼이 정상적으로 클릭되고 창이 닫히는지 확인합니다.
+3.  창의 리사이즈 핸들(하단)이 정상적으로 작동하는지 확인합니다.
+4.  창 내부의 로그 뷰어(`LogViewerPane`)가 정상적으로 스크롤되고 내용을 보여주는지 확인합니다.
+
+---
+형님, 이 계획대로 진행해도 될까요? OK 하시면 바로 작업 시작하겠습니다! 🚀
+
+<button>Proceed</button>
