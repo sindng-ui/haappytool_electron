@@ -66,6 +66,8 @@
   - `buildFileIndex(file)`: 파일 초기 인덱싱 스캔
   - `filteredIndices`: 필터링된 결과 라인 번호 배열 (Int32Array)
 - **Data Flow**: `File/Stream` -> `Worker(Indexing)` -> `WASM/SubWorker(Filtering)` -> `filteredIndices` -> `UI Rendering`
+- **Optimizations**:
+  - `ANSI Stripping`: 로딩 및 디코딩 시점에서 ANSI 이스케이프 코드를 사전에 제거하여 필터링 및 렌더링 부하 최소화 (`LogProcessor.worker.ts`, `LogFilterSub.worker.ts`, `workerDataReader.ts`)
 - **Interactions**:
   - `Delete Mission`: `handleDeleteRule` 호출 시 `window.confirm`을 통한 안전 삭제 절차 수행 (실수 방지용 안내 메시지 적용)
 - **Sub-Modules (Worker Engine)**:

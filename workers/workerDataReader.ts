@@ -41,7 +41,9 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
             const len = lineLengthsStream[originalIdx];
             // ✅ Zero-copy (with slice fallback): SharedArrayBuffer cannot be decoded directly by TextDecoder
             // slice() creates a tiny non-shared copy for the decoder.
-            const text = decoder.decode(logBuffer.subarray(start, start + len).slice());
+            const rawText = decoder.decode(logBuffer.subarray(start, start + len).slice());
+            // Strip ANSI (LogProcessor.worker.ts already does this for Stream mode, but we keep it for consistency)
+            const text = rawText.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
             resultLines.push({ lineNum: originalIdx + 1, content: text });
         }
     } else {
@@ -129,7 +131,7 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
                         if (realEnd > relStart && uint8View[realEnd - 1] === 10) realEnd--; // \n
                         if (realEnd > relStart && uint8View[realEnd - 1] === 13) realEnd--; // \r
 
-                        const text = decoder.decode(uint8View.subarray(relStart, realEnd));
+                        const text = decoder.decode(uint8View.subarray(relStart, realEnd)).replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
                         results.push({ lineNum: originalIdx + 1, content: text });
                     }
                 } catch (e) {
@@ -208,7 +210,8 @@ export const getRawLines = async (context: DataReaderContext, startLineNum: numb
                     const arrayBuf = await chunkBlob.arrayBuffer();
                     uint8View = new Uint8Array(arrayBuf);
                 }
-                const text = decoder.decode(uint8View).replace(/\r?\n$/, '');
+                const rawText = decoder.decode(uint8View).replace(/\r?\n$/, '');
+                const text = rawText.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
                 const lines = text.split('\n');
 
                 for (let i = 0; i < lines.length; i++) {

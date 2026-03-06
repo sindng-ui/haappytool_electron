@@ -87,7 +87,10 @@ ctx.onmessage = async (e) => {
                     textBuf = lines.pop() || '';
 
                     for (const line of lines) {
-                        if (checkIsMatch(line, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
+                        // Strip ANSI and CR
+                        // eslint-disable-next-line no-control-regex
+                        const cleanLine = line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').replace(/\r$/, '');
+                        if (checkIsMatch(cleanLine, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
                             matchesList.push(offset + relativeLineIndex);
                         }
                         relativeLineIndex++;
@@ -109,8 +112,9 @@ ctx.onmessage = async (e) => {
 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
-                    // Strip CR if exists (Windows log format compat)
-                    const cleanLine = line.endsWith('\r') ? line.slice(0, -1) : line;
+                    // Strip ANSI and CR (Windows log format compat)
+                    // eslint-disable-next-line no-control-regex
+                    const cleanLine = line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').replace(/\r$/, '');
 
                     if (checkIsMatch(cleanLine, rule, false, quickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
                         matchesList.push(offset + relativeLineIndex);
