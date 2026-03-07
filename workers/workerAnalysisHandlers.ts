@@ -636,6 +636,8 @@ export const extractAnalysisMetrics = async (
     requestId: string,
     respond: (msg: LogWorkerResponse) => void
 ) => {
+    const side = payload?.side || 'left';
+    console.log(`[SplitWorker] extractAnalysisMetrics started. side: ${side}`);
     const { filteredIndices, lineOffsets, lineOffsetsStream, lineLengthsStream, logBuffer, currentFile, currentRule } = ctx;
     const isStreamMode = !!(logBuffer && lineOffsetsStream && lineLengthsStream);
     const isFile = !!(currentFile || ctx.isLocalFileMode);
@@ -663,7 +665,7 @@ export const extractAnalysisMetrics = async (
     const processLineAndAggregate = (text: string, originalIdx: number, visualIdx: number) => {
         const metadata = extractSingleMetadata(text, originalIdx, visualIdx, currentRule);
         itemBatch[0] = metadata;
-        computeMetricsFromMetadata(itemBatch, metrics, aggState, maxGap);
+        computeMetricsFromMetadata(itemBatch, metrics, aggState, maxGap, side);
     };
 
     if (isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream) {

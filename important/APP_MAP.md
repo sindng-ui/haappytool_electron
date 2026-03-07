@@ -299,7 +299,7 @@
     - Logic: [useSplitAnalysis.ts](./hooks/useSplitAnalysis.ts), [SplitAnalysis.worker.ts](./workers/SplitAnalysis.worker.ts)
 - **Core Interface**:
     - `workerAnalysisHandlers.extractAllMetadata()`: 필터링된 스트림에서 `[시간, 파일명, 함수명]` 시그니처 일괄 추출
-    - `SplitAnalysis.worker`: Left/Right 양측의 로그 시그니처 구간(`START` or `PREV` ➔ `CURR`)별 발생 빈도(Count Diff) 및 수행 속도 차이(Delta Diff) 백그라운드 연산
+    - `SplitAnalysis.worker`: Left/Right 양측의 메트릭을 비교 분석. Baseline(Left) 로그는 파일 순서상 연속된 소스만 구간으로 정의하며, Target(Right) 로그는 슬라이딩 윈도우를 이용해 비연속 매칭(Search)을 수행하여 중간에 삽입된 로그가 있어도 정확한 구간 비교 가능
     - `Non-blocking Analysis`: 분석 수행 시 `workerReady` 상태를 유지하여 메인 UI의 'Processing log..' 메시지 노출 방지
     - `Immediate Cancellation`: 유저가 패널을 닫을 시 `analyzerWorker.terminate()`를 즉각 호출하여 CPU/메모리 자원을 즉시 반납하고 분석 결과의 고스트 팝업 방지 (`useSplitAnalysis.ts`)
 - **Interactions**:

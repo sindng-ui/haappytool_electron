@@ -77,7 +77,7 @@ export const isSignificant = (item: LogMetadata): boolean => {
 };
 
 /**
- * 🐧⚡ 메타데이터로부터 지표를 계산합니다. (TID 체인 + 슬라이딩 윈도우)
+ * 🐧⚡ 메타데이터로부터 지표를 계산합니다. (Side별 차등 매칭)
  */
 export const computeMetricsFromMetadata = (
     data: LogMetadata[],
@@ -87,16 +87,16 @@ export const computeMetricsFromMetadata = (
         prevSignature: string;
         prevFileInfo: any;
         lookbackWindow?: LogMetadata[];
-        lastSignifByTid?: { [tid: string]: LogMetadata };
+        lastGlobalSignif?: LogMetadata;
     },
-    maxGap: number = 100
+    maxGap: number = 100,
+    side: string = 'left'
 ): void => {
     if (!state.lookbackWindow) {
         state.lookbackWindow = [];
-        state.lastSignifByTid = {};
     }
 
-    const { lookbackWindow, lastSignifByTid } = state;
+    const lookbackWindow = state.lookbackWindow;
 
     for (let i = 0; i < data.length; i++) {
         const item = data[i];
@@ -108,15 +108,8 @@ export const computeMetricsFromMetadata = (
                 if (item.codeLineNum) {
                     item.signature += `(${item.codeLineNum})`;
                 }
-
-                // 디버깅용 샘플링 로깅
-                const sampleKey = (state as any).sampleCounter || 0;
-                if (sampleKey < 10 || Math.random() < 0.002) {
-                    console.log(`[SplitAnalysis] Source Sig: ${item.signature}`);
-                    (state as any).sampleCounter = sampleKey + 1;
-                }
             } else {
-                // 일반 로그는 기존 방식 유지 (구간 연결용으로는 거의 안 쓰임)
+                // 일반 로그는 기존 방식 유지
                 let slim = item.preview
                     .replace(RE_HEX, '0x#')
                     .replace(RE_DIGITS, '#')
@@ -127,16 +120,32 @@ export const computeMetricsFromMetadata = (
 
         const currentSig = item.signature;
 
-        // 2. 파일 순서 기반 순차적 페어링 (사용자 요청 핵심 로직)
-        // TID와 무관하게 파일에 나타나는 소스 로그 순서대로 연결합니다.
+        // 2. 차등 매칭 로직 (사용자 피드백 반영 핵심)
         if (isSignificant(item)) {
-            const lastSignif = (state as any).lastGlobalSignif;
-            if (lastSignif) {
-                const key = `${lastSignif.signature} ➔ ${currentSig}`;
-                addMetric(metrics, key, lastSignif, item);
+            if (side === 'left') {
+                // [Baseline] 연속된 소스 로그만 페어링하여 기준 세그먼트 생성
+                const lastSignif = state.lastGlobalSignif;
+                if (lastSignif) {
+                    const key = `${lastSignif.signature} ➔ ${currentSig}`;
+                    addMetric(metrics, key, lastSignif, item);
+                }
+            } else {
+                // [Target] 슬라이딩 윈도우를 이용해 중간에 로그가 삽입되어도 왼쪽 세그먼트를 검색 매칭
+                // 최근 20개의 소스 로그와 페어링 시도 (오른쪽 로그에 신규 로그 삽입 대응)
+                for (const prevItem of lookbackWindow) {
+                    const key = `${prevItem.signature} ➔ ${currentSig}`;
+                    addMetric(metrics, key, prevItem, item);
+                }
+
+                // 윈도우 관리 (오른쪽 로그 전용)
+                lookbackWindow.push(item);
+                if (lookbackWindow.length > 20) {
+                    lookbackWindow.shift();
+                }
             }
-            // 현재 소스를 다음 소스의 '이전 소스'로 저장
-            (state as any).lastGlobalSignif = item;
+
+            // 공통: 현재 소스를 마지막 소스로 저장
+            state.lastGlobalSignif = item;
         }
     }
 

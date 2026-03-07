@@ -130,7 +130,7 @@ export const useSplitAnalysis = (
                     };
                     console.log(`[useSplitAnalysis] fetchMetrics started for side: ${side}, requestId: ${reqId}`);
                     worker.addEventListener('message', listener);
-                    worker.postMessage({ type: 'GET_ANALYSIS_METRICS', payload: {}, requestId: reqId });
+                    worker.postMessage({ type: 'GET_ANALYSIS_METRICS', payload: { side }, requestId: reqId });
                 });
             };
 
