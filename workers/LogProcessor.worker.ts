@@ -1035,6 +1035,14 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
                 respond({ type: 'ALL_METADATA_RESULT', payload: { metadata: [] }, requestId } as any);
             }
             break;
+        case 'GET_ANALYSIS_METRICS':
+            try {
+                await AnalysisHandlers.extractAnalysisMetrics(getAnalysisContext(), payload, requestId || '', respond);
+            } catch (e) {
+                console.error('[Worker] GET_ANALYSIS_METRICS failed', e);
+                respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { metrics: {} }, requestId } as any);
+            }
+            break;
         case 'FIND_VISUAL_INDEX':
             if (filteredIndices) {
                 const visualIndex = filteredIndices.indexOf(payload.absoluteIndex);

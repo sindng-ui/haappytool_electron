@@ -1,4 +1,45 @@
-import { LogMetadata } from '../types';
+import { LogMetadata, LogRule } from '../types';
+import { extractTimestamp } from '../utils/logTime';
+
+/**
+ * 🐧⚡ 단일 로그 라인에서 메타데이터를 추출합니다.
+ */
+export const extractSingleMetadata = (
+    text: string,
+    originalIdx: number,
+    visualIdx: number,
+    currentRule: LogRule | null
+): LogMetadata => {
+    const timestamp = extractTimestamp(text);
+
+    // TID 추출 (간단한 정규식 예시)
+    const tidMatch = text.match(/\(P\s*\d+,\s*T\s*(\d+)\)/) || text.match(/\[\s*(\d+):/);
+    const tid = tidMatch ? tidMatch[1] : null;
+
+    // 파일/함수명 추출
+    let fileName = '';
+    let functionName = '';
+    const fileMatch = text.match(/([a-zA-Z0-9_]+\.(?:cs|cpp|h|java|kt|ts|js))[:\s]*(\w+)?/i);
+    if (fileMatch) {
+        fileName = fileMatch[1];
+        functionName = fileMatch[2] || '';
+    }
+
+    const isError = /error|fail|critical/i.test(text);
+    const isWarn = /warn|warning/i.test(text);
+
+    return {
+        fileName: fileName || '',
+        functionName: functionName || '',
+        timestamp,
+        tid,
+        lineNum: originalIdx + 1,
+        visualIndex: visualIdx,
+        isError,
+        isWarn,
+        preview: text.substring(0, 150)
+    };
+};
 
 export interface AggregateMetrics {
     [key: string]: {

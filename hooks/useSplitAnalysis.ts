@@ -34,6 +34,7 @@ export const useSplitAnalysis = (
     isDualView: boolean
 ) => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisProgress, setAnalysisProgress] = useState(0);
     const [analysisResults, setAnalysisResults] = useState<SplitAnalysisResult[] | null>(null);
     const analyzerWorkerRef = useRef<Worker | null>(null);
     const isCancelledRef = useRef(false);
@@ -46,9 +47,14 @@ export const useSplitAnalysis = (
             analyzerWorkerRef.current = new SplitAnalysisWorker();
             analyzerWorkerRef.current.onmessage = (e: MessageEvent) => {
                 const { type, payload } = e.data;
-                if (type === 'SPLIT_ANALYSIS_COMPLETE') {
+                if (type === 'STATUS_UPDATE') {
+                    // Final comparison phase: 90% -> 100%
+                    const comparisonProgress = payload.progress || 0;
+                    setAnalysisProgress(90 + Math.floor(comparisonProgress * 0.1));
+                } else if (type === 'SPLIT_ANALYSIS_COMPLETE') {
                     setAnalysisResults(payload.results);
                     setIsAnalyzing(false);
+                    setAnalysisProgress(100);
                 }
             };
         } catch (err) {
@@ -71,58 +77,67 @@ export const useSplitAnalysis = (
         }
 
         setIsAnalyzing(true);
+        setAnalysisProgress(0);
         setAnalysisResults(null);
         isCancelledRef.current = false;
 
+        let leftProgress = 0;
+        let rightProgress = 0;
+
+        const updateMetadataProgress = () => {
+            // Metadata extraction phase: 0% -> 90%
+            const avgMetadataProgress = (leftProgress + rightProgress) / 2;
+            setAnalysisProgress(Math.floor(avgMetadataProgress * 0.9));
+        };
+
         try {
-            // Fetch Left Metadata
-            const leftData = await new Promise<LogMetadata[]>((resolve, reject) => {
-                const reqId = Math.random().toString(36).substring(7);
-                const listener = (e: MessageEvent) => {
-                    if (isCancelledRef.current) {
-                        leftWorkerRef.current?.removeEventListener('message', listener);
-                        return;
-                    }
-                    if (e.data.type === 'ALL_METADATA_RESULT' && e.data.requestId === reqId) {
-                        leftWorkerRef.current?.removeEventListener('message', listener);
-                        resolve(e.data.payload.metadata);
-                    }
-                };
-                leftWorkerRef.current!.addEventListener('message', listener);
-                leftWorkerRef.current!.postMessage({ type: 'GET_ALL_METADATA', requestId: reqId });
-            });
+            const fetchMetrics = (worker: Worker, side: 'left' | 'right') => {
+                return new Promise<any>((resolve) => {
+                    const reqId = Math.random().toString(36).substring(7);
+                    const listener = (e: MessageEvent) => {
+                        if (isCancelledRef.current) {
+                            worker.removeEventListener('message', listener);
+                            return;
+                        }
+
+                        if (e.data.type === 'STATUS_UPDATE') {
+                            if (side === 'left') leftProgress = e.data.payload.progress || 0;
+                            else rightProgress = e.data.payload.progress || 0;
+                            updateMetadataProgress();
+                        } else if (e.data.type === 'ANALYSIS_METRICS_RESULT' && e.data.requestId === reqId) {
+                            worker.removeEventListener('message', listener);
+                            if (side === 'left') leftProgress = 100;
+                            else rightProgress = 100;
+                            updateMetadataProgress();
+                            resolve(e.data.payload.metrics);
+                        }
+                    };
+                    worker.addEventListener('message', listener);
+                    worker.postMessage({ type: 'GET_ANALYSIS_METRICS', requestId: reqId });
+                });
+            };
+
+            // Fetch both simultaneously! (Parallel for 1GB+ files performance) 🐧⚡
+            const [leftMetrics, rightMetrics] = await Promise.all([
+                fetchMetrics(leftWorkerRef.current, 'left'),
+                fetchMetrics(rightWorkerRef.current, 'right')
+            ]);
 
             if (isCancelledRef.current) return;
 
-            // Fetch Right Metadata
-            const rightData = await new Promise<LogMetadata[]>((resolve, reject) => {
-                const reqId = Math.random().toString(36).substring(7);
-                const listener = (e: MessageEvent) => {
-                    if (isCancelledRef.current) {
-                        rightWorkerRef.current?.removeEventListener('message', listener);
-                        return;
-                    }
-                    if (e.data.type === 'ALL_METADATA_RESULT' && e.data.requestId === reqId) {
-                        rightWorkerRef.current?.removeEventListener('message', listener);
-                        resolve(e.data.payload.metadata);
-                    }
-                };
-                rightWorkerRef.current!.addEventListener('message', listener);
-                rightWorkerRef.current!.postMessage({ type: 'GET_ALL_METADATA', requestId: reqId });
-            });
-
-            if (isCancelledRef.current) return;
+            setAnalysisProgress(90);
 
             // Send to Analyzer Worker
             analyzerWorkerRef.current?.postMessage({
-                leftData,
-                rightData
+                leftMetrics,
+                rightMetrics
             });
 
         } catch (err) {
             if (!isCancelledRef.current) {
                 console.error('[useSplitAnalysis] Failed to fetch metadata or analyze.', err);
                 setIsAnalyzing(false);
+                setAnalysisProgress(0);
             }
         }
     }, [isDualView, leftWorkerRef, rightWorkerRef]);
@@ -131,6 +146,7 @@ export const useSplitAnalysis = (
         isCancelledRef.current = true;
         setAnalysisResults(null);
         setIsAnalyzing(false);
+        setAnalysisProgress(0);
         // Terminate worker immediately to free resources
         if (analyzerWorkerRef.current) {
             analyzerWorkerRef.current.terminate();
@@ -142,6 +158,7 @@ export const useSplitAnalysis = (
 
     return {
         isAnalyzing,
+        analysisProgress,
         analysisResults,
         performAnalysis,
         closeAnalysis

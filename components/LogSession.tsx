@@ -119,6 +119,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
     const {
         isAnalyzing: isSplitAnalyzing,
+        analysisProgress: splitAnalysisProgress,
         analysisResults: splitAnalysisResults,
         performAnalysis: handleSplitAnalysis,
         closeAnalysis: handleCloseSplitAnalysis
@@ -988,6 +989,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                             <SplitAnalyzerPanel
                                 results={splitAnalysisResults}
                                 isLoading={isSplitAnalyzing}
+                                progress={splitAnalysisProgress}
                                 onClose={handleCloseSplitAnalysis}
                                 onJumpToLine={(pane, line) => {
                                     handleFocusPaneRequest(pane);

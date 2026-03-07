@@ -1,16 +1,25 @@
-# [Split Analysis UI 보완] 분석 버튼 위치 조정 및 너비 고정
+# [분석 성능 최적화] 메타데이터 전송 부하 감소 및 메인 스레드 프리징 해결
   
-분석 작업 실행 시 `Analyze Diff` 버튼의 위치를 `Single|Split` 전환 버튼의 왼쪽으로 옮기고, 고정 너비를 적용하여 텍스트 변경 시 발생하는 레이아웃 흔들림을 원천 차단합니다.
+대용량 로그(1GB+) 분석 시 수백만 개의 메타데이터 객체를 전송하면서 발생하는 메인 스레드 프리징을 해결하기 위해, 각 워커에서 데이터를 직접 요약(Aggregate)하여 결과만 전송하는 방식으로 구조를 변경합니다.
 
 ## Proposed Changes
 
-### TopBar Layout & Button Stability
+### Log Worker Optimization
 
-#### [MODIFY] [TopBar.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/TopBar.tsx)
-- **위치 변경**: `Analyze Diff` 버튼 렌더링 위치를 `Layout Toggle (Single|Split)` 컴포넌트 바로 앞(왼쪽)으로 이동합니다.
-- **너비 고정**: 버튼에 `w-[130px]` 고정 너비를 적용합니다.
-- **정렬 최적화**: `justify-center`를 추가하여 아이콘과 텍스트가 항상 버튼 중앙에 오도록 합니다.
-- **여백 조정**: 버튼 이동에 따른 `ml-2` 등 마진 값을 시각적으로 자연스럽게 조정합니다.
+#### [MODIFY] [workerAnalysisHandlers.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/workerAnalysisHandlers.ts)
+- `extractAnalysisMetrics` 핸들러 추가: 메타데이터를 추출하면서 즉시 `Metrics`를 계산하여, 수백만 개의 개별 로그 데이터 대신 수천 개의 요약된 시그니처 데이터만 반환합니다.
+
+#### [MODIFY] [types.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/types.ts)
+- `GET_ANALYSIS_METRICS`, `ANALYSIS_METRICS_RESULT` 메시지 타입 추가.
+
+### Analysis Logic Optimization
+
+#### [MODIFY] [useSplitAnalysis.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/hooks/useSplitAnalysis.ts)
+- `GET_ALL_METADATA` 대신 `GET_ANALYSIS_METRICS`를 호출하도록 변경.
+- 전송되는 데이터 크기가 획기적으로 줄어들어 메인 스레드 프리징이 사라집니다.
+
+#### [MODIFY] [SplitAnalysis.worker.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/SplitAnalysis.worker.ts)
+- 워커에서 `computeMetrics`를 수행하지 않고, 이미 계산된 `leftMetrics`, `rightMetrics`를 받아 즉시 비교 결과만 산출하도록 최적화합니다.
 
 ## Verification Plan
 

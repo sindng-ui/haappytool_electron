@@ -1,6 +1,7 @@
 import { LogRule, LogWorkerResponse, LogMetadata } from '../types';
 import { extractTimestamp } from '../utils/logTime';
 import { analyzePerfSegments, extractSourceMetadata, extractLogIds } from '../utils/perfAnalysis';
+import { extractSingleMetadata, AggregateMetrics, computeMetricsFromMetadata } from './SplitAnalysisUtils';
 
 export interface WorkerContext {
     currentFile: File | null;
@@ -620,5 +621,105 @@ export const extractAllMetadata = async (
     }
 
     respond({ type: 'ALL_METADATA_RESULT', payload: { metadata: results }, requestId });
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+};
+
+/**
+ * [OPTIMIZED] 🐧⚡
+ * Extracts metadata and immediately aggregates it into Metrics to avoid freezing Main Thread.
+ * This returns a summary (AggregateMetrics) instead of raw list of metadata.
+ */
+export const extractAnalysisMetrics = async (
+    ctx: any,
+    payload: any,
+    requestId: string,
+    respond: (msg: LogWorkerResponse) => void
+) => {
+    const { filteredIndices, lineOffsets, lineOffsetsStream, lineLengthsStream, logBuffer, currentFile, currentRule } = ctx;
+    const isStreamMode = !!(logBuffer && lineOffsetsStream && lineLengthsStream);
+    const isFile = !!(currentFile || ctx.isLocalFileMode);
+
+    if (!filteredIndices) {
+        respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { metrics: {} }, requestId });
+        return;
+    }
+
+    const totalLines = filteredIndices.length;
+    const decoder = new TextDecoder();
+    let metrics: AggregateMetrics = {};
+    let aggState = {
+        prevTimestamp: null as number | null,
+        prevSignature: 'START',
+        prevFileInfo: { fileName: '', functionName: '', preview: '' }
+    };
+
+    const processLineAndAggregate = (text: string, originalIdx: number, visualIdx: number) => {
+        const metadata = extractSingleMetadata(text, originalIdx, visualIdx, currentRule);
+        const result = computeMetricsFromMetadata([metadata], metrics, aggState);
+        metrics = result.metrics;
+        aggState = result.state;
+    };
+
+    if (isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream) {
+        for (let idx = 0; idx < totalLines; idx++) {
+            const i = filteredIndices[idx];
+            const start = lineOffsetsStream[i];
+            const len = lineLengthsStream[i];
+            const line = decoder.decode(logBuffer.subarray(start, start + len));
+            processLineAndAggregate(line, i, idx);
+
+            if (idx % 20000 === 0) {
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: (idx / totalLines) * 100 } });
+            }
+        }
+    } else if (isFile) {
+        const reader = new FileReaderSync();
+        const BATCH_SIZE = 5000;
+
+        for (let idx = 0; idx < totalLines; idx += BATCH_SIZE) {
+            const maxBatch = Math.min(idx + BATCH_SIZE, totalLines);
+            let minByte = -1n;
+            let maxByte = -1n;
+            for (let k = idx; k < maxBatch; k++) {
+                const i = filteredIndices[k];
+                const start = lineOffsets![i];
+                const fileSize = ctx.isLocalFileMode ? ctx.localFileSize! : currentFile!.size;
+                const end = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(fileSize);
+                if (minByte === -1n || start < minByte) minByte = start;
+                if (maxByte === -1n || end > maxByte) maxByte = end;
+            }
+
+            if (minByte !== -1n) {
+                let buffer: ArrayBuffer;
+                if (ctx.isLocalFileMode) {
+                    const chunkBuffer = await ctx.rpcCall!('readFileSegment', { path: ctx.localFilePath, start: Number(minByte), end: Number(maxByte) });
+                    buffer = chunkBuffer.buffer;
+                } else {
+                    const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
+                    buffer = reader.readAsArrayBuffer(fullBlob);
+                }
+
+                for (let k = idx; k < maxBatch; k++) {
+                    const i = filteredIndices[k];
+                    const lineStart = lineOffsets![i];
+                    const fileSize = ctx.isLocalFileMode ? ctx.localFileSize! : currentFile!.size;
+                    const lineEnd = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(fileSize);
+
+                    const relStart = Number(lineStart - minByte);
+                    const relEnd = Number(lineEnd - minByte);
+                    const lineBuffer = buffer.slice(relStart, relEnd);
+                    const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
+
+                    processLineAndAggregate(text, i, k);
+                }
+            }
+
+            if (idx % (BATCH_SIZE * 2) === 0) {
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: (idx / totalLines) * 100 } });
+            }
+        }
+    }
+
+    respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { metrics }, requestId });
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
 };
