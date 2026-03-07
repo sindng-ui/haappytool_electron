@@ -1,40 +1,31 @@
-# [목표] 리분석 리포트 UI 레이아웃 2단 분할 개편 🐧🎨✨🎯
+# 분석 엔진 복구 및 정밀 구간 매칭 계획 🐧🛠️
 
-형님! 요청하신 대로 카드를 좌우로 나누어, 왼쪽은 **실행 흐름**을 보여주고 오른쪽은 **시간 분석**을 보여주는 더 전문적인 레이아웃으로 개편하겠습니다! 🐧🚀
+형님! 이전의 단순 매칭 방식은 멀티스레드 환경에서 로그가 섞일 때 인터벌을 놓치는 문제가 있었습니다. 형님이 예시로 들어주신 `hwservice.cpp:hwfunc(123)` -> `SmartThings.cs:OnCreate(123)` 구간을 정확히 찾아내기 위해 엔진을 전면 개정하겠습니다!
 
 ## Proposed Changes
 
-### [UI] SplitAnalyzerPanel.tsx 🎨
+### 1. `utils/perfAnalysis.ts` - 파서 정밀도 개선
+- **유연한 라인 번호 추출**: `FunctionName(123)` 뒤에 다른 텍스트(로그 메시지 등)가 붙어 있어도 라인 번호를 낚아챌 수 있도록 정규식 수정.
+- **파일명 탐색 범위 확장**: 타임스탬프 바로 뒤에 공백 없이 파일명이 붙는 케이스(Android/Tizen 하이브리드 형식) 등에 대응.
 
-Summary: 카드를 좌우 2단으로 분리하고 세로 구분선을 추가합니다.
+### 2. `workers/SplitAnalysisUtils.ts` - 디버깅 로그 및 로직 강화
+- **전략**: 각 로그를 처리할 때, 현재 로그가 '의미 있는 로그'라면 이전 100줄(Gap Window) 내 소스 매칭 시도 내역을 로그로 남깁니다.
+- **가시성**: 분석 시작(Total Lines), 첫 매칭 성공 케이스, 샘플링된 시그니처 형식을 콘솔에 출력하여 형님이 직접 확인할 수 있게 합니다.
 
-#### [MODIFY] [SplitAnalyzerPanel.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/SplitAnalyzerPanel.tsx)
+### 3. `workers/workerAnalysisHandlers.ts` - 상태 보존 및 통계 요약
+- 배칭 처리 시 `aggState`가 세션 동안 안정적으로 유지되는지 확인하고, 최종적으로 생성된 `metrics`의 총 개수를 요약 보고합니다.
 
-**개선 전 (단일 세로형)**:
-모든 정보가 세로로 나열됨 (중간에 화살표와 시간이 섞여 있음)
+---
+형님, 이 디버깅 도구가 포함된 계획대로 진행해도 될까요? 승인해주시면 바로 결과가 나오도록 수술 시작하겠습니다! 🐧🚀
 
-**개선 후 (좌우 2단 분할)**:
-```
-[ 왼쪽 영역: 타임라인 ]          | [ 오른쪽 영역: 시간 분석 ]
-SmartThingsApp.cs: OnStart(33) | 
-      ↓ (세로 화살표)           |  LEFT  : 20ms
-infra.cs: CheckMemory(555)     |  RIGHT : 520ms
-                               |  REG   : +500ms
-```
-
-- **레이아웃**: `flex-row`로 좌우를 나누고, 중앙에 세로 구분선(`w-px bg-slate-800`) 배치.
-- **왼쪽 (Flow)**: 시작 노드, 세로 화살표, 종료 노드를 수직으로 정렬.
-- **오른쪽 (Metrics)**: LEFT, RIGHT, REGRESSION 값을 깔끔하게 수직으로 배치하여 시간 차이 인지력 극대화.
-- **스타일링**: 오른쪽 영역을 살짝 강조(`bg-slate-900/30`)하여 통계 데이터임을 명시.
+[PROCEED](command:antigravity.proceed)
 
 ## Verification Plan
 
 ### Manual Verification
-- **Analyze Diff** 실행 후 생성된 리포트 카드 레이아웃 확인.
-- 좌우 분리가 명확한지, 소요 시간이 우측에 잘 모여 있는지 확인.
-- 카드 클릭 시 점프 기능이 정상 작동하는지 확인.
+1. 왼쪽 로그에서 특정 구간(`fileA:funcA(N)` -> `fileB:funcB(M)`) 확인.
+2. 오른쪽 로그에서도 동일한 소스 위치의 로그들이 존재하는지 확인.
+3. 분석 리포트에서 해당 인터벌이 잡히는지, 그리고 시간차(Delta)가 계산되는지 검증.
 
-## Proceed
-형님! 이 2단 구조로 싹 리모델링해 볼까요? 아래 버튼 눌러주십쇼! 🐧💎
-
-<button onclick="window.postMessage({type: 'PROCEED'})">PROCEED</button>
+---
+형님, 이 계획대로 진행해도 될까요? 승인해주시면 바로 코딩 들어가겠습니다! 🐧🚀

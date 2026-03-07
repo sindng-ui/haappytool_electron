@@ -66,6 +66,7 @@ export const useSplitAnalysis = (
                     const comparisonProgress = payload.progress || 0;
                     setAnalysisProgress(90 + Math.floor(comparisonProgress * 0.1));
                 } else if (type === 'SPLIT_ANALYSIS_COMPLETE') {
+                    console.log(`[useSplitAnalysis] Analysis complete received. Result count: ${payload.results?.length}`);
                     setAnalysisResults(payload.results);
                     setIsAnalyzing(false);
                     setAnalysisProgress(100);
@@ -85,8 +86,9 @@ export const useSplitAnalysis = (
     }, [initWorker]);
 
     const performAnalysis = useCallback(async () => {
+        console.log('[useSplitAnalysis] performAnalysis called', { isDualView, leftWorker: !!leftWorkerRef.current, rightWorker: !!rightWorkerRef.current, analyzer: !!analyzerWorkerRef.current });
         if (!isDualView || !leftWorkerRef.current || !rightWorkerRef.current || !analyzerWorkerRef.current) {
-            console.warn('[useSplitAnalysis] Cannot perform analysis: Dual view not active or workers missing.');
+            console.warn('[useSplitAnalysis] Cannot perform analysis: Guard condition failed.');
             return;
         }
 
@@ -126,8 +128,9 @@ export const useSplitAnalysis = (
                             resolve(e.data.payload.metrics);
                         }
                     };
+                    console.log(`[useSplitAnalysis] fetchMetrics started for side: ${side}, requestId: ${reqId}`);
                     worker.addEventListener('message', listener);
-                    worker.postMessage({ type: 'GET_ANALYSIS_METRICS', requestId: reqId });
+                    worker.postMessage({ type: 'GET_ANALYSIS_METRICS', payload: {}, requestId: reqId });
                 });
             };
 

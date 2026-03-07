@@ -737,9 +737,12 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     handleFocusPaneRequest('left');
                 }}
                     onSplitAnalyze={() => {
+                        console.log('[LogSession] Analyze Diff button clicked');
                         if (splitAnalysisResults || isSplitAnalyzing) {
+                            console.log('[LogSession] Closing analysis');
                             handleCloseSplitAnalysis();
                         } else {
+                            console.log('[LogSession] Starting analysis');
                             handleSplitAnalysis();
                         }
                     }}

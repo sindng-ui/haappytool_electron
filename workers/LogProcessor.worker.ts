@@ -1,4 +1,5 @@
 /* eslint-disable no-restricted-globals */
+console.log('[LogProcessorWorker] Script loaded');
 import { LogRule, LogWorkerMessage, LogWorkerResponse } from '../types';
 import { BookmarkManager } from './workerBookmarkHandlers';
 import * as DataReader from './workerDataReader';
@@ -239,37 +240,9 @@ const buildFileIndex = async (file: File) => {
             const chunkLen = chunk.length;
             let i = 0;
 
-            // 1. Handle cross-chunk \r\n
-            if (pendingCROffset !== -1n) {
-                if (chunkLen > 0 && chunk[0] === 10) {
-                    // \r\n across boundary -> line break ends after \n at chunk[0]
-                    if (lineCount >= capacity) {
-                        const newCapacity = capacity * 2;
-                        const newArr = new BigInt64Array(newCapacity);
-                        newArr.set(tempOffsets);
-                        tempOffsets = newArr;
-                        capacity = newCapacity;
-                    }
-                    tempOffsets[lineCount++] = offset + 1n; // new line starts after \n
-                    i = 1;
-                } else {
-                    // standalone \r from previous chunk -> line break ended after \r
-                    if (lineCount >= capacity) {
-                        const newCapacity = capacity * 2;
-                        const newArr = new BigInt64Array(newCapacity);
-                        newArr.set(tempOffsets);
-                        tempOffsets = newArr;
-                        capacity = newCapacity;
-                    }
-                    tempOffsets[lineCount++] = pendingCROffset + 1n; // new line starts after \r
-                }
-                pendingCROffset = -1n;
-            }
-
-            // 2. Scan chunk
+            // Scan chunk for LF (\n) only
             for (; i < chunkLen; i++) {
-                const b = chunk[i];
-                if (b === 10) { // \n (LF)
+                if (chunk[i] === 10) { // \n (LF)
                     if (lineCount >= capacity) {
                         const newCapacity = capacity * 2;
                         const newArr = new BigInt64Array(newCapacity);
@@ -278,34 +251,6 @@ const buildFileIndex = async (file: File) => {
                         capacity = newCapacity;
                     }
                     tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
-                } else if (b === 13) { // \r (CR)
-                    if (i + 1 < chunkLen) {
-                        if (chunk[i + 1] === 10) {
-                            // \r\n
-                            i++; // skip \n
-                            if (lineCount >= capacity) {
-                                const newCapacity = capacity * 2;
-                                const newArr = new BigInt64Array(newCapacity);
-                                newArr.set(tempOffsets);
-                                tempOffsets = newArr;
-                                capacity = newCapacity;
-                            }
-                            tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
-                        } else {
-                            // standalone \r
-                            if (lineCount >= capacity) {
-                                const newCapacity = capacity * 2;
-                                const newArr = new BigInt64Array(newCapacity);
-                                newArr.set(tempOffsets);
-                                tempOffsets = newArr;
-                                capacity = newCapacity;
-                            }
-                            tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
-                        }
-                    } else {
-                        // \r at the very end of chunk
-                        pendingCROffset = offset + BigInt(i);
-                    }
                 }
             }
 
@@ -319,16 +264,6 @@ const buildFileIndex = async (file: File) => {
             }
         }
         // Ensure a final 100% progress update is sent after the loop finishes
-        if (pendingCROffset !== -1n) {
-            if (lineCount >= capacity) {
-                const newCapacity = capacity * 2;
-                const newArr = new BigInt64Array(newCapacity);
-                newArr.set(tempOffsets);
-                tempOffsets = newArr;
-                capacity = newCapacity;
-            }
-            tempOffsets[lineCount++] = pendingCROffset + 1n;
-        }
         respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 100 } });
     } catch (e) {
         console.error('Indexing failed', e);
@@ -933,7 +868,7 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             }
             break;
         case 'INIT_FILE':
-            // 핫픽스: payload 자체가 File 객체이므로 바로 전달합니다. 🐧🛠️
+            // 핫픽스: payload 자체가 File 객체이므로 바로 전달합니다.
             await buildFileIndex(payload);
             break;
         case 'INIT_LOCAL_FILE_STREAM':
@@ -1037,6 +972,7 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             break;
         case 'GET_ANALYSIS_METRICS':
             try {
+                console.log(`[LogProcessorWorker] GET_ANALYSIS_METRICS message caught in switch.`);
                 await AnalysisHandlers.extractAnalysisMetrics(getAnalysisContext(), payload, requestId || '', respond);
             } catch (e) {
                 console.error('[Worker] GET_ANALYSIS_METRICS failed', e);

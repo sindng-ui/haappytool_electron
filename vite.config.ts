@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       port: 3000,
+      strictPort: true, // 🐧⚡ 포트 3000 고정 (electron 실행 대기용)
       host: '127.0.0.1',
       watch: {
         usePolling: true,

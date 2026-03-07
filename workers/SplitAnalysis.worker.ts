@@ -1,4 +1,5 @@
 import { AggregateMetrics } from './SplitAnalysisUtils';
+console.log('[SplitAnalysisWorker] Script loaded');
 
 export interface SplitAnalysisResult {
     key: string;
@@ -56,25 +57,35 @@ const ctx: Worker = self as any;
 
 ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
     const { leftMetrics, rightMetrics } = e.data;
+    console.log('[SplitAnalysisWorker] Received metrics', { leftSize: Object.keys(leftMetrics || {}).length, rightSize: Object.keys(rightMetrics || {}).length });
+
+    if (!leftMetrics || !rightMetrics) {
+        console.warn('[SplitAnalysisWorker] Missing metrics data');
+        ctx.postMessage({ type: 'SPLIT_ANALYSIS_COMPLETE', payload: { results: [] } });
+        return;
+    }
 
     ctx.postMessage({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 10 } });
 
-    const allKeys = new Set([...Object.keys(leftMetrics), ...Object.keys(rightMetrics)]);
-
     const results: SplitAnalysisResult[] = [];
+    const leftKeys = Object.keys(leftMetrics);
+    console.log(`[SplitAnalysisWorker] Starting comparison. Left keys: ${leftKeys.length}`);
 
-    for (const key of allKeys) {
+    for (const key of leftKeys) {
         const left = leftMetrics[key];
         const right = rightMetrics[key];
 
-        const leftAvgDelta = left && left.deltaSamples > 0 ? left.totalDelta / left.deltaSamples : 0;
-        const rightAvgDelta = right && right.deltaSamples > 0 ? right.totalDelta / right.deltaSamples : 0;
+        // 형님 요청: 왼쪽 구간을 오른쪽에서 찾지 못한 경우 무시
+        if (!right) continue;
 
-        const isError = (left?.isError || right?.isError) ?? false;
-        const isWarn = (left?.isWarn || right?.isWarn) ?? false;
+        const leftAvgDelta = left.deltaSamples > 0 ? left.totalDelta / left.deltaSamples : 0;
+        const rightAvgDelta = right.deltaSamples > 0 ? right.totalDelta / right.deltaSamples : 0;
 
-        // It's a "New" error if it's an error in right, but not in left (or didn't exist in left)
-        const isNewError = (right?.isError && !left?.isError) ?? false;
+        const isError = (left.isError || right.isError) ?? false;
+        const isWarn = (left.isWarn || right.isWarn) ?? false;
+
+        // "New" error: 왼쪽엔 에러가 없었는데 오른쪽엔 에러인 경우
+        const isNewError = (right.isError && !left.isError) ?? false;
 
         results.push({
             key,
@@ -131,5 +142,6 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
     });
 
     ctx.postMessage({ type: 'STATUS_UPDATE', payload: { status: 'ready', progress: 100 } });
+    console.log(`[SplitAnalysisWorker] Analysis complete. Sending ${results.length} results.`);
     ctx.postMessage({ type: 'SPLIT_ANALYSIS_COMPLETE', payload: { results } });
 };

@@ -646,19 +646,24 @@ export const extractAnalysisMetrics = async (
     }
 
     const totalLines = filteredIndices.length;
+    console.log(`[SplitWorker] GET_ANALYSIS_METRICS received. Total lines to scan: ${totalLines}`);
     const decoder = new TextDecoder();
     let metrics: AggregateMetrics = {};
-    let aggState = {
+    let aggState: any = {
         prevTimestamp: null as number | null,
         prevSignature: 'START',
-        prevFileInfo: { fileName: '', functionName: '', preview: '' }
+        prevFileInfo: { fileName: '', functionName: '', preview: '' },
+        lookbackWindow: [],
+        lastSignifByTid: {}
     };
+
+    const maxGap = payload.maxGap ?? 100;
 
     const itemBatch: LogMetadata[] = [null as any]; // Reusable array for single item processing
     const processLineAndAggregate = (text: string, originalIdx: number, visualIdx: number) => {
         const metadata = extractSingleMetadata(text, originalIdx, visualIdx, currentRule);
         itemBatch[0] = metadata;
-        computeMetricsFromMetadata(itemBatch, metrics, aggState);
+        computeMetricsFromMetadata(itemBatch, metrics, aggState, maxGap);
     };
 
     if (isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream) {
@@ -719,6 +724,18 @@ export const extractAnalysisMetrics = async (
                 respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: (idx / totalLines) * 100 } });
             }
         }
+    }
+
+    // 분석 결과 요약 로깅
+    const metricCount = Object.keys(metrics).length;
+    console.log(`[SplitWorker] Analysis Finished!`);
+    console.log(`[SplitWorker] Total Lines Scanned: ${totalLines}`);
+    console.log(`[SplitWorker] Detected Intervals (Metrics): ${metricCount}`);
+
+    if (metricCount > 0) {
+        console.log(`[SplitWorker] Sample Interval Keys:`, Object.keys(metrics).slice(0, 5));
+    } else {
+        console.warn(`[SplitWorker] No intervals detected. Check parser or look-back window.`);
     }
 
     respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { metrics }, requestId });

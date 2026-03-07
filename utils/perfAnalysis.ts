@@ -112,45 +112,55 @@ const EXT_SET = new Set(['cs', 'cpp', 'h', 'java', 'kt', 'js', 'ts', 'tsx', 'py'
 /**
  * Extracts source metadata (filename, function name, and code line number) from a log line.
  * Standard format: FileName.ext: FunctionName(Line)>
- * ✅ [HYPER-OPTIMIZED V2] Accurate multi-colon scan without Regex + Regex for line number 🐧🚀
+ * ✅ [HYPER-OPTIMIZED V3] 정밀 소스 추출 (파일명, 함수명, 라인번호)
  */
 export const extractSourceMetadata = (line: string): { fileName: string | null, functionName: string | null, codeLineNum?: string | null } => {
-    // 1. Find the essential marker '>' indicating the end of the metadata block
+    // 1. 필수 마커 '>' 탐색
     const markerIndex = line.indexOf('>', 0);
-    if (markerIndex === -1 || markerIndex > 300) return { fileName: null, functionName: null, codeLineNum: null };
+    if (markerIndex === -1 || markerIndex > 400) return { fileName: null, functionName: null, codeLineNum: null };
 
-    // 2. Scan for the divider colon from left to right.
-    let searchPos = 0;
+    // 2. 콜론(:) 탐색 및 파일 정보 추출
+    // 로그 시작부(날짜 등)를 건너뛰기 위해 공백 이후부터 검색 시도
+    let searchPos = Math.max(0, line.indexOf(' ', 5));
+
     while (searchPos < markerIndex) {
         const colonIndex = line.indexOf(':', searchPos);
         if (colonIndex === -1 || colonIndex >= markerIndex) break;
 
-        // Extract potential filename before this colon
+        // 콜론 앞의 텍스트가 파일명 형식인지 확인
         let fileStartIndex = colonIndex - 1;
+        while (fileStartIndex >= 0 && line[fileStartIndex] === ' ') fileStartIndex--; // 콜론 직전 공백 무시
+
+        let endOfFileName = fileStartIndex + 1;
         while (fileStartIndex >= 0) {
             const char = line[fileStartIndex];
-            if (char === ' ' || char === '[' || char === '(' || char === '<' || char === '/') {
+            // 파일명에 포함될 수 없는 문자들에서 멈춤
+            if (char === ' ' || char === '[' || char === '(' || char === '<' || char === '/' || char === '|' || char === ',') {
                 break;
             }
             fileStartIndex--;
         }
         fileStartIndex++;
 
-        const rawFile = line.substring(fileStartIndex, colonIndex).trim();
+        const rawFile = line.substring(fileStartIndex, endOfFileName).trim();
         if (rawFile.length >= 3) {
             const dotIdx = rawFile.lastIndexOf('.');
             if (dotIdx !== -1) {
                 const ext = rawFile.substring(dotIdx + 1).toLowerCase();
                 if (EXT_SET.has(ext)) {
-                    // 🎉 Found the primary colon!
+                    // 🎉 파일 발견!
                     const fileName = rawFile;
-                    let functionName = line.substring(colonIndex + 1, markerIndex).trim();
+                    let rest = line.substring(colonIndex + 1, markerIndex).trim();
+
+                    let functionName = rest;
                     let codeLineNum: string | null = null;
 
-                    // ✅ Extract line number inside parentheses (e.g., OnResume(350) -> Name: OnResume, Line: 350)
-                    const lineMatch = functionName.match(/^(.*?)\s*\(\s*(\d+)\s*\)$/);
+                    // ✅ 라인 번호 정밀 추출 보강: 괄호 안 숫자 뒤에 다른 문자가 있어도 추출
+                    // 예: "hwfunc(123) Log Message", "OnCreate (456): Hello"
+                    // 콜론(:) 이후부터 함수명과 라인번호를 찾습니다.
+                    const lineMatch = rest.match(/([a-zA-Z0-9_]+)\s*\(\s*(\d+)\s*\)/);
                     if (lineMatch) {
-                        functionName = lineMatch[1].trim();
+                        functionName = lineMatch[1];
                         codeLineNum = lineMatch[2];
                     }
 

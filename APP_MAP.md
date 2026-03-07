@@ -118,7 +118,9 @@
   - `Hook`: [useSplitAnalysis.ts](./hooks/useSplitAnalysis.ts)
 - **Features**:
   - **2단 레이아웃(Timeline|Metrics)**: 실행 흐름(시작점 ↓ 종료점)과 시간 분석 데이터(LEFT|RIGHT|REG)를 수직으로 분리하여 가독성 극대화. [NEW]
-  - **성능 변화 통합 분석**: 시간 지연(Regression, 🟠)뿐만 아니라 성능 개선(Improvement, 🟢) 항목도 함께 분석하여 요약 리포트 제공. [NEW] 🐧📊🎯
+  - **정밀 구간 매칭(Source-to-Source)**: 파일명, 함수명, 라인번호를 조합한 시그니처 기반 정밀 분석. [NEW]
+  - **TID 기반 인터벌 트래킹**: 멀티스레드 환경에서 스레드별 실행 흐름을 독립적으로 추적하여 정확도 극대화. [NEW]
+  - **가변 룩백 윈도우(Look-back Window)**: 이전 로그들과의 상호 관계를 분석하여 누수 없는 인터벌 포착. [NEW] 🐧🛠️⚡🎯
   - **코드 라인 연동**: 로그 내부에서 추출한 코드 라인 번호를 우선 노출하여 소스 코드와의 연결성 강화.
   - **초슬림 모드**: 카드 높이를 획기적으로 낮춰 대량의 분석 결과를 효율적으로 탐색 가능하도록 최적화. [NEW]
 - **Data Flow**: `Worker (Metric Calculation)` -> `useSplitAnalysis` -> `SplitAnalyzerPanel (Summary + Detail View)`

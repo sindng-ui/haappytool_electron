@@ -6,7 +6,8 @@ import { extractSourceMetadata } from '../utils/perfAnalysis';
 const RE_TID_1 = /\(P\s*\d+,\s*T\s*(\d+)\)/;
 const RE_TID_2 = /\[\s*(\d+):/;
 const RE_NON_ALPHANUM = /[^a-zA-Z\uAC00-\uD7A3]/g;
-const RE_DIGITS = /[\d]/g;
+const RE_DIGITS = /\d+/g;
+const RE_HEX = /0x[0-9a-fA-F]+/g;
 const RE_ERROR_LVL = /error|fail|critical/i;
 const RE_WARN_LVL = /warn|warning/i;
 
@@ -69,93 +70,127 @@ export interface AggregateMetrics {
 }
 
 /**
- * 🐧⚡ 메타데이터로부터 지표를 계산합니다. (대용량 고속 처리 버전)
- * @param data 처리할 메타데이터 리스트
- * @param metrics 기존 지표 맵 (In-place 업데이트됨)
- * @param state 루프간 상태 보존 객체
+ * 🐧⚡ 'Significant' 로그(파일명/함수명 포함)인지 확인합니다.
+ */
+export const isSignificant = (item: LogMetadata): boolean => {
+    return !!(item.fileName || item.functionName);
+};
+
+/**
+ * 🐧⚡ 메타데이터로부터 지표를 계산합니다. (TID 체인 + 슬라이딩 윈도우)
  */
 export const computeMetricsFromMetadata = (
     data: LogMetadata[],
     metrics: AggregateMetrics,
-    state: { prevTimestamp: number | null; prevSignature: string; prevFileInfo: any }
+    state: {
+        prevTimestamp: number | null;
+        prevSignature: string;
+        prevFileInfo: any;
+        lookbackWindow?: LogMetadata[];
+        lastSignifByTid?: { [tid: string]: LogMetadata };
+    },
+    maxGap: number = 100
 ): void => {
-    let { prevTimestamp, prevSignature, prevFileInfo } = state;
+    if (!state.lookbackWindow) {
+        state.lookbackWindow = [];
+        state.lastSignifByTid = {};
+    }
+
+    const { lookbackWindow, lastSignifByTid } = state;
 
     for (let i = 0; i < data.length; i++) {
         const item = data[i];
-        let currentSignature = '';
-        if (item.fileName || item.functionName) {
-            currentSignature = `${item.fileName || 'Unknown'}::${item.functionName || 'Unknown'}`;
-        } else {
-            currentSignature = item.preview.replace(RE_NON_ALPHANUM, '').substring(0, 60);
-            if (currentSignature.length < 3) {
-                currentSignature = item.preview.replace(RE_DIGITS, '').substring(0, 30);
-            }
-        }
 
-        const key = `${prevSignature} ➔ ${currentSignature}`;
+        // 1. 시그니처 생성 (파일명:함수(라인) 우선)
+        if (!item.signature) {
+            if (isSignificant(item)) {
+                item.signature = `${item.fileName}::${item.functionName}`;
+                if (item.codeLineNum) {
+                    item.signature += `(${item.codeLineNum})`;
+                }
 
-        let delta = 0;
-        let hasDelta = false;
-        if (item.timestamp !== null && prevTimestamp !== null) {
-            delta = item.timestamp - prevTimestamp;
-            if (delta >= 0 && delta < 3600000) {
-                hasDelta = true;
+                // 디버깅용 샘플링 로깅
+                const sampleKey = (state as any).sampleCounter || 0;
+                if (sampleKey < 10 || Math.random() < 0.002) {
+                    console.log(`[SplitAnalysis] Source Sig: ${item.signature}`);
+                    (state as any).sampleCounter = sampleKey + 1;
+                }
             } else {
-                delta = 0;
+                // 일반 로그는 기존 방식 유지 (구간 연결용으로는 거의 안 쓰임)
+                let slim = item.preview
+                    .replace(RE_HEX, '0x#')
+                    .replace(RE_DIGITS, '#')
+                    .replace(RE_NON_ALPHANUM, '');
+                item.signature = slim.substring(0, 60) || item.preview.substring(0, 30);
             }
         }
 
-        if (item.timestamp !== null) {
-            prevTimestamp = item.timestamp;
-        }
+        const currentSig = item.signature;
 
-        const existing = metrics[key];
-        if (existing) {
-            existing.count++;
-            if (hasDelta) {
-                existing.totalDelta += delta;
-                existing.deltaSamples++;
+        // 2. 파일 순서 기반 순차적 페어링 (사용자 요청 핵심 로직)
+        // TID와 무관하게 파일에 나타나는 소스 로그 순서대로 연결합니다.
+        if (isSignificant(item)) {
+            const lastSignif = (state as any).lastGlobalSignif;
+            if (lastSignif) {
+                const key = `${lastSignif.signature} ➔ ${currentSig}`;
+                addMetric(metrics, key, lastSignif, item);
             }
-            if (item.tid && existing.tids.length < 50 && !existing.tids.includes(item.tid)) {
-                existing.tids.push(item.tid);
-            }
-        } else {
-            metrics[key] = {
-                count: 1,
-                totalDelta: hasDelta ? delta : 0,
-                deltaSamples: hasDelta ? 1 : 0,
-                tids: item.tid ? [item.tid] : [],
-                preview: item.preview,
-                fileName: item.fileName,
-                functionName: item.functionName,
-                prevPreview: prevFileInfo.preview,
-                prevFileName: prevFileInfo.fileName,
-                prevFunctionName: prevFileInfo.functionName,
-                isError: item.isError,
-                isWarn: item.isWarn,
-                lineNum: item.visualIndex,
-                prevLineNum: prevFileInfo.lineNum !== undefined ? prevFileInfo.lineNum : item.visualIndex,
-                originalLineNum: item.lineNum,
-                prevOriginalLineNum: prevFileInfo.originalLineNum !== undefined ? prevFileInfo.originalLineNum : item.lineNum,
-                codeLineNum: item.codeLineNum,
-                prevCodeLineNum: prevFileInfo.codeLineNum
-            };
+            // 현재 소스를 다음 소스의 '이전 소스'로 저장
+            (state as any).lastGlobalSignif = item;
         }
-
-        prevSignature = currentSignature;
-        prevFileInfo = {
-            fileName: item.fileName || '',
-            functionName: item.functionName || '',
-            codeLineNum: item.codeLineNum,
-            preview: item.preview || '',
-            lineNum: item.visualIndex,
-            originalLineNum: item.lineNum // ✅ 원본 번호 추적
-        };
     }
 
-    // Update state in-place
-    state.prevTimestamp = prevTimestamp;
-    state.prevSignature = prevSignature;
-    state.prevFileInfo = prevFileInfo;
+    // 상태 보관 (청크 간 연결을 위해)
+    const last = data[data.length - 1];
+    if (last) {
+        state.prevTimestamp = last.timestamp;
+        state.prevSignature = last.signature || '';
+    }
 };
+
+/**
+ * 🐧⚡ 매칭된 인터벌을 메트릭 맵에 안전하게 추가합니다.
+ */
+function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, current: LogMetadata) {
+    let delta = 0;
+    let hasDelta = false;
+    if (current.timestamp !== null && prev.timestamp !== null) {
+        delta = current.timestamp - prev.timestamp;
+        if (delta >= 0 && delta < 3600000) {
+            hasDelta = true;
+        }
+    }
+
+    const existing = metrics[key];
+    if (existing) {
+        existing.count++;
+        if (hasDelta) {
+            existing.totalDelta += delta;
+            existing.deltaSamples++;
+        }
+        if (current.tid && !existing.tids.includes(current.tid)) {
+            if (existing.tids.length < 50) existing.tids.push(current.tid);
+        }
+    } else {
+        metrics[key] = {
+            count: 1,
+            totalDelta: hasDelta ? delta : 0,
+            deltaSamples: hasDelta ? 1 : 0,
+            tids: current.tid ? [current.tid] : [],
+            preview: current.preview,
+            fileName: current.fileName,
+            functionName: current.functionName,
+            codeLineNum: current.codeLineNum,
+            prevPreview: prev.preview,
+            prevFileName: prev.fileName,
+            prevFunctionName: prev.functionName,
+            prevCodeLineNum: prev.codeLineNum,
+            isError: current.isError,
+            isWarn: current.isWarn,
+            lineNum: current.visualIndex,
+            prevLineNum: prev.visualIndex,
+            originalLineNum: current.lineNum,
+            prevOriginalLineNum: prev.lineNum
+        };
+    }
+}
