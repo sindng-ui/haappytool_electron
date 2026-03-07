@@ -125,14 +125,16 @@ export const computeMetricsFromMetadata = (
         prevTimestamp: number | null;
         prevSignature: string;
         prevFileInfo: any;
-        lastSignif?: LogMetadata; // 파일 전체 기준 마지막 로그
-        lookbackWindow?: LogMetadata[]; // 파일 전체 기준 최근 윈도우
+        lastSignif?: LogMetadata;
+        lookbackWindow?: LogMetadata[];
         aliasFirstMatch?: Record<string, LogMetadata>;
+        metricsCount?: { val: number };
     },
     maxGap: number = 100,
     side: string = 'left'
 ): void => {
     if (!state.lookbackWindow) state.lookbackWindow = [];
+    if (!state.metricsCount) state.metricsCount = { val: Object.keys(metrics).length };
 
     for (let i = 0; i < data.length; i++) {
         const item = data[i];
@@ -155,27 +157,32 @@ export const computeMetricsFromMetadata = (
 
         const currentSig = item.signature;
 
-        // [POINT METRICS] 단일 지점 지표 업데이트 (NEW SIGNIFICANT LOGS용)
+        // [POINT METRICS] 단일 지점 지표 업데이트 (CAP 적용)
         if (isSignificant(item)) {
-            if (!pointMetrics[currentSig]) {
-                pointMetrics[currentSig] = {
-                    count: 0,
-                    fileName: item.fileName,
-                    functionName: item.functionName,
-                    codeLineNum: item.codeLineNum || null,
-                    preview: item.preview,
-                    tids: [],
-                    visualIndices: [],
-                    originalLineNums: []
-                };
-            }
-            const pm = pointMetrics[currentSig];
-            pm.count++;
-            if (item.tid && !pm.tids.includes(item.tid)) pm.tids.push(item.tid);
+            const hasExisting = !!pointMetrics[currentSig];
+            if (hasExisting || Object.keys(pointMetrics).length < 50000) {
+                if (!pointMetrics[currentSig]) {
+                    pointMetrics[currentSig] = {
+                        count: 0,
+                        fileName: item.fileName,
+                        functionName: item.functionName,
+                        codeLineNum: item.codeLineNum || null,
+                        preview: item.preview,
+                        tids: [],
+                        visualIndices: [],
+                        originalLineNums: []
+                    };
+                }
+                const pm = pointMetrics[currentSig];
+                pm.count++;
+                if (item.tid && !pm.tids.includes(item.tid)) {
+                    if (pm.tids.length < 10) pm.tids.push(item.tid);
+                }
 
-            if (pm.visualIndices.length < 10000) {
-                pm.visualIndices.push(item.visualIndex);
-                pm.originalLineNums.push(item.lineNum);
+                if (pm.visualIndices.length < 5000) {
+                    pm.visualIndices.push(item.visualIndex);
+                    pm.originalLineNums.push(item.lineNum);
+                }
             }
         }
 
@@ -187,7 +194,7 @@ export const computeMetricsFromMetadata = (
                 // [Baseline] 왼쪽은 오직 직전의 Significant 로그와만 매칭 (형님 요구사항: "연속된 로그 2줄")
                 if (lastSignif) {
                     const key = `${lastSignif.signature} ➔ ${currentSig}`;
-                    addMetric(metrics, key, lastSignif, item, true);
+                    addMetric(metrics, key, lastSignif, item, true, state.metricsCount);
                 }
             } else {
                 // [Target] 오른쪽은 윈도우 내에서 매칭 (일부 로그가 끼어들어도 흐름을 찾을 수 있게)
@@ -195,7 +202,7 @@ export const computeMetricsFromMetadata = (
                     const prev = state.lookbackWindow[j];
                     const isDirect = (j === state.lookbackWindow.length - 1);
                     const key = `${prev.signature} ➔ ${currentSig}`;
-                    addMetric(metrics, key, prev, item, isDirect);
+                    addMetric(metrics, key, prev, item, isDirect, state.metricsCount);
                 }
 
                 // 윈도우 관리 (글로벌)
@@ -216,8 +223,14 @@ export const computeMetricsFromMetadata = (
                 state.aliasFirstMatch[item.alias] = item;
             } else {
                 const key = `[Alias] ${item.alias}`;
-                addAliasMetric(metrics, key, firstMatch, item);
+                addAliasMetric(metrics, key, firstMatch, item, state.metricsCount);
             }
+        }
+
+        // 🐧🛡️ 메모리 보호: 메트릭 항목이 너무 많아지면 분석 비상 제동 (OOM 방지)
+        if (state.metricsCount && state.metricsCount.val > 100000) {
+            console.warn(`[SplitAnalysis] Hard cap reached (100k intervals). Stopping analysis for memory safety.`);
+            break;
         }
     }
 
@@ -231,7 +244,14 @@ export const computeMetricsFromMetadata = (
 /**
  * 🐧⚡ 매칭된 인터벌을 메트릭 맵에 안전하게 추가합니다.
  */
-function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, current: LogMetadata, isDirect: boolean = true) {
+function addMetric(
+    metrics: AggregateMetrics,
+    key: string,
+    prev: LogMetadata,
+    current: LogMetadata,
+    isDirect: boolean = true,
+    metricsCount?: { val: number } // 🐧⚡ 카운터 전달받음
+) {
     let delta = 0;
     let hasDelta = false;
     if (current.timestamp !== null && prev.timestamp !== null) {
@@ -261,9 +281,13 @@ function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, cu
             existing.deltaSamples++;
         }
         if (current.tid && !existing.tids.includes(current.tid)) {
-            if (existing.tids.length < 50) existing.tids.push(current.tid);
+            if (existing.tids.length < 10) existing.tids.push(current.tid);
         }
     } else {
+        // [MEMORY PROTECTION] 메트릭 신규 생성 제한
+        if (metricsCount && metricsCount.val >= 100000) return;
+
+        if (metricsCount) metricsCount.val++; // 펭귄 가라사대, 새 식구가 늘었구나!
         metrics[key] = {
             count: isDirect ? 1 : 0,
             directCount: isDirect ? 1 : 0,
@@ -291,7 +315,16 @@ function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, cu
 /**
  * 🐧⚡ Alias 기반의 거대 세그먼트를 메트릭 맵에 추가/갱신합니다.
  */
-function addAliasMetric(metrics: AggregateMetrics, key: string, first: LogMetadata, last: LogMetadata) {
+function addAliasMetric(
+    metrics: AggregateMetrics,
+    key: string,
+    first: LogMetadata,
+    last: LogMetadata,
+    metricsCount?: { val: number }
+) {
+    // [MEMORY PROTECTION] 메트릭 신규 생성 제한
+    if (!metrics[key] && metricsCount && metricsCount.val >= 100000) return;
+    if (!metrics[key] && metricsCount) metricsCount.val++;
     let delta = 0;
     let hasDelta = false;
     if (last.timestamp !== null && first.timestamp !== null) {
