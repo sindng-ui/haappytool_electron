@@ -735,8 +735,15 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     }
                     handleFocusPaneRequest('left');
                 }}
-                    onSplitAnalyze={handleSplitAnalysis}
+                    onSplitAnalyze={() => {
+                        if (splitAnalysisResults || isSplitAnalyzing) {
+                            handleCloseSplitAnalysis();
+                        } else {
+                            handleSplitAnalysis();
+                        }
+                    }}
                     isSplitAnalyzing={isSplitAnalyzing}
+                    isSplitAnalyzerOpen={!!splitAnalysisResults || isSplitAnalyzing}
                 />
             </div>
 

@@ -4,18 +4,19 @@
 
 ## Proposed Changes
 
-### Individual Log Pane Closing (Split Mode)
+### Analyze Diff Toggle Functionality
 
-#### [MODIFY] [LogViewerToolbar.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/LogViewerToolbar.tsx)
-- `LogViewerToolbarProps`에 `onReset` 콜백을 추가합니다.
-- 툴바 우측 상단이나 파일명 옆에 로그를 닫을 수 있는 `X` (Close) 버튼을 추가합니다.
-- `X` 버튼 클릭 시 `onReset`이 호출되도록 합니다.
-
-#### [MODIFY] [LogViewerPane.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/LogViewerPane.tsx)
-- `LogViewerToolbar`에 `onReset` 프롭을 전달합니다.
+#### [MODIFY] [TopBar.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/TopBar.tsx)
+- `TopBarProps`에 `isSplitAnalyzerOpen` 프롭을 추가합니다.
+- `Analyze Diff` 버튼의 `disabled={isSplitAnalyzing}`을 제거하여 분석 중에도 클릭 가능하게 합니다 (취소/닫기 용도).
+- 버튼의 배경색이나 텍스트를 현재 상태(`isSplitAnalyzerOpen`, `isSplitAnalyzing`)에 따라 동적으로 변경합니다.
+  - 분석 중: "Analyzing..." (Pulse 효과)
+  - 결과 노출 중: "Close Analysis" (또는 색상 반전)
+  - 기본: "Analyze Diff"
 
 #### [MODIFY] [LogSession.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogSession.tsx)
-- (이미 전달 중) `LogViewerPane`에 `handleLeftReset` 및 `handleRightReset`이 정상적으로 연결되어 있는지 재확인합니다.
+- `TopBar`에 `isSplitAnalyzerOpen` (`!!splitAnalysisResults || isSplitAnalyzing`) 프롭을 전달합니다.
+- `onSplitAnalyze` 핸들러에서 이미 분석 중이거나 결과가 있다면 `handleCloseSplitAnalysis`를 호출하고, 아니면 `handleSplitAnalysis`를 호출하도록 토글 로직을 구현합니다.
 
 ## Verification Plan
 
@@ -23,8 +24,7 @@
 - `npm run test`
 
 ### Manual Verification
-1. 로그가 두 개 로드된 Split Mode에 진입합니다.
-2. 왼쪽 패널의 `X` 버튼을 클릭하여 왼쪽 로그만 닫히는지 확인합니다.
-3. 오른쪽 패널의 `X` 버튼을 클릭하여 오른쪽 로그만 닫히는지 확인합니다.
-4. 로그를 닫은 후 다시 새로운 로그를 드래그 앤 드롭하거나 열 수 있는지 확인합니다.
-5. 로그를 닫을 때 메모리/워커 자원이 정상적으로 해제되는지 확인합니다. (기존 Reset 로직 검증)
+1. `Analyze Diff` 버튼을 눌러 분석을 시작합니다.
+2. 분석 도중(Analyzing... 표시 시) 다시 버튼을 눌러 분석이 중단되고 패널이 닫히는지 확인합니다.
+3. 분석이 완료되어 리포트가 뜬 상태에서 다시 버튼을 눌러 패널이 닫히는지 확인합니다.
+4. 패널이 닫힌 상태에서 다시 버튼을 누르면 분석이 정상적으로 재시작되는지 확인합니다.

@@ -12,7 +12,8 @@ const TopBar: React.FC<{
     onReturnFocus?: () => void;
     onSplitAnalyze?: () => void;
     isSplitAnalyzing?: boolean;
-}> = ({ onReturnFocus, onSplitAnalyze, isSplitAnalyzing }) => {
+    isSplitAnalyzerOpen?: boolean;
+}> = ({ onReturnFocus, onSplitAnalyze, isSplitAnalyzing, isSplitAnalyzerOpen }) => {
     const { addToast } = useToast();
     const {
         rules, selectedRuleId, setSelectedRuleId,
@@ -221,15 +222,16 @@ const TopBar: React.FC<{
                 {isDualView && onSplitAnalyze && (
                     <button
                         onClick={onSplitAnalyze}
-                        disabled={isSplitAnalyzing}
                         className={`flex items-center gap-2 px-3 py-1.5 ml-2 rounded-lg border transition-all text-xs font-bold ${isSplitAnalyzing
-                                ? 'bg-blue-900/50 border-blue-500/30 text-blue-300 opacity-70 cursor-not-allowed'
+                            ? 'bg-blue-900/50 border-blue-500/30 text-blue-300 shadow-inner'
+                            : isSplitAnalyzerOpen
+                                ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white'
                                 : 'bg-blue-600 border-blue-500 text-white hover:bg-blue-500 shadow-lg shadow-blue-900/20'
                             }`}
-                        title="Compare Left and Right logs"
+                        title={isSplitAnalyzerOpen ? "Close Analysis" : "Compare Left and Right logs"}
                     >
                         <Lucide.Zap size={14} className={isSplitAnalyzing ? "animate-pulse delay-75" : ""} />
-                        {isSplitAnalyzing ? 'Analyzing...' : 'Analyze Diff'}
+                        {isSplitAnalyzing ? 'Analyzing...' : isSplitAnalyzerOpen ? 'Close Diff' : 'Analyze Diff'}
                     </button>
                 )}
             </div>
