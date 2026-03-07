@@ -123,19 +123,20 @@ export const extractSourceMetadata = (line: string): { fileName: string | null, 
     // 로그 시작부(날짜 등)를 건너뛰기 위해 공백 이후부터 검색 시도
     let searchPos = Math.max(0, line.indexOf(' ', 5));
 
-    while (searchPos < markerIndex) {
+    while (searchPos < line.length) {
         const colonIndex = line.indexOf(':', searchPos);
-        if (colonIndex === -1 || colonIndex >= markerIndex) break;
+        if (colonIndex === -1 || (markerIndex !== -1 && colonIndex >= markerIndex)) break;
 
         // 콜론 앞의 텍스트가 파일명 형식인지 확인
         let fileStartIndex = colonIndex - 1;
-        while (fileStartIndex >= 0 && line[fileStartIndex] === ' ') fileStartIndex--; // 콜론 직전 공백 무시
+        while (fileStartIndex >= 0 && (line[fileStartIndex] === ' ' || line[fileStartIndex] === '\t')) fileStartIndex--;
 
         let endOfFileName = fileStartIndex + 1;
+        let hasDot = false;
         while (fileStartIndex >= 0) {
             const char = line[fileStartIndex];
-            // 파일명에 포함될 수 없는 문자들에서 멈춤
-            if (char === ' ' || char === '[' || char === '(' || char === '<' || char === '/' || char === '|' || char === ',') {
+            if (char === '.') hasDot = true;
+            if (char === ' ' || char === '[' || char === '(' || char === '<' || char === '/' || char === '|' || char === ',' || char === '\t') {
                 break;
             }
             fileStartIndex--;
@@ -143,29 +144,27 @@ export const extractSourceMetadata = (line: string): { fileName: string | null, 
         fileStartIndex++;
 
         const rawFile = line.substring(fileStartIndex, endOfFileName).trim();
-        if (rawFile.length >= 3) {
+        if (rawFile.length >= 3 && hasDot) {
             const dotIdx = rawFile.lastIndexOf('.');
-            if (dotIdx !== -1) {
-                const ext = rawFile.substring(dotIdx + 1).toLowerCase();
-                if (EXT_SET.has(ext)) {
-                    // 🎉 파일 발견!
-                    const fileName = rawFile;
-                    let rest = line.substring(colonIndex + 1, markerIndex).trim();
+            const ext = rawFile.substring(dotIdx + 1).toLowerCase();
+            if (EXT_SET.has(ext)) {
+                // 파일 발견!
+                const fileName = rawFile;
+                // markerIndex가 없거나 콜론보다 뒤에 있는 경우 탐색
+                const limit = markerIndex === -1 ? Math.min(line.length, colonIndex + 200) : markerIndex;
+                let rest = line.substring(colonIndex + 1, limit).trim();
 
-                    let functionName = rest;
-                    let codeLineNum: string | null = null;
+                let functionName = rest;
+                let codeLineNum: string | null = null;
 
-                    // ✅ 라인 번호 정밀 추출 보강: 괄호 안 숫자 뒤에 다른 문자가 있어도 추출
-                    // 예: "hwfunc(123) Log Message", "OnCreate (456): Hello"
-                    // 콜론(:) 이후부터 함수명과 라인번호를 찾습니다.
-                    const lineMatch = rest.match(/([a-zA-Z0-9_]+)\s*\(\s*(\d+)\s*\)/);
-                    if (lineMatch) {
-                        functionName = lineMatch[1];
-                        codeLineNum = lineMatch[2];
-                    }
-
-                    return { fileName, functionName, codeLineNum };
+                // 함수명(라인) 추출
+                const lineMatch = rest.match(/([a-zA-Z0-9_]+)\s*\(\s*(\d+)\s*\)/);
+                if (lineMatch) {
+                    functionName = lineMatch[1];
+                    codeLineNum = lineMatch[2];
                 }
+
+                return { fileName, functionName, codeLineNum };
             }
         }
 

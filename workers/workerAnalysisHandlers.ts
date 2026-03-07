@@ -656,9 +656,9 @@ export const extractAnalysisMetrics = async (
         prevTimestamp: null as number | null,
         prevSignature: 'START',
         prevFileInfo: { fileName: '', functionName: '', preview: '' },
-        lookbackWindowByTid: {}, // TID별 윈도우 격리
-        lastSignifByTid: {}, // TID별 마지막 로그 격리
-        aliasFirstMatch: {} // Alias별 최초 지점 추적용
+        lastSignif: undefined, // 파일 전체 기준 마지막 Significant 로그
+        lookbackWindow: [],    // 파일 전체 기준 최근 윈도우
+        aliasFirstMatch: {}    // Alias별 최초 지점 추적용
     };
 
     const maxGap = payload.maxGap ?? 100;

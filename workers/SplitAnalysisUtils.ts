@@ -22,7 +22,7 @@ export const extractSingleMetadata = (
 ): LogMetadata => {
     const timestamp = extractTimestamp(text);
 
-    // TID 추출
+    // TID 추출 (표시 장식용으로 유지)
     const tidMatch = text.match(RE_TID_1) || text.match(RE_TID_2);
     const tid = tidMatch ? tidMatch[1] : null;
 
@@ -115,29 +115,29 @@ export const isSignificant = (item: LogMetadata): boolean => {
 
 /**
  * 🐧⚡ 메타데이터로부터 지표를 계산합니다. (Side별 차등 매칭)
+ * [UPDATE] 쓰레드 격리를 제거하고 파일의 선형적인 발생 순서대로만 매칭합니다.
  */
 export const computeMetricsFromMetadata = (
     data: LogMetadata[],
     metrics: AggregateMetrics,
-    pointMetrics: PointMetrics, // 신규 추가
+    pointMetrics: PointMetrics,
     state: {
         prevTimestamp: number | null;
         prevSignature: string;
         prevFileInfo: any;
-        lookbackWindowByTid?: Record<string, LogMetadata[]>; // TID별 윈도우 관리
-        lastSignifByTid?: Record<string, LogMetadata>; // TID별 마지막 로그 관리
+        lastSignif?: LogMetadata; // 파일 전체 기준 마지막 로그
+        lookbackWindow?: LogMetadata[]; // 파일 전체 기준 최근 윈도우
         aliasFirstMatch?: Record<string, LogMetadata>;
     },
     maxGap: number = 100,
     side: string = 'left'
 ): void => {
-    if (!state.lookbackWindowByTid) state.lookbackWindowByTid = {};
-    if (!state.lastSignifByTid) state.lastSignifByTid = {};
+    if (!state.lookbackWindow) state.lookbackWindow = [];
 
     for (let i = 0; i < data.length; i++) {
         const item = data[i];
 
-        // 1. 시그니처 생성 (파일명:함수(라인) 우선)
+        // 1. 시그니처 생성
         if (!item.signature) {
             if (isSignificant(item)) {
                 item.signature = `${item.fileName}::${item.functionName}`;
@@ -145,7 +145,6 @@ export const computeMetricsFromMetadata = (
                     item.signature += `(${item.codeLineNum})`;
                 }
             } else {
-                // 일반 로그는 기존 방식 유지
                 let slim = item.preview
                     .replace(RE_HEX, '0x#')
                     .replace(RE_DIGITS, '#')
@@ -155,9 +154,8 @@ export const computeMetricsFromMetadata = (
         }
 
         const currentSig = item.signature;
-        const tid = item.tid || 'default';
 
-        // [POINT METRICS] 단일 지점 지표 업데이트
+        // [POINT METRICS] 단일 지점 지표 업데이트 (NEW SIGNIFICANT LOGS용)
         if (isSignificant(item)) {
             if (!pointMetrics[currentSig]) {
                 pointMetrics[currentSig] = {
@@ -175,67 +173,54 @@ export const computeMetricsFromMetadata = (
             pm.count++;
             if (item.tid && !pm.tids.includes(item.tid)) pm.tids.push(item.tid);
 
-            // 내비게이션용 위치 정보 수집 (최대 10000개로 제한하여 메모리 보호)
             if (pm.visualIndices.length < 10000) {
                 pm.visualIndices.push(item.visualIndex);
                 pm.originalLineNums.push(item.lineNum);
             }
         }
 
-        if (!state.lookbackWindowByTid[tid]) state.lookbackWindowByTid[tid] = [];
-        const lookbackWindow = state.lookbackWindowByTid[tid];
-
-        // 2. 차등 매칭 로직 (TID별 격리)
+        // 2. 차등 매칭 로직 (글로벌 시퀀스 기준)
         if (isSignificant(item)) {
+            const lastSignif = state.lastSignif;
+
             if (side === 'left') {
-                // [Baseline] 같은 쓰레드의 연속된 로그만 페어링
-                const lastSignif = state.lastSignifByTid[tid];
+                // [Baseline] 왼쪽은 오직 직전의 Significant 로그와만 매칭 (형님 요구사항: "연속된 로그 2줄")
                 if (lastSignif) {
                     const key = `${lastSignif.signature} ➔ ${currentSig}`;
-                    addMetric(metrics, key, lastSignif, item);
+                    addMetric(metrics, key, lastSignif, item, true);
                 }
             } else {
-                // [Target] 같은 쓰레드의 최근 윈도우 내에서 매칭
-                const windowLen = lookbackWindow.length;
-                for (let j = 0; j < windowLen; j++) {
-                    const prevItem = lookbackWindow[j];
-                    const isDirect = (j === windowLen - 1);
-                    const key = `${prevItem.signature} ➔ ${currentSig}`;
-                    addMetric(metrics, key, prevItem, item, isDirect);
+                // [Target] 오른쪽은 윈도우 내에서 매칭 (일부 로그가 끼어들어도 흐름을 찾을 수 있게)
+                for (let j = 0; j < state.lookbackWindow.length; j++) {
+                    const prev = state.lookbackWindow[j];
+                    const isDirect = (j === state.lookbackWindow.length - 1);
+                    const key = `${prev.signature} ➔ ${currentSig}`;
+                    addMetric(metrics, key, prev, item, isDirect);
                 }
 
-                // 윈도우 관리 (TID별)
-                lookbackWindow.push(item);
-                if (lookbackWindow.length > 20) {
-                    lookbackWindow.shift();
-                }
+                // 윈도우 관리 (글로벌)
+                state.lookbackWindow.push(item);
+                if (state.lookbackWindow.length > 20) state.lookbackWindow.shift();
             }
 
-            // TID별 마지막 소스로 저장
-            state.lastSignifByTid[tid] = item;
+            // 글로벌 마지막 Significant 로그 업데이트
+            state.lastSignif = item;
         }
 
-        // 3. 🐧⚡ Happy Combo Alias 기반 세그먼트 (사용자 요구사항)
+        // 3. Happy Combo Alias 기반 세그먼트
         if (item.alias) {
             if (!state.aliasFirstMatch) state.aliasFirstMatch = {};
 
             const firstMatch = state.aliasFirstMatch[item.alias];
             if (!firstMatch) {
-                // 이 Alias의 첫 등장이면 저장만 함
                 state.aliasFirstMatch[item.alias] = item;
             } else {
-                // 이미 첫 등장이 있었다면, [First ➔ Current] 구간 생성
-                // Alias 세그먼트는 흐름 전체를 보므로 키에 [Alias] 접두어 추가
                 const key = `[Alias] ${item.alias}`;
-
-                // 메트릭 추가 (단, Alias 세그먼트는 count를 늘리는 게 아니라 최종 상태를 갱신하는 식)
-                // addMetric의 기존 로직을 최대한 활용하되, Alias 세그먼트임을 알림
                 addAliasMetric(metrics, key, firstMatch, item);
             }
         }
     }
 
-    // 상태 보관 (청크 간 연결을 위해)
     const last = data[data.length - 1];
     if (last) {
         state.prevTimestamp = last.timestamp;
@@ -258,20 +243,22 @@ function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, cu
 
     const existing = metrics[key];
     if (existing) {
-        // [SPAM ANALYSIS FIX] directCount는 진짜 연속 발생 시에만 증가
         if (isDirect) {
             existing.count++;
             existing.directCount = (existing.directCount || 0) + 1;
-            // 점프 지점은 가장 마지막(최신) 지점으로 계속 갱신하여 점프 위치의 최신성 보장
+        }
+
+        // Timeline 정렬 및 점프는 항상 "최초 발생 지점"을 우선시합니다.
+        if (existing.lineNum === undefined || existing.lineNum === 0) {
             existing.lineNum = current.visualIndex;
             existing.prevLineNum = prev.visualIndex;
             existing.originalLineNum = current.lineNum;
             existing.prevOriginalLineNum = prev.lineNum;
+        }
 
-            if (hasDelta) {
-                existing.totalDelta += delta;
-                existing.deltaSamples++;
-            }
+        if (hasDelta) {
+            existing.totalDelta += delta;
+            existing.deltaSamples++;
         }
         if (current.tid && !existing.tids.includes(current.tid)) {
             if (existing.tids.length < 50) existing.tids.push(current.tid);
@@ -280,8 +267,8 @@ function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, cu
         metrics[key] = {
             count: isDirect ? 1 : 0,
             directCount: isDirect ? 1 : 0,
-            totalDelta: (hasDelta && isDirect) ? delta : 0,
-            deltaSamples: (hasDelta && isDirect) ? 1 : 0,
+            totalDelta: hasDelta ? delta : 0,
+            deltaSamples: hasDelta ? 1 : 0,
             tids: current.tid ? [current.tid] : [],
             preview: current.preview,
             fileName: current.fileName,
@@ -314,13 +301,11 @@ function addAliasMetric(metrics: AggregateMetrics, key: string, first: LogMetada
         }
     }
 
-    // Alias 세그먼트는 "하나의 시퀀스"를 의미하므로 count를 1로 고정하고 
-    // delta는 가장 최신(첫 로그와 마지막 로그의 차이)으로 계속 덮어씀
     metrics[key] = {
         count: 1,
         totalDelta: hasDelta ? delta : 0,
         deltaSamples: hasDelta ? 1 : 0,
-        tids: [], // Alias 전역 분석이므로 TID는 생략하거나 핵심만
+        tids: [],
         preview: last.preview,
         fileName: last.fileName || `[Alias]`,
         functionName: last.functionName || last.alias || '',

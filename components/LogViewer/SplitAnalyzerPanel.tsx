@@ -33,22 +33,24 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
 
     const sortedResults = useMemo(() => {
         if (!results || !results.results) return [];
-        return [...results.results].sort((a, b) => (a.leftPrevLineNum || 0) - (b.leftPrevLineNum || 0));
+        return [...results.results]
+            .filter(r => r.leftAvgDelta > 0 && r.rightAvgDelta > 0)
+            .sort((a, b) => (a.leftPrevLineNum || 0) - (b.leftPrevLineNum || 0));
     }, [results]);
 
     const summaryData = useMemo(() => {
         if (!results) return null;
-        const intervalResults = results.results || [];
+        const intervalResults = (results.results || []).filter(r => r.leftAvgDelta > 0 && r.rightAvgDelta > 0);
         const pointResults = results.pointResults || [];
 
         const newErrors = intervalResults.filter(r => r.isNewError).length;
         const totalNodes = intervalResults.length;
-        const regressions = intervalResults.filter(r => r.deltaDiff > 10 && r.leftAvgDelta > 0 && r.rightAvgDelta > 0).length;
-        const improvements = intervalResults.filter(r => r.deltaDiff < -10 && r.leftAvgDelta > 0 && r.rightAvgDelta > 0).length;
+        const regressions = intervalResults.filter(r => r.deltaDiff > 10).length;
+        const improvements = intervalResults.filter(r => r.deltaDiff < -10).length;
         const spams = pointResults.length;
 
         const topChanges = [...intervalResults]
-            .filter(r => Math.abs(r.deltaDiff) > 1 && r.leftAvgDelta > 0 && r.rightAvgDelta > 0 && Math.abs(r.countDiff) < 100)
+            .filter(r => Math.abs(r.deltaDiff) > 1 && Math.abs(r.countDiff) < 100)
             .sort((a, b) => Math.abs(b.deltaDiff) - Math.abs(a.deltaDiff))
             .slice(0, 100);
 
