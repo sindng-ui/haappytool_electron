@@ -64,6 +64,7 @@ export interface AggregateMetrics {
         prevFunctionName?: string;
         isError: boolean;
         isWarn: boolean;
+        lineNum: number; // ✅ NEW: 패턴이 처음 발견된 라인 번호
     };
 }
 
@@ -132,7 +133,8 @@ export const computeMetricsFromMetadata = (
                 prevFileName: prevFileInfo.fileName,
                 prevFunctionName: prevFileInfo.functionName,
                 isError: item.isError,
-                isWarn: item.isWarn
+                isWarn: item.isWarn,
+                lineNum: item.lineNum // ✅ 저장!
             };
         }
 

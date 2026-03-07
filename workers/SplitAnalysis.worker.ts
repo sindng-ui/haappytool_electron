@@ -25,6 +25,9 @@ export interface SplitAnalysisResult {
 
     leftUniqueTids: number;
     rightUniqueTids: number;
+
+    leftLineNum: number;   // ✅ NEW
+    rightLineNum: number;  // ✅ NEW
 }
 
 export interface SplitAnalysisRequest {
@@ -84,7 +87,10 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
             prevPreview: right?.prevPreview || left?.prevPreview || '',
 
             leftUniqueTids: left?.tids.length || 0,
-            rightUniqueTids: right?.tids.length || 0
+            rightUniqueTids: right?.tids.length || 0,
+
+            leftLineNum: left?.lineNum || 0,
+            rightLineNum: right?.lineNum || 0
         });
     }
 

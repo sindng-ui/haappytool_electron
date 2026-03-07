@@ -52,12 +52,12 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
         const topRegressions = [...results]
             .filter(r => r.deltaDiff > 0)
             .sort((a, b) => b.deltaDiff - a.deltaDiff)
-            .slice(0, 3);
+            .slice(0, 100); // 펭-맥스 확장!
 
         const topSpams = [...results]
             .filter(r => r.countDiff > 0)
             .sort((a, b) => b.countDiff - a.countDiff)
-            .slice(0, 3);
+            .slice(0, 100);
 
         return { newErrors, totalNodes, regressions, spams, topRegressions, topSpams };
     }, [results]);
@@ -75,6 +75,13 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
             setSortKey(key);
             setSortDesc(true);
         }
+    };
+
+    const handleItemClick = (res: SplitAnalysisResult) => {
+        if (!onJumpToLine) return;
+        // 좌/우 로그가 모두 존재하면 각각의 위치로 이동
+        if (res.leftLineNum > 0) onJumpToLine('left', res.leftLineNum);
+        if (res.rightLineNum > 0) onJumpToLine('right', res.rightLineNum);
     };
 
     return (
@@ -207,19 +214,30 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                 <div className="bg-slate-900/30 rounded-xl border border-slate-800/80 overflow-hidden flex flex-col">
                                     <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-800 flex items-center gap-2">
                                         <TrendingUp size={14} className="text-orange-500" />
-                                        <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Top Performance Regressions</h4>
+                                        <div className="flex items-center justify-between flex-1">
+                                            <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Top Performance Regressions</h4>
+                                            <span className="text-[9px] text-slate-500 font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">CLICK TO JUMP</span>
+                                        </div>
                                     </div>
                                     <div className="flex-1 p-2 flex flex-col gap-2">
                                         {summaryData.topRegressions.length > 0 ? summaryData.topRegressions.map((res, i) => (
-                                            <div key={i} className="flex flex-col bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 hover:border-orange-500/30 transition-all cursor-default group">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-[11px] font-bold text-slate-200 truncate pr-4">{res.functionName || res.preview.substring(0, 40)}</span>
-                                                    <span className="text-[11px] font-black text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded">+{formatDelta(res.deltaDiff)}</span>
+                                            <div
+                                                key={i}
+                                                onClick={() => handleItemClick(res)}
+                                                className="flex flex-col bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 hover:border-orange-500/50 hover:bg-orange-500/5 transition-all cursor-pointer group"
+                                            >
+                                                <div className="flex items-center gap-2 mb-2 min-w-0">
+                                                    <span className="text-[10px] font-black text-slate-500 truncate shrink-0">{res.prevFunctionName || res.prevPreview.substring(0, 15) || 'START'}</span>
+                                                    <ArrowRight size={10} className="text-slate-700 shrink-0" />
+                                                    <span className="text-[11px] font-black text-slate-100 truncate">{res.functionName || res.preview.substring(0, 40)}</span>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
-                                                    <span>{formatDelta(res.leftAvgDelta)}</span>
-                                                    <ArrowRight size={10} />
-                                                    <span className="text-slate-300 font-bold">{formatDelta(res.rightAvgDelta)}</span>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500">
+                                                        <span>{formatDelta(res.leftAvgDelta)}</span>
+                                                        <ArrowRight size={10} />
+                                                        <span className="text-slate-300 font-bold">{formatDelta(res.rightAvgDelta)}</span>
+                                                    </div>
+                                                    <span className="text-[11px] font-black text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded shadow-sm border border-orange-500/20">+{formatDelta(res.deltaDiff)}</span>
                                                 </div>
                                             </div>
                                         )) : (
@@ -232,14 +250,21 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                 <div className="bg-slate-900/30 rounded-xl border border-slate-800/80 overflow-hidden flex flex-col">
                                     <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-800 flex items-center gap-2">
                                         <Activity size={14} className="text-blue-400" />
-                                        <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Top Frequency Increases (Spam)</h4>
+                                        <div className="flex items-center justify-between flex-1">
+                                            <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Top Frequency Increases (Spam)</h4>
+                                            <span className="text-[9px] text-slate-500 font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">CLICK TO JUMP</span>
+                                        </div>
                                     </div>
                                     <div className="flex-1 p-2 flex flex-col gap-2">
                                         {summaryData.topSpams.length > 0 ? summaryData.topSpams.map((res, i) => (
-                                            <div key={i} className="flex flex-col bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 hover:border-blue-500/30 transition-all cursor-default">
+                                            <div
+                                                key={i}
+                                                onClick={() => handleItemClick(res)}
+                                                className="flex flex-col bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all cursor-pointer group"
+                                            >
                                                 <div className="flex items-center justify-between mb-2">
                                                     <span className="text-[11px] font-bold text-slate-200 truncate pr-4">{res.functionName || res.preview.substring(0, 40)}</span>
-                                                    <span className="text-[11px] font-black text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">+{res.countDiff} calls</span>
+                                                    <span className="text-[11px] font-black text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded shadow-sm border border-blue-500/20">+{res.countDiff} calls</span>
                                                 </div>
                                                 <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
                                                     <span>{res.leftCount} logs</span>
@@ -297,7 +322,11 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                             const isLess = res.countDiff < 0;
 
                                             return (
-                                                <div key={i} className="grid grid-cols-12 gap-2 px-4 py-3 hover:bg-slate-900/60 transition-all items-center text-sm group">
+                                                <div
+                                                    key={i}
+                                                    onClick={() => handleItemClick(res)}
+                                                    className="grid grid-cols-12 gap-2 px-4 py-3 hover:bg-slate-900 transition-all items-center text-sm group cursor-pointer"
+                                                >
                                                     <div className="col-span-1 flex justify-center">
                                                         {res.isNewError ? (
                                                             <div title="New Error!" className="w-6 h-6 rounded-md bg-rose-500/20 text-rose-500 flex items-center justify-center shadow-[0_0_10px_rgba(244,63,94,0.3)] border border-rose-500/30">

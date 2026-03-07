@@ -26,6 +26,9 @@ export interface SplitAnalysisResult {
 
     leftUniqueTids: number;
     rightUniqueTids: number;
+
+    leftLineNum: number;
+    rightLineNum: number;
 }
 
 export const useSplitAnalysis = (
