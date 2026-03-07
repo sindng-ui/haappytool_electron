@@ -80,8 +80,9 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
 
         // 우측 구간 점프
         if (res.rightLineNum > 0) {
-            const start = forceSingle ? res.rightLineNum : Math.min(res.rightLineNum, res.rightPrevLineNum);
-            const end = res.rightLineNum;
+            // 🐧🎯 점프 지점 결정: 신규 에러나 스팸은 사용자가 인지하는 시작점(rightPrevLineNum)을 우선 시도
+            const start = isSinglePoint ? (res.rightPrevLineNum || res.rightLineNum) : Math.min(res.rightLineNum, res.rightPrevLineNum);
+            const end = isSinglePoint ? start : res.rightLineNum;
             onJumpToRange('right', start, end);
         }
     };
@@ -260,7 +261,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                                 <span className="text-[9px] font-mono text-slate-400 truncate max-w-[200px]">
                                                                     {res.prevFileName ? res.prevFileName : 'START'}
                                                                     <span className="text-[9px] text-blue-400/60 ml-1 font-mono">
-                                                                        ({res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum})
+                                                                        ({(res.rightPrevCodeLineNum || res.rightPrevOrigLineNum || res.rightPrevLineNum) || (res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum)})
                                                                     </span>
                                                                 </span>
                                                             </div>
@@ -284,7 +285,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                                             <span className="text-[10px] font-black text-white truncate">
                                                                                 {res.functionName || res.preview.substring(0, 30)}
                                                                                 <span className={`text-[9px] text-${themeColor}-400/60 ml-1 font-mono`}>
-                                                                                    ({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})
+                                                                                    ({(res.rightCodeLineNum || res.rightOrigLineNum || res.rightLineNum) || (res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum)})
                                                                                 </span>
                                                                             </span>
                                                                         </div>
@@ -320,9 +321,10 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                     </div>
                                                 </div>
                                             );
-                                        }) : (
-                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">No significant changes found.</div>
-                                        )}
+                                        })
+                                            : (
+                                                <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">No significant changes found.</div>
+                                            )}
                                     </div>
                                 </div>
 
@@ -354,7 +356,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                     <div className="flex-1 flex flex-col gap-0.5 p-1 relative">
                                                         <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/5 border border-blue-500/10 opacity-70">
                                                             <span className="text-[9px] font-mono text-slate-500 truncate">
-                                                                {res.prevFileName ? `${res.prevFileName}:${res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum}` : 'START'}
+                                                                {res.prevFileName ? `${res.prevFileName}:${(res.rightPrevCodeLineNum || res.rightPrevOrigLineNum || res.rightPrevLineNum) || (res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum)}` : 'START'}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/30">
@@ -362,7 +364,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                                 {res.functionName || res.preview.substring(0, 40)}
                                                             </span>
                                                             <span className="text-[9px] text-blue-500/60 font-mono">
-                                                                ({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})
+                                                                ({(res.rightCodeLineNum || res.rightOrigLineNum || res.rightLineNum) || (res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum)})
                                                             </span>
                                                         </div>
                                                     </div>
@@ -386,9 +388,10 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                     </div>
                                                 </div>
                                             );
-                                        }) : (
-                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">Frequency is stable.</div>
-                                        )}
+                                        })
+                                            : (
+                                                <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">Frequency is stable.</div>
+                                            )}
                                     </div>
                                 </div>
                             </div>
