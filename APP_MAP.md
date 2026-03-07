@@ -76,6 +76,7 @@
   - `GET_LINES`: `{ startLine, count }` -> 필터링된 결과에서 지정된 오프셋의 로그 반환 (SAB 및 RPC 지원)
   - `BUFFER_SHARED`: `{ logBuffer, lineOffsets, ... }` -> UI에 공유 메모리 주소 전달 (Zero-copy 시작 알림)
   - `FILTER_LOGS`: `{ happyGroups, excludes, quickFilter, ... }` -> 필터 룰 적용
+  - **성능 분석 고도화**: 로그 내부의 함수 호출 라인 번호(예: `OnResume(350)`)를 정규식으로 정밀 추출(`codeLineNum`)하여 분석 리포트의 정확도를 비약적으로 향상시켰습니다. [NEW] 🐧📊🎯
 - **Data Flow**: `fs.read (Main)` -> `UI RPC` -> `Worker(Binary Logging)` -> `Shared Log Buffer/Offsets` -> `WASM/SubWorker(Filtering)` -> `Shared filterIndices` -> `UI (Zero-copy Reading)` -> `HyperLogRenderer`
 
 ### [[Headless CLI Engine]]
@@ -106,6 +107,7 @@
   - `Scroll`: 가상 스크롤을 통한 세그먼트 단위 로딩 (`onScrollRequest`)
   - `Ctrl+F`: 검색 바 활성화
   - `Double Click`: 북마크 토글
+  - **스플릿 뷰 렌더링 최적화**: 뷰포트 너비가 크게 변할 때(스플릿 모드 진입 등) 가로 스크롤을 자동으로 0으로 리셋하여 왼쪽 패널의 타임스탬프/로그레벨이 가려지는 현상을 완벽히 해결했습니다. [FIX] 🐧🛠️✨
 
 ### [[Mission Manager]]
 - **ID**: `ui-mission-manager`

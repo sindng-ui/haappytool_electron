@@ -1,34 +1,41 @@
-# [분석 요약 고도화] 구간 표시 및 점프 기능 도입
+# 분석 리포트 UI 고도화 및 렌더링 이슈 수정 🐧🎨🚀✨
+
+형님! 분석 리포트의 라인 번호를 더 직관적으로(로그 본문 내 번호로) 바꾸고, 스플릿 뷰의 렌더링 이슈를 해결하겠습니다! 🐧🛠️✨
 
 ## Proposed Changes
 
-### Data Model Enhancement
+### [Backend/Worker] Metadata Extraction & Data Piping 🐧🛠️⚡
+분석 시 로그 본문 내의 라인 번호(예: `(350)`)를 추출하여 UI까지 전달합니다.
+
+#### [MODIFY] [perfAnalysis.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/utils/perfAnalysis.ts)
+- `extractSourceMetadata` 함수에서 정규표현식을 사용하여 `FunctionName(350)` 형태에서 `350`을 추출하는 로직을 추가합니다. (이미 완료 🐧🎯)
+
+#### [MODIFY] [workerAnalysisHandlers.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/workerAnalysisHandlers.ts)
+- `extractAllMetadata` 및 `extractAnalysisMetrics`에서 추출된 `codeLineNum`을 `LogMetadata`에 담아 전달합니다.
 
 #### [MODIFY] [SplitAnalysisUtils.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/SplitAnalysisUtils.ts)
-- `AggregateMetrics` 인터페이스에 `lineNum: number` 필드 추가.
-- `computeMetricsFromMetadata`에서 패턴별 첫 번째 라인 번호를 저장하도록 수정.
+- `LogMetadata`에서 `codeLineNum`을 받아 `AggregateMetrics`에 저장하도록 수정합니다. (현재/이전 라인 모두 저장)
 
-#### [MODIFY] [SplitAnalysis.worker.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/SplitAnalysis.worker.ts) & [useSplitAnalysis.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/hooks/useSplitAnalysis.ts)
-- `SplitAnalysisResult` 인터페이스에 `leftLineNum`, `rightLineNum` 필드 추가.
-- 비교 로직에서 각 사이드의 라인 번호를 결과에 포함.
+#### [MODIFY] [SplitAnalysis.worker.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/SplitAnalysis.worker.ts)
+- 최종 결과 객체(`SplitAnalysisResult`)에 `leftCodeLineNum`, `rightCodeLineNum` 등의 필드를 추가하여 UI로 넘깁니다.
 
-### UI Enhancement
+---
+
+### [Frontend] UI Rendering & Fixes 🐧🎨🚀
+리포트 카드에 내부 라인 번호를 표시하고, 렌더링 누락 문제를 해결합니다.
 
 #### [MODIFY] [SplitAnalyzerPanel.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/SplitAnalyzerPanel.tsx)
-- **표시 개수 확장**: `topRegressions` 추출 개수를 3개에서 100개로 변경.
-- **구간 형태 표시**: `Top Performance Regressions` 항목의 제목을 `이전 시그니처 ➔ 현재 시그니처` 형태로 표시.
-- **로그 점프 기능**: 요약 항목 클릭 시 `onJumpToLine`을 호출하여 좌/우측 로그 뷰어의 해당 라인으로 이동.
+- Regression 카드 상단에 파일 라인 번호 대신 `codeLineNum`을 우선적으로 표시합니다.
+
+#### [MODIFY] [HyperLogRenderer.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/HyperLogRenderer.tsx)
+- 왼쪽 스플릿에서 시간/레벨 정보가 누락되는 현상을 분석하고, 렌더링 시 텍스트가 잘리거나 누락되지 않도록 수정합니다. (X offset 및 문자열 디코딩 로직 점검)
 
 ## Verification Plan
 
-### Manual Verification
-- 요약 탭에서 'Top Regressions' 항목들이 `A ➔ B` 형태로 잘 나오는지 확인.
-- 100개까지 목록이 확장되어 표시되는지 확인.
-- 항목 클릭 시 좌/우 로그 뷰어에서 해당 라인이 하이라이트 되며 포커싱되는지 확인 🐧⚡.
-
-## Verification Plan
+### Automated Tests
+- 로그 파싱 Regex 테스트 (Unit Test)
 
 ### Manual Verification
-1. `Analyze Diff` 버튼이 `Single|Split` 버튼의 왼쪽에 위치하는지 확인합니다.
-2. 분석 시작/완료 시 버튼 텍스트가 바뀌어도 버튼 자체의 크기나 주변 요소들의 위치가 변하지 않는지 확인합니다.
-3. 시각적으로 레이아웃이 안정적이고 "느낌이 사는지" 확인합니다. 🐧✨
+- `test_startup.log`와 `test_startup_2.log`를 열고 `Analyze Diff`를 실행합니다.
+- 리포트 카드의 라인 번호가 `SmartThingsApp.cs:350` 처럼 로그 내부 번호로 나오는지 확인합니다.
+- 왼쪽 스플릿 뷰에서도 시간과 로그 레벨이 정상적으로 표시되는지 확인합니다. 🐧✨

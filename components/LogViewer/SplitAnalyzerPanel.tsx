@@ -235,20 +235,64 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                             <div
                                                 key={i}
                                                 onClick={() => handleItemClick(res)}
-                                                className="flex flex-col bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 hover:border-orange-500/50 hover:bg-orange-500/5 transition-all cursor-pointer group"
+                                                className="flex flex-col bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/50 hover:border-orange-500/50 hover:bg-orange-500/5 transition-all cursor-pointer group"
                                             >
-                                                <div className="flex items-center gap-2 mb-2 min-w-0">
-                                                    <span className="text-[10px] font-black text-slate-500 truncate shrink-0">{res.prevFunctionName || res.prevPreview.substring(0, 15) || 'START'}</span>
-                                                    <ArrowRight size={10} className="text-slate-700 shrink-0" />
-                                                    <span className="text-[11px] font-black text-slate-100 truncate">{res.functionName || res.preview.substring(0, 40)}</span>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500">
-                                                        <span>{formatDelta(res.leftAvgDelta)}</span>
-                                                        <ArrowRight size={10} />
-                                                        <span className="text-slate-300 font-bold">{formatDelta(res.rightAvgDelta)}</span>
+                                                {/* 🐧⚡ 가로형 타임라인 구간 표시 (Compact Horizontal Timeline) */}
+                                                <div className="flex items-center justify-center gap-3 mb-2.5 px-1">
+                                                    {/* 시작점 (Start Node) */}
+                                                    <div className="flex flex-col items-center min-w-0 flex-1">
+                                                        <span className="text-[9px] font-mono text-slate-500 truncate w-full text-center opacity-70 mb-0.5">
+                                                            {res.prevFileName ? `${res.prevFileName}:${res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum}` : 'START'}
+                                                        </span>
+                                                        <div className="flex items-center gap-2 w-full justify-center">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-600 shrink-0"></div>
+                                                            <span className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]">
+                                                                {res.prevFunctionName || '...'}
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                    <span className="text-[11px] font-black text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded shadow-sm border border-orange-500/20">+{formatDelta(res.deltaDiff)}</span>
+
+                                                    {/* 중간 화살표 (Flow Arrow) */}
+                                                    <div className="flex flex-col items-center justify-center shrink-0 opacity-40">
+                                                        <ArrowRight size={14} className="text-orange-500 mb-[-2px]" />
+                                                        <span className="text-[7px] font-black text-slate-700 uppercase tracking-tighter">Flow</span>
+                                                    </div>
+
+                                                    {/* 끝점 (End Node) - 강조 */}
+                                                    <div className="flex flex-col items-center min-w-0 flex-1">
+                                                        <span className="text-[9px] font-mono text-orange-400/70 truncate w-full text-center mb-0.5">
+                                                            {res.fileName ? `${res.fileName}:${res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum}` : 'Unknown'}
+                                                        </span>
+                                                        <div className="flex items-center gap-2 w-full justify-center">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_5px_rgba(249,115,22,0.6)] shrink-0"></div>
+                                                            <span className="text-[11px] font-black text-slate-100 truncate max-w-[140px]">
+                                                                {res.functionName || res.preview.substring(0, 30)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="h-px bg-slate-800/40 w-[95%] mx-auto mb-2.5"></div>
+
+                                                {/* 🐧⚡ 하단 비교 영역 (Comparison) */}
+                                                <div className="flex items-center justify-between px-1">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[7px] font-black text-slate-600 uppercase tracking-tighter">Left</span>
+                                                            <span className="text-[10px] font-mono text-slate-400">{formatDelta(res.leftAvgDelta)}</span>
+                                                        </div>
+                                                        <div className="text-slate-800 font-black text-[9px] mt-2">VS</div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter">Right</span>
+                                                            <span className="text-[10px] font-mono text-white font-bold">{formatDelta(res.rightAvgDelta)}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="text-[7px] font-black text-orange-500/50 uppercase tracking-tighter mb-0.5">Regression</span>
+                                                        <span className="text-[11px] font-black text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded shadow-sm border border-orange-500/20">
+                                                            +{formatDelta(res.deltaDiff)}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         )) : (
@@ -356,32 +400,30 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                         )}
                                                     </div>
 
-                                                    <div className="col-span-5 flex items-center min-w-0 pr-4 gap-3">
-                                                        <div className="flex flex-col min-w-0 flex-1 py-1">
-                                                            {res.prevFileName ? (
-                                                                <>
-                                                                    <span className="text-slate-500 truncate font-mono text-[9px] uppercase tracking-tighter w-full text-left">{res.prevFileName}</span>
-                                                                    <span className="text-slate-400 truncate font-mono text-[10px] w-full text-left">{res.prevFunctionName || res.prevPreview.substring(0, 30)}</span>
-                                                                </>
-                                                            ) : <span className="text-slate-600 text-[10px] font-black tracking-widest uppercase">START</span>}
+                                                    <div className="col-span-12 flex flex-col gap-1 mb-2 px-1">
+                                                        <div className="flex items-center gap-1.5 opacity-50">
+                                                            <span className="text-[9px] font-mono text-slate-500">FROM:</span>
+                                                            <span className="text-[9px] font-mono text-slate-400 truncate max-w-[300px]">
+                                                                {res.prevFileName ? `${res.prevFileName}:${res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum} (${res.prevFunctionName || '...'})` : 'START'}
+                                                            </span>
                                                         </div>
-
-                                                        <ArrowRight className="w-3 h-3 text-blue-500/40 shrink-0" />
-
-                                                        <div className="flex flex-col min-w-0 flex-1 py-1">
-                                                            {res.fileName ? (
-                                                                <>
-                                                                    <span className="font-black text-blue-400 truncate font-mono text-[10px] uppercase w-full text-left">{res.fileName}</span>
-                                                                    <span className="text-slate-200 truncate font-mono text-[11px] mt-0.5 w-full text-left font-semibold">{res.functionName || res.preview.substring(0, 30)}</span>
-                                                                </>
-                                                            ) : <span className="text-slate-300 font-mono text-xs truncate w-full text-left">{res.preview.substring(0, 50)}</span>}
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="text-[9px] font-black text-blue-500/80">TO:</span>
+                                                            <span className="text-[10px] font-black text-blue-400 truncate max-w-[300px]">
+                                                                {res.fileName ? `${res.fileName}:${res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum}` : 'Unknown'}
+                                                            </span>
+                                                            <span className="text-[10px] text-slate-300 font-mono truncate bg-white/5 px-1 rounded">
+                                                                {res.functionName || res.preview.substring(0, 40)}
+                                                            </span>
                                                         </div>
                                                     </div>
+
+                                                    <div className="col-span-6 h-px"></div> {/* Spacer for alignment */}
 
                                                     <div className="col-span-3 flex flex-col items-center justify-center border-l border-slate-800/50">
                                                         <div className="flex items-center gap-2 font-mono text-[11px]">
                                                             <span className="text-slate-500">{res.leftCount}</span>
-                                                            <ArrowRight className="w-2 h-2 text-slate-700" />
+                                                            <span className="text-slate-700 text-[9px]">→</span>
                                                             <span className="text-slate-300">{res.rightCount}</span>
                                                         </div>
                                                         <div className={`text-[10px] font-black mt-1.5 px-2 py-0.5 rounded flex items-center gap-1 ${isMore ? 'text-rose-400 bg-rose-400/10' : isLess ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 bg-slate-800/30'}`}>
@@ -394,7 +436,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                     <div className="col-span-3 flex flex-col items-center justify-center border-l border-slate-800/50">
                                                         <div className="flex items-center gap-2 font-mono text-[11px]">
                                                             <span className="text-slate-500">{formatDelta(res.leftAvgDelta)}</span>
-                                                            <ArrowRight className="w-2 h-2 text-slate-700" />
+                                                            <span className="text-slate-700 text-[9px]">→</span>
                                                             <span className="text-slate-300">{formatDelta(res.rightAvgDelta)}</span>
                                                         </div>
                                                         <div className={`text-[10px] font-black mt-1.5 px-2 py-0.5 rounded flex items-center gap-1 ${isSlower ? 'text-orange-400 bg-orange-400/10' : isFaster ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 bg-slate-800/30'}`}>

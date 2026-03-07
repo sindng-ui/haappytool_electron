@@ -235,4 +235,5 @@ export interface LogMetadata {
   isError: boolean;
   isWarn: boolean;
   preview: string;
+  codeLineNum?: string | null; // ✅ NEW: 로그 본문 내의 라인 번호 (예: OnResume(350) -> 350)
 }

@@ -26,10 +26,20 @@ export interface SplitAnalysisResult {
     leftUniqueTids: number;
     rightUniqueTids: number;
 
-    leftLineNum: number;   // ✅ NEW
-    rightLineNum: number;  // ✅ NEW
-    leftPrevLineNum: number;  // ✅ NEW
-    rightPrevLineNum: number; // ✅ NEW
+    leftLineNum: number;   // visualIndex
+    rightLineNum: number;  // visualIndex
+    leftPrevLineNum: number;
+    rightPrevLineNum: number;
+
+    leftOrigLineNum: number;  // ✅ original line num
+    rightOrigLineNum: number; // ✅ original line num
+    leftPrevOrigLineNum: number;
+    rightPrevOrigLineNum: number;
+
+    leftCodeLineNum?: string | null;      // ✅ NEW: 로그 내부 코드 라인 번호
+    rightCodeLineNum?: string | null;     // ✅ NEW: 로그 내부 코드 라인 번호
+    leftPrevCodeLineNum?: string | null;  // ✅ NEW
+    rightPrevCodeLineNum?: string | null; // ✅ NEW
 }
 
 export interface SplitAnalysisRequest {
@@ -94,7 +104,17 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
             leftLineNum: left?.lineNum || 0,
             rightLineNum: right?.lineNum || 0,
             leftPrevLineNum: left?.prevLineNum || 0,
-            rightPrevLineNum: right?.prevLineNum || 0
+            rightPrevLineNum: right?.prevLineNum || 0,
+
+            leftOrigLineNum: left?.originalLineNum || 0,
+            rightOrigLineNum: right?.originalLineNum || 0,
+            leftPrevOrigLineNum: left?.prevOriginalLineNum || 0,
+            rightPrevOrigLineNum: right?.prevOriginalLineNum || 0,
+
+            leftCodeLineNum: left?.codeLineNum,
+            rightCodeLineNum: right?.codeLineNum,
+            leftPrevCodeLineNum: left?.prevCodeLineNum,
+            rightPrevCodeLineNum: right?.prevCodeLineNum
         });
     }
 

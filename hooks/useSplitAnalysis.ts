@@ -31,6 +31,15 @@ export interface SplitAnalysisResult {
     rightLineNum: number;
     leftPrevLineNum: number;
     rightPrevLineNum: number;
+    leftOrigLineNum: number;
+    rightOrigLineNum: number;
+    leftPrevOrigLineNum: number;
+    rightPrevOrigLineNum: number;
+
+    leftCodeLineNum?: string | null;      // ✅ NEW: 로그 내부 코드 라인 번호
+    rightCodeLineNum?: string | null;     // ✅ NEW: 로그 내부 코드 라인 번호
+    leftPrevCodeLineNum?: string | null;  // ✅ NEW
+    rightPrevCodeLineNum?: string | null; // ✅ NEW
 }
 
 export const useSplitAnalysis = (

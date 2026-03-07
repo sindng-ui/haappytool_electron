@@ -1,10 +1,10 @@
 import { LogMetadata, LogRule } from '../types';
 import { extractTimestamp } from '../utils/logTime';
+import { extractSourceMetadata } from '../utils/perfAnalysis';
 
 // 🐧⚡ 정규표현식 재사용을 위한 상수 선언
 const RE_TID_1 = /\(P\s*\d+,\s*T\s*(\d+)\)/;
 const RE_TID_2 = /\[\s*(\d+):/;
-const RE_FILE_FUNC = /([a-zA-Z0-9_]+\.(?:cs|cpp|h|java|kt|ts|js))[:\s]*(\w+)?/i;
 const RE_NON_ALPHANUM = /[^a-zA-Z\uAC00-\uD7A3]/g;
 const RE_DIGITS = /[\d]/g;
 const RE_ERROR_LVL = /error|fail|critical/i;
@@ -25,21 +25,16 @@ export const extractSingleMetadata = (
     const tidMatch = text.match(RE_TID_1) || text.match(RE_TID_2);
     const tid = tidMatch ? tidMatch[1] : null;
 
-    // 파일/함수명 추출
-    let fileName = '';
-    let functionName = '';
-    const fileMatch = text.match(RE_FILE_FUNC);
-    if (fileMatch) {
-        fileName = fileMatch[1];
-        functionName = fileMatch[2] || '';
-    }
+    // 파일/함수/라인명 추출
+    const { fileName, functionName, codeLineNum } = extractSourceMetadata(text);
 
     const isError = RE_ERROR_LVL.test(text);
     const isWarn = RE_WARN_LVL.test(text);
 
     return {
-        fileName,
-        functionName,
+        fileName: fileName || '',
+        functionName: functionName || '',
+        codeLineNum,
         timestamp,
         tid,
         lineNum: originalIdx + 1,
@@ -64,8 +59,12 @@ export interface AggregateMetrics {
         prevFunctionName?: string;
         isError: boolean;
         isWarn: boolean;
-        lineNum: number;
-        prevLineNum: number; // ✅ NEW: 이전 패턴의 라인 번호
+        lineNum: number;      // visualIndex (for jump)
+        prevLineNum: number;  // visualIndex (for jump)
+        originalLineNum: number;     // ✅ 디스플레이용 원본 라인 번호
+        prevOriginalLineNum: number; // ✅ 디스플레이용 원본 라인 번호
+        codeLineNum?: string | null;     // ✅ NEW: 로그 내부 코드 라인 번호 (예: 350)
+        prevCodeLineNum?: string | null; // ✅ NEW: 로그 내부 코드 라인 번호
     };
 }
 
@@ -135,8 +134,12 @@ export const computeMetricsFromMetadata = (
                 prevFunctionName: prevFileInfo.functionName,
                 isError: item.isError,
                 isWarn: item.isWarn,
-                lineNum: item.visualIndex, // ✅ 점프를 위해 visualIndex 저장
-                prevLineNum: prevFileInfo.lineNum !== undefined ? prevFileInfo.lineNum : item.visualIndex
+                lineNum: item.visualIndex,
+                prevLineNum: prevFileInfo.lineNum !== undefined ? prevFileInfo.lineNum : item.visualIndex,
+                originalLineNum: item.lineNum,
+                prevOriginalLineNum: prevFileInfo.originalLineNum !== undefined ? prevFileInfo.originalLineNum : item.lineNum,
+                codeLineNum: item.codeLineNum,
+                prevCodeLineNum: prevFileInfo.codeLineNum
             };
         }
 
@@ -144,8 +147,10 @@ export const computeMetricsFromMetadata = (
         prevFileInfo = {
             fileName: item.fileName || '',
             functionName: item.functionName || '',
+            codeLineNum: item.codeLineNum,
             preview: item.preview || '',
-            lineNum: item.visualIndex // ✅ visualIndex 추적
+            lineNum: item.visualIndex,
+            originalLineNum: item.lineNum // ✅ 원본 번호 추적
         };
     }
 

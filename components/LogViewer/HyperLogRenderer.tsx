@@ -145,6 +145,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     const [stableScrollLeft, setStableScrollLeft] = useState(0);
     const [stableScrollWidth, setStableScrollWidth] = useState(0); // ✅ NEW: Dynamic Width
     const [viewportHeight, setViewportHeight] = useState(0);
+    const [viewportWidth, setViewportWidth] = useState(0); // ✅ NEW: 너비 추적
     const [hoveredIndex, setHoveredIndex] = useState<number>(-1); // ✅ NEW: Hover Tracking
     const [cachedLines, setCachedLines] = useState<Map<number, CachedLine>>(new Map());
     const pendingIndices = useRef<Set<number>>(new Set());
@@ -721,6 +722,18 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         const observer = new ResizeObserver(entries => {
             for (const entry of entries) {
                 const { width, height } = entry.contentRect;
+
+                setViewportWidth(prev => {
+                    // 🐧⚡ 형님, 너비가 크게 변하면(특히 스플릿 모드 진입 시) 가로 스크롤을 0으로 리셋합니다!
+                    if (Math.abs(prev - width) > 50) {
+                        if (scrollContainerRef.current) {
+                            scrollContainerRef.current.scrollLeft = 0;
+                            scrollLeftRef.current = 0;
+                            setStableScrollLeft(0);
+                        }
+                    }
+                    return width;
+                });
 
                 const applyResize = () => {
                     const dpr = window.devicePixelRatio || 1;

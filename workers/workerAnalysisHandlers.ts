@@ -538,7 +538,7 @@ export const extractAllMetadata = async (
     }
 
     const processLine = (text: string, originalIdx: number, visualIdx: number) => {
-        const { fileName, functionName } = extractSourceMetadata(text);
+        const { fileName, functionName, codeLineNum } = extractSourceMetadata(text);
         const timestamp = extractTimestamp(text);
         const { tid } = extractLogIds(text);
 
@@ -550,6 +550,7 @@ export const extractAllMetadata = async (
         results.push({
             fileName: fileName || '',
             functionName: functionName || '',
+            codeLineNum, // ✅ NEW: 추출된 코드 라인 번호 저장
             timestamp,
             tid,
             lineNum: originalIdx + 1,

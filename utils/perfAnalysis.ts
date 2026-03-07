@@ -110,17 +110,16 @@ export const extractLogIds = (line: string): { pid: string | null, tid: string |
 const EXT_SET = new Set(['cs', 'cpp', 'h', 'java', 'kt', 'js', 'ts', 'tsx', 'py', 'c', 'cc', 'hpp', 'm', 'mm']);
 
 /**
- * Extracts source metadata (filename, function name) from a log line.
+ * Extracts source metadata (filename, function name, and code line number) from a log line.
  * Standard format: FileName.ext: FunctionName(Line)>
- * ✅ [HYPER-OPTIMIZED V2] Accurate multi-colon scan without Regex 🐧🚀
+ * ✅ [HYPER-OPTIMIZED V2] Accurate multi-colon scan without Regex + Regex for line number 🐧🚀
  */
-export const extractSourceMetadata = (line: string): { fileName: string | null, functionName: string | null } => {
+export const extractSourceMetadata = (line: string): { fileName: string | null, functionName: string | null, codeLineNum?: string | null } => {
     // 1. Find the essential marker '>' indicating the end of the metadata block
     const markerIndex = line.indexOf('>', 0);
-    if (markerIndex === -1 || markerIndex > 300) return { fileName: null, functionName: null };
+    if (markerIndex === -1 || markerIndex > 300) return { fileName: null, functionName: null, codeLineNum: null };
 
     // 2. Scan for the divider colon from left to right.
-    // The correct divider follows a filename with a known extension.
     let searchPos = 0;
     while (searchPos < markerIndex) {
         const colonIndex = line.indexOf(':', searchPos);
@@ -145,8 +144,17 @@ export const extractSourceMetadata = (line: string): { fileName: string | null, 
                 if (EXT_SET.has(ext)) {
                     // 🎉 Found the primary colon!
                     const fileName = rawFile;
-                    const functionName = line.substring(colonIndex + 1, markerIndex).trim();
-                    return { fileName, functionName };
+                    let functionName = line.substring(colonIndex + 1, markerIndex).trim();
+                    let codeLineNum: string | null = null;
+
+                    // ✅ Extract line number inside parentheses (e.g., OnResume(350) -> Name: OnResume, Line: 350)
+                    const lineMatch = functionName.match(/^(.*?)\s*\(\s*(\d+)\s*\)$/);
+                    if (lineMatch) {
+                        functionName = lineMatch[1].trim();
+                        codeLineNum = lineMatch[2];
+                    }
+
+                    return { fileName, functionName, codeLineNum };
                 }
             }
         }
@@ -154,7 +162,7 @@ export const extractSourceMetadata = (line: string): { fileName: string | null, 
         searchPos = colonIndex + 1;
     }
 
-    return { fileName: null, functionName: null };
+    return { fileName: null, functionName: null, codeLineNum: null };
 };
 
 /**
