@@ -15,32 +15,13 @@ type AnalysisTab = 'summary' | 'list';
 
 export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results, isLoading, progress = 0, onClose, onJumpToRange }) => {
     const [activeTab, setActiveTab] = useState<AnalysisTab>('summary');
-    const [sortKey, setSortKey] = useState<'deltaDiff' | 'countDiff' | 'newError'>('newError');
-    const [sortDesc, setSortDesc] = useState(true);
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
     const sortedResults = useMemo(() => {
         if (!results) return [];
-        return [...results].sort((a, b) => {
-            let valA, valB;
-            if (sortKey === 'newError') {
-                valA = a.isNewError ? 1 : 0;
-                valB = b.isNewError ? 1 : 0;
-            } else if (sortKey === 'deltaDiff') {
-                valA = a.deltaDiff;
-                valB = b.deltaDiff;
-            } else {
-                valA = a.countDiff;
-                valB = b.countDiff;
-            }
-
-            if (valA === valB) {
-                return Math.abs(b.countDiff) - Math.abs(a.countDiff);
-            }
-
-            return sortDesc ? (valB > valA ? 1 : -1) : (valA > valB ? 1 : -1);
-        });
-    }, [results, sortKey, sortDesc]);
+        // [TIME-ORDERED] 왼쪽 로그의 시작 지점(leftPrevLineNum) 기준으로 오름차순 정렬
+        return [...results].sort((a, b) => (a.leftPrevLineNum || 0) - (b.leftPrevLineNum || 0));
+    }, [results]);
 
     // 📊 Summary Data Calculation
     const summaryData = useMemo(() => {
@@ -70,27 +51,19 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
         return `${ms.toFixed(1)}ms`;
     };
 
-    const handleSort = (key: 'deltaDiff' | 'countDiff' | 'newError') => {
-        if (sortKey === key) {
-            setSortDesc(!sortDesc);
-        } else {
-            setSortKey(key);
-            setSortDesc(true);
-        }
-    };
 
     const handleItemClick = (res: SplitAnalysisResult) => {
         setSelectedKey(res.key);
         if (!onJumpToRange) return;
 
-        // 🐧⚡ 좌측 구간 점프
+        // 좌측 구간 점프
         if (res.leftLineNum > 0) {
             const start = Math.min(res.leftLineNum, res.leftPrevLineNum);
             const end = Math.max(res.leftLineNum, res.leftPrevLineNum);
             onJumpToRange('left', start, end);
         }
 
-        // 🐧⚡ 우측 구간 점프
+        // 우측 구간 점프
         if (res.rightLineNum > 0) {
             const start = Math.min(res.rightLineNum, res.rightPrevLineNum);
             const end = Math.max(res.rightLineNum, res.rightPrevLineNum);
@@ -111,7 +84,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 mr-4">
                         <Zap className="w-4 h-4 text-blue-400" />
-                        <h3 className="text-sm font-bold text-slate-100">Analysis Engine 펭-하! 🐧</h3>
+                        <h3 className="text-sm font-bold text-slate-100">Analysis Engine</h3>
                     </div>
 
                     {/* Tabs */}
@@ -313,10 +286,10 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                         </div>
                                                     </div>
 
-                                                    {/* 🐧⚡ 중앙 구분선 (Vertical Divider) */}
+                                                    {/* 중앙 구분선 (Vertical Divider) */}
                                                     <div className="w-px bg-slate-800/80 my-2"></div>
 
-                                                    {/* 🐧⚡ 오른쪽 영역: 시간 분석 (Metrics Analysis) */}
+                                                    {/* 오른쪽 영역: 시간 분석 (Metrics Analysis) */}
                                                     <div className="w-[170px] bg-slate-900/40 p-2.5 flex flex-col justify-center gap-2 shrink-0 border-l border-slate-800/30">
                                                         <div className="flex flex-col gap-1">
                                                             <div className="flex items-center justify-between">
@@ -337,14 +310,14 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                             </span>
                                                             <div className={`text-[13px] font-black text-${themeColor}-400 flex items-center justify-center gap-1.5 bg-${themeColor}-400/10 px-2 py-1 rounded-lg border border-${themeColor}-500/20 shadow-md group-hover:bg-${themeColor}-400/15 transition-all`}>
                                                                 <Icon size={11} className="mb-0.5" />
-                                                                {isImprovement ? '' : '+'}{formatDelta(res.deltaDiff)}
+                                                                {`${isImprovement ? '' : '+'}${formatDelta(res.deltaDiff)}`}
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             );
                                         }) : (
-                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">No significant changes found. 펭-굿! ✨</div>
+                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">No significant changes found. 펭-굿!</div>
                                         )}
                                     </div>
                                 </div>
@@ -370,7 +343,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                         : 'border-slate-800/50 hover:border-blue-500/50 hover:bg-blue-500/5'
                                                         }`}
                                                 >
-                                                    {/* 🐧⚡ 왼쪽 영역: 타임라인 흐름 */}
+                                                    {/* 왼쪽 영역: 타임라인 흐름 */}
                                                     <div className="flex-1 flex flex-col gap-1 p-2.5 relative">
                                                         <div className="flex items-center gap-2 px-2 py-0.5 rounded-md bg-blue-500/5 border border-blue-500/10 opacity-70">
                                                             <span className="text-[8px] font-black text-slate-500 uppercase">FROM:</span>
@@ -389,7 +362,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                         </div>
                                                     </div>
 
-                                                    {/* 🐧⚡ 오른쪽 영역: 빈도 분석 */}
+                                                    {/* 오른쪽 영역: 빈도 분석 */}
                                                     <div className="w-[120px] bg-slate-900/40 p-2.5 flex flex-col justify-center gap-1 shrink-0 border-l border-slate-800/30">
                                                         <div className="flex items-center justify-between text-[9px] font-mono">
                                                             <span className="text-slate-600">PREV</span>
@@ -406,7 +379,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                 </div>
                                             );
                                         }) : (
-                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">Frequency is stable. 펭-굿! ❄️</div>
+                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">Frequency is stable. 펭-굿!</div>
                                         )}
                                     </div>
                                 </div>
@@ -418,28 +391,10 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                             initial={{ x: 20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: -20, opacity: 0 }}
-                            className="flex-1 flex flex-col"
+                            className="flex-1 flex flex-col min-h-0"
                         >
-                            {/* List Header */}
-                            <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-slate-900/40 border-b border-slate-800/80 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] shrink-0">
-                                <div className="col-span-1 text-center">STATUS</div>
-                                <div className="col-span-5">LOG SIGNATURE</div>
-                                <div
-                                    className="col-span-3 cursor-pointer hover:text-blue-400 border-l border-slate-800/50 text-center flex justify-center items-center gap-1.5 transition-colors"
-                                    onClick={() => handleSort('countDiff')}
-                                >
-                                    FREQUENCY ± {sortKey === 'countDiff' && (sortDesc ? '↓' : '↑')}
-                                </div>
-                                <div
-                                    className="col-span-3 cursor-pointer hover:text-blue-400 border-l border-slate-800/50 text-center flex justify-center items-center gap-1.5 transition-colors"
-                                    onClick={() => handleSort('deltaDiff')}
-                                >
-                                    GAP TIME ± {sortKey === 'deltaDiff' && (sortDesc ? '↓' : '↑')}
-                                </div>
-                            </div>
-
                             {/* Detailed List */}
-                            <div className="flex-1 overflow-y-auto custom-scrollbar relative min-h-0 bg-slate-950/20">
+                            <div className="flex-1 overflow-y-auto custom-scrollbar relative bg-slate-950/20 p-4">
                                 {sortedResults.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center p-8 h-full text-center">
                                         <Zap className="w-12 h-12 text-slate-800 mb-4" />
@@ -447,85 +402,99 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                         <p className="text-xs text-slate-600 mt-2 italic px-8">Analysis requires corresponding patterns in both log streams.</p>
                                     </div>
                                 ) : (
-                                    <div className="divide-y divide-slate-800/30">
+                                    <div className="flex flex-col gap-3">
                                         {sortedResults.map((res, i) => {
-                                            const isSlower = res.deltaDiff > 10;
-                                            const isFaster = res.deltaDiff < -10;
+                                            const isSlower = res.deltaDiff > 0;
+                                            const isFaster = res.deltaDiff < 0;
                                             const isMore = res.countDiff > 0;
                                             const isLess = res.countDiff < 0;
-
                                             const isSelected = selectedKey === res.key;
+
+                                            // Theme Colors
+                                            const themeColor = res.isNewError ? 'rose' : (isSlower ? 'orange' : (isFaster ? 'emerald' : 'blue'));
+                                            const Icon = res.isNewError ? AlertTriangle : (isSlower ? TrendingUp : (isFaster ? TrendingDown : Activity));
 
                                             return (
                                                 <div
                                                     key={i}
                                                     onClick={() => handleItemClick(res)}
-                                                    className={`grid grid-cols-12 gap-2 px-4 py-2.5 transition-all items-center text-sm group cursor-pointer border-b border-slate-800/20 ${isSelected ? 'bg-slate-950 shadow-[inset_0_0_15px_rgba(59,130,246,0.05)] border-l-2 border-l-blue-500' : 'hover:bg-slate-900 border-l-2 border-l-transparent'
+                                                    className={`group relative flex bg-slate-900/40 rounded-xl border transition-all cursor-pointer overflow-hidden ${isSelected
+                                                        ? `border-${themeColor}-500/50 bg-${themeColor}-500/5 ring-1 ring-${themeColor}-500/20`
+                                                        : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-900/60'
                                                         }`}
                                                 >
-                                                    <div className="col-span-1 flex justify-center">
-                                                        {res.isNewError ? (
-                                                            <div title="New Error!" className="w-5 h-5 rounded bg-rose-500/20 text-rose-500 flex items-center justify-center border border-rose-500/30">
-                                                                <AlertTriangle className="w-3.5 h-3.5" />
-                                                            </div>
-                                                        ) : res.isError ? (
-                                                            <div title="Existing Error" className="w-5 h-5 rounded bg-orange-500/20 text-orange-400 flex items-center justify-center border border-orange-500/30">
-                                                                <AlertTriangle className="w-3.5 h-3.5" />
-                                                            </div>
-                                                        ) : isSlower ? (
-                                                            <div title="Slower" className="w-5 h-5 rounded bg-orange-500/10 text-orange-500 flex items-center justify-center border border-orange-500/20">
-                                                                <TrendingUp className="w-3.5 h-3.5" />
-                                                            </div>
-                                                        ) : isFaster ? (
-                                                            <div title="Faster" className="w-5 h-5 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
-                                                                <TrendingDown className="w-3.5 h-3.5" />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="w-5 h-5 rounded bg-slate-800/30 text-slate-600 flex items-center justify-center text-[10px]">-</div>
-                                                        )}
-                                                    </div>
+                                                    {/* Selection Indicator */}
+                                                    {isSelected && <div className={`absolute left-0 top-0 bottom-0 w-1 bg-${themeColor}-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]`} />}
 
-                                                    <div className="col-span-5 flex flex-col gap-0.5 min-w-0 pr-2">
-                                                        <div className="flex items-center gap-1.5 opacity-60">
-                                                            <span className="text-[8px] font-black text-blue-500/80 uppercase">FROM:</span>
-                                                            <span className="text-[9px] font-mono text-slate-400 truncate">
-                                                                {res.prevFileName ? `${res.prevFileName}:${res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum}` : 'START'}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className="text-[8px] font-black text-blue-400 uppercase">TO:</span>
-                                                            <span className="text-[10px] font-black text-blue-300 truncate">
-                                                                {res.functionName || res.preview.substring(0, 40)}
-                                                            </span>
-                                                            <span className="text-[9px] text-slate-500 font-mono">
-                                                                ({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})
-                                                            </span>
-                                                        </div>
-                                                    </div>
+                                                    <div className="flex-1 p-4 flex items-center gap-6">
+                                                        {/* Log Flow Visualizer */}
+                                                        <div className="flex-1 flex flex-col gap-2 relative">
+                                                            {/* FROM Box */}
+                                                            <div className="bg-slate-950/50 border border-slate-800/50 rounded-lg py-1.5 px-3 flex items-center gap-3">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-slate-600 shadow-[0_0_5px_rgba(71,85,105,0.5)]" />
+                                                                <div className="flex flex-col min-w-0">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">FROM</span>
+                                                                        <span className="text-[11px] font-mono text-slate-400 truncate max-w-[200px]">
+                                                                            {res.prevFileName ? res.prevFileName : 'START'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <span className="text-xs font-bold text-slate-300 truncate">
+                                                                        {res.prevFunctionName || 'Initial Sequence'}
+                                                                        <span className="ml-1.5 text-[10px] text-slate-600 font-mono">({res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum})</span>
+                                                                    </span>
+                                                                </div>
+                                                            </div>
 
-                                                    <div className="col-span-3 flex flex-col items-center justify-center border-l border-slate-800/50 py-1">
-                                                        <div className="flex items-center gap-2 font-mono text-[10px]">
-                                                            <span className="text-slate-500">{res.leftCount}</span>
-                                                            <span className="text-slate-700 text-[8px]">→</span>
-                                                            <span className="text-slate-200">{res.rightCount}</span>
-                                                        </div>
-                                                        <div className={`text-[9px] font-black mt-1 px-1.5 py-0.5 rounded flex items-center gap-1 ${isMore ? 'text-rose-400 bg-rose-400/10' : isLess ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 bg-slate-800/20'}`}>
-                                                            {isMore && <ArrowUp className="w-2 h-2" />}
-                                                            {isLess && <ArrowDown className="w-2 h-2" />}
-                                                            {res.countDiff > 0 ? `+${res.countDiff}` : res.countDiff}
-                                                        </div>
-                                                    </div>
+                                                            {/* Connector Area */}
+                                                            <div className="absolute left-[18px] top-[28px] bottom-[28px] w-px bg-gradient-to-b from-slate-600/30 to-blue-500/30 z-0" />
+                                                            <div className="flex justify-start ml-2.5 z-10">
+                                                                <ArrowDown size={14} className="text-slate-600" />
+                                                            </div>
 
-                                                    <div className="col-span-3 flex flex-col items-center justify-center border-l border-slate-800/50 py-1">
-                                                        <div className="flex items-center gap-2 font-mono text-[10px]">
-                                                            <span className="text-slate-500">{formatDelta(res.leftAvgDelta)}</span>
-                                                            <span className="text-slate-700 text-[8px]">→</span>
-                                                            <span className="text-slate-200">{formatDelta(res.rightAvgDelta)}</span>
+                                                            {/* TO Box */}
+                                                            <div className={`bg-${themeColor}-500/5 border border-${themeColor}-500/20 rounded-lg py-1.5 px-3 flex items-center gap-3 relative z-20`}>
+                                                                <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]`} />
+                                                                <div className="flex flex-col min-w-0">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className={`text-[10px] font-black text-${themeColor}-500/70 uppercase tracking-tighter`}>TO</span>
+                                                                        <span className="text-[11px] font-mono text-slate-400 truncate max-w-[200px]">
+                                                                            {res.fileName || '[Unknown]'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <span className={`text-xs font-black text-${themeColor}-300 truncate`}>
+                                                                        {res.functionName || res.preview.substring(0, 40)}
+                                                                        <span className="ml-1.5 text-[10px] text-slate-600 font-mono">({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})</span>
+                                                                    </span>
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        <div className={`text-[9px] font-black mt-1 px-1.5 py-0.5 rounded flex items-center gap-1 ${isSlower ? 'text-orange-400 bg-orange-400/10' : isFaster ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 bg-slate-800/20'}`}>
-                                                            {isSlower && <ArrowUp className="w-2 h-2" />}
-                                                            {isFaster && <ArrowDown className="w-2 h-2" />}
-                                                            {res.deltaDiff > 0 ? '+' : ''}{formatDelta(res.deltaDiff)}
+
+                                                        {/* Metrics Divider */}
+                                                        <div className="w-px h-16 bg-slate-800/50" />
+
+                                                        {/* Right Side: Performance Info */}
+                                                        <div className="w-48 shrink-0 flex flex-col justify-center gap-3">
+                                                            <div className="space-y-1">
+                                                                <div className="flex justify-between items-center px-1">
+                                                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">LEFT</span>
+                                                                    <span className="text-xs font-mono text-slate-300">{formatDelta(res.leftAvgDelta)}</span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center px-1">
+                                                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">RIGHT</span>
+                                                                    <span className="text-sm font-black text-white">{formatDelta(res.rightAvgDelta)}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className={`flex items-center justify-between p-2 rounded-lg bg-${themeColor}-500/10 border border-${themeColor}-500/20`}>
+                                                                <span className={`text-[9px] font-black text-${themeColor}-500 uppercase tracking-[0.15em]`}>
+                                                                    {res.isNewError ? 'NEW ERROR' : (isSlower ? 'REGRESSION' : (isFaster ? 'IMPROVEMENT' : 'STABLE'))}
+                                                                </span>
+                                                                <div className={`flex items-center gap-1.5 text-xs font-black text-${themeColor}-400`}>
+                                                                    <Icon size={12} strokeWidth={3} />
+                                                                    <span>{res.deltaDiff > 0 ? '+' : ''}{formatDelta(res.deltaDiff)}</span>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
