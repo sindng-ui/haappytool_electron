@@ -2,6 +2,17 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { LogMetadata } from '../types';
 import SplitAnalysisWorker from '../workers/SplitAnalysis.worker.ts?worker';
 
+export interface PointAnalysisResult {
+    sig: string;
+    fileName: string;
+    functionName: string;
+    codeLineNum: string | null;
+    preview: string;
+    count: number;
+    visualIndices: number[];
+    originalLineNums: number[];
+}
+
 export interface SplitAnalysisResult {
     key: string;
     fileName: string;
@@ -36,10 +47,10 @@ export interface SplitAnalysisResult {
     leftPrevOrigLineNum: number;
     rightPrevOrigLineNum: number;
 
-    leftCodeLineNum?: string | null;      // ✅ NEW: 로그 내부 코드 라인 번호
-    rightCodeLineNum?: string | null;     // ✅ NEW: 로그 내부 코드 라인 번호
-    leftPrevCodeLineNum?: string | null;  // ✅ NEW
-    rightPrevCodeLineNum?: string | null; // ✅ NEW
+    leftCodeLineNum?: string | null;
+    rightCodeLineNum?: string | null;
+    leftPrevCodeLineNum?: string | null;
+    rightPrevCodeLineNum?: string | null;
 }
 
 export const useSplitAnalysis = (
@@ -49,7 +60,7 @@ export const useSplitAnalysis = (
 ) => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisProgress, setAnalysisProgress] = useState(0);
-    const [analysisResults, setAnalysisResults] = useState<SplitAnalysisResult[] | null>(null);
+    const [analysisResults, setAnalysisResults] = useState<{ results: SplitAnalysisResult[], pointResults: PointAnalysisResult[] } | null>(null);
     const analyzerWorkerRef = useRef<Worker | null>(null);
     const isCancelledRef = useRef(false);
 
@@ -66,8 +77,11 @@ export const useSplitAnalysis = (
                     const comparisonProgress = payload.progress || 0;
                     setAnalysisProgress(90 + Math.floor(comparisonProgress * 0.1));
                 } else if (type === 'SPLIT_ANALYSIS_COMPLETE') {
-                    console.log(`[useSplitAnalysis] Analysis complete received. Result count: ${payload.results?.length}`);
-                    setAnalysisResults(payload.results);
+                    console.log(`[useSplitAnalysis] Analysis complete received. Results: ${payload.results?.length}, Points: ${payload.pointResults?.length}`);
+                    setAnalysisResults({
+                        results: payload.results || [],
+                        pointResults: payload.pointResults || []
+                    });
                     setIsAnalyzing(false);
                     setAnalysisProgress(100);
                 }
@@ -125,7 +139,7 @@ export const useSplitAnalysis = (
                             if (side === 'left') leftProgress = 100;
                             else rightProgress = 100;
                             updateMetadataProgress();
-                            resolve(e.data.payload.metrics);
+                            resolve({ metrics: e.data.payload.metrics, pointMetrics: e.data.payload.pointMetrics });
                         }
                     };
                     console.log(`[useSplitAnalysis] fetchMetrics started for side: ${side}, requestId: ${reqId}`);
@@ -134,20 +148,21 @@ export const useSplitAnalysis = (
                 });
             };
 
-            // Fetch both simultaneously! (Parallel for 1GB+ files performance) 🐧⚡
-            const [leftMetrics, rightMetrics] = await Promise.all([
+            // Fetch both simultaneously! (Parallel for 1GB+ files performance)
+            const [leftData, rightData] = await Promise.all([
                 fetchMetrics(leftWorkerRef.current, 'left'),
                 fetchMetrics(rightWorkerRef.current, 'right')
             ]);
 
             if (isCancelledRef.current) return;
-
             setAnalysisProgress(90);
 
             // Send to Analyzer Worker
             analyzerWorkerRef.current?.postMessage({
-                leftMetrics,
-                rightMetrics
+                leftMetrics: leftData.metrics,
+                rightMetrics: rightData.metrics,
+                leftPointMetrics: leftData.pointMetrics,
+                rightPointMetrics: rightData.pointMetrics
             });
 
         } catch (err) {

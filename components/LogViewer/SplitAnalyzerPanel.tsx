@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Zap, AlertTriangle, ArrowRight, ArrowDown, ArrowUp, RefreshCw, List, LayoutDashboard, TrendingUp, TrendingDown, Activity } from 'lucide-react';
-import { SplitAnalysisResult } from '../../hooks/useSplitAnalysis';
+import { X, Zap, AlertTriangle, ArrowRight, ArrowDown, ArrowUp, RefreshCw, List, LayoutDashboard, TrendingUp, TrendingDown, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
+import { SplitAnalysisResult, PointAnalysisResult } from '../../hooks/useSplitAnalysis';
 
 interface SplitAnalyzerPanelProps {
-    results: SplitAnalysisResult[] | null;
+    results: { results: SplitAnalysisResult[], pointResults: PointAnalysisResult[] } | null;
     isLoading?: boolean;
     progress?: number;
     onClose: () => void;
@@ -17,31 +17,42 @@ type AnalysisTab = 'summary' | 'timeline';
 export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results, isLoading, progress = 0, onClose, onJumpToRange, onViewRawSplit }) => {
     const [activeTab, setActiveTab] = useState<AnalysisTab>('summary');
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
+    const [pointNavigation, setPointNavigation] = useState<Record<string, number>>({});
+
+    const handlePointJump = (sig: string, indices: number[], direction: 'next' | 'prev' | 'first') => {
+        const currentIdx = pointNavigation[sig] || 0;
+        let nextIdx = 0;
+        if (direction === 'next') nextIdx = (currentIdx + 1) % indices.length;
+        else if (direction === 'prev') nextIdx = (currentIdx - 1 + indices.length) % indices.length;
+        else nextIdx = 0;
+
+        setPointNavigation(prev => ({ ...prev, [sig]: nextIdx }));
+        const visualIdx = indices[nextIdx];
+        onJumpToRange?.('right', visualIdx, visualIdx);
+    };
 
     const sortedResults = useMemo(() => {
-        if (!results) return [];
-        // [TIME-ORDERED] 왼쪽 로그의 시작 지점(leftPrevLineNum) 기준으로 오름차순 정렬
-        return [...results].sort((a, b) => (a.leftPrevLineNum || 0) - (b.leftPrevLineNum || 0));
+        if (!results || !results.results) return [];
+        return [...results.results].sort((a, b) => (a.leftPrevLineNum || 0) - (b.leftPrevLineNum || 0));
     }, [results]);
 
-    // 📊 Summary Data Calculation
     const summaryData = useMemo(() => {
         if (!results) return null;
-        const newErrors = results.filter(r => r.isNewError).length;
-        const totalNodes = results.length;
-        const regressions = results.filter(r => r.deltaDiff > 10 && r.leftAvgDelta > 0 && r.rightAvgDelta > 0).length; // Over 10ms slower
-        const improvements = results.filter(r => r.deltaDiff < -10 && r.leftAvgDelta > 0 && r.rightAvgDelta > 0).length; // Over 10ms faster
-        const spams = results.filter(r => r.countDiff > 20).length; // Over 20 more logs
+        const intervalResults = results.results || [];
+        const pointResults = results.pointResults || [];
 
-        const topChanges = [...results]
-            .filter(r => Math.abs(r.deltaDiff) > 1 && r.leftAvgDelta > 0 && r.rightAvgDelta > 0) // Significant changes between non-zero values
+        const newErrors = intervalResults.filter(r => r.isNewError).length;
+        const totalNodes = intervalResults.length;
+        const regressions = intervalResults.filter(r => r.deltaDiff > 10 && r.leftAvgDelta > 0 && r.rightAvgDelta > 0).length;
+        const improvements = intervalResults.filter(r => r.deltaDiff < -10 && r.leftAvgDelta > 0 && r.rightAvgDelta > 0).length;
+        const spams = pointResults.length;
+
+        const topChanges = [...intervalResults]
+            .filter(r => Math.abs(r.deltaDiff) > 1 && r.leftAvgDelta > 0 && r.rightAvgDelta > 0 && Math.abs(r.countDiff) < 100)
             .sort((a, b) => Math.abs(b.deltaDiff) - Math.abs(a.deltaDiff))
             .slice(0, 100);
 
-        const topSpams = [...results]
-            .filter(r => r.countDiff > 0)
-            .sort((a, b) => b.countDiff - a.countDiff)
-            .slice(0, 100);
+        const topSpams = pointResults.slice(0, 100);
 
         return { newErrors, totalNodes, regressions, improvements, spams, topChanges, topSpams };
     }, [results]);
@@ -80,7 +91,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
 
         // 우측 구간 점프
         if (res.rightLineNum > 0) {
-            // 🐧🎯 점프 지점 결정: 
+            // 점프 지점 결정:
             // 1. 스팸/단일지점: 실제 그 로그가 위치한 '단일 지점'으로 점프 (범위 선택 방지)
             // 2. 성능 변화: 원인(Prev)부터 결과(Current)까지의 범위를 선택
             const start = forceSingle ? res.rightLineNum : Math.min(res.rightLineNum, res.rightPrevLineNum);
@@ -336,64 +347,69 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                         <Activity size={14} className="text-blue-400" />
                                         <div className="flex items-center justify-between flex-1">
                                             <div className="flex items-center gap-2">
-                                                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Top Frequency Increases (Spam)</h4>
+                                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">NEW SIGNIFICANT LOGS (ONLY RIGHT)</span>
                                                 <span className="text-[10px] font-mono text-blue-400 bg-blue-400/10 px-1.5 rounded-full border border-blue-500/20">{summaryData.topSpams.length}</span>
                                             </div>
                                             <span className="text-[9px] text-slate-500 font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">CLICK TO JUMP</span>
                                         </div>
                                     </div>
                                     <div className="flex-1 p-1 flex flex-col gap-1">
-                                        {summaryData.topSpams.length > 0 ? summaryData.topSpams.map((res, i) => {
-                                            const isSelected = selectedKey === res.key;
+                                        {summaryData.topSpams.length > 0 ? summaryData.topSpams.map((res: PointAnalysisResult, i) => {
+                                            const sig = res.sig;
+                                            const currentNavIdx = pointNavigation[sig] || 0;
+                                            const totalOccurrences = res.visualIndices.length;
+
                                             return (
                                                 <div
                                                     key={i}
-                                                    onClick={() => handleItemClick(res, true)}
-                                                    onDoubleClick={() => onViewRawSplit?.(res)}
-                                                    className={`flex bg-slate-950/50 rounded-lg border transition-all cursor-pointer group overflow-hidden ${isSelected
-                                                        ? 'border-blue-500/50 bg-blue-500/5'
-                                                        : 'border-slate-800/50 hover:border-blue-500/50 hover:bg-blue-500/5'
-                                                        }`}
+                                                    className="flex flex-col bg-slate-950/50 rounded-lg border border-slate-800/50 hover:border-blue-500/30 transition-all group overflow-hidden"
                                                 >
-                                                    <div className="flex-1 flex flex-col gap-0.5 p-1 relative">
-                                                        <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/5 border border-blue-500/10 opacity-70">
-                                                            <span className="text-[9px] font-mono text-slate-500 truncate">
-                                                                {res.prevFileName ? `${res.prevFileName}:${(res.rightPrevCodeLineNum || res.rightPrevOrigLineNum || res.rightPrevLineNum) || (res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum)}` : 'START'}
-                                                            </span>
+                                                    <div className="flex items-center p-2 gap-2 border-b border-slate-800/30 bg-slate-900/40">
+                                                        <div className="flex flex-col flex-1 min-w-0">
+                                                            <div className="flex items-center gap-1.5 overflow-hidden">
+                                                                <span className="text-[10px] font-black text-blue-400 shrink-0 uppercase tracking-tighter">NEW LOG</span>
+                                                                <span className="text-[9px] font-mono text-slate-500 truncate">{res.fileName}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[11px] font-black text-slate-200 truncate">{res.functionName || 'UNKNOWN'}</span>
+                                                                {res.codeLineNum && <span className="text-[10px] text-slate-500 font-mono">({res.codeLineNum})</span>}
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/30">
-                                                            <span className="text-[10px] font-black text-blue-300 truncate">
-                                                                {res.functionName || res.preview.substring(0, 40)}
-                                                            </span>
-                                                            <span className="text-[9px] text-blue-500/60 font-mono">
-                                                                ({(res.rightCodeLineNum || res.rightOrigLineNum || res.rightLineNum) || (res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum)})
-                                                            </span>
+
+                                                        <div className="flex flex-col items-end shrink-0">
+                                                            <span className="text-[12px] font-black text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded border border-blue-500/20">{res.count} COUNT</span>
                                                         </div>
                                                     </div>
 
-                                                    <div className="w-[160px] bg-slate-900/40 p-2 flex flex-col justify-center gap-1 shrink-0 border-l border-slate-800/30">
-                                                        <div className="flex flex-col gap-0.5">
-                                                            <div className="flex items-center justify-between text-[8px] font-mono">
-                                                                <span className="text-slate-600 uppercase font-black tracking-tighter">LEFT</span>
-                                                                <span className="text-slate-500">{res.leftCount}</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between text-[9px] font-mono font-black">
-                                                                <span className="text-slate-400 uppercase tracking-tighter">RIGHT</span>
-                                                                <span className="text-white">{res.rightCount}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="mt-1 px-2 py-0.5 rounded border border-blue-500/20 bg-blue-400/10 text-center">
-                                                            <span className="text-[10px] font-black text-blue-400">
-                                                                +{res.countDiff} CALLS
+                                                    <div className="px-3 py-2 flex items-center justify-between gap-3 bg-slate-950/80">
+                                                        <div className="flex-1 min-w-0">
+                                                            <span className="text-[10px] text-slate-400 font-mono italic truncate block">
+                                                                "{res.preview.substring(0, 100)}"
                                                             </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-md border border-slate-800">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handlePointJump(sig, res.visualIndices, 'prev'); }}
+                                                                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+                                                            >
+                                                                <ChevronLeft size={14} />
+                                                            </button>
+                                                            <span className="text-[10px] font-mono font-bold text-slate-300 min-w-[40px] text-center">
+                                                                {currentNavIdx + 1} / {totalOccurrences}
+                                                            </span>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handlePointJump(sig, res.visualIndices, 'next'); }}
+                                                                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+                                                            >
+                                                                <ChevronRight size={14} />
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </div>
                                             );
-                                        })
-                                            : (
-                                                <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">Frequency is stable.</div>
-                                            )}
+                                        }) : (
+                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">No new significant logs detected.</div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

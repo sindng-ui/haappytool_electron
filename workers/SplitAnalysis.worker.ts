@@ -1,5 +1,13 @@
-import { AggregateMetrics } from './SplitAnalysisUtils';
-console.log('[SplitAnalysisWorker] Script loaded');
+export interface PointAnalysisResult {
+    sig: string;
+    fileName: string;
+    functionName: string;
+    codeLineNum: string | null;
+    preview: string;
+    count: number;
+    visualIndices: number[];
+    originalLineNums: number[];
+}
 
 export interface SplitAnalysisResult {
     key: string;
@@ -19,7 +27,6 @@ export interface SplitAnalysisResult {
     isError: boolean;
     isWarn: boolean;
 
-    // Previous metrics for context
     prevFileName?: string;
     prevFunctionName?: string;
     prevPreview?: string;
@@ -32,20 +39,24 @@ export interface SplitAnalysisResult {
     leftPrevLineNum: number;
     rightPrevLineNum: number;
 
-    leftOrigLineNum: number;  // ✅ original line num
-    rightOrigLineNum: number; // ✅ original line num
+    leftOrigLineNum: number;
+    rightOrigLineNum: number;
     leftPrevOrigLineNum: number;
     rightPrevOrigLineNum: number;
 
-    leftCodeLineNum?: string | null;      // ✅ NEW: 로그 내부 코드 라인 번호
-    rightCodeLineNum?: string | null;     // ✅ NEW: 로그 내부 코드 라인 번호
-    leftPrevCodeLineNum?: string | null;  // ✅ NEW
-    rightPrevCodeLineNum?: string | null; // ✅ NEW
+    leftCodeLineNum?: string | null;
+    rightCodeLineNum?: string | null;
+    leftPrevCodeLineNum?: string | null;
+    rightPrevCodeLineNum?: string | null;
 }
+
+import { AggregateMetrics, PointMetrics } from './SplitAnalysisUtils';
 
 export interface SplitAnalysisRequest {
     leftMetrics: AggregateMetrics;
     rightMetrics: AggregateMetrics;
+    leftPointMetrics?: PointMetrics;
+    rightPointMetrics?: PointMetrics;
 }
 
 export interface SplitAnalysisWorkerResponse {
@@ -56,12 +67,17 @@ export interface SplitAnalysisWorkerResponse {
 const ctx: Worker = self as any;
 
 ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
-    const { leftMetrics, rightMetrics } = e.data;
-    console.log('[SplitAnalysisWorker] Received metrics', { leftSize: Object.keys(leftMetrics || {}).length, rightSize: Object.keys(rightMetrics || {}).length });
+    const { leftMetrics, rightMetrics, leftPointMetrics, rightPointMetrics } = e.data;
+    console.log('[SplitAnalysisWorker] Received metrics', {
+        leftIntervals: Object.keys(leftMetrics || {}).length,
+        rightIntervals: Object.keys(rightMetrics || {}).length,
+        leftPoints: Object.keys(leftPointMetrics || {}).length,
+        rightPoints: Object.keys(rightPointMetrics || {}).length
+    });
 
     if (!leftMetrics || !rightMetrics) {
         console.warn('[SplitAnalysisWorker] Missing metrics data');
-        ctx.postMessage({ type: 'SPLIT_ANALYSIS_COMPLETE', payload: { results: [] } });
+        ctx.postMessage({ type: 'SPLIT_ANALYSIS_COMPLETE', payload: { results: [], pointResults: [] } });
         return;
     }
 
@@ -93,9 +109,9 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
         // "New" error: 왼쪽엔 에러가 없었는데 오른쪽엔 에러인 경우
         const isNewError = (!!right?.isError && !left?.isError);
 
-        // 🐧⚡ (수정) 빈도 계산은 항상 'Direct' 횟수 기준
-        const lCount = left?.count || 0;
-        const rCount = right?.count || 0;
+        // [SPAM ANALYSIS FIX] 빈도 계산은 항상 'Direct' 횟수 기준
+        const lCount = left?.directCount || 0;
+        const rCount = right?.directCount || 0;
         const countDiff = rCount - lCount;
 
         results.push({
@@ -152,7 +168,30 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
         return bSeverity - aSeverity;
     });
 
+    // [POINT ANALYSIS] 신규 로그 (Point-based) 추출
+    const pointResults: PointAnalysisResult[] = [];
+    if (rightPointMetrics) {
+        for (const sig in rightPointMetrics) {
+            // 왼쪽에 해당 시그니처가 없으면 신규 로그로 판정
+            if (!leftPointMetrics || !leftPointMetrics[sig]) {
+                const pm = rightPointMetrics[sig];
+                pointResults.push({
+                    sig,
+                    fileName: pm.fileName,
+                    functionName: pm.functionName,
+                    codeLineNum: pm.codeLineNum,
+                    preview: pm.preview,
+                    count: pm.count,
+                    visualIndices: pm.visualIndices,
+                    originalLineNums: pm.originalLineNums
+                });
+            }
+        }
+    }
+    // 빈도순 정렬
+    pointResults.sort((a, b) => b.count - a.count);
+
     ctx.postMessage({ type: 'STATUS_UPDATE', payload: { status: 'ready', progress: 100 } });
-    console.log(`[SplitAnalysisWorker] Analysis complete. Sending ${results.length} results.`);
-    ctx.postMessage({ type: 'SPLIT_ANALYSIS_COMPLETE', payload: { results } });
+    console.log(`[SplitAnalysisWorker] Analysis complete. Intervals: ${results.length}, New Points: ${pointResults.length}`);
+    ctx.postMessage({ type: 'SPLIT_ANALYSIS_COMPLETE', payload: { results, pointResults } });
 };

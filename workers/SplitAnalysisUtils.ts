@@ -85,11 +85,24 @@ export interface AggregateMetrics {
         isWarn: boolean;
         lineNum: number;      // visualIndex (for jump)
         prevLineNum: number;  // visualIndex (for jump)
-        originalLineNum: number;     // ✅ 디스플레이용 원본 라인 번호
-        prevOriginalLineNum: number; // ✅ 디스플레이용 원본 라인 번호
-        codeLineNum?: string | null;     // ✅ NEW: 로그 내부 코드 라인 번호 (예: 350)
-        prevCodeLineNum?: string | null; // ✅ NEW: 로그 내부 코드 라인 번호
-        directCount?: number;            // ✅ NEW: 실제 연속된 로그 페어링 횟수 (Sliding window noise filtering용)
+        originalLineNum: number;     // 디스플레이용 원본 라인 번호
+        prevOriginalLineNum: number; // 디스플레이용 원본 라인 번호
+        codeLineNum?: string | null;     // 로그 내부 코드 라인 번호 (예: 350)
+        prevCodeLineNum?: string | null; // 로그 내부 코드 라인 번호
+        directCount?: number;            // 실제 연속된 로그 페어링 횟수
+    };
+}
+
+export interface PointMetrics {
+    [sig: string]: {
+        count: number;
+        fileName: string;
+        functionName: string;
+        codeLineNum: string | null;
+        preview: string;
+        tids: string[];
+        visualIndices: number[];     // 상세 내비게이션용 (< > 버튼)
+        originalLineNums: number[];  // 디스플레이용
     };
 }
 
@@ -106,12 +119,13 @@ export const isSignificant = (item: LogMetadata): boolean => {
 export const computeMetricsFromMetadata = (
     data: LogMetadata[],
     metrics: AggregateMetrics,
+    pointMetrics: PointMetrics, // 신규 추가
     state: {
         prevTimestamp: number | null;
         prevSignature: string;
         prevFileInfo: any;
-        lookbackWindowByTid?: Record<string, LogMetadata[]>; // 🐧⚡ TID별 윈도우 관리
-        lastSignifByTid?: Record<string, LogMetadata>; // 🐧⚡ TID별 마지막 로그 관리
+        lookbackWindowByTid?: Record<string, LogMetadata[]>; // TID별 윈도우 관리
+        lastSignifByTid?: Record<string, LogMetadata>; // TID별 마지막 로그 관리
         aliasFirstMatch?: Record<string, LogMetadata>;
     },
     maxGap: number = 100,
@@ -142,6 +156,31 @@ export const computeMetricsFromMetadata = (
 
         const currentSig = item.signature;
         const tid = item.tid || 'default';
+
+        // [POINT METRICS] 단일 지점 지표 업데이트
+        if (isSignificant(item)) {
+            if (!pointMetrics[currentSig]) {
+                pointMetrics[currentSig] = {
+                    count: 0,
+                    fileName: item.fileName,
+                    functionName: item.functionName,
+                    codeLineNum: item.codeLineNum || null,
+                    preview: item.preview,
+                    tids: [],
+                    visualIndices: [],
+                    originalLineNums: []
+                };
+            }
+            const pm = pointMetrics[currentSig];
+            pm.count++;
+            if (item.tid && !pm.tids.includes(item.tid)) pm.tids.push(item.tid);
+
+            // 내비게이션용 위치 정보 수집 (최대 10000개로 제한하여 메모리 보호)
+            if (pm.visualIndices.length < 10000) {
+                pm.visualIndices.push(item.visualIndex);
+                pm.originalLineNums.push(item.lineNum);
+            }
+        }
 
         if (!state.lookbackWindowByTid[tid]) state.lookbackWindowByTid[tid] = [];
         const lookbackWindow = state.lookbackWindowByTid[tid];
@@ -219,9 +258,16 @@ function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, cu
 
     const existing = metrics[key];
     if (existing) {
+        // [SPAM ANALYSIS FIX] directCount는 진짜 연속 발생 시에만 증가
         if (isDirect) {
             existing.count++;
             existing.directCount = (existing.directCount || 0) + 1;
+            // 점프 지점은 가장 마지막(최신) 지점으로 계속 갱신하여 점프 위치의 최신성 보장
+            existing.lineNum = current.visualIndex;
+            existing.prevLineNum = prev.visualIndex;
+            existing.originalLineNum = current.lineNum;
+            existing.prevOriginalLineNum = prev.lineNum;
+
             if (hasDelta) {
                 existing.totalDelta += delta;
                 existing.deltaSamples++;
@@ -233,6 +279,7 @@ function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, cu
     } else {
         metrics[key] = {
             count: isDirect ? 1 : 0,
+            directCount: isDirect ? 1 : 0,
             totalDelta: (hasDelta && isDirect) ? delta : 0,
             deltaSamples: (hasDelta && isDirect) ? 1 : 0,
             tids: current.tid ? [current.tid] : [],
@@ -249,8 +296,7 @@ function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, cu
             lineNum: current.visualIndex,
             prevLineNum: prev.visualIndex,
             originalLineNum: current.lineNum,
-            prevOriginalLineNum: prev.lineNum,
-            directCount: isDirect ? 1 : 0
+            prevOriginalLineNum: prev.lineNum
         };
     }
 }

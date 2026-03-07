@@ -1,7 +1,7 @@
 import { LogRule, LogWorkerResponse, LogMetadata } from '../types';
 import { extractTimestamp } from '../utils/logTime';
 import { analyzePerfSegments, extractSourceMetadata, extractLogIds } from '../utils/perfAnalysis';
-import { extractSingleMetadata, AggregateMetrics, computeMetricsFromMetadata } from './SplitAnalysisUtils';
+import { extractSingleMetadata, AggregateMetrics, PointMetrics, isSignificant, computeMetricsFromMetadata } from './SplitAnalysisUtils';
 
 export interface WorkerContext {
     currentFile: File | null;
@@ -282,7 +282,7 @@ export const analyzeSpamLogs = async (
         let fnName = functionName || 'Unknown Location';
 
         if (fileName || functionName) {
-            key = `${fName}::${fnName}`;
+            key = `${fName}::${fnName} `;
         } else {
             const messagePart = line.split('>').slice(1).join('>').trim() || line;
             const fingerprint = messagePart.replace(/[\d:\-\.\[\]\s]/g, '').substring(0, 60);
@@ -417,7 +417,7 @@ export const analyzeTransaction = async (
 
     if (identity.type === 'pid' || identity.type === 'tid') {
         const regexVal = val.replace(/^(P|T)(\d+)$/i, '$1\\s*$2');
-        regex = new RegExp(`(?:^|[^0-9a-zA-Z])${regexVal}(?:$|[^0-9a-zA-Z])`, 'i');
+        regex = new RegExp(`(?:^| [^ 0 - 9a - zA - Z])${regexVal} (?: $ | [^ 0 - 9a - zA - Z])`, 'i');
     }
 
     const MAX_RESULTS = 100000;
@@ -637,7 +637,7 @@ export const extractAnalysisMetrics = async (
     respond: (msg: LogWorkerResponse) => void
 ) => {
     const side = payload?.side || 'left';
-    console.log(`[SplitWorker] extractAnalysisMetrics started. side: ${side}`);
+    console.log(`[SplitWorker] extractAnalysisMetrics started.side: ${side} `);
     const { filteredIndices, lineOffsets, lineOffsetsStream, lineLengthsStream, logBuffer, currentFile, currentRule } = ctx;
     const isStreamMode = !!(logBuffer && lineOffsetsStream && lineLengthsStream);
     const isFile = !!(currentFile || ctx.isLocalFileMode);
@@ -648,16 +648,17 @@ export const extractAnalysisMetrics = async (
     }
 
     const totalLines = filteredIndices.length;
-    console.log(`[SplitWorker] GET_ANALYSIS_METRICS received. Total lines to scan: ${totalLines}`);
+    console.log(`[SplitWorker] GET_ANALYSIS_METRICS received.Total lines to scan: ${totalLines} `);
     const decoder = new TextDecoder();
     let metrics: AggregateMetrics = {};
+    let pointMetrics: PointMetrics = {};
     let aggState: any = {
         prevTimestamp: null as number | null,
         prevSignature: 'START',
         prevFileInfo: { fileName: '', functionName: '', preview: '' },
-        lookbackWindowByTid: {}, // 🐧⚡ TID별 윈도우 격리
-        lastSignifByTid: {}, // 🐧⚡ TID별 마지막 로그 격리
-        aliasFirstMatch: {} // 🐧⚡ Alias별 최초 지점 추적용
+        lookbackWindowByTid: {}, // TID별 윈도우 격리
+        lastSignifByTid: {}, // TID별 마지막 로그 격리
+        aliasFirstMatch: {} // Alias별 최초 지점 추적용
     };
 
     const maxGap = payload.maxGap ?? 100;
@@ -666,7 +667,7 @@ export const extractAnalysisMetrics = async (
     const processLineAndAggregate = (text: string, originalIdx: number, visualIdx: number) => {
         const metadata = extractSingleMetadata(text, originalIdx, visualIdx, currentRule);
         itemBatch[0] = metadata;
-        computeMetricsFromMetadata(itemBatch, metrics, aggState, maxGap, side);
+        computeMetricsFromMetadata(itemBatch, metrics, pointMetrics, aggState, maxGap, side);
     };
 
     if (isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream) {
@@ -732,15 +733,15 @@ export const extractAnalysisMetrics = async (
     // 분석 결과 요약 로깅
     const metricCount = Object.keys(metrics).length;
     console.log(`[SplitWorker] Analysis Finished!`);
-    console.log(`[SplitWorker] Total Lines Scanned: ${totalLines}`);
-    console.log(`[SplitWorker] Detected Intervals (Metrics): ${metricCount}`);
+    console.log(`[SplitWorker] Total Lines Scanned: ${totalLines} `);
+    console.log(`[SplitWorker] Detected Intervals(Metrics): ${metricCount} `);
 
     if (metricCount > 0) {
-        console.log(`[SplitWorker] Sample Interval Keys:`, Object.keys(metrics).slice(0, 5));
+        console.log(`[SplitWorker] Sample Interval Keys: `, Object.keys(metrics).slice(0, 5));
     } else {
-        console.warn(`[SplitWorker] No intervals detected. Check parser or look-back window.`);
+        console.warn(`[SplitWorker] No intervals detected.Check parser or look - back window.`);
     }
 
-    respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { metrics }, requestId });
+    respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { metrics, pointMetrics }, requestId });
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
 };
