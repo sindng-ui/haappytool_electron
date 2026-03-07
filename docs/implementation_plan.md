@@ -1,25 +1,30 @@
-# [분석 성능 최적화] 메타데이터 전송 부하 감소 및 메인 스레드 프리징 해결
-  
-대용량 로그(1GB+) 분석 시 수백만 개의 메타데이터 객체를 전송하면서 발생하는 메인 스레드 프리징을 해결하기 위해, 각 워커에서 데이터를 직접 요약(Aggregate)하여 결과만 전송하는 방식으로 구조를 변경합니다.
+# [분석 요약 고도화] 구간 표시 및 점프 기능 도입
 
 ## Proposed Changes
 
-### Log Worker Optimization
+### Data Model Enhancement
 
-#### [MODIFY] [workerAnalysisHandlers.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/workerAnalysisHandlers.ts)
-- `extractAnalysisMetrics` 핸들러 추가: 메타데이터를 추출하면서 즉시 `Metrics`를 계산하여, 수백만 개의 개별 로그 데이터 대신 수천 개의 요약된 시그니처 데이터만 반환합니다.
+#### [MODIFY] [SplitAnalysisUtils.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/SplitAnalysisUtils.ts)
+- `AggregateMetrics` 인터페이스에 `lineNum: number` 필드 추가.
+- `computeMetricsFromMetadata`에서 패턴별 첫 번째 라인 번호를 저장하도록 수정.
 
-#### [MODIFY] [types.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/types.ts)
-- `GET_ANALYSIS_METRICS`, `ANALYSIS_METRICS_RESULT` 메시지 타입 추가.
+#### [MODIFY] [SplitAnalysis.worker.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/SplitAnalysis.worker.ts) & [useSplitAnalysis.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/hooks/useSplitAnalysis.ts)
+- `SplitAnalysisResult` 인터페이스에 `leftLineNum`, `rightLineNum` 필드 추가.
+- 비교 로직에서 각 사이드의 라인 번호를 결과에 포함.
 
-### Analysis Logic Optimization
+### UI Enhancement
 
-#### [MODIFY] [useSplitAnalysis.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/hooks/useSplitAnalysis.ts)
-- `GET_ALL_METADATA` 대신 `GET_ANALYSIS_METRICS`를 호출하도록 변경.
-- 전송되는 데이터 크기가 획기적으로 줄어들어 메인 스레드 프리징이 사라집니다.
+#### [MODIFY] [SplitAnalyzerPanel.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/SplitAnalyzerPanel.tsx)
+- **표시 개수 확장**: `topRegressions` 추출 개수를 3개에서 100개로 변경.
+- **구간 형태 표시**: `Top Performance Regressions` 항목의 제목을 `이전 시그니처 ➔ 현재 시그니처` 형태로 표시.
+- **로그 점프 기능**: 요약 항목 클릭 시 `onJumpToLine`을 호출하여 좌/우측 로그 뷰어의 해당 라인으로 이동.
 
-#### [MODIFY] [SplitAnalysis.worker.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/SplitAnalysis.worker.ts)
-- 워커에서 `computeMetrics`를 수행하지 않고, 이미 계산된 `leftMetrics`, `rightMetrics`를 받아 즉시 비교 결과만 산출하도록 최적화합니다.
+## Verification Plan
+
+### Manual Verification
+- 요약 탭에서 'Top Regressions' 항목들이 `A ➔ B` 형태로 잘 나오는지 확인.
+- 100개까지 목록이 확장되어 표시되는지 확인.
+- 항목 클릭 시 좌/우 로그 뷰어에서 해당 라인이 하이라이트 되며 포커싱되는지 확인 🐧⚡.
 
 ## Verification Plan
 
