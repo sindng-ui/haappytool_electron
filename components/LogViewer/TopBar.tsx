@@ -212,17 +212,11 @@ const TopBar: React.FC<{
 
                 <div className="w-px h-6 bg-slate-700 mx-1"></div>
 
-                {/* Layout Toggle */}
-                <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-                    <button onClick={() => isDualView && toggleDualView()} className={`p-2 rounded flex items-center gap-2 text-xs font-bold transition-all ${!isDualView ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Maximize size={14} /> Single</button>
-                    <button onClick={() => !isDualView && toggleDualView()} className={`p-2 rounded flex items-center gap-2 text-xs font-bold transition-all ${isDualView ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Columns size={14} /> Split</button>
-                </div>
-
-                {/* Analyze Diff Button (Dual View Only) */}
+                {/* Analyze Diff Button (Dual View Only) - Moved to left of Layout Toggle */}
                 {isDualView && onSplitAnalyze && (
                     <button
                         onClick={onSplitAnalyze}
-                        className={`flex items-center gap-2 px-3 py-1.5 ml-2 rounded-lg border transition-all text-xs font-bold ${isSplitAnalyzing
+                        className={`flex items-center justify-center gap-2 px-3 py-1.5 mr-2 rounded-lg border transition-all text-xs font-bold w-[130px] shrink-0 ${isSplitAnalyzing
                             ? 'bg-blue-900/50 border-blue-500/30 text-blue-300 shadow-inner'
                             : isSplitAnalyzerOpen
                                 ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white'
@@ -231,9 +225,15 @@ const TopBar: React.FC<{
                         title={isSplitAnalyzerOpen ? "Close Analysis" : "Compare Left and Right logs"}
                     >
                         <Lucide.Zap size={14} className={isSplitAnalyzing ? "animate-pulse delay-75" : ""} />
-                        {isSplitAnalyzing ? 'Analyzing...' : isSplitAnalyzerOpen ? 'Close Diff' : 'Analyze Diff'}
+                        <span>{isSplitAnalyzing ? 'Analyzing...' : isSplitAnalyzerOpen ? 'Close Diff' : 'Analyze Diff'}</span>
                     </button>
                 )}
+
+                {/* Layout Toggle */}
+                <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+                    <button onClick={() => isDualView && toggleDualView()} className={`p-2 rounded flex items-center gap-2 text-xs font-bold transition-all ${!isDualView ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Maximize size={14} /> Single</button>
+                    <button onClick={() => !isDualView && toggleDualView()} className={`p-2 rounded flex items-center gap-2 text-xs font-bold transition-all ${isDualView ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Columns size={14} /> Split</button>
+                </div>
             </div>
             <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={onImportFile} />
             <input type="file" ref={logFileInputRef} className="hidden" onChange={onLogFileSelect} />

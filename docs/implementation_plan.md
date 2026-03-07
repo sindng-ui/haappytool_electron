@@ -1,30 +1,20 @@
-# [Split Analysis UX 보완] 'Processing log..' 메시지 제거 및 애니메이션 최적화
-
-분석 작업(`Analyze diff`, `Spam Analyzer`, `Perf Dashboard`) 실행 시 로그 뷰어가 깜빡이며 'Processing log..' 로딩 화면이 표시되는 현상을 해결합니다.
+# [Split Analysis UI 보완] 분석 버튼 위치 조정 및 너비 고정
+  
+분석 작업 실행 시 `Analyze Diff` 버튼의 위치를 `Single|Split` 전환 버튼의 왼쪽으로 옮기고, 고정 너비를 적용하여 텍스트 변경 시 발생하는 레이아웃 흔들림을 원천 차단합니다.
 
 ## Proposed Changes
 
-### Analyze Diff Toggle Functionality
+### TopBar Layout & Button Stability
 
 #### [MODIFY] [TopBar.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/TopBar.tsx)
-- `TopBarProps`에 `isSplitAnalyzerOpen` 프롭을 추가합니다.
-- `Analyze Diff` 버튼의 `disabled={isSplitAnalyzing}`을 제거하여 분석 중에도 클릭 가능하게 합니다 (취소/닫기 용도).
-- 버튼의 배경색이나 텍스트를 현재 상태(`isSplitAnalyzerOpen`, `isSplitAnalyzing`)에 따라 동적으로 변경합니다.
-  - 분석 중: "Analyzing..." (Pulse 효과)
-  - 결과 노출 중: "Close Analysis" (또는 색상 반전)
-  - 기본: "Analyze Diff"
-
-#### [MODIFY] [LogSession.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogSession.tsx)
-- `TopBar`에 `isSplitAnalyzerOpen` (`!!splitAnalysisResults || isSplitAnalyzing`) 프롭을 전달합니다.
-- `onSplitAnalyze` 핸들러에서 이미 분석 중이거나 결과가 있다면 `handleCloseSplitAnalysis`를 호출하고, 아니면 `handleSplitAnalysis`를 호출하도록 토글 로직을 구현합니다.
+- **위치 변경**: `Analyze Diff` 버튼 렌더링 위치를 `Layout Toggle (Single|Split)` 컴포넌트 바로 앞(왼쪽)으로 이동합니다.
+- **너비 고정**: 버튼에 `w-[130px]` 고정 너비를 적용합니다.
+- **정렬 최적화**: `justify-center`를 추가하여 아이콘과 텍스트가 항상 버튼 중앙에 오도록 합니다.
+- **여백 조정**: 버튼 이동에 따른 `ml-2` 등 마진 값을 시각적으로 자연스럽게 조정합니다.
 
 ## Verification Plan
 
-### Automated Tests
-- `npm run test`
-
 ### Manual Verification
-1. `Analyze Diff` 버튼을 눌러 분석을 시작합니다.
-2. 분석 도중(Analyzing... 표시 시) 다시 버튼을 눌러 분석이 중단되고 패널이 닫히는지 확인합니다.
-3. 분석이 완료되어 리포트가 뜬 상태에서 다시 버튼을 눌러 패널이 닫히는지 확인합니다.
-4. 패널이 닫힌 상태에서 다시 버튼을 누르면 분석이 정상적으로 재시작되는지 확인합니다.
+1. `Analyze Diff` 버튼이 `Single|Split` 버튼의 왼쪽에 위치하는지 확인합니다.
+2. 분석 시작/완료 시 버튼 텍스트가 바뀌어도 버튼 자체의 크기나 주변 요소들의 위치가 변하지 않는지 확인합니다.
+3. 시각적으로 레이아웃이 안정적이고 "느낌이 사는지" 확인합니다. 🐧✨
