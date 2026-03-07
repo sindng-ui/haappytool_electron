@@ -120,8 +120,7 @@ export const extractSourceMetadata = (line: string): { fileName: string | null, 
     if (markerIndex === -1 || markerIndex > 400) return { fileName: null, functionName: null, codeLineNum: null };
 
     // 2. 콜론(:) 탐색 및 파일 정보 추출
-    // 로그 시작부(날짜 등)를 건너뛰기 위해 공백 이후부터 검색 시도
-    let searchPos = Math.max(0, line.indexOf(' ', 5));
+    let searchPos = 0;
 
     while (searchPos < line.length) {
         const colonIndex = line.indexOf(':', searchPos);
@@ -157,11 +156,26 @@ export const extractSourceMetadata = (line: string): { fileName: string | null, 
                 let functionName = rest;
                 let codeLineNum: string | null = null;
 
-                // 함수명(라인) 추출
-                const lineMatch = rest.match(/([a-zA-Z0-9_]+)\s*\(\s*(\d+)\s*\)/);
-                if (lineMatch) {
-                    functionName = lineMatch[1];
-                    codeLineNum = lineMatch[2];
+                // [OPTIMIZED] 함수명(라인) 추출 - Regex 대신 문자열 탐색으로 1M 라인 처리 속도 향상
+                const openParen = rest.lastIndexOf('(');
+                if (openParen !== -1) {
+                    const closeParen = rest.indexOf(')', openParen);
+                    if (closeParen !== -1 && closeParen > openParen) {
+                        const potentialLine = rest.substring(openParen + 1, closeParen);
+                        // 라인 번호가 숫자로만 구성되어 있는지 수동 체크 (isNaN보다 빠름)
+                        let isNumeric = potentialLine.length > 0;
+                        for (let k = 0; k < potentialLine.length; k++) {
+                            const c = potentialLine[k];
+                            if (c < '0' || c > '9') {
+                                isNumeric = false;
+                                break;
+                            }
+                        }
+                        if (isNumeric) {
+                            functionName = rest.substring(0, openParen).trim();
+                            codeLineNum = potentialLine;
+                        }
+                    }
                 }
 
                 return { fileName, functionName, codeLineNum };

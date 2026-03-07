@@ -38,7 +38,7 @@ describe('Performance Utils', () => {
             const line = 'Logger.cs: OnStart(10)> Hello';
             const { fileName, functionName } = extractSourceMetadata(line);
             expect(fileName).toBe('Logger.cs');
-            expect(functionName).toBe('OnStart(10)');
+            expect(functionName).toBe('OnStart');
         });
 
         it('should handle different extensions', () => {
