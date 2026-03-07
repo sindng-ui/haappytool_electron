@@ -194,14 +194,14 @@ export interface PerfResponse {
 export type WorkerStatus = 'idle' | 'indexing' | 'filtering' | 'ready' | 'error';
 
 export interface LogWorkerMessage {
-  type: 'INIT_FILE' | 'INIT_LOCAL_FILE_STREAM' | 'RPC_RESPONSE' | 'RPC_ERROR' | 'FILTER_LOGS' | 'GET_LINES' | 'GET_SURROUNDING_LINES' | 'GET_RAW_LINES' | 'INIT_STREAM' | 'PROCESS_CHUNK' | 'UPDATE_RULES' | 'FIND_HIGHLIGHT' | 'GET_LINES_BY_INDICES' | 'TOGGLE_BOOKMARK' | 'CLEAR_BOOKMARKS' | 'ANALYZE_TRANSACTION' | 'GET_PERFORMANCE_HEATMAP' | 'PERF_ANALYSIS' | 'ANALYZE_SPAM' | 'FIND_VISUAL_INDEX' | 'STREAM_DONE' | 'GET_FULL_TEXT' | 'SET_ACTIVE_STATE';
+  type: 'INIT_FILE' | 'INIT_LOCAL_FILE_STREAM' | 'RPC_RESPONSE' | 'RPC_ERROR' | 'FILTER_LOGS' | 'GET_LINES' | 'GET_SURROUNDING_LINES' | 'GET_RAW_LINES' | 'INIT_STREAM' | 'PROCESS_CHUNK' | 'UPDATE_RULES' | 'FIND_HIGHLIGHT' | 'GET_LINES_BY_INDICES' | 'TOGGLE_BOOKMARK' | 'CLEAR_BOOKMARKS' | 'ANALYZE_TRANSACTION' | 'GET_PERFORMANCE_HEATMAP' | 'PERF_ANALYSIS' | 'ANALYZE_SPAM' | 'FIND_VISUAL_INDEX' | 'STREAM_DONE' | 'GET_FULL_TEXT' | 'SET_ACTIVE_STATE' | 'GET_ALL_METADATA';
   payload?: any;
   requestId?: string;
   workerSide?: 'left' | 'right';
 }
 
 export interface LogWorkerResponse {
-  type: 'RPC_REQUEST' | 'RPC_RESPONSE' | 'RPC_ERROR' | 'STATUS_UPDATE' | 'INDEX_COMPLETE' | 'FILTER_COMPLETE' | 'LINES_DATA' | 'ERROR' | 'STREAM_FLUSH' | 'FIND_RESULT' | 'FULL_TEXT_DATA' | 'BOOKMARKS_UPDATED' | 'HEATMAP_DATA' | 'PERF_ANALYSIS_RESULT' | 'SPAM_ANALYSIS_RESULT' | 'STREAM_DONE' | 'BUFFER_SHARED';
+  type: 'RPC_REQUEST' | 'RPC_RESPONSE' | 'RPC_ERROR' | 'STATUS_UPDATE' | 'INDEX_COMPLETE' | 'FILTER_COMPLETE' | 'LINES_DATA' | 'ERROR' | 'STREAM_FLUSH' | 'FIND_RESULT' | 'FULL_TEXT_DATA' | 'BOOKMARKS_UPDATED' | 'HEATMAP_DATA' | 'PERF_ANALYSIS_RESULT' | 'SPAM_ANALYSIS_RESULT' | 'STREAM_DONE' | 'BUFFER_SHARED' | 'ALL_METADATA_RESULT';
   payload?: any;
   requestId?: string;
 }
@@ -223,4 +223,16 @@ export interface SpamLogResult {
   count: number;
   lineNum?: number; // 패턴이 처음 발견된 라인 번호
   indices: number[]; // ✅ NEW: 모든 발견 지점의 인덱스 목록
+}
+
+export interface LogMetadata {
+  fileName: string;
+  functionName: string;
+  timestamp: number | null;
+  tid: string | null;
+  lineNum: number;
+  visualIndex: number;
+  isError: boolean;
+  isWarn: boolean;
+  preview: string;
 }

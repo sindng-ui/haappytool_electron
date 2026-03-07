@@ -1027,6 +1027,14 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
                 respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results: [] }, requestId } as any);
             }
             break;
+        case 'GET_ALL_METADATA':
+            try {
+                await AnalysisHandlers.extractAllMetadata(getAnalysisContext(), requestId || '');
+            } catch (e) {
+                console.error('[Worker] GET_ALL_METADATA failed', e);
+                respond({ type: 'ALL_METADATA_RESULT', payload: { metadata: [] }, requestId } as any);
+            }
+            break;
         case 'FIND_VISUAL_INDEX':
             if (filteredIndices) {
                 const visualIndex = filteredIndices.indexOf(payload.absoluteIndex);

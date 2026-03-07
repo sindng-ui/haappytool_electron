@@ -8,7 +8,11 @@ import { Settings2, ListOrdered } from 'lucide-react';
 
 const { Plus, Trash2, Maximize, Columns, Sparkles } = Lucide;
 
-const TopBar: React.FC<{ onReturnFocus?: () => void }> = ({ onReturnFocus }) => {
+const TopBar: React.FC<{
+    onReturnFocus?: () => void;
+    onSplitAnalyze?: () => void;
+    isSplitAnalyzing?: boolean;
+}> = ({ onReturnFocus, onSplitAnalyze, isSplitAnalyzing }) => {
     const { addToast } = useToast();
     const {
         rules, selectedRuleId, setSelectedRuleId,
@@ -212,6 +216,22 @@ const TopBar: React.FC<{ onReturnFocus?: () => void }> = ({ onReturnFocus }) => 
                     <button onClick={() => isDualView && toggleDualView()} className={`p-2 rounded flex items-center gap-2 text-xs font-bold transition-all ${!isDualView ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Maximize size={14} /> Single</button>
                     <button onClick={() => !isDualView && toggleDualView()} className={`p-2 rounded flex items-center gap-2 text-xs font-bold transition-all ${isDualView ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Columns size={14} /> Split</button>
                 </div>
+
+                {/* Analyze Diff Button (Dual View Only) */}
+                {isDualView && onSplitAnalyze && (
+                    <button
+                        onClick={onSplitAnalyze}
+                        disabled={isSplitAnalyzing}
+                        className={`flex items-center gap-2 px-3 py-1.5 ml-2 rounded-lg border transition-all text-xs font-bold ${isSplitAnalyzing
+                                ? 'bg-blue-900/50 border-blue-500/30 text-blue-300 opacity-70 cursor-not-allowed'
+                                : 'bg-blue-600 border-blue-500 text-white hover:bg-blue-500 shadow-lg shadow-blue-900/20'
+                            }`}
+                        title="Compare Left and Right logs"
+                    >
+                        <Lucide.Zap size={14} className={isSplitAnalyzing ? "animate-pulse delay-75" : ""} />
+                        {isSplitAnalyzing ? 'Analyzing...' : 'Analyze Diff'}
+                    </button>
+                )}
             </div>
             <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={onImportFile} />
             <input type="file" ref={logFileInputRef} className="hidden" onChange={onLogFileSelect} />

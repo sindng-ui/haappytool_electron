@@ -1,25 +1,32 @@
-# 로그 상세 보기(Raw View) 닫기 버튼 오동작 수정 결과 보고서 🐧🛠️
+# Split Analysis UX 최적화 결과 보고서
 
-형님, 로그 상세 보기 창에서 닫기 버튼(X)이 클릭되지 않던 문제와 코드 중복을 모두 해결했습니다!
+Split Analysis 실행 시 발생하는 화면 깜빡임을 제거하고, 빠릿한 애니메이션(0.15s)과 내부 로딩 UI를 적용하여 사용자 경험을 대폭 개선했습니다.
 
-## 작업 내용
+## 변경 내용 요약
 
-### 1. Z-Index 충돌 해결 및 스타일 보강
-*   `components/LogViewer/RawContextViewer.tsx`의 최상단 컨테이너 `z-index`를 `z-40`에서 `z-[70]`으로 상향 조정했습니다.
-*   기존에 `z-50`을 사용하는 `TopBar`나 `LogViewerToolbar`보다 위로 올라오게 하여 클릭 이벤트가 가로막히지 않도록 조치했습니다.
-*   헤더 영역에 `z-10`을 부여하고 `shrink-0`을 추가하여 레이아웃 안정성을 높였습니다.
+### 1. 화면 깜빡임 및 'Processing log..' 메시지 제거
+- **원인 분석**: 로그 분석 작업 중 워커에서 `status: filtering` 메시지를 보내 메인 로그 뷰어를 로딩 상태로 전환시키는 것이 원인이었습니다.
+- **해결 방안**: `workerAnalysisHandlers.ts`에서 분석 관련 `STATUS_UPDATE`를 `status: analyzing`으로 변경했습니다. 메인 로그 뷰어(`LogViewerPane.tsx`)는 `filtering`일 때만 로딩 상태를 보여주므로, 분석 중에도 로그 내용은 그대로 유지됩니다.
+- **적용 대상**: `analyzePerformance`, `analyzeSpamLogs`, `analyzeTransaction`, `extractAllMetadata`.
 
-### 2. 코드 중복 제거 및 리팩토링
-*   `components/LogSession.tsx` 내부에 중복해서 정의되어 있던 `RawContextViewer` 컴포넌트와 인터페이스를 완전히 제거했습니다.
-*   이미 분리되어 있던 `components/LogViewer/RawContextViewer.tsx`를 import하여 사용하도록 구조를 개선했습니다. 이제 한 곳에서만 관리하면 됩니다!
+### 2. Split Analysis 애니메이션 최적화
+- **snappy한 반응성**: `framer-motion`의 `transition` 시간을 `0.15s`로 단축하여 지연 없는 느낌을 구현했습니다.
+- **레이아웃 유지**: 상단 통합 패널 방식으로 구현하여 로그 뷰어의 가독성을 해치지 않게 조절했습니다.
 
-### 3. APP_MAP 업데이트
-*   `APP_MAP.md`의 `[[Log Viewer UI Architecture]]` 섹션에 `RawContextViewer`에 대한 설명을 추가하고 리팩토링된 구조를 기록했습니다.
+### 3. 내부 로딩 UI 및 즉시 중단(Cancellation) 도입
+- **지연 시간 피드백**: 분석이 진행되는 동안 패널 내부에서만 'Analyzing logs...' 메시지와 스피너가 표시되도록 보완했습니다.
+- **즉시 중단 및 자원 반납**: 사용자가 분석 중 패널을 닫으면 실행 중인 워커를 즉시 `terminate()`하고 비동기 메타데이터 페칭을 중단합니다. 이를 통해 불필요한 CPU 점유를 막고, 나중에 분석 결과가 갑자기 나타나는 현상을 방지했습니다.
 
-## 검증 방법
-1.  **Raw View 열기**: 로그 추출기에서 로그 라인을 더블 클릭하여 Raw View가 잘 뜨는지 확인합니다.
-2.  **닫기 버튼 확인**: 우측 상단의 'X' 버튼을 클릭했을 때 창이 즉시 닫히는지 확인합니다. (이전에는 클릭이 안 됐으나 이제 시원하게 닫힐 겁니다!)
-3.  **리사이즈 확인**: 하단의 리사이즈 핸들이 여전히 잘 작동하는지 확인합니다.
+## 검증 결과
 
----
-형님, 이제 로그 상세 보기를 마음껏 활용하셔도 좋습니다! 🐧🚀💎
+- [x] **Split Mode**: 두 개의 로그 비교 분석 시 메인 로그 창이 깜빡이지 않음.
+- [x] **Spam Analyzer**: 스팸 분석 실행 시에도 기존 로그가 계속 노출됨.
+- [x] **Animation**: 리포트 패널이 아주 빠르고 자연스럽게 상단에서 나타남.
+- [x] **Cancellation**: 분석 중 패널을 닫으면 즉시 분석이 중단되고 자원이 반납됨을 확인.
+- [x] **Regression**: 기존 필터링(filtering) 작업 시에는 로딩 화면이 정상적으로 표시됨을 확인.
+
+## 관련 문서
+- [구현 계획서](file:///k:/Antigravity_Projects/gitbase/happytool_electron/docs/implementation_plan.md)
+- [작업 지도 최신화](file:///k:/Antigravity_Projects/gitbase/happytool_electron/important/APP_MAP.md)
+
+형님! 이제 아주 부드럽고 쾌적하게 로그 비교를 하실 수 있을 겁니다. 🐧🚀

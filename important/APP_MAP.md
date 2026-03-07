@@ -288,6 +288,24 @@
 - **Interactions**:
     - `Jump to Absolute Line`: 필터 변경 후에도 일관성을 유지하기 위해 Spam Analyzer에서 사용
     - `Bottleneck Highlight`: Transaction Drawer에서 1000ms 이상의 지연을 자동으로 플래그 지정
++   - `UI Persistence`: 분석 중에도 로그를 가리지 않도록 `status: analyzing` 상태를 도입하여 메인 로그 뷰어의 깜빡임 제거 (`workerAnalysisHandlers.ts`)
+
+### [Feature] Split Analysis (Analyze Diff)
+- **ID**: `feature-split-analysis`
+- **Keywords**: [`Split 비교`, `Analyze Diff`, `속도 비교`, `패턴 비교`, `비교 분석`]
+- **Location**:
+    - View: [SplitAnalyzerPanel.tsx](./components/LogViewer/SplitAnalyzerPanel.tsx)
+    - Logic: [useSplitAnalysis.ts](./hooks/useSplitAnalysis.ts), [SplitAnalysis.worker.ts](./workers/SplitAnalysis.worker.ts)
+- **Core Interface**:
+    - `workerAnalysisHandlers.extractAllMetadata()`: 필터링된 스트림에서 `[시간, 파일명, 함수명]` 시그니처 일괄 추출
+    - `SplitAnalysis.worker`: Left/Right 양측의 로그 시그니처 구간(`START` or `PREV` ➔ `CURR`)별 발생 빈도(Count Diff) 및 수행 속도 차이(Delta Diff) 백그라운드 연산
+    - `Non-blocking Analysis`: 분석 수행 시 `workerReady` 상태를 유지하여 메인 UI의 'Processing log..' 메시지 노출 방지
+    - `Immediate Cancellation`: 유저가 패널을 닫을 시 `analyzerWorker.terminate()`를 즉각 호출하여 CPU/메모리 자원을 즉시 반납하고 분석 결과의 고스트 팝업 방지 (`useSplitAnalysis.ts`)
+- **Interactions**:
+    - `TopBar.tsx`: Dual View(Split) 상태에서만 나타나는 ⚡ Analyze Diff 버튼을 통해 분석 진입
+    - `LogSession.tsx`: 계산이 끝나면 상단 통합 패널(`SplitAnalyzerPanel`) 형태로 리포트 표시 (이전 하단 Drawer 방식에서 최적화)
+    - GAP TIME의 구간 정보(`FROM: ... ➔ CURR: ...`)를 명확히 표시하여 지연 원인 추적 용이성 확보
+    - 신규 추가 에러, 느려진 구간(`isSlower`), 빈번해진 로그(`isMore`) 등을 아이콘(🚨, ⚠️, ⚡)과 함께 시각적으로 브리핑
 
 ### [Feature] High-Performance Rendering (HyperLog)
 - **ID**: `feature-hyper-rendering`

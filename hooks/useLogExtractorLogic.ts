@@ -1010,6 +1010,7 @@ export const useLogExtractorLogic = ({
         rawContextTargetLine, rawContextSourcePane,
         isTizenModalOpen, setIsTizenModalOpen, isTizenQuickConnect, setIsTizenQuickConnect,
         fileInputRef, logFileInputRef, leftViewerRef, rightViewerRef, rawViewerRef,
+        leftWorkerRef, rightWorkerRef,
         handleImportFile, handleLogFileSelect,
         handleTizenStreamStart, handleTizenDisconnect, tizenSocket,
         handleLineDoubleClickAction,

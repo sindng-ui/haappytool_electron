@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnimatePresence } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import LogViewerPane, { LogViewerHandle } from './LogViewer/LogViewerPane';
 import ConfigurationPanel from './LogViewer/ConfigurationPanel';
@@ -10,8 +11,10 @@ import LoadingOverlay from './ui/LoadingOverlay';
 import { BookmarksModal } from './BookmarksModal';
 import GoToLineModal from './GoToLineModal';
 import { SpamAnalyzerPanel } from './LogViewer/SpamAnalyzerPanel';
+import { SplitAnalyzerPanel } from './LogViewer/SplitAnalyzerPanel';
+import { useSplitAnalysis } from '../hooks/useSplitAnalysis';
+
 import { useLogSelection } from './LogArchive/hooks/useLogSelection';
-// FloatingActionButton removed
 import { useLogArchiveContext } from './LogArchive/LogArchiveProvider';
 import { useContextMenu } from './ContextMenu';
 import { useToast } from '../contexts/ToastContext';
@@ -110,8 +113,16 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         isSpamAnalyzerOpen, setIsSpamAnalyzerOpen,
         isAnalyzingSpam, spamResultsLeft, requestSpamAnalysisLeft,
         clearCacheTick,
-        leftSharedBuffers, rightSharedBuffers
+        leftSharedBuffers, rightSharedBuffers,
+        leftWorkerRef, rightWorkerRef
     } = useLogContext();
+
+    const {
+        isAnalyzing: isSplitAnalyzing,
+        analysisResults: splitAnalysisResults,
+        performAnalysis: handleSplitAnalysis,
+        closeAnalysis: handleCloseSplitAnalysis
+    } = useSplitAnalysis(leftWorkerRef, rightWorkerRef, isDualView);
 
     const handleGoToLineClose = React.useCallback(() => setIsGoToLineModalOpen(false), [setIsGoToLineModalOpen]);
     const handleGoToLineGo = React.useCallback((lineIndex: number, pane: 'left' | 'right') => {
@@ -723,7 +734,10 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                         }
                     }
                     handleFocusPaneRequest('left');
-                }} />
+                }}
+                    onSplitAnalyze={handleSplitAnalysis}
+                    isSplitAnalyzing={isSplitAnalyzing}
+                />
             </div>
 
             {/* Main Content Area */}
@@ -962,6 +976,19 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 <div className={`flex-1 flex flex-col overflow-hidden relative z-0 transition-[padding-top] duration-400 ease-[cubic-bezier(0.4,0,0.2,1)] ${isFocusMode ? 'pt-0' : 'pt-8'}`}>
                     {/* Integrated Spam Analyzer Panel */}
                     <SpamAnalyzerPanel />
+                    <AnimatePresence>
+                        {(splitAnalysisResults || isSplitAnalyzing) && isDualView && (
+                            <SplitAnalyzerPanel
+                                results={splitAnalysisResults}
+                                isLoading={isSplitAnalyzing}
+                                onClose={handleCloseSplitAnalysis}
+                                onJumpToLine={(pane, line) => {
+                                    handleFocusPaneRequest(pane);
+                                    jumpToGlobalLine(line, pane);
+                                }}
+                            />
+                        )}
+                    </AnimatePresence>
 
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="flex w-full h-full">
@@ -1249,6 +1276,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             />
 
             {/* Removed SpamAnalyzerModal in favor of integrated SpamAnalyzerPanel */}
+
 
             {/* Raw Context View - Moved to bottom for better stacking hierarchy */}
             {rawContextOpen && rawContextTargetLine && (

@@ -1,6 +1,6 @@
-import { LogRule, LogWorkerResponse } from '../types';
+import { LogRule, LogWorkerResponse, LogMetadata } from '../types';
 import { extractTimestamp } from '../utils/logTime';
-import { analyzePerfSegments, extractSourceMetadata } from '../utils/perfAnalysis';
+import { analyzePerfSegments, extractSourceMetadata, extractLogIds } from '../utils/perfAnalysis';
 
 export interface WorkerContext {
     currentFile: File | null;
@@ -36,7 +36,7 @@ export const analyzePerformance = async (
         return;
     }
 
-    respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0 } });
 
     const results: string[] = [];
     const lineIndices: number[] = [];
@@ -51,7 +51,7 @@ export const analyzePerformance = async (
     if (limit > MAX_ANALYSIS_LINES) {
         console.warn(`[Worker] Performance analysis limited to first ${MAX_ANALYSIS_LINES} lines to prevent OOM.`);
         limit = MAX_ANALYSIS_LINES;
-        respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0, message: 'Analysis limited to 100k lines' } });
+        respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0, message: 'Analysis limited to 100k lines' } });
     }
 
     if (isStreamMode) {
@@ -112,7 +112,7 @@ export const analyzePerformance = async (
             }
 
             if (idx % (BATCH_SIZE * 2) === 0) {
-                respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (idx / limit) * 100 } });
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: (idx / limit) * 100 } });
             }
         }
     }
@@ -270,7 +270,7 @@ export const analyzeSpamLogs = async (
         return;
     }
 
-    respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0 } });
 
     const spamMap = new Map<string, { count: number, lineContent: string, fileName: string, functionName: string, lineNum: number, indices: number[] }>();
 
@@ -318,7 +318,7 @@ export const analyzeSpamLogs = async (
             processSpamLine(line, originalIdx + 1, originalIdx);
 
             if (i % 20000 === 0) {
-                respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (i / totalLines) * 100 } });
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: (i / totalLines) * 100 } });
             }
         }
     } else if (isFile) {
@@ -379,7 +379,7 @@ export const analyzeSpamLogs = async (
             }
 
             i = chunkEndIdx;
-            respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (i / totalLines) * 100 } });
+            respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: (i / totalLines) * 100 } });
         }
     }
 
@@ -403,7 +403,7 @@ export const analyzeTransaction = async (
     const isFile = (!!currentFile || !!ctx.isLocalFileMode) && !!lineOffsets;
     const decoder = new TextDecoder();
 
-    respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0 } });
 
     if (!filteredIndices) {
         respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
@@ -501,11 +501,124 @@ export const analyzeTransaction = async (
             }
 
             if (idx % (BATCH_SIZE * 2) === 0) {
-                respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: (idx / totalFiltered) * 100 } });
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: (idx / totalFiltered) * 100 } });
             }
         }
     }
 
     respond({ type: 'LINES_DATA', payload: { lines: results }, requestId });
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+};
+
+// --- Handler: Extract All Metadata for Split Analysis ---
+export const extractAllMetadata = async (
+    ctx: WorkerContext,
+    requestId: string
+) => {
+    const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = ctx;
+    const results: LogMetadata[] = [];
+    const isFile = (!!currentFile || !!ctx.isLocalFileMode) && !!lineOffsets;
+    const decoder = new TextDecoder();
+
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0 } });
+
+    if (!filteredIndices || filteredIndices.length === 0) {
+        respond({ type: 'ALL_METADATA_RESULT', payload: { metadata: [] }, requestId });
+        respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+        return;
+    }
+
+    const MAX_RESULTS = 500000; // Hard limit to avoid OOM for metadata extraction (500k logs = ~50MB array)
+    const totalLines = Math.min(filteredIndices.length, MAX_RESULTS);
+
+    if (filteredIndices.length > MAX_RESULTS) {
+        console.warn(`[Worker] Extract metadata limited to first ${MAX_RESULTS} lines to prevent OOM.`);
+        respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0, message: `Analysis limited to ${MAX_RESULTS} lines` } });
+    }
+
+    const processLine = (text: string, originalIdx: number, visualIdx: number) => {
+        const { fileName, functionName } = extractSourceMetadata(text);
+        const timestamp = extractTimestamp(text);
+        const { tid } = extractLogIds(text);
+
+        // Simple Level Detection via common patterns
+        const textUpper = text.toUpperCase();
+        let isError = textUpper.includes(' ERROR ') || textUpper.includes(' E/') || textUpper.includes('[ERROR]') || textUpper.includes(' FATAL ');
+        let isWarn = !isError && (textUpper.includes(' WARN ') || textUpper.includes(' W/') || textUpper.includes('[WARN]') || textUpper.includes(' WARNING '));
+
+        results.push({
+            fileName: fileName || '',
+            functionName: functionName || '',
+            timestamp,
+            tid,
+            lineNum: originalIdx + 1,
+            visualIndex: visualIdx,
+            isError,
+            isWarn,
+            preview: text.substring(0, 150) // Small preview string to show diff inline
+        });
+    };
+
+    if (isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream) {
+        for (let idx = 0; idx < totalLines; idx++) {
+            const i = filteredIndices[idx];
+            const start = lineOffsetsStream[i];
+            const len = lineLengthsStream[i];
+            const line = decoder.decode(logBuffer.subarray(start, start + len));
+            processLine(line, i, idx);
+
+            if (idx % 20000 === 0) {
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: (idx / totalLines) * 100 } });
+            }
+        }
+    } else if (isFile) {
+        const reader = new FileReaderSync();
+        const BATCH_SIZE = 5000;
+
+        for (let idx = 0; idx < totalLines; idx += BATCH_SIZE) {
+            const maxBatch = Math.min(idx + BATCH_SIZE, totalLines);
+            let minByte = -1n;
+            let maxByte = -1n;
+            for (let k = idx; k < maxBatch; k++) {
+                const i = filteredIndices[k];
+                const start = lineOffsets![i];
+                const fileSize = ctx.isLocalFileMode ? ctx.localFileSize! : currentFile!.size;
+                const end = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(fileSize);
+                if (minByte === -1n || start < minByte) minByte = start;
+                if (maxByte === -1n || end > maxByte) maxByte = end;
+            }
+
+            if (minByte !== -1n) {
+                let buffer: ArrayBuffer;
+                if (ctx.isLocalFileMode) {
+                    const chunkBuffer = await ctx.rpcCall!('readFileSegment', { path: ctx.localFilePath, start: Number(minByte), end: Number(maxByte) });
+                    buffer = chunkBuffer.buffer;
+                } else {
+                    const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
+                    buffer = reader.readAsArrayBuffer(fullBlob);
+                }
+
+                for (let k = idx; k < maxBatch; k++) {
+                    const i = filteredIndices[k];
+                    const lineStart = lineOffsets![i];
+                    const fileSize = ctx.isLocalFileMode ? ctx.localFileSize! : currentFile!.size;
+                    const lineEnd = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(fileSize);
+
+                    const relStart = Number(lineStart - minByte);
+                    const relEnd = Number(lineEnd - minByte);
+                    const lineBuffer = buffer.slice(relStart, relEnd);
+                    const text = decoder.decode(lineBuffer).replace(/\r?\n$/, '');
+
+                    processLine(text, i, k);
+                }
+            }
+
+            if (idx % (BATCH_SIZE * 2) === 0) {
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: (idx / totalLines) * 100 } });
+            }
+        }
+    }
+
+    respond({ type: 'ALL_METADATA_RESULT', payload: { metadata: results }, requestId });
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
 };
