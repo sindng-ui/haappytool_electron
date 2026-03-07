@@ -11,7 +11,7 @@ interface SplitAnalyzerPanelProps {
     onJumpToRange?: (side: 'left' | 'right', startLine: number, endLine: number) => void;
 }
 
-type AnalysisTab = 'summary' | 'list';
+type AnalysisTab = 'summary' | 'timeline';
 
 export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results, isLoading, progress = 0, onClose, onJumpToRange }) => {
     const [activeTab, setActiveTab] = useState<AnalysisTab>('summary');
@@ -54,6 +54,15 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
 
     const handleItemClick = (res: SplitAnalysisResult) => {
         setSelectedKey(res.key);
+
+        // Timeline 리스트 내 자동 스크롤 (Focus)
+        setTimeout(() => {
+            const element = document.getElementById(`segment-${res.key}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 10);
+
         if (!onJumpToRange) return;
 
         // 좌측 구간 점프
@@ -96,10 +105,10 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                             <LayoutDashboard size={12} /> SUMMARY
                         </button>
                         <button
-                            onClick={() => setActiveTab('list')}
-                            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-black transition-all ${activeTab === 'list' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                            onClick={() => setActiveTab('timeline')}
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-black transition-all ${activeTab === 'timeline' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                         >
-                            <List size={12} /> DETAILED LIST
+                            <Activity size={12} /> TIMELINE
                         </button>
                     </div>
 
@@ -152,7 +161,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                             initial={{ x: -20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: 20, opacity: 0 }}
-                            className="flex-1 overflow-y-auto p-4 custom-scrollbar"
+                            className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6"
                         >
                             {/* Summary Cards */}
                             <div className="grid grid-cols-5 gap-3 mb-6">
@@ -228,96 +237,82 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                 <div
                                                     key={i}
                                                     onClick={() => handleItemClick(res)}
-                                                    className={`flex bg-slate-950/50 rounded-lg border transition-all cursor-pointer group overflow-hidden ${isSelected
-                                                        ? `border-${themeColor}-500/50 bg-${themeColor}-500/5`
-                                                        : `border-slate-800/50 hover:border-${themeColor}-500/50 hover:bg-${themeColor}-500/5`
+                                                    className={`group relative flex bg-slate-900/40 rounded-xl border transition-all cursor-pointer overflow-hidden ${isSelected
+                                                        ? `border-${themeColor}-500/50 bg-${themeColor}-500/5 ring-1 ring-${themeColor}-500/20`
+                                                        : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-900/60'
                                                         }`}
                                                 >
-                                                    {/* 🐧⚡ 왼쪽 영역: 타임라인 흐름 (Flow Timeline) */}
-                                                    <div className="flex-1 flex flex-col gap-1 p-2.5 relative">
-                                                        {/* 시작점 (Start Node) - 블루/슬레이트 테마로 고정 */}
-                                                        <div className="flex items-center gap-2 px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 transition-colors">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500/50 shrink-0"></div>
-                                                            <div className="flex flex-col min-w-0 flex-1">
-                                                                <div className="flex items-center justify-between min-w-0">
-                                                                    <div className="flex items-center gap-2 min-w-0">
-                                                                        <span className="text-[9px] font-mono text-blue-400/80 truncate max-w-[200px]">
-                                                                            {res.prevFileName ? res.prevFileName : 'START'}
-                                                                        </span>
-                                                                        <span className="text-[10px] font-black text-blue-500/50">:</span>
-                                                                        <span className="text-[10px] font-black text-white truncate">
-                                                                            {res.prevFunctionName || '...'}
-                                                                            <span className="text-[9px] text-blue-400/60 ml-1 font-mono">
-                                                                                ({res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum})
+                                                    {isSelected && <div className={`absolute left-0 top-0 bottom-0 w-1 bg-${themeColor}-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]`} />}
+
+                                                    <div className="flex-1 p-2.5 flex items-center gap-4">
+                                                        <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+                                                            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/5 border border-blue-500/10 opacity-70">
+                                                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">FROM</span>
+                                                                <span className="text-[9px] font-mono text-slate-400 truncate max-w-[200px]">
+                                                                    {res.prevFileName ? res.prevFileName : 'START'}
+                                                                    <span className="text-[9px] text-blue-400/60 ml-1 font-mono">
+                                                                        ({res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum})
+                                                                    </span>
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="flex items-center px-4 my-[-3px]">
+                                                                <div className="flex flex-col items-center ml-[3px]">
+                                                                    <div className={`w-px h-1.5 bg-gradient-to-b from-blue-700 to-${themeColor}-500/50`}></div>
+                                                                    <ArrowDown size={10} className={`text-${themeColor}-500/70 my-[-2px]`} />
+                                                                </div>
+                                                            </div>
+
+                                                            <div className={`flex items-center gap-2 px-2 py-1 rounded-md bg-${themeColor}-500/10 border border-${themeColor}-500/30 transition-colors`}>
+                                                                <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-500 shadow-[0_0_10px_rgba(249,115,22,0.5)] shrink-0 animate-pulse`}></div>
+                                                                <div className="flex flex-col min-w-0 flex-1">
+                                                                    <div className="flex items-center justify-between min-w-0">
+                                                                        <div className="flex items-center gap-2 min-w-0">
+                                                                            <span className={`text-[9px] font-mono text-${themeColor}-400/80 truncate max-w-[200px]`}>
+                                                                                {res.fileName || 'Unknown'}
                                                                             </span>
-                                                                        </span>
+                                                                            <span className={`text-[10px] font-black text-${themeColor}-500/50`}>:</span>
+                                                                            <span className="text-[10px] font-black text-white truncate">
+                                                                                {res.functionName || res.preview.substring(0, 30)}
+                                                                                <span className={`text-[9px] text-${themeColor}-400/60 ml-1 font-mono`}>
+                                                                                    ({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})
+                                                                                </span>
+                                                                            </span>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         </div>
 
-                                                        {/* 수직 화살표 (Vertical Arrow) - 결과에 따른 색상 변화 */}
-                                                        <div className="flex items-center px-4 my-[-3px]">
-                                                            <div className="flex flex-col items-center ml-[3px]">
-                                                                <div className={`w-px h-1.5 bg-gradient-to-b from-blue-700 to-${themeColor}-500/50`}></div>
-                                                                <ArrowDown size={10} className={`text-${themeColor}-500/70 my-[-2px]`} />
-                                                            </div>
-                                                        </div>
+                                                        <div className="w-px bg-slate-800/80 my-2"></div>
 
-                                                        {/* 끝점 (End Node) - 결과 테마 적용 */}
-                                                        <div className={`flex items-center gap-2 px-2 py-1 rounded-md bg-${themeColor}-500/10 border border-${themeColor}-500/30 transition-colors`}>
-                                                            <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-500 shadow-[0_0_10px_rgba(249,115,22,0.5)] shrink-0 animate-pulse`}></div>
-                                                            <div className="flex flex-col min-w-0 flex-1">
-                                                                <div className="flex items-center justify-between min-w-0">
-                                                                    <div className="flex items-center gap-2 min-w-0">
-                                                                        <span className={`text-[9px] font-mono text-${themeColor}-400/80 truncate max-w-[200px]`}>
-                                                                            {res.fileName || 'Unknown'}
-                                                                        </span>
-                                                                        <span className={`text-[10px] font-black text-${themeColor}-500/50`}>:</span>
-                                                                        <span className="text-[10px] font-black text-white truncate">
-                                                                            {res.functionName || res.preview.substring(0, 30)}
-                                                                            <span className={`text-[9px] text-${themeColor}-400/60 ml-1 font-mono`}>
-                                                                                ({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})
-                                                                            </span>
-                                                                        </span>
-                                                                    </div>
+                                                        <div className="w-[170px] bg-slate-900/40 p-2.5 flex flex-col justify-center gap-2 shrink-0 border-l border-slate-800/30">
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">LEFT</span>
+                                                                    <span className="text-[10px] font-mono text-slate-400">{formatDelta(res.leftAvgDelta)}</span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">RIGHT</span>
+                                                                    <span className="text-[11px] font-mono text-white font-black">{formatDelta(res.rightAvgDelta)}</span>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* 중앙 구분선 (Vertical Divider) */}
-                                                    <div className="w-px bg-slate-800/80 my-2"></div>
-
-                                                    {/* 오른쪽 영역: 시간 분석 (Metrics Analysis) */}
-                                                    <div className="w-[170px] bg-slate-900/40 p-2.5 flex flex-col justify-center gap-2 shrink-0 border-l border-slate-800/30">
-                                                        <div className="flex flex-col gap-1">
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">LEFT</span>
-                                                                <span className="text-[10px] font-mono text-slate-400">{formatDelta(res.leftAvgDelta)}</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">RIGHT</span>
-                                                                <span className="text-[11px] font-mono text-white font-black">{formatDelta(res.rightAvgDelta)}</span>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className={`h-px bg-${themeColor}-800/30`}></div>
-
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className={`text-[8px] font-black text-${themeColor}-500/70 uppercase tracking-tighter`}>
-                                                                {isImprovement ? 'IMPROVEMENT' : 'REGRESSION'}
-                                                            </span>
-                                                            <div className={`text-[13px] font-black text-${themeColor}-400 flex items-center justify-center gap-1.5 bg-${themeColor}-400/10 px-2 py-1 rounded-lg border border-${themeColor}-500/20 shadow-md group-hover:bg-${themeColor}-400/15 transition-all`}>
-                                                                <Icon size={11} className="mb-0.5" />
-                                                                {`${isImprovement ? '' : '+'}${formatDelta(res.deltaDiff)}`}
+                                                            <div className={`h-px bg-${themeColor}-800/30`}></div>
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className={`text-[8px] font-black text-${themeColor}-500/70 uppercase tracking-tighter`}>
+                                                                    {isImprovement ? 'IMPROVEMENT' : 'REGRESSION'}
+                                                                </span>
+                                                                <div className={`text-[13px] font-black text-${themeColor}-400 flex items-center justify-center gap-1.5 bg-${themeColor}-400/10 px-2 py-1 rounded-lg border border-${themeColor}-500/20 shadow-md group-hover:bg-${themeColor}-400/15 transition-all`}>
+                                                                    <Icon size={11} className="mb-0.5" />
+                                                                    {`${isImprovement ? '' : '+'}${formatDelta(res.deltaDiff)}`}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             );
                                         }) : (
-                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">No significant changes found. 펭-굿!</div>
+                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">No significant changes found.</div>
                                         )}
                                     </div>
                                 </div>
@@ -343,7 +338,6 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                         : 'border-slate-800/50 hover:border-blue-500/50 hover:bg-blue-500/5'
                                                         }`}
                                                 >
-                                                    {/* 왼쪽 영역: 타임라인 흐름 */}
                                                     <div className="flex-1 flex flex-col gap-1 p-2.5 relative">
                                                         <div className="flex items-center gap-2 px-2 py-0.5 rounded-md bg-blue-500/5 border border-blue-500/10 opacity-70">
                                                             <span className="text-[8px] font-black text-slate-500 uppercase">FROM:</span>
@@ -362,7 +356,6 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                         </div>
                                                     </div>
 
-                                                    {/* 오른쪽 영역: 빈도 분석 */}
                                                     <div className="w-[120px] bg-slate-900/40 p-2.5 flex flex-col justify-center gap-1 shrink-0 border-l border-slate-800/30">
                                                         <div className="flex items-center justify-between text-[9px] font-mono">
                                                             <span className="text-slate-600">PREV</span>
@@ -379,7 +372,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                 </div>
                                             );
                                         }) : (
-                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">Frequency is stable. 펭-굿!</div>
+                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">Frequency is stable.</div>
                                         )}
                                     </div>
                                 </div>
@@ -387,18 +380,51 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                         </motion.div>
                     ) : (
                         <motion.div
-                            key="list"
+                            key="timeline"
                             initial={{ x: 20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: -20, opacity: 0 }}
                             className="flex-1 flex flex-col min-h-0"
                         >
-                            {/* Detailed List */}
+                            {/* Navigation Controls */}
+                            <div className="flex items-center justify-between px-4 py-2 bg-slate-900/60 border-b border-slate-800/80 sticky top-0 z-30 backdrop-blur-md">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Navigation</span>
+                                    <div className="h-3 w-px bg-slate-800 mx-1" />
+                                    <span className="text-[10px] font-mono text-blue-400 font-bold">
+                                        {selectedKey ? `${sortedResults.findIndex(r => r.key === selectedKey) + 1} / ${sortedResults.length}` : `Total ${sortedResults.length}`}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        onClick={() => {
+                                            const idx = sortedResults.findIndex(r => r.key === selectedKey);
+                                            if (idx > 0) handleItemClick(sortedResults[idx - 1]);
+                                        }}
+                                        disabled={!selectedKey || sortedResults.findIndex(r => r.key === selectedKey) <= 0}
+                                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-950 border border-slate-800 text-[10px] font-black text-slate-400 hover:text-white hover:border-blue-500/50 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                                    >
+                                        <ArrowUp size={12} strokeWidth={3} /> PREV
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const idx = sortedResults.findIndex(r => r.key === selectedKey);
+                                            if (idx < sortedResults.length - 1) handleItemClick(sortedResults[idx + 1]);
+                                        }}
+                                        disabled={!selectedKey || (selectedKey && sortedResults.findIndex(r => r.key === selectedKey) >= sortedResults.length - 1)}
+                                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-950 border border-slate-800 text-[10px] font-black text-slate-400 hover:text-white hover:border-blue-500/50 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                                    >
+                                        NEXT <ArrowDown size={12} strokeWidth={3} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Timeline List */}
                             <div className="flex-1 overflow-y-auto custom-scrollbar relative bg-slate-950/20 p-4">
                                 {sortedResults.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center p-8 h-full text-center">
                                         <Zap className="w-12 h-12 text-slate-800 mb-4" />
-                                        <p className="text-slate-400 font-bold text-sm">No signature matches discovered.</p>
+                                        <p className="text-slate-400 font-bold text-sm">No analysis results found.</p>
                                         <p className="text-xs text-slate-600 mt-2 italic px-8">Analysis requires corresponding patterns in both log streams.</p>
                                     </div>
                                 ) : (
@@ -417,6 +443,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                             return (
                                                 <div
                                                     key={i}
+                                                    id={`segment-${res.key}`}
                                                     onClick={() => handleItemClick(res)}
                                                     className={`group relative flex bg-slate-900/40 rounded-xl border transition-all cursor-pointer overflow-hidden ${isSelected
                                                         ? `border-${themeColor}-500/50 bg-${themeColor}-500/5 ring-1 ring-${themeColor}-500/20`
@@ -446,10 +473,14 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                                 </div>
                                                             </div>
 
-                                                            {/* Connector Area */}
-                                                            <div className="absolute left-[18px] top-[28px] bottom-[28px] w-px bg-gradient-to-b from-slate-600/30 to-blue-500/30 z-0" />
-                                                            <div className="flex justify-start ml-2.5 z-10">
-                                                                <ArrowDown size={14} className="text-slate-600" />
+                                                            {/* Connector Area - Refined Visual Flow */}
+                                                            <div className="absolute left-[18px] top-[30px] bottom-[30px] flex flex-col items-center z-0">
+                                                                <div className={`w-[2px] h-full bg-gradient-to-b from-slate-700 via-${themeColor}-500/40 to-${themeColor}-500/60 rounded-full`} />
+                                                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                                                                    <div className={`bg-slate-950 p-0.5 rounded-full border border-${themeColor}-500/30`}>
+                                                                        <ArrowDown size={10} className={`text-${themeColor}-500/80`} />
+                                                                    </div>
+                                                                </div>
                                                             </div>
 
                                                             {/* TO Box */}
@@ -492,7 +523,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                                 </span>
                                                                 <div className={`flex items-center gap-1.5 text-xs font-black text-${themeColor}-400`}>
                                                                     <Icon size={12} strokeWidth={3} />
-                                                                    <span>{res.deltaDiff > 0 ? '+' : ''}{formatDelta(res.deltaDiff)}</span>
+                                                                    <span>{`${res.deltaDiff > 0 ? '+' : ''}${formatDelta(res.deltaDiff)}`}</span>
                                                                 </div>
                                                             </div>
                                                         </div>

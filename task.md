@@ -5,6 +5,8 @@
 - [x] `connector_integration.test.js` 실패 해결 (SDB stdin.write 검증으로 변경)
 - [x] `sdb_connection.test.js` 실패 해결 (SDB 태그 치환 검증 방식 변경)
 - [x] 모든 테스트 통과 확인 (`all pass`)
+- [ ] Timeline 탭의 자동 스크롤 기능 추가
+- [ ] Timeline 탭의 연결선 UI 리뉴얼
 
 ## 현황
 - 모든 테스트 통과 완료 (199 passed, 5 skipped)
