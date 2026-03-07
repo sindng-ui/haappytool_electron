@@ -653,11 +653,11 @@ export const extractAnalysisMetrics = async (
         prevFileInfo: { fileName: '', functionName: '', preview: '' }
     };
 
+    const itemBatch: LogMetadata[] = [null as any]; // Reusable array for single item processing
     const processLineAndAggregate = (text: string, originalIdx: number, visualIdx: number) => {
         const metadata = extractSingleMetadata(text, originalIdx, visualIdx, currentRule);
-        const result = computeMetricsFromMetadata([metadata], metrics, aggState);
-        metrics = result.metrics;
-        aggState = result.state;
+        itemBatch[0] = metadata;
+        computeMetricsFromMetadata(itemBatch, metrics, aggState);
     };
 
     if (isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream) {

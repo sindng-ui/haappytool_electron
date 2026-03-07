@@ -1,8 +1,17 @@
 import { LogMetadata, LogRule } from '../types';
 import { extractTimestamp } from '../utils/logTime';
 
+// 🐧⚡ 정규표현식 재사용을 위한 상수 선언
+const RE_TID_1 = /\(P\s*\d+,\s*T\s*(\d+)\)/;
+const RE_TID_2 = /\[\s*(\d+):/;
+const RE_FILE_FUNC = /([a-zA-Z0-9_]+\.(?:cs|cpp|h|java|kt|ts|js))[:\s]*(\w+)?/i;
+const RE_NON_ALPHANUM = /[^a-zA-Z\uAC00-\uD7A3]/g;
+const RE_DIGITS = /[\d]/g;
+const RE_ERROR_LVL = /error|fail|critical/i;
+const RE_WARN_LVL = /warn|warning/i;
+
 /**
- * 🐧⚡ 단일 로그 라인에서 메타데이터를 추출합니다.
+ * 🐧⚡ 단일 로그 라인에서 메타데이터를 추출합니다. (최적화 버전)
  */
 export const extractSingleMetadata = (
     text: string,
@@ -12,32 +21,32 @@ export const extractSingleMetadata = (
 ): LogMetadata => {
     const timestamp = extractTimestamp(text);
 
-    // TID 추출 (간단한 정규식 예시)
-    const tidMatch = text.match(/\(P\s*\d+,\s*T\s*(\d+)\)/) || text.match(/\[\s*(\d+):/);
+    // TID 추출
+    const tidMatch = text.match(RE_TID_1) || text.match(RE_TID_2);
     const tid = tidMatch ? tidMatch[1] : null;
 
     // 파일/함수명 추출
     let fileName = '';
     let functionName = '';
-    const fileMatch = text.match(/([a-zA-Z0-9_]+\.(?:cs|cpp|h|java|kt|ts|js))[:\s]*(\w+)?/i);
+    const fileMatch = text.match(RE_FILE_FUNC);
     if (fileMatch) {
         fileName = fileMatch[1];
         functionName = fileMatch[2] || '';
     }
 
-    const isError = /error|fail|critical/i.test(text);
-    const isWarn = /warn|warning/i.test(text);
+    const isError = RE_ERROR_LVL.test(text);
+    const isWarn = RE_WARN_LVL.test(text);
 
     return {
-        fileName: fileName || '',
-        functionName: functionName || '',
+        fileName,
+        functionName,
         timestamp,
         tid,
         lineNum: originalIdx + 1,
         visualIndex: visualIdx,
         isError,
         isWarn,
-        preview: text.substring(0, 150)
+        preview: text.length > 150 ? text.substring(0, 150) : text
     };
 };
 
@@ -46,7 +55,7 @@ export interface AggregateMetrics {
         count: number;
         totalDelta: number;
         deltaSamples: number;
-        tids: string[]; // Use array for serialization
+        tids: string[];
         preview: string;
         fileName: string;
         functionName: string;
@@ -58,28 +67,28 @@ export interface AggregateMetrics {
     };
 }
 
+/**
+ * 🐧⚡ 메타데이터로부터 지표를 계산합니다. (대용량 고속 처리 버전)
+ * @param data 처리할 메타데이터 리스트
+ * @param metrics 기존 지표 맵 (In-place 업데이트됨)
+ * @param state 루프간 상태 보존 객체
+ */
 export const computeMetricsFromMetadata = (
     data: LogMetadata[],
-    existingMetrics: AggregateMetrics = {},
-    state: { prevTimestamp: number | null; prevSignature: string; prevFileInfo: any } = {
-        prevTimestamp: null,
-        prevSignature: 'START',
-        prevFileInfo: { fileName: '', functionName: '', preview: '' }
-    }
-): { metrics: AggregateMetrics; state: any } => {
-    const metrics = existingMetrics;
+    metrics: AggregateMetrics,
+    state: { prevTimestamp: number | null; prevSignature: string; prevFileInfo: any }
+): void => {
     let { prevTimestamp, prevSignature, prevFileInfo } = state;
 
-    for (const item of data) {
+    for (let i = 0; i < data.length; i++) {
+        const item = data[i];
         let currentSignature = '';
         if (item.fileName || item.functionName) {
             currentSignature = `${item.fileName || 'Unknown'}::${item.functionName || 'Unknown'}`;
         } else {
-            // 형님, 알파벳과 한글 등 '글자'만 남기고 숫자/특수문자/공백은 싹 다 밀어서 매칭률을 최고조로 끌어올렸습니다! 🚀
-            currentSignature = item.preview.replace(/[^a-zA-Z\uAC00-\uD7A3]/g, '').substring(0, 60);
+            currentSignature = item.preview.replace(RE_NON_ALPHANUM, '').substring(0, 60);
             if (currentSignature.length < 3) {
-                // 글자가 너무 없으면 원본에서 숫자만 뺀 버전으로 fallback
-                currentSignature = item.preview.replace(/[\d]/g, '').substring(0, 30);
+                currentSignature = item.preview.replace(RE_DIGITS, '').substring(0, 30);
             }
         }
 
@@ -107,12 +116,8 @@ export const computeMetricsFromMetadata = (
                 existing.totalDelta += delta;
                 existing.deltaSamples++;
             }
-            // Simple check to avoid duplicated TIDs if needed, 
-            // but for summary, we can compromise or use a Set locally
-            if (item.tid && !existing.tids.includes(item.tid)) {
-                if (existing.tids.length < 100) { // Limit TIDs to prevent bloat
-                    existing.tids.push(item.tid);
-                }
+            if (item.tid && existing.tids.length < 50 && !existing.tids.includes(item.tid)) {
+                existing.tids.push(item.tid);
             }
         } else {
             metrics[key] = {
@@ -139,8 +144,8 @@ export const computeMetricsFromMetadata = (
         };
     }
 
-    if (data.length > 0) {
-        console.log(`[SplitAnalysisUtils] Computing metrics for ${data.length} lines. Sample timestamp: ${data[0].timestamp}`);
-    }
-    return { metrics, state: { prevTimestamp, prevSignature, prevFileInfo } };
+    // Update state in-place
+    state.prevTimestamp = prevTimestamp;
+    state.prevSignature = prevSignature;
+    state.prevFileInfo = prevFileInfo;
 };
