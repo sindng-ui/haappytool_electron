@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Zap, AlertTriangle, ArrowRight, ArrowDown, ArrowUp, RefreshCw, List, LayoutDashboard, TrendingUp, Activity } from 'lucide-react';
+import { X, Zap, AlertTriangle, ArrowRight, ArrowDown, ArrowUp, RefreshCw, List, LayoutDashboard, TrendingUp, TrendingDown, Activity } from 'lucide-react';
 import { SplitAnalysisResult } from '../../hooks/useSplitAnalysis';
 
 interface SplitAnalyzerPanelProps {
@@ -47,19 +47,20 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
         const newErrors = results.filter(r => r.isNewError).length;
         const totalNodes = results.length;
         const regressions = results.filter(r => r.deltaDiff > 10).length; // Over 10ms slower
+        const improvements = results.filter(r => r.deltaDiff < -10).length; // Over 10ms faster
         const spams = results.filter(r => r.countDiff > 20).length; // Over 20 more logs
 
-        const topRegressions = [...results]
-            .filter(r => r.deltaDiff > 0)
-            .sort((a, b) => b.deltaDiff - a.deltaDiff)
-            .slice(0, 100); // 펭-맥스 확장!
+        const topChanges = [...results]
+            .filter(r => Math.abs(r.deltaDiff) > 1) // Significant changes only
+            .sort((a, b) => Math.abs(b.deltaDiff) - Math.abs(a.deltaDiff))
+            .slice(0, 100);
 
         const topSpams = [...results]
             .filter(r => r.countDiff > 0)
             .sort((a, b) => b.countDiff - a.countDiff)
             .slice(0, 100);
 
-        return { newErrors, totalNodes, regressions, spams, topRegressions, topSpams };
+        return { newErrors, totalNodes, regressions, improvements, spams, topChanges, topSpams };
     }, [results]);
 
     const formatDelta = (ms: number) => {
@@ -179,124 +180,164 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                             className="flex-1 overflow-y-auto p-4 custom-scrollbar"
                         >
                             {/* Summary Cards */}
-                            <div className="grid grid-cols-4 gap-4 mb-6">
-                                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 shadow-sm hover:border-blue-500/30 transition-all">
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Mapped Nodes</p>
-                                    <div className="flex items-end gap-2">
-                                        <span className="text-3xl font-black text-white leading-none">{summaryData.totalNodes}</span>
-                                        <span className="text-xs text-slate-500 font-bold mb-1">Nodes</span>
+                            <div className="grid grid-cols-5 gap-3 mb-6">
+                                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3 shadow-sm hover:border-blue-500/30 transition-all">
+                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Mapped Nodes</p>
+                                    <div className="flex items-end gap-1.5">
+                                        <span className="text-2xl font-black text-white leading-none">{summaryData.totalNodes}</span>
+                                        <span className="text-[9px] text-slate-500 font-bold mb-0.5 uppercase">Nodes</span>
                                     </div>
                                 </div>
-                                <div className={`bg-slate-900/50 border p-4 rounded-xl shadow-sm transition-all ${summaryData.newErrors > 0 ? 'border-rose-500/50 hover:bg-rose-500/5' : 'border-slate-800'}`}>
+                                <div className={`bg-slate-900/50 border p-3 rounded-xl shadow-sm transition-all ${summaryData.newErrors > 0 ? 'border-rose-500/50 hover:bg-rose-500/5' : 'border-slate-800'}`}>
                                     <div className="flex items-center justify-between mb-1">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">New Regressive Errors</p>
+                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">New Errors</p>
                                         <AlertTriangle className={`w-3 h-3 ${summaryData.newErrors > 0 ? 'text-rose-500' : 'text-slate-700'}`} />
                                     </div>
-                                    <div className="flex items-end gap-2">
-                                        <span className={`text-3xl font-black leading-none ${summaryData.newErrors > 0 ? 'text-rose-500' : 'text-slate-400'}`}>{summaryData.newErrors}</span>
-                                        <span className="text-xs text-slate-500 font-bold mb-1 uppercase">Issues</span>
+                                    <div className="flex items-end gap-1.5">
+                                        <span className={`text-2xl font-black leading-none ${summaryData.newErrors > 0 ? 'text-rose-500' : 'text-slate-400'}`}>{summaryData.newErrors}</span>
+                                        <span className="text-[9px] text-slate-500 font-bold mb-0.5 uppercase">Issues</span>
                                     </div>
                                 </div>
-                                <div className={`bg-slate-900/50 border p-4 rounded-xl shadow-sm transition-all ${summaryData.regressions > 0 ? 'border-orange-500/50 hover:bg-orange-500/5' : 'border-slate-800'}`}>
+                                <div className={`bg-slate-900/50 border p-3 rounded-xl shadow-sm transition-all ${summaryData.regressions > 0 ? 'border-orange-500/50 hover:bg-orange-500/5' : 'border-slate-800'}`}>
                                     <div className="flex items-center justify-between mb-1">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Performance Regressions</p>
+                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Regressions</p>
                                         <TrendingUp className={`w-3 h-3 ${summaryData.regressions > 0 ? 'text-orange-500' : 'text-slate-700'}`} />
                                     </div>
-                                    <div className="flex items-end gap-2">
-                                        <span className={`text-3xl font-black leading-none ${summaryData.regressions > 0 ? 'text-orange-400' : 'text-slate-400'}`}>{summaryData.regressions}</span>
-                                        <span className="text-xs text-slate-500 font-bold mb-1 uppercase">Slower</span>
+                                    <div className="flex items-end gap-1.5">
+                                        <span className={`text-2xl font-black leading-none ${summaryData.regressions > 0 ? 'text-orange-400' : 'text-slate-400'}`}>{summaryData.regressions}</span>
+                                        <span className="text-[9px] text-slate-500 font-bold mb-0.5 uppercase">Slower</span>
                                     </div>
                                 </div>
-                                <div className={`bg-slate-900/50 border p-4 rounded-xl shadow-sm transition-all ${summaryData.spams > 0 ? 'border-blue-500/50 hover:bg-blue-500/5' : 'border-slate-800'}`}>
+                                <div className={`bg-slate-900/50 border p-3 rounded-xl shadow-sm transition-all ${summaryData.improvements > 0 ? 'border-emerald-500/50 hover:bg-emerald-500/5' : 'border-slate-800'}`}>
                                     <div className="flex items-center justify-between mb-1">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Frequency Spikes</p>
-                                        <Activity className={`w-3 h-3 ${summaryData.spams > 0 ? 'text-blue-400' : 'text-slate-700'}`} />
+                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Improvements</p>
+                                        <TrendingDown className={`w-3 h-3 ${summaryData.improvements > 0 ? 'text-emerald-500' : 'text-slate-700'}`} />
                                     </div>
-                                    <div className="flex items-end gap-2">
-                                        <span className="text-3xl font-black text-blue-400 leading-none">{summaryData.spams}</span>
-                                        <span className="text-xs text-slate-500 font-bold mb-1 uppercase">Increased</span>
+                                    <div className="flex items-end gap-1.5">
+                                        <span className={`text-2xl font-black leading-none ${summaryData.improvements > 0 ? 'text-emerald-400' : 'text-slate-400'}`}>{summaryData.improvements}</span>
+                                        <span className="text-[9px] text-slate-500 font-bold mb-0.5 uppercase">Faster</span>
+                                    </div>
+                                </div>
+                                <div className="bg-slate-900/50 border border-slate-800 p-3 rounded-xl shadow-sm hover:border-blue-500/30 transition-all">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Spams</p>
+                                        <Activity className="w-3 h-3 text-blue-400" />
+                                    </div>
+                                    <div className="flex items-end gap-1.5">
+                                        <span className="text-2xl font-black text-blue-400 leading-none">{summaryData.spams}</span>
+                                        <span className="text-[9px] text-slate-500 font-bold mb-0.5 uppercase">Spiking</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Detailed Insights */}
                             <div className="grid grid-cols-2 gap-6">
-                                {/* Top Regressions */}
+                                {/* Top Changes */}
                                 <div className="bg-slate-900/30 rounded-xl border border-slate-800/80 overflow-hidden flex flex-col">
                                     <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-800 flex items-center gap-2">
-                                        <TrendingUp size={14} className="text-orange-500" />
+                                        <Zap size={14} className="text-blue-400" />
                                         <div className="flex items-center justify-between flex-1">
-                                            <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Top Performance Regressions</h4>
+                                            <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Top Performance Changes</h4>
                                             <span className="text-[9px] text-slate-500 font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">CLICK TO JUMP</span>
                                         </div>
                                     </div>
                                     <div className="flex-1 p-2 flex flex-col gap-2">
-                                        {summaryData.topRegressions.length > 0 ? summaryData.topRegressions.map((res, i) => (
-                                            <div
-                                                key={i}
-                                                onClick={() => handleItemClick(res)}
-                                                className="flex flex-col bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/50 hover:border-orange-500/50 hover:bg-orange-500/5 transition-all cursor-pointer group"
-                                            >
-                                                {/* 🐧⚡ 가로형 타임라인 구간 표시 (Compact Horizontal Timeline) */}
-                                                <div className="flex items-center justify-center gap-3 mb-2.5 px-1">
-                                                    {/* 시작점 (Start Node) */}
-                                                    <div className="flex flex-col items-center min-w-0 flex-1">
-                                                        <span className="text-[9px] font-mono text-slate-500 truncate w-full text-center opacity-70 mb-0.5">
-                                                            {res.prevFileName ? `${res.prevFileName}:${res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum}` : 'START'}
-                                                        </span>
-                                                        <div className="flex items-center gap-2 w-full justify-center">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-600 shrink-0"></div>
-                                                            <span className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]">
-                                                                {res.prevFunctionName || '...'}
-                                                            </span>
+                                        {summaryData.topChanges.length > 0 ? summaryData.topChanges.map((res, i) => {
+                                            const isImprovement = res.deltaDiff < 0;
+                                            const themeColor = isImprovement ? 'emerald' : 'orange';
+                                            const Icon = isImprovement ? TrendingDown : TrendingUp;
+
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    onClick={() => handleItemClick(res)}
+                                                    className={`flex bg-slate-950/50 rounded-lg border border-slate-800/50 hover:border-${themeColor}-500/50 hover:bg-${themeColor}-500/5 transition-all cursor-pointer group overflow-hidden`}
+                                                >
+                                                    {/* 🐧⚡ 왼쪽 영역: 타임라인 흐름 (Flow Timeline) */}
+                                                    <div className="flex-1 flex flex-col gap-1 p-2.5 relative">
+                                                        {/* 시작점 (Start Node) - 블루/슬레이트 테마로 고정 */}
+                                                        <div className="flex items-center gap-2 px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 transition-colors">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500/50 shrink-0"></div>
+                                                            <div className="flex flex-col min-w-0 flex-1">
+                                                                <div className="flex items-center justify-between min-w-0">
+                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                        <span className="text-[9px] font-mono text-blue-400/80 truncate max-w-[200px]">
+                                                                            {res.prevFileName ? res.prevFileName : 'START'}
+                                                                        </span>
+                                                                        <span className="text-[10px] font-black text-blue-500/50">:</span>
+                                                                        <span className="text-[10px] font-black text-white truncate">
+                                                                            {res.prevFunctionName || '...'}
+                                                                            <span className="text-[9px] text-blue-400/60 ml-1 font-mono">
+                                                                                ({res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum})
+                                                                            </span>
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* 수직 화살표 (Vertical Arrow) - 결과에 따른 색상 변화 */}
+                                                        <div className="flex items-center px-4 my-[-3px]">
+                                                            <div className="flex flex-col items-center ml-[3px]">
+                                                                <div className={`w-px h-1.5 bg-gradient-to-b from-blue-700 to-${themeColor}-500/50`}></div>
+                                                                <ArrowDown size={10} className={`text-${themeColor}-500/70 my-[-2px]`} />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* 끝점 (End Node) - 결과 테마 적용 */}
+                                                        <div className={`flex items-center gap-2 px-2 py-1 rounded-md bg-${themeColor}-500/10 border border-${themeColor}-500/30 transition-colors`}>
+                                                            <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-500 shadow-[0_0_10px_rgba(249,115,22,0.5)] shrink-0 animate-pulse`}></div>
+                                                            <div className="flex flex-col min-w-0 flex-1">
+                                                                <div className="flex items-center justify-between min-w-0">
+                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                        <span className={`text-[9px] font-mono text-${themeColor}-400/80 truncate max-w-[200px]`}>
+                                                                            {res.fileName || 'Unknown'}
+                                                                        </span>
+                                                                        <span className={`text-[10px] font-black text-${themeColor}-500/50`}>:</span>
+                                                                        <span className="text-[10px] font-black text-white truncate">
+                                                                            {res.functionName || res.preview.substring(0, 30)}
+                                                                            <span className={`text-[9px] text-${themeColor}-400/60 ml-1 font-mono`}>
+                                                                                ({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})
+                                                                            </span>
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
 
-                                                    {/* 중간 화살표 (Flow Arrow) */}
-                                                    <div className="flex flex-col items-center justify-center shrink-0 opacity-40">
-                                                        <ArrowRight size={14} className="text-orange-500 mb-[-2px]" />
-                                                        <span className="text-[7px] font-black text-slate-700 uppercase tracking-tighter">Flow</span>
-                                                    </div>
+                                                    {/* 🐧⚡ 중앙 구분선 (Vertical Divider) */}
+                                                    <div className="w-px bg-slate-800/80 my-2"></div>
 
-                                                    {/* 끝점 (End Node) - 강조 */}
-                                                    <div className="flex flex-col items-center min-w-0 flex-1">
-                                                        <span className="text-[9px] font-mono text-orange-400/70 truncate w-full text-center mb-0.5">
-                                                            {res.fileName ? `${res.fileName}:${res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum}` : 'Unknown'}
-                                                        </span>
-                                                        <div className="flex items-center gap-2 w-full justify-center">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_5px_rgba(249,115,22,0.6)] shrink-0"></div>
-                                                            <span className="text-[11px] font-black text-slate-100 truncate max-w-[140px]">
-                                                                {res.functionName || res.preview.substring(0, 30)}
+                                                    {/* 🐧⚡ 오른쪽 영역: 시간 분석 (Metrics Analysis) */}
+                                                    <div className="w-[170px] bg-slate-900/40 p-2.5 flex flex-col justify-center gap-2 shrink-0 border-l border-slate-800/30">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">LEFT</span>
+                                                                <span className="text-[10px] font-mono text-slate-400">{formatDelta(res.leftAvgDelta)}</span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">RIGHT</span>
+                                                                <span className="text-[11px] font-mono text-white font-black">{formatDelta(res.rightAvgDelta)}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className={`h-px bg-${themeColor}-800/30`}></div>
+
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className={`text-[8px] font-black text-${themeColor}-500/70 uppercase tracking-tighter`}>
+                                                                {isImprovement ? 'IMPROVEMENT' : 'REGRESSION'}
                                                             </span>
+                                                            <div className={`text-[13px] font-black text-${themeColor}-400 flex items-center justify-center gap-1.5 bg-${themeColor}-400/10 px-2 py-1 rounded-lg border border-${themeColor}-500/20 shadow-md group-hover:bg-${themeColor}-400/15 transition-all`}>
+                                                                <Icon size={11} className="mb-0.5" />
+                                                                {isImprovement ? '' : '+'}{formatDelta(res.deltaDiff)}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-
-                                                <div className="h-px bg-slate-800/40 w-[95%] mx-auto mb-2.5"></div>
-
-                                                {/* 🐧⚡ 하단 비교 영역 (Comparison) */}
-                                                <div className="flex items-center justify-between px-1">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[7px] font-black text-slate-600 uppercase tracking-tighter">Left</span>
-                                                            <span className="text-[10px] font-mono text-slate-400">{formatDelta(res.leftAvgDelta)}</span>
-                                                        </div>
-                                                        <div className="text-slate-800 font-black text-[9px] mt-2">VS</div>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter">Right</span>
-                                                            <span className="text-[10px] font-mono text-white font-bold">{formatDelta(res.rightAvgDelta)}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="text-[7px] font-black text-orange-500/50 uppercase tracking-tighter mb-0.5">Regression</span>
-                                                        <span className="text-[11px] font-black text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded shadow-sm border border-orange-500/20">
-                                                            +{formatDelta(res.deltaDiff)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )) : (
-                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">No significant regressions found. 펭-굿! ✨</div>
+                                            );
+                                        }) : (
+                                            <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">No significant changes found. 펭-굿! ✨</div>
                                         )}
                                     </div>
                                 </div>
@@ -315,16 +356,40 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                             <div
                                                 key={i}
                                                 onClick={() => handleItemClick(res)}
-                                                className="flex flex-col bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all cursor-pointer group"
+                                                className="flex bg-slate-950/50 rounded-lg border border-slate-800/50 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all cursor-pointer group overflow-hidden"
                                             >
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-[11px] font-bold text-slate-200 truncate pr-4">{res.functionName || res.preview.substring(0, 40)}</span>
-                                                    <span className="text-[11px] font-black text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded shadow-sm border border-blue-500/20">+{res.countDiff} calls</span>
+                                                {/* 🐧⚡ 왼쪽 영역: 타임라인 흐름 */}
+                                                <div className="flex-1 flex flex-col gap-1 p-2.5 relative">
+                                                    <div className="flex items-center gap-2 px-2 py-0.5 rounded-md bg-blue-500/5 border border-blue-500/10 opacity-70">
+                                                        <span className="text-[8px] font-black text-slate-500 uppercase">FROM:</span>
+                                                        <span className="text-[9px] font-mono text-slate-500 truncate">
+                                                            {res.prevFileName ? `${res.prevFileName}:${res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum}` : 'START'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/30">
+                                                        <span className="text-[8px] font-black text-blue-500 uppercase">TO:</span>
+                                                        <span className="text-[10px] font-black text-blue-300 truncate">
+                                                            {res.functionName || res.preview.substring(0, 40)}
+                                                        </span>
+                                                        <span className="text-[9px] text-blue-500/60 font-mono">
+                                                            ({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
-                                                    <span>{res.leftCount} logs</span>
-                                                    <ArrowRight size={10} />
-                                                    <span className="text-blue-300 font-bold">{res.rightCount} logs</span>
+
+                                                {/* 🐧⚡ 오른쪽 영역: 빈도 분석 */}
+                                                <div className="w-[120px] bg-slate-900/40 p-2.5 flex flex-col justify-center gap-1 shrink-0 border-l border-slate-800/30">
+                                                    <div className="flex items-center justify-between text-[9px] font-mono">
+                                                        <span className="text-slate-600">PREV</span>
+                                                        <span className="text-slate-500">{res.leftCount}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-[10px] font-mono font-black">
+                                                        <span className="text-slate-400">CURR</span>
+                                                        <span className="text-white">{res.rightCount}</span>
+                                                    </div>
+                                                    <div className="mt-1 text-[11px] font-black text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded border border-blue-500/20 text-center">
+                                                        +{res.countDiff} calls
+                                                    </div>
                                                 </div>
                                             </div>
                                         )) : (
@@ -380,66 +445,68 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                 <div
                                                     key={i}
                                                     onClick={() => handleItemClick(res)}
-                                                    className="grid grid-cols-12 gap-2 px-4 py-3 hover:bg-slate-900 transition-all items-center text-sm group cursor-pointer"
+                                                    className="grid grid-cols-12 gap-2 px-4 py-2.5 hover:bg-slate-900 transition-all items-center text-sm group cursor-pointer border-b border-slate-800/20"
                                                 >
                                                     <div className="col-span-1 flex justify-center">
                                                         {res.isNewError ? (
-                                                            <div title="New Error!" className="w-6 h-6 rounded-md bg-rose-500/20 text-rose-500 flex items-center justify-center shadow-[0_0_10px_rgba(244,63,94,0.3)] border border-rose-500/30">
-                                                                <AlertTriangle className="w-4 h-4" />
+                                                            <div title="New Error!" className="w-5 h-5 rounded bg-rose-500/20 text-rose-500 flex items-center justify-center border border-rose-500/30">
+                                                                <AlertTriangle className="w-3.5 h-3.5" />
                                                             </div>
                                                         ) : res.isError ? (
-                                                            <div title="Existing Error" className="w-6 h-6 rounded-md bg-orange-500/20 text-orange-400 flex items-center justify-center border border-orange-500/30">
-                                                                <AlertTriangle className="w-4 h-4" />
+                                                            <div title="Existing Error" className="w-5 h-5 rounded bg-orange-500/20 text-orange-400 flex items-center justify-center border border-orange-500/30">
+                                                                <AlertTriangle className="w-3.5 h-3.5" />
                                                             </div>
                                                         ) : isSlower ? (
-                                                            <div title="Slower" className="w-6 h-6 rounded-md bg-orange-500/10 text-orange-500 flex items-center justify-center border border-orange-500/20 font-bold">!</div>
+                                                            <div title="Slower" className="w-5 h-5 rounded bg-orange-500/10 text-orange-500 flex items-center justify-center border border-orange-500/20">
+                                                                <TrendingUp className="w-3.5 h-3.5" />
+                                                            </div>
                                                         ) : isFaster ? (
-                                                            <div title="Faster" className="w-6 h-6 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">⚡</div>
+                                                            <div title="Faster" className="w-5 h-5 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+                                                                <TrendingDown className="w-3.5 h-3.5" />
+                                                            </div>
                                                         ) : (
-                                                            <div className="w-6 h-6 rounded-md bg-slate-800/30 text-slate-600 flex items-center justify-center">-</div>
+                                                            <div className="w-5 h-5 rounded bg-slate-800/30 text-slate-600 flex items-center justify-center text-[10px]">-</div>
                                                         )}
                                                     </div>
 
-                                                    <div className="col-span-12 flex flex-col gap-1 mb-2 px-1">
-                                                        <div className="flex items-center gap-1.5 opacity-50">
-                                                            <span className="text-[9px] font-mono text-slate-500">FROM:</span>
-                                                            <span className="text-[9px] font-mono text-slate-400 truncate max-w-[300px]">
-                                                                {res.prevFileName ? `${res.prevFileName}:${res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum} (${res.prevFunctionName || '...'})` : 'START'}
+                                                    <div className="col-span-5 flex flex-col gap-0.5 min-w-0 pr-2">
+                                                        <div className="flex items-center gap-1.5 opacity-60">
+                                                            <span className="text-[8px] font-black text-blue-500/80 uppercase">FROM:</span>
+                                                            <span className="text-[9px] font-mono text-slate-400 truncate">
+                                                                {res.prevFileName ? `${res.prevFileName}:${res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum}` : 'START'}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-1.5">
-                                                            <span className="text-[9px] font-black text-blue-500/80">TO:</span>
-                                                            <span className="text-[10px] font-black text-blue-400 truncate max-w-[300px]">
-                                                                {res.fileName ? `${res.fileName}:${res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum}` : 'Unknown'}
-                                                            </span>
-                                                            <span className="text-[10px] text-slate-300 font-mono truncate bg-white/5 px-1 rounded">
+                                                            <span className="text-[8px] font-black text-blue-400 uppercase">TO:</span>
+                                                            <span className="text-[10px] font-black text-blue-300 truncate">
                                                                 {res.functionName || res.preview.substring(0, 40)}
+                                                            </span>
+                                                            <span className="text-[9px] text-slate-500 font-mono">
+                                                                ({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})
                                                             </span>
                                                         </div>
                                                     </div>
 
-                                                    <div className="col-span-6 h-px"></div> {/* Spacer for alignment */}
-
-                                                    <div className="col-span-3 flex flex-col items-center justify-center border-l border-slate-800/50">
-                                                        <div className="flex items-center gap-2 font-mono text-[11px]">
+                                                    <div className="col-span-3 flex flex-col items-center justify-center border-l border-slate-800/50 py-1">
+                                                        <div className="flex items-center gap-2 font-mono text-[10px]">
                                                             <span className="text-slate-500">{res.leftCount}</span>
-                                                            <span className="text-slate-700 text-[9px]">→</span>
-                                                            <span className="text-slate-300">{res.rightCount}</span>
+                                                            <span className="text-slate-700 text-[8px]">→</span>
+                                                            <span className="text-slate-200">{res.rightCount}</span>
                                                         </div>
-                                                        <div className={`text-[10px] font-black mt-1.5 px-2 py-0.5 rounded flex items-center gap-1 ${isMore ? 'text-rose-400 bg-rose-400/10' : isLess ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 bg-slate-800/30'}`}>
+                                                        <div className={`text-[9px] font-black mt-1 px-1.5 py-0.5 rounded flex items-center gap-1 ${isMore ? 'text-rose-400 bg-rose-400/10' : isLess ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 bg-slate-800/20'}`}>
                                                             {isMore && <ArrowUp className="w-2 h-2" />}
                                                             {isLess && <ArrowDown className="w-2 h-2" />}
                                                             {res.countDiff > 0 ? `+${res.countDiff}` : res.countDiff}
                                                         </div>
                                                     </div>
 
-                                                    <div className="col-span-3 flex flex-col items-center justify-center border-l border-slate-800/50">
-                                                        <div className="flex items-center gap-2 font-mono text-[11px]">
+                                                    <div className="col-span-3 flex flex-col items-center justify-center border-l border-slate-800/50 py-1">
+                                                        <div className="flex items-center gap-2 font-mono text-[10px]">
                                                             <span className="text-slate-500">{formatDelta(res.leftAvgDelta)}</span>
-                                                            <span className="text-slate-700 text-[9px]">→</span>
-                                                            <span className="text-slate-300">{formatDelta(res.rightAvgDelta)}</span>
+                                                            <span className="text-slate-700 text-[8px]">→</span>
+                                                            <span className="text-slate-200">{formatDelta(res.rightAvgDelta)}</span>
                                                         </div>
-                                                        <div className={`text-[10px] font-black mt-1.5 px-2 py-0.5 rounded flex items-center gap-1 ${isSlower ? 'text-orange-400 bg-orange-400/10' : isFaster ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 bg-slate-800/30'}`}>
+                                                        <div className={`text-[9px] font-black mt-1 px-1.5 py-0.5 rounded flex items-center gap-1 ${isSlower ? 'text-orange-400 bg-orange-400/10' : isFaster ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-600 bg-slate-800/20'}`}>
                                                             {isSlower && <ArrowUp className="w-2 h-2" />}
                                                             {isFaster && <ArrowDown className="w-2 h-2" />}
                                                             {res.deltaDiff > 0 ? '+' : ''}{formatDelta(res.deltaDiff)}
