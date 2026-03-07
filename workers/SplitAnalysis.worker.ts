@@ -90,11 +90,13 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
         const isError = (left?.isError || right?.isError) ?? false;
         const isWarn = (left?.isWarn || right?.isWarn) ?? false;
 
-        // "New" error: 왼쪽엔 에러가 없었는데 오른쪽엔 에러인 경우 (또는 신규 로그가 에러인 경우)
-        const isNewError = (right?.isError && !left?.isError) ?? false;
+        // "New" error: 왼쪽엔 에러가 없었는데 오른쪽엔 에러인 경우
+        const isNewError = (!!right?.isError && !left?.isError);
 
-        // 빈도 계산 시, 오른쪽은 Direct 발합(실제 연속 발생)을 우선하되 매칭된 경우 count 사용
-        const rCount = isMapped ? (right?.count || 0) : (right?.directCount || 0);
+        // 🐧⚡ (수정) 빈도 계산은 항상 'Direct' 횟수 기준
+        const lCount = left?.count || 0;
+        const rCount = right?.count || 0;
+        const countDiff = rCount - lCount;
 
         results.push({
             key,
@@ -102,9 +104,9 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
             functionName: right?.functionName || left?.functionName || '',
             preview: right?.preview || left?.preview || '',
 
-            leftCount: left?.count || 0,
+            leftCount: lCount,
             rightCount: rCount,
-            countDiff: rCount - (left?.count || 0),
+            countDiff: countDiff,
 
             leftAvgDelta,
             rightAvgDelta,

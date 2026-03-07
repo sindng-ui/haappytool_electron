@@ -80,9 +80,11 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
 
         // 우측 구간 점프
         if (res.rightLineNum > 0) {
-            // 🐧🎯 점프 지점 결정: 신규 에러나 스팸은 사용자가 인지하는 시작점(rightPrevLineNum)을 우선 시도
-            const start = isSinglePoint ? (res.rightPrevLineNum || res.rightLineNum) : Math.min(res.rightLineNum, res.rightPrevLineNum);
-            const end = isSinglePoint ? start : res.rightLineNum;
+            // 🐧🎯 점프 지점 결정: 
+            // 1. 스팸/단일지점: 실제 그 로그가 위치한 '단일 지점'으로 점프 (범위 선택 방지)
+            // 2. 성능 변화: 원인(Prev)부터 결과(Current)까지의 범위를 선택
+            const start = forceSingle ? res.rightLineNum : Math.min(res.rightLineNum, res.rightPrevLineNum);
+            const end = forceSingle ? start : res.rightLineNum;
             onJumpToRange('right', start, end);
         }
     };

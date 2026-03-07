@@ -655,8 +655,8 @@ export const extractAnalysisMetrics = async (
         prevTimestamp: null as number | null,
         prevSignature: 'START',
         prevFileInfo: { fileName: '', functionName: '', preview: '' },
-        lookbackWindow: [],
-        lastSignifByTid: {},
+        lookbackWindowByTid: {}, // 🐧⚡ TID별 윈도우 격리
+        lastSignifByTid: {}, // 🐧⚡ TID별 마지막 로그 격리
         aliasFirstMatch: {} // 🐧⚡ Alias별 최초 지점 추적용
     };
 

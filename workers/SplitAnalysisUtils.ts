@@ -110,18 +110,15 @@ export const computeMetricsFromMetadata = (
         prevTimestamp: number | null;
         prevSignature: string;
         prevFileInfo: any;
-        lookbackWindow?: LogMetadata[];
-        lastGlobalSignif?: LogMetadata;
-        aliasFirstMatch?: Record<string, LogMetadata>; // 🐧⚡ Alias별 최초 지점 저장
+        lookbackWindowByTid?: Record<string, LogMetadata[]>; // 🐧⚡ TID별 윈도우 관리
+        lastSignifByTid?: Record<string, LogMetadata>; // 🐧⚡ TID별 마지막 로그 관리
+        aliasFirstMatch?: Record<string, LogMetadata>;
     },
     maxGap: number = 100,
     side: string = 'left'
 ): void => {
-    if (!state.lookbackWindow) {
-        state.lookbackWindow = [];
-    }
-
-    const lookbackWindow = state.lookbackWindow;
+    if (!state.lookbackWindowByTid) state.lookbackWindowByTid = {};
+    if (!state.lastSignifByTid) state.lastSignifByTid = {};
 
     for (let i = 0; i < data.length; i++) {
         const item = data[i];
@@ -144,36 +141,39 @@ export const computeMetricsFromMetadata = (
         }
 
         const currentSig = item.signature;
+        const tid = item.tid || 'default';
 
-        // 2. 차등 매칭 로직 (사용자 피드백 반영 핵심)
+        if (!state.lookbackWindowByTid[tid]) state.lookbackWindowByTid[tid] = [];
+        const lookbackWindow = state.lookbackWindowByTid[tid];
+
+        // 2. 차등 매칭 로직 (TID별 격리)
         if (isSignificant(item)) {
             if (side === 'left') {
-                // [Baseline] 연속된 소스 로그만 페어링하여 기준 세그먼트 생성
-                const lastSignif = state.lastGlobalSignif;
+                // [Baseline] 같은 쓰레드의 연속된 로그만 페어링
+                const lastSignif = state.lastSignifByTid[tid];
                 if (lastSignif) {
                     const key = `${lastSignif.signature} ➔ ${currentSig}`;
                     addMetric(metrics, key, lastSignif, item);
                 }
             } else {
-                // [Target] 슬라이딩 윈도우를 이용해 중간에 로그가 삽입되어도 왼쪽 세그먼트를 검색 매칭
-                // 최근 20개의 소스 로그와 페어링 시도 (오른쪽 로그에 신규 로그 삽입 대응)
+                // [Target] 같은 쓰레드의 최근 윈도우 내에서 매칭
                 const windowLen = lookbackWindow.length;
                 for (let j = 0; j < windowLen; j++) {
                     const prevItem = lookbackWindow[j];
-                    const isDirect = (j === windowLen - 1); // 윈도우의 마지막 아이템이 실제 바로 직전 로그
+                    const isDirect = (j === windowLen - 1);
                     const key = `${prevItem.signature} ➔ ${currentSig}`;
                     addMetric(metrics, key, prevItem, item, isDirect);
                 }
 
-                // 윈도우 관리 (오른쪽 로그 전용)
+                // 윈도우 관리 (TID별)
                 lookbackWindow.push(item);
                 if (lookbackWindow.length > 20) {
                     lookbackWindow.shift();
                 }
             }
 
-            // 공통: 현재 소스를 마지막 소스로 저장
-            state.lastGlobalSignif = item;
+            // TID별 마지막 소스로 저장
+            state.lastSignifByTid[tid] = item;
         }
 
         // 3. 🐧⚡ Happy Combo Alias 기반 세그먼트 (사용자 요구사항)
@@ -219,20 +219,22 @@ function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, cu
 
     const existing = metrics[key];
     if (existing) {
-        existing.count++;
-        if (isDirect) existing.directCount = (existing.directCount || 0) + 1;
-        if (hasDelta) {
-            existing.totalDelta += delta;
-            existing.deltaSamples++;
+        if (isDirect) {
+            existing.count++;
+            existing.directCount = (existing.directCount || 0) + 1;
+            if (hasDelta) {
+                existing.totalDelta += delta;
+                existing.deltaSamples++;
+            }
         }
         if (current.tid && !existing.tids.includes(current.tid)) {
             if (existing.tids.length < 50) existing.tids.push(current.tid);
         }
     } else {
         metrics[key] = {
-            count: 1,
-            totalDelta: hasDelta ? delta : 0,
-            deltaSamples: hasDelta ? 1 : 0,
+            count: isDirect ? 1 : 0,
+            totalDelta: (hasDelta && isDirect) ? delta : 0,
+            deltaSamples: (hasDelta && isDirect) ? 1 : 0,
             tids: current.tid ? [current.tid] : [],
             preview: current.preview,
             fileName: current.fileName,
