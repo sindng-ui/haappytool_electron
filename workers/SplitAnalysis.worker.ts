@@ -68,24 +68,33 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
     ctx.postMessage({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 10 } });
 
     const results: SplitAnalysisResult[] = [];
-    const leftKeys = Object.keys(leftMetrics);
-    console.log(`[SplitAnalysisWorker] Starting comparison. Left keys: ${leftKeys.length}`);
+    const rightKeys = Object.keys(rightMetrics);
+    console.log(`[SplitAnalysisWorker] Starting comparison. Right keys: ${rightKeys.length}`);
 
-    for (const key of leftKeys) {
+    for (const key of rightKeys) {
         const left = leftMetrics[key];
         const right = rightMetrics[key];
 
-        // 형님 요청: 왼쪽 구간을 오른쪽에서 찾지 못한 경우 무시
-        if (!right) continue;
+        // 🐧🛡️ 노이즈 필터링:
+        // 1. 왼쪽 로그와 매칭된 경우 (Mapped Node) 이거나,
+        // 2. 오른쪽 로그에서 실제로 연속해서 발생한(Direct) 경우만 포함
+        // 슬라이딩 윈도우로 인해 발생한 단순 스킵(Bridge) 페어링 중 매칭 안 된 녀석들은 버림
+        const isMapped = !!left;
+        const isRightDirect = (right?.directCount || 0) > 0;
 
-        const leftAvgDelta = left.deltaSamples > 0 ? left.totalDelta / left.deltaSamples : 0;
-        const rightAvgDelta = right.deltaSamples > 0 ? right.totalDelta / right.deltaSamples : 0;
+        if (!isMapped && !isRightDirect) continue;
 
-        const isError = (left.isError || right.isError) ?? false;
-        const isWarn = (left.isWarn || right.isWarn) ?? false;
+        const leftAvgDelta = (left?.deltaSamples || 0) > 0 ? (left?.totalDelta || 0) / (left?.deltaSamples || 1) : 0;
+        const rightAvgDelta = (right?.deltaSamples || 0) > 0 ? (right?.totalDelta || 0) / (right?.deltaSamples || 1) : 0;
 
-        // "New" error: 왼쪽엔 에러가 없었는데 오른쪽엔 에러인 경우
-        const isNewError = (right.isError && !left.isError) ?? false;
+        const isError = (left?.isError || right?.isError) ?? false;
+        const isWarn = (left?.isWarn || right?.isWarn) ?? false;
+
+        // "New" error: 왼쪽엔 에러가 없었는데 오른쪽엔 에러인 경우 (또는 신규 로그가 에러인 경우)
+        const isNewError = (right?.isError && !left?.isError) ?? false;
+
+        // 빈도 계산 시, 오른쪽은 Direct 발합(실제 연속 발생)을 우선하되 매칭된 경우 count 사용
+        const rCount = isMapped ? (right?.count || 0) : (right?.directCount || 0);
 
         results.push({
             key,
@@ -94,8 +103,8 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
             preview: right?.preview || left?.preview || '',
 
             leftCount: left?.count || 0,
-            rightCount: right?.count || 0,
-            countDiff: (right?.count || 0) - (left?.count || 0),
+            rightCount: rCount,
+            countDiff: rCount - (left?.count || 0),
 
             leftAvgDelta,
             rightAvgDelta,

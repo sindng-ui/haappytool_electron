@@ -29,12 +29,12 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
         if (!results) return null;
         const newErrors = results.filter(r => r.isNewError).length;
         const totalNodes = results.length;
-        const regressions = results.filter(r => r.deltaDiff > 10).length; // Over 10ms slower
-        const improvements = results.filter(r => r.deltaDiff < -10).length; // Over 10ms faster
+        const regressions = results.filter(r => r.deltaDiff > 10 && r.leftAvgDelta > 0 && r.rightAvgDelta > 0).length; // Over 10ms slower
+        const improvements = results.filter(r => r.deltaDiff < -10 && r.leftAvgDelta > 0 && r.rightAvgDelta > 0).length; // Over 10ms faster
         const spams = results.filter(r => r.countDiff > 20).length; // Over 20 more logs
 
         const topChanges = [...results]
-            .filter(r => Math.abs(r.deltaDiff) > 1) // Significant changes only
+            .filter(r => Math.abs(r.deltaDiff) > 1 && r.leftAvgDelta > 0 && r.rightAvgDelta > 0) // Significant changes between non-zero values
             .sort((a, b) => Math.abs(b.deltaDiff) - Math.abs(a.deltaDiff))
             .slice(0, 100);
 
@@ -53,7 +53,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
     };
 
 
-    const handleItemClick = (res: SplitAnalysisResult) => {
+    const handleItemClick = (res: SplitAnalysisResult, isSinglePoint: boolean = false) => {
         setSelectedKey(res.key);
 
         // Timeline 리스트 내 자동 스크롤 (Focus)
@@ -66,17 +66,22 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
 
         if (!onJumpToRange) return;
 
+        // 🐧🎯 단일 지점 점프 여부 결정
+        // 1. 명시적으로 isSinglePoint가 true이거나
+        // 2. 신규 에러인 경우
+        const forceSingle = isSinglePoint || res.isNewError;
+
         // 좌측 구간 점프
         if (res.leftLineNum > 0) {
-            const start = Math.min(res.leftLineNum, res.leftPrevLineNum);
-            const end = Math.max(res.leftLineNum, res.leftPrevLineNum);
+            const start = forceSingle ? res.leftLineNum : Math.min(res.leftLineNum, res.leftPrevLineNum);
+            const end = res.leftLineNum;
             onJumpToRange('left', start, end);
         }
 
         // 우측 구간 점프
         if (res.rightLineNum > 0) {
-            const start = Math.min(res.rightLineNum, res.rightPrevLineNum);
-            const end = Math.max(res.rightLineNum, res.rightPrevLineNum);
+            const start = forceSingle ? res.rightLineNum : Math.min(res.rightLineNum, res.rightPrevLineNum);
+            const end = res.rightLineNum;
             onJumpToRange('right', start, end);
         }
     };
@@ -222,7 +227,10 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                     <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-800 flex items-center gap-2">
                                         <Zap size={14} className="text-blue-400" />
                                         <div className="flex items-center justify-between flex-1">
-                                            <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Top Performance Changes</h4>
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Top Performance Changes</h4>
+                                                <span className="text-[10px] font-mono text-blue-400 bg-blue-400/10 px-1.5 rounded-full border border-blue-500/20">{summaryData.topChanges.length}</span>
+                                            </div>
                                             <span className="text-[9px] text-slate-500 font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">CLICK TO JUMP</span>
                                         </div>
                                     </div>
@@ -323,7 +331,10 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                     <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-800 flex items-center gap-2">
                                         <Activity size={14} className="text-blue-400" />
                                         <div className="flex items-center justify-between flex-1">
-                                            <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Top Frequency Increases (Spam)</h4>
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Top Frequency Increases (Spam)</h4>
+                                                <span className="text-[10px] font-mono text-blue-400 bg-blue-400/10 px-1.5 rounded-full border border-blue-500/20">{summaryData.topSpams.length}</span>
+                                            </div>
                                             <span className="text-[9px] text-slate-500 font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">CLICK TO JUMP</span>
                                         </div>
                                     </div>
@@ -333,7 +344,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                             return (
                                                 <div
                                                     key={i}
-                                                    onClick={() => handleItemClick(res)}
+                                                    onClick={() => handleItemClick(res, true)}
                                                     onDoubleClick={() => onViewRawSplit?.(res)}
                                                     className={`flex bg-slate-950/50 rounded-lg border transition-all cursor-pointer group overflow-hidden ${isSelected
                                                         ? 'border-blue-500/50 bg-blue-500/5'

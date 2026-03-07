@@ -89,6 +89,7 @@ export interface AggregateMetrics {
         prevOriginalLineNum: number; // ✅ 디스플레이용 원본 라인 번호
         codeLineNum?: string | null;     // ✅ NEW: 로그 내부 코드 라인 번호 (예: 350)
         prevCodeLineNum?: string | null; // ✅ NEW: 로그 내부 코드 라인 번호
+        directCount?: number;            // ✅ NEW: 실제 연속된 로그 페어링 횟수 (Sliding window noise filtering용)
     };
 }
 
@@ -156,9 +157,12 @@ export const computeMetricsFromMetadata = (
             } else {
                 // [Target] 슬라이딩 윈도우를 이용해 중간에 로그가 삽입되어도 왼쪽 세그먼트를 검색 매칭
                 // 최근 20개의 소스 로그와 페어링 시도 (오른쪽 로그에 신규 로그 삽입 대응)
-                for (const prevItem of lookbackWindow) {
+                const windowLen = lookbackWindow.length;
+                for (let j = 0; j < windowLen; j++) {
+                    const prevItem = lookbackWindow[j];
+                    const isDirect = (j === windowLen - 1); // 윈도우의 마지막 아이템이 실제 바로 직전 로그
                     const key = `${prevItem.signature} ➔ ${currentSig}`;
-                    addMetric(metrics, key, prevItem, item);
+                    addMetric(metrics, key, prevItem, item, isDirect);
                 }
 
                 // 윈도우 관리 (오른쪽 로그 전용)
@@ -203,7 +207,7 @@ export const computeMetricsFromMetadata = (
 /**
  * 🐧⚡ 매칭된 인터벌을 메트릭 맵에 안전하게 추가합니다.
  */
-function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, current: LogMetadata) {
+function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, current: LogMetadata, isDirect: boolean = true) {
     let delta = 0;
     let hasDelta = false;
     if (current.timestamp !== null && prev.timestamp !== null) {
@@ -216,6 +220,7 @@ function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, cu
     const existing = metrics[key];
     if (existing) {
         existing.count++;
+        if (isDirect) existing.directCount = (existing.directCount || 0) + 1;
         if (hasDelta) {
             existing.totalDelta += delta;
             existing.deltaSamples++;
@@ -242,7 +247,8 @@ function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, cu
             lineNum: current.visualIndex,
             prevLineNum: prev.visualIndex,
             originalLineNum: current.lineNum,
-            prevOriginalLineNum: prev.lineNum
+            prevOriginalLineNum: prev.lineNum,
+            directCount: isDirect ? 1 : 0
         };
     }
 }
