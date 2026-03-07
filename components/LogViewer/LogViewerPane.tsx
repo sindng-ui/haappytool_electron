@@ -95,7 +95,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         isArchiveSaveEnabled = false, lineHighlightRanges, performanceHeatmap, onAnalyzePerformance,
         perfAnalysisResult, isAnalyzingPerformance = false, isActive, onJumpToLine, onJumpToRange,
         onViewRawRange, onCopyRawRange, dashboardHeight: propDashboardHeight, onDashboardHeightChange,
-        clearCacheTick, sharedBuffers, onAnalyzeSpam, onHighlightJump
+        clearCacheTick, sharedBuffers, onAnalyzeSpam, onHighlightJump, onReset
     } = props;
 
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
@@ -265,6 +265,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                 perfAnalysisResult={perfAnalysisResult}
                 isAnalyzingPerformance={isAnalyzingPerformance}
                 onAnalyzeSpam={onAnalyzeSpam}
+                onReset={onReset}
             />
 
             <div className="flex-1 relative flex flex-col log-viewer-pane" data-pane-id={paneId}>

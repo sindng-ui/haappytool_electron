@@ -107,6 +107,7 @@
   - `Scroll`: 가상 스크롤을 통한 세그먼트 단위 로딩 (`onScrollRequest`)
   - `Ctrl+F`: 검색 바 활성화
   - `Double Click`: 북마크 토글
++ - `Individual Close`: `LogViewerToolbar`의 `X` 버튼을 통해 양쪽 패널의 로그를 각각 독립적으로 초기화 (`onReset`)
 
 ### [[Text Selection & Context Menu]]
 - **ID**: `interaction-log-selection`

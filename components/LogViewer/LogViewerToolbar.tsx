@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     Archive, Bookmark, Copy, Download, BarChart3, Activity,
-    Zap, Split, Table
+    Zap, Split, Table, X
 } from 'lucide-react';
 
 interface LogViewerToolbarProps {
@@ -21,6 +21,7 @@ interface LogViewerToolbarProps {
     isAnalyzingPerformance?: boolean;
     onAnalyzeSpam?: () => void;
     isAnalyzingSpam?: boolean;
+    onReset?: () => void; // Added
 }
 
 const ToolbarButton: React.FC<{
@@ -65,7 +66,8 @@ export const LogViewerToolbar: React.FC<LogViewerToolbarProps> = ({
     perfAnalysisResult,
     isAnalyzingPerformance = false,
     onAnalyzeSpam,
-    isAnalyzingSpam = false
+    isAnalyzingSpam = false,
+    onReset
 }) => {
     return (
         <div
@@ -82,6 +84,18 @@ export const LogViewerToolbar: React.FC<LogViewerToolbarProps> = ({
                         {workerReady ? (isRawMode ? 'Raw View' : (placeholderText.includes('Drag') ? placeholderText : placeholderText.replace('Processing...', '').replace('Drop a log file to start', 'No file loaded'))) : (fileName ? 'Processing...' : 'Empty')}
                     </span>
                 </div>
+                {workerReady && onReset && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onReset();
+                        }}
+                        className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded text-slate-400 hover:text-rose-500 transition-colors ml-[-4px]"
+                        title="Close Log"
+                    >
+                        <X size={14} />
+                    </button>
+                )}
             </div>
 
             <div className="flex items-center gap-1 transition-opacity duration-200">

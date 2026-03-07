@@ -4,21 +4,18 @@
 
 ## Proposed Changes
 
-### Split Analyzer UX Enhancement
+### Individual Log Pane Closing (Split Mode)
 
-#### [MODIFY] [useSplitAnalysis.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/hooks/useSplitAnalysis.ts)
-- `closeAnalysis` 호출 시 실행 중인 워커(`analyzerWorkerRef`)를 즉시 `terminate()` 하도록 수정합니다.
-- 워커 종료 후 다음 분석을 위해 즉시 새로운 워커 인스턴스를 생성(`initWorker`)합니다.
-- `isCancelledRef`를 도입하여 메타데이터 페칭(`performAnalysis`) 도중 중단되었을 경우 이후 프로세스를 중단합니다.
+#### [MODIFY] [LogViewerToolbar.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/LogViewerToolbar.tsx)
+- `LogViewerToolbarProps`에 `onReset` 콜백을 추가합니다.
+- 툴바 우측 상단이나 파일명 옆에 로그를 닫을 수 있는 `X` (Close) 버튼을 추가합니다.
+- `X` 버튼 클릭 시 `onReset`이 호출되도록 합니다.
 
-#### [MODIFY] [workerAnalysisHandlers.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/workerAnalysisHandlers.ts)
-- (수정 완료) 분석 중 상태를 `analyzing`으로 변경하여 UI 깜빡임 방지.
-
-#### [MODIFY] [SplitAnalyzerPanel.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/SplitAnalyzerPanel.tsx)
-- (수정 완료) 애니메이션 속도 조절 (0.15s) 및 내부 로딩 UI 추가.
+#### [MODIFY] [LogViewerPane.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/LogViewerPane.tsx)
+- `LogViewerToolbar`에 `onReset` 프롭을 전달합니다.
 
 #### [MODIFY] [LogSession.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogSession.tsx)
-- (수정 완료) 전역 로딩 오버레이 제거 및 애니메이션 래퍼 추가.
+- (이미 전달 중) `LogViewerPane`에 `handleLeftReset` 및 `handleRightReset`이 정상적으로 연결되어 있는지 재확인합니다.
 
 ## Verification Plan
 
@@ -26,7 +23,8 @@
 - `npm run test`
 
 ### Manual Verification
-1. `Analyze Diff` 버튼 클릭 후 즉시 상단 패널의 `X` 버튼을 눌러 닫습니다.
-2. 잠시 기다린 후 분석 결과가 멋대로 다시 팝업되지 않는지 확인합니다.
-3. 다시 `Analyze Diff`를 눌렀을 때 분석이 정상적으로 재시작되는지 확인합니다.
-4. 분석 중 자원 사용량(CPU/Memory)이 패널을 닫는 즉시 감소하는지 확인합니다. (Worker Terminate 확인)
+1. 로그가 두 개 로드된 Split Mode에 진입합니다.
+2. 왼쪽 패널의 `X` 버튼을 클릭하여 왼쪽 로그만 닫히는지 확인합니다.
+3. 오른쪽 패널의 `X` 버튼을 클릭하여 오른쪽 로그만 닫히는지 확인합니다.
+4. 로그를 닫은 후 다시 새로운 로그를 드래그 앤 드롭하거나 열 수 있는지 확인합니다.
+5. 로그를 닫을 때 메모리/워커 자원이 정상적으로 해제되는지 확인합니다. (기존 Reset 로직 검증)
