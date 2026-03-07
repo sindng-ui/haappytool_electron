@@ -1,6 +1,6 @@
-# HappyTool APP_MAP (AI 작업 지도) 🗺️
+# HappyTool APP_MAP (AI 작업 지도)
 
-형님! 이 지도는 AI Agent가 프로젝트의 기능을 즉시 찾고 분석할 수 있도록 돕는 **인터페이스 규격 기반의 지도**입니다. 🐧⚡
+형님! 이 지도는 AI Agent가 프로젝트의 기능을 즉시 찾고 분석할 수 있도록 돕는 **인터페이스 규격 기반의 지도**입니다.
 모든 경로는 **프로젝트 베이스 기준 상대 경로**를 사용하며, 한글/영어 키워드 매핑을 통해 검색 효율을 극대화했습니다.
 
 ---
@@ -65,18 +65,18 @@
   - `Worker`: [LogProcessor.worker.ts](./workers/LogProcessor.worker.ts)
   - `Data Reader`: [workerDataReader.ts](./workers/workerDataReader.ts)
   - `Analysis`: [workerAnalysisHandlers.ts](./workers/workerAnalysisHandlers.ts)
-- **데이터 흐름**: Log Worker(Main) ↔ Log Worker(Sub/WASM) ↔ UI (SharedArrayBuffer Zero-copy Binary Read) 🚀
+- **데이터 흐름**: Log Worker(Main) ↔ Log Worker(Sub/WASM) ↔ UI (SharedArrayBuffer Zero-copy Binary Read)
 - **최근 최적화**:
   - `LogProcessor.worker.ts` 내 메시지 전달 루프를 `async/await` 구조로 개편하여 레이스 컨디션 해결 및 안정성 확보.
-  - **SharedArrayBuffer 기반 Zero-copy Binary Read** 구현. 워커에 데이터를 요청하는 대신 UI(HyperLogRenderer)에서 직접 공유 메모리를 읽어 렌더링 속도 비약적 향상 및 RAM 다이어트 성공! 🐧💎🚀
-  - **RPC 기반 대용량 파일 스트리밍(`isLocalFileMode`)** 구현. File API를 탈피하고, 700MB, 2GB 등 초거대 로그 파일을 로드할 때 발생하는 메모리 초과(OOM)를 원천 차단했습니다! RPC로 필요한 청크만 요청하여 메인 및 하위 워커에 병렬로 배분하는 궁극의 제로카피 구조 완성. 🚀 [NEW]
+  - **SharedArrayBuffer 기반 Zero-copy Binary Read** 구현. 워커에 데이터를 요청하는 대신 UI(HyperLogRenderer)에서 직접 공유 메모리를 읽어 렌더링 속도 비약적 향상 및 RAM 다이어트 성공!
+  - **RPC 기반 대용량 파일 스트리밍(`isLocalFileMode`)** 구현. File API를 탈피하고, 700MB, 2GB 등 초거대 로그 파일을 로드할 때 발생하는 메모리 초과(OOM)를 원천 차단했습니다! RPC로 필요한 청크만 요청하여 메인 및 하위 워커에 병렬로 배분하는 궁극의 제로카피 구조 완성. [NEW]
 - **Core Messages**:
   - `INIT_LOCAL_FILE_STREAM`: `{ path, size }` -> 로컬 디스크에서 직접 청크 단위로 스트리밍 인덱스 빌드 및 필터링 수행 [NEW]
   - `RPC_REQUEST` / `RPC_RESPONSE`: 워커 ↔ UI ↔ 메인 간 파일 직접 읽기(`readFileSegment`) 통신 채널 [NEW]
   - `GET_LINES`: `{ startLine, count }` -> 필터링된 결과에서 지정된 오프셋의 로그 반환 (SAB 및 RPC 지원)
   - `BUFFER_SHARED`: `{ logBuffer, lineOffsets, ... }` -> UI에 공유 메모리 주소 전달 (Zero-copy 시작 알림)
   - `FILTER_LOGS`: `{ happyGroups, excludes, quickFilter, ... }` -> 필터 룰 적용
-  - **성능 분석 고도화**: 로그 내부의 함수 호출 라인 번호(예: `OnResume(350)`)를 정규식으로 정밀 추출(`codeLineNum`)하여 분석 리포트의 정확도를 비약적으로 향상시켰습니다. [NEW] 🐧📊🎯
+  - **성능 분석 고도화**: 로그 내부의 함수 호출 라인 번호(예: `OnResume(350)`)를 정규식으로 정밀 추출(`codeLineNum`)하여 분석 리포트의 정확도를 비약적으로 향상시켰습니다. [NEW]
 - **Data Flow**: `fs.read (Main)` -> `UI RPC` -> `Worker(Binary Logging)` -> `Shared Log Buffer/Offsets` -> `WASM/SubWorker(Filtering)` -> `Shared filterIndices` -> `UI (Zero-copy Reading)` -> `HyperLogRenderer`
 
 ### [[Headless CLI Engine]]
@@ -90,7 +90,7 @@
   - `cli-ready`: Renderer -> Main 준비 완료 알림
   - `cli-stdout` / `cli-stderr` / `cli-exit`: Renderer -> Main 터미널 콘솔 파이프
 - **최근 개선**:
-  - `CliApp.test.tsx`의 `block-test` 시나리오 테스트에서 발생하던 5초 타임아웃 문제를 가상 타이머(`vi.useFakeTimers`) 최적화를 통해 해결하고, 테스트 실행 속도를 50배 이상 향상시켰습니다! 🐧🚀💎
+  - `CliApp.test.tsx`의 `block-test` 시나리오 테스트에서 발생하던 5초 타임아웃 문제를 가상 타이머(`vi.useFakeTimers`) 최적화를 통해 해결하고, 테스트 실행 속도를 50배 이상 향상시켰습니다!
 - **Data Flow**: `Terminal Argv` -> `commander (cli.cjs)` -> `app://./index.html?mode=cli` -> `index.tsx (Conditionally Route)` -> `CliApp.tsx` -> `Task Execution (LogExt / BlockTest)` -> `Terminal Output`
 
 ### [[Log Viewer UI Architecture]]
@@ -100,14 +100,13 @@
   - `Container`: [LogSession.tsx](./components/LogSession.tsx)
   - `Pane`: [LogViewerPane.tsx](./components/LogViewer/LogViewerPane.tsx)
   - `Renderer`: [HyperLogRenderer.tsx](./components/LogViewer/HyperLogRenderer.tsx)
-  - `Raw View`: [RawContextViewer.tsx](./components/LogViewer/RawContextViewer.tsx) [REFACTORED]
-- **Core Interface**:
-  - `RawContextViewer`: 로그 라인 더블 클릭 시 원본 로그 문맥을 보여주는 오버레이 뷰. `z-index` 충돌 문제 해결 및 `LogSession`에서의 중복 정의 제거. [NEW] 🐧💎
+  - `RawContextViewer`: 로그 라인 더블 클릭 시 원본 로그 문맥을 보여주는 오버레이 뷰. `z-index` 충돌 문제 해결 및 `LogSession`에서의 중복 정의 제거. [NEW]
+  - `SplitRawContextViewer`: Timeline 항목 더블 클릭 시 좌우 로그의 원본 문맥을 동시에 보여주는 분할 뷰어. [NEW]
 - **Interactions**:
   - `Scroll`: 가상 스크롤을 통한 세그먼트 단위 로딩 (`onScrollRequest`)
   - `Ctrl+F`: 검색 바 활성화
   - `Double Click`: 북마크 토글
-  - **스플릿 뷰 렌더링 최적화**: 뷰포트 너비가 크게 변할 때(스플릿 모드 진입 등) 가로 스크롤을 자동으로 0으로 리셋하여 왼쪽 패널의 타임스탬프/로그레벨이 가려지는 현상을 완벽히 해결했습니다. [FIX] 🐧🛠️✨
+  - **스플릿 뷰 렌더링 최적화**: 뷰포트 너비가 크게 변할 때(스플릿 모드 진입 등) 가로 스크롤을 자동으로 0으로 리셋하여 왼쪽 패널의 타임스탬프/로그레벨이 가려지는 현상을 완벽히 해결했습니다. [FIX]
 
 ### [[Split Performance Analyzer]]
 - **ID**: `ui-split-analyzer`
@@ -134,7 +133,7 @@
 - **Interactions**:
   - `Drag & Drop`: `framer-motion`의 `Reorder`를 사용하여 분석 규칙(Mission)의 표시 순서를 변경합니다.
   - `Apply`: 변경된 순서를 전역 상태와 `localStorage`에 즉시 반영합니다.
-  - `UI Polish`: 불필요한 UUID 정보를 제거하고 UI 전체를 영문화하여 시인성을 높였습니다. [NEW] 🐧📋
+  - `UI Polish`: 불필요한 UUID 정보를 제거하고 UI 전체를 영문화하여 시인성을 높였습니다. [NEW]
 
 ### [[Text Selection & Context Menu]]
 - **ID**: `interaction-log-selection`
@@ -146,24 +145,23 @@
   - `View`: [ContextMenu.tsx](./components/ContextMenu.tsx)
 - **Interactions & Shortcuts**:
   - `Mouse Drag`: 로그 라인 선택
-  - `Ctrl+C`: **선택된 라인이 있을 경우 해당 라인만 복사하도록 개선**. 선택 영역이 없으면 기존처럼 전체 복사 유지. [NEW] 🐧🎯
-  - `Tab Header Button`: **Copy as Confluence Table 버튼은 현재 선택 여부와 상관없이 항상 전체 필터링된 로그를 복사**하도록 정책 고정! [MOD] 🐧💎
+  - `Ctrl+C`: **선택된 라인이 있을 경우 해당 라인만 복사하도록 개선**. 선택 영역이 없으면 기존처럼 전체 복사 유지. [NEW]
+  - `Tab Header Button`: **Copy as Confluence Table 버튼은 현재 선택 여부와 상관없이 항상 전체 필터링된 로그를 복사**하도록 정책 고정! [MOD]
   - `Shift + Click`: 범위 선택
   - **최근 개선 (Big Log Fix)**: 1GB 이상 대용량 로그 필터링 시 페이지(Segment Index)가 초기화되지 않아 화면이 비어 보이던 버그 해결. 
   - **최근 최적화 (Extreme Performance)**: 
-    - **Loading Splash & Plugin Lazy Mount**: 앱 초기 로딩 시 모든 플러그인을 한꺼번에 마운트하여 메인 스레드를 점유하던 병목을 해결했슴다. `PluginContainer`에 지연 마운팅(Lazy Mount)을 도입하여 활성화된 적이 있는 플러그인만 메모리에 유지하도록 개선, 로딩 화면의 애니메이션이 끊김 없이 부드럽게 동작하도록 최적화했슴다. [TURBO] 🐧🚀💎
-    - **WASM Cold Start & JIT 예열 완벽 해결**: 앱 최초 실행 시 V8 엔진의 JIT 컴파일 지연과 WASM 초기화 미동기화로 인해 첫 필터링이 JS Fallback으로 빠지며 5.5초가 걸리던 고질적 문제를 완전히 뽑았습니다! 인덱싱과 동시에 워커를 스폰(`initSubWorkers`)하고, 더미 텍스트로 5만 번 엔진을 예열하여 첫 필터링도 무조건 3초대 최고 속도를 냅니다. [TURBO] 🐧🚀
+    - **Loading Splash & Plugin Lazy Mount**: 앱 초기 로딩 시 모든 플러그인을 한꺼번에 마운트하여 메인 스레드를 점유하던 병목을 해결했습니다. `PluginContainer`에 지연 마운팅(Lazy Mount)을 도입하여 활성화된 적이 있는 플러그인만 메모리에 유지하도록 개선, 로딩 화면의 애니메이션이 끊김 없이 부드럽게 동작하도록 최적화했습니다. [TURBO]
+    - **WASM Cold Start & JIT 예열 완벽 해결**: 앱 최초 실행 시 V8 엔진의 JIT 컴파일 지연과 WASM 초기화 미동기화로 인해 첫 필터링이 JS Fallback으로 빠지며 5.5초가 걸리던 고질적 문제를 완전히 뽑았습니다! 인덱싱과 동시에 워커를 스폰(`initSubWorkers`)하고, 더미 텍스트로 5만 번 엔진을 예열하여 첫 필터링도 무조건 3초대 최고 속도를 냅니다. [TURBO]
     - 필터링 시 동시 RPC 요청을 4개로 제한(Throttling)하여 IPC 부하 및 메모리 스파이크 차단. [STABLE]
     - 청크당 라인수를 최대 20,000개로 제한하여 Electron IPC 대역폭 초과 방지. [RELIABLE]
     - 서브 워커에서 대용량 문자열 split 대신 Uint8Array 직접 순회 방식으로 변경하여 OOM 완전 차단. [ZERO-COPY]
     - **초거대 용량 동적 스케일링(Dynamic Strategy)**: 파일 전체 라인 수(`totalLines`)에 비례하여 처리 청크 크기와 워커 동시성(Concurrency)을 가변적으로 조절하는 **지능형 엔진**을 탑재했습니다. 
-      - **500만 줄 초과**: 최대 250,000줄 청크 단위 처리, 가용 코어 수 초과 동원(동시성 강화)하여 극한의 처리 속도 확보. (RPC 통신량 최소화) [DYNAMIC] 🐧🔥
+      - **500만 줄 초과**: 최대 250,000줄 청크 단위 처리, 가용 코어 수 초과 동원(동시성 강화)하여 극한의 처리 속도 확보. (RPC 통신량 최소화) [DYNAMIC]
       - **일반 용량(100만 줄 이하)**: 20,000줄 짧은 청크로 잘게 쪼개어 UI 병목을 분산, 즉각적인 체감 반응속도 향상.
-    - **필터 결과 렌더링 RPC 병목 해결**: 대용량 로컬 파일에서 듬성듬성 떨어진 필터 결과 라인들을 화면에 그릴 때, 기존에 1줄씩 "수백 번"의 RPC 통신을 치던 심각한 병목을 **스마트 간격 병합(Gap Merge) 및 `Promise.all` 병렬 통신**으로 교체하여 8초의 렌더링 지연을 1초 미만으로 박살냈습니다! (Zero-IPC-overload) [TURBO] 🐧💎    
+    - **필터 결과 렌더링 RPC 병목 해결**: 대용량 로컬 파일에서 듬성듬성 떨어진 필터 결과 라인들을 화면에 그릴 때, 기존에 1줄씩 "수백 번"의 RPC 통신을 치던 심각한 병목을 **스마트 간격 병합(Gap Merge) 및 `Promise.all` 병렬 통신**으로 교체하여 8초의 렌더링 지연을 1초 미만으로 박살냈습니다! (Zero-IPC-overload) [TURBO]
     - 대규모 텍스트 디코딩 루프 내의 무거운 **정규식 매칭(`.replace()`)을 제거하고 바이트 레벨 비교**로 대체하여 단일 코어 처리 속도 극한 최적화. [TURBO]
     - 최대 지원 라인수를 20M으로 상향하여 초고밀도 로그 파일 대응. [SCALABLE]
-    - 필터 변경 시 자동으로 1페이지로 이동, 캐시 클리어, **최상단 스크롤(scrollTo(0))** 적용! [UX-FIX] 🐧🚀
-  - **수정 (Export Policy)**: Confluence 테이블 복사 시, 기존 `||` (Jira/Confluence 레거시 표기법) 대신 **표준 Markdown 형식(`|---|---|`)**을 적용하여 최신 Confluence 에디터에서 완벽하게 표(Table)로 인식하도록 수정했습니다. 또한, 특수문자(`{`, `}`, `[`, `]`)를 **전각 문자(｛, ｝, ［, ］)**로 교체하여 시각적 차이 없이 Confluence 파서의 오동작을 100% 차단했습니다. `|` 문자는 전각 파이프(`｜`)로 대체하여 데이터 손실 없이 테이블 구조를 보호합니다! [MOD] 🐧💎
+    - **수정 (Export Policy)**: Confluence 테이블 복사 시, 기존 `||` (Jira/Confluence 레거시 표기법) 대신 **표준 Markdown 형식(`|---|---|`)**을 적용하여 최신 Confluence 에디터에서 완벽하게 표(Table)로 인식하도록 수정했습니다. 또한, 특수문자(`{`, `}`, `[`, `]`)를 **전각 문자(｛, ｝, ［, ］)**로 교체하여 시각적 차이 없이 Confluence 파서의 오동작을 100% 차단했습니다. `|` 문자는 전각 파이프(`｜`)로 대체하여 데이터 손실 없이 테이블 구조를 보호합니다! [MOD]
 
 ---
 
@@ -221,7 +219,7 @@
   - `Hook`: [useBlockTest.ts](./components/BlockTest/hooks/useBlockTest.ts)
 - **Core Interface**:
   - `executePipeline()` & `executeScenario()`: 블록 단위 테스트 묶음 실행 및 Socket.io 기반 원격 제어
-  - **CLI 연동**: GUI 환경뿐만 아니라 `Headless CLI`를 통해서도 미리 저장된 Scenario 및 Pipeline 실행을 완벽하게 지원합니다. [NEW] 🐧🚀
+  - **CLI 연동**: GUI 환경뿐만 아니라 `Headless CLI`를 통해서도 미리 저장된 Scenario 및 Pipeline 실행을 완벽하게 지원합니다. [NEW]
 
 ---
 
@@ -283,7 +281,7 @@
   - `General Tab`: 테마(Dark 선호) 및 UI 확대/축소(Zoom) 관리
   - `Plugins Tab`: 사이드바 플러그인 활성화/비활성화 제어
 - **Interactions**:
-  - `Copy Command`: 설정창 내에서 CLI 실행 명령어를 즉시 클립보드에 복사 가능 [NEW] 🐧🚀
+  - `Copy Command`: 설정창 내에서 CLI 실행 명령어를 즉시 클립보드에 복사 가능 [NEW]
 
 ---
 
@@ -342,7 +340,7 @@
 - **ID**: `docs-cli-automation`
 - **Location**:
     - `CLI User Guide`: [cli_user_guide.md](./important/cli_user_guide.md) [NEW]
-- **Description**: 터미널 환경에서 백그라운드로 대규모 로그 추출기(Log Extractor)와 자동화 시나리오(BlockTest)를 구동하는 방법 및 예제를 담은 매뉴얼입니다. 🐧🚀
+- **Description**: 터미널 환경에서 백그라운드로 대규모 로그 추출기(Log Extractor)와 자동화 시나리오(BlockTest)를 구동하는 방법 및 예제를 담은 매뉴얼입니다.
 
 ---
 
@@ -374,4 +372,4 @@
 ---
 
 > [!TIP]
-> **형님, 패키징 시 발생하던 파일 잠금 문제까지 완벽하게 해결되었습니다!** 이제 프로세스 충돌 걱정 없이 빌드하시면 됩니다! 🐧🚀🏗️
+> **형님, 패키징 시 발생하던 파일 잠금 문제까지 완벽하게 해결되었습니다!** 이제 프로세스 충돌 걱정 없이 빌드하시면 됩니다!

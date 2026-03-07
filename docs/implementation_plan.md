@@ -8,6 +8,49 @@
 - **유연한 라인 번호 추출**: `FunctionName(123)` 뒤에 다른 텍스트(로그 메시지 등)가 붙어 있어도 라인 번호를 낚아챌 수 있도록 정규식 수정.
 - **파일명 탐색 범위 확장**: 타임스탬프 바로 뒤에 공백 없이 파일명이 붙는 케이스(Android/Tizen 하이브리드 형식) 등에 대응.
 
+# Timeline UI 고도화 및 Split Raw View 구현 계획
+
+형님, Timeline 탭의 시각적 노이즈를 줄이고 분석의 정밀도를 높이기 위한 고도화 계획입니다.
+
+## 주요 개선 사항
+
+### 1. Timeline 레이블 제거 (Visual Cleanup)
+- 각 타임라인 카드 내의 'FROM', 'TO' 텍스트 레이블을 제거합니다.
+- 레이블 없이도 박스의 디자인과 연결선의 흐름만으로 충분히 의미 전달이 가능하도록 UI를 깔끔하게 정돈합니다.
+
+### 2. Split Raw View 연동 (Double-Click Action)
+- Timeline 항목을 더블 클릭(`onDoubleClick`)하면 해당 분석 지점의 원본 로그를 좌우 동시에 보여주는 **Split Raw View** 오버레이를 팝업합니다.
+- **룩앤필**: 기존 단일 로그용 `RawContextViewer`와 동일한 프리미엄 디자인(인디고 테마, 리사이저 등)을 유지하여 일질감을 최소화합니다.
+- **기능**: 좌측 로그와 우측 로그의 해당 지점을 수직/수평으로 나란히 배치하여 전후 맥락을 직관적으로 비교할 수 있게 합니다.
+
+## Proposed Changes
+
+### Split Analyzer Panel
+
+#### [MODIFY] [SplitAnalyzerPanel.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/SplitAnalyzerPanel.tsx)
+- `SplitAnalyzerPanelProps`에 `onViewRawSplit` 콜백 추가.
+- 카드 렌더링 루프에서 'FROM', 'TO' 레이블(`<span>`) 제거.
+- 카드 컨테이너에 `onDoubleClick={() => onViewRawSplit?.(res)}` 핸들러 추가하여 더블 클릭 감지.
+
+### Raw Context Viewer (Extension)
+
+#### [NEW] [SplitRawContextViewer.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/SplitRawContextViewer.tsx)
+- `RawContextViewer`의 디자인 시스템을 그대로 복제하여 좌우 2분할 레이아웃의 원본 로그 뷰어 컴포넌트 생성.
+- 좌우 독립적인 스크롤 및 하이라이트 기능을 지원합니다.
+
+### Log Session & Context
+
+#### [MODIFY] [LogSession.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/LogSession.tsx)
+- `SplitAnalyzerPanel`에 더블 클릭 핸들러 전달 및 `SplitRawContextViewer`를 위한 상태 관리 로직 추가.
+- 팝업 시 좌측/우측 파일 정보를 모두 넘겨주어 두 로그를 동시에 확인할 수 있도록 구현.
+
+## Verification Plan
+
+### Automated Tests
+- 항목 더블 클릭 시 Split Raw View 오버레이가 기존 Raw View와 동일한 스타일로 나타나는지 확인.
+- 오버레이 내에서 좌측 로그와 우측 로그가 각각 맞는 지점에 위치하고 하이라이트되는지 확인.
+- 'FROM', 'TO' 레이블 제거 후의 가독성 및 시각적 안정성 체크.
+
 # Timeline 네비게이션 및 UI 정밀 개선 계획
 
 형님, Timeline 탭에서 네비게이션 시 리스트 포커스가 이동하지 않는 문제와 연결선 UI의 시각적 어설픔을 해결하기 위한 정밀 개선 계획입니다.

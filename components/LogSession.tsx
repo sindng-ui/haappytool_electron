@@ -12,7 +12,8 @@ import { BookmarksModal } from './BookmarksModal';
 import GoToLineModal from './GoToLineModal';
 import { SpamAnalyzerPanel } from './LogViewer/SpamAnalyzerPanel';
 import { SplitAnalyzerPanel } from './LogViewer/SplitAnalyzerPanel';
-import { useSplitAnalysis } from '../hooks/useSplitAnalysis';
+import { useSplitAnalysis, SplitAnalysisResult } from '../hooks/useSplitAnalysis';
+import { SplitRawContextViewer } from './LogViewer/SplitRawContextViewer';
 
 import { useLogSelection } from './LogArchive/hooks/useLogSelection';
 import { useLogArchiveContext } from './LogArchive/LogArchiveProvider';
@@ -124,6 +125,14 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         performAnalysis: handleSplitAnalysis,
         closeAnalysis: handleCloseSplitAnalysis
     } = useSplitAnalysis(leftWorkerRef, rightWorkerRef, isDualView);
+
+    const [splitRawOpen, setSplitRawOpen] = React.useState(false);
+    const [splitRawResult, setSplitRawResult] = React.useState<SplitAnalysisResult | null>(null);
+
+    const handleViewRawSplit = React.useCallback((res: SplitAnalysisResult) => {
+        setSplitRawResult(res);
+        setSplitRawOpen(true);
+    }, []);
 
     const handleGoToLineClose = React.useCallback(() => setIsGoToLineModalOpen(false), [setIsGoToLineModalOpen]);
     const handleGoToLineGo = React.useCallback((lineIndex: number, pane: 'left' | 'right') => {
@@ -1004,6 +1013,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                         handleJumpToRangeRight(start, end);
                                     }
                                 }}
+                                onViewRawSplit={handleViewRawSplit}
                             />
                         )}
                     </AnimatePresence>
@@ -1312,6 +1322,38 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     requestRightRawLines={requestRightRawLines}
                     preferences={logViewPreferences}
                     highlightRange={rawViewHighlightRange}
+                    clearCacheTick={clearCacheTick}
+                />
+            )}
+
+            {splitRawOpen && splitRawResult && (
+                <SplitRawContextViewer
+                    leftFileName={leftFileName || ''}
+                    rightFileName={rightFileName || ''}
+                    leftTargetLine={{
+                        lineNum: splitRawResult.leftOrigLineNum,
+                        content: splitRawResult.preview
+                    }}
+                    rightTargetLine={{
+                        lineNum: splitRawResult.rightOrigLineNum,
+                        content: splitRawResult.preview
+                    }}
+                    onClose={() => setSplitRawOpen(false)}
+                    heightPercent={rawContextHeight}
+                    onResizeStart={handleRawContextResizeStart}
+                    leftTotalLines={leftTotalLines}
+                    rightTotalLines={rightTotalLines}
+                    requestLeftRawLines={requestLeftRawLines}
+                    requestRightRawLines={requestRightRawLines}
+                    preferences={logViewPreferences}
+                    leftHighlightRange={{
+                        start: splitRawResult.leftPrevOrigLineNum,
+                        end: splitRawResult.leftOrigLineNum
+                    }}
+                    rightHighlightRange={{
+                        start: splitRawResult.rightPrevOrigLineNum,
+                        end: splitRawResult.rightOrigLineNum
+                    }}
                     clearCacheTick={clearCacheTick}
                 />
             )}
