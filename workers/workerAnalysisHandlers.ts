@@ -656,7 +656,8 @@ export const extractAnalysisMetrics = async (
         prevSignature: 'START',
         prevFileInfo: { fileName: '', functionName: '', preview: '' },
         lookbackWindow: [],
-        lastSignifByTid: {}
+        lastSignifByTid: {},
+        aliasFirstMatch: {} // 🐧⚡ Alias별 최초 지점 추적용
     };
 
     const maxGap = payload.maxGap ?? 100;

@@ -235,6 +235,7 @@ export interface LogMetadata {
   isError: boolean;
   isWarn: boolean;
   preview: string;
-  codeLineNum?: string | null; // ✅ NEW: 로그 본문 내의 라인 번호 (예: OnResume(350) -> 350)
+  codeLineNum?: string | null; // 🐧⚡ 로그 본문 내의 라인 번호 (예: OnResume(350) -> 350)
   signature?: string;         // 🐧⚡ 분석 최적화를 위한 사전 계산된 시그니처
+  alias?: string | null;      // 🐧⚡ Happy Combo Alias 매칭 정보
 }

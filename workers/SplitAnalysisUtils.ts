@@ -32,6 +32,28 @@ export const extractSingleMetadata = (
     const isError = RE_ERROR_LVL.test(text);
     const isWarn = RE_WARN_LVL.test(text);
 
+    // Happy Combo Alias 매칭
+    let matchedAlias: string | null = null;
+    if (currentRule?.happyGroups) {
+        const caseSensitive = currentRule.happyCombosCaseSensitive ?? false;
+        const lowerText = caseSensitive ? text : text.toLowerCase();
+
+        for (const group of currentRule.happyGroups) {
+            if (!group.enabled || !group.alias || !group.tags.length) continue;
+
+            // 모든 태그가 포함되어 있는지 확인 (AND 조건)
+            const allMatched = group.tags.every(tag => {
+                const searchTag = caseSensitive ? tag : tag.toLowerCase();
+                return lowerText.includes(searchTag);
+            });
+
+            if (allMatched) {
+                matchedAlias = group.alias;
+                break;
+            }
+        }
+    }
+
     return {
         fileName: fileName || '',
         functionName: functionName || '',
@@ -42,7 +64,8 @@ export const extractSingleMetadata = (
         visualIndex: visualIdx,
         isError,
         isWarn,
-        preview: text.length > 150 ? text.substring(0, 150) : text
+        preview: text.length > 150 ? text.substring(0, 150) : text,
+        alias: matchedAlias
     };
 };
 
@@ -88,6 +111,7 @@ export const computeMetricsFromMetadata = (
         prevFileInfo: any;
         lookbackWindow?: LogMetadata[];
         lastGlobalSignif?: LogMetadata;
+        aliasFirstMatch?: Record<string, LogMetadata>; // 🐧⚡ Alias별 최초 지점 저장
     },
     maxGap: number = 100,
     side: string = 'left'
@@ -147,6 +171,25 @@ export const computeMetricsFromMetadata = (
             // 공통: 현재 소스를 마지막 소스로 저장
             state.lastGlobalSignif = item;
         }
+
+        // 3. 🐧⚡ Happy Combo Alias 기반 세그먼트 (사용자 요구사항)
+        if (item.alias) {
+            if (!state.aliasFirstMatch) state.aliasFirstMatch = {};
+
+            const firstMatch = state.aliasFirstMatch[item.alias];
+            if (!firstMatch) {
+                // 이 Alias의 첫 등장이면 저장만 함
+                state.aliasFirstMatch[item.alias] = item;
+            } else {
+                // 이미 첫 등장이 있었다면, [First ➔ Current] 구간 생성
+                // Alias 세그먼트는 흐름 전체를 보므로 키에 [Alias] 접두어 추가
+                const key = `[Alias] ${item.alias}`;
+
+                // 메트릭 추가 (단, Alias 세그먼트는 count를 늘리는 게 아니라 최종 상태를 갱신하는 식)
+                // addMetric의 기존 로직을 최대한 활용하되, Alias 세그먼트임을 알림
+                addAliasMetric(metrics, key, firstMatch, item);
+            }
+        }
     }
 
     // 상태 보관 (청크 간 연결을 위해)
@@ -202,4 +245,41 @@ function addMetric(metrics: AggregateMetrics, key: string, prev: LogMetadata, cu
             prevOriginalLineNum: prev.lineNum
         };
     }
+}
+
+/**
+ * 🐧⚡ Alias 기반의 거대 세그먼트를 메트릭 맵에 추가/갱신합니다.
+ */
+function addAliasMetric(metrics: AggregateMetrics, key: string, first: LogMetadata, last: LogMetadata) {
+    let delta = 0;
+    let hasDelta = false;
+    if (last.timestamp !== null && first.timestamp !== null) {
+        delta = last.timestamp - first.timestamp;
+        if (delta >= 0 && delta < 3600000) {
+            hasDelta = true;
+        }
+    }
+
+    // Alias 세그먼트는 "하나의 시퀀스"를 의미하므로 count를 1로 고정하고 
+    // delta는 가장 최신(첫 로그와 마지막 로그의 차이)으로 계속 덮어씀
+    metrics[key] = {
+        count: 1,
+        totalDelta: hasDelta ? delta : 0,
+        deltaSamples: hasDelta ? 1 : 0,
+        tids: [], // Alias 전역 분석이므로 TID는 생략하거나 핵심만
+        preview: last.preview,
+        fileName: last.fileName || `[Alias]`,
+        functionName: last.functionName || last.alias || '',
+        codeLineNum: last.codeLineNum,
+        prevPreview: first.preview,
+        prevFileName: first.fileName || `[Alias]`,
+        prevFunctionName: first.functionName || first.alias || '',
+        prevCodeLineNum: first.codeLineNum,
+        isError: last.isError || first.isError,
+        isWarn: last.isWarn || first.isWarn,
+        lineNum: last.visualIndex,
+        prevLineNum: first.visualIndex,
+        originalLineNum: last.lineNum,
+        prevOriginalLineNum: first.lineNum
+    };
 }
