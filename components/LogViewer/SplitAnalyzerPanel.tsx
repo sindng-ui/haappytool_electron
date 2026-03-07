@@ -17,6 +17,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
     const [activeTab, setActiveTab] = useState<AnalysisTab>('summary');
     const [sortKey, setSortKey] = useState<'deltaDiff' | 'countDiff' | 'newError'>('newError');
     const [sortDesc, setSortDesc] = useState(true);
+    const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
     const sortedResults = useMemo(() => {
         if (!results) return [];
@@ -79,6 +80,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
     };
 
     const handleItemClick = (res: SplitAnalysisResult) => {
+        setSelectedKey(res.key);
         if (!onJumpToRange) return;
 
         // 🐧⚡ 좌측 구간 점프
@@ -247,11 +249,16 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                             const themeColor = isImprovement ? 'emerald' : 'orange';
                                             const Icon = isImprovement ? TrendingDown : TrendingUp;
 
+                                            const isSelected = selectedKey === res.key;
+
                                             return (
                                                 <div
                                                     key={i}
                                                     onClick={() => handleItemClick(res)}
-                                                    className={`flex bg-slate-950/50 rounded-lg border border-slate-800/50 hover:border-${themeColor}-500/50 hover:bg-${themeColor}-500/5 transition-all cursor-pointer group overflow-hidden`}
+                                                    className={`flex bg-slate-950/50 rounded-lg border transition-all cursor-pointer group overflow-hidden ${isSelected
+                                                        ? `border-${themeColor}-500/50 bg-${themeColor}-500/5`
+                                                        : `border-slate-800/50 hover:border-${themeColor}-500/50 hover:bg-${themeColor}-500/5`
+                                                        }`}
                                                 >
                                                     {/* 🐧⚡ 왼쪽 영역: 타임라인 흐름 (Flow Timeline) */}
                                                     <div className="flex-1 flex flex-col gap-1 p-2.5 relative">
@@ -352,47 +359,53 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                         </div>
                                     </div>
                                     <div className="flex-1 p-2 flex flex-col gap-2">
-                                        {summaryData.topSpams.length > 0 ? summaryData.topSpams.map((res, i) => (
-                                            <div
-                                                key={i}
-                                                onClick={() => handleItemClick(res)}
-                                                className="flex bg-slate-950/50 rounded-lg border border-slate-800/50 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all cursor-pointer group overflow-hidden"
-                                            >
-                                                {/* 🐧⚡ 왼쪽 영역: 타임라인 흐름 */}
-                                                <div className="flex-1 flex flex-col gap-1 p-2.5 relative">
-                                                    <div className="flex items-center gap-2 px-2 py-0.5 rounded-md bg-blue-500/5 border border-blue-500/10 opacity-70">
-                                                        <span className="text-[8px] font-black text-slate-500 uppercase">FROM:</span>
-                                                        <span className="text-[9px] font-mono text-slate-500 truncate">
-                                                            {res.prevFileName ? `${res.prevFileName}:${res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum}` : 'START'}
-                                                        </span>
+                                        {summaryData.topSpams.length > 0 ? summaryData.topSpams.map((res, i) => {
+                                            const isSelected = selectedKey === res.key;
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    onClick={() => handleItemClick(res)}
+                                                    className={`flex bg-slate-950/50 rounded-lg border transition-all cursor-pointer group overflow-hidden ${isSelected
+                                                        ? 'border-blue-500/50 bg-blue-500/5'
+                                                        : 'border-slate-800/50 hover:border-blue-500/50 hover:bg-blue-500/5'
+                                                        }`}
+                                                >
+                                                    {/* 🐧⚡ 왼쪽 영역: 타임라인 흐름 */}
+                                                    <div className="flex-1 flex flex-col gap-1 p-2.5 relative">
+                                                        <div className="flex items-center gap-2 px-2 py-0.5 rounded-md bg-blue-500/5 border border-blue-500/10 opacity-70">
+                                                            <span className="text-[8px] font-black text-slate-500 uppercase">FROM:</span>
+                                                            <span className="text-[9px] font-mono text-slate-500 truncate">
+                                                                {res.prevFileName ? `${res.prevFileName}:${res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum}` : 'START'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/30">
+                                                            <span className="text-[8px] font-black text-blue-500 uppercase">TO:</span>
+                                                            <span className="text-[10px] font-black text-blue-300 truncate">
+                                                                {res.functionName || res.preview.substring(0, 40)}
+                                                            </span>
+                                                            <span className="text-[9px] text-blue-500/60 font-mono">
+                                                                ({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/30">
-                                                        <span className="text-[8px] font-black text-blue-500 uppercase">TO:</span>
-                                                        <span className="text-[10px] font-black text-blue-300 truncate">
-                                                            {res.functionName || res.preview.substring(0, 40)}
-                                                        </span>
-                                                        <span className="text-[9px] text-blue-500/60 font-mono">
-                                                            ({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})
-                                                        </span>
-                                                    </div>
-                                                </div>
 
-                                                {/* 🐧⚡ 오른쪽 영역: 빈도 분석 */}
-                                                <div className="w-[120px] bg-slate-900/40 p-2.5 flex flex-col justify-center gap-1 shrink-0 border-l border-slate-800/30">
-                                                    <div className="flex items-center justify-between text-[9px] font-mono">
-                                                        <span className="text-slate-600">PREV</span>
-                                                        <span className="text-slate-500">{res.leftCount}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between text-[10px] font-mono font-black">
-                                                        <span className="text-slate-400">CURR</span>
-                                                        <span className="text-white">{res.rightCount}</span>
-                                                    </div>
-                                                    <div className="mt-1 text-[11px] font-black text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded border border-blue-500/20 text-center">
-                                                        +{res.countDiff} calls
+                                                    {/* 🐧⚡ 오른쪽 영역: 빈도 분석 */}
+                                                    <div className="w-[120px] bg-slate-900/40 p-2.5 flex flex-col justify-center gap-1 shrink-0 border-l border-slate-800/30">
+                                                        <div className="flex items-center justify-between text-[9px] font-mono">
+                                                            <span className="text-slate-600">PREV</span>
+                                                            <span className="text-slate-500">{res.leftCount}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-[10px] font-mono font-black">
+                                                            <span className="text-slate-400">CURR</span>
+                                                            <span className="text-white">{res.rightCount}</span>
+                                                        </div>
+                                                        <div className="mt-1 text-[11px] font-black text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded border border-blue-500/20 text-center">
+                                                            +{res.countDiff} calls
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        )) : (
+                                            );
+                                        }) : (
                                             <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">Frequency is stable. 펭-굿! ❄️</div>
                                         )}
                                     </div>
@@ -441,11 +454,14 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                             const isMore = res.countDiff > 0;
                                             const isLess = res.countDiff < 0;
 
+                                            const isSelected = selectedKey === res.key;
+
                                             return (
                                                 <div
                                                     key={i}
                                                     onClick={() => handleItemClick(res)}
-                                                    className="grid grid-cols-12 gap-2 px-4 py-2.5 hover:bg-slate-900 transition-all items-center text-sm group cursor-pointer border-b border-slate-800/20"
+                                                    className={`grid grid-cols-12 gap-2 px-4 py-2.5 transition-all items-center text-sm group cursor-pointer border-b border-slate-800/20 ${isSelected ? 'bg-slate-950 shadow-[inset_0_0_15px_rgba(59,130,246,0.05)] border-l-2 border-l-blue-500' : 'hover:bg-slate-900 border-l-2 border-l-transparent'
+                                                        }`}
                                                 >
                                                     <div className="col-span-1 flex justify-center">
                                                         {res.isNewError ? (
