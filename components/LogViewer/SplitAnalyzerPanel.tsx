@@ -436,22 +436,32 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                 <div className="flex items-center gap-1.5">
                                     <button
                                         onClick={() => {
+                                            if (sortedResults.length === 0) return;
                                             const idx = sortedResults.findIndex(r => r.key === selectedKey);
-                                            if (idx > 0) handleItemClick(sortedResults[idx - 1]);
-                                            else if (idx === -1 && sortedResults.length > 0) handleItemClick(sortedResults[sortedResults.length - 1]);
+                                            if (idx > 0) {
+                                                handleItemClick(sortedResults[idx - 1]);
+                                            } else {
+                                                // 루핑: 처음에서 PREV 누르면 마지막으로
+                                                handleItemClick(sortedResults[sortedResults.length - 1]);
+                                            }
                                         }}
-                                        disabled={sortedResults.length === 0 || sortedResults.findIndex(r => r.key === selectedKey) === 0}
+                                        disabled={sortedResults.length === 0}
                                         className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-950 border border-slate-800 text-[10px] font-black text-slate-400 hover:text-white hover:border-blue-500/50 disabled:opacity-30 disabled:pointer-events-none transition-all"
                                     >
                                         <ArrowUp size={12} strokeWidth={3} /> PREV
                                     </button>
                                     <button
                                         onClick={() => {
+                                            if (sortedResults.length === 0) return;
                                             const idx = sortedResults.findIndex(r => r.key === selectedKey);
-                                            if (idx < sortedResults.length - 1) handleItemClick(sortedResults[idx + 1]);
-                                            else if (idx === -1 && sortedResults.length > 0) handleItemClick(sortedResults[0]);
+                                            if (idx >= 0 && idx < sortedResults.length - 1) {
+                                                handleItemClick(sortedResults[idx + 1]);
+                                            } else {
+                                                // 루핑: 마지막에서 NEXT 누르면 처음으로
+                                                handleItemClick(sortedResults[0]);
+                                            }
                                         }}
-                                        disabled={sortedResults.length === 0 || (selectedKey && sortedResults.findIndex(r => r.key === selectedKey) >= sortedResults.length - 1)}
+                                        disabled={sortedResults.length === 0}
                                         className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-950 border border-slate-800 text-[10px] font-black text-slate-400 hover:text-white hover:border-blue-500/50 disabled:opacity-30 disabled:pointer-events-none transition-all"
                                     >
                                         NEXT <ArrowDown size={12} strokeWidth={3} />
