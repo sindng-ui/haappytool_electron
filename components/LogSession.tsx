@@ -991,9 +991,15 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 isLoading={isSplitAnalyzing}
                                 progress={splitAnalysisProgress}
                                 onClose={handleCloseSplitAnalysis}
-                                onJumpToLine={(pane, line) => {
+                                onJumpToRange={(pane, start, end) => {
                                     handleFocusPaneRequest(pane);
-                                    jumpToGlobalLine(line, pane);
+                                    // 🐧⚡ jumpToGlobalLine은 단일 라인이므로, handleJumpToRange를 직접 호출하거나
+                                    // 여기서 구간 선택 처리를 수행합니다.
+                                    if (pane === 'left') {
+                                        handleJumpToRangeLeft(start, end);
+                                    } else {
+                                        handleJumpToRangeRight(start, end);
+                                    }
                                 }}
                             />
                         )}

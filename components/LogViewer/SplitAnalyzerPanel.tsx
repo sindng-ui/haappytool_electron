@@ -8,12 +8,12 @@ interface SplitAnalyzerPanelProps {
     isLoading?: boolean;
     progress?: number;
     onClose: () => void;
-    onJumpToLine?: (pane: 'left' | 'right', line: number) => void;
+    onJumpToRange?: (side: 'left' | 'right', startLine: number, endLine: number) => void;
 }
 
 type AnalysisTab = 'summary' | 'list';
 
-export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results, isLoading, progress = 0, onClose, onJumpToLine }) => {
+export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results, isLoading, progress = 0, onClose, onJumpToRange }) => {
     const [activeTab, setActiveTab] = useState<AnalysisTab>('summary');
     const [sortKey, setSortKey] = useState<'deltaDiff' | 'countDiff' | 'newError'>('newError');
     const [sortDesc, setSortDesc] = useState(true);
@@ -78,10 +78,21 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
     };
 
     const handleItemClick = (res: SplitAnalysisResult) => {
-        if (!onJumpToLine) return;
-        // 좌/우 로그가 모두 존재하면 각각의 위치로 이동
-        if (res.leftLineNum > 0) onJumpToLine('left', res.leftLineNum);
-        if (res.rightLineNum > 0) onJumpToLine('right', res.rightLineNum);
+        if (!onJumpToRange) return;
+
+        // 🐧⚡ 좌측 구간 점프
+        if (res.leftLineNum > 0) {
+            const start = Math.min(res.leftLineNum, res.leftPrevLineNum);
+            const end = Math.max(res.leftLineNum, res.leftPrevLineNum);
+            onJumpToRange('left', start, end);
+        }
+
+        // 🐧⚡ 우측 구간 점프
+        if (res.rightLineNum > 0) {
+            const start = Math.min(res.rightLineNum, res.rightPrevLineNum);
+            const end = Math.max(res.rightLineNum, res.rightPrevLineNum);
+            onJumpToRange('right', start, end);
+        }
     };
 
     return (

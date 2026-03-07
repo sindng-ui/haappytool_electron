@@ -29,6 +29,8 @@ export interface SplitAnalysisResult {
 
     leftLineNum: number;
     rightLineNum: number;
+    leftPrevLineNum: number;
+    rightPrevLineNum: number;
 }
 
 export const useSplitAnalysis = (

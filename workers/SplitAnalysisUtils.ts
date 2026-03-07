@@ -64,7 +64,8 @@ export interface AggregateMetrics {
         prevFunctionName?: string;
         isError: boolean;
         isWarn: boolean;
-        lineNum: number; // ✅ NEW: 패턴이 처음 발견된 라인 번호
+        lineNum: number;
+        prevLineNum: number; // ✅ NEW: 이전 패턴의 라인 번호
     };
 }
 
@@ -134,7 +135,8 @@ export const computeMetricsFromMetadata = (
                 prevFunctionName: prevFileInfo.functionName,
                 isError: item.isError,
                 isWarn: item.isWarn,
-                lineNum: item.lineNum // ✅ 저장!
+                lineNum: item.visualIndex, // ✅ 점프를 위해 visualIndex 저장
+                prevLineNum: prevFileInfo.lineNum !== undefined ? prevFileInfo.lineNum : item.visualIndex
             };
         }
 
@@ -142,7 +144,8 @@ export const computeMetricsFromMetadata = (
         prevFileInfo = {
             fileName: item.fileName || '',
             functionName: item.functionName || '',
-            preview: item.preview || ''
+            preview: item.preview || '',
+            lineNum: item.visualIndex // ✅ visualIndex 추적
         };
     }
 

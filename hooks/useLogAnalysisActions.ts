@@ -250,7 +250,7 @@ export const useLogAnalysisActions = (props: UseLogAnalysisActionsProps) => {
 
     const handleJumpToRangeLeft = useCallback((start: number, end: number) => {
         setLeftLineHighlightRanges([{ start, end, color: 'rgba(99, 102, 241, 0.3)' }]);
-        jumpToGlobalLine(start, 'left', 'start');
+        jumpToGlobalLine(start, 'left', 'center'); // 🐧⚡ 중앙 정렬!
 
         const newSelection = new Set<number>();
         for (let i = start; i <= end; i++) newSelection.add(i);
@@ -259,7 +259,7 @@ export const useLogAnalysisActions = (props: UseLogAnalysisActionsProps) => {
 
     const handleJumpToRangeRight = useCallback((start: number, end: number) => {
         setRightLineHighlightRanges([{ start, end, color: 'rgba(99, 102, 241, 0.3)' }]);
-        jumpToGlobalLine(start, 'right', 'start');
+        jumpToGlobalLine(start, 'right', 'center'); // 🐧⚡ 중앙 정렬!
 
         const newSelection = new Set<number>();
         for (let i = start; i <= end; i++) newSelection.add(i);
