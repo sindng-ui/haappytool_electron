@@ -38,6 +38,7 @@ export interface LogRule {
   name: string;
   includeGroups: string[][]; // Outer array = OR, Inner array = AND
   happyGroups?: HappyGroup[]; // New unified structure for Happy Combos
+  happyCombosEnabled?: boolean; // ✅ Master toggle for all Happy Combos
 
 
   disabledGroups?: string[][]; // Inactive filters

@@ -223,10 +223,19 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
     return (
         <div className="p-0">
             <div className="flex items-center justify-between mb-6">
-                <label className="text-sm font-bold text-indigo-100 flex items-center gap-2">
-                    <Zap size={16} className="text-yellow-400 fill-yellow-400 icon-glow" />
-                    Happy Combos
-                </label>
+                <div className="flex items-center gap-3">
+                    <input
+                        type="checkbox"
+                        checked={currentConfig.happyCombosEnabled !== false}
+                        onChange={(e) => updateCurrentRule({ happyCombosEnabled: e.target.checked })}
+                        className="accent-yellow-400 w-4 h-4 cursor-pointer"
+                        title="Enable/Disable All Happy Combos"
+                    />
+                    <label className={`text-sm font-bold flex items-center gap-2 transition-colors ${currentConfig.happyCombosEnabled !== false ? 'text-indigo-100' : 'text-slate-500'}`}>
+                        <Zap size={16} className={`${currentConfig.happyCombosEnabled !== false ? 'text-yellow-400 fill-yellow-400 icon-glow' : 'text-slate-600'}`} />
+                        Happy Combos
+                    </label>
+                </div>
 
                 <div className="flex items-center gap-4">
                     {/* ✅ Perf Mode Toggle */}

@@ -31,6 +31,9 @@ export function refineGroups(rawGroups: string[][]): string[][] {
  * 실제 필터에 사용될 include groups 배열을 생성합니다.
  */
 export function assembleIncludeGroups(config: LogRule): string[][] {
+    // ✅ Master Toggle check: if disabled, return empty groups so all logs pass through
+    if (config.happyCombosEnabled === false) return [];
+
     const sourceGroups = config.happyGroups
         ? config.happyGroups.filter(h => h.enabled).map(h => h.tags)
         : config.includeGroups;
