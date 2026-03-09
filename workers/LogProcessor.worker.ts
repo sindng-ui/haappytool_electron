@@ -224,7 +224,6 @@ const buildFileIndex = async (file: File) => {
 
     let offset = 0n;
     let processedBytes = 0;
-    let pendingCROffset = -1n;
 
     const stream = file.stream() as any;
     const reader = stream.getReader();
@@ -235,23 +234,19 @@ const buildFileIndex = async (file: File) => {
             if (done) break;
 
             const chunk: Uint8Array = value;
-
-            // ✅ Optimization: Single-pass scanner to support \n, \r, and \r\n exactly like Notepad++
             const chunkLen = chunk.length;
-            let i = 0;
 
-            // Scan chunk for LF (\n) only
-            for (; i < chunkLen; i++) {
-                if (chunk[i] === 10) { // \n (LF)
-                    if (lineCount >= capacity) {
-                        const newCapacity = capacity * 2;
-                        const newArr = new BigInt64Array(newCapacity);
-                        newArr.set(tempOffsets);
-                        tempOffsets = newArr;
-                        capacity = newCapacity;
-                    }
-                    tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
+            // ✅ Optimization: Native indexOf is significantly faster than JS loop
+            let pos = -1;
+            while ((pos = chunk.indexOf(10, pos + 1)) !== -1) {
+                if (lineCount >= capacity) {
+                    const newCapacity = capacity * 2;
+                    const newArr = new BigInt64Array(newCapacity);
+                    newArr.set(tempOffsets);
+                    tempOffsets = newArr;
+                    capacity = newCapacity;
                 }
+                tempOffsets[lineCount++] = offset + BigInt(pos) + 1n;
             }
 
             offset += BigInt(chunkLen);
@@ -313,7 +308,6 @@ const buildLocalFileIndex = async (path: string, size: number) => {
 
     let offset = 0n;
     let processedBytes = 0;
-    let pendingCROffset = -1n;
     // 💡 50MB 청크: IPC 왕복 횟수를 290번 -> 29번으로 줄여 멀티탭 시 경쟁 최소화 🐧🚀
     const chunkSize = 50 * 1024 * 1024;
 
@@ -323,71 +317,16 @@ const buildLocalFileIndex = async (path: string, size: number) => {
             const end = Math.min(processedBytes + chunkSize, size);
             const chunk: Uint8Array = await rpcCall('readFileSegment', { path, start: processedBytes, end });
 
-            // ✅ Optimization: Single-pass scanner to support \n, \r, and \r\n exactly like Notepad++
-            const chunkLen = chunk.length;
-            let i = 0;
-
-            if (pendingCROffset !== -1n) {
-                if (chunkLen > 0 && chunk[0] === 10) {
-                    if (lineCount >= capacity) {
-                        const newCapacity = capacity * 2;
-                        const newArr = new BigInt64Array(newCapacity);
-                        newArr.set(tempOffsets);
-                        tempOffsets = newArr;
-                        capacity = newCapacity;
-                    }
-                    tempOffsets[lineCount++] = offset + 1n;
-                    i = 1;
-                } else {
-                    if (lineCount >= capacity) {
-                        const newCapacity = capacity * 2;
-                        const newArr = new BigInt64Array(newCapacity);
-                        newArr.set(tempOffsets);
-                        tempOffsets = newArr;
-                        capacity = newCapacity;
-                    }
-                    tempOffsets[lineCount++] = pendingCROffset + 1n;
+            let pos = -1;
+            while ((pos = chunk.indexOf(10, pos + 1)) !== -1) {
+                if (lineCount >= capacity) {
+                    const newCapacity = capacity * 2;
+                    const newArr = new BigInt64Array(newCapacity);
+                    newArr.set(tempOffsets);
+                    tempOffsets = newArr;
+                    capacity = newCapacity;
                 }
-                pendingCROffset = -1n;
-            }
-
-            for (; i < chunkLen; i++) {
-                const b = chunk[i];
-                if (b === 10) {
-                    if (lineCount >= capacity) {
-                        const newCapacity = capacity * 2;
-                        const newArr = new BigInt64Array(newCapacity);
-                        newArr.set(tempOffsets);
-                        tempOffsets = newArr;
-                        capacity = newCapacity;
-                    }
-                    tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
-                } else if (b === 13) {
-                    if (i + 1 < chunkLen) {
-                        if (chunk[i + 1] === 10) {
-                            i++;
-                            if (lineCount >= capacity) {
-                                const newCapacity = capacity * 2;
-                                const newArr = new BigInt64Array(newCapacity);
-                                newArr.set(tempOffsets);
-                                tempOffsets = newArr;
-                                capacity = newCapacity;
-                            }
-                            tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
-                        } else {
-                            if (lineCount >= capacity) {
-                                const newCapacity = capacity * 2;
-                                const newArr = new BigInt64Array(newCapacity);
-                                newArr.set(tempOffsets);
-                                tempOffsets = newArr;
-                                capacity = newCapacity;
-                            }
-                            tempOffsets[lineCount++] = offset + BigInt(i) + 1n;
-                        }
-                    } else {
-                        pendingCROffset = offset + BigInt(i);
-                    }
-                }
+                tempOffsets[lineCount++] = offset + BigInt(pos) + 1n;
             }
 
             offset += BigInt(chunk.length);
@@ -397,16 +336,6 @@ const buildLocalFileIndex = async (path: string, size: number) => {
                 const progress = (processedBytes / size) * 100;
                 respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress } });
             }
-        }
-        if (pendingCROffset !== -1n) {
-            if (lineCount >= capacity) {
-                const newCapacity = capacity * 2;
-                const newArr = new BigInt64Array(newCapacity);
-                newArr.set(tempOffsets);
-                tempOffsets = newArr;
-                capacity = newCapacity;
-            }
-            tempOffsets[lineCount++] = pendingCROffset + 1n;
         }
     } catch (e) {
         console.error('Local File Indexing failed', e);
