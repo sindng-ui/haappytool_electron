@@ -67,7 +67,6 @@ export const ViewSettingsSection = React.memo<ViewSettingsSectionProps>(({ prefe
                             onChange={(e) => {
                                 const newSize = parseInt(e.target.value, 10);
                                 // Auto-adjust row height for dense log view (approx 1.5x)
-                                // This ensures "Show a lot of text" requirement
                                 const newRowHeight = Math.ceil(newSize * 1.5);
                                 onUpdate({
                                     fontSize: newSize,
@@ -93,6 +92,23 @@ export const ViewSettingsSection = React.memo<ViewSettingsSectionProps>(({ prefe
                             className="w-24 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                         />
                         <span className="text-xs text-slate-400 font-mono w-6 text-right">{preferences.rowHeight}</span>
+                    </div>
+                </div>
+
+                {/* Show Line Numbers Toggle */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800/40">
+                    <div className="flex flex-col">
+                        <label className="text-sm text-slate-300 font-medium">Show Line Numbers</label>
+                        <span className="text-[10px] text-slate-500 uppercase tracking-tighter opacity-70">Index & Original Line Num</span>
+                    </div>
+                    <div className="flex items-center">
+                        <input
+                            id="toggle-line-numbers"
+                            type="checkbox"
+                            checked={preferences.showLineNumbers !== false}
+                            onChange={(e) => onUpdate({ showLineNumbers: e.target.checked })}
+                            className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-indigo-500 focus:ring-offset-slate-900 focus:ring-indigo-500/50 cursor-pointer"
+                        />
                     </div>
                 </div>
 

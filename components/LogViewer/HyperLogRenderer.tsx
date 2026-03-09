@@ -119,11 +119,14 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     } = useMemo(() => {
         const fontSize = preferences?.fontSize || 13;
         const star = LOG_VIEW_CONFIG.COLUMN_WIDTHS.BOOKMARK;
+        const showLineNumbers = preferences?.showLineNumbers !== false; // ✅ Default is true
 
         // 🎯 형님, 폰트가 작을 때도 간격이 너무 넓어 보이지 않게 고정 최소 너비를 제거하고 비례식으로만 계산합니다! 🐧📐
         const charWidth = fontSize * 0.65; // 모노스페이스 폰트 대략적인 너비 비중
-        const index = Math.ceil(charWidth * 7.0); // #999,999 등 인덱스 영역 (더 타이트하게! 🐧🎯)
-        const lineNum = Math.ceil(charWidth * 6.0); // 원본 라인 번호 영역 (더 타이트하게! 🐧🎯)
+
+        // 형님! 라인 넘버 표시가 꺼져있으면 아예 너비를 0으로 날려버립니다! 🚀
+        const index = showLineNumbers ? Math.ceil(charWidth * 7.0) : 0; // #999,999 등 인덱스 영역
+        const lineNum = showLineNumbers ? Math.ceil(charWidth * 6.0) : 0; // 원본 라인 번호 영역 
 
         const total = star + index + lineNum;
         const offset = total + LOG_VIEW_CONFIG.SPACING.CONTENT_LEFT_OFFSET;
@@ -134,7 +137,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             GUTTER_TOTAL_WIDTH: total,
             CONTENT_X_OFFSET: offset
         };
-    }, [preferences?.fontSize]);
+    }, [preferences?.fontSize, preferences?.showLineNumbers]);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -588,7 +591,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 // ❌ Removed: bgCtx.fillRect (No more yellow background for lines)
             }
 
-            if (lineData) {
+            if (lineData && preferences?.showLineNumbers !== false) {
                 ctx.font = gutterFont;
                 // #Index - 🎯 형님, 인덱스는 조금 더 어둡게!
                 ctx.fillStyle = '#475569'; // Slate-500

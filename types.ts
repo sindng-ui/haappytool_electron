@@ -68,6 +68,7 @@ export interface LogViewPreferences {
   levelStyles: LogLevelStyle[];
   logLevelOpacity?: number; // 0-100 percentage
   rowHeightOffset?: number; // ✅ NEW: Tracks manual deviation from standard formula
+  showLineNumbers?: boolean; // ✅ NEW: Whether to show line numbers in the gutter
 }
 
 export interface PostGlobalVariable {

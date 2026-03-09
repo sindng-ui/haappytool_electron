@@ -10,9 +10,10 @@ export const defaultLogViewPreferences: LogViewPreferences = {
         { level: 'V', color: '#888888', enabled: false },
         { level: 'D', color: '#00FFFF', enabled: false },
         { level: 'I', color: '#00FF00', enabled: false },
-        { level: 'W', color: '#FFA500', enabled: false },
+        { level: 'W', color: '#FFA500', enabled: true },
         { level: 'E', color: '#FF0000', enabled: true }
-    ]
+    ],
+    showLineNumbers: true
 };
 
 /**
