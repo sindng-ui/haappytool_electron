@@ -218,11 +218,14 @@ export const computeMetricsFromMetadata = (
         if (item.alias) {
             if (!state.aliasFirstMatch) state.aliasFirstMatch = {};
 
-            const firstMatch = state.aliasFirstMatch[item.alias];
-            if (!firstMatch) {
+            const key = `[Alias] ${item.alias}`;
+            if (!state.aliasFirstMatch[item.alias]) {
                 state.aliasFirstMatch[item.alias] = item;
+                // 🐧⚡ [NEW] 1줄이라도 세그먼트로 추가! (파일명/함수명 없어도 분석되도록 규칙 무시)
+                addAliasMetric(metrics, key, item, item, state.metricsCount);
             } else {
-                const key = `[Alias] ${item.alias}`;
+                const firstMatch = state.aliasFirstMatch[item.alias];
+                // 🐧⚡ 2줄 이상이 되면 기존 "하나의 거대 세그먼트" 원칙을 유지하며 구간을 업데이트
                 addAliasMetric(metrics, key, firstMatch, item, state.metricsCount);
             }
         }
@@ -336,6 +339,7 @@ function addAliasMetric(
 
     metrics[key] = {
         count: 1,
+        directCount: 1, // 🐧⚡ 워커 필터링 통과를 위해 추가!
         totalDelta: hasDelta ? delta : 0,
         deltaSamples: hasDelta ? 1 : 0,
         tids: [],
