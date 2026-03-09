@@ -19,6 +19,10 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
     const [pointNavigation, setPointNavigation] = useState<Record<string, number>>({});
 
+    // 🐧⚡ Timeline 페이징 상태 추가 (프리징 방지)
+    const [timelinePage, setTimelinePage] = useState(1);
+    const PAGE_SIZE = 50;
+
     const handlePointJump = (sig: string, indices: number[], direction: 'next' | 'prev' | 'first') => {
         const currentIdx = pointNavigation[sig] || 0;
         let nextIdx = 0;
@@ -34,13 +38,17 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
     const sortedResults = useMemo(() => {
         if (!results || !results.results) return [];
         return [...results.results]
-            .filter(r => r.leftAvgDelta > 0 && r.rightAvgDelta > 0)
-            .sort((a, b) => (a.leftPrevLineNum || 0) - (b.leftPrevLineNum || 0));
+            .filter(r => (r.leftAvgDelta > 0 && r.rightAvgDelta > 0) || r.isAliasInterval)
+            .sort((a, b) => {
+                if (a.isAliasInterval && !b.isAliasInterval) return -1;
+                if (!a.isAliasInterval && b.isAliasInterval) return 1;
+                return (a.leftPrevLineNum || 0) - (b.leftPrevLineNum || 0);
+            });
     }, [results]);
 
     const summaryData = useMemo(() => {
         if (!results) return null;
-        const intervalResults = (results.results || []).filter(r => r.leftAvgDelta > 0 && r.rightAvgDelta > 0);
+        const intervalResults = (results.results || []).filter(r => (r.leftAvgDelta > 0 && r.rightAvgDelta > 0) || r.isAliasInterval);
         const pointResults = results.pointResults || [];
 
         const newErrors = intervalResults.filter(r => r.isNewError).length;
@@ -50,8 +58,12 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
         const spams = pointResults.length;
 
         const topChanges = [...intervalResults]
-            .filter(r => Math.abs(r.deltaDiff) > 1 && Math.abs(r.countDiff) < 100)
-            .sort((a, b) => Math.abs(b.deltaDiff) - Math.abs(a.deltaDiff))
+            .filter(r => r.isAliasInterval || (Math.abs(r.deltaDiff) > 1 && Math.abs(r.countDiff) < 100))
+            .sort((a, b) => {
+                if (a.isAliasInterval && !b.isAliasInterval) return -1;
+                if (!a.isAliasInterval && b.isAliasInterval) return 1;
+                return Math.abs(b.deltaDiff) - Math.abs(a.deltaDiff);
+            })
             .slice(0, 100);
 
         const topSpams = pointResults.slice(0, 100);
@@ -69,35 +81,45 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
     const handleItemClick = (res: SplitAnalysisResult, isSinglePoint: boolean = false) => {
         setSelectedKey(res.key);
 
-        // Timeline 리스트 내 자동 스크롤 (Focus)
+        // Timeline 리스트 내 자동 스크롤 (Focus) - 페이징 확인 필요
+        if (activeTab === 'timeline') {
+            const idx = sortedResults.findIndex(r => r.key === res.key);
+            if (idx !== -1) {
+                const requiredPage = Math.floor(idx / PAGE_SIZE) + 1;
+                if (requiredPage !== timelinePage) {
+                    setTimelinePage(requiredPage);
+                }
+            }
+        }
+
         setTimeout(() => {
             const element = document.getElementById(`segment-${res.key}`);
             if (element) {
                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-        }, 10);
+        }, 100);
 
         if (!onJumpToRange) return;
 
-        // 🐧🎯 단일 지점 점프 여부 결정
-        // 1. 명시적으로 isSinglePoint가 true이거나
-        // 2. 신규 에러인 경우
-        const forceSingle = isSinglePoint || res.isNewError;
+        // 🐧🎯 점프 로직 정밀화
+        // 1. Alias INTERVAL인 경우: PrevLineNum ~ LineNum (구간)
+        // 2. Alias MATCH (지점)인 경우: 해당 지점만 (단일)
+        // 3. New Error인 경우: 해당 지점만 (단일)
 
-        // 좌측 구간 점프
+        const isInterval = res.isAliasInterval || (!res.isAliasMatch && !res.isNewError);
+        const forceSingle = !isInterval || isSinglePoint;
+
+        // 좌측 점프
         if (res.leftLineNum > 0) {
-            const start = forceSingle ? res.leftLineNum : Math.min(res.leftLineNum, res.leftPrevLineNum);
-            const end = res.leftLineNum;
+            const start = forceSingle ? res.leftLineNum - 1 : Math.max(0, res.leftPrevLineNum - 1);
+            const end = res.leftLineNum - 1;
             onJumpToRange('left', start, end);
         }
 
-        // 우측 구간 점프
+        // 우측 점프
         if (res.rightLineNum > 0) {
-            // 점프 지점 결정:
-            // 1. 스팸/단일지점: 실제 그 로그가 위치한 '단일 지점'으로 점프 (범위 선택 방지)
-            // 2. 성능 변화: 원인(Prev)부터 결과(Current)까지의 범위를 선택
-            const start = forceSingle ? res.rightLineNum : Math.min(res.rightLineNum, res.rightPrevLineNum);
-            const end = forceSingle ? start : res.rightLineNum;
+            const start = forceSingle ? res.rightLineNum - 1 : Math.max(0, res.rightPrevLineNum - 1);
+            const end = res.rightLineNum - 1;
             onJumpToRange('right', start, end);
         }
     };
@@ -479,107 +501,155 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                     </div>
                                 ) : (
                                     <div className="flex flex-col gap-2">
-                                        {sortedResults.map((res, i) => {
-                                            const isSlower = res.deltaDiff > 0;
-                                            const isFaster = res.deltaDiff < 0;
-                                            const isMore = res.countDiff > 0;
-                                            const isLess = res.countDiff < 0;
-                                            const isSelected = selectedKey === res.key;
-
-                                            // Theme Colors
-                                            const themeColor = res.isNewError ? 'rose' : (isSlower ? 'orange' : (isFaster ? 'emerald' : 'blue'));
-                                            const Icon = res.isNewError ? AlertTriangle : (isSlower ? TrendingUp : (isFaster ? TrendingDown : Activity));
-
-                                            return (
-                                                <div
-                                                    key={i}
-                                                    id={`segment-${res.key}`}
-                                                    onClick={() => handleItemClick(res)}
-                                                    onDoubleClick={() => onViewRawSplit?.(res)}
-                                                    className={`group relative flex bg-slate-900/40 rounded-xl border transition-all cursor-pointer overflow-hidden ${isSelected
-                                                        ? `border-${themeColor}-500/50 bg-${themeColor}-500/5 ring-1 ring-${themeColor}-500/20`
-                                                        : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-900/60'
-                                                        }`}
+                                        {/* Pagination Controls (Top) */}
+                                        {sortedResults.length > PAGE_SIZE && (
+                                            <div className="flex items-center justify-center gap-4 py-2 bg-slate-900/40 rounded-lg border border-slate-800 mb-2">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setTimelinePage(p => Math.max(1, p - 1)); }}
+                                                    disabled={timelinePage === 1}
+                                                    className="p-1 hover:bg-slate-800 rounded text-slate-400 disabled:opacity-20"
                                                 >
-                                                    {/* Selection Indicator */}
-                                                    {isSelected && <div className={`absolute left-0 top-0 bottom-0 w-1 bg-${themeColor}-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]`} />}
+                                                    <ChevronLeft size={20} />
+                                                </button>
+                                                <span className="text-xs font-black text-blue-400 font-mono">
+                                                    PAGE {timelinePage} / {Math.ceil(sortedResults.length / PAGE_SIZE)}
+                                                </span>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setTimelinePage(p => Math.min(Math.ceil(sortedResults.length / PAGE_SIZE), p + 1)); }}
+                                                    disabled={timelinePage >= Math.ceil(sortedResults.length / PAGE_SIZE)}
+                                                    className="p-1 hover:bg-slate-800 rounded text-slate-400 disabled:opacity-20"
+                                                >
+                                                    <ChevronRight size={20} />
+                                                </button>
+                                            </div>
+                                        )}
 
-                                                    <div className="flex-1 p-2 flex items-center gap-4">
-                                                        {/* Log Flow Visualizer */}
-                                                        <div className="flex-1 flex flex-col gap-1.5 relative">
-                                                            {/* FROM Box */}
-                                                            <div className="bg-slate-950/50 border border-slate-800/50 rounded-lg py-1 px-3 flex items-center gap-3">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-slate-600 shadow-[0_0_5px_rgba(71,85,105,0.5)]" />
-                                                                <div className="flex flex-col min-w-0">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-[11px] font-mono text-slate-400 truncate max-w-[200px]">
-                                                                            {res.prevFileName ? res.prevFileName : 'START'}
+                                        {sortedResults
+                                            .slice((timelinePage - 1) * PAGE_SIZE, timelinePage * PAGE_SIZE)
+                                            .map((res, i) => {
+                                                const isSlower = res.deltaDiff > 0;
+                                                const isFaster = res.deltaDiff < 0;
+                                                const isMore = res.countDiff > 0;
+                                                const isLess = res.countDiff < 0;
+                                                const isSelected = selectedKey === res.key;
+
+                                                // Theme Colors
+                                                const themeColor = res.isAliasInterval ? 'indigo' : (res.isNewError ? 'rose' : (isSlower ? 'orange' : (isFaster ? 'emerald' : 'blue')));
+                                                const Icon = res.isAliasInterval ? Zap : (res.isNewError ? AlertTriangle : (isSlower ? TrendingUp : (isFaster ? TrendingDown : Activity)));
+
+                                                return (
+                                                    <div
+                                                        key={res.key}
+                                                        id={`segment-${res.key}`}
+                                                        onClick={() => handleItemClick(res)}
+                                                        onDoubleClick={() => onViewRawSplit?.(res)}
+                                                        className={`group relative flex bg-slate-900/40 rounded-xl border transition-all cursor-pointer overflow-hidden ${isSelected
+                                                            ? `border-${themeColor}-500/50 bg-${themeColor}-500/5 ring-1 ring-${themeColor}-500/20`
+                                                            : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-900/60'
+                                                            }`}
+                                                    >
+                                                        {/* Selection Indicator */}
+                                                        {isSelected && <div className={`absolute left-0 top-0 bottom-0 w-1 bg-${themeColor}-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]`} />}
+
+                                                        <div className="flex-1 p-2 flex items-center gap-4">
+                                                            {/* Log Flow Visualizer */}
+                                                            <div className="flex-1 flex flex-col gap-1.5 relative">
+                                                                {/* FROM Box */}
+                                                                <div className="bg-slate-950/50 border border-slate-800/50 rounded-lg py-1 px-3 flex items-center gap-3">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-600 shadow-[0_0_5px_rgba(71,85,105,0.5)]" />
+                                                                    <div className="flex flex-col min-w-0">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-[11px] font-mono text-slate-400 truncate max-w-[200px]">
+                                                                                {res.prevFileName ? res.prevFileName : 'START'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <span className="text-xs font-bold text-slate-300 truncate">
+                                                                            {res.prevFunctionName || 'Initial Sequence'}
+                                                                            <span className="ml-1.5 text-[10px] text-slate-600 font-mono">({res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum})</span>
                                                                         </span>
                                                                     </div>
-                                                                    <span className="text-xs font-bold text-slate-300 truncate">
-                                                                        {res.prevFunctionName || 'Initial Sequence'}
-                                                                        <span className="ml-1.5 text-[10px] text-slate-600 font-mono">({res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum})</span>
-                                                                    </span>
                                                                 </div>
-                                                            </div>
 
-                                                            {/* Connector Area - Refined Visual Flow */}
-                                                            <div className="absolute left-[18px] top-[26px] bottom-[26px] flex flex-col items-center z-0">
-                                                                <div className={`w-[2px] h-full bg-gradient-to-b from-slate-700 via-${themeColor}-500/40 to-${themeColor}-500/60 rounded-full`} />
-                                                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                                                                    <div className={`bg-slate-950 p-0.5 rounded-full border border-${themeColor}-500/30`}>
-                                                                        <ArrowDown size={10} className={`text-${themeColor}-500/80`} />
+                                                                {/* Connector Area - Refined Visual Flow */}
+                                                                <div className="absolute left-[18px] top-[26px] bottom-[26px] flex flex-col items-center z-0">
+                                                                    <div className={`w-[2px] h-full bg-gradient-to-b from-slate-700 via-${themeColor}-500/40 to-${themeColor}-500/60 rounded-full`} />
+                                                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                                                                        <div className={`bg-slate-950 p-0.5 rounded-full border border-${themeColor}-500/30`}>
+                                                                            <ArrowDown size={10} className={`text-${themeColor}-500/80`} />
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
 
-                                                            {/* TO Box */}
-                                                            <div className={`bg-${themeColor}-500/5 border border-${themeColor}-500/20 rounded-lg py-1 px-3 flex items-center gap-3 relative z-20`}>
-                                                                <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]`} />
-                                                                <div className="flex flex-col min-w-0">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-[11px] font-mono text-slate-400 truncate max-w-[200px]">
-                                                                            {res.fileName || '[Unknown]'}
+                                                                {/* TO Box */}
+                                                                <div className={`bg-${themeColor}-500/5 border border-${themeColor}-500/20 rounded-lg py-1 px-3 flex items-center gap-3 relative z-20`}>
+                                                                    <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]`} />
+                                                                    <div className="flex flex-col min-w-0">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-[11px] font-mono text-slate-400 truncate max-w-[200px]">
+                                                                                {res.fileName || '[Unknown]'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <span className={`text-xs font-black text-${themeColor}-300 truncate`}>
+                                                                            {res.functionName || res.preview.substring(0, 40)}
+                                                                            <span className="ml-1.5 text-[10px] text-slate-600 font-mono">({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})</span>
                                                                         </span>
                                                                     </div>
-                                                                    <span className={`text-xs font-black text-${themeColor}-300 truncate`}>
-                                                                        {res.functionName || res.preview.substring(0, 40)}
-                                                                        <span className="ml-1.5 text-[10px] text-slate-600 font-mono">({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})</span>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Metrics Divider */}
+                                                            <div className="w-px h-16 bg-slate-800/50" />
+
+                                                            {/* Right Side: Performance Info */}
+                                                            <div className="w-48 shrink-0 flex flex-col justify-center gap-2">
+                                                                <div className="space-y-1">
+                                                                    <div className="flex justify-between items-center px-1">
+                                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">LEFT</span>
+                                                                        <span className="text-xs font-mono text-slate-300">{formatDelta(res.leftAvgDelta)}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center px-1">
+                                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">RIGHT</span>
+                                                                        <span className="text-sm font-black text-white">{formatDelta(res.rightAvgDelta)}</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className={`flex items-center justify-between p-2 rounded-lg bg-${themeColor}-500/10 border border-${themeColor}-500/20`}>
+                                                                    <span className={`text-[9px] font-black text-${themeColor}-500 uppercase tracking-[0.15em]`}>
+                                                                        {res.isNewError ? 'NEW ERROR' : (isSlower ? 'REGRESSION' : (isFaster ? 'IMPROVEMENT' : 'STABLE'))}
                                                                     </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Metrics Divider */}
-                                                        <div className="w-px h-16 bg-slate-800/50" />
-
-                                                        {/* Right Side: Performance Info */}
-                                                        <div className="w-48 shrink-0 flex flex-col justify-center gap-2">
-                                                            <div className="space-y-1">
-                                                                <div className="flex justify-between items-center px-1">
-                                                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">LEFT</span>
-                                                                    <span className="text-xs font-mono text-slate-300">{formatDelta(res.leftAvgDelta)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center px-1">
-                                                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">RIGHT</span>
-                                                                    <span className="text-sm font-black text-white">{formatDelta(res.rightAvgDelta)}</span>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className={`flex items-center justify-between p-2 rounded-lg bg-${themeColor}-500/10 border border-${themeColor}-500/20`}>
-                                                                <span className={`text-[9px] font-black text-${themeColor}-500 uppercase tracking-[0.15em]`}>
-                                                                    {res.isNewError ? 'NEW ERROR' : (isSlower ? 'REGRESSION' : (isFaster ? 'IMPROVEMENT' : 'STABLE'))}
-                                                                </span>
-                                                                <div className={`flex items-center gap-1.5 text-xs font-black text-${themeColor}-400`}>
-                                                                    <Icon size={12} strokeWidth={3} />
-                                                                    <span>{`${res.deltaDiff > 0 ? '+' : ''}${formatDelta(res.deltaDiff)}`}</span>
+                                                                    <div className={`flex items-center gap-1.5 text-xs font-black text-${themeColor}-400`}>
+                                                                        <Icon size={12} strokeWidth={3} />
+                                                                        <span>{`${res.deltaDiff > 0 ? '+' : ''}${formatDelta(res.deltaDiff)}`}</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
+
+                                        {/* Pagination Controls (Bottom) */}
+                                        {sortedResults.length > PAGE_SIZE && (
+                                            <div className="flex items-center justify-center gap-4 py-4 bg-slate-900/20 rounded-lg border border-slate-800/30 mt-2">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setTimelinePage(p => Math.max(1, p - 1)); }}
+                                                    disabled={timelinePage === 1}
+                                                    className="p-1 hover:bg-slate-800 rounded text-slate-400 disabled:opacity-20"
+                                                >
+                                                    <ChevronLeft size={20} />
+                                                </button>
+                                                <span className="text-xs font-black text-blue-400 font-mono">
+                                                    PAGE {timelinePage} / {Math.ceil(sortedResults.length / PAGE_SIZE)}
+                                                </span>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setTimelinePage(p => Math.min(Math.ceil(sortedResults.length / PAGE_SIZE), p + 1)); }}
+                                                    disabled={timelinePage >= Math.ceil(sortedResults.length / PAGE_SIZE)}
+                                                    className="p-1 hover:bg-slate-800 rounded text-slate-400 disabled:opacity-20"
+                                                >
+                                                    <ChevronRight size={20} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>

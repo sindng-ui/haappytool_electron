@@ -908,6 +908,14 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
                 respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { metrics: {} }, requestId } as any);
             }
             break;
+        case 'GET_ALIAS_EVENTS':
+            try {
+                await AnalysisHandlers.extractAliasEvents(getAnalysisContext(), requestId || '');
+            } catch (e) {
+                console.error('[Worker] GET_ALIAS_EVENTS failed', e);
+                respond({ type: 'ALIAS_EVENTS_RESULT', payload: { events: [] }, requestId } as any);
+            }
+            break;
         case 'FIND_VISUAL_INDEX':
             if (filteredIndices) {
                 const visualIndex = filteredIndices.indexOf(payload.absoluteIndex);

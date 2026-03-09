@@ -1,7 +1,7 @@
 import { LogRule, LogWorkerResponse, LogMetadata } from '../types';
 import { extractTimestamp } from '../utils/logTime';
-import { analyzePerfSegments, extractSourceMetadata, extractLogIds } from '../utils/perfAnalysis';
-import { extractSingleMetadata, AggregateMetrics, PointMetrics, isSignificant, computeMetricsFromMetadata } from './SplitAnalysisUtils';
+import { extractSourceMetadata, analyzePerfSegments, extractLogIds } from '../utils/perfAnalysis';
+import { extractSingleMetadata, AggregateMetrics, PointMetrics, isSignificant, computeMetricsFromMetadata, extractAliasFromLine, AliasEvent } from './SplitAnalysisUtils';
 
 export interface WorkerContext {
     currentFile: File | null;
@@ -741,7 +741,102 @@ export const extractAnalysisMetrics = async (
     } else {
         console.warn(`[SplitWorker] No intervals detected.Check parser or look - back window.`);
     }
-
     respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { metrics, pointMetrics }, requestId });
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+};
+
+/**
+ * 🐧⚡ [NEW] 모든 Happy Combo Alias 이벤트를 추출합니다.
+ */
+export const extractAliasEvents = async (
+    ctx: WorkerContext,
+    requestId: string
+) => {
+    const { filteredIndices, lineOffsets, lineOffsetsStream, lineLengthsStream, logBuffer, currentFile, currentRule, respond } = ctx;
+
+    if (!filteredIndices || !currentRule) {
+        respond({ type: 'ALIAS_EVENTS_RESULT', payload: { events: [] }, requestId });
+        return;
+    }
+
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0, message: 'Extracting Alias Events...' } });
+
+    const events: AliasEvent[] = [];
+    const decoder = new TextDecoder();
+    const totalLines = filteredIndices.length;
+    const isStreamMode = !!(logBuffer && lineOffsetsStream && lineLengthsStream);
+
+    const processLine = (text: string, originalIdx: number, visualIdx: number) => {
+        const alias = extractAliasFromLine(text, currentRule);
+        if (alias) {
+            const timestamp = extractTimestamp(text);
+            const { fileName, functionName, codeLineNum } = extractSourceMetadata(text);
+            events.push({
+                alias,
+                timestamp,
+                visualIndex: visualIdx,
+                lineNum: originalIdx + 1,
+                preview: text.length > 200 ? text.substring(0, 200) : text,
+                fileName: fileName || undefined,
+                functionName: functionName || undefined,
+                codeLineNum: codeLineNum || undefined
+            });
+        }
+    };
+
+    if (isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream) {
+        for (let idx = 0; idx < totalLines; idx++) {
+            const i = filteredIndices[idx];
+            const start = lineOffsetsStream[i];
+            const len = lineLengthsStream[i];
+            const line = decoder.decode(logBuffer.subarray(start, start + len).slice());
+            processLine(line, i, idx);
+
+            if (idx % 50000 === 0) {
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: (idx / totalLines) * 100 } });
+            }
+        }
+    } else if (currentFile || ctx.isLocalFileMode) {
+        const reader = new FileReaderSync();
+        const BATCH_SIZE = 10000;
+        for (let idx = 0; idx < totalLines; idx += BATCH_SIZE) {
+            const maxBatch = Math.min(idx + BATCH_SIZE, totalLines);
+            let minByte = -1n;
+            let maxByte = -1n;
+            for (let k = idx; k < maxBatch; k++) {
+                const i = filteredIndices[k];
+                const start = lineOffsets![i];
+                const fileSize = ctx.isLocalFileMode ? ctx.localFileSize! : currentFile!.size;
+                const end = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(fileSize);
+                if (minByte === -1n || start < minByte) minByte = start;
+                if (maxByte === -1n || end > maxByte) maxByte = end;
+            }
+
+            if (minByte !== -1n) {
+                let uint8View: Uint8Array;
+                if (ctx.isLocalFileMode) {
+                    uint8View = await ctx.rpcCall!('readFileSegment', { path: ctx.localFilePath, start: Number(minByte), end: Number(maxByte) });
+                } else {
+                    const fullBlob = currentFile!.slice(Number(minByte), Number(maxByte));
+                    uint8View = new Uint8Array(reader.readAsArrayBuffer(fullBlob));
+                }
+
+                for (let k = idx; k < maxBatch; k++) {
+                    const i = filteredIndices[k];
+                    const lineStart = lineOffsets![i];
+                    const fileSize = ctx.isLocalFileMode ? ctx.localFileSize! : currentFile!.size;
+                    const lineEnd = (i < lineOffsets!.length - 1) ? lineOffsets![i + 1] : BigInt(fileSize);
+
+                    const relStart = Number(lineStart - minByte);
+                    const relEnd = Number(lineEnd - minByte);
+                    const text = decoder.decode(uint8View.subarray(relStart, relEnd)).replace(/\r?\n$/, '');
+                    processLine(text, i, k);
+                }
+            }
+            respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: (idx / totalLines) * 100 } });
+        }
+    }
+
+    respond({ type: 'ALIAS_EVENTS_RESULT', payload: { events }, requestId });
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
 };

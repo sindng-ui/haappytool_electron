@@ -2,56 +2,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { LogMetadata } from '../types';
 import SplitAnalysisWorker from '../workers/SplitAnalysis.worker.ts?worker';
 
-export interface PointAnalysisResult {
-    sig: string;
-    fileName: string;
-    functionName: string;
-    codeLineNum: string | null;
-    preview: string;
-    count: number;
-    visualIndices: number[];
-    originalLineNums: number[];
-}
-
-export interface SplitAnalysisResult {
-    key: string;
-    fileName: string;
-    functionName: string;
-    preview: string;
-
-    leftCount: number;
-    rightCount: number;
-    countDiff: number;
-
-    leftAvgDelta: number;
-    rightAvgDelta: number;
-    deltaDiff: number;
-
-    isNewError: boolean;
-    isError: boolean;
-    isWarn: boolean;
-
-    prevFileName?: string;
-    prevFunctionName?: string;
-    prevPreview?: string;
-
-    leftUniqueTids: number;
-    rightUniqueTids: number;
-
-    leftLineNum: number;
-    rightLineNum: number;
-    leftPrevLineNum: number;
-    rightPrevLineNum: number;
-    leftOrigLineNum: number;
-    rightOrigLineNum: number;
-    leftPrevOrigLineNum: number;
-    rightPrevOrigLineNum: number;
-
-    leftCodeLineNum?: string | null;
-    rightCodeLineNum?: string | null;
-    leftPrevCodeLineNum?: string | null;
-    rightPrevCodeLineNum?: string | null;
-}
+import type { PointAnalysisResult, SplitAnalysisResult } from '../workers/SplitAnalysisUtils';
+export type { PointAnalysisResult, SplitAnalysisResult };
 
 export const useSplitAnalysis = (
     leftWorkerRef: React.MutableRefObject<Worker | null>,
@@ -131,13 +83,13 @@ export const useSplitAnalysis = (
                         }
 
                         if (e.data.type === 'STATUS_UPDATE') {
-                            if (side === 'left') leftProgress = e.data.payload.progress || 0;
-                            else rightProgress = e.data.payload.progress || 0;
+                            if (side === 'left') leftProgress = (e.data.payload.progress || 0) * 0.8; // metrics 80%
+                            else rightProgress = (e.data.payload.progress || 0) * 0.8;
                             updateMetadataProgress();
                         } else if (e.data.type === 'ANALYSIS_METRICS_RESULT' && e.data.requestId === reqId) {
                             worker.removeEventListener('message', listener);
-                            if (side === 'left') leftProgress = 100;
-                            else rightProgress = 100;
+                            if (side === 'left') leftProgress = 80;
+                            else rightProgress = 80;
                             updateMetadataProgress();
                             resolve({ metrics: e.data.payload.metrics, pointMetrics: e.data.payload.pointMetrics });
                         }
@@ -148,10 +100,40 @@ export const useSplitAnalysis = (
                 });
             };
 
-            // Fetch both simultaneously! (Parallel for 1GB+ files performance)
-            const [leftData, rightData] = await Promise.all([
+            const fetchAliasEvents = (worker: Worker, side: 'left' | 'right') => {
+                return new Promise<any>((resolve) => {
+                    const reqId = Math.random().toString(36).substring(7);
+                    const listener = (e: MessageEvent) => {
+                        if (isCancelledRef.current) {
+                            worker.removeEventListener('message', listener);
+                            return;
+                        }
+
+                        if (e.data.type === 'STATUS_UPDATE' && e.data.payload.message === 'Extracting Alias Events...') {
+                            const p = e.data.payload.progress || 0;
+                            if (side === 'left') leftProgress = 80 + (p * 0.2); // alias 20%
+                            else rightProgress = 80 + (p * 0.2);
+                            updateMetadataProgress();
+                        } else if (e.data.type === 'ALIAS_EVENTS_RESULT' && e.data.requestId === reqId) {
+                            worker.removeEventListener('message', listener);
+                            if (side === 'left') leftProgress = 100;
+                            else rightProgress = 100;
+                            updateMetadataProgress();
+                            resolve(e.data.payload.events);
+                        }
+                    };
+                    console.log(`[useSplitAnalysis] fetchAliasEvents started for side: ${side}, requestId: ${reqId}`);
+                    worker.addEventListener('message', listener);
+                    worker.postMessage({ type: 'GET_ALIAS_EVENTS', requestId: reqId });
+                });
+            };
+
+            // Fetch metrics and alias events simultaneously!
+            const [leftMetricsData, rightMetricsData, leftAliases, rightAliases] = await Promise.all([
                 fetchMetrics(leftWorkerRef.current, 'left'),
-                fetchMetrics(rightWorkerRef.current, 'right')
+                fetchMetrics(rightWorkerRef.current, 'right'),
+                fetchAliasEvents(leftWorkerRef.current, 'left'),
+                fetchAliasEvents(rightWorkerRef.current, 'right')
             ]);
 
             if (isCancelledRef.current) return;
@@ -159,10 +141,12 @@ export const useSplitAnalysis = (
 
             // Send to Analyzer Worker
             analyzerWorkerRef.current?.postMessage({
-                leftMetrics: leftData.metrics,
-                rightMetrics: rightData.metrics,
-                leftPointMetrics: leftData.pointMetrics,
-                rightPointMetrics: rightData.pointMetrics
+                leftMetrics: leftMetricsData.metrics,
+                rightMetrics: rightMetricsData.metrics,
+                leftPointMetrics: leftMetricsData.pointMetrics,
+                rightPointMetrics: rightMetricsData.pointMetrics,
+                leftAliasEvents: leftAliases,
+                rightAliasEvents: rightAliases
             });
 
         } catch (err) {

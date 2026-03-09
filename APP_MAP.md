@@ -312,16 +312,20 @@
   - `ArchiveSidebar`: 저장된 목록 표시 및 검색
 - **Data Flow**: `Log Selection` -> `index.tsx(Save)` -> `IndexedDB` -> `Sidebar/Viewer`
 
-### [[Performance Analysis Engine]]
-- **ID**: `logic-perf-analysis`
-- **Keywords**: [`성능 분석`, `performance`, `heat map`, `bottleneck`, `time gap`]
+### [[Analyze Diff & Sequence Matching]]
+- **ID**: `logic-analyze-diff-sequence`
+- **Keywords**: [`로그 비교`, `Analyze Diff`, `Sequence Matching`, `Anchor Sync`, `Alias Matching`, `Happy Combo Alias`]
 - **Location**:
-  - `Logic`: [perfAnalysis.ts](./utils/perfAnalysis.ts)
-  - `View`: [PerfDashboard.tsx](./components/LogViewer/PerfDashboard.tsx)
+  - `Hook`: [useSplitAnalysis.ts](./hooks/useSplitAnalysis.ts)
+  - `Worker (Matching)`: [SplitAnalysis.worker.ts](./workers/SplitAnalysis.worker.ts)
+  - `Utility`: [SplitAnalysisUtils.ts](./workers/SplitAnalysisUtils.ts)
 - **Core Interface**:
-  - `analyzePerfSegments()`: 로그 간 시간 차이를 계산하여 병목 지점 추출
-  - `extractTimestamp()`: 다양한 로그 포맷에서 타임스탬프 파싱
-- **Data Flow**: `Filtered Logs` -> `perfAnalysis.ts` -> `Segments/Heatmap` -> `Canvas Layer`
+  - `Alias Sequence Matching`: Happy Combo의 Alias를 사용하여 좌우 로그에서 '순서대로' 동일한 이벤트를 찾아 시간을 비교합니다. (N번째 Alias A vs N번째 Alias A)
+  - `Alias Interval Analysis`: 인접한 앨리어스 사이의 '구간 소요 시간'을 분석하여 좌우 로그 간의 성능 차이를 정밀하게 비교합니다. (Alias A ➔ Alias B 구간 비교) [NEW] [HOT]
+  - `Anchor Sync`: 사용자가 지정한 패턴(Anchor)을 기준으로 매칭 지점을 찾아 구간별 시간 차이를 정밀 분석합니다. [PLANNED]
+- **데이터 흐름**: `Log Workers (Left/Right)` -> `extractAliasEvents` -> `SplitAnalysisWorker` -> `Sequence/Interval Comparison` -> `AnalysisResults UI`
+- **최근 개선**:
+  - 기존의 '연속된 2줄' 기반 비교 방식의 한계를 극복하기 위해, **Happy Combo Alias 기반의 시퀀스 매칭 엔진**을 도입했습니다. 이제 로그 내용이 중간에 조금 다르더라도 핵심 이벤트(Alias)의 순서가 맞으면 정확하게 시간 차이를 추적합니다! (Zero-False-Positives) [TOTAL RE-ARCH]
 
 ---
 

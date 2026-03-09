@@ -2,6 +2,17 @@ import { LogMetadata, LogRule } from '../types';
 import { extractTimestamp } from '../utils/logTime';
 import { extractSourceMetadata } from '../utils/perfAnalysis';
 
+export interface PointAnalysisResult {
+    sig: string;
+    fileName: string;
+    functionName: string;
+    codeLineNum: string | null;
+    preview: string;
+    count: number;
+    visualIndices: number[];
+    originalLineNums: number[];
+}
+
 // 🐧⚡ 정규표현식 재사용을 위한 상수 선언
 const RE_TID_1 = /\(P\s*\d+,\s*T\s*(\d+)\)/;
 const RE_TID_2 = /\[\s*(\d+):/;
@@ -10,6 +21,60 @@ const RE_DIGITS = /\d+/g;
 const RE_HEX = /0x[0-9a-fA-F]+/g;
 const RE_ERROR_LVL = /error|fail|critical/i;
 const RE_WARN_LVL = /warn|warning/i;
+
+export interface AliasEvent {
+    alias: string;
+    timestamp: number | null;
+    visualIndex: number;
+    lineNum: number;
+    preview: string;
+    fileName?: string;
+    functionName?: string;
+    codeLineNum?: string | null;
+}
+
+export interface SplitAnalysisResult {
+    key: string;
+    fileName: string;
+    functionName: string;
+    preview: string;
+
+    leftCount: number;
+    rightCount: number;
+    countDiff: number;
+
+    leftAvgDelta: number;
+    rightAvgDelta: number;
+    deltaDiff: number;
+
+    isNewError: boolean;
+    isError: boolean;
+    isWarn: boolean;
+    isAliasMatch?: boolean;
+    isAliasInterval?: boolean;
+
+    prevFileName?: string;
+    prevFunctionName?: string;
+    prevPreview?: string;
+
+    leftUniqueTids?: number;
+    rightUniqueTids?: number;
+
+    leftLineNum: number;
+    rightLineNum: number;
+    leftPrevLineNum: number;
+    rightPrevLineNum: number;
+
+    leftOrigLineNum?: number;
+    rightOrigLineNum?: number;
+    leftPrevOrigLineNum?: number;
+    rightPrevOrigLineNum?: number;
+
+    leftCodeLineNum?: string | null;
+    rightCodeLineNum?: string | null;
+    leftPrevCodeLineNum?: string | null;
+    rightPrevCodeLineNum?: string | null;
+}
 
 /**
  * 🐧⚡ 단일 로그 라인에서 메타데이터를 추출합니다. (최적화 버전)
@@ -67,6 +132,198 @@ export const extractSingleMetadata = (
         preview: text.length > 150 ? text.substring(0, 150) : text,
         alias: matchedAlias
     };
+};
+
+/**
+ * 🐧⚡ 특정 라인에서 Happy Combo Alias만 쏙 뽑아냅니다.
+ */
+export const extractAliasFromLine = (text: string, currentRule: LogRule | null): string | null => {
+    if (!currentRule?.happyGroups) return null;
+    const caseSensitive = currentRule.happyCombosCaseSensitive ?? false;
+    const lowerText = caseSensitive ? text : text.toLowerCase();
+
+    for (const group of currentRule.happyGroups) {
+        if (!group.enabled || !group.alias || !group.tags.length) continue;
+
+        const allMatched = group.tags.every(tag => {
+            const searchTag = caseSensitive ? tag : tag.toLowerCase();
+            return lowerText.includes(searchTag);
+        });
+
+        if (allMatched) return group.alias;
+    }
+    return null;
+};
+
+/**
+ * 🐧⚡ Alias 이벤트를 매칭하여 결과를 반환합니다.
+ */
+export const matchAliasEvents = (
+    leftAliasEvents: AliasEvent[],
+    rightAliasEvents: AliasEvent[]
+): SplitAnalysisResult[] => {
+    const results: SplitAnalysisResult[] = [];
+    const getEventSig = (ev: AliasEvent) => `${ev.alias}|${ev.fileName || ''}|${ev.functionName || ''}|${ev.codeLineNum || ''}`;
+
+    const leftAliasMap = new Map<string, AliasEvent[]>();
+    leftAliasEvents.forEach(ev => {
+        const sig = getEventSig(ev);
+        const list = leftAliasMap.get(sig) || [];
+        list.push(ev);
+        leftAliasMap.set(sig, list);
+    });
+
+    const rightAliasCounts = new Map<string, number>();
+    rightAliasEvents.forEach(rev => {
+        const sig = getEventSig(rev);
+        const count = rightAliasCounts.get(sig) || 0;
+        const leftEvents = leftAliasMap.get(sig);
+        const lev = leftEvents ? leftEvents[count] : null;
+
+        if (lev) {
+            const leftTs = lev.timestamp || 0;
+            const rightTs = rev.timestamp || 0;
+            const delta = leftTs > 0 && rightTs > 0 ? (rightTs - leftTs) : 0;
+
+            results.push({
+                key: `[Alias Match] ${rev.alias}${rev.codeLineNum ? `(${rev.codeLineNum})` : ''} (#${count + 1})`,
+                fileName: rev.fileName || lev.fileName || '',
+                functionName: rev.functionName || lev.functionName || rev.alias,
+                preview: rev.preview,
+                leftCount: 1,
+                rightCount: 1,
+                countDiff: 0,
+                leftAvgDelta: 0,
+                rightAvgDelta: 0,
+                deltaDiff: delta,
+                isNewError: false,
+                isError: false,
+                isWarn: false,
+                isAliasMatch: true,
+                leftLineNum: lev.visualIndex,
+                rightLineNum: rev.visualIndex,
+                leftPrevLineNum: lev.visualIndex,
+                rightPrevLineNum: rev.visualIndex,
+                leftOrigLineNum: lev.lineNum,
+                rightOrigLineNum: rev.lineNum,
+                leftPrevOrigLineNum: lev.lineNum,
+                rightPrevOrigLineNum: rev.lineNum,
+                leftCodeLineNum: lev.codeLineNum,
+                rightCodeLineNum: rev.codeLineNum,
+                leftUniqueTids: 1,
+                rightUniqueTids: 1
+            });
+        } else {
+            results.push({
+                key: `[Alias New] ${rev.alias}${rev.codeLineNum ? `(${rev.codeLineNum})` : ''} (#${count + 1})`,
+                fileName: rev.fileName || '',
+                functionName: rev.functionName || rev.alias,
+                preview: rev.preview,
+                leftCount: 0,
+                rightCount: 1,
+                countDiff: 1,
+                leftAvgDelta: 0,
+                rightAvgDelta: 0,
+                deltaDiff: 0,
+                isNewError: false,
+                isError: false,
+                isWarn: false,
+                isAliasMatch: true,
+                leftLineNum: 0,
+                rightLineNum: rev.visualIndex,
+                leftPrevLineNum: 0,
+                rightPrevLineNum: rev.visualIndex,
+                leftOrigLineNum: 0,
+                rightOrigLineNum: rev.lineNum,
+                leftPrevOrigLineNum: 0,
+                rightPrevOrigLineNum: rev.lineNum,
+                rightCodeLineNum: rev.codeLineNum,
+                leftUniqueTids: 0,
+                rightUniqueTids: 1
+            });
+        }
+        rightAliasCounts.set(sig, count + 1);
+    });
+
+    return results;
+};
+
+/**
+ * 🐧⚡ Alias 사이의 구간(Interval)을 분석합니다.
+ */
+export const computeAliasIntervals = (
+    leftAliasEvents: AliasEvent[],
+    rightAliasEvents: AliasEvent[]
+): SplitAnalysisResult[] => {
+    const results: SplitAnalysisResult[] = [];
+    const getEventBriefSig = (ev: AliasEvent) => `${ev.alias}(${ev.codeLineNum || '?'})`;
+
+    const getIntervals = (events: AliasEvent[]) => {
+        const intervals: { start: AliasEvent; end: AliasEvent; duration: number; sig: string }[] = [];
+        for (let i = 0; i < events.length - 1; i++) {
+            const start = events[i];
+            const end = events[i + 1];
+            if (start.timestamp && end.timestamp) {
+                intervals.push({
+                    start,
+                    end,
+                    duration: end.timestamp - start.timestamp,
+                    sig: `${getEventBriefSig(start)} ➔ ${getEventBriefSig(end)}`
+                });
+            }
+        }
+        return intervals;
+    };
+
+    const leftIntervals = getIntervals(leftAliasEvents);
+    const rightIntervals = getIntervals(rightAliasEvents);
+
+    const leftInvMap = new Map<string, typeof leftIntervals>();
+    leftIntervals.forEach(inv => {
+        const list = leftInvMap.get(inv.sig) || [];
+        list.push(inv);
+        leftInvMap.set(inv.sig, list);
+    });
+
+    const rightInvCounts = new Map<string, number>();
+    rightIntervals.forEach(rinv => {
+        const count = rightInvCounts.get(rinv.sig) || 0;
+        const linv = leftInvMap.get(rinv.sig)?.[count];
+
+        if (linv) {
+            results.push({
+                key: `[Alias Interval] ${rinv.sig} (#${count + 1})`,
+                fileName: rinv.end.fileName || linv.end.fileName || '',
+                functionName: rinv.end.functionName || linv.end.functionName || rinv.end.alias,
+                preview: `${rinv.start.alias} ... ${rinv.end.alias}`,
+                leftCount: 1,
+                rightCount: 1,
+                countDiff: 0,
+                leftAvgDelta: linv.duration,
+                rightAvgDelta: rinv.duration,
+                deltaDiff: rinv.duration - linv.duration,
+                isNewError: false,
+                isError: false,
+                isWarn: false,
+                isAliasInterval: true,
+                leftLineNum: linv.end.visualIndex,
+                rightLineNum: rinv.end.visualIndex,
+                leftPrevLineNum: linv.start.visualIndex,
+                rightPrevLineNum: rinv.start.visualIndex,
+                leftOrigLineNum: linv.end.lineNum,
+                rightOrigLineNum: rinv.end.lineNum,
+                leftPrevOrigLineNum: linv.start.lineNum,
+                rightPrevOrigLineNum: rinv.start.lineNum,
+                leftCodeLineNum: linv.end.codeLineNum,
+                rightCodeLineNum: rinv.end.codeLineNum,
+                leftUniqueTids: 1,
+                rightUniqueTids: 1
+            });
+        }
+        rightInvCounts.set(rinv.sig, count + 1);
+    });
+
+    return results;
 };
 
 export interface AggregateMetrics {
