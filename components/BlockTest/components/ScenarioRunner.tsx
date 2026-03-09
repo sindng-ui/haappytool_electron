@@ -50,10 +50,10 @@ const ScenarioRunner: React.FC<ScenarioRunnerProps> = ({
             {/* Scenario Header */}
             <div className={`shrink-0 h-14 pl-4 pr-36 title-drag flex items-center justify-between bg-[#0f172a] border-b border-slate-700 shadow-md z-20`}>
                 <div className="flex items-center gap-4">
-                    <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
+                    <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors no-drag">
                         <Lucide.ArrowLeft size={20} />
                     </button>
-                    <div>
+                    <div className="no-drag">
                         <div className="flex items-center gap-2">
                             <Lucide.Film size={16} className="text-indigo-400" />
                             <h2 className="text-sm font-bold text-slate-200">{scenario.name}</h2>

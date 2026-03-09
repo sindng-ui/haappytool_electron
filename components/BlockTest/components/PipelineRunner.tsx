@@ -82,11 +82,11 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
             <div className={`p-4 pr-36 flex justify-between items-center shadow-sm z-10 ${THEME.runner.header} ${!embedded ? 'title-drag' : ''}`}>
                 <div className="flex items-center gap-4">
                     {!embedded && (
-                        <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500">
+                        <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 no-drag">
                             <Lucide.ArrowLeft size={20} />
                         </button>
                     )}
-                    <div>
+                    <div className="no-drag">
                         {!embedded && <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{pipeline.name}</h2>}
                         <div className="flex items-center gap-4 text-xs text-slate-500 mt-1">
                             {isRunning ? (
@@ -111,14 +111,14 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 no-drag">
                     {/* Report Button */}
                     {!isRunning && reportUrl && (
                         <a
                             href={reportUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mr-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-colors nav-no-drag"
+                            className="mr-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-colors no-drag"
                         >
                             <Lucide.FileText size={16} />
                             <span className="hidden sm:inline">Report</span>
@@ -129,14 +129,14 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
                     <div className="bg-slate-200 dark:bg-slate-800 p-1 rounded-lg flex items-center mr-2">
                         <button
                             onClick={() => setViewMode('list')}
-                            className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow text-indigo-500' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow text-indigo-500' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'} no-drag`}
                             title="List View"
                         >
                             <Lucide.List size={16} />
                         </button>
                         <button
                             onClick={() => setViewMode('graph')}
-                            className={`p-1.5 rounded-md transition-all ${viewMode === 'graph' ? 'bg-white dark:bg-slate-600 shadow text-indigo-500' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'graph' ? 'bg-white dark:bg-slate-600 shadow text-indigo-500' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'} no-drag`}
                             title="Graph View"
                         >
                             <Lucide.Network size={16} />
@@ -145,7 +145,7 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
 
                     <button
                         onClick={handleSaveLogs}
-                        className="px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg font-medium text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95"
+                        className="px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg font-medium text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95 no-drag"
                         title="Save Logs to File"
                     >
                         <Lucide.Download size={16} />
@@ -155,7 +155,7 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
                     {isRunning && (
                         <button
                             onClick={onStop}
-                            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg shadow-red-500/30 transition-all hover:scale-105 active:scale-95"
+                            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg shadow-red-500/30 transition-all hover:scale-105 active:scale-95 no-drag"
                         >
                             <Lucide.Square size={16} fill="currentColor" />
                             STOP

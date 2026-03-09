@@ -215,13 +215,15 @@
 
 ### [[BlockTest Plugin]]
 - **ID**: `plugin-block-test`
-- **Keywords**: [`BlockTest`, `Scenario`, `Pipeline`, `Automation`, `블록테스트`, `자동화`]
+- **Keywords**: [`BlockTest`, `Scenario`, `Pipeline`, `Automation`, `블록테스트`, `자동화`, `Runner`]
 - **Location**:
   - `Main Component`: [index.tsx](./components/BlockTest/index.tsx)
   - `Hook`: [useBlockTest.ts](./components/BlockTest/hooks/useBlockTest.ts)
+  - `Runner View`: [PipelineRunner.tsx](./components/BlockTest/components/PipelineRunner.tsx), [ScenarioRunner.tsx](./components/BlockTest/components/ScenarioRunner.tsx)
 - **Core Interface**:
   - `executePipeline()` & `executeScenario()`: 블록 단위 테스트 묶음 실행 및 Socket.io 기반 원격 제어
   - **CLI 연동**: GUI 환경뿐만 아니라 `Headless CLI`를 통해서도 미리 저장된 Scenario 및 Pipeline 실행을 완벽하게 지원합니다. [NEW]
+  - **UI 개선**: Electron `title-drag` 영역 내 버튼 클릭 이슈 해결을 위해 모든 헤더 버튼에 `no-drag` 클래스 적용 및 오타 수정. [FIX]
 
 ---
 
