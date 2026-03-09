@@ -110,6 +110,9 @@
   - **Happy Combo Section**: `Zap` 아이콘 기반의 강력한 필터링 규칙 관리.
     - **마스터 토글**: "Happy Combos" 헤더의 체크박스로 미션 내 모든 해피콤보를 한 번에 켜고 끌 수 있음. [NEW]
     - **Root/Branch 관리**: 트리 구조로 로그 태그를 그룹화하여 관리. Root는 OR, Branch는 AND 조건으로 매칭.
+  - **스플릿 뷰 스마트 스텝(Split Smart Step Shortcuts)**: `Ctrl + Shift + Left/Right Arrow` 단축키를 통해 스플릿 뷰의 비중을 단계적으로(0.1 ↔ 0.5 ↔ 0.9) 조절할 수 있습니다. [NEW]
+    - `Left Arrow`: 오른쪽 방향에서 한 단계씩 왼쪽으로 이동 (Right → Mid → Left)
+    - `Right Arrow`: 왼쪽 방향에서 한 단계씩 오른쪽으로 이동 (Left → Mid → Right)
   - **스플릿 뷰 렌더링 최적화**: 뷰포트 너비가 크게 변할 때(스플릿 모드 진입 등) 가로 스크롤을 자동으로 0으로 리셋하여 왼쪽 패널의 타임스탬프/로그레벨이 가려지는 현상을 완벽히 해결했습니다. [FIX]
 
 ### [[Split Performance Analyzer]]

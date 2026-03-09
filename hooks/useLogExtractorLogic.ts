@@ -138,6 +138,7 @@ export const useLogExtractorLogic = ({
     const [rightFilteredCount, setRightFilteredCount] = useState(0);
     const [rightFileName, setRightFileName] = useState<string>('');
     const rightPendingRequests = useRef<Map<string, (data: any) => void>>(new Map());
+    const [splitRatio, setSplitRatio] = useState(0.5); // ✅ Split Ratio for Dual View
 
     // --- Tab Background Optimization ---
     useEffect(() => {
@@ -1004,6 +1005,7 @@ export const useLogExtractorLogic = ({
         groupedRoots, collapsedRoots, setCollapsedRoots,
         updateCurrentRule, handleCreateRule, handleDeleteRule, handleToggleRoot,
         isDualView, setIsDualView, toggleDualView,
+        splitRatio, setSplitRatio,
         isPanelOpen, setIsPanelOpen,
         configPanelWidth, setConfigPanelWidth, handleConfigResizeStart,
         rawContextOpen, setRawContextOpen, rawContextHeight, handleRawContextResizeStart,

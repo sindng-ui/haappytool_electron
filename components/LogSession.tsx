@@ -115,8 +115,20 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         isAnalyzingSpam, spamResultsLeft, requestSpamAnalysisLeft,
         clearCacheTick,
         leftSharedBuffers, rightSharedBuffers,
-        leftWorkerRef, rightWorkerRef
+        leftWorkerRef, rightWorkerRef,
+        splitRatio, setSplitRatio // ✅ Expose split states
     } = useLogContext();
+
+    const [isAnimatingSplit, setIsAnimatingSplit] = React.useState(false);
+    const splitAnimTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    const handleSplitAnimateStart = React.useCallback(() => {
+        setIsAnimatingSplit(true);
+        if (splitAnimTimeoutRef.current) clearTimeout(splitAnimTimeoutRef.current);
+        splitAnimTimeoutRef.current = setTimeout(() => {
+            setIsAnimatingSplit(false);
+        }, 500); // Animation duration match
+    }, []);
 
     const {
         isAnalyzing: isSplitAnalyzing,
@@ -929,6 +941,21 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                         handleCopyLogs(targetPane as 'left' | 'right');
                                     }
                                 }
+
+                                // ✅ Ctrl + Shift + Arrow: Split Ratio Adjustment (Smart Step)
+                                if (e.shiftKey && isDualView) {
+                                    if (e.key === 'ArrowLeft') {
+                                        e.preventDefault();
+                                        handleSplitAnimateStart();
+                                        // 🐧🎯 Right(0.9) -> Mid(0.5) -> Left(0.1)
+                                        setSplitRatio(prev => (prev > 0.51 ? 0.5 : 0.1));
+                                    } else if (e.key === 'ArrowRight') {
+                                        e.preventDefault();
+                                        handleSplitAnimateStart();
+                                        // 🐧🎯 Left(0.1) -> Mid(0.5) -> Right(0.9)
+                                        setSplitRatio(prev => (prev < 0.49 ? 0.5 : 0.9));
+                                    }
+                                }
                             }
                         };
 
@@ -953,7 +980,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                             window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
                             window.removeEventListener('copy', handleGlobalCopy);
                         };
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, tizenSocket, handleClearLogs, isTransactionDrawerOpen, setIsTransactionDrawerOpen, addToast, leftPerfAnalysisResult, rightPerfAnalysisResult, isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight]);
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, tizenSocket, handleClearLogs, isTransactionDrawerOpen, setIsTransactionDrawerOpen, addToast, leftPerfAnalysisResult, rightPerfAnalysisResult, isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight, setSplitRatio, handleSplitAnimateStart]);
                     return null;
                 })()
             )}
@@ -1021,7 +1048,10 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="flex w-full h-full">
                             {/* Left Pane */}
-                            <div className={`flex flex-col h-full min-w-0 relative ${isDualView ? 'w-1/2' : 'w-full'}`}>
+                            <div
+                                className={`flex flex-col h-full min-w-0 relative transition-[width] duration-500 ease-[cubic-bezier(0.19,1,0.22,1)] will-change-[width] ${isDualView ? '' : 'w-full'}`}
+                                style={{ width: isDualView ? `${splitRatio * 100}%` : undefined }}
+                            >
                                 <LoadingOverlay
                                     isVisible={!!leftFileName && !leftWorkerReady && leftIndexingProgress < 100}
                                     fileName={leftFileName || ''}
@@ -1114,128 +1144,134 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 )}
                             </div>
 
+                            {/* Divider Between Panes */}
+                            {isDualView && (
+                                <div className="w-1 bg-slate-900 border-x border-slate-800/10 hover:bg-indigo-500 transition-colors cursor-col-resize z-30 shadow-xl self-stretch" title="Split divider" />
+                            )}
+
                             {/* Right Pane */}
-                            <div className={`flex flex-col h-full min-w-0 bg-slate-950 relative ${isDualView ? 'flex w-1/2' : 'hidden w-0'}`} data-pane-id="right">
+                            <div
+                                className={`flex flex-col h-full min-w-0 bg-slate-950 relative transition-[width] duration-500 ease-[cubic-bezier(0.19,1,0.22,1)] will-change-[width] ${isDualView ? 'flex' : 'hidden'}`}
+                                data-pane-id="right"
+                                style={{ width: isDualView ? `${(1 - splitRatio) * 100}%` : undefined }}
+                            >
                                 <LoadingOverlay
                                     isVisible={!!rightFileName && !rightWorkerReady && rightIndexingProgress < 100}
                                     fileName={rightFileName}
                                     progress={rightIndexingProgress}
                                 />
-                                <div className="flex w-full h-full">
-                                    <div className="w-1 bg-slate-900 hover:bg-indigo-600 transition-colors cursor-col-resize z-30 shadow-xl"></div>
-                                    <div className="flex-1 h-full min-w-0 flex flex-col">
-                                        <LogViewerPane
-                                            key={`right-pane-${rightFileName || 'empty'}-${rightSegmentIndex}`}
-                                            ref={rightViewerRef}
-                                            workerReady={rightWorkerReady}
-                                            totalMatches={rightCurrentSegmentLines}
-                                            onScrollRequest={requestRightLines}
-                                            absoluteOffset={rightSegmentIndex * MAX_SEGMENT_SIZE}
-                                            placeholderText={rightFileName || "Drag log file here"}
-                                            highlights={effectiveHighlights}
-                                            highlightCaseSensitive={!!currentConfig?.happyCombosCaseSensitive || !!currentConfig?.colorHighlightsCaseSensitive}
-                                            hotkeyScope="alt"
-                                            onLineClick={onLineClickRight}
-                                            onLineDoubleClick={onLineDoubleClickRight}
-                                            activeLineIndex={activeLineIndexRight}
-                                            selectedIndices={selectedIndicesRight}
-                                            onDrop={handleRightFileChange}
-                                            onBrowse={onBrowseRight}
-                                            paneId="right"
-                                            fileName={rightFileName || undefined}
-                                            onReset={handleRightReset}
-                                            onCopy={onCopyRight}
-                                            onCopyAsConfluenceTable={onCopyAsConfluenceTableRight}
-                                            onSave={onSaveRight}
-                                            bookmarks={rightBookmarks}
-                                            onToggleBookmark={toggleRightBookmark}
-                                            onFocusPaneRequest={handleFocusPaneRequest}
-                                            onSyncScroll={onSyncScrollRight}
-                                            onHighlightJump={onHighlightJumpRight}
-                                            isActive={isActive}
-                                            onShowBookmarks={onShowBookmarksRight}
-                                            onAnalyzeSpam={() => setIsSpamAnalyzerOpen(true)}
-                                            performanceHeatmap={rightPerformanceHeatmap}
-                                            onAnalyzePerformance={handleAnalyzePerformanceRight}
-                                            perfAnalysisResult={rightPerfAnalysisResult}
-                                            isAnalyzingPerformance={isAnalyzingPerformanceRight}
-                                            onJumpToLine={handleJumpToLineRight}
-                                            onJumpToRange={handleJumpToRangeRight}
-                                            onViewRawRange={handleViewRawRangeRight}
-                                            lineHighlightRanges={rightLineHighlightRanges}
-                                            onPageNavRequest={handlePageNavRequestRight}
-                                            onScrollToBottomRequest={handleScrollToBottomRequestRight}
-                                            preferences={logViewPreferences}
-                                            onContextMenu={handleContextMenu}
-                                            onArchiveSave={onArchiveSaveRight}
-                                            isArchiveSaveEnabled={isRightArchiveEnabled}
-                                            clearCacheTick={clearCacheTick}
-                                            sharedBuffers={rightSharedBuffers}
-                                        />
-                                        {(rightTotalSegments > 1 || rightSelectionDuration) && (
-                                            <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
-                                                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                                                    <span className="font-bold text-indigo-600 dark:text-indigo-400">PAGE {rightSegmentIndex + 1}/{rightTotalSegments}</span>
-                                                    <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
-                                                    <span className="font-medium">{(rightSegmentIndex * MAX_SEGMENT_SIZE + 1).toLocaleString()} - {Math.min((rightSegmentIndex + 1) * MAX_SEGMENT_SIZE, rightFilteredCount).toLocaleString()}</span>
-                                                    <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
-                                                    <span className="opacity-70">Total: {rightFilteredCount.toLocaleString()}</span>
-                                                    {rightSelectionDuration && (
-                                                        <>
-                                                            <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
-                                                            <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
-                                                                ⏱ {rightSelectionDuration}
-                                                            </span>
-                                                        </>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    <button
-                                                        disabled={rightSegmentIndex === 0}
-                                                        onClick={() => setRightSegmentIndex(Math.max(0, rightSegmentIndex - 1))}
-                                                        className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
-                                                    >
-                                                        <ChevronLeft size={14} />
-                                                    </button>
-                                                    <button
-                                                        disabled={rightSegmentIndex >= rightTotalSegments - 1}
-                                                        onClick={() => setRightSegmentIndex(Math.min(rightTotalSegments - 1, rightSegmentIndex + 1))}
-                                                        className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
-                                                    >
-                                                        <ChevronRight size={14} />
-                                                    </button>
-                                                </div>
+                                <div className="flex-1 h-full min-w-0 flex flex-col">
+                                    <LogViewerPane
+                                        key={`right-pane-${rightFileName || 'empty'}-${rightSegmentIndex}`}
+                                        ref={rightViewerRef}
+                                        workerReady={rightWorkerReady}
+                                        totalMatches={rightCurrentSegmentLines}
+                                        onScrollRequest={requestRightLines}
+                                        absoluteOffset={rightSegmentIndex * MAX_SEGMENT_SIZE}
+                                        placeholderText={rightFileName || "Drag log file here"}
+                                        highlights={effectiveHighlights}
+                                        highlightCaseSensitive={!!currentConfig?.happyCombosCaseSensitive || !!currentConfig?.colorHighlightsCaseSensitive}
+                                        hotkeyScope="alt"
+                                        onLineClick={onLineClickRight}
+                                        onLineDoubleClick={onLineDoubleClickRight}
+                                        activeLineIndex={activeLineIndexRight}
+                                        selectedIndices={selectedIndicesRight}
+                                        onDrop={handleRightFileChange}
+                                        onBrowse={onBrowseRight}
+                                        paneId="right"
+                                        fileName={rightFileName || undefined}
+                                        onReset={handleRightReset}
+                                        onCopy={onCopyRight}
+                                        onCopyAsConfluenceTable={onCopyAsConfluenceTableRight}
+                                        onSave={onSaveRight}
+                                        bookmarks={rightBookmarks}
+                                        onToggleBookmark={toggleRightBookmark}
+                                        onFocusPaneRequest={handleFocusPaneRequest}
+                                        onSyncScroll={onSyncScrollRight}
+                                        onHighlightJump={onHighlightJumpRight}
+                                        isActive={isActive}
+                                        onShowBookmarks={onShowBookmarksRight}
+                                        onAnalyzeSpam={() => setIsSpamAnalyzerOpen(true)}
+                                        performanceHeatmap={rightPerformanceHeatmap}
+                                        onAnalyzePerformance={handleAnalyzePerformanceRight}
+                                        perfAnalysisResult={rightPerfAnalysisResult}
+                                        isAnalyzingPerformance={isAnalyzingPerformanceRight}
+                                        onJumpToLine={handleJumpToLineRight}
+                                        onJumpToRange={handleJumpToRangeRight}
+                                        onViewRawRange={handleViewRawRangeRight}
+                                        lineHighlightRanges={rightLineHighlightRanges}
+                                        onPageNavRequest={handlePageNavRequestRight}
+                                        onScrollToBottomRequest={handleScrollToBottomRequestRight}
+                                        preferences={logViewPreferences}
+                                        onContextMenu={handleContextMenu}
+                                        onArchiveSave={onArchiveSaveRight}
+                                        isArchiveSaveEnabled={isRightArchiveEnabled}
+                                        clearCacheTick={clearCacheTick}
+                                        sharedBuffers={rightSharedBuffers}
+                                    />
+                                    {(rightTotalSegments > 1 || rightSelectionDuration) && (
+                                        <div className="h-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 py-1 text-[10px] font-mono select-none z-30 shrink-0 shadow-inner">
+                                            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                                                <span className="font-bold text-indigo-600 dark:text-indigo-400">PAGE {rightSegmentIndex + 1}/{rightTotalSegments}</span>
+                                                <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
+                                                <span className="font-medium">{(rightSegmentIndex * MAX_SEGMENT_SIZE + 1).toLocaleString()} - {Math.min((rightSegmentIndex + 1) * MAX_SEGMENT_SIZE, rightFilteredCount).toLocaleString()}</span>
+                                                <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
+                                                <span className="opacity-70">Total: {rightFilteredCount.toLocaleString()}</span>
+                                                {rightSelectionDuration && (
+                                                    <>
+                                                        <span className="text-slate-300 dark:text-slate-700 mx-1">|</span>
+                                                        <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+                                                            ⏱ {rightSelectionDuration}
+                                                        </span>
+                                                    </>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    disabled={rightSegmentIndex === 0}
+                                                    onClick={() => setRightSegmentIndex(Math.max(0, rightSegmentIndex - 1))}
+                                                    className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
+                                                >
+                                                    <ChevronLeft size={14} />
+                                                </button>
+                                                <button
+                                                    disabled={rightSegmentIndex >= rightTotalSegments - 1}
+                                                    onClick={() => setRightSegmentIndex(Math.min(rightTotalSegments - 1, rightSegmentIndex + 1))}
+                                                    className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 dark:text-slate-300 transition-colors"
+                                                >
+                                                    <ChevronRight size={14} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
-                        {/* Tizen Command Input */}
-                        {tizenSocket && (
-                            <div className="h-10 bg-slate-950 border-t border-slate-800 flex items-center px-4 gap-3 shrink-0 z-30">
-                                <span className="text-indigo-400 font-bold text-xs whitespace-nowrap flex items-center gap-1"><Lucide.Terminal size={12} /> SHELL &gt;</span>
-                                <input
-                                    className="flex-1 bg-transparent text-slate-200 text-sm focus:outline-none font-mono placeholder-slate-600"
-                                    placeholder="Type sdb shell command..."
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            sendTizenCommand(e.currentTarget.value + '\n');
-                                            e.currentTarget.value = '';
-                                        }
-                                    }}
-                                />
-                                <button
-                                    onClick={handleClearLogs}
-                                    className="p-1.5 text-slate-500 hover:text-red-400 rounded-md hover:bg-white/5 transition-colors"
-                                    title="Clear Logs"
-                                >
-                                    <Eraser size={16} />
-                                </button>
-                            </div>
-                        )}
                     </div>
+                    {/* Tizen Command Input */}
+                    {tizenSocket && (
+                        <div className="h-10 bg-slate-950 border-t border-slate-800 flex items-center px-4 gap-3 shrink-0 z-30">
+                            <span className="text-indigo-400 font-bold text-xs whitespace-nowrap flex items-center gap-1"><Lucide.Terminal size={12} /> SHELL &gt;</span>
+                            <input
+                                className="flex-1 bg-transparent text-slate-200 text-sm focus:outline-none font-mono placeholder-slate-600"
+                                placeholder="Type sdb shell command..."
+                                autoFocus
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        sendTizenCommand(e.currentTarget.value + '\n');
+                                        e.currentTarget.value = '';
+                                    }
+                                }}
+                            />
+                            <button
+                                onClick={handleClearLogs}
+                                className="p-1.5 text-slate-500 hover:text-red-400 rounded-md hover:bg-white/5 transition-colors"
+                                title="Clear Logs"
+                            >
+                                <Eraser size={16} />
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1303,10 +1339,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 }}
             />
 
-            {/* Removed SpamAnalyzerModal in favor of integrated SpamAnalyzerPanel */}
-
-
-            {/* Raw Context View - Moved to bottom for better stacking hierarchy */}
+            {/* Raw Context View */}
             {rawContextOpen && rawContextTargetLine && (
                 <RawContextViewer
                     sourcePane={rawContextSourcePane}

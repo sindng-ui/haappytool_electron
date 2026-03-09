@@ -767,16 +767,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     }
                 };
 
-                if (isFirstRender) {
-                    isFirstRender = false;
-                    applyResize();
-                } else {
-                    if (resizeRafId) cancelAnimationFrame(resizeRafId);
-                    // 🎯 형님, 기존의 setTimeout(16ms) 디바운스가 타이머 기근(Starvation)을 일으켜
-                    // 리사이즈 렌더가 멈추고 흰 바탕이 노출되던 버그를 고치기 위해,
-                    // 무조건 다음 화면 페인트 시점에 캔버스가 함께 커지도록 rAF로 교체합니다! 🐧🚀
-                    resizeRafId = requestAnimationFrame(applyResize);
-                }
+                applyResize();
             }
         });
         observer.observe(containerRef.current);
