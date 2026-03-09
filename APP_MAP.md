@@ -125,6 +125,7 @@
   - **Baseline 기반 비연속 매칭(Search)**: 왼쪽 로그를 기준으로 오른쪽 로그에서 슬라이딩 윈도우를 이용해 비연속 매칭을 수행함으로써 중간에 삽입된 로그가 있어도 정확한 구간 비교 가능
   - **코드 라인 연동**: 로그 내부에서 추출한 코드 라인 번호를 우선 노출하여 소스 코드와의 연결성 강화.
   - **초슬림 모드**: 카드 높이를 획기적으로 낮춰 대량의 분석 결과를 효율적으로 탐색 가능하도록 최적화. [NEW]
+  - **참고**: `Analyze Diff` 버튼은 현재 `TopBar.tsx` 내의 `ENABLE_SPLIT_ANALYZE_BUTTON` 플래그로 인해 UI에서 보이지 않도록 설정되어 있습니다. [HIDDEN]
 - **Data Flow**: `Worker (Metric Calculation)` -> `useSplitAnalysis` -> `SplitAnalyzerPanel (Summary + Detail View)`
 
 ### [[Mission Manager]]

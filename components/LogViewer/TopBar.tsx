@@ -8,6 +8,9 @@ import { Settings2, ListOrdered } from 'lucide-react';
 
 const { Plus, Trash2, Maximize, Columns, Sparkles } = Lucide;
 
+// 🎯 형님, Analyze Diff 버튼을 다시 켜고 싶으시면 아래 플래그를 true로 바꿔주십쇼!
+const ENABLE_SPLIT_ANALYZE_BUTTON = false;
+
 const TopBar: React.FC<{
     onReturnFocus?: () => void;
     onSplitAnalyze?: () => void;
@@ -213,7 +216,7 @@ const TopBar: React.FC<{
                 <div className="w-px h-6 bg-slate-700 mx-1"></div>
 
                 {/* Analyze Diff Button (Dual View Only) - Moved to left of Layout Toggle */}
-                {isDualView && onSplitAnalyze && (
+                {ENABLE_SPLIT_ANALYZE_BUTTON && isDualView && onSplitAnalyze && (
                     <button
                         onClick={onSplitAnalyze}
                         className={`flex items-center justify-center gap-2 px-3 py-1.5 mr-2 rounded-lg border transition-all text-xs font-bold w-[130px] shrink-0 ${isSplitAnalyzing
