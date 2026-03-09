@@ -110,7 +110,7 @@ export interface PointMetrics {
  * 🐧⚡ 'Significant' 로그(파일명/함수명 포함)인지 확인합니다.
  */
 export const isSignificant = (item: LogMetadata): boolean => {
-    return !!(item.fileName || item.functionName);
+    return !!(item.fileName || item.functionName || item.alias);
 };
 
 /**
@@ -141,7 +141,10 @@ export const computeMetricsFromMetadata = (
 
         // 1. 시그니처 생성
         if (!item.signature) {
-            if (isSignificant(item)) {
+            if (item.alias) {
+                // 🐧⚡ 알리아스가 있으면 최우선 시그니처로 사용!
+                item.signature = `[Alias] ${item.alias}`;
+            } else if (isSignificant(item)) {
                 item.signature = `${item.fileName}::${item.functionName}`;
                 if (item.codeLineNum) {
                     item.signature += `(${item.codeLineNum})`;
@@ -164,8 +167,8 @@ export const computeMetricsFromMetadata = (
                 if (!pointMetrics[currentSig]) {
                     pointMetrics[currentSig] = {
                         count: 0,
-                        fileName: item.fileName,
-                        functionName: item.functionName,
+                        fileName: item.fileName || (item.alias ? `[Alias]` : ''),
+                        functionName: item.functionName || item.alias || '',
                         codeLineNum: item.codeLineNum || null,
                         preview: item.preview,
                         tids: [],
@@ -191,13 +194,13 @@ export const computeMetricsFromMetadata = (
             const lastSignif = state.lastSignif;
 
             if (side === 'left') {
-                // [Baseline] 왼쪽은 오직 직전의 Significant 로그와만 매칭 (형님 요구사항: "연속된 로그 2줄")
+                // [Baseline] 왼쪽은 오직 직전의 Significant 로그와만 매칭
                 if (lastSignif) {
                     const key = `${lastSignif.signature} ➔ ${currentSig}`;
                     addMetric(metrics, key, lastSignif, item, true, state.metricsCount);
                 }
             } else {
-                // [Target] 오른쪽은 윈도우 내에서 매칭 (일부 로그가 끼어들어도 흐름을 찾을 수 있게)
+                // [Target] 오른쪽은 윈도우 내에서 매칭
                 for (let j = 0; j < state.lookbackWindow.length; j++) {
                     const prev = state.lookbackWindow[j];
                     const isDirect = (j === state.lookbackWindow.length - 1);
@@ -212,22 +215,6 @@ export const computeMetricsFromMetadata = (
 
             // 글로벌 마지막 Significant 로그 업데이트
             state.lastSignif = item;
-        }
-
-        // 3. Happy Combo Alias 기반 세그먼트
-        if (item.alias) {
-            if (!state.aliasFirstMatch) state.aliasFirstMatch = {};
-
-            const key = `[Alias] ${item.alias}`;
-            if (!state.aliasFirstMatch[item.alias]) {
-                state.aliasFirstMatch[item.alias] = item;
-                // 🐧⚡ [NEW] 1줄이라도 세그먼트로 추가! (파일명/함수명 없어도 분석되도록 규칙 무시)
-                addAliasMetric(metrics, key, item, item, state.metricsCount);
-            } else {
-                const firstMatch = state.aliasFirstMatch[item.alias];
-                // 🐧⚡ 2줄 이상이 되면 기존 "하나의 거대 세그먼트" 원칙을 유지하며 구간을 업데이트
-                addAliasMetric(metrics, key, firstMatch, item, state.metricsCount);
-            }
         }
 
         // 🐧🛡️ 메모리 보호: 메트릭 항목이 너무 많아지면 분석 비상 제동 (OOM 방지)
