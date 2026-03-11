@@ -102,9 +102,8 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                     return parsed.map((t: any) => ({
                         id: t.id,
                         title: t.title,
-                        initialFile: null, // File object cannot be restored, but filePath can
-                        // Reading file to check usage first.
-                        // I will not replace yet.
+                        initialFile: null,
+                        filePath: t.filePath // ✅ Restore file path to pass to individual tab's loadState
                     }));
                 }
             }

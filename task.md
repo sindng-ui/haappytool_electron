@@ -4,9 +4,12 @@
 - [x] `PerfDashboard.test.tsx` 실패 해결 (ToastProvider 추가 및 Lucide 아이콘 mock 보완)
 - [x] `connector_integration.test.js` 실패 해결 (SDB stdin.write 검증으로 변경)
 - [x] `sdb_connection.test.js` 실패 해결 (SDB 태그 치환 검증 방식 변경)
-- [x] 모든 테스트 통과 확인 (`all pass`)
-- [x] Timeline UI 고도화 및 Split Raw View 연동
-    - [x] 구현 계획서(docs/implementation_plan_timeline_v3.md) 작성 및 승인
+- [x] 탭 상태 유지 및 자동 복원 구현 (Split 모드 지원)
+    - [x] `useLogFileOperations.ts` 영속화 로직 추가
+    - [x] `LogProcessor.worker.ts` 초기화 로직 연동
+    - [x] **버그 수정**: 로그 닫기(X) 시 영속화 데이터 초기화되지 않는 문제 해결 🐧✅
+    - [x] **버그 수정**: Single 모드 자동 로딩 누락 및 레이스 컨디션 해결 🐧🚀
+- [x] APP_MAP.md 업데이트 및 문서 정리
     - [x] TIMELINE 카드 내 'FROM', 'TO' 레이블 제거
     - [x] 카드 더블 클릭 시 원본 로그 분할 보기(Split Raw View) 구현
     - [x] Split Raw View ESC 키 종료 기능 및 하이라이트 오류 수정

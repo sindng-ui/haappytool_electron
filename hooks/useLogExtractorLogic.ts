@@ -125,8 +125,7 @@ export const useLogExtractorLogic = ({
     const [leftFilteredCount, setLeftFilteredCount] = useState(0);
     const [leftFileName, setLeftFileName] = useState<string | null>(null);
     const [leftFilePath, setLeftFilePath] = useState<string>('');
-
-    // References
+    const [rightFilePath, setRightFilePath] = useState<string>(''); // ✅ Track Right File Path for Persistence
     const searchInputRef = useRef<HTMLInputElement>(null);
     const [isGoToLineModalOpen, setIsGoToLineModalOpen] = useState(false);
     const leftPendingRequests = useRef<Map<string, (data: any) => void>>(new Map());
@@ -155,7 +154,8 @@ export const useLogExtractorLogic = ({
     const [rightSharedBuffers, setRightSharedBuffers] = useState<any>(null);
 
     // Stream Request ID (to prevent duplication from React Strict Mode)
-    const activeStreamRequestId = useRef<string | null>(null);
+    const activeStreamRequestIdLeft = useRef<string | null>(null);
+    const activeStreamRequestIdRight = useRef<string | null>(null);
 
     const [selectedIndicesLeft, setSelectedIndicesLeft] = useState<Set<number>>(new Set());
     const [selectedIndicesRight, setSelectedIndicesRight] = useState<Set<number>>(new Set());
@@ -402,14 +402,15 @@ export const useLogExtractorLogic = ({
     // === Phase 2: File Operations & Persistence (Extracted) ===
     const { loadState, handleLeftFileChange, handleRightFileChange } = useLogFileOperations({
         tabId, initialFilePath, initialFile, onFileChange,
-        leftWorkerRef, rightWorkerRef, leftViewerRef, tizenSocket,
-        activeStreamRequestId, pendingScrollTop,
+        leftWorkerRef, rightWorkerRef, leftViewerRef, rightViewerRef, tizenSocket,
+        activeStreamRequestIdLeft, activeStreamRequestIdRight, pendingScrollTop,
         setLeftFileName, setLeftFilePath, setLeftWorkerReady, setLeftIndexingProgress,
         setLeftTotalLines, setLeftFilteredCount, setActiveLineIndexLeft, setSelectedIndicesLeft,
         setLeftBookmarks, lastFilterHashLeft,
-        setRightFileName, setRightWorkerReady, setRightIndexingProgress,
+        setRightFileName, setRightFilePath, setRightWorkerReady, setRightIndexingProgress,
         setRightTotalLines, setRightFilteredCount, setRightBookmarks, lastFilterHashRight,
-        leftFilePath, activeLineIndexLeft
+        leftFilePath, rightFilePath, activeLineIndexLeft,
+        isDualView, setIsDualView // ✅ Pass Dual View state for aggregate persistence
     });
 
     // Initialize Left Worker & Load State
@@ -713,6 +714,7 @@ export const useLogExtractorLogic = ({
 
     const handleLeftReset = useCallback(() => {
         setLeftFileName('');
+        setLeftFilePath(''); // ✅ Clear path for persistence
         setLeftWorkerReady(false);
         setLeftTotalLines(0);
         setLeftFilteredCount(0);
@@ -724,6 +726,7 @@ export const useLogExtractorLogic = ({
 
     const handleRightReset = useCallback(() => {
         setRightFileName('');
+        setRightFilePath(''); // ✅ Clear path for persistence
         setRightWorkerReady(false);
         setRightTotalLines(0);
         setRightFilteredCount(0);
