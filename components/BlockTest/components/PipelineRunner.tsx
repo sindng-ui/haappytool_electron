@@ -55,7 +55,7 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
     const progress = Math.min(100, (currentStep / (totalItems || 1)) * 100);
 
     const [viewMode, setViewModeState] = React.useState<'list' | 'graph'>(() => {
-        return (localStorage.getItem('blockTestViewMode') as 'list' | 'graph') || 'list';
+        return (localStorage.getItem('blockTestViewMode') as 'list' | 'graph') || 'graph';
     });
 
     const setViewMode = (mode: 'list' | 'graph') => {

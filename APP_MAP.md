@@ -231,6 +231,7 @@
   - `Runner View`: [PipelineRunner.tsx](./components/BlockTest/components/PipelineRunner.tsx), [ScenarioRunner.tsx](./components/BlockTest/components/ScenarioRunner.tsx)
 - **Core Interface**:
   - `executePipeline()` & `executeScenario()`: 블록 단위 테스트 묶음 실행 및 Socket.io 기반 원격 제어
+  - **그래프 뷰(Graph View) 기본화**: 시나리오 및 파이프라인 실행 시 시각적 흐름 파악을 위해 'Graph View'가 기본 레이아웃으로 동작하도록 설정 (사용자 선택 시 리스트 뷰 전환 및 영속화 지원). [MOD][HOT]
   - **CLI 연동**: GUI 환경뿐만 아니라 `Headless CLI`를 통해서도 미리 저장된 Scenario 및 Pipeline 실행을 완벽하게 지원합니다. [NEW]
   - **UI 개선**: Electron `title-drag` 영역 내 버튼 클릭 이슈 해결을 위해 모든 헤더 버튼에 `no-drag` 클래스 적용 및 오타 수정. [FIX]
 
