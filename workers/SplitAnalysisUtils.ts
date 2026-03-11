@@ -52,6 +52,7 @@ export interface SplitAnalysisResult {
     isWarn: boolean;
     isAliasMatch?: boolean;
     isAliasInterval?: boolean;
+    isGlobalBatch?: boolean; // 🐧⚡ 거대 묶음 표시용 (최상단 노출)
 
     prevFileName?: string;
     prevFunctionName?: string;
@@ -107,8 +108,9 @@ export const extractSingleMetadata = (
             if (!group.enabled || !group.alias || !group.tags.length) continue;
 
             // 모든 태그가 포함되어 있는지 확인 (AND 조건)
-            const allMatched = group.tags.every(tag => {
-                const searchTag = caseSensitive ? tag : tag.toLowerCase();
+            const allMatched = group.tags.every((tag, idx) => {
+                // 🐧⚡ 사전 소문자화된 태그가 있으면 사용, 없으면 즉석 변환 (호환성 유지)
+                const searchTag = (group as any)._lowercasedTags?.[idx] || (caseSensitive ? tag : tag.toLowerCase());
                 return lowerText.includes(searchTag);
             });
 
@@ -369,6 +371,7 @@ export const computeGlobalAliasRanges = (
     const leftRangeMap = new Map<string, typeof leftRanges[0]>();
     leftRanges.forEach(r => leftRangeMap.set(r.sig, r));
 
+    // 🐧⚡ 양쪽 매칭 및 오른쪽 신규 배치 처리
     rightRanges.forEach(rr => {
         const lr = leftRangeMap.get(rr.sig);
         if (lr) {
@@ -388,7 +391,9 @@ export const computeGlobalAliasRanges = (
                 isNewError: false,
                 isError: false,
                 isWarn: false,
+                isAliasMatch: true, // ⚠️ 중복 제거 방지용
                 isAliasInterval: true,
+                isGlobalBatch: true, // 🐧⚡ 거대 묶음 표시
                 leftLineNum: lr.last.visualIndex,
                 rightLineNum: rr.last.visualIndex,
                 leftPrevLineNum: lr.first.visualIndex,
@@ -404,7 +409,77 @@ export const computeGlobalAliasRanges = (
                 leftUniqueTids: 1,
                 rightUniqueTids: 1
             });
+            leftRangeMap.delete(rr.sig); // 처리 완료
+        } else {
+            results.push({
+                key: `[Global Alias New] ${rr.sig} (${rr.count} counts)`,
+                fileName: rr.last.fileName || '',
+                functionName: rr.last.functionName || rr.last.alias,
+                prevFileName: rr.first.fileName || '',
+                prevFunctionName: rr.first.functionName || rr.first.alias,
+                preview: `Global New: ${rr.first.alias} (First: line ${rr.first.lineNum}) ➔ ${rr.last.alias} (Last: line ${rr.last.lineNum})`,
+                leftCount: 0,
+                rightCount: rr.count,
+                countDiff: rr.count,
+                leftAvgDelta: 0,
+                rightAvgDelta: rr.duration,
+                deltaDiff: 0,
+                isNewError: false,
+                isError: false,
+                isWarn: false,
+                isAliasMatch: true,
+                isAliasInterval: true,
+                isGlobalBatch: true,
+                leftLineNum: 0,
+                rightLineNum: rr.last.visualIndex,
+                leftPrevLineNum: 0,
+                rightPrevLineNum: rr.first.visualIndex,
+                leftOrigLineNum: 0,
+                rightOrigLineNum: rr.last.lineNum,
+                leftPrevOrigLineNum: 0,
+                rightPrevOrigLineNum: rr.first.lineNum,
+                rightCodeLineNum: rr.last.codeLineNum,
+                rightPrevCodeLineNum: rr.first.codeLineNum,
+                leftUniqueTids: 0,
+                rightUniqueTids: 1
+            });
         }
+    });
+
+    // 🐧⚡ 왼쪽만 존재하는 배치 처리 (Optional)
+    leftRangeMap.forEach((lr, sig) => {
+        results.push({
+            key: `[Global Alias Missing] ${sig} (${lr.count} counts)`,
+            fileName: lr.last.fileName || '',
+            functionName: lr.last.functionName || lr.first.alias || sig,
+            prevFileName: lr.first.fileName || '',
+            prevFunctionName: lr.first.functionName || lr.first.alias || sig,
+            preview: `Global Missing: ${lr.first.alias} (First: line ${lr.first.lineNum}) ➔ ${lr.last.alias} (Last: line ${lr.last.lineNum})`,
+            leftCount: lr.count,
+            rightCount: 0,
+            countDiff: -lr.count,
+            leftAvgDelta: lr.duration,
+            rightAvgDelta: 0,
+            deltaDiff: 0,
+            isNewError: false,
+            isError: false,
+            isWarn: false,
+            isAliasMatch: true,
+            isAliasInterval: true,
+            isGlobalBatch: true,
+            leftLineNum: lr.last.visualIndex,
+            rightLineNum: 0,
+            leftPrevLineNum: lr.first.visualIndex,
+            rightPrevLineNum: 0,
+            leftOrigLineNum: lr.last.lineNum,
+            rightOrigLineNum: 0,
+            leftPrevOrigLineNum: lr.first.lineNum,
+            rightPrevOrigLineNum: 0,
+            leftCodeLineNum: lr.last.codeLineNum,
+            leftPrevCodeLineNum: lr.first.codeLineNum,
+            leftUniqueTids: 1,
+            rightUniqueTids: 0
+        });
     });
 
     return results;
@@ -471,12 +546,14 @@ export const computeMetricsFromMetadata = (
         lookbackWindow?: LogMetadata[];
         aliasFirstMatch?: Record<string, LogMetadata>;
         metricsCount?: { val: number };
+        pointMetricsCount?: { val: number }; // 🐧⚡ 추가: O(N) Object.keys().length 방지용
     },
     maxGap: number = 100,
     side: string = 'left'
 ): void => {
     if (!state.lookbackWindow) state.lookbackWindow = [];
     if (!state.metricsCount) state.metricsCount = { val: Object.keys(metrics).length };
+    if (!state.pointMetricsCount) state.pointMetricsCount = { val: Object.keys(pointMetrics).length };
 
     for (let i = 0; i < data.length; i++) {
         const item = data[i];
@@ -505,7 +582,7 @@ export const computeMetricsFromMetadata = (
         // [POINT METRICS] 단일 지점 지표 업데이트 (CAP 적용)
         if (isSignificant(item)) {
             const hasExisting = !!pointMetrics[currentSig];
-            if (hasExisting || Object.keys(pointMetrics).length < 50000) {
+            if (hasExisting || (state.pointMetricsCount?.val || 0) < 50000) {
                 if (!pointMetrics[currentSig]) {
                     pointMetrics[currentSig] = {
                         count: 0,
@@ -517,6 +594,7 @@ export const computeMetricsFromMetadata = (
                         visualIndices: [],
                         originalLineNums: []
                     };
+                    if (state.pointMetricsCount) state.pointMetricsCount.val++; // 🐧⚡ 1인 가구 추가요!
                 }
                 const pm = pointMetrics[currentSig];
                 pm.count++;

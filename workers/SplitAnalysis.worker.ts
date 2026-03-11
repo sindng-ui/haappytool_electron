@@ -99,12 +99,22 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
             leftCodeLineNum: left?.codeLineNum,
             rightCodeLineNum: right?.codeLineNum,
             leftPrevCodeLineNum: left?.prevCodeLineNum,
-            rightPrevCodeLineNum: right?.prevCodeLineNum
+            rightPrevCodeLineNum: right?.prevCodeLineNum,
+            prevFileName: right?.prevFileName || left?.prevFileName || '',
+            prevFunctionName: right?.prevFunctionName || left?.prevFunctionName || ''
         });
     }
 
-    // Sort: Alias Intervals first, then Alias matches, then New Errors, then Severity.
+    // 🐧⚡ 정렬 가중치 사전 계산 (Sorting Severity)
+    for (const res of results) {
+        (res as any)._severity = Math.abs(res.deltaDiff) * 0.5 + Math.abs(res.countDiff) * 10;
+    }
+
+    // Sort: Global Batch first, then Alias Intervals, then Alias matches, then New Errors, then Severity.
     results.sort((a, b) => {
+        if (a.isGlobalBatch && !b.isGlobalBatch) return -1;
+        if (!a.isGlobalBatch && b.isGlobalBatch) return 1;
+
         if (a.isAliasInterval && !b.isAliasInterval) return -1;
         if (!a.isAliasInterval && b.isAliasInterval) return 1;
 
@@ -114,9 +124,7 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
         if (a.isNewError && !b.isNewError) return -1;
         if (!a.isNewError && b.isNewError) return 1;
 
-        const aSeverity = Math.abs(a.deltaDiff) * 0.5 + Math.abs(a.countDiff) * 10;
-        const bSeverity = Math.abs(b.deltaDiff) * 0.5 + Math.abs(b.countDiff) * 10;
-        return bSeverity - aSeverity;
+        return ((b as any)._severity || 0) - ((a as any)._severity || 0);
     });
 
     // 🐧⚡ Deduplication: 시각적으로 동일한 구간을 가리키는 중복 세그먼트 제거

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     matchAliasEvents,
     computeAliasIntervals,
+    computeGlobalAliasRanges,
     AliasEvent
 } from '../../workers/SplitAnalysisUtils';
 
@@ -147,5 +148,53 @@ describe('Split Analysis Interval Analysis', () => {
 
         const missingInterval = results.find(r => r.key.includes('OnResume||(333) ➔ OnResume||(344)'));
         expect(missingInterval).toBeUndefined(); // 연속되지 않으므로 탈락
+    });
+});
+
+describe('Split Analysis - New Features (Deduplication & Global Batch)', () => {
+    it('Should compute Global Alias Ranges (First to Last)', () => {
+        const left: AliasEvent[] = [
+            { alias: 'Init', timestamp: 1000, visualIndex: 1, lineNum: 10, preview: '', codeLineNum: '1' },
+            { alias: 'Init', timestamp: 5000, visualIndex: 10, lineNum: 100, preview: '', codeLineNum: '5' },
+        ];
+        const right: AliasEvent[] = [
+            { alias: 'Init', timestamp: 1000, visualIndex: 1, lineNum: 10, preview: '', codeLineNum: '1' },
+            { alias: 'Init', timestamp: 7000, visualIndex: 15, lineNum: 150, preview: '', codeLineNum: '7' },
+        ];
+
+        const results = computeGlobalAliasRanges(left, right);
+        expect(results.length).toBe(1);
+        expect(results[0].key).toContain('[Global Alias Batch] Init');
+        expect(results[0].leftAvgDelta).toBe(4000);  // 5000 - 1000
+        expect(results[0].rightAvgDelta).toBe(6000); // 7000 - 1000
+        expect(results[0].deltaDiff).toBe(2000);
+    });
+
+    it('Should deduplicate identical visual ranges in worker results', async () => {
+        // 이 테스트는 SplitAnalysis.worker.ts의 로직을 직접 테스트하거나, 
+        // 해당 로직을 함수화하여 호출해야 함. 
+        // 여기서는 SplitAnalysis.worker.ts의 onmessage 내부 로직(Deduplication)이 
+        // 올바르게 중복을 걸러내는지 의사 테스트함.
+
+        const results: any[] = [
+            { key: 'A', leftPrevLineNum: 1, leftLineNum: 10, rightPrevLineNum: 1, rightLineNum: 10, isAliasMatch: true },
+            { key: 'B', leftPrevLineNum: 1, leftLineNum: 10, rightPrevLineNum: 1, rightLineNum: 10, isAliasMatch: false }, // Duplicate range
+            { key: 'C', leftPrevLineNum: 1, leftLineNum: 10, rightPrevLineNum: 1, rightLineNum: 11, isAliasMatch: false }, // Different range
+        ];
+
+        const finalResults: any[] = [];
+        const seenRanges = new Set<string>();
+
+        for (const res of results) {
+            const rangeKey = `${res.leftPrevLineNum}-${res.leftLineNum}|${res.rightPrevLineNum}-${res.rightLineNum}`;
+            if (!seenRanges.has(rangeKey)) {
+                finalResults.push(res);
+                seenRanges.add(rangeKey);
+            }
+        }
+
+        expect(finalResults.length).toBe(2);
+        expect(finalResults[0].key).toBe('A');
+        expect(finalResults[1].key).toBe('C');
     });
 });

@@ -649,6 +649,16 @@ export const extractAnalysisMetrics = async (
 
     const totalLines = filteredIndices.length;
     console.log(`[SplitWorker] GET_ANALYSIS_METRICS received.Total lines to scan: ${totalLines} `);
+
+    // 🐧⚡ Happy Combo 태그 사전 소문자화 (Performance Optimization)
+    if (currentRule?.happyGroups) {
+        for (const group of currentRule.happyGroups) {
+            if (group.tags && !(group as any)._lowercasedTags) {
+                (group as any)._lowercasedTags = group.tags.map((t: string) => t.toLowerCase());
+            }
+        }
+    }
+
     const decoder = new TextDecoder();
     let metrics: AggregateMetrics = {};
     let pointMetrics: PointMetrics = {};
@@ -760,6 +770,15 @@ export const extractAliasEvents = async (
     }
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0, message: 'Extracting Alias Events...' } });
+
+    // 🐧⚡ Happy Combo 태그 사전 소문자화 (Performance Optimization)
+    if (currentRule.happyGroups) {
+        for (const group of currentRule.happyGroups) {
+            if (group.tags && !(group as any)._lowercasedTags) {
+                (group as any)._lowercasedTags = group.tags.map((t: string) => t.toLowerCase());
+            }
+        }
+    }
 
     const events: AliasEvent[] = [];
     const decoder = new TextDecoder();

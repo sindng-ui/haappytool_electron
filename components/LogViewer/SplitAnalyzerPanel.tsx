@@ -58,12 +58,8 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
         const spams = pointResults.length;
 
         const topChanges = [...intervalResults]
-            .filter(r => r.isAliasInterval || (Math.abs(r.deltaDiff) > 1 && Math.abs(r.countDiff) < 100))
-            .sort((a, b) => {
-                if (a.isAliasInterval && !b.isAliasInterval) return -1;
-                if (!a.isAliasInterval && b.isAliasInterval) return 1;
-                return Math.abs(b.deltaDiff) - Math.abs(a.deltaDiff);
-            })
+            .filter(r => r.isGlobalBatch || r.isAliasInterval || (Math.abs(r.deltaDiff) > 1 && Math.abs(r.countDiff) < 100))
+            .sort((a, b) => Math.abs(b.deltaDiff) - Math.abs(a.deltaDiff))
             .slice(0, 100);
 
         const topSpams = pointResults.slice(0, 100);
@@ -294,13 +290,17 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
 
                                                     <div className="flex-1 p-1 flex items-center gap-2">
                                                         <div className="flex-1 flex flex-col gap-0.5 min-w-0">
-                                                            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/5 border border-blue-500/10 opacity-70">
-                                                                <span className="text-[9px] font-mono text-slate-400 truncate max-w-[200px]">
-                                                                    {res.prevFileName ? res.prevFileName : 'START'}
+                                                            <div className={`flex items-center gap-2 px-2 py-1 rounded-md border transition-colors ${res.isGlobalBatch ? 'bg-violet-500/10 border-violet-500/20' : 'bg-blue-500/5 border-blue-500/10 opacity-70'}`}>
+                                                                <span className="text-[9px] font-mono text-slate-400 flex-1 truncate">
+                                                                    {res.prevFileName || res.fileName || 'Unknown'}
+                                                                    <span className={`text-[9px] font-black ml-1 ${res.isGlobalBatch ? 'text-violet-400/80' : 'text-slate-300/80'}`}>
+                                                                        : {res.prevFunctionName || res.functionName || 'Unknown'}
+                                                                    </span>
                                                                     <span className="text-[9px] text-blue-400/60 ml-1 font-mono">
                                                                         ({(res.rightPrevCodeLineNum || res.rightPrevOrigLineNum || res.rightPrevLineNum) || (res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum)})
                                                                     </span>
                                                                 </span>
+                                                                {res.isGlobalBatch && <List size={10} className="text-violet-500/50 shrink-0" />}
                                                             </div>
 
                                                             <div className="flex items-center px-4 my-[-2px]">
@@ -315,12 +315,12 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                                 <div className="flex flex-col min-w-0 flex-1">
                                                                     <div className="flex items-center justify-between min-w-0">
                                                                         <div className="flex items-center gap-2 min-w-0">
-                                                                            <span className={`text-[9px] font-mono text-${themeColor}-400/80 truncate max-w-[200px]`}>
+                                                                            <span className={`text-[9px] font-mono text-${themeColor}-400/80 truncate`}>
                                                                                 {res.fileName || 'Unknown'}
                                                                             </span>
                                                                             <span className={`text-[10px] font-black text-${themeColor}-500/50`}>:</span>
                                                                             <span className="text-[10px] font-black text-white truncate">
-                                                                                {res.functionName || res.preview.substring(0, 30)}
+                                                                                {res.functionName || res.preview.substring(0, 100)}
                                                                                 <span className={`text-[9px] text-${themeColor}-400/60 ml-1 font-mono`}>
                                                                                     ({(res.rightCodeLineNum || res.rightOrigLineNum || res.rightLineNum) || (res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum)})
                                                                                 </span>
@@ -534,8 +534,8 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                 const isSelected = selectedKey === res.key;
 
                                                 // Theme Colors
-                                                const themeColor = res.isAliasInterval ? 'indigo' : (res.isNewError ? 'rose' : (isSlower ? 'orange' : (isFaster ? 'emerald' : 'blue')));
-                                                const Icon = res.isAliasInterval ? Zap : (res.isNewError ? AlertTriangle : (isSlower ? TrendingUp : (isFaster ? TrendingDown : Activity)));
+                                                const themeColor = res.isGlobalBatch ? 'violet' : (res.isAliasInterval ? 'indigo' : (res.isNewError ? 'rose' : (isSlower ? 'orange' : (isFaster ? 'emerald' : 'blue'))));
+                                                const Icon = res.isGlobalBatch ? List : (res.isAliasInterval ? Zap : (res.isNewError ? AlertTriangle : (isSlower ? TrendingUp : (isFaster ? TrendingDown : Activity))));
 
                                                 return (
                                                     <div
@@ -555,19 +555,20 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                             {/* Log Flow Visualizer */}
                                                             <div className="flex-1 flex flex-col gap-1.5 relative">
                                                                 {/* FROM Box */}
-                                                                <div className="bg-slate-950/50 border border-slate-800/50 rounded-lg py-1 px-3 flex items-center gap-3">
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-600 shadow-[0_0_5px_rgba(71,85,105,0.5)]" />
-                                                                    <div className="flex flex-col min-w-0">
+                                                                <div className={`border border-slate-800/50 rounded-lg py-1 px-3 flex items-center gap-3 ${res.isGlobalBatch ? 'bg-violet-500/10 border-violet-500/20' : 'bg-slate-950/50'}`}>
+                                                                    <div className={`w-1.5 h-1.5 rounded-full ${res.isGlobalBatch ? 'bg-violet-500 shadow-[0_0_5px_rgba(139,92,246,0.5)]' : 'bg-slate-600 shadow-[0_0_5px_rgba(71,85,105,0.5)]'}`} />
+                                                                    <div className="flex flex-col min-w-0 flex-1">
                                                                         <div className="flex items-center gap-2">
-                                                                            <span className="text-[11px] font-mono text-slate-400 truncate max-w-[200px]">
-                                                                                {res.prevFileName ? res.prevFileName : 'START'}
+                                                                            <span className="text-[11px] font-mono text-slate-400 truncate">
+                                                                                {res.prevFileName || res.fileName || 'Unknown'}
                                                                             </span>
                                                                         </div>
                                                                         <span className="text-xs font-bold text-slate-300 truncate">
-                                                                            {res.prevFunctionName || 'Initial Sequence'}
+                                                                            {res.prevFunctionName || res.functionName || 'Unknown'}
                                                                             <span className="ml-1.5 text-[10px] text-slate-600 font-mono">({res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum})</span>
                                                                         </span>
                                                                     </div>
+                                                                    {res.isGlobalBatch && <List size={12} className="text-violet-500/50 shrink-0" />}
                                                                 </div>
 
                                                                 {/* Connector Area - Refined Visual Flow */}
@@ -583,14 +584,14 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                                 {/* TO Box */}
                                                                 <div className={`bg-${themeColor}-500/5 border border-${themeColor}-500/20 rounded-lg py-1 px-3 flex items-center gap-3 relative z-20`}>
                                                                     <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]`} />
-                                                                    <div className="flex flex-col min-w-0">
+                                                                    <div className="flex flex-col min-w-0 flex-1">
                                                                         <div className="flex items-center gap-2">
-                                                                            <span className="text-[11px] font-mono text-slate-400 truncate max-w-[200px]">
-                                                                                {res.fileName || '[Unknown]'}
+                                                                            <span className={`text-[11px] font-mono text-${themeColor}-400/80 truncate`}>
+                                                                                {res.fileName || 'Unknown'}
                                                                             </span>
                                                                         </div>
                                                                         <span className={`text-xs font-black text-${themeColor}-300 truncate`}>
-                                                                            {res.functionName || res.preview.substring(0, 40)}
+                                                                            {res.functionName || res.preview.substring(0, 100)}
                                                                             <span className="ml-1.5 text-[10px] text-slate-600 font-mono">({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})</span>
                                                                         </span>
                                                                     </div>

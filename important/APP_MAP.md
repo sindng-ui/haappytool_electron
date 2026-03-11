@@ -291,23 +291,25 @@
     - `Bottleneck Highlight`: Transaction Drawer에서 1000ms 이상의 지연을 자동으로 플래그 지정
     - `UI Persistence`: 분석 중에도 로그를 가리지 않도록 `status: analyzing` 상태를 도입하여 메인 로그 뷰어의 깜빡임 제거 (`workerAnalysisHandlers.ts`)
 
-### [Feature] Split Analysis (Analyze Diff)
-- **ID**: `feature-split-analysis`
-- **Keywords**: [`Split 비교`, `Analyze Diff`, `속도 비교`, `패턴 비교`, `비교 분석`]
-- **Location**:
-    - `View`: [SplitAnalyzerPanel.tsx](./components/LogViewer/SplitAnalyzerPanel.tsx)
-    - `Logic`: [useSplitAnalysis.ts](./hooks/useSplitAnalysis.ts), [SplitAnalysis.worker.ts](./workers/SplitAnalysis.worker.ts)
-    - `Persistence`: [useLogFileOperations.ts](./hooks/useLogFileOperations.ts) (Split 모드 및 파일 경로 복원)
-- **Core Interface**:
-    - `workerAnalysisHandlers.extractAllMetadata()`: 필터링된 스트림에서 `[시간, 파일명, 함수명]` 시그니처 일괄 추출
-    - `SplitAnalysis.worker`: Left/Right 양측의 메트릭을 비교 분석. Baseline(Left) 로그는 파일 순서상 연속된 소스만 구간으로 정의하며, Target(Right) 로그는 슬라이딩 윈도우를 이용해 비연속 매칭(Search)을 수행하여 중간에 삽입된 로그가 있어도 정확한 구간 비교 가능.
-    - `Non-blocking Analysis`: 분석 수행 시 `workerReady` 상태를 유지하여 메인 UI의 'Processing log..' 메시지 노출 방지
-    - `Immediate Cancellation`: 유저가 패널을 닫을 시 `analyzerWorker.terminate()`를 즉각 호출하여 CPU/메모리 자원을 즉시 반납하고 분석 결과의 고스트 팝업 방지 (`useSplitAnalysis.ts`)
-- **Interactions**:
-    - `TopBar.tsx`: Dual View(Split) 상태에서만 나타나는 ⚡ Analyze Diff 버튼을 통해 분석 진입. 버튼은 토글(`Start` ↔ `Close/Cancel`) 방식으로 동작하며, 분석 중 클릭 시 즉시 중단됨.
-    - `LogSession.tsx`: 계산이 끝나면 상단 통합 패널(`SplitAnalyzerPanel`) 형태로 리포트 표시 (이전 하단 Drawer 방식에서 최적화)
-    - GAP TIME의 구간 정보(`FROM: ... ➔ CURR: ...`)를 명확히 표시하여 지연 원인 추적 용이성 확보
-    - 신규 추가 에러, 느려진 구간(`isSlower`), 빈번해진 로그(`isMore`) 등을 아이콘(🚨, ⚠️, ⚡)과 함께 시각적으로 브리핑
+- [x] **[Feature] Split Analysis (Analyze Diff)**
+    - **ID**: `feature-split-analysis`
+    - **Keywords**: [`Split 비교`, `Analyze Diff`, `속도 비교`, `패턴 비교`, `비교 분석`, `Deduplication`, `Alias Batch`]
+    - **Location**:
+        - `View`: [SplitAnalyzerPanel.tsx](./components/LogViewer/SplitAnalyzerPanel.tsx)
+        - `Logic`: [useSplitAnalysis.ts](./hooks/useSplitAnalysis.ts), [SplitAnalysis.worker.ts](./workers/SplitAnalysis.worker.ts)
+        - `Persistence`: [useLogFileOperations.ts](./hooks/useLogFileOperations.ts) (Split 모드 및 파일 경로 복원)
+    - **Core Interface**:
+        - `workerAnalysisHandlers.extractAllMetadata()`: 필터링된 스트림에서 `[시간, 파일명, 함수명]` 시그니처 일괄 추출
+        - `SplitAnalysis.worker`: Left/Right 양측의 메트릭을 비교 분석. Baseline(Left) 로그는 파일 순서상 연속된 소스만 구간으로 정의하며, Target(Right) 로그는 슬라이딩 윈도우를 이용해 비연속 매칭(Search)을 수행하여 중간에 삽입된 로그가 있어도 정확한 구간 비교 가능.
+        - **[New] Global Alias Batch**: 동일한 Alias의 최초~최후 발생을 하나의 거대한 세그먼트로 자동 분석하여 시간 흐름 파악 용이성 증대
+        - **[New] Deduplication**: 시각적으로 중복되는 구간 분석 결과를 워커 레벨에서 사전에 제거하여 UI 가독성 및 렌더링 부하 최적화
+        - `Non-blocking Analysis`: 분석 수행 시 `workerReady` 상태를 유지하여 메인 UI의 'Processing log..' 메시지 노출 방지
+        - `Immediate Cancellation`: 유저가 패널을 닫을 시 `analyzerWorker.terminate()`를 즉각 호출하여 CPU/메모리 자원을 즉시 반납하고 분석 결과의 고스트 팝업 방지 (`useSplitAnalysis.ts`)
+    - **Interactions**:
+        - `TopBar.tsx`: Dual View(Split) 상태에서만 나타나는 ⚡ Analyze Diff 버튼을 통해 분석 진입. 버튼은 토글(`Start` ↔ `Close/Cancel`) 방식으로 동작하며, 분석 중 클릭 시 즉시 중단됨.
+        - `LogSession.tsx`: 계산이 끝나면 상단 통합 패널(`SplitAnalyzerPanel`) 형태로 리포트 표시 (이전 하단 Drawer 방식에서 최적화)
+        - GAP TIME의 구간 정보(`FROM: ... ➔ CURR: ...`)를 명확히 표시하여 지연 원인 추적 용이성 확보
+        - 신규 추가 에러, 느려진 구간(`isSlower`), 빈번해진 로그(`isMore`) 등을 아이콘(🚨, ⚠️, ⚡)과 함께 시각적으로 브리핑
 
 ### [Feature] High-Performance Rendering (HyperLog)
 - **ID**: `feature-hyper-rendering`
@@ -329,7 +331,8 @@
     - View: [ConfigurationPanel.tsx](./components/LogViewer/ConfigurationPanel.tsx), [HappyComboSection.tsx](./components/LogViewer/ConfigSections/HappyComboSection.tsx)
     - Logic: [useLogFileOperations.ts](./hooks/useLogFileOperations.ts), [db.ts](./utils/db.ts)
 - **Core Interface**:
-    - `state_persistence`: 1초마다 `tabState_${tabId}` (경로, 스크롤, 선택) 저장
+    - `state_persistence`: 5초마다 `tabState_${tabId}` (경로, 스크롤, 선택) 저장. 저장 전 `isLoaded` 플래그를 체크하여 부팅 시 초기화 레이스 컨디션 방지 logic 적용됨.
+    - **[New] Stream Isolation**: `activeStreamRequestIdLeft/Right`를 독립 참조하여 좌/우 동시 로딩 시 데이터 정합성 보장
     - `streamReadFile(path, requestId)`: 대용량 파일 세그먼트 전송을 위한 Electron IPC
 - **Data Flow**:
     - `File Open` -> `INIT_STREAM` -> `PROCESS_CHUNK` (Worker) -> `STREAM_DONE` -> `Indexing`

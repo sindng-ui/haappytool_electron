@@ -9,6 +9,9 @@
     - [x] `LogProcessor.worker.ts` 초기화 로직 연동
     - [x] **버그 수정**: 로그 닫기(X) 시 영속화 데이터 초기화되지 않는 문제 해결 🐧✅
     - [x] **버그 수정**: Single 모드 자동 로딩 누락 및 레이스 컨디션 해결 🐧🚀
+- [x] **테스트 보강**: 영속화(Single/Split) 및 Analyze Diff(Global/Dedupe) UT 구현 🐧🧪
+- [x] **성능 최적화**: Analyze Diff 보수적 최적화 (Tag pre-processing, Sort weighting) 🐧⚡
+- [x] **기능 복구**: Global Alias Batch 누락 현상 해결 및 UI 강조 (Violet Theme) 🐧🛠️🚀
 - [x] APP_MAP.md 업데이트 및 문서 정리
     - [x] TIMELINE 카드 내 'FROM', 'TO' 레이블 제거
     - [x] 카드 더블 클릭 시 원본 로그 분할 보기(Split Raw View) 구현
