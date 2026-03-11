@@ -81,9 +81,9 @@ export interface SplitAnalysisResult {
  * 🐧⚡ 파일명, 함수명, 라인번호를 조합하여 통일된 시그니처 포맷을 반환합니다.
  */
 export const getFormattedSig = (fileName?: string, functionName?: string, codeLineNum?: string | null): string => {
-    const fn = (fileName || 'Unknown').split(/[\\/]/).pop() || 'Unknown';
-    const func = functionName || 'Unknown';
-    const line = codeLineNum ? `(${codeLineNum})` : '';
+    const fn = (fileName || '').split(/[\\/]/).pop() || '';
+    const func = functionName || '';
+    const line = codeLineNum ? `(${codeLineNum})` : (fileName || functionName ? '' : '(?)');
     return `${fn}::${func}${line}`;
 };
 
@@ -388,7 +388,7 @@ export const computeGlobalAliasRanges = (
         const lr = leftRangeMap.get(rr.sig);
         if (lr) {
             results.push({
-                key: `${getFormattedEventSig(rr.first)} ➔ ${getFormattedEventSig(rr.last)} [Batch]`,
+                key: `${getFormattedEventSig(rr.first)} ➔ ${getFormattedEventSig(rr.last)}`,
                 fileName: rr.last.fileName || lr.last.fileName || '',
                 functionName: rr.last.functionName || lr.last.functionName || rr.last.alias,
                 prevFileName: rr.first.fileName || lr.first.fileName || '',
@@ -424,7 +424,7 @@ export const computeGlobalAliasRanges = (
             leftRangeMap.delete(rr.sig); // 처리 완료
         } else {
             results.push({
-                key: `${getFormattedEventSig(rr.first)} ➔ ${getFormattedEventSig(rr.last)} [New Batch]`,
+                key: `${getFormattedEventSig(rr.first)} ➔ ${getFormattedEventSig(rr.last)} [NEW]`,
                 fileName: rr.last.fileName || '',
                 functionName: rr.last.functionName || rr.last.alias,
                 prevFileName: rr.first.fileName || '',
@@ -461,7 +461,7 @@ export const computeGlobalAliasRanges = (
     // 🐧⚡ 왼쪽만 존재하는 배치 처리 (Optional)
     leftRangeMap.forEach((lr, sig) => {
         results.push({
-            key: `${getFormattedEventSig(lr.first)} ➔ ${getFormattedEventSig(lr.last)} [Missing Batch]`,
+            key: `${getFormattedEventSig(lr.first)} ➔ ${getFormattedEventSig(lr.last)} [MISSING]`,
             fileName: lr.last.fileName || '',
             functionName: lr.last.functionName || lr.first.alias || sig,
             prevFileName: lr.first.fileName || '',
@@ -574,7 +574,7 @@ export const computeMetricsFromMetadata = (
         if (!item.signature) {
             if (item.alias) {
                 // 🐧⚡ 알리아스 시그니처도 통일된 포맷을 사용하되, 알리아스임을 구분할 수 있도록 합니다.
-                item.signature = getFormattedSig(item.fileName, item.functionName || item.alias, item.codeLineNum);
+                item.signature = `[Alias] ${item.alias}|${getFormattedSig(item.fileName, item.functionName, item.codeLineNum)}`;
             } else if (isSignificant(item)) {
                 item.signature = getFormattedSig(item.fileName, item.functionName, item.codeLineNum);
             } else {

@@ -19,9 +19,9 @@ describe('Split Analysis Alias Matching', () => {
         const results = matchAliasEvents(leftEvents, rightEvents);
 
         expect(results.length).toBe(3);
-        expect(results[0].key).toContain('OnCreate(123)');
-        expect(results[1].key).toContain('OnStart(300)');
-        expect(results[2].key).toContain('OnResume(333)');
+        expect(results[0].key).toContain('::OnCreate(123)');
+        expect(results[1].key).toContain('::OnStart(300)');
+        expect(results[2].key).toContain('::OnResume(333)');
         expect(results[0].deltaDiff).toBe(0);
     });
 
@@ -36,7 +36,7 @@ describe('Split Analysis Alias Matching', () => {
         const results = matchAliasEvents(leftEvents, rightEvents);
 
         // 🐧🎯 OnResume(55)는 새로운 이벤트로 잡혀야 함!
-        const newEvent = results.find(r => r.key.includes('OnResume(55)'));
+        const newEvent = results.find(r => r.key.includes('::OnResume(55)'));
         expect(newEvent).toBeDefined();
         expect(newEvent?.leftCount).toBe(0);
         expect(newEvent?.rightCount).toBe(1);
@@ -140,7 +140,7 @@ describe('Split Analysis Interval Analysis', () => {
         // 1. '344 ➔ 350' 구간은 매칭되어야 함! (둘 다 인접해 있으므로)
         // 2. '333 ➔ 344' 구간은 매칭되지 않아야 함 (오른쪽 로그에서 인접하지 않으므로)
 
-        const endInterval = results.find(r => r.key.includes('OnResume||(344) ➔ OnResume||(350)'));
+        const endInterval = results.find(r => r.key.includes('::OnResume(344) ➔ ::OnResume(350)'));
         expect(endInterval).toBeDefined();
         expect(endInterval?.leftAvgDelta).toBe(1000); // 3000-2000
         expect(endInterval?.rightAvgDelta).toBe(2000); // 4000-2000
@@ -164,7 +164,7 @@ describe('Split Analysis - New Features (Deduplication & Global Batch)', () => {
 
         const results = computeGlobalAliasRanges(left, right);
         expect(results.length).toBe(1);
-        expect(results[0].key).toContain('[Global Alias Batch] Init');
+        expect(results[0].key).toContain('::Init(1) ➔ ::Init(7)');
         expect(results[0].leftAvgDelta).toBe(4000);  // 5000 - 1000
         expect(results[0].rightAvgDelta).toBe(6000); // 7000 - 1000
         expect(results[0].deltaDiff).toBe(2000);
