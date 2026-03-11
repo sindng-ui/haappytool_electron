@@ -256,7 +256,7 @@ export const computeAliasIntervals = (
     rightAliasEvents: AliasEvent[]
 ): SplitAnalysisResult[] => {
     const results: SplitAnalysisResult[] = [];
-    const getEventBriefSig = (ev: AliasEvent) => `${ev.alias}(${ev.codeLineNum || '?'})`;
+    const getEventBriefSig = (ev: AliasEvent) => `${ev.alias}|${ev.fileName || ''}|${ev.functionName || ''}(${ev.codeLineNum || '?'})`;
 
     const getIntervals = (events: AliasEvent[]) => {
         const intervals: { start: AliasEvent; end: AliasEvent; duration: number; sig: string }[] = [];
@@ -399,8 +399,8 @@ export const computeMetricsFromMetadata = (
         // 1. 시그니처 생성
         if (!item.signature) {
             if (item.alias) {
-                // 🐧⚡ 알리아스가 있으면 최우선 시그니처로 사용!
-                item.signature = `[Alias] ${item.alias}`;
+                // 🐧⚡ 알리아스가 우선되지만, 정밀한 동기화를 위해 (파일/함수/라인)을 모두 포함합니다!
+                item.signature = `[Alias] ${item.alias}|${item.fileName || ''}::${item.functionName || ''}(${item.codeLineNum || '?'})`;
             } else if (isSignificant(item)) {
                 item.signature = `${item.fileName}::${item.functionName}`;
                 if (item.codeLineNum) {
@@ -516,7 +516,7 @@ function addMetric(
         }
 
         // Timeline 정렬 및 점프는 항상 "최초 발생 지점"을 우선시합니다.
-        if (existing.lineNum === undefined || existing.lineNum === 0) {
+        if (existing.lineNum === undefined || existing.lineNum === -1) {
             existing.lineNum = current.visualIndex;
             existing.prevLineNum = prev.visualIndex;
             existing.originalLineNum = current.lineNum;

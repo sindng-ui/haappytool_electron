@@ -110,16 +110,16 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
         const forceSingle = !isInterval || isSinglePoint;
 
         // 좌측 점프
-        if (res.leftLineNum > 0) {
-            const start = forceSingle ? res.leftLineNum - 1 : Math.max(0, res.leftPrevLineNum - 1);
-            const end = res.leftLineNum - 1;
+        if (res.leftLineNum !== undefined && res.leftLineNum >= 0) {
+            const start = forceSingle ? res.leftLineNum : Math.max(0, res.leftPrevLineNum);
+            const end = res.leftLineNum;
             onJumpToRange('left', start, end);
         }
 
         // 우측 점프
-        if (res.rightLineNum > 0) {
-            const start = forceSingle ? res.rightLineNum - 1 : Math.max(0, res.rightPrevLineNum - 1);
-            const end = res.rightLineNum - 1;
+        if (res.rightLineNum !== undefined && res.rightLineNum >= 0) {
+            const start = forceSingle ? res.rightLineNum : Math.max(0, res.rightPrevLineNum);
+            const end = res.rightLineNum;
             onJumpToRange('right', start, end);
         }
     };

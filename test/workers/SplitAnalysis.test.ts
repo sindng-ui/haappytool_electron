@@ -139,13 +139,13 @@ describe('Split Analysis Interval Analysis', () => {
         // 1. '344 ➔ 350' 구간은 매칭되어야 함! (둘 다 인접해 있으므로)
         // 2. '333 ➔ 344' 구간은 매칭되지 않아야 함 (오른쪽 로그에서 인접하지 않으므로)
 
-        const endInterval = results.find(r => r.key.includes('OnResume(344) ➔ OnResume(350)'));
+        const endInterval = results.find(r => r.key.includes('OnResume||(344) ➔ OnResume||(350)'));
         expect(endInterval).toBeDefined();
         expect(endInterval?.leftAvgDelta).toBe(1000); // 3000-2000
         expect(endInterval?.rightAvgDelta).toBe(2000); // 4000-2000
         expect(endInterval?.deltaDiff).toBe(1000);
 
-        const missingInterval = results.find(r => r.key.includes('333(?) ➔ 344(?)'));
+        const missingInterval = results.find(r => r.key.includes('OnResume||(333) ➔ OnResume||(344)'));
         expect(missingInterval).toBeUndefined(); // 연속되지 않으므로 탈락
     });
 });

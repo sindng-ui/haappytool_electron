@@ -224,7 +224,8 @@ describe('SplitAnalysisUtils', () => {
 
             computeMetricsFromMetadata(data, metrics, pointMetrics, state, 1000, 'left');
 
-            const key = '[Alias] Match';
+            // 매칭된 후 signature는 fileName, functionName 등이 반영됩니다. 여기선 없으므로 ::(?) 형태입니다.
+            const key = '[Alias] Match|::(?) ➔ [Alias] Match|::(?)';
             expect(metrics[key]).toBeDefined();
             expect(metrics[key].totalDelta).toBe(1000); // 2000 - 1000
             expect(metrics[key].count).toBe(1);
