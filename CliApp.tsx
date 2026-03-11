@@ -522,39 +522,35 @@ export const CliApp: React.FC = () => {
                 });
             });
 
-            // Calculate Summary (Copy logic from SplitAnalyzerPanel)
+            // Calculate Summary (Consistent with GUI Summary)
             const intervalResults = (results.results || []).filter((r: any) => (r.leftAvgDelta > 0 && r.rightAvgDelta > 0) || r.isAliasInterval);
             const pointResults = results.pointResults || [];
 
-            const summary = {
-                newErrors: intervalResults.filter((r: any) => r.isNewError).length,
-                regressions: intervalResults.filter((r: any) => r.deltaDiff > 10).length,
-                improvements: intervalResults.filter((r: any) => r.deltaDiff < -10).length,
-                newLogs: pointResults.length,
-                totalSegments: intervalResults.length
-            };
+            // 🐧🎯 Category Classification (±20ms Threshold) & Field Mapping (Ultra-Lightweight)
+            const mapInterval = (r: any) => ({
+                key: r.key,
+                leftAvgDelta: r.leftAvgDelta,
+                rightAvgDelta: r.rightAvgDelta,
+                deltaDiff: r.deltaDiff
+            });
 
-            // 🐧🎯 CLI 결과 정렬: UI와 동일하게 시간 순서(라인 번호)로 정렬
-            const sortedTimeline = [...results.results]
-                .filter((r: any) => (r.leftAvgDelta > 0 && r.rightAvgDelta > 0) || r.isAliasInterval)
-                .sort((a, b) => {
-                    const aIdx = a.leftPrevLineNum || a.rightPrevLineNum || 0;
-                    const bIdx = b.leftPrevLineNum || b.rightPrevLineNum || 0;
-                    return aIdx - bIdx;
-                })
-                .map((r: any) => ({
-                    key: r.key,
-                    leftAvgDelta: r.leftAvgDelta,
-                    rightAvgDelta: r.rightAvgDelta,
-                    deltaDiff: r.deltaDiff
-                }));
+            const regressions = intervalResults
+                .filter((r: any) => r.deltaDiff > 20)
+                .sort((a, b) => (a.leftPrevLineNum || 0) - (b.leftPrevLineNum || 0))
+                .map(mapInterval);
 
-            const sortedPointResults = [...results.pointResults]
-                .sort((a, b) => {
-                    const aIdx = a.originalLineNums?.[0] || 0;
-                    const bIdx = b.originalLineNums?.[0] || 0;
-                    return aIdx - bIdx;
-                })
+            const improvements = intervalResults
+                .filter((r: any) => r.deltaDiff < -20)
+                .sort((a, b) => (a.leftPrevLineNum || 0) - (b.leftPrevLineNum || 0))
+                .map(mapInterval);
+
+            const stable = intervalResults
+                .filter((r: any) => Math.abs(r.deltaDiff) <= 20)
+                .sort((a, b) => (a.leftPrevLineNum || 0) - (b.leftPrevLineNum || 0))
+                .map(mapInterval);
+
+            const newLogs = [...pointResults]
+                .sort((a, b) => (a.originalLineNums?.[0] || 0) - (b.originalLineNums?.[0] || 0))
                 .map((r: any) => ({
                     sig: r.sig,
                     count: r.count
@@ -564,9 +560,19 @@ export const CliApp: React.FC = () => {
                 filterName,
                 timestamp: new Date().toISOString(),
                 files: { left: leftPath, right: rightPath },
-                summary,
-                timeline: sortedTimeline,
-                newLogs: sortedPointResults
+                summary: {
+                    totalNodes: intervalResults.length,
+                    regressionsCount: regressions.length,
+                    improvementsCount: improvements.length,
+                    stableCount: stable.length,
+                    newLogsCount: newLogs.length
+                },
+                results: {
+                    regressions,
+                    improvements,
+                    stable,
+                    newLogs
+                }
             };
 
             const finalOutputPath = outputPath || `${cwd}\\diff_result_${Date.now()}.json`;
