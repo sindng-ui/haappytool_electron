@@ -1,27 +1,31 @@
-# 🐧 Spam 분석 및 점프 로직 정밀 수정 계획
+# 문서 업데이트 계획 (소환 기능 제거 및 Split Mode 복구)
 
-형님, 스팸 리스트에서 엉뚱한 곳으로 점프하거나 데이터가 부정확한 문제를 해결하기 위해 아래와 같이 정밀 수술 계획을 세웠습니다.
+형님! split mode 작업 중 커밋을 되돌림에 따라, 더 이상 유효하지 않은 '소환(summon)' 기능에 대한 설명을 문서에서 정리하겠습니다. 특히 `important/APP_MAP.md`에 잘못 남아있는 diff 흔적들을 깔끔하게 지워버리겠습니다! 🐧🧹
 
-## 1. 분석 엔진 고도화 (SplitAnalysis.worker.ts & Utils)
-- **0-Based Index 통일**: `workerAnalysisHandlers.ts`에서 가산하던 `+1`을 제거하여 시스템 내부적으로 0부터 시작하는 인덱스를 사용하도록 통일합니다. (LogViewer와 싱크 유지)
-- **TID 기반 완전 격리**: 쓰레드별로 분석 윈도우를 격리하여, 여러 쓰레드 작업이 섞여도 정확한 'Direct' 시퀀스를 찾아내도록 합니다.
-- **Direct Count 우선 순위**: 슬라이딩 윈도우 노이즈를 필터링하고 진짜 범인(연속 발생 로그)만 스팸 리스트에 올립니다.
+## Proposed Changes
 
-## 2. 점프 로직 영점 조절 (SplitAnalyzerPanel.tsx)
-- **단일 포인트 점프(Single Point)**: 스팸 아이템 클릭 시 '구간 선택'이 아닌 '단일 라인 강조'만 수행하도록 강제합니다.
-- **자동 타겟 결정**: 
-    - 성능 변화 아이템: 원인-결과 구간(Range) 선택
-    - 스팸 아이템: 해당 로그가 발생한 정확한 시점(Direct current) 강조
-- **예외 처리**: `rightLineNum`이 유효하지 않을 경우 `rightPrevLineNum`으로 폴백하거나 절대 경로 정보를 활용합니다.
+### Documentation (APP_MAP)
 
-## 3. UI 및 가독성 개선
-- **파일 정보 보강**: 리스트 아이템의 상단(Prev)과 하단(Current) 정보를 더 명확하게 분리하여 표시합니다.
-- **데이터 투명성**: 리스트 우측에 항목 개수를 표시하여 전체적인 규모를 파악하기 쉽게 합니다.
+#### [MODIFY] [APP_MAP.md](file:///K:/Antigravity_Projects/gitbase/happytool_electron/APP_MAP.md)
+- '소환(summon)' 또는 'Tab Summoning'과 관련된 내용이 남아있다면 삭제합니다.
+- 'Split View' 관련 설명에서 'dual drop' 기능이 현재는 동작하지 않음을 명시하거나 해당 내용을 제거합니다.
 
-## 4. 리그레션 방지 및 성능 체크
-- 수정 후 대용량 로그에서도 UI 프리징이 없는지 확인합니다.
-- 점프 시 0-based / 1-based 인덱스 혼용으로 인한 미세한 오차가 없는지 다시 한번 검증합니다.
+#### [MODIFY] [APP_MAP.md](file:///K:/Antigravity_Projects/gitbase/happytool_electron/important/APP_MAP.md)
+- 110번 라인 근처에 잘못 포함된 `+` 기호 및 'Individual Close' 관련 내용을 정리합니다.
+- 'Tab Summoning' 등의 언급이 있다면 삭제합니다.
 
-형님, 이 계획대로 진행해도 괜찮을까요? `proceed` 버튼을 눌러주시면 바로 작업 시작하겠습니다!
+### 기타 관련 문서
 
-<button id="proceed">proceed</button>
+#### [MODIFY] [USER_GUIDE.md](file:///K:/Antigravity_Projects/gitbase/happytool_electron/USER_GUIDE.md)
+- 듀얼 뷰 설명 중 '소환' 기능에 대한 내용이 있다면 일반적인 듀얼 뷰 설명으로 대체합니다.
+
+## Verification Plan
+
+### Manual Verification
+- `APP_MAP.md`와 `important/APP_MAP.md`를 다시 읽어 '소환', 'summon', 'dual drop' 등의 키워드가 적절히 정리되었는지 확인합니다.
+- 문서 내에 잘못된 diff 기호(`+`, `-`)가 남아있지 않은지 검토합니다.
+
+---
+형님, 이 계획대로 진행해도 될까요? OK 해주시면 바로 작업 시작하겠습니다!
+
+<button id="proceed">Proceed</button>
