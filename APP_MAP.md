@@ -114,6 +114,15 @@
   - **스플릿 뷰 스마트 스텝(Split Smart Step Shortcuts)**: `Ctrl + Shift + Left/Right Arrow` 단축키를 통해 스플릿 뷰의 비중을 단계적으로(0.1 ↔ 0.5 ↔ 0.9) 조절할 수 있습니다. [NEW]
     - `Left Arrow`: 오른쪽 방향에서 한 단계씩 왼쪽으로 이동 (Right → Mid → Left)
     - `Right Arrow`: 왼쪽 방향에서 한 단계씩 오른쪽으로 이동 (Left → Mid → Right)
+  - **Analyze Diff UI Tabs**:
+    - **Timeline Tab**: 전체 세그먼트를 시간순으로 나열하고 각 지점별 성능 차이를 시각화 🐧⏳
+    - **Jump Feature**: 세그먼트 클릭 시 해당 로그 위치로 즉시 이동 및 좌우 싱크 정렬 🐧🚀
+        - 📊 **Summary Tab**: 3컬럼 레이아웃 및 동적 필터링 기반 분석 🐧⚡
+            - **상단 요약 필터 카드**: [Total] [Regressions] [Improvements] [Stable] [New Logs] 순 배치 (숫자 크기 대폭 확대 `text-3xl`)
+            - **3컬럼 리스트 구조**: 좌측(Flow) | 중앙(Status) | 우측(Metrics) 배치를 통해 Timeline과 통일된 디자인 제공
+            - **Dynamic List**: 상단 카드 선택 시 왼쪽 리스트 영역이 즉시 필터링됨 (Regressions, Improvements, Stable)
+            - **Static List**: 'New Logs'는 우측 영역에 상시 고정 노출
+            - **±20ms Threshold**: 성능 차이가 20ms 이내인 노드는 'STABLE'로 자동 분류 🐧⚖️
   - **스플릿 뷰 렌더링 최적화**: 뷰포트 너비가 크게 변할 때(스플릿 모드 진입 등) 가로 스크롤을 자동으로 0으로 리셋하여 왼쪽 패널의 타임스탬프/로그레벨이 가려지는 현상을 완벽히 해결했습니다. [FIX]
 
 ### [[Split Performance Analyzer]]
