@@ -116,7 +116,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         clearCacheTick,
         leftSharedBuffers, rightSharedBuffers,
         leftWorkerRef, rightWorkerRef,
-        splitRatio, setSplitRatio // ✅ Expose split states
+        splitRatio, setSplitRatio, // ✅ Expose split states
+        splitAnalyzerHeight, setSplitAnalyzerHeight // ✅ 펭귄! 분석창 높이 조절 상태 추가
     } = useLogContext();
 
     const [isAnimatingSplit, setIsAnimatingSplit] = React.useState(false);
@@ -145,6 +146,46 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         setSplitRawResult(res);
         setSplitRawOpen(true);
     }, []);
+
+    // 🐧⚡ Analyze Diff Resize Logic
+    const [isResizingAnalyzer, setIsResizingAnalyzer] = React.useState(false);
+    const analyzerResizeRef = React.useRef<{ startY: number, startHeight: number } | null>(null);
+
+    const handleAnalyzerResizeStart = React.useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsResizingAnalyzer(true);
+        analyzerResizeRef.current = {
+            startY: e.clientY,
+            startHeight: splitAnalyzerHeight
+        };
+        document.body.style.cursor = 'row-resize';
+        document.body.style.userSelect = 'none';
+    }, [splitAnalyzerHeight]);
+
+    React.useEffect(() => {
+        if (!isResizingAnalyzer) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!analyzerResizeRef.current) return;
+            const deltaY = e.clientY - analyzerResizeRef.current.startY;
+            const newHeight = Math.max(150, Math.min(window.innerHeight * 0.8, analyzerResizeRef.current.startHeight + deltaY));
+            setSplitAnalyzerHeight(newHeight);
+        };
+
+        const handleMouseUp = () => {
+            setIsResizingAnalyzer(false);
+            analyzerResizeRef.current = null;
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isResizingAnalyzer, setSplitAnalyzerHeight]);
 
     const handleGoToLineClose = React.useCallback(() => setIsGoToLineModalOpen(false), [setIsGoToLineModalOpen]);
     const handleGoToLineGo = React.useCallback((lineIndex: number, pane: 'left' | 'right') => {
@@ -1035,23 +1076,31 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     <SpamAnalyzerPanel />
                     <AnimatePresence>
                         {(splitAnalysisResults || isSplitAnalyzing) && isDualView && (
-                            <SplitAnalyzerPanel
-                                results={splitAnalysisResults}
-                                isLoading={isSplitAnalyzing}
-                                progress={splitAnalysisProgress}
-                                onClose={handleCloseSplitAnalysis}
-                                onJumpToRange={(pane, start, end) => {
-                                    handleFocusPaneRequest(pane);
-                                    // 🐧⚡ jumpToGlobalLine은 단일 라인이므로, handleJumpToRange를 직접 호출하거나
-                                    // 여기서 구간 선택 처리를 수행합니다.
-                                    if (pane === 'left') {
-                                        handleJumpToRangeLeft(start, end);
-                                    } else {
-                                        handleJumpToRangeRight(start, end);
-                                    }
-                                }}
-                                onViewRawSplit={handleViewRawSplit}
-                            />
+                            <>
+                                <SplitAnalyzerPanel
+                                    results={splitAnalysisResults}
+                                    isLoading={isSplitAnalyzing}
+                                    progress={splitAnalysisProgress}
+                                    onClose={handleCloseSplitAnalysis}
+                                    height={splitAnalyzerHeight} // ✅ 가변 높이 전달
+                                    onJumpToRange={(pane, start, end) => {
+                                        handleFocusPaneRequest(pane);
+                                        if (pane === 'left') {
+                                            handleJumpToRangeLeft(start, end);
+                                        } else {
+                                            handleJumpToRangeRight(start, end);
+                                        }
+                                    }}
+                                    onViewRawSplit={handleViewRawSplit}
+                                />
+                                {/* 🐧⚡ 드래그 가능한 디바이더 영역 */}
+                                <div
+                                    onMouseDown={handleAnalyzerResizeStart}
+                                    className={`h-1.5 w-full bg-slate-900 border-y border-blue-500/20 hover:bg-blue-500/40 cursor-row-resize z-50 transition-colors flex items-center justify-center group/resize`}
+                                >
+                                    <div className="w-12 h-1 bg-slate-700 rounded-full group-hover/resize:bg-blue-400 transition-colors" />
+                                </div>
+                            </>
                         )}
                     </AnimatePresence>
 

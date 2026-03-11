@@ -117,6 +117,12 @@
   - **Analyze Diff UI Tabs**:
     - **Timeline Tab**: 전체 세그먼트를 시간순으로 나열하고 각 지점별 성능 차이를 시각화 🐧⏳
     - **Jump Feature**: 세그먼트 클릭 시 해당 로그 위치로 즉시 이동 및 좌우 싱크 정렬 🐧🚀
+### Analyze Diff (Split Analysis)
+- 두 로그간의 시간 차이 및 로그 발생 빈도 차이를 정밀 분석
+- **Summary**: Regression, Improvement, Stable, New Log 카테고리별 요약 제공
+- **Timeline**: 전체 로그 흐름을 시간순으로 비교하며 네비게이션 제공
+- **Resizable Layout**: 상단 정보창과 로그창 사이의 경계선을 드래그하여 높이 조절 가능 (설정값 자동 저장)
+- **Persistence**: 조절된 높이값은 Local Storage(`splitAnalyzerHeight`)에 저장되어 세션간 유지됨
         - 📊 **Summary Tab**: 3컬럼 레이아웃 및 동적 필터링 기반 분석 🐧⚡
             - **상단 요약 필터 카드**: [Total] [Regressions] [Improvements] [Stable] [New Logs] 순 배치 (숫자 크기 대폭 확대 `text-3xl`)
             - **3컬럼 리스트 구조**: 좌측(Flow) | 중앙(Status) | 우측(Metrics) 배치를 통해 Timeline과 통일된 디자인 제공

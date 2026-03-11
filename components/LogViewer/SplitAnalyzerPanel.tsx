@@ -10,11 +10,12 @@ interface SplitAnalyzerPanelProps {
     onClose: () => void;
     onJumpToRange?: (side: 'left' | 'right', startLine: number, endLine: number) => void;
     onViewRawSplit?: (res: SplitAnalysisResult) => void;
+    height?: number; // ✅ 가변 높이 지원
 }
 
 type AnalysisTab = 'summary' | 'timeline';
 
-export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results, isLoading, progress = 0, onClose, onJumpToRange, onViewRawSplit }) => {
+export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results, isLoading, progress = 0, onClose, onJumpToRange, onViewRawSplit, height = 350 }) => {
     const [activeTab, setActiveTab] = useState<AnalysisTab>('summary');
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
     const [summaryFilter, setSummaryFilter] = useState<'regression' | 'improvement' | 'stable'>('regression');
@@ -127,7 +128,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
     return (
         <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: '40vh', opacity: 1 }}
+            animate={{ height: height, opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
             className="w-full bg-slate-950 border-b border-blue-500/30 flex flex-col overflow-hidden shadow-xl font-sans text-gray-300"

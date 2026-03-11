@@ -23,11 +23,16 @@ export const defaultLogViewPreferences: LogViewPreferences = {
 export function useLogViewPreferences() {
     const [logViewPreferences, setLogViewPreferences] = useState<LogViewPreferences>(defaultLogViewPreferences);
     const [perfDashboardHeight, setPerfDashboardHeightState] = useState(320);
+    const [splitAnalyzerHeight, setSplitAnalyzerHeightState] = useState(350);
 
     // 초기 로드
     useEffect(() => {
         getStoredValue('perfDashboardHeight').then(saved => {
             if (saved) setPerfDashboardHeightState(parseInt(saved) || 320);
+        });
+
+        getStoredValue('splitAnalyzerHeight').then(saved => {
+            if (saved) setSplitAnalyzerHeightState(parseInt(saved) || 350);
         });
 
         getStoredValue('logViewPreferences').then(saved => {
@@ -65,6 +70,12 @@ export function useLogViewPreferences() {
     const setPerfDashboardHeight = useCallback((h: number) => {
         setPerfDashboardHeightState(h);
         setStoredValue('perfDashboardHeight', String(h));
+    }, []);
+
+    // Split Analyzer Height 저장 래퍼
+    const setSplitAnalyzerHeight = useCallback((h: number) => {
+        setSplitAnalyzerHeightState(h);
+        setStoredValue('splitAnalyzerHeight', String(h));
     }, []);
 
     // Zoom In: 폰트 +1, 기존 오프셋 유지
@@ -122,6 +133,8 @@ export function useLogViewPreferences() {
         updateLogViewPreferences,
         perfDashboardHeight,
         setPerfDashboardHeight,
+        splitAnalyzerHeight,
+        setSplitAnalyzerHeight,
         handleZoomIn,
         handleZoomOut,
     };

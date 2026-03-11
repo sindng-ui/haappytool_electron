@@ -94,6 +94,8 @@ export const useLogExtractorLogic = ({
         updateLogViewPreferences,
         perfDashboardHeight,
         setPerfDashboardHeight,
+        splitAnalyzerHeight,
+        setSplitAnalyzerHeight,
         handleZoomIn,
         handleZoomOut,
     } = useLogViewPreferences();
@@ -1009,6 +1011,7 @@ export const useLogExtractorLogic = ({
         updateCurrentRule, handleCreateRule, handleDeleteRule, handleToggleRoot,
         isDualView, setIsDualView, toggleDualView,
         splitRatio, setSplitRatio,
+        splitAnalyzerHeight, setSplitAnalyzerHeight, // ✅ 펭귄! 높이 조절 노출
         isPanelOpen, setIsPanelOpen,
         configPanelWidth, setConfigPanelWidth, handleConfigResizeStart,
         rawContextOpen, setRawContextOpen, rawContextHeight, handleRawContextResizeStart,

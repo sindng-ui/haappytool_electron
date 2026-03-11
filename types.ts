@@ -70,6 +70,7 @@ export interface LogViewPreferences {
   logLevelOpacity?: number; // 0-100 percentage
   rowHeightOffset?: number; // ✅ NEW: Tracks manual deviation from standard formula
   showLineNumbers?: boolean; // ✅ NEW: Whether to show line numbers in the gutter
+  splitAnalyzerHeight?: number; // ✅ NEW: Height of the Split Analyzer Panel in Analyze Diff
 }
 
 export interface PostGlobalVariable {
