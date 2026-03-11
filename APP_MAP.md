@@ -325,6 +325,7 @@
   - `Strict Segment Synchronization`: 세그먼트 매칭 시 단순히 Alias뿐만 아니라 파일명(fileName), 함수명(functionName), 코드 라인 번호(codeLineNum)까지 모두 일치해야 동일 구간으로 인식하도록 검증 룰을 극도로 강화하여, 서로 다른 영역의 로그가 잘못 묶여 좌우 패널의 동기화가 어긋나는 버그를 원천 차단했습니다. UT 검증 완비! [FIX][HOT]
   - `UI Visual Index Sync`: UI 클릭 시 0-based visual index 기반 이동 로직에서 불필요한 1차감을 제거하여 지점(Segment Interval) 이동 시 정확한 라인으로 스크롤 되도록 오프셋 에러 수정. [FIX]
   - `Segment Deduplication`: 시각적 범위(Line Number Range)가 동일한 세그먼트가 중복 노출되지 않도록 워커 단에서 Deduplication 수행. (Alias 정밀 분석 결과 우선순위 적용) [FIX][HOT]
+  - `Global Alias Batch Analysis`: 동일한 이름의 Alias가 여러 번 발생할 경우, 첫 번째부터 마지막까지를 하나의 거대한 세그먼트로 묶어 전체 소요 시간을 비교 분석합니다. [NEW][HOT]
   - `Anchor Sync`: 사용자가 지정한 패턴(Anchor)을 기준으로 매칭 지점을 찾아 구간별 시간 차이를 정밀 분석합니다. [PLANNED]
 - **데이터 흐름**: `Log Workers (Left/Right)` -> `extractAliasEvents` -> `SplitAnalysisWorker` -> `Sequence/Interval Comparison` -> `AnalysisResults UI`
 - **최근 개선**:

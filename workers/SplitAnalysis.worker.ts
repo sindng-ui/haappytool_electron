@@ -6,7 +6,8 @@ import {
     SplitAnalysisResult,
     PointAnalysisResult,
     matchAliasEvents,
-    computeAliasIntervals
+    computeAliasIntervals,
+    computeGlobalAliasRanges
 } from './SplitAnalysisUtils';
 
 export interface SplitAnalysisRequest {
@@ -53,9 +54,11 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
     if (leftAliasEvents && rightAliasEvents) {
         const aliasMatches = matchAliasEvents(leftAliasEvents, rightAliasEvents);
         const aliasIntervals = computeAliasIntervals(leftAliasEvents, rightAliasEvents);
+        const globalRanges = computeGlobalAliasRanges(leftAliasEvents, rightAliasEvents);
 
         results.push(...aliasMatches);
         results.push(...aliasIntervals);
+        results.push(...globalRanges);
     }
 
     // --- Part 3: Interval Analysis Loop ---
@@ -123,9 +126,14 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
 
     for (const res of results) {
         // 좌/우 로그의 시작~끝 라인이 모두 동일하면 중복으로 판단
+        // 🐧⚡ (수정) 시작과 끝 라인이 모두 0인 지점 매칭은 제외하고, 유의미한 구간 위주로 체크
+        if (res.leftPrevLineNum === res.leftLineNum && res.rightPrevLineNum === res.rightLineNum && !res.isAliasMatch) {
+            // 사실상 내용 없는 구간은 skip
+            continue;
+        }
+
         const rangeKey = `${res.leftPrevLineNum}-${res.leftLineNum}|${res.rightPrevLineNum}-${res.rightLineNum}`;
 
-        // 유니크한 키(시그니처)도 고려해야 할 수 있으나, 사용자에게는 '범위'가 같으면 중복임
         if (!seenRanges.has(rangeKey)) {
             finalResults.push(res);
             seenRanges.add(rangeKey);

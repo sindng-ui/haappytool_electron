@@ -326,6 +326,91 @@ export const computeAliasIntervals = (
     return results;
 };
 
+/**
+ * 🐧⚡ 동일한 Alias의 최초 발생부터 최후 발생까지를 하나의 거대한 세그먼트로 계산합니다.
+ */
+export const computeGlobalAliasRanges = (
+    leftAliasEvents: AliasEvent[],
+    rightAliasEvents: AliasEvent[]
+): SplitAnalysisResult[] => {
+    const results: SplitAnalysisResult[] = [];
+
+    const getRanges = (events: AliasEvent[]) => {
+        const groups = new Map<string, AliasEvent[]>();
+        events.forEach(ev => {
+            const sig = ev.alias; // 🐧⚡ 단순하게 알리아스 명칭으로만 그룹화합니다. (위치 무관)
+            const list = groups.get(sig) || [];
+            list.push(ev);
+            groups.set(sig, list);
+        });
+
+        const ranges: { sig: string; first: AliasEvent; last: AliasEvent; duration: number; count: number }[] = [];
+        groups.forEach((list, sig) => {
+            if (list.length >= 2) {
+                const first = list[0];
+                const last = list[list.length - 1];
+                if (first.timestamp && last.timestamp) {
+                    ranges.push({
+                        sig,
+                        first,
+                        last,
+                        duration: last.timestamp - first.timestamp,
+                        count: list.length
+                    });
+                }
+            }
+        });
+        return ranges;
+    };
+
+    const leftRanges = getRanges(leftAliasEvents);
+    const rightRanges = getRanges(rightAliasEvents);
+
+    const leftRangeMap = new Map<string, typeof leftRanges[0]>();
+    leftRanges.forEach(r => leftRangeMap.set(r.sig, r));
+
+    rightRanges.forEach(rr => {
+        const lr = leftRangeMap.get(rr.sig);
+        if (lr) {
+            results.push({
+                key: `[Global Alias Batch] ${rr.sig} (${rr.count} counts)`,
+                fileName: rr.last.fileName || lr.last.fileName || '',
+                functionName: rr.last.functionName || lr.last.functionName || rr.last.alias,
+                prevFileName: rr.first.fileName || lr.first.fileName || '',
+                prevFunctionName: rr.first.functionName || lr.first.functionName || rr.first.alias,
+                preview: `Global Batch: ${rr.first.alias} (First: line ${rr.first.lineNum}) ➔ ${rr.last.alias} (Last: line ${rr.last.lineNum})`,
+                leftCount: lr.count,
+                rightCount: rr.count,
+                countDiff: rr.count - lr.count,
+                leftAvgDelta: lr.duration,
+                rightAvgDelta: rr.duration,
+                deltaDiff: rr.duration - lr.duration,
+                isNewError: false,
+                isError: false,
+                isWarn: false,
+                isAliasInterval: true,
+                leftLineNum: lr.last.visualIndex,
+                rightLineNum: rr.last.visualIndex,
+                leftPrevLineNum: lr.first.visualIndex,
+                rightPrevLineNum: rr.first.visualIndex,
+                leftOrigLineNum: lr.last.lineNum,
+                rightOrigLineNum: rr.last.lineNum,
+                leftPrevOrigLineNum: lr.first.lineNum,
+                rightPrevOrigLineNum: rr.first.lineNum,
+                leftCodeLineNum: lr.last.codeLineNum,
+                rightCodeLineNum: rr.last.codeLineNum,
+                leftPrevCodeLineNum: lr.first.codeLineNum,
+                rightPrevCodeLineNum: rr.first.codeLineNum,
+                leftUniqueTids: 1,
+                rightUniqueTids: 1
+            });
+        }
+    });
+
+    return results;
+};
+
+
 export interface AggregateMetrics {
     [key: string]: {
         count: number;
