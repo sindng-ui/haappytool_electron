@@ -83,15 +83,15 @@ describe('SplitAnalysisUtils', () => {
 
             computeMetricsFromMetadata(data, metrics, pointMetrics, state, 1000, 'left');
 
-            const key = 'Line.cs::FuncA(1) ➔ Line.cs::FuncB(2)';
+            const key = 'Line.cs::FuncA::[Start] ➔ Line.cs::FuncB::[End]';
             expect(metrics[key]).toBeDefined();
             expect(metrics[key].count).toBe(1);
             expect(metrics[key].totalDelta).toBe(100);
             expect(metrics[key].directCount).toBe(1);
 
             // Point metrics check
-            expect(pointMetrics['Line.cs::FuncA(1)']).toBeDefined();
-            expect(pointMetrics['Line.cs::FuncB(2)']).toBeDefined();
+            expect(pointMetrics['Line.cs::FuncA::[Start]']).toBeDefined();
+            expect(pointMetrics['Line.cs::FuncB::[End]']).toBeDefined();
         });
 
         it('should handle windowed matching for Right side', () => {
@@ -116,7 +116,7 @@ describe('SplitAnalysisUtils', () => {
 
             computeMetricsFromMetadata(data, metrics, pointMetrics, state, 1000, 'right');
 
-            const key = 'Line.cs::FuncA(1) ➔ Line.cs::FuncB(2)';
+            const key = 'Line.cs::FuncA::[Start] ➔ Line.cs::FuncB::[End]';
             expect(metrics[key]).toBeDefined();
             expect(metrics[key].count).toBe(0); // Noise skipped, so not direct
             expect(metrics[key].directCount).toBe(0);
@@ -166,7 +166,7 @@ describe('SplitAnalysisUtils', () => {
 
             computeMetricsFromMetadata(data, metrics, pointMetrics, state, 1000, 'left');
 
-            const key = 'Line.cs::Log(1) ➔ Line.cs::Log(2)';
+            const key = 'Line.cs::Log::[A] ➔ Line.cs::Log::[B]';
             expect(metrics[key]).toBeDefined();
             expect(metrics[key].totalDelta).toBe(0);
             expect(metrics[key].deltaSamples).toBe(1); // 0ms is still a sample
@@ -196,7 +196,7 @@ describe('SplitAnalysisUtils', () => {
 
             computeMetricsFromMetadata(data, metrics, pointMetrics, state, 5000, 'left');
 
-            const key = 'Line.cs::Prev(0) ➔ Line.cs::Curr(0)';
+            const key = 'Line.cs::Prev::[S] ➔ Line.cs::Curr::[E]';
             expect(metrics[key]).toBeDefined();
             // Limit is 10
             expect(metrics[key].tids.length).toBe(10);
@@ -225,7 +225,7 @@ describe('SplitAnalysisUtils', () => {
             computeMetricsFromMetadata(data, metrics, pointMetrics, state, 1000, 'left');
 
             // 매칭된 후 signature는 fileName, functionName 등이 반영됩니다. 여기선 없으므로 ::(?) 형태입니다.
-            const key = '[Alias] Match|::(?) ➔ [Alias] Match|::(?)';
+            const key = '[Alias] Match|::::[[#:#:#] MatchingTag Start] ➔ [Alias] Match|::::[[#:#:#] MatchingTag End]';
             expect(metrics[key]).toBeDefined();
             expect(metrics[key].totalDelta).toBe(1000); // 2000 - 1000
             expect(metrics[key].count).toBe(1);

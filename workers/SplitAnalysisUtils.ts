@@ -80,11 +80,28 @@ export interface SplitAnalysisResult {
 /**
  * 🐧⚡ 파일명, 함수명, 라인번호를 조합하여 통일된 시그니처 포맷을 반환합니다.
  */
-export const getFormattedSig = (fileName?: string, functionName?: string, codeLineNum?: string | null): string => {
+export const getFormattedSig = (fileName?: string, functionName?: string, codeLineNum?: string | null, preview?: string): string => {
     const fn = (fileName || '').split(/[\\/]/).pop() || '';
     const func = functionName || '';
-    const line = codeLineNum ? `(${codeLineNum})` : (fileName || functionName ? '' : '(?)');
-    return `${fn}::${func}${line}`;
+
+    // 🐧⚡ 메시지 패턴 추출: 숫자, Hex 등 변하는 부분을 #으로 치환하여 정적 패턴 생성
+    let pattern = '';
+    if (preview) {
+        // 🐧⚡ '>' 가 있다면 그 이후의 진짜 본문 내용만 패턴 추출에 사용 (타임스탬프 등 제외)
+        const markerIdx = preview.indexOf('>');
+        const realBody = markerIdx !== -1 ? preview.substring(markerIdx + 1) : preview;
+
+        pattern = realBody
+            .replace(RE_HEX, '0x#')
+            .replace(RE_DIGITS, '#')
+            .substring(0, 40)
+            .trim();
+    }
+
+    const patternStr = pattern ? `::[${pattern}]` : '';
+    const emptyFallback = (fileName || functionName || pattern) ? '' : '(?)';
+
+    return `${fn}::${func}${patternStr}${emptyFallback}`;
 };
 
 /**
@@ -175,8 +192,8 @@ export const matchAliasEvents = (
     rightAliasEvents: AliasEvent[]
 ): SplitAnalysisResult[] => {
     const results: SplitAnalysisResult[] = [];
-    const getEventSig = (ev: AliasEvent) => `${ev.alias}|${ev.fileName || ''}|${ev.functionName || ''}|${ev.codeLineNum || ''}`;
-    const getFormattedEventSig = (ev: AliasEvent) => getFormattedSig(ev.fileName, ev.functionName || ev.alias, ev.codeLineNum);
+    const getEventSig = (ev: AliasEvent) => `${ev.alias}|${ev.fileName || ''}|${ev.functionName || ''}|${ev.preview || ''}`;
+    const getFormattedEventSig = (ev: AliasEvent) => getFormattedSig(ev.fileName, ev.functionName || ev.alias, ev.codeLineNum, ev.preview);
 
     const leftAliasMap = new Map<string, AliasEvent[]>();
     leftAliasEvents.forEach(ev => {
@@ -269,7 +286,7 @@ export const computeAliasIntervals = (
     rightAliasEvents: AliasEvent[]
 ): SplitAnalysisResult[] => {
     const results: SplitAnalysisResult[] = [];
-    const getFormattedEventSig = (ev: AliasEvent) => getFormattedSig(ev.fileName, ev.functionName || ev.alias, ev.codeLineNum);
+    const getFormattedEventSig = (ev: AliasEvent) => getFormattedSig(ev.fileName, ev.functionName || ev.alias, ev.codeLineNum, ev.preview);
 
     const getIntervals = (events: AliasEvent[]) => {
         const intervals: { start: AliasEvent; end: AliasEvent; duration: number; sig: string }[] = [];
@@ -347,7 +364,7 @@ export const computeGlobalAliasRanges = (
     rightAliasEvents: AliasEvent[]
 ): SplitAnalysisResult[] => {
     const results: SplitAnalysisResult[] = [];
-    const getFormattedEventSig = (ev: AliasEvent) => getFormattedSig(ev.fileName, ev.functionName || ev.alias, ev.codeLineNum);
+    const getFormattedEventSig = (ev: AliasEvent) => getFormattedSig(ev.fileName, ev.functionName || ev.alias, ev.codeLineNum, ev.preview);
 
     const getRanges = (events: AliasEvent[]) => {
         const groups = new Map<string, AliasEvent[]>();
@@ -574,9 +591,9 @@ export const computeMetricsFromMetadata = (
         if (!item.signature) {
             if (item.alias) {
                 // 🐧⚡ 알리아스 시그니처도 통일된 포맷을 사용하되, 알리아스임을 구분할 수 있도록 합니다.
-                item.signature = `[Alias] ${item.alias}|${getFormattedSig(item.fileName, item.functionName, item.codeLineNum)}`;
+                item.signature = `[Alias] ${item.alias}|${getFormattedSig(item.fileName, item.functionName, item.codeLineNum, item.preview)}`;
             } else if (isSignificant(item)) {
-                item.signature = getFormattedSig(item.fileName, item.functionName, item.codeLineNum);
+                item.signature = getFormattedSig(item.fileName, item.functionName, item.codeLineNum, item.preview);
             } else {
                 let slim = item.preview
                     .replace(RE_HEX, '0x#')

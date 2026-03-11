@@ -1,0 +1,1379 @@
+# HappyTool APP_MAP (AI 작업 지도) 🗺️
+
+형님! 이 지도는 AI Agent가 프로젝트의 기능을 즉시 찾고 분석할 수 있도록 돕는 **인터페이스 규격 기반의 지도**입니다. 🐧⚡
+모든 경로는 **프로젝트 베이스 기준 상대 경로**를 사용하며, 한글/영어 키워드 매핑을 통해 검색 효율을 극대화했습니다.
+
+---
+
+## 1. Global Layout & System Architecture
+전체 앱의 뼈대와 플러그인 시스템의 연결 고리입니다.
+
+### [[Global Entry Point]]
+- **ID**: `global-entry-app`
+- **Keywords**: [`진입점`, `entry`, `main`, `app root`, `초기화`, `iife worker`, `sandbox false`]
+- **Tech Spec**:
+  - **빌드 시스템**: Vite 6 (Worker format: IIFE로 번들링하여 생산 빌드 호환성 확보)
+  - **데스크톱 프레임워크**: Electron 39 (Sandbox: false, SharedArrayBuffer 활성화)
+- **Location**:
+- [ ] Location:
+  - `Html`: [index.html](./index.html) (Vite Entry Point)
+  - `View`: [App.tsx](./App.tsx)
+  - `Config`: [index.tsx](./index.tsx)
+- **Core Interface**:
+  - `AppContent`: 전역 상태(Settings, Plugin 등) 관리의 핵심 컴포넌트
+  - `HappyToolProvider`: 전역 Context 공급
+- **Data Flow**: `localStorage` -> `Settings Load` -> `Context State` -> `Plugin Injection`
+- **Startup UX Optimization**:
+  - `Fake Progress`: 서버 기동 시 0->95%까지 서서히 증가하여 대기 시간 시각화 (`main.cjs`)
+  - `Progress Creep`: 플러그인 로드 대기 시 98->99.9%까지 점진적으로 증가하여 활동성 확보 (`LoadingSplash.tsx`)
+  - `Log Streaming`: 부팅 로그 필터 완화로 실시간 초기화 과정 노출 (`main.cjs` console override)
+
+### [[Plugin Registry & Injection]]
+- **ID**: `system-plugin-registry`
+- **Keywords**: [`플러그인 등록`, `plugin load`, `registry`, `wrapper`]
+- **Location**:
+  - `Registry`: [registry.ts](./plugins/registry.ts)
+  - `Types`: [types.ts](./plugins/types.ts)
+  - `Container`: [PluginContainer.tsx](./components/PluginContainer.tsx)
+- **Core Interface**:
+  - `ALL_PLUGINS`: 등록된 모든 플러그인 배열 (순서 조정 가능)
+  - `HappyPlugin`: 플러그인 규격 인터페이스
+- **Data Flow**: `registry.ts` -> `App.tsx` -> `Sidebar` & `PluginContainer`
+
+### [[Sidebar Navigation]]
+- **ID**: `ui-sidebar-nav`
+- **Keywords**: [`사이드바`, `메뉴`, `navigation`, `tool switch`]
+- **Location**:
+  - `View`: [Sidebar.tsx](./components/Sidebar.tsx)
+- **Interactions**:
+  - `Click`: 플러그인 전환 (`setActiveTool`)
+  - `Drag & Drop`: 플러그인 아이콘 순서 변경 (Reorder)
+
+---
+
+## 2. Core Feature: Log Extractor
+대용량 로그 분석의 핵심 엔진과 UI입니다.
+
+### [[Log Extractor Engine]]
+- **ID**: `logic-log-extractor-core`
+- **Keywords**: [`필터링`, `인덱싱`, `filtering`, `indexing`, `applyFilter`, `file load`]
+- **Location**:
+  - `Main Logic`: [useLogExtractorLogic.ts](./hooks/useLogExtractorLogic.ts)
+  - `Worker`: [LogProcessor.worker.ts](./workers/LogProcessor.worker.ts)
+  - `WASM Engine`: [src-wasm/](./src-wasm/)
+- **Core Interface**:
+  - `applyFilter(rule, quickFilter)`: 필터링 요청 트리거
+  - `buildFileIndex(file)`: 파일 초기 인덱싱 스캔
+  - `filteredIndices`: 필터링된 결과 라인 번호 배열 (Int32Array)
+- **Data Flow**: `File/Stream` -> `Worker(Indexing)` -> `WASM/SubWorker(Filtering)` -> `filteredIndices` -> `UI Rendering`
+- **Optimizations**:
+  - `ANSI Stripping`: 로딩 및 디코딩 시점에서 ANSI 이스케이프 코드를 사전에 제거하여 필터링 및 렌더링 부하 최소화 (`LogProcessor.worker.ts`, `LogFilterSub.worker.ts`, `workerDataReader.ts`)
+- **Interactions**:
+  - `Delete Mission`: `handleDeleteRule` 호출 시 `window.confirm`을 통한 안전 삭제 절차 수행 (실수 방지용 안내 메시지 적용)
+- **Sub-Modules (Worker Engine)**:
+  - `Main Processor`: [LogProcessor.worker.ts](./workers/LogProcessor.worker.ts) (중앙 제어)
+  - `Stream Reader`: [LogStream.worker.ts](./workers/LogStream.worker.ts) + [workerDataReader.ts](./workers/workerDataReader.ts)
+  - `Filter Sub`: [LogFilterSub.worker.ts](./workers/LogFilterSub.worker.ts) (병렬 필터링)
+  - `Search Engine`: [Search.worker.ts](./workers/Search.worker.ts) (고속 텍스트 검색)
+  - `Perf Engine`: [PerfTool.worker.ts](./workers/PerfTool.worker.ts) (성능 샘플 가공)
+- **Sub-Modules**:
+  - `Worker Events`: [useLogWorkerEvents.ts](./hooks/useLogWorkerEvents.ts) (워커 메시지 디스패처)
+  - `Bookmark Handler`: [workerBookmarkHandlers.ts](./workers/workerBookmarkHandlers.ts)
+  - `Analysis Handler`: [workerAnalysisHandlers.ts](./workers/workerAnalysisHandlers.ts)
+- **Resource Optimizations**:
+  - `Lazy SAB Allocation`: 로컬 파일 모드 시 불필요한 260MB SharedArrayBuffer 할당 지연 (RAM 절약)
+  - `Active State Sync`: `SET_ACTIVE_STATE` 이벤트를 통한 백그라운드 탭의 유령 워커(`subWorkers`) 자동 정리
+  - `Auto-Filter Suppression`: 비활성 탭에서의 중복 필터링 연산 차단 (CPU 절약)
+
+### [[Log Viewer Components (The Alleys)]]
+- **ID**: `ui-log-viewer-sub`
+- **Keywords**: [`북마크 모달`, `단축키`, `줄 이동`, `BookmarksModal`, `GoToLine`, `Shortcuts`]
+- **Location**:
+  - `Modal`: [BookmarksModal.tsx](./components/BookmarksModal.tsx), [GoToLineModal.tsx](./components/GoToLineModal.tsx)
+  - `Panel`: [KeyboardShortcutsPanel.tsx](./components/KeyboardShortcutsPanel.tsx)
+- **Interactions**:
+  - `Ctrl + G`: 줄 이동 모달 활성화
+  - `Ctrl + /`: 단축키 도움말 패널 토글
+  - `Bookmark Loop`: `BookmarksModal` -> `onJump` -> `HyperLogRenderer` (스크롤 이동)
+
+### [[Log Viewer UI Architecture]]
+- **ID**: `ui-log-viewer-hierarchy`
+- **Keywords**: [`로그 뷰어`, `렌더러`, `virtual scroll`, `pane`, `HyperLogRenderer`]
+- **Location**:
+  - `Container`: [LogSession.tsx](./components/LogSession.tsx)
+  - `Pane`: [LogViewerPane.tsx](./components/LogViewer/LogViewerPane.tsx)
+  - `Renderer`: [HyperLogRenderer.tsx](./components/LogViewer/HyperLogRenderer.tsx)
+- **Interactions**:
+  - `Scroll`: 가상 스크롤을 통한 세그먼트 단위 로딩 (`onScrollRequest`)
+  - `Ctrl+F`: 검색 바 활성화
+  - `Double Click`: 북마크 토글
+  - `Individual Close`: `LogViewerToolbar`의 `X` 버튼을 통해 양쪽 패널의 로그를 각각 독립적으로 초기화 (`onReset`)
+
+### [[Text Selection & Context Menu]]
+- **ID**: `interaction-log-selection`
+- **Keywords**: [`텍스트 선택`, `복사`, `우클릭 메뉴`, `selection`, `context menu`]
+- **Location**:
+  - `Logic`: [useLogSelection.ts](./hooks/useLogSelection.ts)
+  - `View`: [ContextMenu.tsx](./components/ContextMenu.tsx)
+  - `Export Actions`: [useLogExportActions.ts](./hooks/useLogExportActions.ts)
+  - `Utils`: [confluenceUtils.ts](./utils/confluenceUtils.ts)
+- **Interactions & Shortcuts**:
+  - `Mouse Drag`: 로그 라인 선택
+  - `Right Click`: 컨텍스트 메뉴 표시 (복사, 구글 검색, 아카이브 저장 등)
+  - `Shift + Click`: 범위 선택
+  - `Copy as Confluence`: 선택 영역 또는 북마크를 Confluence 테이블 형식으로 변환 및 복사
+
+---
+
+## 3. Major Plugins (주요 플러그인)
+검증된 안정성과 높은 사용 빈도를 가진 핵심 도구들입니다. **실험실 플러그인보다 우선적으로 관리 및 참조**됩니다.
+
+### [[EasyPost Plugin]]
+- **ID**: `plugin-easy-post`
+- **Keywords**: [`API Test`, `Postman`, `Request`, `Response`, `Environment`]
+- **Location**:
+  - `Main`: [EasyPostPlugin.tsx](./plugins/EasyPost/EasyPostPlugin.tsx)
+- **Core Interface**:
+  - `handleSendRequest()`: HTTP 요청 실행 및 결과 처리
+  - `Variable Injection`: `{{variable}}` 형식의 동적 치환 로직
+- **Data Flow**: `Request Setup` -> `Context Variables` -> `Axios/Fetch` -> `Response View`
+
+### [[Perf Tool Plugin]]
+- **ID**: `plugin-perf-tool`
+- **Keywords**: [`성능 측정`, `CPU 분석`, `Performance Tool`, `Sampling`, `flame map`, `플레임 맵`]
+- **Location**:
+  - `Main Logic`: [PerfToolPlugin.tsx](./plugins/core/PerfToolPlugin.tsx)
+- **Core Interface**:
+  - `analyzePerformance()`: 캡처된 데이터 분석 및 시각화
+- **Data Flow**: `Raw Data` -> `Parser` -> `Timeline View`
+
+### [[PostTool Plugin]]
+- **ID**: `plugin-post-tool`
+- **Keywords**: [`HTTP`, `REST`, `Postman`, `API Test`]
+- **Location**:
+  - `Main Logic`: [PostToolPlugin.tsx](./plugins/core/PostToolPlugin.tsx)
+
+### [[JsonTools Plugin]]
+- **ID**: `plugin-json-tools`
+- **Keywords**: [`JSON`, `Formatter`, `Beautify`, `Validator`]
+- **Location**:
+  - `Main Logic`: [JsonToolsPlugin.tsx](./plugins/core/JsonToolsPlugin.tsx)
+
+### [[TpkExtractor Plugin]]
+- **ID**: `plugin-tpk-extractor`
+- **Keywords**: [`TPK`, `Tizen Package`, `Extractor`, `Decompile`]
+- **Location**:
+  - `Main Logic`: [TpkExtractorPlugin.tsx](./plugins/core/TpkExtractorPlugin.tsx)
+
+---
+
+## 4. Lab Plugins (실험실 플러그인)
+새로운 시도나 실험적인 기능이 포함된 플러그인 모음입니다.
+
+### [[SmartThingsLab Plugin]]
+- **ID**: `plugin-st-lab`
+- **Keywords**: [`SmartThings`, `ST Lab`, `Capability`, `SSE`, `Device Control`, `Virtual Device`]
+- **Location**:
+  - `Main`: [SmartThingsLabPlugin.tsx](./plugins/SmartThingsLab/SmartThingsLabPlugin.tsx)
+  - `Service`: [smartThingsService.ts](./plugins/SmartThingsLab/services/smartThingsService.ts)
+  - `SSE`: [sseService.ts](./plugins/SmartThingsLab/services/sseService.ts)
+- **Core Interface**:
+  - `refreshData()`: 위치, 방, 디바이스 정보 일괄 갱신
+  - `executeCommand(deviceId, commands)`: 디바이스 제어 명령 전송
+  - `sse.connect(url, token)`: 실시간 이벤트 스트림 연결
+- **Data Flow**: `ST API` -> `Service` -> `State(locations/devices)` -> `Hierarchy/Card UI`
+
+### [[TizenLab Plugin]]
+- **ID**: `plugin-tizen-lab`
+- **Keywords**: [`Tizen`, `SDB`, `File Explorer`, `App Manager`, `Perf Monitor`]
+- **Location**:
+  - `Main`: [TizenLabPlugin.tsx](./plugins/TizenLab/TizenLabPlugin.tsx)
+  - `File`: [TizenFileExplorer.tsx](./plugins/TizenLab/TizenFileExplorer.tsx)
+- **Core Interface**:
+  - `TizenConnectionModal`: SDB 연결 설정 및 관리
+  - `TizenPerfMonitor`: 실시간 리소스(CPU, Memory) 모니터링
+- **Data Flow**: `SDB Shell` -> `Backend(Electron)` -> `TizenLab UI`
+
+### [[Other Lab Tools]]
+- **ID**: `plugin-lab-others`
+- **Keywords**: [`TPK`, `JSON`, `Postman`, `Extractor`]
+- **Location**:
+  - `TPK`: [TpkExtractor.tsx](./components/TpkExtractor.tsx) + [useTpkExtractorLogic.ts](./hooks/useTpkExtractorLogic.ts)
+  - `JSON`: [JsonTools.tsx](./components/JsonTools.tsx)
+  - `Post`: [PostTool.tsx](./components/PostTool.tsx)
+
+---
+
+## 5. Shared Services & Contexts
+플러그인 간에 공유되는 공통 인프라입니다.
+
+### [[Toast Notification]]
+- **ID**: `service-toast`
+- **Keywords**: [`알림`, `토스트`, `notification`, `message`]
+- **Location**:
+  - `Context`: [ToastContext.tsx](./contexts/ToastContext.tsx)
+- **Core Interface**:
+  - `addToast(message, type)`: 알림 생성
+
+### [[Command Palette]]
+- **ID**: `service-command-palette`
+- **Keywords**: [`명령 팔레트`, `command palette`, `quick action`, `Ctrl+K`]
+- **Location**:
+  - `Context`: [CommandContext.tsx](./contexts/CommandContext.tsx)
+
+### [[Global State & Settings]]
+- **ID**: `service-global-state`
+- **Keywords**: [`설정`, `전역 상태`, `settings`, `localStorage`]
+- **Location**:
+  - `View`: [SettingsModal.tsx](./components/SettingsModal.tsx)
+  - `Context`: [HappyToolContext.tsx](./contexts/HappyToolContext.tsx)
+  - `Helper`: [settingsHelper.ts](./utils/settingsHelper.ts)
+- **Core Interface**:
+  - `useSettings()`: 테마, 폰트, 로그 자동 로드 등 사용자 환경 설정 관리
+
+---
+
+## 6. Advanced Features & Persistence
+고도화된 기능 및 데이터 저장소 매핑입니다.
+
+### [[Log Archive System]]
+- **ID**: `feature-log-archive`
+- **Keywords**: [`아카이브`, `저장된 로그`, `IndexedDB`, `archive`, `history`]
+- **Location**:
+  - `Entry`: [index.tsx](./components/LogArchive/index.tsx)
+  - `Provider`: [LogArchiveProvider.tsx](./components/LogArchive/LogArchiveProvider.tsx)
+  - `DB`: [LogArchiveDB.ts](./components/LogArchive/db/LogArchiveDB.ts)
+- **Core Interface**:
+  - `SaveArchiveDialog`: 선택한 로그를 아카이브에 저장하는 인터페이스 (너비 800px 확장 및 프리뷰 영역 확대 적용됨)
+  - `ArchiveSidebar`: 저장된 목록 표시 및 검색
+- **Data Flow**: `Log Selection` -> `index.tsx(Save)` -> `IndexedDB` -> `Sidebar/Viewer`
+
+### [[Performance Analysis Engine]]
+- **ID**: `logic-perf-analysis`
+- **Keywords**: [`성능 분석`, `performance`, `heat map`, `bottleneck`, `time gap`, `flame map`, `플레임 맵`]
+- **Location**:
+  - `Logic`: [perfAnalysis.ts](./utils/perfAnalysis.ts)
+  - `View`: [PerfDashboard.tsx](./components/LogViewer/PerfDashboard.tsx)
+- **Core Interface**:
+  - `analyzePerfSegments()`: 로그 간 시간 차이를 계산하여 병목 지점 추출
+  - `extractTimestamp()`: 다양한 로그 포맷에서 타임스탬프 파싱
+- **Data Flow**: `Filtered Logs` -> `perfAnalysis.ts` -> `Segments/Heatmap` -> `Canvas Layer`
+
+### [[Utility Belt (Infrastructure)]]
+- **ID**: `infra-utils`
+- **Keywords**: [`시간 분석`, `색상`, `정규식`, `logTime`, `colorUtils`, `filterGroupUtils`, `build config`, `electron main`]
+- **Location**:
+  - `Time`: [logTime.ts](./utils/logTime.ts)
+  - `Color`: [colorUtils.ts](./utils/colorUtils.ts)
+  - `Filter Logic`: [filterGroupUtils.ts](./utils/filterGroupUtils.ts) (Happy Combo 트리 연산)
+  - `Build Config`: [vite.config.ts](./vite.config.ts) (Worker IIFE 및 플러그인 설정)
+  - `Main Process`: [electron/main.js](./electron/main.js) (보안 정책 및 SharedArrayBuffer 설정)
+- **Core Interface**:
+  - `extractTimestamp(text)`: 로그 라인에서 시간 정보 추출 (성능 분석의 기초)
+  - `getLighterColor(color)`: UI 테마에 맞는 색상 변환
+
+---
+
+## 7. Log Extractor Deep Dive (Advanced Specs)
+
+### [Feature] Log Analysis & Profiling
+- **ID**: `feature-log-analysis`
+- **Keywords**: [`New Logs`, `Added`, `Repetitive`, `Transaction`, `Bottleneck`, `Delta`, `PID/TID Tracking`, `신규 로그 분석기`, `중복 로그`, `트랜잭션 추적`]
+- **Location**:
+    - View: [SpamAnalyzerPanel.tsx](./components/LogViewer/SpamAnalyzerPanel.tsx), [TransactionDrawer.tsx](./components/LogViewer/TransactionDrawer.tsx)
+    - Logic: [transactionAnalysis.ts](./utils/transactionAnalysis.ts), [logTime.ts](./utils/logTime.ts)
+- **Core Interface**:
+    - `extractTransactionIds(line)`: 복잡한 정규식을 사용하여 PID, TID, Tag 추출
+    - `formatTransactionFlow(logs)`: 순차 로그 간 `delta` 시간(+ms) 계산
+    - `requestNewLogAnalysisLeft()`: 워커 측 패턴 그룹화 트리거 (Top 100)
+- **Interactions**:
+    - `Jump to Absolute Line`: 필터 변경 후에도 일관성을 유지하기 위해 Spam Analyzer에서 사용
+    - `Bottleneck Highlight`: Transaction Drawer에서 1000ms 이상의 지연을 자동으로 플래그 지정
+    - `UI Persistence`: 분석 중에도 로그를 가리지 않도록 `status: analyzing` 상태를 도입하여 메인 로그 뷰어의 깜빡임 제거 (`workerAnalysisHandlers.ts`)
+
+- [x] **[Feature] Split Analysis (Analyze Diff)**
+    - **ID**: `feature-split-analysis`
+    - **Keywords**: [`Split 비교`, `Analyze Diff`, `속도 비교`, `패턴 비교`, `비교 분석`, `Deduplication`, `Alias Batch`]
+    - **Location**:
+        - `View`: [SplitAnalyzerPanel.tsx](./components/LogViewer/SplitAnalyzerPanel.tsx)
+        - `Logic`: [useSplitAnalysis.ts](./hooks/useSplitAnalysis.ts), [SplitAnalysis.worker.ts](./workers/SplitAnalysis.worker.ts)
+        - `Persistence`: [useLogFileOperations.ts](./hooks/useLogFileOperations.ts) (Split 모드 및 파일 경로 복원)
+    - **Core Interface**:
+        - `workerAnalysisHandlers.extractAllMetadata()`: 필터링된 스트림에서 `[시간, 파일명, 함수명]` 시그니처 일괄 추출
+        - `SplitAnalysis.worker`: Left/Right 양측의 메트릭을 비교 분석. Baseline(Left) 로그는 파일 순서상 연속된 소스만 구간으로 정의하며, Target(Right) 로그는 슬라이딩 윈도우를 이용해 비연속 매칭(Search)을 수행하여 중간에 삽입된 로그가 있어도 정확한 구간 비교 가능.
+        - **[New] Global Alias Batch**: 동일한 Alias의 최초~최후 발생을 하나의 거대한 세그먼트로 자동 분석하여 시간 흐름 파악 용이성 증대
+        - **[New] Deduplication**: 시각적으로 중복되는 구간 분석 결과를 워커 레벨에서 사전에 제거하여 UI 가독성 및 렌더링 부하 최적화
+        - `Non-blocking Analysis`: 분석 수행 시 `workerReady` 상태를 유지하여 메인 UI의 'Processing log..' 메시지 노출 방지
+        - `Immediate Cancellation`: 유저가 패널을 닫을 시 `analyzerWorker.terminate()`를 즉각 호출하여 CPU/메모리 자원을 즉시 반납하고 분석 결과의 고스트 팝업 방지 (`useSplitAnalysis.ts`)
+        - **[New] 3-Column Timeline Layout**: Timeline 탭의 세그먼트 카드를 `Context - Visual Bridge - Metrics` 3컬럼 구조로 개편하여 공간 활용 최적화 및 성능 차이 시각화 강화 🐧🎨
+    - **Interactions**:
+        - `TopBar.tsx`: Dual View(Split) 상태에서만 나타나는 ⚡ Analyze Diff 버튼을 통해 분석 진입. 버튼은 토글(`Start` ↔ `Close/Cancel`) 방식으로 동작하며, 분석 중 클릭 시 즉시 중단됨.
+        - `LogSession.tsx`: 계산이 끝나면 상단 통합 패널(`SplitAnalyzerPanel`) 형태로 리포트 표시 (이전 하단 Drawer 방식에서 최적화)
+        - GAP TIME의 구간 정보(`FROM: ... ➔ CURR: ...`)를 명확히 표시하여 지연 원인 추적 용이성 확보
+        - 신규 추가 에러, 느려진 구간(`isSlower`), 빈번해진 로그(`isMore`) 등을 아이콘(🚨, ⚠️, ⚡)과 함께 시각적으로 브리핑
+
+### [Feature] High-Performance Rendering (HyperLog)
+- **ID**: `feature-hyper-rendering`
+- **Keywords**: [`Canvas`, `Virtual Scroll`, `60fps`, `Ligatures`, `Measure Cache`]
+- **Location**:
+    - Core: [HyperLogRenderer.tsx](./components/LogViewer/HyperLogRenderer.tsx)
+- **Core Interface**:
+    - `loadVisibleLines(start, end)`: 5000줄 단위의 배치 데이터 페칭
+    - `decodeHTMLEntities(text)`: 캔버스에서의 정확한 폰트 너비 측정을 위한 필수 전처리
+    - `performanceHeatmap`: 로그 밀도 및 성능 핫존을 보여주는 우측 세로 스트립
+- **Optimizations**:
+    - `indexOf` vs `Regex`: 단순 키워드 하이라이트를 위한 고속 문자열 검색 사용
+    - `Dual Canvas`: 배경 하이라이트와 텍스트 렌더링을 분리하여 무효화 최소화
+
+### [Feature] Configuration & Persistence
+- **ID**: `feature-config-mgmt`
+- **Keywords**: [`Happy Combo`, `Sync`, `Paging`, `Stream`, `IndexedDB`, `Persistence`]
+- **Location**:
+    - View: [ConfigurationPanel.tsx](./components/LogViewer/ConfigurationPanel.tsx), [HappyComboSection.tsx](./components/LogViewer/ConfigSections/HappyComboSection.tsx)
+    - Logic: [useLogFileOperations.ts](./hooks/useLogFileOperations.ts), [db.ts](./utils/db.ts)
+- **Core Interface**:
+    - `state_persistence`: 5초마다 `tabState_${tabId}` (경로, 스크롤, 선택) 저장. 저장 전 `isLoaded` 플래그를 체크하여 부팅 시 초기화 레이스 컨디션 방지 logic 적용됨.
+    - **[New] Stream Isolation**: `activeStreamRequestIdLeft/Right`를 독립 참조하여 좌/우 동시 로딩 시 데이터 정합성 보장
+    - `streamReadFile(path, requestId)`: 대용량 파일 세그먼트 전송을 위한 Electron IPC
+- **Data Flow**:
+    - `File Open` -> `INIT_STREAM` -> `PROCESS_CHUNK` (Worker) -> `STREAM_DONE` -> `Indexing`
+    - `Rule Update` -> `applyFilter` (Worker) -> `LRU Cache Check` -> `Render`
+
+### [[CLI Mode (Headless) Architecture]] 🐧💻
+- **ID**: `system-cli-headless`
+- **Keywords**: [`CLI`, `headless`, `hidden renderer`, `commander`, `automation`]
+- **Location**:
+    - `Main Control`: [electron/main.cjs](./electron/main.cjs) (Argument parsing via `commander`)
+    - `Logic Entry`: [CliApp.tsx](./CliApp.tsx) (Hidden renderer's UI wrapper)
+- **Core Interface**:
+    - `HappyTool.exe cli log-extractor`: 로그 필터링 및 추출 명령
+    - `HappyTool.exe cli analyze-diff`: 두 로그 파일 간의 성능 및 차이 분석 명령 (JSON 추출)
+- **Data Flow**:
+    - `CLI Args` -> `main.cjs` -> `Hidden BrowserWindow` -> `CliApp.tsx` -> `LogProcessorWorker` (2개 병렬) -> `SplitAnalysisWorker` -> `Result Export` -> `Process Exit`
+- **Optimizations**:
+    - `cli-session`: CLI 전용 userData 경로를 사용하여 GUI와 데이터 잠금 충돌 방지
+    - `saveSettingsToFile`: 설정 변경 시 `settings.json`으로 동기화하여 CLI와 GUI 간 필터 규칙 공유
+
+---
+
+## 8. Sequence: How Things Work
+주요 시퀀스의 데이터 흐름 요약입니다.
+
+### [[File Loading to Rendering]]
+- **Flow**:
+  1. `useLogFileOperations.ts` -> `streamReadFile` 호출
+  2. `LogProcessor.worker.ts` -> `PROCESS_CHUNK` 수신 및 인덱싱
+  3. `LogProcessor.worker.ts` -> `applyFilter()` 호출 (인덱싱 및 필터링)
+  4. `LogViewerPane.tsx` -> `HyperLogRenderer`에 `totalCount` 전달
+  5. `HyperLogRenderer.tsx` -> `onScrollRequest` 트리거 -> `Canvas` 렌더링
+
+---
+
+> [!TIP]
+> **모든 지도가 그려졌습니다!** 형님, 이제 "어느 파일의 어느 함수"를 찾을 때 이 지도를 먼저 보여주시면 제가 0.1초 만에 튀어나가겠습니다! 🐧🚀
+# HappyTool Headless CLI User Guide 🐧🚀
+
+형님, 이 가이드는 HappyTool의 백그라운드 구동 모드인 **Headless CLI (Command Line Interface)** 엔진의 사용법과 예제를 다룹니다! GUI를 열지 않고도 대규모 로그 파일을 필터링하거나, 백그라운드에서 복잡한 시스템 자동화 테스트(BlockTest)를 돌리고 싶을 때 활용하실 수 있는 마법의 지팡이입니다. 💎
+
+---
+
+HappyTool의 CLI 기반 모듈은 실행 환경에 따라 아래와 같은 방법으로 진입할 수 있습니다.
+
+### 📦 패키징 배포판 세팅 (Production)
+`HappyTool.exe` 파일이 있는 위치(보통 설치 폴더)에서 터미널을 열고 실행합니다.
+```powershell
+# 기본 사용법
+.\HappyTool.exe cli [command] [options]
+
+# 도움말 확인
+.\HappyTool.exe cli --help
+```
+
+### 👨‍💻 개발 환경 세팅 (Development)
+소스 코드 환경에서는 `npm run cli`를 활용합니다.
+```bash
+# 기본 사용법
+npm run cli -- [command] [options]
+```
+
+---
+
+## 🛠️ 주요 CLI 커맨드 모음
+
+### 1. `log-extractor` (대용량 로그 필터링 엔진) 📡
+GUI에서 미리 저장해 둔 `Mission (Filter)`을 불러와, 터미널 환경에서 백그라운드로 거대한 로컬 로그 파일을 즉시 필터링하고 파일로 내보냅니다.
+
+- **옵션:**
+  - `-f, --filter <name>`: [필수] HappyTool GUI에 저장된 미션(필터 그룹) 이름
+  - `-i, --input <path>`: [필수] 필터링할 원본 로그 파일의 절대 경로
+  - `-o, --output <path>`: 추출 결과를 저장할 위치 (옵션, 생략 시 현재 폴더에 timestamp 포맷으로 생성됨)
+
+- **사용 예시:**
+  ```bash
+  # EXE 사용 시
+  .\HappyTool.exe cli log-extractor -f "Crash Hunt" -i "C:\logs\syslog.txt"
+  ```
+
+### 2. `block-test` (시나리오 & 파이프라인 자동화 봇) 🤖
+BlockTest 엔진을 호출하여 사전에 작성해 둔 복잡한 파이프라인(명령어, 반복문, 조건문, 이미지 매칭 등)이나 거대한 시나리오 세트를 일괄 실행합니다.
+
+- **옵션 (둘 중 하나 필수):**
+  - `-s, --scenario <name>`: 설정한 여러 파이프라인의 묶음인 전체 시나리오 실행
+  - `-p, --pipeline <name>`: 테스트할 단일 파이프라인 바로 실행
+
+- **사용 예시:**
+  ```bash
+  # "Sanity Check" 라는 이름의 전체 시나리오 세트 실행
+  npm run cli -- block-test --scenario "Sanity Check"
+  
+  # "Login Flow" 라는 단일 파이프라인 테스트 즉각 실행
+  npm run cli -- block-test --pipeline "Login Flow"
+  ```
+
+### 3. `json-tool` (초고속 JSON 포매터) 🛠️
+더럽고 압축된 대용량 JSON 파일을 순식간에 읽기 좋게 Formatting (Beautify) 하여 저장합니다.
+
+- **옵션:**
+  - `-i, --input <path>`: [필수] 정렬할 원본 JSON 파일 경로
+  - `-o, --output <path>`: 변환된 JSON 파일 저장 경로 (생략 시 `beautified_오늘날짜.json` 형태로 현재 폴더에 생성됨)
+
+- **사용 예시:**
+  ```bash
+  npm run cli -- json-tool -i "./raw_data.json" -o "./pretty_data.json"
+  ```
+
+### 4. `post-tool` (CLI 기반 백그라운드 API 테스터) 🌐
+GUI의 Post Tool에 저장해 둔 요청(Request)을 터미널에서 손쉽게 쏴볼 수 있습니다. 자동화 파이프라인과 결합하여 주기적 Health Check 용도로 쓰기 좋습니다.
+
+- **옵션:**
+  - `-n, --name <name>`: [필수] Post Tool (UI)에 저장한 Request 이름
+
+- **사용 예시:**
+  ```bash
+  # "Login API" 요청을 백그라운드에서 바로 발송
+  npm run cli -- post-tool -n "Login API"
+  ```
+
+### 5. `tpk-extractor` (Tizen RPM 파서) 📦
+Tizen 단말에 설치되는 `.tpk` 패키지를 `.rpm` 파일에서 추출합니다. 대용량 파일도 즉각적으로 Parsing하여 추출해냅니다! URL을 바로 던져도 동작합니다.
+
+- **옵션:**
+  - `-i, --input <path_or_url>`: [필수] 추출 대상 RPM의 로컬 절대 경로 혹은 HTTP URL
+  - `-o, --output <path>`: TPK 저장 위치 지정 (옵션)
+
+- **사용 예시:**
+  ```bash
+  npm run cli -- tpk-extractor -i "https://my-repo/package.rpm"
+  npm run cli -- tpk-extractor -i "/var/downloads/some-app.rpm" -o "./result.tpk"
+  ```
+
+---
+
+## 🌟 CLI 동작 원리 팁 (Advanced)
+
+저희 HappyTool CLI 모드는 평범한 터미널 스크립트가 아닙니다!
+명령어를 치면 내부적으로 완전히 숨겨진 **BrowserWindow (Hidden Window)**가 생성되어 Electron 메인 프로세스와 렌더러 프로세스 사이의 IPC 파이프를 엽니다. 
+
+그 덕분에:
+1. NodeJS 환경에서 지원되지 않는 고성능 **WebAssembly(WASM)** 및 **SharedArrayBuffer** 메모리를 단 하나도 낭비 없이 터미널 로직에서도 쓸 수 있습니다! OOM(메모리 초과)이 없는 완벽한 설계입니다!
+2. Chrome V8 JIT 환경이 터미널에서도 똑같이 구동되어 성능의 이점을 거저 가져옵니다!
+3. IndexedDB(로컬 데이터베이스)에 GUI에서 저장했던 필터 리스트와 시나리오 목록들을 터미널 환경에서도 투명하게 똑같이 참조하고 씁니다.
+
+> [!TIP]
+> **성능 이슈를 주의하십시오!** CLI 진행률(Progress 바 처리 상태)은 백그라운드에서 실시간으로 갱신되며, `-o` 경로 저장 성공 여부 혹은 에러 발생 요인은 Exit Code (`0` 또는 `1`)로 터미널에 명확히 표기됩니다. 🐧🚀
+# 🚀 Log Extractor 성능 최적화 블루프린트 (Hyper-Performance)
+
+본 문서는 Antigravity AI가 Log Extractor의 성능 아키텍처를 즉시 이해하고, 추가 최적화 및 유지보수를 수행하기 위한 가이드라인입니다. 현재 적용된 기술 스택과 성능 포인트들을 상세히 기술합니다.
+
+---
+
+## 💎 1. 핵심 아키텍처: Dual-Engine & Dual-Canvas
+
+### 🦀 Rust + WebAssembly (WASM) 필터링 엔진
+- **처리 능력**: 초당 약 150만 줄 (Baseline: 100만 줄 필터링 시 664ms)
+- **Lazy DFA (Deterministic Finite Automaton)**: 정규식 및 키워드 매칭을 위해 Rust의 고성능 DFA 엔진 적용. 지연 생성(Lazy Init)으로 초기 메모리 점유 최소화.
+- **Zero-copy 데이터 전송**: `SharedArrayBuffer` 및 `Transferable Objects`를 사용하여 메인 스레드와 워커 간의 데이터 복사 오버헤드를 0에 수렴하게 설계.
+- **Worker Pool**: 멀티코어를 활용한 병렬 필터링 처리 (대용량 파일 및 고속 실시간 로그 대응).
+
+### 🎨 하이퍼 캔버스 (Hyper-Canvas) 렌더링
+- **Dual-Layer 방식**:
+    - **Back Layer (bgCanvas)**: 선택 영역, 북마크 하이라이트, 검색 결과 배경 등 '정적인 배경' 담당.
+    - **Front Layer (canvas)**: 실제 로그 텍스트, 라인 번호 등 '동적인 텍스트' 담당.
+- **Interaction Layer (DOM)**: 캔버스 위에 투명한 HTML 레이어를 겹쳐 브라우저 표준 텍스트 선택(Alt+Drag), 단축키(Ctrl+C) 기능 유지.
+- **Pixel-Perfect Alignment**: 캔버스의 `strokeText` 좌표와 DOM 레이어의 폰트 메트릭을 HTML 디코딩 및 전용 폰트 옵션으로 1px 오차 없이 동기화.
+
+---
+
+## 🏎️ 2. 주요 성능 최적화 포인트 (구현 완료)
+
+### 📂 대용량 파일 핸들링 (1GB 이상 대응)
+- **Binary Indexing**: 파일을 텍스트로 변환하지 않고 `Uint8Array` 상태에서 네이티브 `indexOf(10)` (Newline)을 사용하여 직접 인덱싱. JS 루프 대비 10배 이상 고속.
+- **BigInt64Array Offsets**: 4GB 이상의 대용량 파일 주소를 안전하게 저장하기 위해 `BigInt` 기반 오프셋 배열 사용.
+- **Batch Read Strategy**: 스크롤 시 수천 줄을 한 줄씩 읽는 대신, 필요한 범위를 하나의 거대한 Blob으로 한 번에 읽어 `TextDecoder`로 해제. I/O 오버헤드 99% 제거.
+
+### 🔍 필터링 및 검색 시스템
+- **Happy Combo / Family Combo / Blocklist**: 모든 필터링 로직은 WASM 워커에서 수행되어 메인 UI 스레드의 블로킹 차단.
+- **Fast Filter Hashing**: 필터 설정 변경 감지 시 `JSON.stringify` 전체 객체 대신 버전 조합 해시를 사용하여 불필요한 재필터링 방지.
+- **Color Highlights**: 하이라이팅 연산을 렌더링 시점에 캐싱된 메트릭을 사용하여 처리, 초당 60프레임 스크롤 방어.
+
+### ⚡ 실시간 Burst 로그 (SDB/SSH)
+- **Throttled Notify**: 고속 로그 유입 시 UI 업데이트 메시지를 일정 간격(예: 500ms)으로 묶어서 전송하여 메인 스레드 부하 방지.
+- **Ring Buffer (준비됨)**: 메모리 폭주 방지를 위해 오래된 로그를 자동으로 비워주는 구조 설계 기반 마련.
+
+---
+
+## 🕵️‍♂️ 3. Antigravity를 위한 수사 및 검거 기록 (핵심 코드 수정 내역)
+
+1.  **Rendering Halo 효과**: `fillText` 4방향 호출 방식에서 `strokeText` 및 `lineWidth` 조합으로 변경하여 드로잉 호출 50% 절감.
+2.  **Monospaced Cache**: 폰트 너비 계산 시 `measureText`를 매번 부르지 않고 `charWidthRef`에 저장된 단일 문자 너비로 즉시 계산.
+3.  **Indexing Race Condition**: `filteredIndices` 초기화 전에 `INDEX_COMPLETE` 메시지가 나가던 순서 버그 검거 및 교정.
+4.  **Batch Read Timeout**: 수천 번의 `FileReader` 호출로 인한 브라우저 마비 현상을 `arrayBuffer()` 기반 일괄 읽기로 소탕.
+
+---
+
+## 🔮 4. 향후 성능 개선 과제 (Next Mission)
+
+1.  **OffscreenCanvas 도입**: 렌더링 드로잉 자체를 워커로 넘겨 메인 UI 스레드 점유율을 0%에 가깝게 유지.
+2.  **WASM 전역 필터링 확대**: 모든 복잡한 문자열 처리를 WASM 내부에서 완결 짓는 'Pure-WASM' 영역 확대.
+3.  **Virtualization Max**: 현재의 캔버스 가상화를 넘어서 데이터 파이프라인 전체의 가상화(Virtual Pipeline) 고도화.
+
+---
+
+**작성자**: Antigravity (Advanced Agentic Coding AI)  
+**작성일**: 2026-02-16  
+**대상**: 미래의 나(Antigravity)와 나의 파트너 형님  
+**상태**: 쫀득함(Chewy-Scrolling) 지수 Max 도달 🚀
+# Log Extractor 상세 명세 (Antigravity 용)
+
+이 문서는 미래의 구글 Antigravity AI가 HappyTool의 핵심 기능인 **Log Extractor**를 정확하게 이해하고 유지보수/확장할 수 있도록 돕기 위해 작성되었습니다.
+
+---
+
+## 🚀 Mission (Rule) & Configuration
+
+Log Extractor의 모든 동작은 **Mission(또는 Rule)**이라는 설정 단위로 관리됩니다. `Ctrl + \`` 단축키를 통해 설정 패널을 여닫을 수 있습니다.
+
+### 1. Configuration 주요 항목
+- **Happy Combo (해피 콤보)**: 
+    - **OR of ANDs** 로직을 사용합니다.
+    - 각 그룹(Group) 내의 단어들은 모두 포함되어야 하며(**AND**), 그룹 간에는 하나라도 만족하면(**OR**) 로그가 표시됩니다.
+    - 예: `[word1, word2]` (1번 그룹) OR `[word3]` (2번 그룹)
+- **Family Combo (패밀리 콤보)**: 
+    - 시작(Start), 끝(End), 중간(Middle/Branch) 태그를 이용한 계층적 필터링입니다.
+- **Block List (블록 리스트)**: 
+    - 특정 단어가 포함된 로그를 제외합니다.
+- **Color Highlight (컬러 하이라이트)**: 
+    - 특정 키워드에 대해 수동으로 색상을 지정합니다.
+- **Log Settings (로그 설정)**: 
+    - 실시간 로깅에 대한 Log Command, Log Tag 등을 설정합니다. 
+    - `showRawLogLines` (비표준 로그 강제 표시 여부)를 설정합니다.
+
+---
+
+## 🎨 자동 색상 지정 (Auto-Highlight) 스펙
+
+콤보에 단어를 추가하고 별도의 색상을 지정하지 않으면, 시스템이 **고정된 색상**을 자동으로 할당합니다.
+
+- **로직**: `stringToColor` 유틸리티를 사용합니다. 단어의 문자열 해시값을 기반으로 **HSL 컬러**를 생성합니다.
+    - **Saturation**: 70-100% (선명도 유지)
+    - **Lightness**: 50-60% (텍스트 가독성을 위해 중간 명도 유지)
+- **우선순위**: 사용자가 직접 지정한 Color Highlight가 자동 색상보다 우선합니다.
+- **대소문자 구분**: 설정의 `caseSensitive` 옵션에 따라 키워드 매칭 및 색상 칠하기 로직이 연동됩니다.
+
+---
+
+## 🖋️ 폰트 및 렌더링
+
+- **폰트 지원**: `Consolas`, `JetBrains Mono`, `Monospace` 등 고정폭 폰트를 지원합니다.
+- **성능 최적화**: 고정폭 폰트의 경우, 첫 렌더링 시 글자 너비를 측정하여 캐싱합니다. 이후 모든 렌더링 시 `O(1)` 속도로 텍스트 위치를 계산합니다.
+
+---
+
+## ⚡ 초고속 성능 (Performance)
+
+1GB 이상의 대용량 로그도 끊김 없이 처리하기 위한 기술적 장치들입니다.
+
+- **Segmentation (세그멘테이션)**: 브라우저의 Canvas/DOM 높이 제한을 넘기 위해 `MAX_SEGMENT_SIZE`(약 135만 줄) 단위로 페이징 처리를 합니다.
+- **캔버스 아키텍처 (HyperLogRenderer)**: 
+    - **Layer 1 (Background)**: 선택 영역, 북마크, 키워드 배경 등을 렌더링합니다.
+    - **Layer 2 (Text)**: 실제 로그 텍스트와 하이라이트 오버레이를 렌더링합니다.
+    - 60fps의 부드러운 스크롤을 보장합니다.
+- **Web Worker**: 인덱싱, 필터링, 검색 등 무거운 작업은 백그라운드 워커에서 처리하여 UI 스레드를 차단하지 않습니다.
+- **WASM 가속**: 단순한 OR 필터링의 경우 Rust로 작성된 WebAssembly 엔진을 사용하여 처리 속도를 극대화합니다.
+- **Inactive Resource Guard**: `isActive` 상태가 아닐 때(탭 전환 등) 캔버스 드로잉 및 고부하 자원 사용을 자동으로 일시 중지하여 효율적인 멀티태스킹을 지원합니다.
+
+---
+
+## 📡 SDB/SSH 실시간 로깅
+
+- **실시간 스트리밍**: SDB(Tizen) 또는 SSH를 통한 실시간 로그 수집을 지원합니다.
+- **Burst Logging 대응**: 초당 수만 줄의 로그가 쏟아지는 상황에서도 UI가 얼지 않도록 **Chunk 단위 버퍼링 및 배치 처리** 로직이 구현되어 있습니다.
+- **로그 버퍼 클리어**: `Ctrl + Shift + X`를 통해 프론트엔드의 화면과 서버 측의 로그 버퍼를 동시에 비울 수 있습니다.
+
+---
+
+## 🔍 Find & Focus
+
+- **Find (fint)**: 현재 열려있는 세그먼트 내에서 빠른 텍스트 검색을 지원합니다.
+- **Focus 모드**: 
+    - 글로벌 설정에서 활성화 시, 로그 열람에 집중할 수 있도록 `TopBar` 등 UI 요소를 자동으로 숨깁니다.
+    - 마우스 이동이나 특정 단축키 입력 시 UI가 다시 나타납니다.
+    - `isSearchFocused` 상태일 때는 단축키 오동작을 방지하기 위해 일반적인 핫키가 차단됩니다.
+
+---
+
+## 🖇️ 북마크 (Bookmarks)
+
+- **토글**: `Space` 키로 현재 줄에 북마크를 설정/해제합니다.
+- **이동**: `F3` (이전 북마크), `F4` (다음 북마크)로 빠르게 점프합니다.
+- **북마크 보기**: `Ctrl + B`로 전체 북마크 리스트를 확인하고 관리할 수 있습니다.
+
+---
+
+## 🖱️ 드래그 및 상호작용 (Selection)
+
+HyperLogRenderer 위에 투명한 **Interaction Layer**를 두어 복잡한 선택 로직을 구현했습니다.
+
+- **기본 드래그**: 여러 줄을 선택하여 범위를 지정합니다.
+- **Shift / Ctrl / Alt 드래그**:
+    - **Shift + Click**: 범위 선택 (Anchor 기준).
+    - **Ctrl + Click**: 개별 라인 다중 선택 (Toggle).
+    - **Alt + Drag**: 커스텀 선택 로직을 우회하여 **브라우저 네이티브 텍스트 선택**을 수행합니다. (특정 단어만 긁을 때 유용)
+- **Ctrl + C**: 선택된 라인들을 클립보드에 복사합니다. (마지막 줄 개행 제거 등 최적화 포함)
+- **Copy as Confluence Table**: 현재 필터링된 모든 로그를 Confluence Markdown 테이블 형식으로 복사합니다. 
+    - 툴바의 **Table** 아이콘 버튼을 통해 실행합니다.
+    - 타임스탬프 추출 및 줄 간 시간 차이(Time Diff) 계산 결과가 포함됩니다.
+    - 5만 줄 이상의 대량 로그 처리 시 사용자에게 알림을 제공합니다.
+- **Save to Archive**: 선택 영역 위에서 마우스 우클릭 -> `Save Selection to Archive`를 선택하면 해당 구간만 로그 아카이브에 영구 저장됩니다.
+- **시간 차 계산 (Time Difference)**: 
+    - 두 줄 이상을 선택하면, 선택된 구간의 **첫 줄과 끝 줄 사이의 시간 차이**를 화면 하단에 표시합니다.
+    - `HH:mm:ss.mss` 형태부터 커널 타임 `[seconds.micros]`까지 다양한 포맷을 자동 인식합니다.
+- **트랜잭션 ID 추출 (Transaction ID Extraction)**:
+    - 선택된 로그에서 트랜잭션 ID를 추출합니다.
+    - 추출된 트랜잭션 ID를 기반으로 다른 패널에서 해당 트랜잭션의 로그를 찾습니다.
+- 로그 우클릭시 context menu
+    - Save Selection to Archive
+    - Analyze Transaction
+    
+---
+
+## 📊 Analyze Performance (Flame Map)
+
+로그 데이터를 기반으로 한 성능 분석 및 시각화 기능에 대한 상세 명세는 다음 문서를 참조하십시오.
+
+- **[perf_tool_specification.md](./perf_tool_specification.md)**: Perf Tool 및 Log Extractor 공통 성능 분석 로직 명세
+
+주요 요약:
+- **Step (Group)**: 동일 `alias` 그룹의 시작-끝 분석.
+- **Combo (Interval)**: 연속된 매칭 로그 간의 간격 분석.
+- **Flame Dashboard**: 분석 결과를 시각화하고 Bottleneck을 식별.
+- **Analyze Transaction (트랜잭션 분석)**: 선택된 로그의 트랜잭션 ID를 기반으로 연관된 모든 로그 흐름을 추적합니다.
+
+---
+
+## 🛡️ Spam Analyzer (반복 로그 분석기)
+
+수만 줄의 로그 중 의미 없이 반복되어 분석을 방해하는 '스팸' 로그를 식별하고 그룹화하는 기능입니다.
+
+- **소스 중심 광폭 병합 (Source-First Grouping)**: 
+    - 메시지 내용이 조금씩 다르더라도(예: 동적 변수 포함), **발생 소스 위치(`FileName: FunctionName`)**가 동일하다면 하나의 그룹으로 병합합니다. 
+    - **초광속 파서 v2**: 정규표현식(Regex)을 완전히 제거하고, 확장자 기반의 선별적 콜론 스캔 알고리즘을 사용하여 100만 행 분석을 **500ms 이내**에 완료합니다.
+- **하이퍼 점프 (Hyper-Jump) 시스템**: 
+    - 분석 시점에 모든 발생 위치의 인덱스를 미리 수집(Indexing)하여, 탐색 시 검색 엔진을 거치지 않고 **0.001초 만에 즉시 점프**합니다.
+    - **순환 탐색**: `1/N` 형태의 인덱스 표시와 함께 처음과 끝을 자유롭게 오가는 루프 탐색을 지원합니다.
+- **TOP 100 랭킹**: 가장 많이 발생한 순서대로 상위 100개의 패턴을 추출하여 관리합니다.
+- **Visual UX 최적화**: 
+    - **경량 애니메이션**: `framer-motion`과 같은 무거운 JS 엔진 대신 순수 CSS 애니메이션을 사용하여 100개 항목 렌더링 시에도 UI Jank가 발생하지 않습니다.
+    - **밀집도 시각화**: 각 패턴별 발생 빈도를 미니 액티비티 바(Bar)로 시각화하여 밀집도를 직관적으로 파악할 수 있습니다.
+
+---
+
+## 📌 주요 단축키 요약
+- `Ctrl + \``: 설정 패널 토글
+- `Ctrl + B`: 북마크 목록 보기
+- `Space`: 북마크 토글
+- `F3 / F4`: 이전/다음 북마크 이동
+- `Ctrl + Shift + X`: 로그 클리어
+- `Shift + Wheel / Arrow`: 스크롤 동기화 (듀얼 뷰 모드)
+- `Ctrl + Arrow Left/Right`: 왼쪽/오른쪽 패인 포커스 전환
+- `Ctrl + / -`: 화면 확대/축소 (UI 전역 줌)
+- `Ctrl + Wheel`: **Pane-aware Zoom**. 마우스가 올라가 있는 패널(로그 패널 또는 성능 대시보드)에 맞게 독립적인 줌이 트리거됩니다.
+- `Ctrl + [`, `Ctrl + ]` : font size 조절 (개별 패널)
+- `Ctrl + Shift [`, `Ctrl + Shift ]` : Configuration 영역 width 조절
+
+---
+
+**작성일**: 2026-03-02  
+**상태**: v1.1.2 Confluence Table 복사 기능 추가 및 성능 최적화
+# 📋 Log Extractor 성능 개선 할 일 (TODO) 🐧🚀
+
+형님! 오늘 고생 많으셨습니다. 대형 로그(1200만 라인)에서 발견된 "첫 끗발이 안 사는" 성능 이슈와 향후 개선 방향을 정리해 두었습니다. 푹 쉬시고 나중에 이어서 박살 내버리시죠! 🥊
+
+---
+
+## 🚨 최우선 해결 과제: Cold Start 지연 (5.5s vs 3s)
+
+### 1. 현상 요약
+- **증상**: 앱 실행 후 대형 파일(1.4GB, 1200만 라인)을 처음 열었을 때, 필터링(체크/언체크) 소요 시간이 **5.5초~6초**대 유지.
+- **특이점**: 동일 파일을 닫고 **다시 로드(Reload)**하면, 그때부터는 동일 작업이 **3.0초~3.2초**로 약 2배 빨라짐.
+- **가설**: 
+    - 첫 로딩 시 서브워커의 WASM 인스턴스가 OS 캐시나 JIT 최적화 혜택을 덜 받았을 가능성.
+    - 메인 워커와 서브워커 간의 초기 데이터 파이프라인(RPC) 예열 문제.
+
+### 2. 조사된 내용 (2026.03.04)
+- **WASM 예열**: 인덱싱 중 서브워커를 미리 스폰하도록 수정했으나 효과가 미비함.
+- **로그 확인**: 모든 서브워커(11개)가 `[WASM]` 모드로 동작 중임을 확인. 
+- **청크 소요 시간**: WASM 필터링 자체는 청크(25만 라인)당 약 0.8s ~ 1.2s 소요 중.
+- **병목 의심**: 
+    - `line.toLowerCase()` 및 `textEncoder.encodeInto`를 라인마다 1200만 번 호출하는 오버헤드.
+    - 메인 워커에서 `readFileSegment` RPC를 통해 데이터를 청크 단위로 가져오는 I/O 대기 시간.
+
+---
+
+## 🛠️ 향후 개선 아이디어 (Next Steps)
+
+### 1. WASM 벌크 필터링 (Bulk processing) ⚡
+- **방법**: 라인 단위로 WASM을 호출하지 않고, **UTF-8 버퍼 전체**를 WASM에 넘겨서 WASM 내부에서 뉴라인(`\n`)을 찾으며 한 번에 필터링.
+- **기대 효과**: JS <-> WASM 브릿지 호출 횟수를 1200만 번에서 청크 수(약 48번)로 획기적으로 줄임. 
+
+### 2. 메인 워커 I/O 최적화
+- **방법**: `readFileSegment` 시 50MB씩 읽어오고 있는데, 이를 서브워커가 직접 읽거나 메인 워커가 Read-ahead(미리 읽기)를 통해 다음 청크를 대기 없이 서브워커에 던져주도록 개선.
+
+### 3. WASM 모듈 캐싱 강화
+- **방법**: `WebAssembly.compileStreaming` 결과나 인스턴스를 더 공격적으로 재사용하거나, 첫 로딩 시 Dummy 데이터를 한 번 돌려 엔진을 완벽히 "예열"하는 로직 검토.
+
+---
+
+**형님! 성능은 0.1초라도 아쉬운 법입니다. 다음에 다시 이 잡듯이 잡아보겠습니다! 🐧🏆**
+# LogViewerPane.tsx 리팩토링 및 플러그인 영향도 분석
+
+본 문서는 `REFACTORING_GUIDE.md`의 원칙에 따라 현재 약 970줄에 달하는 `LogViewerPane.tsx`를 어떻게 안전하고 효율적으로 리팩토링할 것인지에 대한 구체적인 계획과, 이 작업이 **플러그인 시스템에 미치는 영향**을 정리한 문서입니다.
+
+---
+
+## 🛠️ 1. LogViewerPane 리팩토링 계획 (TDD & SRP 기반)
+
+### 목표: UI와 순수 비즈니스 로직(스크롤, 키보드 제어, 데이터 패칭)의 완벽한 분리
+
+**단계 1: 타입 및 인터페이스 외곽 분리 (`types/LogViewer.ts`)**
+- `LogViewerPaneProps` 및 `LogViewerHandle`을 별도 파일로 추출하여 상단 공간을 확보하고 재사용성을 높입니다.
+
+**단계 2: 비즈니스 로직을 다수의 Custom Hooks로 분할**
+거대한 하나의 파일에 묶여있던 로직들을 목적에 맞게 스마트하게 나눕니다.
+- `useLogViewerScroll`: 자동 스크롤(Smart Auto-Scroll), 페이징, `atBottom` 상태, 휠 동기화(`onSyncScroll`) 등 스크롤 관련 로직 전담.
+- `useLogViewerDataSync`: `loadMoreItems`, `cachedLines`, Virtuoso의 `onScrollRequest` 연동 등 데이터 로딩/캐싱 로직 전담.
+- `useLogViewerKeyboard`: 단축키(Ctrl+C, Ctrl+B, Home/End, 화살표 등) 제어 로직 방어.
+- `useLogViewerSelection`: Shift/Ctrl 클릭을 통한 라인 다중 선택, Drag, 마우스 이벤트 전담.
+
+**단계 3: 서브 UI 컴포넌트 추출 (Sub-components)**
+- `TopBar` (Toolbar): 파일 드랍, 복사, 저장, 북마크, 분석 버튼 모음을 `LogViewerToolbar.tsx`로 분리.
+- `EmptyState`: 파일이 로드되지 않았을 때의 Drop Zone UI를 별도 컴포넌트로 분리.
+- `PerfDashboardContainer`: 성능 분석(`BarChart3`) 활성화 시 나타나는 대시보드 마운트 로직 분리.
+
+**단계 4: TDD 기반 검증**
+- `useLogViewerScroll`의 바닥 감지 로직이나, `useLogViewerDataSync`의 데이터 캐싱 로직에 대해 unit test를 선행 작성하여 분리 시 side-effect가 발생하지 않음을 증명합니다.
+
+---
+
+## 🧩 2. 플러그인(Plugins)에 미치는 영향 분석
+
+`LogViewerPane`은 앱의 메인 뷰어이자 텍스트가 렌더링되는 코어 컴포넌트입니다. 따라서 이곳을 리팩토링할 때, 컴포넌트와 직간접적으로 엮여있는 플러그인들이 영향을 받을 수 있습니다.
+
+### 1) 영향을 받는 플러그인 및 도구들
+
+*   **Transaction Analyzer (TransactionDrawer)**
+*   **Log Archive (Save Selection)**
+*   **Bookmarks Modal & GoToLine Modal**
+*   **PerfTool (Raw Context Viewer)**
+
+### 2) 플러그인 내 어떤 부분이 영향을 받는가? (Impact Points)
+
+#### 🅰️ 텍스트 다중 선택 및 네이티브 드래그 (DOM & Window Selection)
+- **영향받는 기능**: Log Archive의 `Save Selection` (드래그한 부분 로그 저장) 기능 및 `ContextMenu` 우클릭 저장 로직.
+- **원인**: `LogViewerPane`의 `handleLineMouseDown` 및 `handleLineMouseEnter` 로직(Alt키 조합 등)이 `useLogViewerSelection` 훅으로 분리되면서, 리액트 이벤트의 브라우저 기본 동작(`e.preventDefault()`) 방어 로직의 타이밍이 달라질 경우 텍스트 선택이 풀리거나 드래그가 끊길 위협이 있습니다.
+- **안전 대책**: 텍스트 네이티브 선택 영역(`window.getSelection()`)과 커스텀 라인 선택(`selectedIndices`)을 구분하는 기존의 엄격한 Alt/Ctrl 마우스 이벤트를 완벽히 그대로 Hook으로 이관하고 검증해야 합니다.
+
+#### 🅱️ Active Line Index 및 Offset 동기화
+- **영향받는 기능**: Transaction Analyzer에서 특정 로그 라인의 ID를 추출할 때, 또는 Bookmark 플러그인에서 라인 위치를 점프할 때.
+- **원인**: `absoluteOffset`(청크/세그먼트 단위 가상화)과 `activeLineIndex` 간의 맵핑을 통해 현재 화면에 로드된 로그 데이터를 외부(LogContext)에 알립니다. 스크롤 훅 분리 시 ഈ `scrollToIndex`나 `scrollBy`의 타이밍이 미세하게 어긋나면 플러그인들이 엉뚱한 로그 데이터를 가리킬 위험이 생깁니다.
+- **안전 대책**: `LogViewerHandle` 인터페이스의 `scrollToIndex` 및 `getScrollTop` 동작을 분해 후에도 `forwardRef`를 통해 100% 동일하게 노출함으로써 플러그인단의 의존성을 완벽히 보호해야 합니다.
+
+#### 🅲️ 마우스 우클릭 (ContextMenu) 브릿지
+- **영향받는 기능**: 플러그인들이 등록한 외부 액션 (예: '트랜잭션 분석하기') 메뉴 표출.
+- **원인**: `onContextMenu` 이벤트 버블링 처리. 리팩토링 중에 컨테이너 레이어가 추가되거나 분리되면서 브라우저 네이티브 이벤트 캡처링 단계가 어긋날 수 있습니다. 
+- **안전 대책**: 최상위 래퍼 컴포넌트에서만 `onContextMenu`를 위임받아 처리하도록 투명하게 통과시키는 구조를 유지해야 합니다. 
+# Perf Tool 상세 명세 (Antigravity 용)
+
+이 문서는 HappyTool의 성능 분석 핵심 도구인 **Perf Tool**과 **Log Extractor의 성능 분석 기능**에 대한 기술적 로직, 명세 및 주의사항을 담고 있습니다.
+
+---
+
+## 🚀 1. Overview
+
+HappyTool은 로그 데이터를 기반으로 시스템의 동작 시간과 병목 구간을 시각화하기 위해 두 가지 형태의 성능 분석 도구를 제공합니다.
+
+1.  **Log Extractor - Analyze Performance**: 현재 열려있는 로그 뷰어의 필터링된 데이터를 실시간으로 차트화합니다.
+2.  **Perf Tool**: 별도의 독립된 파일이나 대용량 로그 전체를 대상으로 PIDDiscovery(자동 PID 찾기) 및 심층 성능 분석을 수행합니다.
+
+**v1.2.0 Refactor**: 거대했던 `PerfDashboard` 구조를 **컴포넌트 중심의 모듈형 아키텍처**로 완전히 재설계했습니다. 핵심 로직을 Hook으로 분리하고, 캔버스 렌더링과 레이아웃을 독립된 컴포넌트로 격리하여 유지보수성과 성능을 극대화했습니다.
+
+---
+
+## 🛠️ 2. 아키텍처 및 로직
+
+v1.2.0부터는 관심사 분리(Separation of Concerns)를 위해 다음과 같은 구조를 따릅니다.
+
+### 2.1 컴포넌트 구조
+*   **`PerfDashboard`**: 대시보드의 전체 오케스트레이션을 담당하는 메인 컨테이너. (500라인 이하 최적화)
+*   **`PerfChartLayout`**: TID 사이드바, 타임 축, 플레임 차트 캔버스 영역의 레이아웃을 구성. (`flex-row` 기반 중첩 방지)
+*   **`PerfFlameGraph`**: Canvas API를 사용한 고속 플레임 차트 렌더링. 픽셀 그리드 최적화 및 세그먼트 텍스트 드로잉 담당.
+*   **`PerfTopBar` / `PerfDashboardHeaderBar`**: 스코어카드, 검색, 필터, 뷰 모드 전환 등 제어부 담당.
+*   **`PerfSegmentDetail`**: 선택된 세그먼트의 상세 소스 정보 및 실행 컨텍스트 시각화.
+*   **`PerfMinimap`**: 전체 범위를 한눈에 보고 빠르게 탐색할 수 있는 미니맵 UI.
+
+### 2.2 핵심 Hook
+*   **`usePerfDashboardState`**: 검색, 필터링, 선택 상태, 줌 데이터 등 대시보드의 비즈니스 로직 중앙 집중화.
+*   **`usePerfFlameData`**: 캔버스에 그릴 세그먼트의 데이터 가공, 정렬, 레인(Lane) 배정 로직 수행.
+*   **`usePerfZoomLogic`**: 휠/드래그를 통한 정밀 줌 및 팬(Pan) 애니메이션 제어.
+
+### 2.3 시각화 명세
+*   **Segment Naming Algorithm**: 세그먼트 내부에 `FileName: FunctionName(Line)` 형식을 최우선으로 표시하여 소스코드 연동성을 강화했습니다.
+*   **Premium Visuals**: 현대적인 둥근 모서리(`roundRect`) 디자인과 가독성을 고려한 배경색(`bg-slate-900/95`) 및 백드롭 블러 처리를 적용했습니다.
+*   **Safety Highlight**: 검색어 매칭 시 또는 선택 시 흰색 보더 및 선명도 조절로 명확한 시각적 피드백을 제공합니다.
+
+---
+
+## 🎯 3. 데이터 추출 및 분석 기술
+
+*   **PID/TID 추출**: `extractLogIds` 유틸리티를 사용하여 로그 본문의 숫자가 오탐되는 것을 방지하기 위해 **소스 파일명 좌측 영역**에서만 식별자를 추출하는 엄격한 로직을 적용합니다.
+*   **Source Metadata**: `extractSourceMetadata`를 통해 로그에서 파일명과 함수명을 분리하여 세그먼트의 `fileName`, `functionName` 필드에 저장합니다.
+*   **Web Worker 기반 분석**: 모든 분석 연산은 `PerfTool.worker.ts`에서 수행되어 메인 스레드의 프리징을 방지합니다.
+
+---
+
+## 📝 4. 유지보수 주의사항 (Antigravity AI 필독)
+
+### 4.1 레이아웃 일관성
+*   TID 사이드바는 `sticky`와 배경색을 활용하여 차트 내용과 겹쳐도 글자가 식별 가능해야 합니다.
+*   시간 눈금은 상단에 고정되어야 하며, `overflow-visible`을 통해 레이블이 잘리지 않도록 유지해야 합니다.
+
+### 4.2 성능 및 가독성
+*   **Canvas Culling**: 화면 밖 데이터는 렌더링에서 제외합니다.
+*   **Inactive Control**: `isActive` Prop을 통해 컴포넌트가 가려진 경우 렌더링 루프를 완전히 중단하여 자원을 절약해야 합니다.
+*   **Text Clipping**: 세그먼트 폭이 좁은 경우 텍스트를 생략하거나 생략 기호(...)를 사용하여 UI가 깨지지 않게 관리합니다.
+
+---
+
+**업데이트 일자**: 2026-02-27  
+**상태**: v1.2.0 컴포넌트 모듈화 및 UI 정밀화 완수  
+# HappyTool 성능 최적화 연대기 (Performance History) 🚀🐧💎
+
+형님! 우리 HappyTool이 어떻게 "쫀득한 성능"을 갖추게 되었는지, 그 치열했던 최적화의 기록입니다. 이 문서는 중요 폴더(`important/`)에 보관되어 미래의 성능 개선을 위한 나침반 역할을 할 것입니다.
+
+---
+
+## 📅 [2026.01.30] 성능 전체 감사 (Performance Audit) 🔍
+앱 초기 버전의 병목 지점을 최초로 진단하고 개선 방향을 수립한 시점입니다.
+- **주요 진단**:
+    - 실시간 스트리밍 시 메모리 누수 및 초당 수십 번의 과도한 리렌더링 감지.
+    - Worker-Main 스레드 간 문자열 기반의 무거운 통신 오버헤드 확인.
+    - `localStorage` 동기 쓰기로 인한 UI 미세 프리징 발견.
+- **성과**: 모든 최적화 작업의 로드맵이 된 [PERFORMANCE_AUDIT_2026.md](../PERFORMANCE_AUDIT_2026.md) 작성.
+
+## 📅 [2026.02.10] WASM & 병렬 엔진 도입 (Multi-Core Filtering) 🦀
+JS의 한계를 넘어서기 위해 Rust 기반의 WASM 엔진과 멀티 워커 시스템을 구축했습니다.
+- **기술 스택**: Rust + WASM (`happy_filter.wasm`), Worker Pool (4~8개Sub-workers).
+- **최적화 내용**:
+    - **100만 행 필터링 0.5초 이내** 달성 (WASM 모드).
+    - 멀티코어를 활용한 청크 단위 분할 필터링으로 CPU 자원 극대화.
+- **효과**: 대규모 로그 검색 시 UI 멈춤 현상(Jank) 완전히 제거.
+
+## 📅 [2026.02.16] 하이퍼 캔버스 렌더링 (Hyper-Canvas) 🎨
+수백만 줄의 로그를 60fps로 부드럽게 보여주기 위한 렌더링 혁신을 단행했습니다.
+- **주요 기법**:
+    - **Dual-Layer Canvas**: 배경(정적)과 텍스트(동적) 레이어를 분리하여 드로우 콜 최적화.
+    - **Monospaced Cache**: 폰트 너비 계산 비용을 0으로 만듦.
+    - **Virtual Scrolling (Virtuoso)**: 화면에 보이는 영역만 캔버스에 즉시 드로잉.
+- **효과**: "쫀득한 스크롤(Chewy-Scrolling)" 지수 Max 도달.
+
+## 📅 [2026.02.25] 바이너리 인덱싱 & 일괄 I/O (I/O Optimization) 📂
+1GB가 넘는 대용량 파일도 1초 만에 열 수 있도록 입출력 구조를 개편했습니다.
+- **최적화 내용**:
+    - **Binary Indexing**: `Uint8Array` 상태에서 네이티브 `indexOf`로 뉴라인 파싱 (JS 대비 10배 빠름).
+    - **Batch Read Strategy**: 한 줄씩 읽던 방식을 거대 Blob 일괄 읽기 후 `TextDecoder`로 변환하는 방식으로 변경 (I/O 오버헤드 99% 제거).
+    - **BigInt64Array**: 4GB 이상 파일도 안전하게 주소 지정 가능.
+
+## 📅 [2026.03.02] 메모리 다이어트 1단계: 바이너리 저장소 (Binary-First) 💎
+로그 데이터를 메모리에서 가장 효율적으로 다루기 위한 "바이너리 저장소" 체제로 전환했습니다.
+- **최적화 내용**:
+    - **바이너리 저장소 이식**: 로그 원문을 `string[]` 대신 단일 대형 `Uint8Array`에 보관하여 문자열 객체 오버헤드 제거.
+    - **SharedArrayBuffer 활용**: 메인과 워커가 데이터를 복사 없이 즉시 공유(Zero-copy)하는 기반 마련.
+    - **GC 부하 소탕**: 수십만 개의 문자열 객체 생성을 막아 가비지 컬렉터의 간섭 최소화.
+- **효과**: **RAM 사용량 최대 50% 절감** 및 대용량 데이터 처리 기초 체력 확보.
+
+## 📅 [2026.03.02] 메모리 다이어트 2단계: WASM 스트리밍 필터 (WASM Streaming Filter) ⚡
+스트리밍 환경에서도 최고 속도의 필터링을 유지하기 위해 WASM 엔진을 스트리밍 데이터에 직접 연결했습니다.
+- **최적화 내용**:
+    - **바이너리 직접 필터링**: `Blob` 생성 없이 `SharedArrayBuffer`의 바이너리 데이터를 WASM 엔진이 직접 스캔.
+    - **Zero-copy 스트리밍**: 네트워크나 파일에서 들어오는 청크를 메모리 복사 없이 즉시 인덱싱 및 필터링.
+    - **워커 렌더링 최적화**: 필터링 결과를 SharedArrayBuffer로 공유하여 메인 스레드 부하를 최소화.
+- **효과**: 10MB 이상의 로그 스트리밍 시에도 **UI 응답성 0.1s 이하 유지** 및 필터 변경 시 즉각 반응 달성.
+
+---
+
+## 🔮 향후 과제 (Next Mission)
+1. **메모리 다이어트 3단계 (RAM Capping & IndexedDB)**: 2GB 이상의 초거대 로그 대응을 위한 RAM 점유율 상한제 도입 (보류 중).
+2. **OffscreenCanvas 도입**: 렌더링 자체를 워커로 넘겨 메인 UI 스레드 점유율 0% 도전.
+3. **Pure-WASM 영역 확대**: 모든 복잡한 데이터 파싱 로직을 WASM 내부에서 완결.
+
+---
+**형님! 성능은 양보할 수 없는 우리의 자존심입니다! 🐧🚀🥊**
+# Happy Tool 성능 평가 기준 (Performance Standards) 🐧🚀🎯
+
+형님! 우리 앱의 생명인 '타이트한 성능'을 유지하기 위한 절대 기준입니다. 모든 기능 개발 및 리팩토링 시 아래 수치를 반드시 만족해야 합니다.
+
+## 1. 로그 필터링 엔진 (Log Filtering)
+| 항목 | 기준 (Threshold) | 비고 |
+| :--- | :--- | :--- |
+| **JS Fallback** | 100만 행 / 1.0초 이내 | 복합 규칙 기준 |
+| **WASM Engine** | 100만 행 / 0.5초 이내 | 하이퍼 성능 모드 |
+| **Case-Insensitive** | CS 대비 2.5배 이내 지연 | 캐싱 레이어 동작 필수 |
+
+## 2. 스팸 분석기 (Spam Analyzer)
+| 항목 | 기준 (Threshold) | 비고 |
+| :--- | :--- | :--- |
+| **데이터 추출** | 10만 행 / 50ms 이내 | 소스 메타데이터 고속 파싱 (Regex-free) |
+| **그룹화 분석** | 100만 행 / 1.0초 이내 | Map 기반 최적화 및 문자열 연산 최소화 |
+| **UI 점프 반응** | 클릭 후 100ms 이내 | 렌더링 최적화(CSS Animation 적용) |
+
+## 3. 워커 I/O 및 메모리 (Worker & I/O)
+| 항목 | 기준 (Threshold) | 비고 |
+| :--- | :--- | :--- |
+| **Smart Batching** | 100MB 갭 점프 / 500ms 이내 | 분할 읽기 오버헤드 포함 |
+| **Zero-copy** | `subarray` 방식 유지 | `Buffer.slice` 및 복사 지양 |
+| **Memory Peak** | 1GB 로그 처리 중 500MB 미만 유지 | 워커 메모리 누수 방지 |
+
+## 4. UI 및 렌더링 (UX & Rendering)
+| 항목 | 기준 (Threshold) | 비고 |
+| :--- | :--- | :--- |
+| **Canvas 리사이즈** | 16ms (1 Frame) 이내 반응 | `HyperLogRenderer` 최적화 |
+| **Gutter/Divider Draw** | 1ms 미체감 오버헤드 | 레이어 분리 및 오프스크린 캔버스 대응 |
+| **Hover Interaction** | 60fps (16ms) 유지 | `requestAnimationFrame` 및 인덱스 기반 즉시 매칭 |
+| **Initial Draw** | 데이터 수신 후 100ms 이내 | 캔버스 첫 렌더링 완료 |
+
+## 🚨 성능 품질 준수 수칙
+1. **복사 금지 (No Copy)**: 대용량 데이터 전달 시 반드시 `Transferable Objects`나 `subarray`를 사용한다.
+2. **비동기 격리 (Async Isolation)**: 연산량이 많은 작업은 무조건 `Worker`로 위임하여 메인 스레드 점유를 차단한다.
+3. **메모이제이션 (Memoization)**: 동일한 로그 패턴이나 필터 결과는 반드시 캐싱하여 불필요한 재연산을 막는다.
+4. **레이어 분리 (Multi-Layer Canvas)**: 가터(Gutter), 구분선 등 고정 요소와 로그 텍스트 등 가변 요소를 분리 렌더링하여 드로우 콜(Draw Call)을 최적화한다.
+5. **이벤트 디바운싱 (Event Debouncing)**: 무거운 연산이 동반되는 UI 업데이트는 `rAF`나 `setTimeout`을 통해 적절히 지연시켜 메인 스레드 부하를 관리한다.
+
+---
+**형님! 이 기준을 통과하지 못하는 코드는 Happy Tool에 발을 들일 수 없습니다! 🐧💪🥊**
+# Plugin Development Guide
+
+This guide is designed for developers (and their AI Agents) to create new plugins for HappyTool.
+
+## Architecture Overview
+
+HappyTool uses a dynamic plugin system. Plugins are React components that are:
+1.  **Registered** in `plugins/registry.ts`.
+2.  **Wrapped** by `PluginContainer` for standardized rendering.
+3.  **Encapsulated** to avoid hard dependencies on `App.tsx`.
+4.  **Context-Aware** using `useHappyTool()` to access global state (Log Rules, Saved Requests, etc.).
+
+> [!NOTE]
+> All paths in this guide are relative to the **project root**. There is no `src` directory.
+
+
+## Step-by-Step Plugin Creation
+
+### 1. Create Plugin Component
+Create a new directory in `components/[PluginName]`.
+Create your main component file `components/[PluginName]/index.tsx`.
+
+> [!IMPORTANT]
+> Do NOT accept props for global state. Use the `useHappyTool` hook.
+
+**Template:**
+```tsx
+import React from 'react';
+import { useHappyTool } from '@/contexts/HappyToolContext';
+
+const MyPlugin: React.FC = () => {
+    // Access global state if needed
+    const { logRules, setLogRules } = useHappyTool();
+
+    return (
+        <div className="flex flex-col h-full p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200">
+            <h1 className="text-xl font-bold mb-4">My New Plugin</h1>
+            {/* Your Content Here */}
+        </div>
+    );
+};
+
+export default MyPlugin;
+```
+
+### 2. Define Plugin Wrapper
+Edit `plugins/core/wrappers.ts` to define your plugin metadata.
+
+**Template:**
+```typescript
+import MyPluginComponent from '@/components/MyPlugin';
+import * as Lucide from 'lucide-react';
+import { ToolId } from '@/types'; // Add your ID to types.ts first!
+
+export const MyPluginWrapper: HappyPlugin = {
+    id: 'my-plugin-id', // Unique string ID
+    name: 'My Plugin',
+    icon: Lucide.Box, // Choose a Lucide icon
+    component: MyPluginComponent,
+    order: 10, // Position in sidebar
+};
+```
+
+### 3. Register Plugin
+Edit `plugins/registry.ts` to add your wrapper to `ALL_PLUGINS`.
+
+```typescript
+import { MyPluginWrapper } from './core/wrappers';
+
+export const ALL_PLUGINS: HappyPlugin[] = [
+    // ... existing plugins
+    MyPluginWrapper
+];
+```
+
+### 4. Add Types (Optional but Recommended)
+If your plugin needs a new ID, update `ToolId` enum in `types.ts`.
+
+## Global State Access
+The `HappyToolContext` provides:
+- **`logRules`**: Array of analysis rules.
+- **`savedRequests`**: Saved API requests (PostTool).
+- **`postGlobalVariables`**: Environment variables.
+
+**Usage:**
+```typescript
+const { savedRequests } = useHappyTool();
+```
+
+## Toast Notifications
+Use the `useToast` hook to show notifications.
+
+```typescript
+import { useToast } from '../../contexts/ToastContext';
+
+const MyComponent = () => {
+    const { addToast } = useToast();
+
+    const handleSave = () => {
+        // ... save logic
+        addToast("Saved successfully!", "success");
+    };
+};
+```
+
+## Styling Guidelines
+- Use **Tailwind CSS** for all styling.
+- Support **Dark Mode** (`dark:` modifiers).
+- Use `slate-50`/`slate-950` for backgrounds and `slate-900`/`slate-200` for text.
+- Use `indigo-500` for primary actions/accents.
+# 🛠️ 거대 파일 리팩토링 가이드 (AI Agent용)
+
+이 문서는 AI Agent가 이 프로젝트에서 대규모 파일 리팩토링을 진행할 때 반드시 지켜야 할 보수적이고 단계적인 방법론을 정의합니다.
+
+---
+
+## 🔴 절대 원칙 3가지
+
+1. **Zero Regression** — 리팩토링 전/후의 동작은 100% 동일해야 합니다. 기능 추가나 수정은 별도 PR로.
+2. **One at a Time** — 한 번에 하나의 논리적 단위만 분리합니다. TSC 검증 통과 후 다음 단계로.
+3. **Stop When Uncertain** — 코드 의존성이 복잡하거나 side effect가 예상되면 그냥 두는 것이 최선입니다.
+
+---
+
+## 📋 리팩토링 순서 (검증된 절차)
+
+### Step 1: 대상 파악
+- 1000줄 이상의 파일 목록 확인:
+  ```powershell
+  Get-ChildItem -Recurse -Include "*.tsx","*.ts" | Where-Object { $_.FullName -notlike "*node_modules*" } | Select-Object FullName, @{N='L';E={(Get-Content $_.FullName).Count}} | Sort-Object -Property L -Descending | Select-Object -First 10
+  ```
+- `REFACTORING_TREASURE_MAP.md` 참조하여 이미 계획된 항목 확인
+
+### Step 2: 분리 가능 후보 선정 (보수적 기준)
+
+**✅ 안전하게 분리 가능한 것:**
+- 순수 계산 로직 (`useMemo`로 감쌀 수 있는 것)
+- 독립 비즈니스 훅 (외부 DOM 이벤트 없는 것)
+- 인라인 컴포넌트 (`interface`와 `return <JSX>` 한 묶음)
+- 유틸리티 함수 (`stringToColor`, `formatDuration` 등)
+- 이미 외부 모듈에 이전된 함수의 잔여 데드코드
+
+**❌ 손대지 말아야 할 것:**
+- `passive: false` 이벤트 리스너 (Ctrl+Wheel 같은 것은 DOM context 유지)
+- 복잡한 ref + async 조합 로직
+- 상태 공유 범위가 불명확한 것
+- 단순히 라인 수 줄이기 위한 무분별한 분리
+
+### Step 3: 분리 실행 패턴
+
+> **Custom Hook 추출 (React 컴포넌트 비즈니스 로직)**
+```typescript
+// hooks/useXxxYyy.ts 생성
+export function useXxxYyy({ param1, param2 }: UseXxxYyyParams) {
+    // 기존 코드 그대로 이식 (변형 금지)
+    return { result1, result2 };
+}
+
+// 컴포넌트에서:
+import { useXxxYyy } from '../hooks/useXxxYyy';
+const { result1, result2 } = useXxxYyy({ param1, param2 });
+```
+
+> **Worker 모듈 추출 (Web Worker 내부 함수)**
+```typescript
+// workers/workerXxx.ts 생성
+export interface XxxContext { filteredIndices: ...; ... }
+export const handleXxx = async (ctx: XxxContext, ...) => { ... };
+
+// LogProcessor.worker.ts에서:
+import * as XxxHandlers from './workerXxx';
+case 'XXX': XxxHandlers.handleXxx(getContext(), ...); break;
+```
+
+> **유틸리티 함수 추출**
+```typescript
+// utils/xxxUtils.ts 생성
+export function someUtil(...) { ... }
+
+// 원본 파일에서:
+import { someUtil } from '../utils/xxxUtils';
+```
+
+### Step 4: 검증 (필수)
+
+```powershell
+# 1. TypeScript 타입 오류 확인
+npx tsc --noEmit
+
+# 2. 줄 수 감소 확인
+(Get-Content 'components/LogSession.tsx').Count
+
+# 3. npm run electron:dev로 앱 기동 확인
+```
+
+### Step 5: 커밋
+- 각 논리적 단위 분리 완료마다 `git a && git c 'refactor: ...' && git p`
+
+---
+
+## 🧰 실전에서 배운 세부 규칙
+
+### Import는 반드시 파일 최상단에
+- ES Module 규격상 `import` 구문은 **파일 최상단에만** 위치해야 합니다.
+- 코드 중간에 import가 있으면 Vite(번들러)가 오류를 냅니다.
+- 스크립트로 코드 이동 시 줄바꿈(`\r\n`)과 import 위치를 반드시 확인하세요.
+
+### Worker 분리 시 postMessage 타입 주의
+- `respond` 함수는 `LogWorkerResponse` 타입 인자를 받습니다.
+- 신규 모듈로 이전 시 `(response: any) => void` 형태의 콜백으로 주입하여 의존성을 느슨하게 유지하세요.
+
+### 북마크 캐시는 한 곳에서만 관리
+- `filteredIndices`가 바뀌면 반드시 `invalidateCache()`를 호출해야 합니다.
+- 분리 후에는 `BookmarkManager.invalidateCache()` 호출 누락 여부를 꼭 확인하세요.
+
+### 훅의 useCallback 의존성 배열 유지
+- 기존 인라인 `useCallback`을 훅으로 옮길 때 의존성 배열을 그대로 이식합니다.
+- 의존성 배열을 비우거나 `[]`로 만들면 stale closure 버그가 생깁니다.
+
+### `useRef`가 JSX에서 사용 중이면 본체에 유지
+- `containerRef` 처럼 JSX의 `ref={xxx}`에 쓰이는 ref는 훅 내부로 이전 불가.
+- 이벤트 바인딩만 훅으로 이전하고, ref 선언 자체는 컴포넌트 본체에 남깁니다.
+
+---
+
+## 📊 이 프로젝트의 리팩토링 진행 이력
+
+| 원본 파일 | 원본 줄 수 | 현재 줄 수 | 추출된 모듈 |
+| :--- | :---: | :---: | :--- |
+| `LogSession.tsx` | ~1445 | ~684 | `useLogSessionShortcuts`, `RawContextViewer`, `colorUtils`, `useLogSessionHighlights`, `useLogSessionContextMenus`, `useLogSessionArchive`, `useLogSessionPaneCallbacks`, `useLogSessionEffects` |
+| `LogProcessor.worker.ts` | ~1466 | ~549 | `workerAnalysisHandlers`, `workerDataReader`, `workerBookmarkHandlers` |
+
+---
+
+## ✏️ AI Agent에게 보내는 당부
+
+- 형님은 보수적인 리팩토링을 매우 중요하게 생각합니다. 애매하면 하지 마세요.
+- 분리 후 반드시 `npx tsc --noEmit` 으로 타입 오류를 검증하세요.
+- 기능 테스트는 형님이 직접 확인합니다. Agent는 TSC 통과와 구조적 정확성에 집중하세요.
+- 분리할 때 로직을 변형하지 마세요. 완전히 동일한 코드를 옮기는 것입니다.
+- 한 번에 너무 많이 하지 마세요. 작은 단위로 끊고, 각 단위마다 TSC 검증 후 다음으로 넘어가세요.
+# 🗺️ 대규모 파일 리팩토링 지도 (Refactoring Treasure Map)
+
+본 문서는 1000라인 이상의 대규모 파일들을 식별하고, 시스템의 안정성(Zero Regression)을 유지하면서 이를 어떻게 점진적으로 쪼갤 것인지에 대한 로드맵을 제시합니다.
+
+---
+
+## 🔍 대상 파일 목록 및 분석
+
+### 1. `LogSession.tsx` (~1445 lines)
+- **역할**: 로그 세션의 메인 컨트롤러. 파일 로딩, 실시간 스트리밍, 각종 모달(북마크, Tizen, 성능 분석), 단축키 핸들러 등 모든 비즈니스 로직과 UI 조립 담당.
+- **주요 복잡성**: 
+  - 거대한 `useLogContext` 상태 소비 및 수많은 콜백 핸들러.
+  - 약 300라인에 달하는 전역 단축키(`keydown`) 핸들러 로직.
+  - 400라인 이상의 UI 렌더링 코드 (Split View, Loading Overlay, Spam Panel 등).
+- **리팩토링 전략**:
+  - **Phase 1 (Shortcut Extraction)**: `keydown` 핸들러 로직을 `useLogSessionShortcuts.ts` 커스텀 훅으로 분리.
+  - **Phase 2 (Sub-component Splitting)**: `LogSessionContainer`, `LogSessionHeader`, `LogPaneWrapper` 등으로 UI 컴포넌트 파편화.
+  - **Phase 3 (Logic Extraction)**: 상태 관리 및 보조 핸들러들을 `useLogSessionLogic.ts`로 이동.
+
+### 2. `LogProcessor.worker.ts` (~1466 lines)
+- **역할**: 백그라운드에서 로그 필터링, 인덱싱, 검색, 성능 분석, 스팸 분석을 수행하는 핵심 엔진.
+- **주요 복잡성**:
+  - 모든 핸들러(`applyFilter`, `getLines`, `analyzePerformance`, `analyzeSpamLogs` 등)가 하나의 파일에 평면적으로 나열됨.
+  - 메시지 리스너(`onmessage`)의 거대한 `switch` 문.
+- **리팩토링 전략**:
+  - **Phase 1 (Handler Module Extraction)**: 분석 로직(`analyzePerformance`, `analyzeSpamLogs`, `analyzeTransaction`)을 별도 모듈 파일로 추출.
+  - **Phase 2 (Core Logic Splitting)**: 필터링 엔진(`applyFilter`, `processChunk`)과 데이터 로딩(`getLines`, `getRawLines`) 로직 분리.
+  - **Phase 3 (Message Router)**: 메인 워커 파일은 메시지 라우팅만 담당하도록 경량화.
+
+---
+
+## 🛡️ 보수적 실행 원칙 (Conservative Principles)
+
+형님의 소중한 코드가 망가지지 않도록 **'돌다리도 두드려보고 건너는'** 방식으로 진행합니다.
+
+1. **관심사 분리 우선**: UI는 건드리지 않고, 내부 로직(핸들러, 훅)만 먼저 분리합니다.
+2. **이름/인터페이스 유지**: 함수 이름과 Props 인터페이스를 그대로 유지하여 연결부의 수정을 최소화합니다.
+3. **단계적 검증**: 한 번에 한 가지 기능만 떼어내고, 즉시 `npm run dev`로 동작을 확인합니다.
+4. **회귀 테스트(Regression Test)**: 리팩토링 직후 기존에 잘 되던 기능(검색, 필터링, 스크롤)을 전수 체크합니다.
+
+---
+
+## 📅 예상 일정 (Draft)
+
+1.  **Stage 1**: `LogProcessor.worker.ts`의 독립 분석 핸들러 추출 (가장 안전함)
+2.  **Stage 2**: `LogSession.tsx`의 단축키 로직 추출 (코드 순수도 향상)
+3.  **Stage 3**: UI 컴포넌트 분리 (가장 눈에 띄는 변화)
+
+---
+
+*형님, 이 지도를 바탕으로 하나씩 천천히, 하지만 확실하게 코드를 명품으로 다듬어 가겠습니다! 🐧💎*
+# HappyTool Supported Log Formats
+
+이 문서는 HappyTool이 인식하고 파싱할 수 있는 로그 형식의 예시를 정의합니다.
+새로운 로그 형식이 추가되거나 수정될 때 이 문서를 참조하여 AI 에이전트가 로직을 일관되게 유지할 수 있도록 합니다.
+
+---
+
+## 📅 타임스탬프 (Timestamp)
+
+로그의 발생 시간을 추출하기 위해 사용되는 패턴입니다. (`utils/logTime.ts` 참조)
+
+### 1. 표준 날짜/시간 (Standard Date/Time)
+주로 Android, Tizen 로그에서 사용됩니다.
+- **포맷**: `[YYYY-][MM-DD ]HH:mm:ss.mss`
+- **예시**:
+    - `02-21 11:14:11.123`
+    - `2026-02-21 11:14:11.123`
+    - `11:14:11.123` (시간만 있는 경우)
+
+### 2. 커널/단조 시간 (Monotonic Time)
+부팅 이후 경과 시간을 초 단위로 나타냅니다. 라인 시작 부분에서 인식됩니다.
+- **포맷**: `[  Seconds.Microseconds]` (마침표(`.`) 또는 콜론(`:`) 모두 허용)
+- **예시**:
+    - `[  123.456789]`
+    - `[1234:567]` (콜론 구분자)
+    - `03.500`, `03:500` (대괄호 없는 경우 포함)
+
+### 3. 특수 포맷 (Special Formats)
+- **접두어 기반**: `Service: 123.456`
+- **콜론 구분**: `task-123 [001] 100.123: func`
+- **고정밀도 추출**: 라인 중간에 소수점 6자리 이상의 숫자가 있는 경우 (예: `Time: 123.456789`)
+
+---
+
+## 🆔 프로세스 및 스레드 식별자 (PID/TID)
+
+성능 분석(Multi-lane) 및 트랜잭션 추적을 위해 사용됩니다. (`components/PerfTool/index.tsx` 및 `utils/transactionAnalysis.ts` 참조)
+
+### 1. 쌍으로 구성된 포맷 (Paired Formats)
+- **괄호 쌍**: `(P PID, T TID)` 또는 `(T TID, P PID)` 또는 `(PID, TID)`
+    - 구분자 허용: 쉼표(`,`), 콜론(`:`), 공백(` `), 하이픈(`-`) 모두 지원합니다.
+    - 예: `(P 9999, T 9995)`, `(9999 9995)`, `(P 9999: T 9995)`
+- **대괄호 쌍**: `[PID:TID]` 또는 `[PID TID]` 또는 `[PID-TID]`
+    - 예: `[1234:5678]`, `[1234 5678]`, `[1234-5678]`
+- **Android 표준**: `Date Time PID TID Level Tag: Message`
+    - 예: `02-21 11:14:11.123  1234  5678 I Tag: Message`
+
+### 2. 개별 라벨 (Individual Labels)
+다른 패턴이 없을 때 라인 전체에서 검색합니다. (대소문자 무시)
+- **PID 라벨**: `P 1234`, `P  333`, `PID: 1234`, `PID 1234`, `ProcessId: 1234`
+- **TID 라벨**: `T 5678`, `T  678`,`TID: 5678`, `TID 5678`, `ThreadId: 5678`
+- **복합 포맷**: `T1234 P5678`
+- **결합 라벨**: `T/P 1234` (TID와 PID가 동일한 경우)
+
+---
+
+## 📂 소스 메타데이터 (Source Metadata)
+
+상세 분석을 위해 로그 본문에서 파일명과 함수명을 추출합니다.
+
+### 1. 표준 소스 위치 포맷
+주로 개발용 로그에서 소스 코드의 위치를 명시할 때 사용됩니다.
+- **포맷**: `FileName.ext: FunctionName(Line)> Message` 또는 `FileName.ext: FunctionName: Message`
+- **예시**:
+    - `SmartThingsApp.cs: OnCreate(123)> start`
+    - `hwservice.cpp: hwfunc(123)> Initialize`
+    - `AppUtil.cs: bind:125> event done`
+
+### 2. 추출 규칙
+- **FileName**: 확장자(`.cs`, `.cpp`, `.java` 등)를 포함한 파일 이름.
+- **FunctionName**: 파일명 뒤의 콜론(`:`) 이후부터 메시지 시작 구분자(`>` 또는 마지막 `:`) 전까지의 영역. (괄호 안의 라인 번호 포함 가능)
+
+---
+
+## 📑 분석 및 필터링 규칙
+
+### 1. Happy Combo (OR of ANDs)
+- 한 줄에 설정된 모든 키워드(AND)가 포함되었는지 확인하며, 그룹 간에는 하나라도 만족(OR)하면 됩니다.
+
+### 2. Family Combo (Hierarchical)
+- `[START]`, `[END]`, `[BRANCH]` 등의 키워드를 통해 트랜잭션의 시작과 끝을 연결하여 시각화합니다.
+
+---
+
+## 🤖 AI 코딩 에이전트 개발 가이드 (Development Guide)
+
+이 섹션은 HappyTool의 로그 파싱 기능을 확장하거나 수정할 때 AI 에이전트가 지켜야 할 가이드를 제공합니다.
+
+### 1. 로직 공통화 및 일관성 (Centralization)
+- **공통 유틸리티 우선**: 새로운 파싱 로직을 만들기 전에 `utils/logTime.ts` (시간), `utils/transactionAnalysis.ts` (트랜잭션), `components/PerfTool/index.tsx` (PID/TID)의 기존 로직을 최대한 재사용하십시오. 
+- **파동 효과(Side Effects)**: 특정 플랫폼의 로그 포맷을 지원하기 위해 정규표현식을 수정할 때, 기존에 잘 작동하던 다른 플랫폼 로그(Android, Tizen 등)가 깨지지 않는지 항상 역행 테스트(Regression Test) 아이디어를 제시하십시오.
+
+### 2. 정규표현식 작성 원칙 (Regex Best Practices)
+- **비캡처 그룹 사용**: 성능과 가독성을 위해 불필요한 캡처는 `(?:...)`를 사용하십시오.
+- **대소문자 무시 (`i` flag)**: `PID`, `TID`, `ProcessId`, `ThreadId` 등을 찾을 때는 대소문자 구분이 없는 검색을 기본으로 하십시오.
+- **유연한 공백 처리**: 로그 생성기에 따라 공백의 개수가 다를 수 있으므로 `\s+` 또는 `\s*`를 적극적으로 활용하십시오.
+- **최소 일치 (Lazy mismatching)**: 라인 중간의 데이터를 추출할 때는 다른 데이터와 섞이지 않도록 범위를 좁게 설정하십시오.
+
+### 3. 우선순위 기반 파싱 (Priority-based Parsing)
+- 항상 **가장 명시적이고 정보량이 많은 패턴**을 1순위로 두십시오.
+  - 예: `(P 123, T 456)` 처럼 쌍으로 된 정보를 먼저 찾고, 없으면 `P 123` 단독 정보를 찾습니다.
+- **검색어 연동**: 사용자가 입력한 `targetKeyword`가 PID 숫자 자체일 경우, 이를 파싱 결과보다 우선시하는 로직을 고려하십시오.
+- **오탐 방지 (FileName 좌측 스캔 규칙)**: `functionName(223)`이나 로그 본문에 포함된 숫자가 PID, TID, TAG로 오탐(False Positive)되는 것을 완벽히 방지해야 합니다. 따라서 소스 파일명(예: `FileName.cpp:`)을 먼저 찾아내고, **반드시 파일명 기준 좌측 텍스트 영역에서만 탐색**하도록 로직을 구현하십시오.
+
+### 4. 성능 고려 (Performance)
+- 로그 분석은 수백만 줄의 루프에서 실행될 수 있습니다. 
+- 반복문 내부에서 너무 복잡하거나 무거운 정규표현식을 여러 개 실행하기보다는, **가장 가능성 높은 패턴**을 먼저 체크하고 `break` 하거나 `if-else`로 분기처리하십시오.
+- `extractLogIds`와 같이 여러 정보를 한 번에 반환하는 함수를 써서 루프 횟수를 줄이십시오.
+
+### 5. AI 에이전트 체크리스트
+- [ ] Windows `ProcessId`/`ThreadId`를 지원하는가?
+- [ ] Android/Tizen의 `[PID:TID]` 및 `Date Time PID TID` 포맷을 지원하는가?
+- [ ] 사용자가 커스텀하게 찍은 `(P x, T y)` 포맷을 지원하는가?
+- [ ] 시간 파싱 정규표현식이 `+` 기호나 밀리초 유무에 상관없이 견고한가?
+- [ ] 추출된 ID가 없을 때 `Main` 또는 `null`로 안전하게 폴백(Fallback)하는가?
