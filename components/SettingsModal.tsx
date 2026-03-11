@@ -307,16 +307,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             </div>
                                         </div>
 
-                                        {/* Command Card: JSON Tools */}
+                                        {/* Command Card: Analyze Diff */}
                                         <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-white/5 overflow-hidden group/card hover:border-indigo-500/20 transition-all">
                                             <div className="px-4 py-3 bg-slate-100/50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-sm">🛠️</span>
-                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">JSON Tools</span>
+                                                    <span className="text-sm">📊</span>
+                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Analyze Diff</span>
                                                 </div>
                                                 <button
                                                     onClick={() => {
-                                                        navigator.clipboard.writeText('.\\HappyTool.exe cli json-tool -i "dirty.json" -o "pretty.json"');
+                                                        navigator.clipboard.writeText('.\\HappyTool.exe cli analyze-diff -f "Step" -l "old.log" -r "new.log" -o "diff.json"');
                                                         addToast('Command copied to clipboard', 'info');
                                                     }}
                                                     className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-400 hover:text-indigo-400 transition-all"
@@ -325,9 +325,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                                 </button>
                                             </div>
                                             <div className="p-4 space-y-2">
-                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">대용량 JSON 파일 고속 포매팅</p>
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">두 로그 파일의 성능 차이 및 신규 로그 분석 (JSON 추출)</p>
                                                 <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
-                                                    .\HappyTool.exe cli json-tool -i "in.json" -o "out.json"
+                                                    .\HappyTool.exe cli analyze-diff -f "Mission" -l "left.log" -r "right.log" -o "diff.json"
                                                 </div>
                                             </div>
                                         </div>
@@ -476,11 +476,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
 
                                         <div className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700/50">
                                             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-500/10 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-500">
-                                                <span className="text-2xl">🔧</span>
+                                                <span className="text-2xl">⚖️</span>
                                             </div>
                                             <div>
-                                                <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">JSON Tools</h4>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">JSON 데이터를 쉽게 다루는 도구</p>
+                                                <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">Analyze Diff</h4>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">두 로그 파일 간의 소요 시간 차이 및 신규 이벤트를 정밀 분석</p>
                                             </div>
                                         </div>
 

@@ -347,8 +347,9 @@
     - `Logic Entry`: [CliApp.tsx](./CliApp.tsx) (Hidden renderer's UI wrapper)
 - **Core Interface**:
     - `HappyTool.exe cli log-extractor`: 로그 필터링 및 추출 명령
+    - `HappyTool.exe cli analyze-diff`: 두 로그 파일 간의 성능 및 차이 분석 명령 (JSON 추출)
 - **Data Flow**:
-    - `CLI Args` -> `main.cjs` -> `Hidden BrowserWindow` -> `CliApp.tsx` -> `LogProcessorWorker` -> `Result Export` -> `Process Exit`
+    - `CLI Args` -> `main.cjs` -> `Hidden BrowserWindow` -> `CliApp.tsx` -> `LogProcessorWorker` (2개 병렬) -> `SplitAnalysisWorker` -> `Result Export` -> `Process Exit`
 - **Optimizations**:
     - `cli-session`: CLI 전용 userData 경로를 사용하여 GUI와 데이터 잠금 충돌 방지
     - `saveSettingsToFile`: 설정 변경 시 `settings.json`으로 동기화하여 CLI와 GUI 간 필터 규칙 공유

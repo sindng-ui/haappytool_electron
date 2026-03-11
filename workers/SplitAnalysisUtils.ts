@@ -78,6 +78,16 @@ export interface SplitAnalysisResult {
 }
 
 /**
+ * 🐧⚡ 파일명, 함수명, 라인번호를 조합하여 통일된 시그니처 포맷을 반환합니다.
+ */
+export const getFormattedSig = (fileName?: string, functionName?: string, codeLineNum?: string | null): string => {
+    const fn = (fileName || 'Unknown').split(/[\\/]/).pop() || 'Unknown';
+    const func = functionName || 'Unknown';
+    const line = codeLineNum ? `(${codeLineNum})` : '';
+    return `${fn}::${func}${line}`;
+};
+
+/**
  * 🐧⚡ 단일 로그 라인에서 메타데이터를 추출합니다. (최적화 버전)
  */
 export const extractSingleMetadata = (
@@ -166,6 +176,7 @@ export const matchAliasEvents = (
 ): SplitAnalysisResult[] => {
     const results: SplitAnalysisResult[] = [];
     const getEventSig = (ev: AliasEvent) => `${ev.alias}|${ev.fileName || ''}|${ev.functionName || ''}|${ev.codeLineNum || ''}`;
+    const getFormattedEventSig = (ev: AliasEvent) => getFormattedSig(ev.fileName, ev.functionName || ev.alias, ev.codeLineNum);
 
     const leftAliasMap = new Map<string, AliasEvent[]>();
     leftAliasEvents.forEach(ev => {
@@ -188,7 +199,7 @@ export const matchAliasEvents = (
             const delta = leftTs > 0 && rightTs > 0 ? (rightTs - leftTs) : 0;
 
             results.push({
-                key: `[Alias Match] ${rev.alias}${rev.codeLineNum ? `(${rev.codeLineNum})` : ''} (#${count + 1})`,
+                key: `${getFormattedEventSig(rev)} (#${count + 1})`,
                 fileName: rev.fileName || lev.fileName || '',
                 functionName: rev.functionName || lev.functionName || rev.alias,
                 preview: rev.preview,
@@ -217,7 +228,7 @@ export const matchAliasEvents = (
             });
         } else {
             results.push({
-                key: `[Alias New] ${rev.alias}${rev.codeLineNum ? `(${rev.codeLineNum})` : ''} (#${count + 1})`,
+                key: `${getFormattedEventSig(rev)} [NEW] (#${count + 1})`,
                 fileName: rev.fileName || '',
                 functionName: rev.functionName || rev.alias,
                 preview: rev.preview,
@@ -258,7 +269,7 @@ export const computeAliasIntervals = (
     rightAliasEvents: AliasEvent[]
 ): SplitAnalysisResult[] => {
     const results: SplitAnalysisResult[] = [];
-    const getEventBriefSig = (ev: AliasEvent) => `${ev.alias}|${ev.fileName || ''}|${ev.functionName || ''}(${ev.codeLineNum || '?'})`;
+    const getFormattedEventSig = (ev: AliasEvent) => getFormattedSig(ev.fileName, ev.functionName || ev.alias, ev.codeLineNum);
 
     const getIntervals = (events: AliasEvent[]) => {
         const intervals: { start: AliasEvent; end: AliasEvent; duration: number; sig: string }[] = [];
@@ -270,7 +281,7 @@ export const computeAliasIntervals = (
                     start,
                     end,
                     duration: end.timestamp - start.timestamp,
-                    sig: `${getEventBriefSig(start)} ➔ ${getEventBriefSig(end)}`
+                    sig: `${getFormattedEventSig(start)} ➔ ${getFormattedEventSig(end)}`
                 });
             }
         }
@@ -294,7 +305,7 @@ export const computeAliasIntervals = (
 
         if (linv) {
             results.push({
-                key: `[Alias Interval] ${rinv.sig} (#${count + 1})`,
+                key: `${rinv.sig} (#${count + 1})`,
                 fileName: rinv.end.fileName || linv.end.fileName || '',
                 functionName: rinv.end.functionName || linv.end.functionName || rinv.end.alias,
                 preview: `${rinv.start.alias} ... ${rinv.end.alias}`,
@@ -336,6 +347,7 @@ export const computeGlobalAliasRanges = (
     rightAliasEvents: AliasEvent[]
 ): SplitAnalysisResult[] => {
     const results: SplitAnalysisResult[] = [];
+    const getFormattedEventSig = (ev: AliasEvent) => getFormattedSig(ev.fileName, ev.functionName || ev.alias, ev.codeLineNum);
 
     const getRanges = (events: AliasEvent[]) => {
         const groups = new Map<string, AliasEvent[]>();
@@ -376,7 +388,7 @@ export const computeGlobalAliasRanges = (
         const lr = leftRangeMap.get(rr.sig);
         if (lr) {
             results.push({
-                key: `[Global Alias Batch] ${rr.sig} (${rr.count} counts)`,
+                key: `${getFormattedEventSig(rr.first)} ➔ ${getFormattedEventSig(rr.last)} [Batch]`,
                 fileName: rr.last.fileName || lr.last.fileName || '',
                 functionName: rr.last.functionName || lr.last.functionName || rr.last.alias,
                 prevFileName: rr.first.fileName || lr.first.fileName || '',
@@ -412,7 +424,7 @@ export const computeGlobalAliasRanges = (
             leftRangeMap.delete(rr.sig); // 처리 완료
         } else {
             results.push({
-                key: `[Global Alias New] ${rr.sig} (${rr.count} counts)`,
+                key: `${getFormattedEventSig(rr.first)} ➔ ${getFormattedEventSig(rr.last)} [New Batch]`,
                 fileName: rr.last.fileName || '',
                 functionName: rr.last.functionName || rr.last.alias,
                 prevFileName: rr.first.fileName || '',
@@ -449,7 +461,7 @@ export const computeGlobalAliasRanges = (
     // 🐧⚡ 왼쪽만 존재하는 배치 처리 (Optional)
     leftRangeMap.forEach((lr, sig) => {
         results.push({
-            key: `[Global Alias Missing] ${sig} (${lr.count} counts)`,
+            key: `${getFormattedEventSig(lr.first)} ➔ ${getFormattedEventSig(lr.last)} [Missing Batch]`,
             fileName: lr.last.fileName || '',
             functionName: lr.last.functionName || lr.first.alias || sig,
             prevFileName: lr.first.fileName || '',
@@ -561,13 +573,10 @@ export const computeMetricsFromMetadata = (
         // 1. 시그니처 생성
         if (!item.signature) {
             if (item.alias) {
-                // 🐧⚡ 알리아스가 우선되지만, 정밀한 동기화를 위해 (파일/함수/라인)을 모두 포함합니다!
-                item.signature = `[Alias] ${item.alias}|${item.fileName || ''}::${item.functionName || ''}(${item.codeLineNum || '?'})`;
+                // 🐧⚡ 알리아스 시그니처도 통일된 포맷을 사용하되, 알리아스임을 구분할 수 있도록 합니다.
+                item.signature = getFormattedSig(item.fileName, item.functionName || item.alias, item.codeLineNum);
             } else if (isSignificant(item)) {
-                item.signature = `${item.fileName}::${item.functionName}`;
-                if (item.codeLineNum) {
-                    item.signature += `(${item.codeLineNum})`;
-                }
+                item.signature = getFormattedSig(item.fileName, item.functionName, item.codeLineNum);
             } else {
                 let slim = item.preview
                     .replace(RE_HEX, '0x#')

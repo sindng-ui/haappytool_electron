@@ -1,0 +1,211 @@
+{
+  "filterName": "mission1",
+  "timestamp": "2026-03-11T11:52:12.379Z",
+  "files": {
+    "left": "K:\\Antigravity_Projects\\gitbase\\happytool_electron\\test\\test_startup.log",
+    "right": "K:\\Antigravity_Projects\\gitbase\\happytool_electron\\test\\test_startup_2.log"
+  },
+  "summary": {
+    "newErrors": 0,
+    "regressions": 8,
+    "improvements": 4,
+    "newLogs": 6,
+    "totalSegments": 28
+  },
+  "timeline": [
+    {
+      "key": "system.cpp::systemfunc1(123) ➔ system.cpp::systemfunc2(111)",
+      "leftAvgDelta": 20,
+      "rightAvgDelta": 30,
+      "deltaDiff": 10
+    },
+    {
+      "key": "system.cpp::systemfunc2(111) ➔ hwservice.cpp::hwfunc(123)",
+      "leftAvgDelta": 30,
+      "rightAvgDelta": 20,
+      "deltaDiff": -10
+    },
+    {
+      "key": "hwservice.cpp::hwfunc(123) ➔ SmartThingsApp.cs::OnCreate(123)",
+      "leftAvgDelta": 49050,
+      "rightAvgDelta": 48950,
+      "deltaDiff": -100
+    },
+    {
+      "key": "SmartThingsApp.cs::OnCreate(123) ➔ SmartThingsApp.cs::OnCreate(127) [Batch]",
+      "leftAvgDelta": 330,
+      "rightAvgDelta": 530,
+      "deltaDiff": 200
+    },
+    {
+      "key": "SmartThingsApp.cs::OnCreate(123) ➔ SmartThingsApp.cs::OnCreate(124) (#1)",
+      "leftAvgDelta": 30,
+      "rightAvgDelta": 130,
+      "deltaDiff": 100
+    },
+    {
+      "key": "SmartThingsApp.cs::OnCreate(124) ➔ SmartThingsApp.cs::OnCreate(125) (#1)",
+      "leftAvgDelta": 40,
+      "rightAvgDelta": 40,
+      "deltaDiff": 0
+    },
+    {
+      "key": "SmartThingsApp.cs::OnCreate(125) ➔ SmartThingsApp.cs::OnCreate(126) (#1)",
+      "leftAvgDelta": 130,
+      "rightAvgDelta": 130,
+      "deltaDiff": 0
+    },
+    {
+      "key": "SmartThingsApp.cs::OnCreate(126) ➔ SmartThingsApp.cs::OnCreate(127) (#1)",
+      "leftAvgDelta": 130,
+      "rightAvgDelta": 230,
+      "deltaDiff": 100
+    },
+    {
+      "key": "SmartThingsApp.cs::OnCreate(127) ➔ SmartThingsApp.cs::OnStart(300) (#1)",
+      "leftAvgDelta": 1040,
+      "rightAvgDelta": 920,
+      "deltaDiff": -120
+    },
+    {
+      "key": "SmartThingsApp.cs::OnStart(300) ➔ SmartThingsApp.cs::OnStart(311) [Batch]",
+      "leftAvgDelta": 40,
+      "rightAvgDelta": 69,
+      "deltaDiff": 29
+    },
+    {
+      "key": "SmartThingsApp.cs::OnStart(300) ➔ AppUtil.cs::bind(123)",
+      "leftAvgDelta": 20,
+      "rightAvgDelta": 40,
+      "deltaDiff": 20
+    },
+    {
+      "key": "AppUtil.cs::bind(123) ➔ AppUtil.cs::bind(125)",
+      "leftAvgDelta": 10,
+      "rightAvgDelta": 10,
+      "deltaDiff": 0
+    },
+    {
+      "key": "AppUtil.cs::bind(125) ➔ SmartThingsApp.cs::OnStart(311)",
+      "leftAvgDelta": 10,
+      "rightAvgDelta": 19,
+      "deltaDiff": 9
+    },
+    {
+      "key": "SmartThingsApp.cs::OnStart(311) ➔ SmartThingsApp.cs::OnResume(333) (#1)",
+      "leftAvgDelta": 1020,
+      "rightAvgDelta": 511,
+      "deltaDiff": -509
+    },
+    {
+      "key": "SmartThingsApp.cs::OnResume(333) ➔ SmartThingsApp.cs::OnResume(350) [Batch]",
+      "leftAvgDelta": 670,
+      "rightAvgDelta": 1679,
+      "deltaDiff": 1009
+    },
+    {
+      "key": "SmartThingsApp.cs::OnResume(333) ➔ StNetwork.cs::HandleResume(66)",
+      "leftAvgDelta": 20,
+      "rightAvgDelta": 10,
+      "deltaDiff": -10
+    },
+    {
+      "key": "StNetwork.cs::HandleResume(66) ➔ StNetwork.cs::HandleResume(69)",
+      "leftAvgDelta": 50,
+      "rightAvgDelta": 560,
+      "deltaDiff": 510
+    },
+    {
+      "key": "StNetwork.cs::HandleResume(69) ➔ SmartThingsApp.cs::OnResume(344)",
+      "leftAvgDelta": 70,
+      "rightAvgDelta": 70,
+      "deltaDiff": 0
+    },
+    {
+      "key": "SmartThingsApp.cs::OnResume(344) ➔ SmartThingsApp.cs::OnResume(350) (#1)",
+      "leftAvgDelta": 530,
+      "rightAvgDelta": 1039,
+      "deltaDiff": 509
+    },
+    {
+      "key": "SmartThingsApp.cs::OnResume(350) ➔ SmartThingsApp.cs::Init(123)",
+      "leftAvgDelta": 1050,
+      "rightAvgDelta": 541,
+      "deltaDiff": -509
+    },
+    {
+      "key": "SmartThingsApp.cs::Init(123) ➔ StApi.cs::Init(123)",
+      "leftAvgDelta": 100,
+      "rightAvgDelta": 100,
+      "deltaDiff": 0
+    },
+    {
+      "key": "StApi.cs::Init(123) ➔ infra.cs::CheckMemory(555)",
+      "leftAvgDelta": 50,
+      "rightAvgDelta": 50,
+      "deltaDiff": 0
+    },
+    {
+      "key": "infra.cs::CheckMemory(555) ➔ infra.cs::CheckMemory(557)",
+      "leftAvgDelta": 50,
+      "rightAvgDelta": 50,
+      "deltaDiff": 0
+    },
+    {
+      "key": "infra.cs::CheckMemory(557) ➔ StData.cs::Init(21)",
+      "leftAvgDelta": 200,
+      "rightAvgDelta": 200,
+      "deltaDiff": 0
+    },
+    {
+      "key": "StData.cs::Init(21) ➔ StHomeUi.cs::Init(38)",
+      "leftAvgDelta": 200,
+      "rightAvgDelta": 200,
+      "deltaDiff": 0
+    },
+    {
+      "key": "StHomeUi.cs::Init(38) ➔ StLifeCycle.cs::StateChanged(51)",
+      "leftAvgDelta": 500,
+      "rightAvgDelta": 500,
+      "deltaDiff": 0
+    },
+    {
+      "key": "StLifeCycle.cs::StateChanged(51) ➔ StLifeCycle.cs::StateChanged(55)",
+      "leftAvgDelta": 200,
+      "rightAvgDelta": 200,
+      "deltaDiff": 0
+    },
+    {
+      "key": "StLifeCycle.cs::StateChanged(55) ➔ TagTest.cs::testTag(100)",
+      "leftAvgDelta": 300,
+      "rightAvgDelta": 300,
+      "deltaDiff": 0
+    }
+  ],
+  "newLogs": [
+    {
+      "sig": "system.cpp::newFunction(222)",
+      "count": 1
+    },
+    {
+      "sig": "xxx.cpp::xxfunc(111)",
+      "count": 1
+    },
+    {
+      "sig": "ADDDDD.cs::DDDD(125)",
+      "count": 2
+    },
+    {
+      "sig": "EEEEEE.cs::EEEE(100)",
+      "count": 1
+    },
+    {
+      "sig": "SmartThingsApp.cs::OnResume(55)",
+      "count": 1
+    },
+    {
+      "sig": "SmartThingsApp.cs::OnResume(100)",
+      "count": 1
+    }
+  ]
+}

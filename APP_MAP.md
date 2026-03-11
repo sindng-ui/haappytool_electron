@@ -49,6 +49,7 @@
 - **Core Interface**:
   - `runCli(args)`: 커맨드라인 매개변수 파싱 및 Headless(Hidden) BrowserWindow 생성
   - `CliApp`: 렌더러 측 CLI 핸들러. IndexedDB, Web Worker, WASM 등을 CLI에서도 GUI와 동일하게 활용할 수 있도록 브릿지 역할 수행
+  - **Analyze Diff CLI 연동**: `analyze-diff` 명령어를 통해 두 로그 파일의 성능 차이 및 신규 로그를 분석하여 JSON 리포트로 출력하는 기능 추가. [NEW]
 - **Data Flow**: `Terminal` -> `cli.cjs` -> `IPC (cli-run-command)` -> `CliApp.tsx` -> `IPC (cli-stdout/stderr)` -> `Terminal`
 
 
@@ -86,7 +87,7 @@
   - `Main CLI Entry`: [cli.cjs](./electron/cli.cjs)
   - `Headless Component`: [CliApp.tsx](./CliApp.tsx)
 - **Core Interface**:
-  - `cli-run-command`: Main -> Renderer 커맨드 하달 (`log-extractor`, `block-test` 등)
+  - `cli-run-command`: Main -> Renderer 커맨드 하달 (`log-extractor`, `block-test`, `analyze-diff` 등)
   - `cli-ready`: Renderer -> Main 준비 완료 알림
   - `cli-stdout` / `cli-stderr` / `cli-exit`: Renderer -> Main 터미널 콘솔 파이프
 - **최근 개선**:
@@ -322,6 +323,7 @@
 - **Core Interface**:
   - `Alias Sequence Matching`: Happy Combo의 Alias를 사용하여 좌우 로그에서 '순서대로' 동일한 이벤트를 찾아 시간을 비교합니다. (N번째 Alias A vs N번째 Alias A)
   - `Alias Interval Analysis`: 인접한 앨리어스 사이의 '구간 소요 시간'을 분석하여 좌우 로그 간의 성능 차이를 정밀하게 비교합니다. (Alias A ➔ Alias B 구간 비교) [NEW] [HOT]
+  - **Analyze Diff CLI 지원**: 터미널에서 `analyze-diff` 명령을 통해 두 로그의 비교 결과를 즉시 JSON 파일로 저장할 수 있습니다. 경량화된 데이터 구조와 시간순 정렬로 가독성을 극대화했습니다. [NEW]
   - `Strict Segment Synchronization`: 세그먼트 매칭 시 단순히 Alias뿐만 아니라 파일명(fileName), 함수명(functionName), 코드 라인 번호(codeLineNum)까지 모두 일치해야 동일 구간으로 인식하도록 검증 룰을 극도로 강화하여, 서로 다른 영역의 로그가 잘못 묶여 좌우 패널의 동기화가 어긋나는 버그를 원천 차단했습니다. UT 검증 완비! [FIX][HOT]
   - `UI Visual Index Sync`: UI 클릭 시 0-based visual index 기반 이동 로직에서 불필요한 1차감을 제거하여 지점(Segment Interval) 이동 시 정확한 라인으로 스크롤 되도록 오프셋 에러 수정. [FIX]
   - `Segment Deduplication`: 시각적 범위(Line Number Range)가 동일한 세그먼트가 중복 노출되지 않도록 워커 단에서 Deduplication 수행. (Alias 정밀 분석 결과 우선순위 적용) [FIX][HOT]

@@ -104,6 +104,9 @@ export const CliApp: React.FC = () => {
                 } else if (command === 'tpk-extractor') {
                     await handleTpkExtractor(payload, logOut, logErr);
                     exit(0);
+                } else if (command === 'analyze-diff') {
+                    await handleAnalyzeDiff(payload, logOut, logErr);
+                    exit(0);
                 } else {
                     logErr(`Unknown CLI command: ${command}`);
                     exit(1);
@@ -399,6 +402,194 @@ export const CliApp: React.FC = () => {
         }
     };
 
+    const handleAnalyzeDiff = async (payload: any, stdout: (msg: string) => void, stderr: (msg: string) => void) => {
+        const { filterName, leftPath, rightPath, outputPath, cwd } = payload;
+
+        stdout(`[Analyze Diff] Starting analysis...`);
+        stdout(`[Analyze Diff] Filter: ${filterName}`);
+        stdout(`[Analyze Diff] Left: ${leftPath}`);
+        stdout(`[Analyze Diff] Right: ${rightPath}`);
+
+        // 1. Load Settings
+        let settings: any = window.electronAPI?.getCliSettings ? await window.electronAPI.getCliSettings() : null;
+        if (!settings) {
+            const settingsStr = localStorage.getItem('devtool_suite_settings');
+            if (settingsStr) settings = JSON.parse(settingsStr);
+        }
+        if (!settings) throw new Error('No settings found. Run GUI first.');
+
+        const rule = settings.logRules?.find((r: any) => r.name === filterName);
+        if (!rule) throw new Error(`Filter "${filterName}" not found.`);
+
+        const { assembleIncludeGroups } = await import('./utils/filterGroupUtils');
+        const LogProcessorWorker = (await import('./workers/LogProcessor.worker.ts?worker')).default;
+        const SplitAnalysisWorker = (await import('./workers/SplitAnalysis.worker.ts?worker')).default;
+
+        const leftWorker = new LogProcessorWorker();
+        const rightWorker = new LogProcessorWorker();
+
+        const filterLog = (worker: Worker, path: string, side: string) => {
+            return new Promise<void>(async (resolve, reject) => {
+                worker.onmessage = (e) => {
+                    const { type, payload } = e.data;
+                    if (type === 'STATUS_UPDATE' && payload.progress !== undefined) {
+                        if (payload.progress % 25 === 0 || payload.progress === 100) {
+                            stdout(`[Analyze Diff][${side}] Filtering... ${Math.round(payload.progress)}%`);
+                        }
+                    } else if (type === 'INDEX_COMPLETE') {
+                        worker.postMessage({
+                            type: 'FILTER_LOGS',
+                            payload: { ...rule, includeGroups: assembleIncludeGroups(rule), quickFilter: 'none' }
+                        });
+                    } else if (type === 'FILTER_COMPLETE') {
+                        stdout(`[Analyze Diff][${side}] Filtering Complete. Matches: ${payload.matchCount}`);
+                        resolve();
+                    } else if (type === 'ERROR') reject(new Error(payload));
+                    else if (type === 'RPC_REQUEST') {
+                        const { method, args } = payload;
+                        if (method === 'readFileSegment') {
+                            window.electronAPI!.readFileSegment(args).then(res =>
+                                worker.postMessage({ type: 'RPC_RESPONSE', requestId: e.data.requestId, payload: res })
+                            ).catch(err =>
+                                worker.postMessage({ type: 'RPC_ERROR', requestId: e.data.requestId, payload: { error: err.message } })
+                            );
+                        }
+                    }
+                };
+                const size = await window.electronAPI!.getFileSize(path);
+                worker.postMessage({ type: 'INIT_LOCAL_FILE_STREAM', payload: { path, size } });
+            });
+        };
+
+        const getMetrics = (worker: Worker, side: string) => {
+            return new Promise<any>((resolve) => {
+                const reqId = `cli-${side}-metrics`;
+                const listener = (e: MessageEvent) => {
+                    if (e.data.type === 'ANALYSIS_METRICS_RESULT' && e.data.requestId === reqId) {
+                        worker.removeEventListener('message', listener);
+                        resolve(e.data.payload);
+                    } else if (e.data.type === 'ALIAS_EVENTS_RESULT' && e.data.requestId === `cli-${side}-alias`) {
+                        // We'll handle this separately if needed, but metrics result usually carries both in some contexts
+                    }
+                };
+                worker.addEventListener('message', listener);
+                worker.postMessage({ type: 'GET_ANALYSIS_METRICS', payload: { side }, requestId: reqId });
+            });
+        };
+
+        const getAliasEvents = (worker: Worker, side: string) => {
+            return new Promise<any[]>((resolve) => {
+                const reqId = `cli-${side}-alias`;
+                const listener = (e: MessageEvent) => {
+                    if (e.data.type === 'ALIAS_EVENTS_RESULT' && e.data.requestId === reqId) {
+                        worker.removeEventListener('message', listener);
+                        resolve(e.data.payload.events || []);
+                    }
+                };
+                worker.addEventListener('message', listener);
+                worker.postMessage({ type: 'GET_ALIAS_EVENTS', requestId: reqId });
+            });
+        };
+
+        try {
+            // Filter both logs in parallel
+            await Promise.all([
+                filterLog(leftWorker, leftPath, 'LEFT'),
+                filterLog(rightWorker, rightPath, 'RIGHT')
+            ]);
+
+            stdout(`[Analyze Diff] Extracting metrics...`);
+            const [leftData, rightData, leftAlias, rightAlias] = await Promise.all([
+                getMetrics(leftWorker, 'left'),
+                getMetrics(rightWorker, 'right'),
+                getAliasEvents(leftWorker, 'left'),
+                getAliasEvents(rightWorker, 'right')
+            ]);
+
+            stdout(`[Analyze Diff] Running comparison analysis...`);
+            const analyzer = new SplitAnalysisWorker();
+            const results = await new Promise<any>((resolve) => {
+                analyzer.onmessage = (e) => {
+                    if (e.data.type === 'SPLIT_ANALYSIS_COMPLETE') resolve(e.data.payload);
+                };
+                analyzer.postMessage({
+                    leftMetrics: leftData.metrics,
+                    rightMetrics: rightData.metrics,
+                    leftPointMetrics: leftData.pointMetrics,
+                    rightPointMetrics: rightData.pointMetrics,
+                    leftAliasEvents: leftAlias,
+                    rightAliasEvents: rightAlias
+                });
+            });
+
+            // Calculate Summary (Copy logic from SplitAnalyzerPanel)
+            const intervalResults = (results.results || []).filter((r: any) => (r.leftAvgDelta > 0 && r.rightAvgDelta > 0) || r.isAliasInterval);
+            const pointResults = results.pointResults || [];
+
+            const summary = {
+                newErrors: intervalResults.filter((r: any) => r.isNewError).length,
+                regressions: intervalResults.filter((r: any) => r.deltaDiff > 10).length,
+                improvements: intervalResults.filter((r: any) => r.deltaDiff < -10).length,
+                newLogs: pointResults.length,
+                totalSegments: intervalResults.length
+            };
+
+            // 🐧🎯 CLI 결과 정렬: UI와 동일하게 시간 순서(라인 번호)로 정렬
+            const sortedTimeline = [...results.results]
+                .filter((r: any) => (r.leftAvgDelta > 0 && r.rightAvgDelta > 0) || r.isAliasInterval)
+                .sort((a, b) => {
+                    const aIdx = a.leftPrevLineNum || a.rightPrevLineNum || 0;
+                    const bIdx = b.leftPrevLineNum || b.rightPrevLineNum || 0;
+                    return aIdx - bIdx;
+                })
+                .map((r: any) => ({
+                    key: r.key,
+                    leftAvgDelta: r.leftAvgDelta,
+                    rightAvgDelta: r.rightAvgDelta,
+                    deltaDiff: r.deltaDiff
+                }));
+
+            const sortedPointResults = [...results.pointResults]
+                .sort((a, b) => {
+                    const aIdx = a.originalLineNums?.[0] || 0;
+                    const bIdx = b.originalLineNums?.[0] || 0;
+                    return aIdx - bIdx;
+                })
+                .map((r: any) => ({
+                    sig: r.sig,
+                    count: r.count
+                }));
+
+            const finalData = {
+                filterName,
+                timestamp: new Date().toISOString(),
+                files: { left: leftPath, right: rightPath },
+                summary,
+                timeline: sortedTimeline,
+                newLogs: sortedPointResults
+            };
+
+            const finalOutputPath = outputPath || `${cwd}\\diff_result_${Date.now()}.json`;
+            stdout(`[Analyze Diff] Saving result to ${finalOutputPath}...`);
+
+            const content = JSON.stringify(finalData, null, 2);
+            const encoder = new TextEncoder();
+            const uint8 = encoder.encode(content);
+            await window.electronAPI!.saveFileDirect(uint8, finalOutputPath);
+
+            stdout(`[Success] Analysis complete. Result saved to: ${finalOutputPath}`);
+
+            leftWorker.terminate();
+            rightWorker.terminate();
+            analyzer.terminate();
+
+        } catch (e: any) {
+            stderr(`[Error] Analyze Diff failed: ${e.message}`);
+            leftWorker.terminate();
+            rightWorker.terminate();
+            throw e;
+        }
+    };
     return (
         <div style={{ padding: 20, background: '#000', color: '#0f0', fontFamily: 'monospace', height: '100vh', width: '100vw' }}>
             <h1>HappyTool CLI Runner (Hidden window)</h1>

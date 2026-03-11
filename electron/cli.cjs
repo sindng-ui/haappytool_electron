@@ -174,6 +174,32 @@ async function runCli(args) {
             });
         });
 
+    program.command('analyze-diff')
+        .description('Analyze difference between two log files')
+        .requiredOption('-f, --filter <name>', 'Name of the saved filter/mission')
+        .requiredOption('-l, --left <path>', 'Path to the left (baseline) log file')
+        .requiredOption('-r, --right <path>', 'Path to the right (target) log file')
+        .option('-o, --output <path>', 'Path to save the output JSON summary')
+        .action(async (options) => {
+            logInfo(`Starting Analyze Diff CLI...`);
+            logInfo(`Filter: ${options.filter}`);
+            logInfo(`Left Log: ${options.left}`);
+            logInfo(`Right Log: ${options.right}`);
+            if (options.output) logInfo(`Output: ${options.output}`);
+
+            await createHiddenWindow();
+            hiddenWindow.webContents.send('cli-run-command', {
+                command: 'analyze-diff',
+                payload: {
+                    filterName: options.filter,
+                    leftPath: path.resolve(options.left),
+                    rightPath: path.resolve(options.right),
+                    outputPath: options.output ? path.resolve(options.output) : null,
+                    cwd: process.cwd()
+                }
+            });
+        });
+
     // 지원되지 않는 옵션 처리
     program.on('command:*', function () {
         logError('Invalid command: ' + program.args.join(' '));

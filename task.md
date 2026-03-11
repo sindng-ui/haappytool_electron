@@ -18,6 +18,17 @@
 - [x] **UI 고도화**: Timeline 탭 세그먼트 카드 3컬럼 레이아웃 개편 🐧🎨⚡
     - [x] `SplitAnalyzerPanel.tsx` 레이아웃 및 시각화 브리지 구현
     - [x] 시각적 임팩트 강화 (그라데이션 및 애니메이션)
+- [x] **Analyze Diff CLI 추가**: 터미널 기반 성능 비교 분석 기능 🐧💻⚡
+    - [x] `electron/cli.cjs` 내 `analyze-diff` 명령어 정의
+    - [x] `CliApp.tsx` 내 `handleAnalyzeDiff` 오케스트레이션 로직 구현
+    - [x] 결과 데이터 취합 및 JSON 저장 기능 구현 (Timeline 시간순 정렬 적용)
+- [x] **Analyze Diff 결과 JSON 극경량화**: `key`, `delta` 정보 위주 최종 축소 🐧⚖️⚡
+    - [x] `CliApp.tsx` 내 `timeline` 세그먼트 데이터 필터링 (최소화) 구현
+    - [x] `CliApp.tsx` 내 `newLogs` 데이터 필터링 구현
+- [x] **Analyze Diff 결과 포맷 개선**: `key` 필드 가독성 강화 🐧📝⚡
+    - [x] `SplitAnalysisUtils.ts` 내 공통 시그니처 헬퍼 구현 및 적용
+    - [x] Alias 매칭/인터벌/배치 결과의 `key` 포맷 통일
+    - [x] 일반 인터벌 분석 결과의 `key` 포맷 보정
 - [x] APP_MAP.md 업데이트 및 문서 정리
     - [x] TIMELINE 카드 내 'FROM', 'TO' 레이블 제거
     - [x] 카드 더블 클릭 시 원본 로그 분할 보기(Split Raw View) 구현
