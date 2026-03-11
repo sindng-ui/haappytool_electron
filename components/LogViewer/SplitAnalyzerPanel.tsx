@@ -40,9 +40,9 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
         return [...results.results]
             .filter(r => (r.leftAvgDelta > 0 && r.rightAvgDelta > 0) || r.isAliasInterval)
             .sort((a, b) => {
-                if (a.isAliasInterval && !b.isAliasInterval) return -1;
-                if (!a.isAliasInterval && b.isAliasInterval) return 1;
-                return (a.leftPrevLineNum || 0) - (b.leftPrevLineNum || 0);
+                const aIdx = a.leftPrevLineNum || a.rightPrevLineNum || 0;
+                const bIdx = b.leftPrevLineNum || b.rightPrevLineNum || 0;
+                return aIdx - bIdx;
             });
     }, [results]);
 
