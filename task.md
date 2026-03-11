@@ -12,6 +12,9 @@
 - [x] **테스트 보강**: 영속화(Single/Split) 및 Analyze Diff(Global/Dedupe) UT 구현 🐧🧪
 - [x] **성능 최적화**: Analyze Diff 보수적 최적화 (Tag pre-processing, Sort weighting) 🐧⚡
 - [x] **기능 복구**: Global Alias Batch 누락 현상 해결 및 UI 강조 (Violet Theme) 🐧🛠️🚀
+- [x] **용어 변경**: Analyze Diff 내 'Spam' -> 'New Logs'로 명칭 변경 🐧📝✨
+    - [x] `SplitAnalyzerPanel.tsx` UI 레이블 및 변수명 수정
+    - [x] `APP_MAP.md` 및 `walkthrough.md` 업데이트
 - [x] APP_MAP.md 업데이트 및 문서 정리
     - [x] TIMELINE 카드 내 'FROM', 'TO' 레이블 제거
     - [x] 카드 더블 클릭 시 원본 로그 분할 보기(Split Raw View) 구현

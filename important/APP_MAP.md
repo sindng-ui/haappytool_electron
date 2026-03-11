@@ -278,14 +278,14 @@
 
 ### [Feature] Log Analysis & Profiling
 - **ID**: `feature-log-analysis`
-- **Keywords**: [`Spam`, `Repetitive`, `Transaction`, `Bottleneck`, `Delta`, `PID/TID Tracking`, `스팸 분석기`, `스팸 분식기`, `중복 로그`, `트랜잭션 추적`]
+- **Keywords**: [`New Logs`, `Added`, `Repetitive`, `Transaction`, `Bottleneck`, `Delta`, `PID/TID Tracking`, `신규 로그 분석기`, `중복 로그`, `트랜잭션 추적`]
 - **Location**:
     - View: [SpamAnalyzerPanel.tsx](./components/LogViewer/SpamAnalyzerPanel.tsx), [TransactionDrawer.tsx](./components/LogViewer/TransactionDrawer.tsx)
     - Logic: [transactionAnalysis.ts](./utils/transactionAnalysis.ts), [logTime.ts](./utils/logTime.ts)
 - **Core Interface**:
     - `extractTransactionIds(line)`: 복잡한 정규식을 사용하여 PID, TID, Tag 추출
     - `formatTransactionFlow(logs)`: 순차 로그 간 `delta` 시간(+ms) 계산
-    - `requestSpamAnalysisLeft()`: 워커 측 패턴 그룹화 트리거 (Top 100)
+    - `requestNewLogAnalysisLeft()`: 워커 측 패턴 그룹화 트리거 (Top 100)
 - **Interactions**:
     - `Jump to Absolute Line`: 필터 변경 후에도 일관성을 유지하기 위해 Spam Analyzer에서 사용
     - `Bottleneck Highlight`: Transaction Drawer에서 1000ms 이상의 지연을 자동으로 플래그 지정

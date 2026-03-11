@@ -55,16 +55,16 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
         const totalNodes = intervalResults.length;
         const regressions = intervalResults.filter(r => r.deltaDiff > 10).length;
         const improvements = intervalResults.filter(r => r.deltaDiff < -10).length;
-        const spams = pointResults.length;
+        const newLogs = pointResults.length;
 
         const topChanges = [...intervalResults]
             .filter(r => r.isGlobalBatch || r.isAliasInterval || (Math.abs(r.deltaDiff) > 1 && Math.abs(r.countDiff) < 100))
             .sort((a, b) => Math.abs(b.deltaDiff) - Math.abs(a.deltaDiff))
             .slice(0, 100);
 
-        const topSpams = pointResults.slice(0, 100);
+        const topNewLogs = pointResults.slice(0, 100);
 
-        return { newErrors, totalNodes, regressions, improvements, spams, topChanges, topSpams };
+        return { newErrors, totalNodes, regressions, improvements, newLogs, topChanges, topNewLogs };
     }, [results]);
 
     const formatDelta = (ms: number) => {
@@ -234,12 +234,12 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                 </div>
                                 <div className="bg-slate-900/50 border border-slate-800 p-2 rounded-xl shadow-sm hover:border-blue-500/30 transition-all text-center">
                                     <div className="flex items-center justify-between mb-0.5">
-                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Spams</p>
+                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">New Logs</p>
                                         <Activity className="w-3 h-3 text-blue-400" />
                                     </div>
                                     <div className="flex items-end justify-center gap-1">
-                                        <span className="text-xl font-black text-blue-400 leading-none">{summaryData.spams}</span>
-                                        <span className="text-[8px] text-slate-500 font-bold mb-1 uppercase">Spiking</span>
+                                        <span className="text-xl font-black text-blue-400 leading-none">{summaryData.newLogs}</span>
+                                        <span className="text-[8px] text-slate-500 font-bold mb-1 uppercase">Added</span>
                                     </div>
                                 </div>
                                 <div className={`bg-slate-900/50 border p-2 rounded-xl shadow-sm transition-all text-center ${summaryData.newErrors > 0 ? 'border-rose-500/50 hover:bg-rose-500/5' : 'border-slate-800'}`}>
@@ -365,20 +365,20 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                     </div>
                                 </div>
 
-                                {/* Top Spams */}
+                                {/* Top New Logs */}
                                 <div className="bg-slate-900/30 rounded-xl border border-slate-800/80 overflow-hidden flex flex-col">
                                     <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-800 flex items-center gap-2">
                                         <Activity size={14} className="text-blue-400" />
                                         <div className="flex items-center justify-between flex-1">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">NEW SIGNIFICANT LOGS (ONLY RIGHT)</span>
-                                                <span className="text-[10px] font-mono text-blue-400 bg-blue-400/10 px-1.5 rounded-full border border-blue-500/20">{summaryData.topSpams.length}</span>
+                                                <span className="text-[10px] font-mono text-blue-400 bg-blue-400/10 px-1.5 rounded-full border border-blue-500/20">{summaryData.topNewLogs.length}</span>
                                             </div>
                                             <span className="text-[9px] text-slate-500 font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">CLICK TO JUMP</span>
                                         </div>
                                     </div>
                                     <div className="flex-1 p-1 flex flex-col gap-1">
-                                        {summaryData.topSpams.length > 0 ? summaryData.topSpams.map((res: PointAnalysisResult, i) => {
+                                        {summaryData.topNewLogs.length > 0 ? summaryData.topNewLogs.map((res: PointAnalysisResult, i) => {
                                             const sig = res.sig;
                                             const currentNavIdx = pointNavigation[sig] || 0;
                                             const totalOccurrences = res.visualIndices.length;
