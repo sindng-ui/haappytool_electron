@@ -551,76 +551,113 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                         {/* Selection Indicator */}
                                                         {isSelected && <div className={`absolute left-0 top-0 bottom-0 w-1 bg-${themeColor}-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]`} />}
 
-                                                        <div className="flex-1 p-2 flex items-center gap-4">
-                                                            {/* Log Flow Visualizer */}
-                                                            <div className="flex-1 flex flex-col gap-1.5 relative">
+                                                        <div className="flex-1 p-2.5 flex items-center min-w-0">
+                                                            {/* COL 1: Log Context (FROM -> TO) */}
+                                                            <div className="w-[32%] min-w-[280px] shrink-0 flex flex-col gap-1.5 relative pr-6 border-r border-slate-800/40">
                                                                 {/* FROM Box */}
                                                                 <div className={`border border-slate-800/50 rounded-lg py-1 px-3 flex items-center gap-3 ${res.isGlobalBatch ? 'bg-violet-500/10 border-violet-500/20' : 'bg-slate-950/50'}`}>
                                                                     <div className={`w-1.5 h-1.5 rounded-full ${res.isGlobalBatch ? 'bg-violet-500 shadow-[0_0_5px_rgba(139,92,246,0.5)]' : 'bg-slate-600 shadow-[0_0_5px_rgba(71,85,105,0.5)]'}`} />
                                                                     <div className="flex flex-col min-w-0 flex-1">
                                                                         <div className="flex items-center gap-2">
-                                                                            <span className="text-[11px] font-mono text-slate-400 truncate">
+                                                                            <span className="text-[10px] font-mono text-slate-500 truncate">
                                                                                 {res.prevFileName || res.fileName || 'Unknown'}
                                                                             </span>
                                                                         </div>
-                                                                        <span className="text-xs font-bold text-slate-300 truncate">
+                                                                        <span className="text-[11px] font-bold text-slate-400 truncate">
                                                                             {res.prevFunctionName || res.functionName || 'Unknown'}
-                                                                            <span className="ml-1.5 text-[10px] text-slate-600 font-mono">({res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum})</span>
+                                                                            <span className="ml-1 text-[9px] text-slate-600 font-mono">({res.leftPrevCodeLineNum || res.leftPrevOrigLineNum || res.leftPrevLineNum})</span>
                                                                         </span>
                                                                     </div>
                                                                     {res.isGlobalBatch && <List size={12} className="text-violet-500/50 shrink-0" />}
                                                                 </div>
 
-                                                                {/* Connector Area - Refined Visual Flow */}
-                                                                <div className="absolute left-[18px] top-[26px] bottom-[26px] flex flex-col items-center z-0">
-                                                                    <div className={`w-[2px] h-full bg-gradient-to-b from-slate-700 via-${themeColor}-500/40 to-${themeColor}-500/60 rounded-full`} />
-                                                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                                                                        <div className={`bg-slate-950 p-0.5 rounded-full border border-${themeColor}-500/30`}>
-                                                                            <ArrowDown size={10} className={`text-${themeColor}-500/80`} />
-                                                                        </div>
+                                                                {/* Minimal Connector */}
+                                                                <div className="absolute left-[30px] top-[26px] bottom-[26px] w-[1px] bg-slate-800/80 z-0" />
+                                                                <div className="absolute left-[26px] top-1/2 -translate-y-1/2 z-10">
+                                                                    <div className={`bg-slate-950 p-0.5 rounded-full border border-slate-800`}>
+                                                                        <ArrowDown size={8} className="text-slate-600" />
                                                                     </div>
                                                                 </div>
 
                                                                 {/* TO Box */}
                                                                 <div className={`bg-${themeColor}-500/5 border border-${themeColor}-500/20 rounded-lg py-1 px-3 flex items-center gap-3 relative z-20`}>
-                                                                    <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]`} />
+                                                                    <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-500 shadow-[0_0_8px_rgba(59,130,246,0.3)]`} />
                                                                     <div className="flex flex-col min-w-0 flex-1">
                                                                         <div className="flex items-center gap-2">
-                                                                            <span className={`text-[11px] font-mono text-${themeColor}-400/80 truncate`}>
+                                                                            <span className={`text-[10px] font-mono text-${themeColor}-400/80 truncate`}>
                                                                                 {res.fileName || 'Unknown'}
                                                                             </span>
                                                                         </div>
-                                                                        <span className={`text-xs font-black text-${themeColor}-300 truncate`}>
+                                                                        <span className={`text-[11px] font-black text-${themeColor}-300 truncate`}>
                                                                             {res.functionName || res.preview.substring(0, 100)}
-                                                                            <span className="ml-1.5 text-[10px] text-slate-600 font-mono">({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})</span>
+                                                                            <span className="ml-1 text-[9px] text-slate-600 font-mono">({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})</span>
                                                                         </span>
                                                                     </div>
                                                                 </div>
                                                             </div>
 
-                                                            {/* Metrics Divider */}
-                                                            <div className="w-px h-16 bg-slate-800/50" />
+                                                            {/* COL 2: Visual Performance Bridge (The Expansion Area) */}
+                                                            <div className="flex-1 flex items-center justify-center px-4 relative overflow-hidden h-full min-w-0">
+                                                                {/* Background Pulse Effect */}
+                                                                <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-${themeColor}-500/[0.03] to-transparent animate-pulse`} />
 
-                                                            {/* Right Side: Performance Info */}
-                                                            <div className="w-48 shrink-0 flex flex-col justify-center gap-2">
-                                                                <div className="space-y-1">
-                                                                    <div className="flex justify-between items-center px-1">
-                                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">LEFT</span>
-                                                                        <span className="text-xs font-mono text-slate-300">{formatDelta(res.leftAvgDelta)}</span>
+                                                                <div className="flex items-center gap-8 z-10 w-full max-w-2xl px-8">
+                                                                    <div className={`h-px flex-1 bg-gradient-to-r from-transparent via-${themeColor}-500/40 to-transparent`} />
+
+                                                                    <div className="flex flex-col items-center gap-1.5 shrink-0">
+                                                                        <div className={`flex items-center gap-3 px-5 py-2 rounded-2xl bg-${themeColor}-500/10 border border-${themeColor}-500/30 shadow-[0_0_20px_rgba(0,0,0,0.3)] backdrop-blur-md`}>
+                                                                            <div className={`p-1.5 rounded-full bg-${themeColor}-500/20 shadow-inner`}>
+                                                                                <Icon size={18} className={`text-${themeColor}-400`} strokeWidth={3} />
+                                                                            </div>
+                                                                            <div className="flex flex-col">
+                                                                                <span className={`text-lg font-black leading-tight text-${themeColor}-400 tabular-nums tracking-tighter`}>
+                                                                                    {`${res.deltaDiff > 0 ? '+' : ''}${formatDelta(res.deltaDiff)}`}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className={`h-px w-3 bg-${themeColor}-500/30`} />
+                                                                            <span className={`text-[10px] font-black text-${themeColor}-500/80 uppercase tracking-[0.25em] whitespace-nowrap`}>
+                                                                                {res.isNewError ? 'NEW ERROR' : (isSlower ? 'REGRESSION' : (isFaster ? 'IMPROVEMENT' : 'STABLE'))}
+                                                                            </span>
+                                                                            <div className={`h-px w-3 bg-${themeColor}-500/30`} />
+                                                                        </div>
                                                                     </div>
-                                                                    <div className="flex justify-between items-center px-1">
-                                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">RIGHT</span>
-                                                                        <span className="text-sm font-black text-white">{formatDelta(res.rightAvgDelta)}</span>
-                                                                    </div>
+
+                                                                    <div className={`h-px flex-1 bg-gradient-to-r from-transparent via-${themeColor}-500/40 to-transparent`} />
                                                                 </div>
 
-                                                                <div className={`flex items-center justify-between p-2 rounded-lg bg-${themeColor}-500/10 border border-${themeColor}-500/20`}>
-                                                                    <span className={`text-[9px] font-black text-${themeColor}-500 uppercase tracking-[0.15em]`}>
-                                                                        {res.isNewError ? 'NEW ERROR' : (isSlower ? 'REGRESSION' : (isFaster ? 'IMPROVEMENT' : 'STABLE'))}
-                                                                    </span>
-                                                                    <div className={`flex items-center gap-1.5 text-xs font-black text-${themeColor}-400`}>
-                                                                        <Icon size={12} strokeWidth={3} />
-                                                                        <span>{`${res.deltaDiff > 0 ? '+' : ''}${formatDelta(res.deltaDiff)}`}</span>
+                                                                {/* Flying Particles Effect for Intensity */}
+                                                                {(isSlower || isFaster || res.isNewError) && (
+                                                                    <div className="absolute inset-0 pointer-events-none opacity-40">
+                                                                        {[...Array(3)].map((_, idx) => (
+                                                                            <motion.div
+                                                                                key={idx}
+                                                                                initial={{ x: isFaster ? '100%' : '-100%', y: `${30 + idx * 20}%`, opacity: 0 }}
+                                                                                animate={{ x: isFaster ? '-100%' : '100%', opacity: [0, 1, 0] }}
+                                                                                transition={{
+                                                                                    duration: Math.max(0.5, 2 - Math.abs(res.deltaDiff) / 100),
+                                                                                    repeat: Infinity,
+                                                                                    delay: idx * 0.4,
+                                                                                    ease: "linear"
+                                                                                }}
+                                                                                className={`absolute w-8 h-px bg-gradient-to-r from-transparent via-${themeColor}-400/50 to-transparent`}
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* COL 3: Detailed Metrics (Individual Averages) */}
+                                                            <div className="w-44 shrink-0 flex flex-col justify-center gap-2 pl-6 border-l border-slate-800/40">
+                                                                <div className="space-y-2">
+                                                                    <div className="flex flex-col px-1">
+                                                                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-0.5">LEFT AVG</span>
+                                                                        <span className="text-xs font-mono text-slate-400 font-bold">{formatDelta(res.leftAvgDelta)}</span>
+                                                                    </div>
+                                                                    <div className="flex flex-col px-1">
+                                                                        <span className={`text-[9px] font-black text-${themeColor}-600/60 uppercase tracking-widest mb-0.5`}>RIGHT AVG</span>
+                                                                        <span className="text-sm font-mono text-white font-black">{formatDelta(res.rightAvgDelta)}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>

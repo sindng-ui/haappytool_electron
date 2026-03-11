@@ -305,6 +305,7 @@
         - **[New] Deduplication**: 시각적으로 중복되는 구간 분석 결과를 워커 레벨에서 사전에 제거하여 UI 가독성 및 렌더링 부하 최적화
         - `Non-blocking Analysis`: 분석 수행 시 `workerReady` 상태를 유지하여 메인 UI의 'Processing log..' 메시지 노출 방지
         - `Immediate Cancellation`: 유저가 패널을 닫을 시 `analyzerWorker.terminate()`를 즉각 호출하여 CPU/메모리 자원을 즉시 반납하고 분석 결과의 고스트 팝업 방지 (`useSplitAnalysis.ts`)
+        - **[New] 3-Column Timeline Layout**: Timeline 탭의 세그먼트 카드를 `Context - Visual Bridge - Metrics` 3컬럼 구조로 개편하여 공간 활용 최적화 및 성능 차이 시각화 강화 🐧🎨
     - **Interactions**:
         - `TopBar.tsx`: Dual View(Split) 상태에서만 나타나는 ⚡ Analyze Diff 버튼을 통해 분석 진입. 버튼은 토글(`Start` ↔ `Close/Cancel`) 방식으로 동작하며, 분석 중 클릭 시 즉시 중단됨.
         - `LogSession.tsx`: 계산이 끝나면 상단 통합 패널(`SplitAnalyzerPanel`) 형태로 리포트 표시 (이전 하단 Drawer 방식에서 최적화)

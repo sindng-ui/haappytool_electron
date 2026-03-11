@@ -15,6 +15,9 @@
 - [x] **용어 변경**: Analyze Diff 내 'Spam' -> 'New Logs'로 명칭 변경 🐧📝✨
     - [x] `SplitAnalyzerPanel.tsx` UI 레이블 및 변수명 수정
     - [x] `APP_MAP.md` 및 `walkthrough.md` 업데이트
+- [x] **UI 고도화**: Timeline 탭 세그먼트 카드 3컬럼 레이아웃 개편 🐧🎨⚡
+    - [x] `SplitAnalyzerPanel.tsx` 레이아웃 및 시각화 브리지 구현
+    - [x] 시각적 임팩트 강화 (그라데이션 및 애니메이션)
 - [x] APP_MAP.md 업데이트 및 문서 정리
     - [x] TIMELINE 카드 내 'FROM', 'TO' 레이블 제거
     - [x] 카드 더블 클릭 시 원본 로그 분할 보기(Split Raw View) 구현
