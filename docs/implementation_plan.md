@@ -1,31 +1,28 @@
-# 문서 업데이트 계획 (소환 기능 제거 및 Split Mode 복구)
+# Timeline 중복 세그먼트 제거 계획
 
-형님! split mode 작업 중 커밋을 되돌림에 따라, 더 이상 유효하지 않은 '소환(summon)' 기능에 대한 설명을 문서에서 정리하겠습니다. 특히 `important/APP_MAP.md`에 잘못 남아있는 diff 흔적들을 깔끔하게 지워버리겠습니다! 🐧🧹
+## 문제 원인 분석
+현재 Analyze Diff 기능은 두 가지 방식으로 세그먼트(Interval)를 추출합니다:
+1. **Alias Sequence Matching (Part 2)**: Happy Combo의 Alias를 기반으로 엄격하게 구간을 나눕니다. (`isAliasInterval: true`)
+2. **General Interval Analysis (Part 3)**: 로그의 시그니처 변화를 감지하여 유의미한 구간을 추출합니다. (`isAliasInterval: false`)
 
-## Proposed Changes
+Alias가 지정된 로그는 '유의미한 로그'로도 분류되기 때문에, 동일한 로그 구간이 두 로직 모두에서 검출될 수 있습니다. UI 필터링 조건(`r.leftAvgDelta > 0 || r.isAliasInterval`)을 둘 다 통과할 경우, 사용자에게는 거의 동일해 보이는(혹은 완전히 동일한) 세그먼트가 두 번 표시됩니다.
 
-### Documentation (APP_MAP)
+또한, Alias 매칭 로직 내부적으로도 동일한 구간에 대해 중복 매칭이 발생할 가능성이 있는지 검증하고, 시각적으로 동일한 범위(`leftPrevLineNum` ~ `leftLineNum`, `rightPrevLineNum` ~ `rightLineNum`)를 가리키는 중복 결과를 제거해야 합니다.
 
-#### [MODIFY] [APP_MAP.md](file:///K:/Antigravity_Projects/gitbase/happytool_electron/APP_MAP.md)
-- '소환(summon)' 또는 'Tab Summoning'과 관련된 내용이 남아있다면 삭제합니다.
-- 'Split View' 관련 설명에서 'dual drop' 기능이 현재는 동작하지 않음을 명시하거나 해당 내용을 제거합니다.
+## 제안하는 변경 사항
 
-#### [MODIFY] [APP_MAP.md](file:///K:/Antigravity_Projects/gitbase/happytool_electron/important/APP_MAP.md)
-- 110번 라인 근처에 잘못 포함된 `+` 기호 및 'Individual Close' 관련 내용을 정리합니다.
-- 'Tab Summoning' 등의 언급이 있다면 삭제합니다.
+### [Worker]
+#### [MODIFY] [SplitAnalysis.worker.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/SplitAnalysis.worker.ts)
+- `results` 배열을 생성한 후, 최종 반환 전에 **시각적 범위 기반의 중복 제거(Deduplication)** 로직을 추가합니다.
+- 동일한 좌/우측 시작/종료 인덱스를 가진 세그먼트가 존재할 경우, `isAliasInterval: true`인 항목을 우선적으로 남기고 나머지는 제거합니다.
+- `key`가 다르더라도 가리키는 로그 범위가 같으면 사용자에게는 중복으로 느껴지므로 이를 차단합니다.
 
-### 기타 관련 문서
+## 검증 계획
 
-#### [MODIFY] [USER_GUIDE.md](file:///K:/Antigravity_Projects/gitbase/happytool_electron/USER_GUIDE.md)
-- 듀얼 뷰 설명 중 '소환' 기능에 대한 내용이 있다면 일반적인 듀얼 뷰 설명으로 대체합니다.
+### 자동화 테스트
+- `test/workers/SegmentSync.test.ts`에 중복 발생 케이스를 추가하여, 중복 제거 로직이 정상 작동하는지 확인합니다.
 
-## Verification Plan
+### 수동 확인
+- 형님께서 공유해주신 로그 환경에서 다시 분석을 실행하여, 중복된 Indigo(Zap) 박스가 사라졌는지 확인합니다.
 
-### Manual Verification
-- `APP_MAP.md`와 `important/APP_MAP.md`를 다시 읽어 '소환', 'summon', 'dual drop' 등의 키워드가 적절히 정리되었는지 확인합니다.
-- 문서 내에 잘못된 diff 기호(`+`, `-`)가 남아있지 않은지 검토합니다.
-
----
-형님, 이 계획대로 진행해도 될까요? OK 해주시면 바로 작업 시작하겠습니다!
-
-<button id="proceed">Proceed</button>
+[proceed]

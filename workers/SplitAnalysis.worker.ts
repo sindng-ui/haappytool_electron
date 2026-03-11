@@ -116,6 +116,24 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
         return bSeverity - aSeverity;
     });
 
+    // 🐧⚡ Deduplication: 시각적으로 동일한 구간을 가리키는 중복 세그먼트 제거
+    // Alias 분석 결과와 일반 분석 결과가 겹칠 경우, 상단에 정렬된(Alias 등) 결과를 우선순위로 남깁니다.
+    const finalResults: SplitAnalysisResult[] = [];
+    const seenRanges = new Set<string>();
+
+    for (const res of results) {
+        // 좌/우 로그의 시작~끝 라인이 모두 동일하면 중복으로 판단
+        const rangeKey = `${res.leftPrevLineNum}-${res.leftLineNum}|${res.rightPrevLineNum}-${res.rightLineNum}`;
+
+        // 유니크한 키(시그니처)도 고려해야 할 수 있으나, 사용자에게는 '범위'가 같으면 중복임
+        if (!seenRanges.has(rangeKey)) {
+            finalResults.push(res);
+            seenRanges.add(rangeKey);
+        } else {
+            console.log(`[SplitAnalysisWorker] Deduplicated redundant segment: ${res.key} (Range: ${rangeKey})`);
+        }
+    }
+
     const pointResults: PointAnalysisResult[] = [];
     if (rightPointMetrics) {
         for (const sig in rightPointMetrics) {
@@ -137,5 +155,5 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
     pointResults.sort((a, b) => b.count - a.count);
 
     ctx.postMessage({ type: 'STATUS_UPDATE', payload: { status: 'ready', progress: 100 } });
-    ctx.postMessage({ type: 'SPLIT_ANALYSIS_COMPLETE', payload: { results, pointResults } });
+    ctx.postMessage({ type: 'SPLIT_ANALYSIS_COMPLETE', payload: { results: finalResults, pointResults } });
 };
