@@ -244,7 +244,7 @@
   - `Provider`: [LogArchiveProvider.tsx](./components/LogArchive/LogArchiveProvider.tsx)
   - `DB`: [LogArchiveDB.ts](./components/LogArchive/db/LogArchiveDB.ts)
 - **Core Interface**:
-  - `SaveArchiveDialog`: 선택한 로그를 아카이브에 저장하는 인터페이스
+  - `SaveArchiveDialog`: 선택한 로그를 아카이브에 저장하는 인터페이스 (너비 800px 확장 및 프리뷰 영역 확대 적용됨)
   - `ArchiveSidebar`: 저장된 목록 표시 및 검색
 - **Data Flow**: `Log Selection` -> `index.tsx(Save)` -> `IndexedDB` -> `Sidebar/Viewer`
 

@@ -9,7 +9,7 @@ import { Settings2, ListOrdered } from 'lucide-react';
 const { Plus, Trash2, Maximize, Columns, Sparkles } = Lucide;
 
 // 🎯 형님, Analyze Diff 버튼을 다시 켜고 싶으시면 아래 플래그를 true로 바꿔주십쇼!
-const ENABLE_SPLIT_ANALYZE_BUTTON = false;
+const ENABLE_SPLIT_ANALYZE_BUTTON = true;
 
 const TopBar: React.FC<{
     onReturnFocus?: () => void;

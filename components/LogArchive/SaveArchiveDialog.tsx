@@ -378,7 +378,7 @@ export const SaveArchiveDialog = React.memo(function SaveArchiveDialog({ isOpen,
                                     placeholder="Leave a memo for this log..."
                                     disabled={isSaving}
                                     maxLength={500}
-                                    rows={2}
+                                    rows={3}
                                     className="memo-textarea"
                                     style={{
                                         width: '100%',
