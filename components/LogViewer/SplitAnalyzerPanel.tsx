@@ -534,8 +534,8 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                 const isSelected = selectedKey === res.key;
 
                                                 // Theme Colors
-                                                const themeColor = res.isGlobalBatch ? 'violet' : (res.isAliasInterval ? 'indigo' : (res.isNewError ? 'rose' : (isSlower ? 'orange' : (isFaster ? 'emerald' : 'blue'))));
-                                                const Icon = res.isGlobalBatch ? List : (res.isAliasInterval ? Zap : (res.isNewError ? AlertTriangle : (isSlower ? TrendingUp : (isFaster ? TrendingDown : Activity))));
+                                                const themeColor = res.isNewError ? 'rose' : (isSlower ? 'orange' : (isFaster ? 'emerald' : (res.isGlobalBatch ? 'violet' : (res.isAliasInterval ? 'indigo' : 'blue'))));
+                                                const Icon = res.isNewError ? AlertTriangle : (isSlower ? TrendingUp : (isFaster ? TrendingDown : (res.isGlobalBatch ? List : (res.isAliasInterval ? Zap : Activity))));
 
                                                 return (
                                                     <div
@@ -551,11 +551,11 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                         {/* Selection Indicator */}
                                                         {isSelected && <div className={`absolute left-0 top-0 bottom-0 w-1 bg-${themeColor}-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]`} />}
 
-                                                        <div className="flex-1 p-2.5 flex items-center min-w-0">
+                                                        <div className="flex-1 py-1.5 px-2.5 flex items-center min-w-0">
                                                             {/* COL 1: Log Context (FROM -> TO) */}
-                                                            <div className="w-[32%] min-w-[280px] shrink-0 flex flex-col gap-1.5 relative pr-6 border-r border-slate-800/40">
+                                                            <div className="w-[32%] min-w-[280px] shrink-0 flex flex-col gap-1 relative pr-6 border-r border-slate-800/40">
                                                                 {/* FROM Box */}
-                                                                <div className={`border border-slate-800/50 rounded-lg py-1 px-3 flex items-center gap-3 ${res.isGlobalBatch ? 'bg-violet-500/10 border-violet-500/20' : 'bg-slate-950/50'}`}>
+                                                                <div className={`border border-slate-800/50 rounded-lg py-0.5 px-2.5 flex items-center gap-3 ${res.isGlobalBatch ? 'bg-violet-500/10 border-violet-500/20' : 'bg-slate-950/50'}`}>
                                                                     <div className={`w-1.5 h-1.5 rounded-full ${res.isGlobalBatch ? 'bg-violet-500 shadow-[0_0_5px_rgba(139,92,246,0.5)]' : 'bg-slate-600 shadow-[0_0_5px_rgba(71,85,105,0.5)]'}`} />
                                                                     <div className="flex flex-col min-w-0 flex-1">
                                                                         <div className="flex items-center gap-2">
@@ -572,7 +572,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                                 </div>
 
                                                                 {/* Minimal Connector */}
-                                                                <div className="absolute left-[30px] top-[26px] bottom-[26px] w-[1px] bg-slate-800/80 z-0" />
+                                                                <div className="absolute left-[30px] top-[24px] bottom-[24px] w-[1px] bg-slate-800/80 z-0" />
                                                                 <div className="absolute left-[26px] top-1/2 -translate-y-1/2 z-10">
                                                                     <div className={`bg-slate-950 p-0.5 rounded-full border border-slate-800`}>
                                                                         <ArrowDown size={8} className="text-slate-600" />
@@ -580,7 +580,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                                 </div>
 
                                                                 {/* TO Box */}
-                                                                <div className={`bg-${themeColor}-500/5 border border-${themeColor}-500/20 rounded-lg py-1 px-3 flex items-center gap-3 relative z-20`}>
+                                                                <div className={`bg-${themeColor}-500/5 border border-${themeColor}-500/20 rounded-lg py-0.5 px-2.5 flex items-center gap-3 relative z-20`}>
                                                                     <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-500 shadow-[0_0_8px_rgba(59,130,246,0.3)]`} />
                                                                     <div className="flex flex-col min-w-0 flex-1">
                                                                         <div className="flex items-center gap-2">
@@ -604,8 +604,8 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                                 <div className="flex items-center gap-8 z-10 w-full max-w-2xl px-8">
                                                                     <div className={`h-px flex-1 bg-gradient-to-r from-transparent via-${themeColor}-500/40 to-transparent`} />
 
-                                                                    <div className="flex flex-col items-center gap-1.5 shrink-0">
-                                                                        <div className={`flex items-center gap-3 px-5 py-2 rounded-2xl bg-${themeColor}-500/10 border border-${themeColor}-500/30 shadow-[0_0_20px_rgba(0,0,0,0.3)] backdrop-blur-md`}>
+                                                                    <div className="flex flex-col items-center gap-1 shrink-0">
+                                                                        <div className={`flex items-center gap-3 px-4 py-1.5 rounded-2xl bg-${themeColor}-500/10 border border-${themeColor}-500/30 shadow-[0_0_20px_rgba(0,0,0,0.3)] backdrop-blur-md`}>
                                                                             <div className={`p-1.5 rounded-full bg-${themeColor}-500/20 shadow-inner`}>
                                                                                 <Icon size={18} className={`text-${themeColor}-400`} strokeWidth={3} />
                                                                             </div>
@@ -649,8 +649,8 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                             </div>
 
                                                             {/* COL 3: Detailed Metrics (Individual Averages) */}
-                                                            <div className="w-44 shrink-0 flex flex-col justify-center gap-2 pl-6 border-l border-slate-800/40">
-                                                                <div className="space-y-2">
+                                                            <div className="w-44 shrink-0 flex flex-col justify-center gap-1.5 pl-6 border-l border-slate-800/40">
+                                                                <div className="space-y-1.5">
                                                                     <div className="flex flex-col px-1">
                                                                         <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-0.5">LEFT AVG</span>
                                                                         <span className="text-xs font-mono text-slate-400 font-bold">{formatDelta(res.leftAvgDelta)}</span>
