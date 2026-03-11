@@ -854,6 +854,16 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     return;
                                 }
 
+                                // ✅ Ctrl + L (Show Line Numbers Toggle)
+                                if (e.key === 'l' || e.key === 'L' || e.key === 'ㅣ') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const nextState = !(logViewPreferences.showLineNumbers !== false);
+                                    updateLogViewPreferences({ showLineNumbers: nextState });
+                                    addToast(`Line numbers ${nextState ? 'Shown' : 'Hidden'}`, 'info');
+                                    return;
+                                }
+
                                 // Ctrl + B: View Bookmarks
                                 if (e.key === 'b' || e.key === 'B') {
                                     e.preventDefault();
