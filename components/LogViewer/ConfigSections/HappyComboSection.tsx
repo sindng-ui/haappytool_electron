@@ -227,7 +227,17 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
                     <input
                         type="checkbox"
                         checked={currentConfig.happyCombosEnabled !== false}
-                        onChange={(e) => updateCurrentRule({ happyCombosEnabled: e.target.checked })}
+                        onChange={(e) => {
+                            const enabled = e.target.checked;
+                            const updates: Partial<LogRule> = { happyCombosEnabled: enabled };
+
+                            // 💡 형님! 마스터 체크박스 해제 시 모든 하위 그룹도 비활성화합니다.
+                            if (!enabled && currentConfig.happyGroups) {
+                                updates.happyGroups = currentConfig.happyGroups.map(g => ({ ...g, enabled: false }));
+                            }
+
+                            updateCurrentRule(updates);
+                        }}
                         className="accent-yellow-400 w-4 h-4 cursor-pointer"
                         title="Enable/Disable All Happy Combos"
                     />

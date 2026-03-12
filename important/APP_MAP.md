@@ -334,7 +334,8 @@
 - **Location**:
     - View: [ConfigurationPanel.tsx](./components/LogViewer/ConfigurationPanel.tsx), [HappyComboSection.tsx](./components/LogViewer/ConfigSections/HappyComboSection.tsx)
     - Logic: [useLogFileOperations.ts](./hooks/useLogFileOperations.ts), [db.ts](./utils/db.ts)
-- **Core Interface**:
+- **Interactions**:
+    - `Master Toggle`: Happy Combo 마스터 체크박스 해제 시 모든 하위 그룹(`happyGroups`)을 자동으로 비활성화(`enabled: false`) 처리하여 연동 가시성 및 필터 성능 최적화 보장 (성능 고려 로직)
     - `state_persistence`: 5초마다 `tabState_${tabId}` (경로, 스크롤, 선택) 저장. 저장 전 `isLoaded` 플래그를 체크하여 부팅 시 초기화 레이스 컨디션 방지 logic 적용됨.
     - **[New] Stream Isolation**: `activeStreamRequestIdLeft/Right`를 독립 참조하여 좌/우 동시 로딩 시 데이터 정합성 보장
     - `streamReadFile(path, requestId)`: 대용량 파일 세그먼트 전송을 위한 Electron IPC

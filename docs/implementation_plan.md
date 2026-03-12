@@ -1,25 +1,43 @@
-# Global Alias Range 분석 구현 계획
+# 해피 콤보 마스터 체크박스 연동 구현 계획
 
-## 유저 요구사항
-- 특정 Alias(예: `OnCreate`)가 여러 번 발생할 경우, 각 지점 사이의 간격 외에 **해당 Alias가 처음 발생한 지점부터 마지막으로 발생한 지점까지**를 하나의 거대한 세그먼트로 추가로 제공해야 함.
-- 기존의 세밀한 세그먼트 분석(Interval Analysis) 결과에는 영향을 주지 않아야 함.
+해피 콤보 전체를 활성화/비활성화하는 마스터 체크박스의 상태를 하위 항목들과 동기화하도록 개선합니다.
 
-## 설계 및 변경 사항
+## 제안된 변경 사항
 
-### [Utility]
-#### [MODIFY] [SplitAnalysisUtils.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/SplitAnalysisUtils.ts)
-- `computeGlobalAliasRanges` 함수 신규 작성:
-    - `AliasEvent[]`를 입력받아 Alias별(Signature 기준)로 그룹화합니다.
-    - 그룹 내 이벤트가 2개 이상인 경우, `first.timestamp`와 `last.timestamp`의 차이를 계산하여 전체 소요 시간을 구합니다.
-    - 시작/종료 지점은 `first.visualIndex`와 `last.visualIndex`로 설정합니다.
+### Log Viewer Component
 
-### [Worker]
-#### [MODIFY] [SplitAnalysis.worker.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/SplitAnalysis.worker.ts)
-- 신규 엔진 가동: `computeGlobalAliasRanges` 결과를 `results` 배열에 추가합니다.
-- `key` 이름 규칙: `[Global Alias Batch] OnCreate (10 counts)` 형태로 명명하여 기존 개별 매칭과 구분합니다.
+#### [MODIFY] [HappyComboSection.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/ConfigSections/HappyComboSection.tsx)
+
+- 마스터 체크박스(`Happy Combos` 제목 옆)의 `onChange` 이벤트 핸들러를 수정합니다.
+- 체크박스가 **해제(unchecked, false)**될 때, 현재 규칙의 `happyGroups` 배열에 있는 모든 항목의 `enabled` 상태를 `false`로 변경하여 `updateCurrentRule`을 호출합니다.
+- 이를 통해 마스터 스위치를 끌 때 모든 상세 콤보 규칙들이 시각적/기능적으로 함께 꺼지도록 보장합니다.
+
+```tsx
+// 예상 변경 코드 (HappyComboSection.tsx)
+onChange={(e) => {
+    const enabled = e.target.checked;
+    const updates: Partial<LogRule> = { happyCombosEnabled: enabled };
+    
+    // 마스터 체크박스 해제 시 모든 하위 그룹도 비활성화
+    if (!enabled && currentConfig.happyGroups) {
+        updates.happyGroups = currentConfig.happyGroups.map(g => ({ ...g, enabled: false }));
+    }
+    
+    updateCurrentRule(updates);
+}}
+```
 
 ## 검증 계획
-- `SegmentSync.test.ts`에 Global Range 검증 로직 추가.
-- `OnCreate`가 여러 번 나오는 로그 데이터에서 하나의 보라색(Zap) 전역 세그먼트가 생성되는지 UI 확인.
 
-[proceed]
+### 수동 검증
+1. **해피 콤보 섹션 진입**: 로그 익스트렉터의 설정 패널에서 `Happy Combos` 섹션으로 이동합니다.
+2. **하위 항목 활성화 확인**: 일부 해피 콤보 루트 항목들이 체크(활성화)되어 있는지 확인합니다.
+3. **마스터 체크박스 해제**: 상단의 `Happy Combos` 마스터 체크박스를 클릭하여 해제합니다.
+4. **결과 확인**: 모든 하위 루트 항목들의 체크박스가 함께 해제되는지 확인합니다.
+5. **마스터 체크박스 재설정**: `Happy Combos`를 다시 체크했을 때, 하위 항목들이 이전 상태를 유지하거나(혹은 방금 해제된 상태 그대로) 정상 동작하는지 확인합니다. (이번 요청은 해제 시의 연동에 집중합니다.)
+
+---
+
+형님, 위 계획대로 진행해도 될까요? OK 하시면 바로 코드 수정 들어가겠습니다! 🐧🚀
+
+[PROCEED]
