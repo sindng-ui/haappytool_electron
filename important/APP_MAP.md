@@ -335,7 +335,10 @@
     - View: [ConfigurationPanel.tsx](./components/LogViewer/ConfigurationPanel.tsx), [HappyComboSection.tsx](./components/LogViewer/ConfigSections/HappyComboSection.tsx)
     - Logic: [useLogFileOperations.ts](./hooks/useLogFileOperations.ts), [db.ts](./utils/db.ts)
 - **Interactions**:
-    - `Master Toggle`: Happy Combo 마스터 체크박스 해제 시 모든 하위 그룹(`happyGroups`)을 자동으로 비활성화(`enabled: false`) 처리하여 연동 가시성 및 필터 성능 최적화 보장 (성능 고려 로직)
+    - `Master Toggle (Improved)`: 마스터 체크박스는 "상태 차단기"가 아닌 "전체 토글(Toggle All)" 도우미로 동작합니다.
+        - 하위 항목 중 하나라도 켜져 있으면 마스터도 '체크' 상태로 표시됩니다.
+        - 마스터 클릭 시: (켜기 -> 전체 활성화 / 끄기 -> 전체 비활성화) 연동을 수행합니다.
+    - `Filter Engine`: 필터링 여부는 오직 개별 콤보의 `enabled` 상태에만 의존하며, 마스터 스위치 설정에 구애받지 않고 개별 활성화가 항상 우선됩니다. (형님의 '다 끄고 하나만 보기' 요구사항 충족)
     - `state_persistence`: 5초마다 `tabState_${tabId}` (경로, 스크롤, 선택) 저장. 저장 전 `isLoaded` 플래그를 체크하여 부팅 시 초기화 레이스 컨디션 방지 logic 적용됨.
     - **[New] Stream Isolation**: `activeStreamRequestIdLeft/Right`를 독립 참조하여 좌/우 동시 로딩 시 데이터 정합성 보장
     - `streamReadFile(path, requestId)`: 대용량 파일 세그먼트 전송을 위한 Electron IPC

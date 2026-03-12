@@ -226,23 +226,23 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
                 <div className="flex items-center gap-3">
                     <input
                         type="checkbox"
-                        checked={currentConfig.happyCombosEnabled !== false}
+                        checked={groupedRoots.some(r => r.isRootEnabled)}
                         onChange={(e) => {
                             const enabled = e.target.checked;
                             const updates: Partial<LogRule> = { happyCombosEnabled: enabled };
 
-                            // 💡 형님! 마스터 체크박스 해제 시 모든 하위 그룹도 비활성화합니다.
-                            if (!enabled && currentConfig.happyGroups) {
-                                updates.happyGroups = currentConfig.happyGroups.map(g => ({ ...g, enabled: false }));
+                            // 💡 형님! 켜면 전체 켜기, 끄면 전체 끄기로 동작합니다.
+                            if (currentConfig.happyGroups) {
+                                updates.happyGroups = currentConfig.happyGroups.map(g => ({ ...g, enabled }));
                             }
 
                             updateCurrentRule(updates);
                         }}
                         className="accent-yellow-400 w-4 h-4 cursor-pointer"
-                        title="Enable/Disable All Happy Combos"
+                        title={groupedRoots.some(r => r.isRootEnabled) ? "Disable All Happy Combos" : "Enable All Happy Combos"}
                     />
-                    <label className={`text-sm font-bold flex items-center gap-2 transition-colors ${currentConfig.happyCombosEnabled !== false ? 'text-indigo-100' : 'text-slate-500'}`}>
-                        <Zap size={16} className={`${currentConfig.happyCombosEnabled !== false ? 'text-yellow-400 fill-yellow-400 icon-glow' : 'text-slate-600'}`} />
+                    <label className={`text-sm font-bold flex items-center gap-2 transition-colors ${groupedRoots.some(r => r.isRootEnabled) ? 'text-indigo-100' : 'text-slate-500'}`}>
+                        <Zap size={16} className={`${groupedRoots.some(r => r.isRootEnabled) ? 'text-yellow-400 fill-yellow-400 icon-glow' : 'text-slate-600'}`} />
                         Happy Combos
                     </label>
                 </div>

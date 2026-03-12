@@ -1,43 +1,38 @@
-# 해피 콤보 마스터 체크박스 연동 구현 계획
+# 해피 콤보 필터링 연동 구조 개선 계획 (2차)
 
-해피 콤보 전체를 활성화/비활성화하는 마스터 체크박스의 상태를 하위 항목들과 동기화하도록 개선합니다.
+형님! "전체 끄기 후 하나만 켜기"가 작동하지 않았던 근본 원인을 해결하고, 더 직관적인 UI/UX로 개선합니다.
+
+## 문제 분석
+- **원인**: `filterGroupUtils.ts`에서 마스터 스위치(`happyCombosEnabled`)가 `false`이면, 하위의 개별 콤보가 켜져 있어도 필터링 로직 자체가 중단됨.
+- **현상**: 마스터 스위치가 개별 스위치보다 강력한 "차단기" 역할을 수행하여 연동을 방해함.
 
 ## 제안된 변경 사항
 
-### Log Viewer Component
+### 1. 필터 엔진 로직 수정
+#### [MODIFY] [filterGroupUtils.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/utils/filterGroupUtils.ts)
+- `assembleIncludeGroups` 함수에서 마스터 스위치(`happyCombosEnabled`) 체크 로직을 제거합니다.
+- 이제 필터링 여부는 오직 개별 콤보들의 `enabled` 상태에만 의존합니다. (모두 꺼져있으면 자동으로 필터링 안됨)
 
+### 2. UI 및 연동 로직 개선
 #### [MODIFY] [HappyComboSection.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/ConfigSections/HappyComboSection.tsx)
-
-- 마스터 체크박스(`Happy Combos` 제목 옆)의 `onChange` 이벤트 핸들러를 수정합니다.
-- 체크박스가 **해제(unchecked, false)**될 때, 현재 규칙의 `happyGroups` 배열에 있는 모든 항목의 `enabled` 상태를 `false`로 변경하여 `updateCurrentRule`을 호출합니다.
-- 이를 통해 마스터 스위치를 끌 때 모든 상세 콤보 규칙들이 시각적/기능적으로 함께 꺼지도록 보장합니다.
-
-```tsx
-// 예상 변경 코드 (HappyComboSection.tsx)
-onChange={(e) => {
-    const enabled = e.target.checked;
-    const updates: Partial<LogRule> = { happyCombosEnabled: enabled };
-    
-    // 마스터 체크박스 해제 시 모든 하위 그룹도 비활성화
-    if (!enabled && currentConfig.happyGroups) {
-        updates.happyGroups = currentConfig.happyGroups.map(g => ({ ...g, enabled: false }));
-    }
-    
-    updateCurrentRule(updates);
-}}
-```
+- **마스터 체크박스 역할 변경**: "상태 차단기" -> "전체 토글(All Toggle) 마스터"
+- **상태 동기화**:
+    - 체크 상태 (`checked`): 하위 항목 중 **하나라도 켜져 있으면** 체크된 것으로 표시 (`isAnyEnabled`).
+    - 클릭 동작 (`onChange`): 
+        - **켜기** ( unchecked -> checked ): 현재 규칙의 모든 `happyGroups`를 `enabled: true`로 변경하여 **전체 활성화**. (형님의 '다시 다 켜져야 함' 요구사항 충족)
+        - **끄기** ( checked -> unchecked ): 모든 `happyGroups`를 `enabled: false`로 변경하여 **전체 비활성화**. (형님의 '일단 다 끄고' 요구사항 충족)
+- **시각적 피드백**: `Happy Combos` 섹션의 활성화 색상(노란색/인디고) 판정 기준을 `isAnyEnabled`로 변경하여, 마스터 스위치 상태가 아닌 **실제 필터 작동 여부**를 반영하게 합니다.
 
 ## 검증 계획
 
 ### 수동 검증
-1. **해피 콤보 섹션 진입**: 로그 익스트렉터의 설정 패널에서 `Happy Combos` 섹션으로 이동합니다.
-2. **하위 항목 활성화 확인**: 일부 해피 콤보 루트 항목들이 체크(활성화)되어 있는지 확인합니다.
-3. **마스터 체크박스 해제**: 상단의 `Happy Combos` 마스터 체크박스를 클릭하여 해제합니다.
-4. **결과 확인**: 모든 하위 루트 항목들의 체크박스가 함께 해제되는지 확인합니다.
-5. **마스터 체크박스 재설정**: `Happy Combos`를 다시 체크했을 때, 하위 항목들이 이전 상태를 유지하거나(혹은 방금 해제된 상태 그대로) 정상 동작하는지 확인합니다. (이번 요청은 해제 시의 연동에 집중합니다.)
+1. **전체 끄기**: 마스터 체크박스를 해제하여 모든 하위 콤보가 꺼지는지 확인합니다.
+2. **개별 켜기**: 하위 콤보 중 하나만 켭니다. (이때 마스터 체크박스가 '켜짐' 상태로 자동 변경됩니다.)
+3. **필터링 확인**: 마스터 영향 없이 켜진 콤보가 즉시 필터링에 반영되는지 확인합니다.
+4. **전체 켜기**: 마스터가 이미 켜져 있더라도(일부만 켜진 경우), 혹은 꺼진 경우에 클릭하여 **모든** 콤보가 한 번에 활성화되는지 확인합니다.
 
 ---
 
-형님, 위 계획대로 진행해도 될까요? OK 하시면 바로 코드 수정 들어가겠습니다! 🐧🚀
+형님! 이렇게 하면 "전체 다 끄고 보고 싶은 놈 하나만 딱 골라 보기"가 아주 시원하게 작동할 겁니다. 진행할까요? 🐧🚀
 
 [PROCEED]
