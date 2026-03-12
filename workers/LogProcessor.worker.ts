@@ -16,7 +16,8 @@ ctx.onerror = (e) => {
 
 // --- WASM Filter Engine ---
 import initWasmModule, { FilterEngine } from '../public/wasm/happy_filter.js';
-import wasmUrl from '../public/wasm/happy_filter_bg.wasm?url';
+// @ts-ignore: Vite public url resolving
+import wasmUrl from '/wasm/happy_filter_bg.wasm?url';
 
 let wasmEngine: any = null;
 let wasmMemory: WebAssembly.Memory | null = null;

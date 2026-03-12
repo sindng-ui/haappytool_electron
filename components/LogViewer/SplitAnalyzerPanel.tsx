@@ -17,7 +17,8 @@ type AnalysisTab = 'summary' | 'timeline';
 
 export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results, isLoading, progress = 0, onClose, onJumpToRange, onViewRawSplit, height = 350 }) => {
     const [activeTab, setActiveTab] = useState<AnalysisTab>('summary');
-    const [selectedKey, setSelectedKey] = useState<string | null>(null);
+    // 🐧⚡ selectedKey(문자열) 대신 selectedIndex(숫자)로 관리 → 중복 key가 있어도 정확한 위치 추적
+    const [selectedIndex, setSelectedIndex] = useState<number>(-1);
     const [summaryFilter, setSummaryFilter] = useState<'regression' | 'improvement' | 'stable'>('regression');
     const [pointNavigation, setPointNavigation] = useState<Record<string, number>>({});
 
@@ -47,6 +48,9 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                 return aIdx - bIdx;
             });
     }, [results]);
+
+    // 🐧⚡ selectedKey: selectedIndex 기반으로 파생 (선언 순서 문제 해결)
+    const selectedKey = selectedIndex >= 0 && sortedResults.length > 0 ? sortedResults[selectedIndex]?.key ?? null : null;
 
     const summaryData = useMemo(() => {
         if (!results) return null;
@@ -79,12 +83,13 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
     };
 
 
-    const handleItemClick = (res: SplitAnalysisResult, isSinglePoint: boolean = false) => {
-        setSelectedKey(res.key);
+    const handleItemClick = (res: SplitAnalysisResult, isSinglePoint: boolean = false, explicitIndex?: number) => {
+        // 🐧⚡ 인덱스 기반으로 선택 위치 추적 (중복 key 대응)
+        const idx = explicitIndex !== undefined ? explicitIndex : sortedResults.indexOf(res);
+        setSelectedIndex(idx);
 
         // Timeline 리스트 내 자동 스크롤 (Focus) - 페이징 확인 필요
         if (activeTab === 'timeline') {
-            const idx = sortedResults.findIndex(r => r.key === res.key);
             if (idx !== -1) {
                 const requiredPage = Math.floor(idx / PAGE_SIZE) + 1;
                 if (requiredPage !== timelinePage) {
@@ -102,25 +107,58 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
 
         if (!onJumpToRange) return;
 
-        // 🐧🎯 점프 로직 정밀화
+        // 🐧🔍 디버그: 실제 전달되는 lineNum 값 확인
+        console.log('[SplitAnalyzerPanel] Jump info:', {
+            key: res.key,
+            leftLineNum: res.leftLineNum, leftPrevLineNum: res.leftPrevLineNum,
+            rightLineNum: res.rightLineNum, rightPrevLineNum: res.rightPrevLineNum,
+            isBurst: res.isBurst, burstCount: res.burstCount,
+            burstEndLineNum: res.burstEndLineNum,
+            isAliasInterval: res.isAliasInterval, isAliasMatch: res.isAliasMatch, isNewError: res.isNewError
+        });
+
+        // 🐧🎯 점프 로직
         // 1. Alias INTERVAL인 경우: PrevLineNum ~ LineNum (구간)
         // 2. Alias MATCH (지점)인 경우: 해당 지점만 (단일)
         // 3. New Error인 경우: 해당 지점만 (단일)
+        // 4. 🐧⚡ Burst인 경우: 첫 발생 위치(rightLineNum) ~ 마지막 발생 위치(burstEndLineNum)
 
         const isInterval = res.isAliasInterval || (!res.isAliasMatch && !res.isNewError);
         const forceSingle = !isInterval || isSinglePoint;
 
+        if (res.isBurst && !isSinglePoint) {
+            // 버스트: 첫 발생 ~ 마지막 발생 범위로 점프 (양쪽 패널 모두)
+            const leftStart = res.leftPrevLineNum ?? 0;
+            const leftEnd = res.burstEndLeftLineNum ?? res.leftLineNum;
+            const rightStart = res.rightPrevLineNum ?? 0;
+            const rightEnd = res.burstEndLineNum ?? res.rightLineNum;
+
+            if (res.leftLineNum !== undefined && res.leftLineNum >= 0) {
+                onJumpToRange('left', leftStart, leftEnd);
+            }
+            if (res.rightLineNum !== undefined && res.rightLineNum >= 0) {
+                onJumpToRange('right', rightStart, rightEnd);
+            }
+            return;
+        }
+
         // 좌측 점프
         if (res.leftLineNum !== undefined && res.leftLineNum >= 0) {
-            const start = forceSingle ? res.leftLineNum : Math.max(0, res.leftPrevLineNum);
+            const rawStart = forceSingle ? res.leftLineNum : (res.leftPrevLineNum ?? res.leftLineNum);
+            // 🐧⚡ start가 end보다 크면 end(현재 위치)로 단일 점프
+            const start = (rawStart >= 0 && rawStart <= res.leftLineNum) ? rawStart : res.leftLineNum;
             const end = res.leftLineNum;
+            console.log('[SplitAnalyzerPanel] Jump LEFT:', start, '->', end);
             onJumpToRange('left', start, end);
         }
 
         // 우측 점프
         if (res.rightLineNum !== undefined && res.rightLineNum >= 0) {
-            const start = forceSingle ? res.rightLineNum : Math.max(0, res.rightPrevLineNum);
+            const rawStart = forceSingle ? res.rightLineNum : (res.rightPrevLineNum ?? res.rightLineNum);
+            // 🐧⚡ start가 end보다 크면 end(현재 위치)로 단일 점프
+            const start = (rawStart >= 0 && rawStart <= res.rightLineNum) ? rawStart : res.rightLineNum;
             const end = res.rightLineNum;
+            console.log('[SplitAnalyzerPanel] Jump RIGHT:', start, '->', end);
             onJumpToRange('right', start, end);
         }
     };
@@ -479,12 +517,15 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                     <button
                                         onClick={() => {
                                             if (sortedResults.length === 0) return;
-                                            const idx = sortedResults.findIndex(r => r.key === selectedKey);
+                                            // 🐧⚡ 인덱스 기반: selectedIndex가 없으면 마지막으로
+                                            const idx = selectedIndex;
                                             if (idx > 0) {
-                                                handleItemClick(sortedResults[idx - 1]);
+                                                const prevRes = sortedResults[idx - 1];
+                                                handleItemClick(prevRes, false, idx - 1);
                                             } else {
                                                 // 루핑: 처음에서 PREV 누르면 마지막으로
-                                                handleItemClick(sortedResults[sortedResults.length - 1]);
+                                                const lastIdx = sortedResults.length - 1;
+                                                handleItemClick(sortedResults[lastIdx], false, lastIdx);
                                             }
                                         }}
                                         disabled={sortedResults.length === 0}
@@ -495,12 +536,14 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                     <button
                                         onClick={() => {
                                             if (sortedResults.length === 0) return;
-                                            const idx = sortedResults.findIndex(r => r.key === selectedKey);
+                                            // 🐧⚡ 인덱스 기반: selectedIndex가 없으면 처음부터
+                                            const idx = selectedIndex;
                                             if (idx >= 0 && idx < sortedResults.length - 1) {
-                                                handleItemClick(sortedResults[idx + 1]);
+                                                const nextRes = sortedResults[idx + 1];
+                                                handleItemClick(nextRes, false, idx + 1);
                                             } else {
                                                 // 루핑: 마지막에서 NEXT 누르면 처음으로
-                                                handleItemClick(sortedResults[0]);
+                                                handleItemClick(sortedResults[0], false, 0);
                                             }
                                         }}
                                         disabled={sortedResults.length === 0}
@@ -580,6 +623,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                                     <div className="flex flex-col min-w-0 flex-1">
                                                                         <div className="flex items-center gap-2">
                                                                             <span className="text-[10px] font-mono text-slate-500 truncate">
+                                                                                {res.isBurst && <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1 rounded mr-1.5 text-[8px] font-black uppercase">Burst</span>}
                                                                                 {res.prevFileName || res.fileName || 'Unknown'}
                                                                             </span>
                                                                         </div>
@@ -609,6 +653,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                                                             </span>
                                                                         </div>
                                                                         <span className={`text-[11px] font-black text-${themeColor}-300 truncate`}>
+                                                                            {res.isBurst && <span className={`bg-${themeColor}-500/20 text-${themeColor}-400 px-1 rounded mr-1.5 text-[9px] font-black underline decoration-dotted underline-offset-2`}>{res.burstCount}x Repeated</span>}
                                                                             {res.functionName || res.preview.substring(0, 100)}
                                                                             <span className="ml-1 text-[9px] text-slate-600 font-mono">({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})</span>
                                                                         </span>

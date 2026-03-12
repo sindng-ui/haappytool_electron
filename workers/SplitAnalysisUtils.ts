@@ -13,6 +13,21 @@ export interface PointAnalysisResult {
     originalLineNums: number[];
 }
 
+export interface SequenceItem {
+    sig: string;
+    timestamp: number | null;
+    tid: string | null;
+    preview: string;
+    fileName: string;
+    functionName: string;
+    codeLineNum: string | null;
+    isError: boolean;
+    isWarn: boolean;
+    lineNum: number;
+    originalLineNum: number;
+    alias: string | null;
+}
+
 // 🐧⚡ 정규표현식 재사용을 위한 상수 선언
 const RE_TID_1 = /\(P\s*\d+,\s*T\s*(\d+)\)/;
 const RE_TID_2 = /\[\s*(\d+):/;
@@ -75,6 +90,16 @@ export interface SplitAnalysisResult {
     rightCodeLineNum?: string | null;
     leftPrevCodeLineNum?: string | null;
     rightPrevCodeLineNum?: string | null;
+
+    // 🐧⚡ Burst(반복 로그) 정보
+    isBurst?: boolean;
+    burstCount?: number;
+    // 버스트 종료 위치 (점프는 burstEndLineNum이 있으면 이 위치를 사용, 없으면 rightLineNum 사용)
+    burstEndLineNum?: number;      // 마지막 반복 발생의 우측 visualIndex
+    burstEndOrigLineNum?: number;  // 마지막 반복 발생의 우측 원본 라인 번호
+    burstEndLeftLineNum?: number;  // 마지막 반복 발생의 좌측 visualIndex
+    burstEndLeftOrigLineNum?: number; // 마지막 반복 발생의 좌측 원본 라인 번호
+    // burstDuration은 leftAvgDelta/rightAvgDelta 누적치로 대체 가능하므로 제거 (인터페이스 단순화)
 }
 
 /**
@@ -94,6 +119,7 @@ export const getFormattedSig = (fileName?: string, functionName?: string, codeLi
         pattern = realBody
             .replace(RE_HEX, '0x#')
             .replace(RE_DIGITS, '#')
+            .replace(/\s+/g, ' ') // 🐧⚡ 연속된 공백을 하나로 합침 (Whitespace Normalization)
             .substring(0, 40)
             .trim();
     }
@@ -192,7 +218,10 @@ export const matchAliasEvents = (
     rightAliasEvents: AliasEvent[]
 ): SplitAnalysisResult[] => {
     const results: SplitAnalysisResult[] = [];
-    const getEventSig = (ev: AliasEvent) => `${ev.alias}|${ev.fileName || ''}|${ev.functionName || ''}|${ev.preview || ''}`;
+    const getEventSig = (ev: AliasEvent) => {
+        const normalizedPreview = (ev.preview || '').replace(/\s+/g, ' ').trim();
+        return `${ev.alias}|${ev.fileName || ''}|${ev.functionName || ''}|${normalizedPreview}`;
+    };
     const getFormattedEventSig = (ev: AliasEvent) => getFormattedSig(ev.fileName, ev.functionName || ev.alias, ev.codeLineNum, ev.preview);
 
     const leftAliasMap = new Map<string, AliasEvent[]>();
@@ -293,6 +322,11 @@ export const computeAliasIntervals = (
         for (let i = 0; i < events.length - 1; i++) {
             const start = events[i];
             const end = events[i + 1];
+
+            // 🐧⚡ [FIX] 동일명 Alias 반복(A ➔ A)은 Global Batch와 LCS Burst Grouping으로 완벽히 커버되므로
+            // N번째 맹목적 매칭 시 엉뚱한 구간이 연결되는 버그를 방지하기 위해 여기서 생성하지 않습니다.
+            if (start.alias === end.alias) continue;
+
             if (start.timestamp && end.timestamp) {
                 intervals.push({
                     start,
@@ -555,240 +589,367 @@ export interface PointMetrics {
 /**
  * 🐧⚡ 'Significant' 로그(파일명/함수명 포함)인지 확인합니다.
  */
-export const isSignificant = (item: LogMetadata): boolean => {
+export const isSignificant = (item: { fileName?: string, functionName?: string, alias?: string | null }): boolean => {
     return !!(item.fileName || item.functionName || item.alias);
 };
 
 /**
- * 🐧⚡ 메타데이터로부터 지표를 계산합니다. (Side별 차등 매칭)
- * [UPDATE] 쓰레드 격리를 제거하고 파일의 선형적인 발생 순서대로만 매칭합니다.
+ * 🐧⚡ [NEW DP ALGORITHM] Needleman-Wunsch 기반의 글로벌 서열 정렬 
+ * N-gram 윈도우 한계를 극복하기 위해 거대한 두 시퀀스를 O(N*M) 최적화로 정렬합니다. 
  */
-export const computeMetricsFromMetadata = (
-    data: LogMetadata[],
-    metrics: AggregateMetrics,
-    pointMetrics: PointMetrics,
-    state: {
-        prevTimestamp: number | null;
-        prevSignature: string;
-        prevFileInfo: any;
-        lastSignif?: LogMetadata;
-        lookbackWindow?: LogMetadata[];
-        aliasFirstMatch?: Record<string, LogMetadata>;
-        metricsCount?: { val: number };
-        pointMetricsCount?: { val: number }; // 🐧⚡ 추가: O(N) Object.keys().length 방지용
-    },
-    maxGap: number = 100,
-    side: string = 'left'
-): void => {
-    if (!state.lookbackWindow) state.lookbackWindow = [];
-    if (!state.metricsCount) state.metricsCount = { val: Object.keys(metrics).length };
-    if (!state.pointMetricsCount) state.pointMetricsCount = { val: Object.keys(pointMetrics).length };
-
-    for (let i = 0; i < data.length; i++) {
-        const item = data[i];
-
-        // 1. 시그니처 생성
-        if (!item.signature) {
-            if (item.alias) {
-                // 🐧⚡ 알리아스 시그니처도 통일된 포맷을 사용하되, 알리아스임을 구분할 수 있도록 합니다.
-                item.signature = `[Alias] ${item.alias}|${getFormattedSig(item.fileName, item.functionName, item.codeLineNum, item.preview)}`;
-            } else if (isSignificant(item)) {
-                item.signature = getFormattedSig(item.fileName, item.functionName, item.codeLineNum, item.preview);
-            } else {
-                let slim = item.preview
-                    .replace(RE_HEX, '0x#')
-                    .replace(RE_DIGITS, '#')
-                    .replace(RE_NON_ALPHANUM, '');
-                item.signature = slim.substring(0, 60) || item.preview.substring(0, 30);
+export const alignSequences = (
+    leftSeq: SequenceItem[],
+    rightSeq: SequenceItem[]
+): SplitAnalysisResult[] => {
+    // 1. Find Anchors: 정확히 1:1로 등장하거나 동일 횟수로 등장하는 시그니처를 앵커 후보로 선정 🐧⚡
+    const leftCounts = new Map<string, number>();
+    const rightCounts = new Map<string, number>();
+    
+    for (const item of leftSeq) leftCounts.set(item.sig, (leftCounts.get(item.sig) || 0) + 1);
+    for (const item of rightSeq) rightCounts.set(item.sig, (rightCounts.get(item.sig) || 0) + 1);
+    
+    // 1:1 고유 앵커 (기존 방식)
+    const uniqueSigs = new Set<string>();
+    for (const [sig, count] of leftCounts) {
+        if (count === 1 && rightCounts.get(sig) === 1) {
+            uniqueSigs.add(sig);
+        }
+    }
+    
+    // 🐧⚡ 반복 앵커: 양쪽에 2개 이상 등장하는 시그니처를 순서 보존 페어링 (N:M 매칭)
+    // 예: OnError가 좌 7개, 우 9개면 앞에서 min(7,9)=7개를 1:1 앵커로 생성
+    //     → 나머지 우측 2개는 unmatched gap으로 남음
+    //     → 이렇게 해야 gap DP가 엉뚱한 위치와 매칭하지 않음
+    const repeatedSigLeftIndices = new Map<string, number[]>(); // sig -> leftSeq 인덱스 배열
+    const repeatedSigRightIndices = new Map<string, number[]>(); // sig -> rightSeq 인덱스 배열
+    for (const [sig, leftCount] of leftCounts) {
+        const rightCount = rightCounts.get(sig) ?? 0;
+        // 1:1은 uniqueSigs에서 처리하므로 제외 (leftCount > 1 && rightCount > 1)
+        // 최대 100개까지 지원 (성능 보호)
+        if (leftCount > 1 && rightCount > 1 && Math.max(leftCount, rightCount) <= 100) {
+            repeatedSigLeftIndices.set(sig, []);
+            repeatedSigRightIndices.set(sig, []);
+        }
+    }
+    for (let i = 0; i < leftSeq.length; i++) {
+        const sig = leftSeq[i].sig;
+        if (repeatedSigLeftIndices.has(sig)) repeatedSigLeftIndices.get(sig)!.push(i);
+    }
+    for (let j = 0; j < rightSeq.length; j++) {
+        const sig = rightSeq[j].sig;
+        if (repeatedSigRightIndices.has(sig)) repeatedSigRightIndices.get(sig)!.push(j);
+    }
+    
+    // leftSeq에서 uniqueSig의 인덱스를 추출 (sig -> index map)
+    const leftUniqueIdx = new Map<string, number>();
+    for (let i = 0; i < leftSeq.length; i++) {
+        if (uniqueSigs.has(leftSeq[i].sig)) {
+            leftUniqueIdx.set(leftSeq[i].sig, i);
+        }
+    }
+    
+    // rightSeq를 순회하며 leftIdx 매핑 (고유 앵커 탐색)
+    const matches: { leftIdx: number, rightIdx: number }[] = [];
+    for (let j = 0; j < rightSeq.length; j++) {
+        const sig = rightSeq[j].sig;
+        if (uniqueSigs.has(sig) && leftUniqueIdx.has(sig)) {
+            matches.push({ leftIdx: leftUniqueIdx.get(sig)!, rightIdx: j });
+        }
+    }
+    // 🐧⚡ 반복 앵커 페어링 추가 (N:M 매칭 순서 보존)
+    for (const [sig, leftIdxArr] of repeatedSigLeftIndices) {
+        const rightIdxArr = repeatedSigRightIndices.get(sig)!;
+        const pairCount = Math.min(leftIdxArr.length, rightIdxArr.length);
+        for (let k = 0; k < pairCount; k++) {
+            matches.push({ leftIdx: leftIdxArr[k], rightIdx: rightIdxArr[k] });
+        }
+    }
+    
+    // 🐧⚡ LIS 계산 전 rightIdx 기준으로 반드시 정렬해야 함 (반복 앵커가 뒤에 무작위로 추가되었기 때문)
+    // 원래 unique 앵커는 rightSeq를 순회하며 넣어서 정렬되어 있었지만, 반복 앵커가 들어가며 순서가 깨짐
+    matches.sort((a, b) => a.rightIdx - b.rightIdx);
+    
+    // LIS 알고리즘 (leftIdx 기준)을 통해 교차되지 않는 가장 긴 앵커 시퀀스 추출
+    const anchors = computeLIS(matches);
+    
+    const aggregatedMatches: { left: SequenceItem, right: SequenceItem }[] = [];
+    
+    // 가상의 시작/끝 앵커 추가
+    anchors.unshift({ leftIdx: -1, rightIdx: -1 });
+    anchors.push({ leftIdx: leftSeq.length, rightIdx: rightSeq.length });
+    
+    // 앵커와 앵커 사이의 갭을 O(N*M) DP로 채운 뒤 합칩니다.
+    for (let i = 0; i < anchors.length - 1; i++) {
+        const startAnchor = anchors[i];
+        const endAnchor = anchors[i + 1];
+        
+        if (startAnchor.leftIdx !== -1) {
+            aggregatedMatches.push({ left: leftSeq[startAnchor.leftIdx], right: rightSeq[startAnchor.rightIdx] });
+        }
+        
+        const L_start = startAnchor.leftIdx + 1;
+        const L_end = endAnchor.leftIdx - 1;
+        const R_start = startAnchor.rightIdx + 1;
+        const R_end = endAnchor.rightIdx - 1;
+        
+        if (L_start <= L_end || R_start <= R_end) {
+            const gapMatches = alignGapDP(leftSeq, rightSeq, L_start, L_end, R_start, R_end);
+            for (const gm of gapMatches) {
+                aggregatedMatches.push(gm);
             }
         }
-
-        const currentSig = item.signature;
-
-        // [POINT METRICS] 단일 지점 지표 업데이트 (CAP 적용)
-        if (isSignificant(item)) {
-            const hasExisting = !!pointMetrics[currentSig];
-            if (hasExisting || (state.pointMetricsCount?.val || 0) < 50000) {
-                if (!pointMetrics[currentSig]) {
-                    pointMetrics[currentSig] = {
-                        count: 0,
-                        fileName: item.fileName || (item.alias ? `[Alias]` : ''),
-                        functionName: item.functionName || item.alias || '',
-                        codeLineNum: item.codeLineNum || null,
-                        preview: item.preview,
-                        tids: [],
-                        visualIndices: [],
-                        originalLineNums: []
-                    };
-                    if (state.pointMetricsCount) state.pointMetricsCount.val++; // 🐧⚡ 1인 가구 추가요!
-                }
-                const pm = pointMetrics[currentSig];
-                pm.count++;
-                if (item.tid && !pm.tids.includes(item.tid)) {
-                    if (pm.tids.length < 10) pm.tids.push(item.tid);
-                }
-
-                if (pm.visualIndices.length < 5000) {
-                    pm.visualIndices.push(item.visualIndex);
-                    pm.originalLineNums.push(item.lineNum);
-                }
-            }
+    }
+    
+    // 2-1. 순서가 보장된 결과 리스트 생성 (aggregatedMatches의 순서 기반) 🐧⚡
+    const rawResults: SplitAnalysisResult[] = [];
+    const seenIntervals = new Set<string>();
+    for (let i = 1; i < aggregatedMatches.length; i++) {
+        const prev = aggregatedMatches[i-1];
+        const curr = aggregatedMatches[i];
+        const key = `${prev.left.sig} ➔ ${curr.left.sig}`;
+        
+        // 해당 지점의 metrics 정보를 순서대로 push (이미 push된 key는 metrics 객체에 누적되어 있으므로 skip)
+        // 하지만 '연속된' 동일 인터벌을 그룹화해야 하므로, key가 같더라도 위치(Index)가 다르면 개별적으로 취급해야 함
+        // 따라서 metrics 객체 접근 대신, 여기서 즉석에서 Result 객체를 생성하여 raw 리스트를 만듦
+        
+        let leftDelta = 0;
+        let rightDelta = 0;
+        if (curr.left.timestamp !== null && prev.left.timestamp !== null) {
+            leftDelta = curr.left.timestamp - prev.left.timestamp;
+            if (leftDelta < 0 || leftDelta > 3600000) leftDelta = 0;
+        }
+        if (curr.right.timestamp !== null && prev.right.timestamp !== null) {
+            rightDelta = curr.right.timestamp - prev.right.timestamp;
+            if (rightDelta < 0 || rightDelta > 3600000) rightDelta = 0;
         }
 
-        // 2. 차등 매칭 로직 (글로벌 시퀀스 기준)
-        if (isSignificant(item)) {
-            const lastSignif = state.lastSignif;
-
-            if (side === 'left') {
-                // [Baseline] 왼쪽은 오직 직전의 Significant 로그와만 매칭
-                if (lastSignif) {
-                    const key = `${lastSignif.signature} ➔ ${currentSig}`;
-                    addMetric(metrics, key, lastSignif, item, true, state.metricsCount);
-                }
-            } else {
-                // [Target] 오른쪽은 윈도우 내에서 매칭
-                for (let j = 0; j < state.lookbackWindow.length; j++) {
-                    const prev = state.lookbackWindow[j];
-                    const isDirect = (j === state.lookbackWindow.length - 1);
-                    const key = `${prev.signature} ➔ ${currentSig}`;
-                    addMetric(metrics, key, prev, item, isDirect, state.metricsCount);
-                }
-
-                // 윈도우 관리 (글로벌)
-                state.lookbackWindow.push(item);
-                if (state.lookbackWindow.length > 20) state.lookbackWindow.shift();
-            }
-
-            // 글로벌 마지막 Significant 로그 업데이트
-            state.lastSignif = item;
-        }
-
-        // 🐧🛡️ 메모리 보호: 메트릭 항목이 너무 많아지면 분석 비상 제동 (OOM 방지)
-        if (state.metricsCount && state.metricsCount.val > 100000) {
-            console.warn(`[SplitAnalysis] Hard cap reached (100k intervals). Stopping analysis for memory safety.`);
-            break;
+        rawResults.push({
+            key,
+            fileName: curr.right.fileName || curr.left.fileName,
+            functionName: curr.right.functionName || curr.left.functionName,
+            preview: curr.right.preview || curr.left.preview,
+            leftCount: 1,
+            rightCount: 1,
+            countDiff: 0,
+            leftAvgDelta: leftDelta,
+            rightAvgDelta: rightDelta,
+            deltaDiff: rightDelta - leftDelta,
+            isNewError: false,
+            isError: curr.left.isError || curr.right.isError,
+            isWarn: curr.left.isWarn || curr.right.isWarn,
+            
+            leftLineNum: curr.left.lineNum,
+            rightLineNum: curr.right.lineNum,
+            leftPrevLineNum: prev.left.lineNum,
+            rightPrevLineNum: prev.right.lineNum,
+            leftOrigLineNum: curr.left.originalLineNum,
+            rightOrigLineNum: curr.right.originalLineNum,
+            leftPrevOrigLineNum: prev.left.originalLineNum,
+            rightPrevOrigLineNum: prev.right.originalLineNum,
+            
+            leftCodeLineNum: curr.left.codeLineNum,
+            rightCodeLineNum: curr.right.codeLineNum,
+            leftPrevCodeLineNum: prev.left.codeLineNum,
+            rightPrevCodeLineNum: prev.right.codeLineNum,
+            
+            prevFileName: prev.right.fileName || prev.left.fileName,
+            prevFunctionName: prev.right.functionName || prev.left.functionName
+        });
+    }
+    
+    // 3. Extract Unmatched NEW ERRORS from rightSeq
+    const matchedRightSet = new Set<number>();
+    for (const m of aggregatedMatches) matchedRightSet.add(m.right.lineNum);
+    
+    for (const rItem of rightSeq) {
+        if (!matchedRightSet.has(rItem.lineNum) && rItem.isError) {
+            const key = `NEW_ERROR_${rItem.sig}_${rItem.lineNum}`;
+            rawResults.push({
+                key,
+                fileName: rItem.fileName,
+                functionName: rItem.functionName,
+                preview: rItem.preview,
+                leftCount: 0,
+                rightCount: 1,
+                countDiff: 1,
+                leftAvgDelta: 0,
+                rightAvgDelta: 0,
+                deltaDiff: 0,
+                isNewError: true,
+                isError: true,
+                isWarn: false,
+                leftLineNum: -1,
+                rightLineNum: rItem.lineNum,
+                leftPrevLineNum: -1,
+                rightPrevLineNum: Math.max(0, rItem.lineNum - 1),
+                leftOrigLineNum: -1,
+                rightOrigLineNum: rItem.originalLineNum,
+                leftPrevOrigLineNum: -1,
+                rightPrevOrigLineNum: Math.max(0, rItem.originalLineNum - 1),
+                prevFileName: '',
+                prevFunctionName: ''
+            });
         }
     }
 
-    const last = data[data.length - 1];
-    if (last) {
-        state.prevTimestamp = last.timestamp;
-        state.prevSignature = last.signature || '';
+    // 4. 후처리: 연속된 동일 시그니처 매칭 결과 그룹화 (Burst/N-회 반복) 🐧⚡
+    const finalizedResults: SplitAnalysisResult[] = [];
+    if (rawResults.length > 0) {
+        let currentGroup: SplitAnalysisResult | null = null;
+        let groupCount = 0;
+
+        for (let i = 0; i < rawResults.length; i++) {
+            const res = rawResults[i];
+            
+            // Interval 매칭이고, 이전 그룹과 동일한 서명(Key)인 경우 병합 시도
+            // (AliasMatch나 NewError는 건드리지 않고 일반 DP 매칭 구간만 병합)
+            const canGroup = currentGroup && 
+                             !res.isAliasMatch && !res.isAliasInterval && !res.isNewError &&
+                             !currentGroup.isAliasMatch && !currentGroup.isAliasInterval && !currentGroup.isNewError &&
+                             res.key === currentGroup.key;
+
+            if (canGroup && currentGroup) {
+                groupCount++;
+                currentGroup.isBurst = true;
+                currentGroup.burstCount = groupCount;
+                
+                // Duration 및 카운트 누적
+                currentGroup.leftAvgDelta += res.leftAvgDelta;
+                currentGroup.rightAvgDelta += res.rightAvgDelta;
+                currentGroup.deltaDiff = currentGroup.rightAvgDelta - currentGroup.leftAvgDelta;
+                currentGroup.leftCount += res.leftCount;
+                currentGroup.rightCount += res.rightCount;
+                currentGroup.countDiff = currentGroup.rightCount - currentGroup.leftCount;
+                
+                // 🐧⚡ 점프 위치(lineNum)는 첫 번째 발생 위치 유지!
+                // 버스트 종료 위치는 별도 필드에 저장
+                currentGroup.burstEndLineNum = res.rightLineNum;
+                currentGroup.burstEndOrigLineNum = res.rightOrigLineNum;
+                currentGroup.burstEndLeftLineNum = res.leftLineNum;
+                currentGroup.burstEndLeftOrigLineNum = res.leftOrigLineNum;
+            } else {
+                if (currentGroup) {
+                    finalizedResults.push(currentGroup);
+                }
+                currentGroup = { ...res };
+                groupCount = 1;
+            }
+        }
+        if (currentGroup) {
+            finalizedResults.push(currentGroup);
+        }
     }
+
+    return finalizedResults;
 };
 
-/**
- * 🐧⚡ 매칭된 인터벌을 메트릭 맵에 안전하게 추가합니다.
- */
-function addMetric(
-    metrics: AggregateMetrics,
-    key: string,
-    prev: LogMetadata,
-    current: LogMetadata,
-    isDirect: boolean = true,
-    metricsCount?: { val: number } // 🐧⚡ 카운터 전달받음
-) {
-    let delta = 0;
-    let hasDelta = false;
-    if (current.timestamp !== null && prev.timestamp !== null) {
-        delta = current.timestamp - prev.timestamp;
-        if (delta >= 0 && delta < 3600000) {
-            hasDelta = true;
+// --- HLEPERS ---
+
+function computeLIS(matches: { leftIdx: number, rightIdx: number }[]): { leftIdx: number, rightIdx: number }[] {
+    const n = matches.length;
+    if (n === 0) return [];
+    
+    const dp = new Int32Array(n);
+    const prev = new Int32Array(n);
+    let len = 0;
+    
+    for (let i = 0; i < n; i++) {
+        const val = matches[i].leftIdx;
+        let low = 0, high = len - 1;
+        while (low <= high) {
+            const mid = (low + high) >> 1;
+            if (matches[dp[mid]].leftIdx < val) {
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
         }
+        const pos = low;
+        prev[i] = pos > 0 ? dp[pos - 1] : -1;
+        dp[pos] = i;
+        if (pos === len) len++;
     }
-
-    const existing = metrics[key];
-    if (existing) {
-        if (isDirect) {
-            existing.count++;
-            existing.directCount = (existing.directCount || 0) + 1;
-        }
-
-        // Timeline 정렬 및 점프는 항상 "최초 발생 지점"을 우선시합니다.
-        if (existing.lineNum === undefined || existing.lineNum === -1) {
-            existing.lineNum = current.visualIndex;
-            existing.prevLineNum = prev.visualIndex;
-            existing.originalLineNum = current.lineNum;
-            existing.prevOriginalLineNum = prev.lineNum;
-        }
-
-        if (hasDelta) {
-            existing.totalDelta += delta;
-            existing.deltaSamples++;
-        }
-        if (current.tid && !existing.tids.includes(current.tid)) {
-            if (existing.tids.length < 10) existing.tids.push(current.tid);
-        }
-    } else {
-        // [MEMORY PROTECTION] 메트릭 신규 생성 제한
-        if (metricsCount && metricsCount.val >= 100000) return;
-
-        if (metricsCount) metricsCount.val++; // 펭귄 가라사대, 새 식구가 늘었구나!
-        metrics[key] = {
-            count: isDirect ? 1 : 0,
-            directCount: isDirect ? 1 : 0,
-            totalDelta: hasDelta ? delta : 0,
-            deltaSamples: hasDelta ? 1 : 0,
-            tids: current.tid ? [current.tid] : [],
-            preview: current.preview,
-            fileName: current.fileName,
-            functionName: current.functionName,
-            codeLineNum: current.codeLineNum,
-            prevPreview: prev.preview,
-            prevFileName: prev.fileName,
-            prevFunctionName: prev.functionName,
-            prevCodeLineNum: prev.codeLineNum,
-            isError: current.isError,
-            isWarn: current.isWarn,
-            lineNum: current.visualIndex,
-            prevLineNum: prev.visualIndex,
-            originalLineNum: current.lineNum,
-            prevOriginalLineNum: prev.lineNum
-        };
+    
+    const result: { leftIdx: number, rightIdx: number }[] = [];
+    let curr = dp[len - 1];
+    while (curr !== -1) {
+        result.push(matches[curr]);
+        curr = prev[curr];
     }
+    return result.reverse();
 }
 
-/**
- * 🐧⚡ Alias 기반의 거대 세그먼트를 메트릭 맵에 추가/갱신합니다.
- */
-function addAliasMetric(
-    metrics: AggregateMetrics,
-    key: string,
-    first: LogMetadata,
-    last: LogMetadata,
-    metricsCount?: { val: number }
-) {
-    // [MEMORY PROTECTION] 메트릭 신규 생성 제한
-    if (!metrics[key] && metricsCount && metricsCount.val >= 100000) return;
-    if (!metrics[key] && metricsCount) metricsCount.val++;
-    let delta = 0;
-    let hasDelta = false;
-    if (last.timestamp !== null && first.timestamp !== null) {
-        delta = last.timestamp - first.timestamp;
-        if (delta >= 0 && delta < 3600000) {
-            hasDelta = true;
+function alignGapDP(
+    leftSeq: SequenceItem[], rightSeq: SequenceItem[],
+    ls: number, le: number, rs: number, re: number
+): { left: SequenceItem, right: SequenceItem }[] {
+    const results: { left: SequenceItem, right: SequenceItem }[] = [];
+    
+    // 단순 최적화: 공통 접두사 매칭
+    while (ls <= le && rs <= re && leftSeq[ls].sig === rightSeq[rs].sig) {
+        results.push({ left: leftSeq[ls], right: rightSeq[rs] });
+        ls++; rs++;
+    }
+    // 단순 최적화: 공통 접미사 매칭
+    const suffixes: { left: SequenceItem, right: SequenceItem }[] = [];
+    while (ls <= le && rs <= re && leftSeq[le].sig === rightSeq[re].sig) {
+        suffixes.unshift({ left: leftSeq[le], right: rightSeq[re] });
+        le--; re--;
+    }
+    
+    const N = le - ls + 1;
+    const M = re - rs + 1;
+    
+    if (N > 0 && M > 0) {
+        // [LIMIT CAP] DP 너무 길면 메모리 파괴. 하드 캡
+        if (N * M > 25000000) {
+            console.warn(`[SplitAnalysis] Gap too large for DP (${N}x${M}). Falling back to greedy matching.`);
+            let currR = rs;
+            for (let i = ls; i <= le; i++) {
+                for (let j = currR; j <= re; j++) {
+                    if (leftSeq[i].sig === rightSeq[j].sig) {
+                        results.push({ left: leftSeq[i], right: rightSeq[j] });
+                        currR = j + 1;
+                        break;
+                    }
+                }
+            }
+        } else {
+            // Needleman-Wunsch / LCS (Only Matches)
+            const dp = new Int32Array((N + 1) * (M + 1));
+            
+            for (let i = 1; i <= N; i++) {
+                for (let j = 1; j <= M; j++) {
+                    if (leftSeq[ls + i - 1].sig === rightSeq[rs + j - 1].sig) {
+                        dp[i * (M + 1) + j] = dp[(i - 1) * (M + 1) + (j - 1)] + 1;
+                    } else {
+                        dp[i * (M + 1) + j] = Math.max(dp[(i - 1) * (M + 1) + j], dp[i * (M + 1) + (j - 1)]);
+                    }
+                }
+            }
+            
+            // Backtrack
+            let i = N;
+            let j = M;
+            const dpResults: { left: SequenceItem, right: SequenceItem }[] = [];
+            while (i > 0 && j > 0) {
+                // 🐧⚡ (핵심 픽스) dp 테이블 값이 이전 값과 같다면 실제 매칭 채택을 건너뜀
+                // 뒤에서부터 거꾸로 추적하므로, "건너뛸 수 있다면 먼저 건너뛰는 것"이
+                // [A] vs [A, A] 상황에서 두 번째 A 대신 앞쪽의 첫 번째 A와 매칭되도록 강제함
+                if (dp[i * (M + 1) + j] === dp[(i - 1) * (M + 1) + j]) {
+                    i--;
+                } else if (dp[i * (M + 1) + j] === dp[i * (M + 1) + (j - 1)]) {
+                    j--;
+                } else {
+                    // 이제 dp값이 줄어드는 지점(실제로 공통 길이 +1을 만든 주역)에서만 페어링
+                    dpResults.unshift({ left: leftSeq[ls + i - 1], right: rightSeq[rs + j - 1] });
+                    i--; j--;
+                }
+            }
+            for (const dpR of dpResults) results.push(dpR);
         }
     }
-
-    metrics[key] = {
-        count: 1,
-        directCount: 1, // 🐧⚡ 워커 필터링 통과를 위해 추가!
-        totalDelta: hasDelta ? delta : 0,
-        deltaSamples: hasDelta ? 1 : 0,
-        tids: [],
-        preview: last.preview,
-        fileName: last.fileName || `[Alias]`,
-        functionName: last.functionName || last.alias || '',
-        codeLineNum: last.codeLineNum,
-        prevPreview: first.preview,
-        prevFileName: first.fileName || `[Alias]`,
-        prevFunctionName: first.functionName || first.alias || '',
-        prevCodeLineNum: first.codeLineNum,
-        isError: last.isError || first.isError,
-        isWarn: last.isWarn || first.isWarn,
-        lineNum: last.visualIndex,
-        prevLineNum: first.visualIndex,
-        originalLineNum: last.lineNum,
-        prevOriginalLineNum: first.lineNum
-    };
-}
+    
+    for (const suf of suffixes) results.push(suf);
+    return results;
+};

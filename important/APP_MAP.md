@@ -293,7 +293,7 @@
 
 - [x] **[Feature] Split Analysis (Analyze Diff)**
     - **ID**: `feature-split-analysis`
-    - **Keywords**: [`Split 비교`, `Analyze Diff`, `속도 비교`, `패턴 비교`, `비교 분석`, `Deduplication`, `Alias Batch`]
+    - **Keywords**: [`Split 비교`, `Analyze Diff`, `속도 비교`, `패턴 비교`, `비교 분석`, `Deduplication`, `Alias Batch`, `LCS`, `Patience Diff`, `Sequence Alignment`]
     - **Location**:
         - `View`: [SplitAnalyzerPanel.tsx](./components/LogViewer/SplitAnalyzerPanel.tsx)
         - `Logic`: [useSplitAnalysis.ts](./hooks/useSplitAnalysis.ts), [SplitAnalysis.worker.ts](./workers/SplitAnalysis.worker.ts)
@@ -301,9 +301,10 @@
     - **Core Interface**:
         - `workerAnalysisHandlers.extractAllMetadata()`: 필터링된 스트림에서 `[시간, 파일명, 함수명, 본문]` 시그니처 일괄 추출 (매칭 유연성을 위해 라인 번호 제외)
         - `SplitAnalysis.worker`: Left/Right 양측의 메트릭을 비교 분석. `파일명::함수명::[메시지패턴]` 기반의 서명(Signature)을 사용하여 동일 구간을 매칭함. 
+            - **[New] LCS & Patience Diff 전역 정렬**: 기존 N-gram 윈도우 방식의 동기화 이탈(Desync) 문제를 완전히 해결. 부분적으로 교차하지 않는 고유 시그니처 매칭(LIS)을 앵커로 삼고, 그 갭(Gap) 사이를 동적 계획법(Needleman-Wunsch)으로 전역 정렬하여 100% 매칭 정확도 보장. 중간에 로그가 삽입/삭제 되더라도 어긋나지 않음.
+            - **New Error 정밀 검출**: LCS 수행 시 매칭되지 않은(Gap) 구간 중 우측에만 존재하는 에러/경고성 로그를 정밀하게 추출하여 `NEW_ERROR`로 자동 시각화.
             - **라인 번호 자유도**: 우측 리비전에서 라인 수가 변경되어도 정확한 분석 가능.
             - **메시지 패턴 기반 중복 해결**: 동일 함수 내에 여러 로그가 있을 경우, 숫자/HEX 등을 제외한 고유 텍스트 패턴을 추출하여 시그니처 충돌 방지 및 정밀 매칭 수행.
-            - **비대칭 매칭 전략**: Baseline(Left) 로그는 연속된 소스만 구간으로 정의하며, Target(Right) 로그는 슬라이딩 윈도우를 이용해 비연속 매칭(Search)을 수행하여 중간 삽입 로그에 대응.
         - **[New] Global Alias Batch**: 동일한 Alias의 최초~최후 발생을 하나의 거대한 세그먼트로 자동 분석하여 시간 흐름 파악 용이성 증대
         - **[New] Deduplication**: 시각적으로 중복되는 구간 분석 결과를 워커 레벨에서 사전에 제거하여 UI 가독성 및 렌더링 부하 최적화
         - `Non-blocking Analysis`: 분석 수행 시 `workerReady` 상태를 유지하여 메인 UI의 'Processing log..' 메시지 노출 방지

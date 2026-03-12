@@ -1,18 +1,19 @@
 // PointAnalysisResult 등 필요한 인터페이스는 남겨두고 나머지는 SplitAnalysisUtils에서 가져옵니다.
 import {
-    AggregateMetrics,
     PointMetrics,
     AliasEvent,
     SplitAnalysisResult,
     PointAnalysisResult,
     matchAliasEvents,
     computeAliasIntervals,
-    computeGlobalAliasRanges
+    computeGlobalAliasRanges,
+    SequenceItem,
+    alignSequences
 } from './SplitAnalysisUtils';
 
 export interface SplitAnalysisRequest {
-    leftMetrics: AggregateMetrics;
-    rightMetrics: AggregateMetrics;
+    leftSequence: SequenceItem[];
+    rightSequence: SequenceItem[];
     leftPointMetrics?: PointMetrics;
     rightPointMetrics?: PointMetrics;
     leftAliasEvents?: AliasEvent[];
@@ -27,18 +28,18 @@ export interface SplitAnalysisWorkerResponse {
 const ctx: Worker = self as any;
 
 ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
-    const { leftMetrics, rightMetrics, leftPointMetrics, rightPointMetrics, leftAliasEvents, rightAliasEvents } = e.data;
+    const { leftSequence, rightSequence, leftPointMetrics, rightPointMetrics, leftAliasEvents, rightAliasEvents } = e.data;
     console.log('[SplitAnalysisWorker] Received metrics', {
-        leftIntervals: Object.keys(leftMetrics || {}).length,
-        rightIntervals: Object.keys(rightMetrics || {}).length,
+        leftSeqLen: leftSequence?.length,
+        rightSeqLen: rightSequence?.length,
         leftPoints: Object.keys(leftPointMetrics || {}).length,
         rightPoints: Object.keys(rightPointMetrics || {}).length,
         leftAliasEvents: leftAliasEvents?.length,
         rightAliasEvents: rightAliasEvents?.length
     });
 
-    if (!leftMetrics || !rightMetrics) {
-        console.warn('[SplitAnalysisWorker] Missing metrics data');
+    if (!leftSequence || !rightSequence) {
+        console.warn('[SplitAnalysisWorker] Missing sequence data');
         ctx.postMessage({ type: 'SPLIT_ANALYSIS_COMPLETE', payload: { results: [], pointResults: [] } });
         return;
     }
@@ -61,49 +62,10 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
         results.push(...globalRanges);
     }
 
-    // --- Part 3: Interval Analysis Loop ---
-    const rightKeys = Object.keys(rightMetrics);
-    for (const key of rightKeys) {
-        const left = leftMetrics[key];
-        const right = rightMetrics[key];
-
-        const isMapped = !!left;
-        const isRightDirect = (right?.directCount || 0) > 0;
-        if (!isMapped && !isRightDirect) continue;
-
-        const leftAvgDelta = (left?.deltaSamples || 0) > 0 ? (left?.totalDelta || 0) / (left?.deltaSamples || 1) : 0;
-        const rightAvgDelta = (right?.deltaSamples || 0) > 0 ? (right?.totalDelta || 0) / (right?.deltaSamples || 1) : 0;
-
-        results.push({
-            key,
-            fileName: right?.fileName || left?.fileName || '',
-            functionName: right?.functionName || left?.functionName || '',
-            preview: right?.preview || left?.preview || '',
-            leftCount: left?.directCount || 0,
-            rightCount: right?.directCount || 0,
-            countDiff: (right?.directCount || 0) - (left?.directCount || 0),
-            leftAvgDelta,
-            rightAvgDelta,
-            deltaDiff: rightAvgDelta - leftAvgDelta,
-            isNewError: (!!right?.isError && !left?.isError),
-            isError: (left?.isError || right?.isError) ?? false,
-            isWarn: (left?.isWarn || right?.isWarn) ?? false,
-            leftLineNum: left?.lineNum || 0,
-            rightLineNum: right?.lineNum || 0,
-            leftPrevLineNum: left?.prevLineNum || 0,
-            rightPrevLineNum: right?.prevLineNum || 0,
-            leftOrigLineNum: left?.originalLineNum || 0,
-            rightOrigLineNum: right?.originalLineNum || 0,
-            leftPrevOrigLineNum: left?.prevOriginalLineNum || 0,
-            rightPrevOrigLineNum: right?.prevOriginalLineNum || 0,
-            leftCodeLineNum: left?.codeLineNum,
-            rightCodeLineNum: right?.codeLineNum,
-            leftPrevCodeLineNum: left?.prevCodeLineNum,
-            rightPrevCodeLineNum: right?.prevCodeLineNum,
-            prevFileName: right?.prevFileName || left?.prevFileName || '',
-            prevFunctionName: right?.prevFunctionName || left?.prevFunctionName || ''
-        });
-    }
+    // --- Part 3: Sequence Alignment (New LCS Engine) ---
+    // 기존의 N-gram 윈도우 루프를 삭제하고 DP 기반 글로벌 정렬 결과를 받아옵니다.
+    const alignedResults = alignSequences(leftSequence, rightSequence);
+    results.push(...alignedResults);
 
     // 🐧⚡ 정렬 가중치 사전 계산 (Sorting Severity)
     for (const res of results) {

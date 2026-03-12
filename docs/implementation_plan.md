@@ -1,38 +1,50 @@
-# 해피 콤보 필터링 연동 구조 개선 계획 (2차)
+# Alias Interval Analysis 고도화 및 버그 수정 계획
 
-형님! "전체 끄기 후 하나만 켜기"가 작동하지 않았던 근본 원인을 해결하고, 더 직관적인 UI/UX로 개선합니다.
+형님, 이전 LCS 엔진 백트래킹 수정으로 코어 엔진은 완벽해졌지만, 추가적으로 **Alias Interval Analysis (구간 소요 시간 분석)** 기능에서 발생하는 논리적 충돌을 발견했습니다.
 
-## 문제 분석
-- **원인**: `filterGroupUtils.ts`에서 마스터 스위치(`happyCombosEnabled`)가 `false`이면, 하위의 개별 콤보가 켜져 있어도 필터링 로직 자체가 중단됨.
-- **현상**: 마스터 스위치가 개별 스위치보다 강력한 "차단기" 역할을 수행하여 연동을 방해함.
+## 문제 원인 (왜 054.xxx로 여전히 점프했는가)
 
-## 제안된 변경 사항
+1. **Alias Interval Analysis의 맹목적 매칭**
+   - 현재 Alias Interval 기능은 매칭된 Alias들을 바탕으로 무조건 `1번째 구간 ➔ 1번째 구간`, `2번째 구간 ➔ 2번째 구간` 식으로 일대일 하드 매칭을 수행하고 있습니다.
+   - `test_startup.log`에서 `OnError`가 여러 번 발생할 때, 중간에 다른 Alias가 없다면 `OnError ➔ OnError` 라는 **단일 Alias 구간**이 만들어집니다.
+   - 좌측 로그의 1번째 `OnError ➔ OnError` 발생 위치와 우측 로그의 1번째 발생 위치가 완전히 다른 흐름에 있더라도 (예: 052.760 vs 054.405), UI는 이것을 동일 구간으로 착각하고 묶어버렸습니다. (콘솔에 찍힌 `(#1)` 키워드가 그 증거입니다.)
 
-### 1. 필터 엔진 로직 수정
-#### [MODIFY] [filterGroupUtils.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/utils/filterGroupUtils.ts)
-- `assembleIncludeGroups` 함수에서 마스터 스위치(`happyCombosEnabled`) 체크 로직을 제거합니다.
-- 이제 필터링 여부는 오직 개별 콤보들의 `enabled` 상태에만 의존합니다. (모두 꺼져있으면 자동으로 필터링 안됨)
+2. **LCS 엔진과의 역할 충돌**
+   - 현재 강력해진 **LCS Sequence Matching (Burst Grouping 포함)** 과 **Global Alias Batch Analysis** 가 이미 동일 로그(`A ➔ A`)의 반복 및 전체 소요 시간을 완벽하게 추적하고 있습니다.
+   - 그럼에도 과거에 만들어둔 Alias Interval Analysis 기능이 `A ➔ A` 구간을 억지로 다시 생성하면서, 정교한 LCS 엔진의 결과와 충돌을 일으킨 것입니다.
 
-### 2. UI 및 연동 로직 개선
-#### [MODIFY] [HappyComboSection.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/ConfigSections/HappyComboSection.tsx)
-- **마스터 체크박스 역할 변경**: "상태 차단기" -> "전체 토글(All Toggle) 마스터"
-- **상태 동기화**:
-    - 체크 상태 (`checked`): 하위 항목 중 **하나라도 켜져 있으면** 체크된 것으로 표시 (`isAnyEnabled`).
-    - 클릭 동작 (`onChange`): 
-        - **켜기** ( unchecked -> checked ): 현재 규칙의 모든 `happyGroups`를 `enabled: true`로 변경하여 **전체 활성화**. (형님의 '다시 다 켜져야 함' 요구사항 충족)
-        - **끄기** ( checked -> unchecked ): 모든 `happyGroups`를 `enabled: false`로 변경하여 **전체 비활성화**. (형님의 '일단 다 끄고' 요구사항 충족)
-- **시각적 피드백**: `Happy Combos` 섹션의 활성화 색상(노란색/인디고) 판정 기준을 `isAnyEnabled`로 변경하여, 마스터 스위치 상태가 아닌 **실제 필터 작동 여부**를 반영하게 합니다.
+## Proposed Changes
 
-## 검증 계획
+### [SplitAnalysisUtils.ts]
 
-### 수동 검증
-1. **전체 끄기**: 마스터 체크박스를 해제하여 모든 하위 콤보가 꺼지는지 확인합니다.
-2. **개별 켜기**: 하위 콤보 중 하나만 켭니다. (이때 마스터 체크박스가 '켜짐' 상태로 자동 변경됩니다.)
-3. **필터링 확인**: 마스터 영향 없이 켜진 콤보가 즉시 필터링에 반영되는지 확인합니다.
-4. **전체 켜기**: 마스터가 이미 켜져 있더라도(일부만 켜진 경우), 혹은 꺼진 경우에 클릭하여 **모든** 콤보가 한 번에 활성화되는지 확인합니다.
+`computeAliasIntervals` 함수 내에서 연속된 두 Alias가 **완전히 동일한 시그니처(`start.alias === end.alias`)** 일 경우, Interval 생성을 건너뛰도록(skip) 수정합니다.
 
----
+#### [MODIFY] SplitAnalysisUtils.ts
+```typescript
+    const getIntervals = (events: AliasEvent[]) => {
+        const intervals: { start: AliasEvent; end: AliasEvent; duration: number; sig: string }[] = [];
+        for (let i = 0; i < events.length - 1; i++) {
+            const start = events[i];
+            const end = events[i + 1];
+            
+            // 🐧⚡ [FIX] 동일명 Alias 반복(A ➔ A)은 Global Batch와 LCS Burst Grouping으로 완벽히 커버되므로
+            // N번째 맹목적 매칭 시 엉뚱한 구간이 연결되는 버그를 방지하기 위해 여기서 생성하지 않습니다.
+            if (start.alias === end.alias) continue;
 
-형님! 이렇게 하면 "전체 다 끄고 보고 싶은 놈 하나만 딱 골라 보기"가 아주 시원하게 작동할 겁니다. 진행할까요? 🐧🚀
+            if (start.timestamp && end.timestamp) {
+                intervals.push({
+                    start,
+                    end,
+                    duration: end.timestamp - start.timestamp,
+                    sig: `${getFormattedEventSig(start)} ➔ ${getFormattedEventSig(end)}`
+                });
+            }
+        }
+        return intervals;
+    };
+```
 
-[PROCEED]
+## 기대 효과 🐧🎯
+- `OnError ➔ OnError` 처럼 반복되는 스팸성 Alias들이 억지로 매칭되어 엉뚱한 타임라인으로 점프하는 현상이 영구적으로 사라집니다.
+- 반복 Alias 구간의 분석 결과는 이미 `Global Alias Batch Analysis`(오버뷰용)와 `LCS Burst Grouping`(상세 타임라인용)이 완벽하고 안전하게 제공하므로, 유실되는 정보는 전혀 없습니다.
+- 오히려 타임라인 리스트에 노이즈 데이터를 줄여주어 가독성이 비약적으로 상승합니다.

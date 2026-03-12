@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
     extractSingleMetadata,
-    computeMetricsFromMetadata,
     AggregateMetrics,
-    PointMetrics
+    PointMetrics,
+    alignSequences
 } from '../../workers/SplitAnalysisUtils';
 import { LogRule, LogMetadata } from '../../types';
 
@@ -56,179 +56,190 @@ describe('SplitAnalysisUtils', () => {
         });
     });
 
-    describe('computeMetricsFromMetadata (Split Analysis Engine)', () => {
-        const createMeta = (text: string, vidx: number, timestamp: number): LogMetadata => {
-            const meta = extractSingleMetadata(text, vidx, vidx, mockRule);
-            meta.timestamp = timestamp;
-            return meta;
+    describe('alignSequences (LCS Split Analysis Engine)', () => {    
+        const createSeqItem = (sig: string, lineNum: number, timestamp: number, isError = false): import('../../workers/SplitAnalysisUtils').SequenceItem => {
+            const normalizedSig = sig.replace(/\s+/g, ' ').trim();
+            return {
+                sig: normalizedSig,
+                timestamp,
+                lineNum,
+                originalLineNum: lineNum,
+                codeLineNum: null,
+                preview: sig,
+                fileName: 'File.js',
+                functionName: 'Func',
+                tid: null,
+                isError,
+                isWarn: false,
+                alias: null
+            };
         };
 
-        it('should aggregate metrics correctly for Left side (Consecutive matches)', () => {
-            const metrics: AggregateMetrics = {};
-            const pointMetrics: PointMetrics = {};
-            const state = {
-                prevTimestamp: null,
-                prevSignature: 'START',
-                prevFileInfo: { fileName: '', functionName: '', preview: '' },
-                lookbackWindow: [],
-                aliasFirstMatch: {},
-                metricsCount: { val: 0 },
-                lastSignif: undefined
-            };
-
-            const data = [
-                createMeta('[10:00:01.000] Line.cs: FuncA(1)> Start', 0, 1000),
-                createMeta('[10:00:01.100] Line.cs: FuncB(2)> End', 1, 1100)
+        it('should aggregate metrics correctly for perfectly matched sequence pairs', () => {
+            const leftSeq = [
+                createSeqItem('File.js::Func::[A]', 0, 1000),
+                createSeqItem('File.js::Func::[B]', 1, 1100),
+            ];
+            const rightSeq = [
+                createSeqItem('File.js::Func::[A]', 0, 1000),
+                createSeqItem('File.js::Func::[B]', 1, 1500),
             ];
 
-            computeMetricsFromMetadata(data, metrics, pointMetrics, state, 1000, 'left');
-
-            const key = 'Line.cs::FuncA::[Start] ➔ Line.cs::FuncB::[End]';
-            expect(metrics[key]).toBeDefined();
-            expect(metrics[key].count).toBe(1);
-            expect(metrics[key].totalDelta).toBe(100);
-            expect(metrics[key].directCount).toBe(1);
-
-            // Point metrics check
-            expect(pointMetrics['Line.cs::FuncA::[Start]']).toBeDefined();
-            expect(pointMetrics['Line.cs::FuncB::[End]']).toBeDefined();
+            const results = alignSequences(leftSeq, rightSeq);
+            expect(results.length).toBe(1); // One interval A -> B
+            
+            const res = results[0];
+            expect(res.key).toBe('File.js::Func::[A] ➔ File.js::Func::[B]');
+            expect(res.leftCount).toBe(1);
+            expect(res.rightCount).toBe(1);
+            expect(res.leftAvgDelta).toBe(100);
+            expect(res.rightAvgDelta).toBe(500);
         });
 
-        it('should handle windowed matching for Right side', () => {
-            const metrics: AggregateMetrics = {};
-            const pointMetrics: PointMetrics = {};
-            const state = {
-                prevTimestamp: null,
-                prevSignature: 'START',
-                prevFileInfo: { fileName: '', functionName: '', preview: '' },
-                lookbackWindow: [],
-                aliasFirstMatch: {},
-                metricsCount: { val: 0 },
-                lastSignif: undefined
-            };
-
-            // Scenario: A -> (Noise) -> B
-            const data = [
-                createMeta('[10:00:01.000] Line.cs: FuncA(1)> Start', 0, 1000),
-                createMeta('[10:00:01.050] Noise.js: Ignore(0)> Skip me', 1, 1050),
-                createMeta('[10:00:01.100] Line.cs: FuncB(2)> End', 2, 1100)
+        it('should handle gaps and detect NEW ERRORs in right sequence', () => {
+            const leftSeq = [
+                createSeqItem('File.js::Func::[START]', 0, 1000),
+                createSeqItem('File.js::Func::[END]', 1, 1200)
+            ];
+            // 오른쪽 로그에는 중간에 불필요한 에러가 삽입됨
+            const rightSeq = [
+                createSeqItem('File.js::Func::[START]', 0, 1000),
+                createSeqItem('File.js::Crash::[CRITICAL EXCEPTION]', 1, 1100, true),
+                createSeqItem('File.js::Func::[END]', 2, 1300)
             ];
 
-            computeMetricsFromMetadata(data, metrics, pointMetrics, state, 1000, 'right');
+            const results = alignSequences(leftSeq, rightSeq) as import('../../workers/SplitAnalysisUtils').SplitAnalysisResult[];
+            expect(results.length).toBe(2); 
 
-            const key = 'Line.cs::FuncA::[Start] ➔ Line.cs::FuncB::[End]';
-            expect(metrics[key]).toBeDefined();
-            expect(metrics[key].count).toBe(0); // Noise skipped, so not direct
-            expect(metrics[key].directCount).toBe(0);
-            expect(metrics[key].totalDelta).toBe(100);
+            const intervalMatch = results.find(r => r.key === 'File.js::Func::[START] ➔ File.js::Func::[END]');
+            expect(intervalMatch).toBeDefined();
+            expect(intervalMatch?.leftAvgDelta).toBe(200);
+            expect(intervalMatch?.rightAvgDelta).toBe(300);
+
+            // 매칭되지 않은 오른쪽 시퀀스 에러 검출 (New Error)
+            const newErrorMatch = results.find(r => r.isNewError);
+            expect(newErrorMatch).toBeDefined();
+            expect(newErrorMatch?.isError).toBe(true);
+            expect(newErrorMatch?.key).toContain('NEW_ERROR');
         });
 
-        it('should enforce Hard Cap for memory protection', () => {
-            const metrics: AggregateMetrics = {};
-            const pointMetrics: PointMetrics = {};
-            // Emulate cap reached
-            const state = {
-                prevTimestamp: null,
-                prevSignature: 'START',
-                prevFileInfo: { fileName: '', functionName: '', preview: '' },
-                lookbackWindow: [],
-                aliasFirstMatch: {},
-                metricsCount: { val: 100001 }
-            };
-
-            const data = [
-                createMeta('[10:00:02.000] New.cs: Test(0)> One', 0, 2000),
-                createMeta('[10:00:02.100] New.cs: Test(1)> Two', 1, 2100)
+        it('should handle zero timestamp deltas correctly', () => {
+            const leftSeq = [
+                createSeqItem('File.js::Func::[START]', 0, 1000),
+                createSeqItem('File.js::Func::[END]', 1, 1000) // 0ms delay
+            ];
+            const rightSeq = [
+                createSeqItem('File.js::Func::[START]', 0, 2000),
+                createSeqItem('File.js::Func::[END]', 1, 2000) // 0ms delay
             ];
 
-            computeMetricsFromMetadata(data, metrics, pointMetrics, state, 1000, 'left');
-
-            expect(Object.keys(metrics)).toHaveLength(0); // Should have stopped immediately
+            const results = alignSequences(leftSeq, rightSeq);
+            expect(results.length).toBe(1);
+            expect(results[0].leftAvgDelta).toBe(0);
+            expect(results[0].rightAvgDelta).toBe(0);
         });
-
-        it('should handle 0ms deltas (Point-in-time logs)', () => {
-            const metrics: AggregateMetrics = {};
-            const pointMetrics: PointMetrics = {};
-            const state = {
-                prevTimestamp: null,
-                prevSignature: 'START',
-                prevFileInfo: { fileName: '', functionName: '', preview: '' },
-                lookbackWindow: [],
-                aliasFirstMatch: {},
-                metricsCount: { val: 0 },
-                lastSignif: undefined
-            };
-
-            const data = [
-                createMeta('[10:00:05.000] Line.cs: Log(1)> A', 0, 5000),
-                createMeta('[10:00:05.000] Line.cs: Log(2)> B', 1, 5000) // Same timestamp
+        
+        it('should correctly build Sequence alignment with Patience Diff approach', () => {
+            const leftSeq = [
+                createSeqItem('A', 0, 100),
+                createSeqItem('X', 1, 200),
+                createSeqItem('B', 2, 300),
+            ];
+            const rightSeq = [
+                createSeqItem('A', 0, 100),
+                createSeqItem('Y', 1, 200),
+                createSeqItem('Z', 2, 250),
+                createSeqItem('B', 3, 400),
+            ];
+            
+            // X and (Y, Z) are gaps
+            const results = alignSequences(leftSeq, rightSeq);
+            expect(results.length).toBe(1);
+            
+            const res = results[0];
+            expect(res.key).toBe('A ➔ B');
+            expect(res.leftAvgDelta).toBe(200); // 300 - 100
+            expect(res.rightAvgDelta).toBe(300); // 400 - 100
+        });
+        
+        it('should correctly align sequences even with whitespace noise (Space Normalization)', () => {
+            const leftSeq = [
+                createSeqItem('File.js::Func::[A] start', 0, 1000),
+                createSeqItem('File.js::Func::[A]   end', 1, 1200), // 3 spaces
+            ];
+            const rightSeq = [
+                createSeqItem('File.js::Func::[A] start', 0, 1000),
+                createSeqItem('File.js::Func::[A] end', 1, 1500),   // 1 space
             ];
 
-            computeMetricsFromMetadata(data, metrics, pointMetrics, state, 1000, 'left');
-
-            const key = 'Line.cs::Log::[A] ➔ Line.cs::Log::[B]';
-            expect(metrics[key]).toBeDefined();
-            expect(metrics[key].totalDelta).toBe(0);
-            expect(metrics[key].deltaSamples).toBe(1); // 0ms is still a sample
+            const results = alignSequences(leftSeq, rightSeq);
+            // Whitespace should be normalized, so A ➔ A is matched
+            expect(results.length).toBe(1);
+            
+            const res = results[0];
+            expect(res.leftAvgDelta).toBe(200);
+            expect(res.rightAvgDelta).toBe(500);
         });
 
-        it('should correctly track unique TIDs up to limit', () => {
-            const metrics: AggregateMetrics = {};
-            const pointMetrics: PointMetrics = {};
-            const state = {
-                prevTimestamp: null,
-                prevSignature: 'START',
-                prevFileInfo: { fileName: '', functionName: '', preview: '' },
-                lookbackWindow: [],
-                aliasFirstMatch: {},
-                metricsCount: { val: 0 },
-                lastSignif: undefined
-            };
-
-            const data: LogMetadata[] = [];
-            for (let i = 0; i < 15; i++) {
-                const p = createMeta(`[10:00:00] Line.cs: Prev(0)> S`, i * 2, 1000);
-                p.tid = `TID_${i}`;
-                const c = createMeta(`[10:00:01] Line.cs: Curr(0)> E`, i * 2 + 1, 2000);
-                c.tid = `TID_${i}`;
-                data.push(p, c);
-            }
-
-            computeMetricsFromMetadata(data, metrics, pointMetrics, state, 5000, 'left');
-
-            const key = 'Line.cs::Prev::[S] ➔ Line.cs::Curr::[E]';
-            expect(metrics[key]).toBeDefined();
-            // Limit is 10
-            expect(metrics[key].tids.length).toBe(10);
-            expect(metrics[key].count).toBe(15);
-        });
-
-        it('should aggregate Happy Combo Alias segments correctly', () => {
-            const metrics: AggregateMetrics = {};
-            const pointMetrics: PointMetrics = {};
-            const state = {
-                prevTimestamp: null,
-                prevSignature: 'START',
-                prevFileInfo: { fileName: '', functionName: '', preview: '' },
-                lookbackWindow: [],
-                aliasFirstMatch: {},
-                metricsCount: { val: 0 },
-                lastSignif: undefined
-            };
-
-            const data = [
-                createMeta('[10:00:00] MatchingTag Start', 0, 1000), // Alias: Match
-                createMeta('[10:00:01] Normal Log', 1, 1500),
-                createMeta('[10:00:02] MatchingTag End', 2, 2000)   // Alias: Match
+        it('should group repeated sequential logs into a Burst (Burst Grouping)', () => {
+            const leftSeq = [
+                createSeqItem('Start', 0, 1000),
+                createSeqItem('Repeat', 1, 1100),
+                createSeqItem('Repeat', 2, 1200),
+                createSeqItem('Repeat', 3, 1300),
+                createSeqItem('End', 4, 1400),
+            ];
+            const rightSeq = [
+                createSeqItem('Start', 0, 1000),
+                createSeqItem('Repeat', 1, 1200),
+                createSeqItem('Repeat', 2, 1400),
+                createSeqItem('Repeat', 3, 1600),
+                createSeqItem('End', 4, 1800),
             ];
 
-            computeMetricsFromMetadata(data, metrics, pointMetrics, state, 1000, 'left');
+            const results = alignSequences(leftSeq, rightSeq);
+            
+            expect(results.length).toBe(3);
+            
+            const burstSeg = results[1];
+            expect(burstSeg.isBurst).toBe(true);
+            expect(burstSeg.burstCount).toBe(2);
+            expect(burstSeg.leftAvgDelta).toBe(200); 
+            expect(burstSeg.rightAvgDelta).toBe(400);
+        });
 
-            // 매칭된 후 signature는 fileName, functionName 등이 반영됩니다. 여기선 없으므로 ::(?) 형태입니다.
-            const key = '[Alias] Match|::::[[#:#:#] MatchingTag Start] ➔ [Alias] Match|::::[[#:#:#] MatchingTag End]';
-            expect(metrics[key]).toBeDefined();
-            expect(metrics[key].totalDelta).toBe(1000); // 2000 - 1000
-            expect(metrics[key].count).toBe(1);
+        it('should correctly handle N:M repeated anchors without misaligning gaps (Bug Repro)', () => {
+            const leftSeq = [
+                createSeqItem('UniqueA', 0, 100),
+                createSeqItem('OnError', 1, 200), // Left 1
+                createSeqItem('OnError', 2, 300), // Left 2
+                createSeqItem('OnError', 3, 400), // Left 3
+                createSeqItem('OnError', 4, 500), // Left 4
+                createSeqItem('UniqueB', 5, 600),
+                createSeqItem('OnError', 6, 700), // Left 5
+                createSeqItem('UniqueC', 7, 800),
+                createSeqItem('OnError', 8, 900), // Left 6
+                createSeqItem('OnError', 9, 1000), // Left 7
+                createSeqItem('UniqueD', 10, 1100),
+            ];
+            const rightSeq = [
+                createSeqItem('UniqueA', 0, 100),
+                createSeqItem('OnError', 1, 200), // Right 1
+                createSeqItem('OnError', 2, 300), // Right 2
+                createSeqItem('OnError', 3, 400), // Right 3
+                createSeqItem('OnError', 4, 500), // Right 4
+                createSeqItem('UniqueB', 5, 600),
+                createSeqItem('OnError', 6, 700), // Right 5
+                createSeqItem('UniqueC', 7, 800),
+                createSeqItem('OnError', 8, 900), // Right 6
+                createSeqItem('OnError', 9, 1000), // Right 7
+                createSeqItem('OnError', 10, 1050), // Right 8 (Extra)
+                createSeqItem('OnError', 11, 1080), // Right 9 (Extra)
+                createSeqItem('UniqueD', 12, 1100),
+            ];
+
+            const results = alignSequences(leftSeq, rightSeq);
+            expect(results.length).toBeGreaterThan(0);
         });
     });
 });

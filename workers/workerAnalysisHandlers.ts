@@ -1,7 +1,7 @@
 import { LogRule, LogWorkerResponse, LogMetadata } from '../types';
 import { extractTimestamp } from '../utils/logTime';
 import { extractSourceMetadata, analyzePerfSegments, extractLogIds } from '../utils/perfAnalysis';
-import { extractSingleMetadata, AggregateMetrics, PointMetrics, isSignificant, computeMetricsFromMetadata, extractAliasFromLine, AliasEvent } from './SplitAnalysisUtils';
+import { extractSingleMetadata, PointMetrics, isSignificant, extractAliasFromLine, AliasEvent, SequenceItem, getFormattedSig } from './SplitAnalysisUtils';
 
 export interface WorkerContext {
     currentFile: File | null;
@@ -660,24 +660,70 @@ export const extractAnalysisMetrics = async (
     }
 
     const decoder = new TextDecoder();
-    let metrics: AggregateMetrics = {};
+    let sequence: SequenceItem[] = [];
     let pointMetrics: PointMetrics = {};
-    let aggState: any = {
-        prevTimestamp: null as number | null,
-        prevSignature: 'START',
-        prevFileInfo: { fileName: '', functionName: '', preview: '' },
-        lastSignif: undefined, // 파일 전체 기준 마지막 Significant 로그
-        lookbackWindow: [],    // 파일 전체 기준 최근 윈도우
-        aliasFirstMatch: {}    // Alias별 최초 지점 추적용
-    };
-
-    const maxGap = payload.maxGap ?? 100;
-
-    const itemBatch: LogMetadata[] = [null as any]; // Reusable array for single item processing
+    let pointMetricsCount = { val: 0 };
+    let sequenceCount = { val: 0 };
     const processLineAndAggregate = (text: string, originalIdx: number, visualIdx: number) => {
-        const metadata = extractSingleMetadata(text, originalIdx, visualIdx, currentRule);
-        itemBatch[0] = metadata;
-        computeMetricsFromMetadata(itemBatch, metrics, pointMetrics, aggState, maxGap, side);
+        const item = extractSingleMetadata(text, originalIdx, visualIdx, currentRule);
+
+        // 1. 시그니처 생성
+        if (!item.signature) {
+            if (item.alias) {
+                item.signature = `[Alias] ${item.alias}|${getFormattedSig(item.fileName, item.functionName, item.codeLineNum, item.preview)}`;
+            } else if (isSignificant(item)) {
+                item.signature = getFormattedSig(item.fileName, item.functionName, item.codeLineNum, item.preview);
+            } else {
+                return; // Significant하지 않으면 시퀀스에 넣지 않음 (순수 LCS 매칭을 위해)
+            }
+        }
+
+        const currentSig = item.signature;
+
+        // [POINT METRICS] 단일 지점 지표 업데이트
+        if (pointMetricsCount.val < 50000) {
+            if (!pointMetrics[currentSig]) {
+                pointMetrics[currentSig] = {
+                    count: 0,
+                    fileName: item.fileName || (item.alias ? `[Alias]` : ''),
+                    functionName: item.functionName || item.alias || '',
+                    codeLineNum: item.codeLineNum || null,
+                    preview: item.preview,
+                    tids: [],
+                    visualIndices: [],
+                    originalLineNums: []
+                };
+                pointMetricsCount.val++;
+            }
+            const pm = pointMetrics[currentSig];
+            pm.count++;
+            if (item.tid && !pm.tids.includes(item.tid)) {
+                if (pm.tids.length < 10) pm.tids.push(item.tid);
+            }
+            if (pm.visualIndices.length < 5000) {
+                pm.visualIndices.push(item.visualIndex);
+                pm.originalLineNums.push(item.lineNum);
+            }
+        }
+
+        // [SEQUENCE ITEM 추가] (LCS용)
+        if (sequenceCount.val < 150000) {
+            sequence.push({
+                sig: currentSig,
+                timestamp: item.timestamp,
+                tid: item.tid,
+                preview: item.preview,
+                fileName: item.fileName || '',
+                functionName: item.functionName || '',
+                codeLineNum: item.codeLineNum,
+                isError: item.isError,
+                isWarn: item.isWarn,
+                lineNum: item.visualIndex,
+                originalLineNum: item.lineNum,
+                alias: item.alias || null
+            });
+            sequenceCount.val++;
+        }
     };
 
     if (isStreamMode && logBuffer && lineOffsetsStream && lineLengthsStream) {
@@ -741,17 +787,11 @@ export const extractAnalysisMetrics = async (
     }
 
     // 분석 결과 요약 로깅
-    const metricCount = Object.keys(metrics).length;
     console.log(`[SplitWorker] Analysis Finished!`);
     console.log(`[SplitWorker] Total Lines Scanned: ${totalLines} `);
-    console.log(`[SplitWorker] Detected Intervals(Metrics): ${metricCount} `);
+    console.log(`[SplitWorker] Detected Sequence Items: ${sequence.length} `);
 
-    if (metricCount > 0) {
-        console.log(`[SplitWorker] Sample Interval Keys: `, Object.keys(metrics).slice(0, 5));
-    } else {
-        console.warn(`[SplitWorker] No intervals detected.Check parser or look - back window.`);
-    }
-    respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { metrics, pointMetrics }, requestId });
+    respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { sequence, pointMetrics }, requestId });
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
 };
 

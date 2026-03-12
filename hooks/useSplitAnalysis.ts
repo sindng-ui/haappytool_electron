@@ -91,7 +91,7 @@ export const useSplitAnalysis = (
                             if (side === 'left') leftProgress = 80;
                             else rightProgress = 80;
                             updateMetadataProgress();
-                            resolve({ metrics: e.data.payload.metrics, pointMetrics: e.data.payload.pointMetrics });
+                            resolve({ sequence: e.data.payload.sequence, pointMetrics: e.data.payload.pointMetrics });
                         }
                     };
                     console.log(`[useSplitAnalysis] fetchMetrics started for side: ${side}, requestId: ${reqId}`);
@@ -141,8 +141,8 @@ export const useSplitAnalysis = (
 
             // Send to Analyzer Worker
             analyzerWorkerRef.current?.postMessage({
-                leftMetrics: leftMetricsData.metrics,
-                rightMetrics: rightMetricsData.metrics,
+                leftSequence: leftMetricsData.sequence,
+                rightSequence: rightMetricsData.sequence,
                 leftPointMetrics: leftMetricsData.pointMetrics,
                 rightPointMetrics: rightMetricsData.pointMetrics,
                 leftAliasEvents: leftAliases,

@@ -347,7 +347,11 @@
   - `Anchor Sync`: 사용자가 지정한 패턴(Anchor)을 기준으로 매칭 지점을 찾아 구간별 시간 차이를 정밀 분석합니다. [PLANNED]
 - **데이터 흐름**: `Log Workers (Left/Right)` -> `extractAliasEvents` -> `SplitAnalysisWorker` -> `Sequence/Interval Comparison` -> `AnalysisResults UI`
 - **최근 개선**:
-  - 기존의 '연속된 2줄' 기반 비교 방식의 한계를 극복하기 위해, **Happy Combo Alias 기반의 시퀀스 매칭 엔진**을 도입했습니다. 이제 로그 내용이 중간에 조금 다르더라도 핵심 이벤트(Alias)의 순서가 맞으면 정확하게 시간 차이를 추적합니다! (Zero-False-Positives) [TOTAL RE-ARCH]
+  - 기존의 '연속된 2줄' 기반 비교 방식의 한계를 극복하기 위해, **LCS(Patience Diff 변형) 기반의 글로벌 시퀀스 매칭 엔진**을 도입했습니다. 이제 로그 내용이 중간에 대폭 달라지거나 삽입/삭제가 발생해도 핵심 앵커(Anchor)를 기준으로 정확하게 성능 차이를 추적합니다! (Bioinformatics 기술 응용) [TOTAL RE-ARCH]
+  - **Burst Grouping (반복 로그 그룹화)**: 연속적으로 발생하는 동일한 로그(예: polling 로그)를 하나의 'Burst' 객체로 자동 병합하여 리스트를 간소화합니다. 첫 로그 위치를 점프 기준으로 유지하고, 마지막 위치는 `burstEndLineNum` 필드에 보존합니다. 클릭 시 첫~마지막 발생 범위로 양쪽 패널이 정확히 이동합니다. [NEW][HOT]
+  - **N:M 반복 앵커 매칭 & Gap DP 백트래킹 최적화**: OnError처럼 양쪽에서 반복적으로 발생하는 동일 로그들을 다루기 위해 N:M 매칭과 Gap DP를 조합했습니다. 특히, Gap DP(LCS 기반) 시 **중복 로그 배열(`[A]` vs `[A, A]`)을 만나면 항상 뒤에 위치한 항목과 우선 매칭하던 역방향 추적의 본질적 결함을 해결 (First Match Prefer 로직 도입)** 하여 반복 로그가 항상 순서대로 매칭되도록 엔진을 고도화했습니다. [FIX][HOT]
+  - **Whitespace Normalization**: 로그 본문의 공백 수 차이(Space/Tab noise)를 무시하고 동일한 의미의 로그로 인식하여 매칭 정확도를 비약적으로 높였습니다. [NEW]
+  - **Order-preserved Result Analysis**: `metrics` 객체 기반의 순서 뒤섞임 문제를 해결하고, 로그 파일의 물리적 순서 그대로 분석 결과를 도출하도록 엔진을 전면 개편했습니다. [STABLE]
 
 ---
 
