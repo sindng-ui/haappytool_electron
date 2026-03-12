@@ -334,94 +334,99 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                         </div>
                                     </div>
 
-                                    <div className="flex-1 overflow-y-auto custom-scrollbar p-1 flex flex-col gap-1">
-                                        {(() => {
-                                            const list = summaryFilter === 'regression' ? summaryData.regressionList :
-                                                summaryFilter === 'improvement' ? summaryData.improvementList :
-                                                    summaryData.stableList;
+                                    <div className="flex-1 overflow-hidden flex flex-col min-h-0 relative">
+                                        <AnimatePresence mode="wait">
+                                            <motion.div
+                                                key={summaryFilter}
+                                                initial={{ y: 20, opacity: 0 }}
+                                                animate={{ y: 0, opacity: 1 }}
+                                                exit={{ y: -20, opacity: 0 }}
+                                                transition={{ duration: 0.15, ease: "easeOut" }}
+                                                className="absolute inset-0 overflow-y-auto custom-scrollbar p-1 flex flex-col gap-1"
+                                            >
+                                                {(() => {
+                                                    const list = summaryFilter === 'regression' ? summaryData.regressionList :
+                                                        summaryFilter === 'improvement' ? summaryData.improvementList :
+                                                            summaryData.stableList;
 
-                                            if (list.length === 0) {
-                                                return <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">No items in this category.</div>;
-                                            }
+                                                    if (list.length === 0) {
+                                                        return <div className="flex items-center justify-center p-8 text-xs text-slate-600 italic">No items in this category.</div>;
+                                                    }
 
-                                            return list.map((res, i) => {
-                                                const isImprovement = res.deltaDiff < 0;
-                                                const isStable = Math.abs(res.deltaDiff) <= 20;
-                                                const themeColor = isStable ? 'indigo' : (isImprovement ? 'emerald' : 'orange');
-                                                const Icon = isStable ? Zap : (isImprovement ? TrendingDown : TrendingUp);
-                                                const isSelected = selectedKey === res.key;
+                                                    return list.map((res: any, i: number) => {
+                                                        const isImprovement = res.deltaDiff < 0;
+                                                        const isStable = Math.abs(res.deltaDiff) <= 20;
+                                                        const themeColor = isStable ? 'indigo' : (isImprovement ? 'emerald' : 'orange');
+                                                        const Icon = isStable ? Zap : (isImprovement ? TrendingDown : TrendingUp);
+                                                        const isSelected = selectedKey === res.key;
 
-                                                return (
-                                                    <div
-                                                        key={i}
-                                                        onClick={() => handleItemClick(res)}
-                                                        onDoubleClick={() => onViewRawSplit?.(res)}
-                                                        className={`group relative flex bg-slate-950/40 rounded-xl border transition-all cursor-pointer overflow-hidden min-h-[100px] ${isSelected
-                                                            ? `border-${themeColor}-500/50 bg-${themeColor}-500/10 ring-1 ring-${themeColor}-500/20`
-                                                            : 'border-slate-800/50 hover:border-slate-800 hover:bg-slate-900/40'
-                                                            }`}
-                                                    >
-                                                        {isSelected && <div className={`absolute left-0 top-0 bottom-0 w-1 bg-${themeColor}-500`} />}
+                                                        return (
+                                                            <div
+                                                                key={i}
+                                                                onClick={() => handleItemClick(res)}
+                                                                onDoubleClick={() => onViewRawSplit?.(res)}
+                                                                className={`group relative flex bg-slate-950/40 rounded-xl border transition-all cursor-pointer overflow-hidden min-h-[100px] ${isSelected
+                                                                    ? `border-${themeColor}-500/50 bg-${themeColor}-500/10 ring-1 ring-${themeColor}-500/20`
+                                                                    : 'border-slate-800/50 hover:border-slate-800 hover:bg-slate-900/40'
+                                                                    }`}
+                                                            >
+                                                                {isSelected && <div className={`absolute left-0 top-0 bottom-0 w-1 bg-${themeColor}-500`} />}
 
-                                                        <div className="flex-1 px-3 py-1.5 flex items-center">
-                                                            {/* COLUMN 1: FLOW (LEFT) */}
-                                                            <div className="flex-1 flex flex-col gap-0.5 min-w-0 pr-4">
-                                                                {/* Prev Info */}
-                                                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-slate-900/40 ${res.isGlobalBatch ? 'border-violet-500/20' : 'border-slate-800/50'} opacity-60`}>
-                                                                    <span className="text-[10px] font-mono text-slate-400 truncate">
-                                                                        {res.prevFileName || res.fileName}
-                                                                        <span className="text-slate-200/30 mx-1.5">:</span>
-                                                                        <span className="text-slate-300">{res.prevFunctionName || res.functionName}</span>
-                                                                        <span className="text-slate-500 ml-1.5 font-bold">({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})</span>
-                                                                    </span>
-                                                                </div>
+                                                                <div className="flex-1 px-3 py-1.5 flex items-center">
+                                                                    <div className="flex-1 flex flex-col gap-0.5 min-w-0 pr-4">
+                                                                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-slate-900/40 ${res.isGlobalBatch ? 'border-violet-500/20' : 'border-slate-800/50'} opacity-60`}>
+                                                                            <span className="text-[10px] font-mono text-slate-400 truncate">
+                                                                                {res.prevFileName || res.fileName}
+                                                                                <span className="text-slate-200/30 mx-1.5">:</span>
+                                                                                <span className="text-slate-300">{res.prevFunctionName || res.functionName}</span>
+                                                                                <span className="text-slate-500 ml-1.5 font-bold">({res.leftCodeLineNum || res.leftOrigLineNum || res.leftLineNum})</span>
+                                                                            </span>
+                                                                        </div>
 
-                                                                {/* Arrow & Connection */}
-                                                                <div className="flex px-6 my-[-6px] opacity-30">
-                                                                    <ArrowDown size={14} className={`text-${themeColor}-500`} />
-                                                                </div>
+                                                                        <div className="flex px-6 my-[-6px] opacity-30">
+                                                                            <ArrowDown size={14} className={`text-${themeColor}-500`} />
+                                                                        </div>
 
-                                                                {/* Current Info */}
-                                                                <div className={`flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-950 border border-${themeColor}-500/20`}>
-                                                                    <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-500 shrink-0 ${!isStable ? 'animate-pulse' : ''}`} />
-                                                                    <span className="text-[11px] font-black text-white truncate flex-1 leading-tight">
-                                                                        {res.fileName} <span className="text-slate-500 mx-1.5">:</span> {res.functionName || res.preview.substring(0, 50)}
-                                                                        <span className={`text-[10px] text-${themeColor}-400/70 ml-2 font-mono`}>
-                                                                            ({(res.rightCodeLineNum || res.rightOrigLineNum || res.rightLineNum)})
+                                                                        <div className={`flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-950 border border-${themeColor}-500/20`}>
+                                                                            <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-500 shrink-0 ${!isStable ? 'animate-pulse' : ''}`} />
+                                                                            <span className="text-[11px] font-black text-white truncate flex-1 leading-tight">
+                                                                                {res.fileName} <span className="text-slate-500 mx-1.5">:</span> {res.functionName || res.preview.substring(0, 50)}
+                                                                                <span className={`text-[10px] text-${themeColor}-400/70 ml-2 font-mono`}>
+                                                                                    ({(res.rightCodeLineNum || res.rightOrigLineNum || res.rightLineNum)})
+                                                                                </span>
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="w-[180px] shrink-0 flex flex-col items-center justify-center gap-1 border-x border-slate-800/30 px-4">
+                                                                        <div className={`px-4 py-2 rounded-full flex items-center gap-2 bg-${themeColor}-500/10 border border-${themeColor}-500/20 shadow-lg shadow-${themeColor}-500/5`}>
+                                                                            <Icon size={14} className={`text-${themeColor}-400`} />
+                                                                            <span className={`text-[14px] font-black text-${themeColor}-400 font-mono tracking-tight`}>
+                                                                                {`${res.deltaDiff > 0 ? '+' : ''}${formatDelta(res.deltaDiff)}`}
+                                                                            </span>
+                                                                        </div>
+                                                                        <span className={`text-[9px] font-black text-${themeColor}-400/60 uppercase tracking-[0.2em]`}>
+                                                                            {isStable ? 'STABLE' : (isImprovement ? 'IMPROVEMENT' : 'REGRESSION')}
                                                                         </span>
-                                                                    </span>
-                                                                </div>
-                                                            </div>
+                                                                    </div>
 
-                                                            {/* COLUMN 2: STATUS (CENTER) */}
-                                                            <div className="w-[180px] shrink-0 flex flex-col items-center justify-center gap-1 border-x border-slate-800/30 px-4">
-                                                                <div className={`px-4 py-2 rounded-full flex items-center gap-2 bg-${themeColor}-500/10 border border-${themeColor}-500/20 shadow-lg shadow-${themeColor}-500/5`}>
-                                                                    <Icon size={14} className={`text-${themeColor}-400`} />
-                                                                    <span className={`text-[14px] font-black text-${themeColor}-400 font-mono tracking-tight`}>
-                                                                        {`${res.deltaDiff > 0 ? '+' : ''}${formatDelta(res.deltaDiff)}`}
-                                                                    </span>
-                                                                </div>
-                                                                <span className={`text-[9px] font-black text-${themeColor}-400/60 uppercase tracking-[0.2em]`}>
-                                                                    {isStable ? 'STABLE' : (isImprovement ? 'IMPROVEMENT' : 'REGRESSION')}
-                                                                </span>
-                                                            </div>
-
-                                                            {/* COLUMN 3: METRICS (RIGHT) */}
-                                                            <div className="w-[120px] shrink-0 flex flex-col justify-center gap-2 pl-6">
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">LEFT AVG</span>
-                                                                    <span className="text-[12px] font-mono text-slate-400 font-bold">{formatDelta(res.leftAvgDelta)}</span>
-                                                                </div>
-                                                                <div className="flex flex-col gap-0.5 border-t border-slate-800/40 pt-1.5">
-                                                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">RIGHT AVG</span>
-                                                                    <span className="text-[12px] font-mono text-white font-black">{formatDelta(res.rightAvgDelta)}</span>
+                                                                    <div className="w-[120px] shrink-0 flex flex-col justify-center gap-2 pl-6">
+                                                                        <div className="flex flex-col gap-0.5">
+                                                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">LEFT AVG</span>
+                                                                            <span className="text-[12px] font-mono text-slate-400 font-bold">{formatDelta(res.leftAvgDelta)}</span>
+                                                                        </div>
+                                                                        <div className="flex flex-col gap-0.5 border-t border-slate-800/40 pt-1.5">
+                                                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">RIGHT AVG</span>
+                                                                            <span className="text-[12px] font-mono text-white font-black">{formatDelta(res.rightAvgDelta)}</span>
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            });
-                                        })()}
+                                                        );
+                                                    });
+                                                })()}
+                                            </motion.div>
+                                        </AnimatePresence>
                                     </div>
                                 </div>
 
