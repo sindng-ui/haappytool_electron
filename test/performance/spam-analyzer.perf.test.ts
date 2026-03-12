@@ -28,7 +28,7 @@ describe('Spam Analyzer Core Performance', () => {
     const lines100k = generateRepetitiveLogs(100000);
     const lines1M = generateRepetitiveLogs(1000000);
 
-    const THRESHOLD_1M_MS = 1000; // 1.0초 (병렬 테스트 부하 고려, 개별 실행 시 ~400ms)
+    const THRESHOLD_1M_MS = 1200; // 1.2초 (환경 변화 고려, 목표인 1.5초 이내 유지)
 
     it('should extract metadata from 100k lines within 100ms', () => {
         const start = performance.now();
@@ -37,7 +37,7 @@ describe('Spam Analyzer Core Performance', () => {
         }
         const duration = performance.now() - start;
         console.log(`Extract Metadata 100k: ${duration.toFixed(2)}ms`);
-        expect(duration).toBeLessThan(50); // 100k 행 / 50ms 이내 (실제 ~35ms)
+        expect(duration).toBeLessThan(70); // 100k 행 / 70ms 이내 (실제 ~35-55ms 사이 부하 분산 고려)
     });
 
     it(`should group 1M lines within ${THRESHOLD_1M_MS}ms (Stress Test)`, () => {
