@@ -297,4 +297,29 @@ describe('CliApp Renderer Entry', () => {
             expect(containsScenarioOk).toBeTruthy();
         });
     });
+
+    describe('analyze-diff', () => {
+        it('should route analyze-diff command correctly', async () => {
+            renderCliApp();
+
+            mockElectronAPI.getCliSettings.mockResolvedValue({
+                logRules: [{ name: 'mission1' }]
+            });
+
+            await act(async () => {
+                await mockElectronAPI._triggerCliCommand({
+                    command: 'analyze-diff',
+                    payload: {
+                        filterName: 'mission1',
+                        leftPath: 'left.log',
+                        rightPath: 'right.log',
+                        outputPath: 'out.json',
+                        cwd: '/mock'
+                    }
+                });
+            });
+
+            expect(mockElectronAPI.cliStdout).toHaveBeenCalledWith(expect.stringContaining('[Analyze Diff]'));
+        });
+    });
 });

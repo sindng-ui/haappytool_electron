@@ -1,187 +1,223 @@
 {
   "filterName": "mission1",
-  "timestamp": "2026-03-11T14:09:13.118Z",
+  "timestamp": "2026-03-13T16:04:59.070Z",
   "files": {
     "left": "K:\\Antigravity_Projects\\gitbase\\happytool_electron\\test\\test_startup.log",
     "right": "K:\\Antigravity_Projects\\gitbase\\happytool_electron\\test\\test_startup_2.log"
   },
   "summary": {
-    "totalNodes": 28,
-    "regressionsCount": 7,
-    "improvementsCount": 4,
-    "stableCount": 17,
-    "newLogsCount": 6
+    "totalNodes": 34,
+    "regressionsCount": 10,
+    "improvementsCount": 6,
+    "stableCount": 18,
+    "newLogsCount": 8
   },
   "results": {
     "regressions": [
       {
-        "key": "SmartThingsApp.cs::OnCreate(123) ➔ SmartThingsApp.cs::OnCreate(127)",
-        "leftAvgDelta": 330,
-        "rightAvgDelta": 530,
-        "deltaDiff": 200
+        "key": "SmartThingsApp.cs::OnError::[error detected] ➔ SmartThingsApp.cs::OnError::[error detected]",
+        "leftAvgDelta": 4131,
+        "rightAvgDelta": 5300,
+        "deltaDiff": 1169
       },
       {
-        "key": "SmartThingsApp.cs::OnCreate(123) ➔ SmartThingsApp.cs::OnCreate(124) (#1)",
-        "leftAvgDelta": 30,
-        "rightAvgDelta": 130,
-        "deltaDiff": 100
-      },
-      {
-        "key": "SmartThingsApp.cs::OnCreate(126) ➔ SmartThingsApp.cs::OnCreate(127) (#1)",
-        "leftAvgDelta": 130,
-        "rightAvgDelta": 230,
-        "deltaDiff": 100
-      },
-      {
-        "key": "SmartThingsApp.cs::OnStart(300) ➔ SmartThingsApp.cs::OnStart(311)",
-        "leftAvgDelta": 40,
-        "rightAvgDelta": 69,
-        "deltaDiff": 29
-      },
-      {
-        "key": "SmartThingsApp.cs::OnResume(333) ➔ SmartThingsApp.cs::OnResume(350)",
+        "key": "SmartThingsApp.cs::OnResume::[start] ➔ SmartThingsApp.cs::OnResume::[end]",
         "leftAvgDelta": 670,
         "rightAvgDelta": 1679,
         "deltaDiff": 1009
       },
       {
-        "key": "StNetwork.cs::HandleResume(66) ➔ StNetwork.cs::HandleResume(69)",
+        "key": "StNetwork.cs::HandleResume::[Resuming network tasks] ➔ StNetwork.cs::HandleResume::[Checking for updates]",
         "leftAvgDelta": 50,
         "rightAvgDelta": 560,
         "deltaDiff": 510
       },
       {
-        "key": "SmartThingsApp.cs::OnResume(344) ➔ SmartThingsApp.cs::OnResume(350) (#1)",
+        "key": "[Alias] OnResume|SmartThingsApp.cs::OnResume::[App logic initialized] ➔ [Alias] OnResume|SmartThingsApp.cs::OnResume::[end]",
         "leftAvgDelta": 530,
         "rightAvgDelta": 1039,
         "deltaDiff": 509
+      },
+      {
+        "key": "SmartThingsApp.cs::OnCreate::[start] ➔ SmartThingsApp.cs::OnCreate::[SmartThi [OnCreate] end]",
+        "leftAvgDelta": 330,
+        "rightAvgDelta": 530,
+        "deltaDiff": 200
+      },
+      {
+        "key": "SmartThingsApp.cs::OnCreate::[Database connection established] ➔ SmartThingsApp.cs::OnError::[error detected] (#1)",
+        "leftAvgDelta": 5,
+        "rightAvgDelta": 110,
+        "deltaDiff": 105
+      },
+      {
+        "key": "SmartThingsApp.cs::OnCreate::[start] ➔ SmartThingsApp.cs::OnError::[error detected] (#1)",
+        "leftAvgDelta": 29,
+        "rightAvgDelta": 130,
+        "deltaDiff": 101
+      },
+      {
+        "key": "StNetwork.cs::HandleResume::[Checking for updates] ➔ [Alias] OnError|SmartThingsApp.cs::OnError::[error detected]",
+        "leftAvgDelta": 10,
+        "rightAvgDelta": 41,
+        "deltaDiff": 31
+      },
+      {
+        "key": "SmartThingsApp.cs::OnStart::[start] ➔ SmartThingsApp.cs::OnError::[error detected] (#1)",
+        "leftAvgDelta": 36,
+        "rightAvgDelta": 66,
+        "deltaDiff": 30
+      },
+      {
+        "key": "SmartThingsApp.cs::OnStart::[start] ➔ SmartThingsApp.cs::OnStart::[end]",
+        "leftAvgDelta": 40,
+        "rightAvgDelta": 69,
+        "deltaDiff": 29
       }
     ],
     "improvements": [
       {
-        "key": "hwservice.cpp::hwfunc(123) ➔ [Alias] OnCreate|SmartThingsApp.cs::OnCreate(123)",
-        "leftAvgDelta": 49050,
-        "rightAvgDelta": 48950,
-        "deltaDiff": -100
+        "key": "SmartThingsApp.cs::OnResume::[end] ➔ SmartThingsApp.cs::OnError::[error detected] (#1)",
+        "leftAvgDelta": 1060,
+        "rightAvgDelta": 546,
+        "deltaDiff": -514
       },
       {
-        "key": "SmartThingsApp.cs::OnCreate(127) ➔ SmartThingsApp.cs::OnStart(300) (#1)",
-        "leftAvgDelta": 1040,
-        "rightAvgDelta": 920,
-        "deltaDiff": -120
-      },
-      {
-        "key": "SmartThingsApp.cs::OnStart(311) ➔ SmartThingsApp.cs::OnResume(333) (#1)",
+        "key": "SmartThingsApp.cs::OnStart::[end] ➔ SmartThingsApp.cs::OnResume::[start] (#1)",
         "leftAvgDelta": 1020,
         "rightAvgDelta": 511,
         "deltaDiff": -509
       },
       {
-        "key": "[Alias] OnResume|SmartThingsApp.cs::OnResume(350) ➔ SmartThingsApp.cs::Init(123)",
+        "key": "[Alias] OnResume|SmartThingsApp.cs::OnResume::[end] ➔ SmartThingsApp.cs::Init::[App startup complete total: #.#s]",
         "leftAvgDelta": 1050,
         "rightAvgDelta": 541,
         "deltaDiff": -509
+      },
+      {
+        "key": "[Alias] OnError|SmartThingsApp.cs::OnError::[error detected] ➔ [Alias] OnStart|SmartThingsApp.cs::OnStart::[start]",
+        "leftAvgDelta": 1165,
+        "rightAvgDelta": 1040,
+        "deltaDiff": -125
+      },
+      {
+        "key": "system.cpp::systemfunc1::[ffff] ➔ [Alias] OnCreate|SmartThingsApp.cs::OnCreate::[start]",
+        "leftAvgDelta": 49100,
+        "rightAvgDelta": 49000,
+        "deltaDiff": -100
+      },
+      {
+        "key": "SmartThingsApp.cs::OnError::[error detected] ➔ SmartThingsApp.cs::OnResume::[App logic initialized] (#1)",
+        "leftAvgDelta": 60,
+        "rightAvgDelta": 29,
+        "deltaDiff": -31
       }
     ],
     "stable": [
       {
-        "key": "system.cpp::systemfunc1(123) ➔ system.cpp::systemfunc2(111)",
-        "leftAvgDelta": 20,
-        "rightAvgDelta": 30,
-        "deltaDiff": 10
-      },
-      {
-        "key": "system.cpp::systemfunc2(111) ➔ hwservice.cpp::hwfunc(123)",
-        "leftAvgDelta": 30,
-        "rightAvgDelta": 20,
-        "deltaDiff": -10
-      },
-      {
-        "key": "SmartThingsApp.cs::OnCreate(124) ➔ SmartThingsApp.cs::OnCreate(125) (#1)",
-        "leftAvgDelta": 40,
-        "rightAvgDelta": 40,
-        "deltaDiff": 0
-      },
-      {
-        "key": "SmartThingsApp.cs::OnCreate(125) ➔ SmartThingsApp.cs::OnCreate(126) (#1)",
-        "leftAvgDelta": 130,
-        "rightAvgDelta": 130,
-        "deltaDiff": 0
-      },
-      {
-        "key": "[Alias] OnStart|SmartThingsApp.cs::OnStart(300) ➔ AppUtil.cs::bind(123)",
+        "key": "[Alias] OnStart|SmartThingsApp.cs::OnStart::[start] ➔ AppUtil.cs::bind::[Registering event listeners]",
         "leftAvgDelta": 20,
         "rightAvgDelta": 40,
         "deltaDiff": 20
       },
       {
-        "key": "AppUtil.cs::bind(123) ➔ AppUtil.cs::bind(125)",
+        "key": "AppUtil.cs::bind::[event subscribing done] ➔ [Alias] OnError|SmartThingsApp.cs::OnError::[error detected]",
+        "leftAvgDelta": 6,
+        "rightAvgDelta": 16,
+        "deltaDiff": 10
+      },
+      {
+        "key": "SmartThingsApp.cs::OnResume::[start] ➔ SmartThingsApp.cs::OnError::[error detected] (#1)",
+        "leftAvgDelta": 10,
+        "rightAvgDelta": 1,
+        "deltaDiff": -9
+      },
+      {
+        "key": "SmartThingsApp.cs::Init::[App startup complete total: #.#s] ➔ [Alias] OnError|SmartThingsApp.cs::OnError::[error detected]",
+        "leftAvgDelta": 10,
+        "rightAvgDelta": 5,
+        "deltaDiff": -5
+      },
+      {
+        "key": "[Alias] OnError|SmartThingsApp.cs::OnError::[error detected] ➔ StApi.cs::Init::[Requesting initial data sync]",
+        "leftAvgDelta": 90,
+        "rightAvgDelta": 95,
+        "deltaDiff": 5
+      },
+      {
+        "key": "SmartThingsApp.cs::OnCreate::[Initialize UI components] ➔ SmartThingsApp.cs::OnError::[error detected] (#1)",
+        "leftAvgDelta": 1,
+        "rightAvgDelta": 0,
+        "deltaDiff": -1
+      },
+      {
+        "key": "SmartThingsApp.cs::OnError::[error detected] ➔ SmartThingsApp.cs::OnCreate::[Loading user preferences] (#1)",
+        "leftAvgDelta": 39,
+        "rightAvgDelta": 40,
+        "deltaDiff": 1
+      },
+      {
+        "key": "SmartThingsApp.cs::OnError::[error detected] ➔ SmartThingsApp.cs::OnStart::[end] (#1)",
+        "leftAvgDelta": 4,
+        "rightAvgDelta": 3,
+        "deltaDiff": -1
+      },
+      {
+        "key": "[Alias] OnError|SmartThingsApp.cs::OnError::[error detected] ➔ StNetwork.cs::HandleResume::[Resuming network tasks]",
+        "leftAvgDelta": 10,
+        "rightAvgDelta": 9,
+        "deltaDiff": -1
+      },
+      {
+        "key": "[Alias] OnCreate|SmartThingsApp.cs::OnCreate::[Loading user preferences] ➔ [Alias] OnCreate|SmartThingsApp.cs::OnCreate::[Database connection established]",
+        "leftAvgDelta": 130,
+        "rightAvgDelta": 130,
+        "deltaDiff": 0
+      },
+      {
+        "key": "AppUtil.cs::bind::[Registering event listeners] ➔ AppUtil.cs::bind::[event subscribing done]",
         "leftAvgDelta": 10,
         "rightAvgDelta": 10,
         "deltaDiff": 0
       },
       {
-        "key": "AppUtil.cs::bind(125) ➔ [Alias] OnStart|SmartThingsApp.cs::OnStart(311)",
-        "leftAvgDelta": 10,
-        "rightAvgDelta": 19,
-        "deltaDiff": 9
-      },
-      {
-        "key": "[Alias] OnResume|SmartThingsApp.cs::OnResume(333) ➔ StNetwork.cs::HandleResume(66)",
-        "leftAvgDelta": 20,
-        "rightAvgDelta": 10,
-        "deltaDiff": -10
-      },
-      {
-        "key": "StNetwork.cs::HandleResume(69) ➔ [Alias] OnResume|SmartThingsApp.cs::OnResume(344)",
-        "leftAvgDelta": 70,
-        "rightAvgDelta": 70,
-        "deltaDiff": 0
-      },
-      {
-        "key": "SmartThingsApp.cs::Init(123) ➔ StApi.cs::Init(123)",
-        "leftAvgDelta": 100,
-        "rightAvgDelta": 100,
-        "deltaDiff": 0
-      },
-      {
-        "key": "StApi.cs::Init(123) ➔ infra.cs::CheckMemory(555)",
+        "key": "StApi.cs::Init::[Requesting initial data sync] ➔ infra.cs::CheckMemory::[Memory pressure low]",
         "leftAvgDelta": 50,
         "rightAvgDelta": 50,
         "deltaDiff": 0
       },
       {
-        "key": "infra.cs::CheckMemory(555) ➔ infra.cs::CheckMemory(557)",
+        "key": "infra.cs::CheckMemory::[Memory pressure low] ➔ infra.cs::CheckMemory::[Periodic cleanup started]",
         "leftAvgDelta": 50,
         "rightAvgDelta": 50,
         "deltaDiff": 0
       },
       {
-        "key": "infra.cs::CheckMemory(557) ➔ StData.cs::Init(21)",
+        "key": "infra.cs::CheckMemory::[Periodic cleanup started] ➔ StData.cs::Init::[Data sync finished]",
         "leftAvgDelta": 200,
         "rightAvgDelta": 200,
         "deltaDiff": 0
       },
       {
-        "key": "StData.cs::Init(21) ➔ StHomeUi.cs::Init(38)",
+        "key": "StData.cs::Init::[Data sync finished] ➔ StHomeUi.cs::Init::[User entered Home screen]",
         "leftAvgDelta": 200,
         "rightAvgDelta": 200,
         "deltaDiff": 0
       },
       {
-        "key": "StHomeUi.cs::Init(38) ➔ StLifeCycle.cs::StateChanged(51)",
+        "key": "StHomeUi.cs::Init::[User entered Home screen] ➔ StLifeCycle.cs::StateChanged::[Enter]",
         "leftAvgDelta": 500,
         "rightAvgDelta": 500,
         "deltaDiff": 0
       },
       {
-        "key": "StLifeCycle.cs::StateChanged(51) ➔ StLifeCycle.cs::StateChanged(55)",
+        "key": "StLifeCycle.cs::StateChanged::[Enter] ➔ StLifeCycle.cs::StateChanged::[App is idle]",
         "leftAvgDelta": 200,
         "rightAvgDelta": 200,
         "deltaDiff": 0
       },
       {
-        "key": "StLifeCycle.cs::StateChanged(55) ➔ TagTest.cs::testTag(100)",
+        "key": "StLifeCycle.cs::StateChanged::[App is idle] ➔ TagTest.cs::testTag::[health check passed]",
         "leftAvgDelta": 300,
         "rightAvgDelta": 300,
         "deltaDiff": 0
@@ -189,27 +225,35 @@
     ],
     "newLogs": [
       {
-        "sig": "system.cpp::newFunction(222)",
-        "count": 1
-      },
-      {
-        "sig": "xxx.cpp::xxfunc(111)",
-        "count": 1
-      },
-      {
-        "sig": "ADDDDD.cs::DDDD(125)",
+        "sig": "ADDDDD.cs::DDDD::[DDDD]",
         "count": 2
       },
       {
-        "sig": "EEEEEE.cs::EEEE(100)",
+        "sig": "[Alias] OnResume|SmartThingsApp.cs::OnResume::[new#]",
+        "count": 2
+      },
+      {
+        "sig": "system.cpp::newFunction::[asdf]",
         "count": 1
       },
       {
-        "sig": "[Alias] OnResume|SmartThingsApp.cs::OnResume(55)",
+        "sig": "system.cpp::systemfunc2::[# Boots animations finissshed]",
         "count": 1
       },
       {
-        "sig": "[Alias] OnResume|SmartThingsApp.cs::OnResume(100)",
+        "sig": "hwservice.cpp::hwfunc::[Initialize hardware # accelerations]",
+        "count": 1
+      },
+      {
+        "sig": "[Alias] OnCreate|SmartThingsApp.cs::OnCreate::[new logic]",
+        "count": 1
+      },
+      {
+        "sig": "EEEEEE.cs::EEEE::[EEEE]",
+        "count": 1
+      },
+      {
+        "sig": "[Alias] OnCreate|SmartThingsApp.cs::OnCreate::[SmartThi [OnCreate] end]",
         "count": 1
       }
     ]

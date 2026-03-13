@@ -38,13 +38,31 @@ function createHiddenWindow() {
         // 현재는 기존 로직을 온전히 타기 위해 동일한 index.html을 로드하되 URL 파라미터로 구분.
         const useDevServer = !app.isPackaged && process.env.NODE_ENV !== 'production';
 
+        let isLoaded = false;
         ipcMain.once('cli-ready', () => {
+            isLoaded = true;
             resolve(hiddenWindow);
         });
 
+        // 5초 타임아웃: Vite 서버 무한 대기 방지 🐧⏳
+        setTimeout(() => {
+            if (!isLoaded) {
+                console.warn(chalk ? chalk.yellow('[CLI] Connection timeout. Falling back to local files...') : '[CLI] Connection timeout. Falling back to local files...');
+                hiddenWindow.loadURL('app://./index.html?mode=cli');
+            }
+        }, 5000);
+
         if (useDevServer) {
-            hiddenWindow.loadURL('http://127.0.0.1:3000?mode=cli');
+            const devUrl = 'http://127.0.0.1:3000?mode=cli';
+            console.log(chalk ? chalk.dim(`[CLI] Attempting to connect to dev server: ${devUrl}`) : `[CLI] Attempting to connect to dev server: ${devUrl}`);
+            hiddenWindow.loadURL(devUrl).then(() => {
+                console.log(chalk ? chalk.green('[CLI] Loaded from Dev Server') : '[CLI] Loaded from Dev Server');
+            }).catch((err) => {
+                console.warn(chalk ? chalk.yellow(`[CLI] Dev Server connection failed: ${err.message}. Falling back to local files...`) : `[CLI] Dev Server connection failed: ${err.message}. Falling back to local files...`);
+                hiddenWindow.loadURL('app://./index.html?mode=cli');
+            });
         } else {
+            console.log(chalk ? chalk.dim('[CLI] Production mode. Loading from local files...') : '[CLI] Production mode. Loading from local files...');
             hiddenWindow.loadURL('app://./index.html?mode=cli');
         }
     });

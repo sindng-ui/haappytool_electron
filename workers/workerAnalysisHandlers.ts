@@ -643,12 +643,13 @@ export const extractAnalysisMetrics = async (
     const isFile = !!(currentFile || ctx.isLocalFileMode);
 
     if (!filteredIndices) {
-        respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { metrics: {} }, requestId });
+        console.warn(`[SplitWorker] extractAnalysisMetrics: filteredIndices is null!`);
+        respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { sequence: [], pointMetrics: {} }, requestId });
         return;
     }
 
     const totalLines = filteredIndices.length;
-    console.log(`[SplitWorker] GET_ANALYSIS_METRICS received.Total lines to scan: ${totalLines} `);
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0, message: `[Worker][${side}] Starting metrics extraction for ${totalLines} lines` } });
 
     // 🐧⚡ Happy Combo 태그 사전 소문자화 (Performance Optimization)
     if (currentRule?.happyGroups) {
@@ -786,11 +787,7 @@ export const extractAnalysisMetrics = async (
         }
     }
 
-    // 분석 결과 요약 로깅
-    console.log(`[SplitWorker] Analysis Finished!`);
-    console.log(`[SplitWorker] Total Lines Scanned: ${totalLines} `);
-    console.log(`[SplitWorker] Detected Sequence Items: ${sequence.length} `);
-
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 100, message: `[Worker][${side}] Extraction finished. Seq: ${sequence.length}, Pts: ${Object.keys(pointMetrics).length}` } });
     respond({ type: 'ANALYSIS_METRICS_RESULT', payload: { sequence, pointMetrics }, requestId });
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
 };

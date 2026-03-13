@@ -42,15 +42,18 @@
 
 ### [[Headless CLI Infrastructure]]
 - **ID**: `system-headless-cli`
-- **Keywords**: [`CLI`, `Headless`, `Automated Test`, `Background Execution`, `commander`, `hidden window`]
+- **Keywords**: [`CLI`, `Headless`, `Automated Test`, `Background Execution`, `commander`, `hidden window`, `fallback`]
 - **Location**:
-  - `Main Process`: [cli.cjs](./electron/cli.cjs)
-  - `Renderer Logic`: [CliApp.tsx](./CliApp.tsx)
+  - `Main Entry`: [cli.cjs](./electron/cli.cjs)
+  - `Main Process`: [main.cjs](./electron/main.cjs)
+  - `Renderer UI`: [CliApp.tsx](./CliApp.tsx)
+  - `Renderer Logic Hook`: [useCliHandlers.ts](./hooks/useCliHandlers.ts) [NEW]
 - **Core Interface**:
   - `runCli(args)`: 커맨드라인 매개변수 파싱 및 Headless(Hidden) BrowserWindow 생성
-  - `CliApp`: 렌더러 측 CLI 핸들러. IndexedDB, Web Worker, WASM 등을 CLI에서도 GUI와 동일하게 활용할 수 있도록 브릿지 역할 수행
-  - **Analyze Diff CLI 연동**: `analyze-diff` 명령어를 통해 두 로그 파일의 성능 차이 및 신규 로그를 분석하여 JSON 리포트로 출력하는 기능 추가. [NEW]
-- **Data Flow**: `Terminal` -> `cli.cjs` -> `IPC (cli-run-command)` -> `CliApp.tsx` -> `IPC (cli-stdout/stderr)` -> `Terminal`
+  - **연결 안정화**: Vite 서버 대기 시 5초 타임아웃 및 `app://` 프로토콜(빌드 파일) 자동 Fallback 로직 탑재 [NEW]
+  - `CliApp`: CLI 렌더러 진입점. 500줄 초과 방지를 위해 핵심 커맨드 핸들러를 별도 훅으로 위임.
+  - `useCliHandlers`: `analyze-diff`, `log-extractor` 등 실제 커맨드 처리 오케스트레이션 훅 [NEW]
+- **Data Flow**: `Terminal` -> `cli.cjs` -> `Connection Sync (Timeout/Fallback)` -> `IPC (cli-run-command)` -> `CliApp/useCliHandlers` -> `Terminal`
 
 
 ---
@@ -82,17 +85,18 @@
 
 ### [[Headless CLI Engine]]
 - **ID**: `logic-headless-cli-core`
-- **Keywords**: [`CLI`, `커맨드라인`, `headless`, `background`, `commander`, `CliApp`, `CLI모드`, `block-test`]
+- **Keywords**: [`CLI`, `커맨드라인`, `headless`, `background`, `commander`, `CliApp`, `useCliHandlers`, `timeout`]
 - **Location**:
   - `Main CLI Entry`: [cli.cjs](./electron/cli.cjs)
-  - `Headless Component`: [CliApp.tsx](./CliApp.tsx)
+  - **CLI Stabilization**: `electron/cli.cjs`에 5초 타임아웃 및 로컬 파일 Fallback 로직 추가.
+  - **CLI Refactoring**: `useCliHandlers.ts` 후크를 통해 `CliApp.tsx`의 로직을 분리하여 유지보수성 향상.
+  - **Bug Fix**: `analyze-diff` 명령 실행 시 `LogProcessor.worker`와 `SplitAnalysis.worker` 사이의 데이터 필드명 불일치(`metrics` -> `sequence`) 수정. 🐧🛠️⚡
+  - `Headless Manager`: [CliApp.tsx](./CliApp.tsx)
+  - `Command Handlers`: [useCliHandlers.ts](./hooks/useCliHandlers.ts) [REFACTORED]
 - **Core Interface**:
-  - `cli-run-command`: Main -> Renderer 커맨드 하달 (`log-extractor`, `block-test`, `analyze-diff` 등)
-  - `cli-ready`: Renderer -> Main 준비 완료 알림
-  - `cli-stdout` / `cli-stderr` / `cli-exit`: Renderer -> Main 터미널 콘솔 파이프
-- **최근 개선**:
-  - `CliApp.test.tsx`의 `block-test` 시나리오 테스트에서 발생하던 5초 타임아웃 문제를 가상 타이머(`vi.useFakeTimers`) 최적화를 통해 해결하고, 테스트 실행 속도를 50배 이상 향상시켰습니다!
-- **Data Flow**: `Terminal Argv` -> `commander (cli.cjs)` -> `app://./index.html?mode=cli` -> `index.tsx (Conditionally Route)` -> `CliApp.tsx` -> `Task Execution (LogExt / BlockTest)` -> `Terminal Output`
+  - `analyze-diff`: 두 로그 분석 및 JSON 리포트 생성. 500줄 이하 유지 보증.
+  - `Connection Fallback`: 개발 가상화(WSL) 환경에서 Vite 서버 연결 지연 시 빌드 파일로 즉시 전환 [HOT]
+- **Data Flow**: `Terminal Argv` -> `commander (cli.cjs)` -> `BrowserWindow (Hidden)` -> `index.tsx` -> `CliApp.tsx` -> `useCliHandlers.ts` -> `Task Execution` -> `Terminal Output`
 
 ### [[Log Viewer UI Architecture]]
 - **ID**: `ui-log-viewer-hierarchy`

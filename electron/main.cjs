@@ -21,6 +21,7 @@ app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer');
 // ✅ GPU 캐시 오류 수정: 캐시 크기 0으로 설정하여 캐시 생성 시도를 막음 🐧🔧
 app.commandLine.appendSwitch('disk-cache-size', '0');
 app.commandLine.appendSwitch('media-cache-size', '0');
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache'); // ✅ 셰이더 캐시도 차단! 🐧
 app.disableHardwareAcceleration();
 
 // ✅ 하위 호환성 및 보안을 위해 프로토콜 등록을 최상단으로 이동 (whenReady 이전) 🐧🛡️
