@@ -70,7 +70,7 @@ export const PerfTopBar: React.FC<PerfTopBarProps> = ({
         if (e.key === 'Enter' && searchInput.trim()) {
             addSearchTerm(searchInput.trim());
             setSearchInput('');
-        } else if (e.key === 'Backspace' && !searchInput && searchTerms.length > 0) {
+        } else if (e.key === 'Backspace' && !searchInput.trim() && searchTerms.length > 0) {
             removeSearchTerm(searchTerms[searchTerms.length - 1]);
         }
     };

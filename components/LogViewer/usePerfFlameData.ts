@@ -29,8 +29,12 @@ export function usePerfFlameData({
 
         // Tag filter: show only segments whose logs contain at least one active tag
         if (activeTags.length > 0) {
+            const lowerTags = activeTags.map(t => t.toLowerCase());
             baseSegments = baseSegments.filter(s =>
-                s.logs?.some(log => activeTags.some(tag => log.includes(tag)))
+                s.logs?.some(log => {
+                    const lowerLog = log.toLowerCase();
+                    return lowerTags.some(tag => lowerLog.includes(tag));
+                })
             );
         }
         // Trim filter: show only segments that overlap the trim window

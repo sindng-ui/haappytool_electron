@@ -152,7 +152,8 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
         isDirtyRef.current = true;
     }, [
         result, flameZoom, selectedSegmentId, hoveredSegmentId, mousePos,
-        searchTerms, multiSelectedIds, lockedTid, isShiftPressed
+        searchTerms, multiSelectedIds, lockedTid, isShiftPressed, activeTags,
+        showOnlyFail, perfThreshold
     ]);
 
     const drawFlameChart = (): boolean => {

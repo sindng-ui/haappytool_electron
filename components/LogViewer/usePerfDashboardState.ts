@@ -50,14 +50,16 @@ export function usePerfDashboardState({
     const [searchTerms, setSearchTerms] = useState<string[]>([]);
 
     const addSearchTerm = useCallback((term: string) => {
-        const trimmed = term.trim().toLowerCase();
-        if (trimmed && !searchTerms.includes(trimmed)) {
+        const trimmed = term.trim();
+        const lower = trimmed.toLowerCase();
+        if (trimmed && !searchTerms.some(t => t.toLowerCase() === lower)) {
             setSearchTerms(prev => [...prev, trimmed]);
         }
     }, [searchTerms]);
 
     const removeSearchTerm = useCallback((term: string) => {
-        setSearchTerms(prev => prev.filter(t => t !== term));
+        const lower = term.toLowerCase();
+        setSearchTerms(prev => prev.filter(t => t.toLowerCase() !== lower));
     }, []);
 
     const checkSegmentMatch = useCallback((s: AnalysisSegment, currentActiveTags: string[]) => {
@@ -77,25 +79,26 @@ export function usePerfDashboardState({
         if (searchTerms.length === 0) return true;
 
         return searchTerms.some(term => {
-            if (term.startsWith('tid:')) {
-                const val = term.substring(4).trim();
-                return s.tid?.toLowerCase().includes(val) || false;
+            const t = term.toLowerCase();
+            if (t.startsWith('tid:')) {
+                const val = t.substring(4).trim();
+                return s.tid?.toLowerCase().includes(val) ?? false;
             }
-            if (term.startsWith('file:')) {
-                const val = term.substring(5).trim();
-                return s.fileName?.toLowerCase().includes(val) || false;
+            if (t.startsWith('file:')) {
+                const val = t.substring(5).trim();
+                return s.fileName?.toLowerCase().includes(val) ?? false;
             }
-            if (term.startsWith('func:')) {
-                const val = term.substring(5).trim();
-                return s.functionName?.toLowerCase().includes(val) || false;
+            if (t.startsWith('func:')) {
+                const val = t.substring(5).trim();
+                return s.functionName?.toLowerCase().includes(val) ?? false;
             }
 
             return (
-                s.name.toLowerCase().includes(term) ||
-                (s.tid && s.tid.toLowerCase().includes(term)) ||
-                (s.fileName && s.fileName.toLowerCase().includes(term)) ||
-                (s.functionName && s.functionName.toLowerCase().includes(term)) ||
-                (s.logs && s.logs.some(log => log.toLowerCase().includes(term)))
+                s.name.toLowerCase().includes(t) ||
+                (s.tid?.toLowerCase().includes(t)) ||
+                (s.fileName?.toLowerCase().includes(t)) ||
+                (s.functionName?.toLowerCase().includes(t)) ||
+                (s.logs?.some(log => log.toLowerCase().includes(t)))
             );
         });
     }, [searchTerms]);
