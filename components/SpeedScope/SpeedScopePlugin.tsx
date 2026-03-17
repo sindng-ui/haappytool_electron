@@ -6,10 +6,13 @@ import { AnalysisResult, AnalysisSegment } from '../../utils/perfAnalysis';
 import { PerfDashboard } from '../LogViewer/PerfDashboard';
 import { getStoredValue, setStoredValue } from '../../utils/db';
 import SpeedScopeWorker from '../../workers/SpeedScopeParser.worker.ts?worker';
+import SplitAnalysisWorker from '../../workers/SplitAnalysis.worker.ts?worker';
+import { SplitAnalysisResult } from '../../workers/SplitAnalysisUtils';
+import { SplitAnalyzerPanel } from '../LogViewer/SplitAnalyzerPanel';
 
 const {
     UploadCloud, Activity, Clock, Search, ChevronLeft, ChevronRight,
-    Trash2, Plus, RotateCcw, Columns, Maximize2, Cpu
+    Trash2, Plus, RotateCcw, Columns, Maximize2, Cpu, Zap, Loader2
 } = Lucide;
 
 interface SpeedScopePluginProps {
@@ -72,12 +75,20 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
     const [searchKeywords, setSearchKeywords] = useState<string[]>([]);
     const [newKeyword, setNewKeyword] = useState('');
     const [compareMode, setCompareMode] = useState(false);
+    
+    // Diff Analysis States
+    const [isSplitAnalyzing, setIsSplitAnalyzing] = useState(false);
+    const [isSplitAnalyzerOpen, setIsSplitAnalyzerOpen] = useState(false);
+    const [analysisProgress, setAnalysisProgress] = useState(0);
+    const [analysisResults, setAnalysisResults] = useState<SplitAnalysisResult[]>([]);
+    const [pointResults, setPointResults] = useState<any[]>([]);
 
     // Drag & Drop States
     const [isDraggingLeft, setIsDraggingLeft] = useState(false);
     const [isDraggingRight, setIsDraggingRight] = useState(false);
 
     const workerRef = useRef<Worker | null>(null);
+    const analyzerWorkerRef = useRef<Worker | null>(null);
 
     const getWorker = useCallback(() => {
         if (!workerRef.current) {
@@ -101,6 +112,10 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
             if (workerRef.current) {
                 workerRef.current.terminate();
                 workerRef.current = null;
+            }
+            if (analyzerWorkerRef.current) {
+                analyzerWorkerRef.current.terminate();
+                analyzerWorkerRef.current = null;
             }
         };
     }, []);
@@ -206,6 +221,61 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
         }
     };
 
+    const performAnalysis = useCallback(async () => {
+        if (!resultLeft || !resultRight) return;
+
+        setIsSplitAnalyzing(true);
+        setIsSplitAnalyzerOpen(true);
+        setAnalysisProgress(0);
+
+        if (!analyzerWorkerRef.current) {
+            analyzerWorkerRef.current = new SplitAnalysisWorker();
+        }
+
+        const analyzerWorker = analyzerWorkerRef.current;
+
+        // Convert segments to SequenceItem
+        const leftSequence = resultLeft.segments.map((s, idx) => ({
+            content: s.functionName || s.fileName || 'unknown',
+            originalLineNum: idx,
+            timestamp: s.startTime,
+            isError: s.status === 'fail',
+            severity: s.duration
+        }));
+
+        const rightSequence = resultRight.segments.map((s, idx) => ({
+            content: s.functionName || s.fileName || 'unknown',
+            originalLineNum: idx,
+            timestamp: s.startTime,
+            isError: s.status === 'fail',
+            severity: s.duration
+        }));
+
+        const handleMessage = (e: MessageEvent) => {
+            const { type, payload } = e.data;
+            if (type === 'STATUS_UPDATE') {
+                setAnalysisProgress(payload.progress);
+            } else if (type === 'SPLIT_ANALYSIS_COMPLETE') {
+                setAnalysisResults(payload.results);
+                setPointResults(payload.pointResults);
+                setIsSplitAnalyzing(false);
+                addToast(`Analysis complete: found ${payload.results.length} deltas.`, "success");
+                analyzerWorker.removeEventListener('message', handleMessage);
+            }
+        };
+
+        analyzerWorker.addEventListener('message', handleMessage);
+        analyzerWorker.postMessage({
+            leftSequence,
+            rightSequence,
+            leftPointMetrics: {},
+            rightPointMetrics: {},
+            leftAliasEvents: [],
+            rightAliasEvents: []
+        });
+
+    }, [resultLeft, resultRight, addToast]);
+
     const handleDrag = useCallback((e: React.DragEvent, side: 'left' | 'right', isEntering: boolean) => {
         e.preventDefault();
         e.stopPropagation();
@@ -235,7 +305,7 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
     return (
         <div className="flex w-full h-full flex-col bg-[#0b0f19] text-slate-200 overflow-hidden relative">
             {/* Header */}
-            <div className="h-10 shrink-0 title-drag pl-4 pr-2 flex items-center justify-between border-b border-indigo-500/20 bg-gradient-to-r from-[#0f172a] to-[#0d1321]">
+            <div className="h-10 shrink-0 title-drag pl-4 pr-52 flex items-center justify-between border-b border-indigo-500/20 bg-gradient-to-r from-[#0f172a] to-[#0d1321]">
                 <div className="flex items-center gap-3 no-drag">
                     <div className="p-1.5 bg-indigo-500/20 rounded-lg text-indigo-400">
                         <Activity size={14} />
@@ -246,19 +316,22 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                 </div>
 
                 <div className="flex items-center gap-2 no-drag">
-                    {/* Controls */}
-                    <div className="flex items-center gap-1.5 bg-slate-900/50 border border-white/5 px-2 py-1 rounded-lg invisible h-0 w-0">
-                        {/* PerfTopBar로 이동됨 */}
-                        <Clock size={12} className="text-amber-400" />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase mr-1">Fail Threshold</span>
-                        <input
-                            type="number"
-                            value={failThreshold}
-                            onChange={(e) => setFailThreshold(Number(e.target.value))}
-                            className="w-16 bg-transparent text-[11px] font-mono text-indigo-400 outline-none border-b border-white/10 text-center"
-                        />
-                        <span className="text-[9px] text-slate-600 font-bold uppercase">ms</span>
-                    </div>
+                    {/* Compare/Analyze Tools */}
+                    {compareMode && resultLeft && resultRight && (
+                        <button
+                            onClick={performAnalysis}
+                            disabled={isSplitAnalyzing}
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase transition-all shadow-lg ${
+                                isSplitAnalyzing 
+                                ? 'bg-blue-900/50 text-blue-300 animate-pulse' 
+                                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/20'
+                            }`}
+                            title="Analyze Differences"
+                        >
+                            <Zap size={12} className={isSplitAnalyzing ? "animate-spin" : ""} />
+                            <span>{isSplitAnalyzing ? 'Analyzing...' : 'Analyze Diff'}</span>
+                        </button>
+                    )}
 
                     <button
                         onClick={() => setCompareMode(!compareMode)}
@@ -307,9 +380,9 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                     </div>
                 </div>
 
-                <div className={`flex-1 flex ${compareMode ? 'flex-row' : 'flex-col'} overflow-hidden`}>
+                <div className={`flex-1 flex ${compareMode ? 'flex-row' : 'flex-col'} overflow-hidden w-full`}>
                     {/* Left Pane / Single Pane */}
-                    <div className={`flex-1 flex flex-col relative ${compareMode ? 'border-r border-white/10' : ''}`}>
+                    <div className={`${compareMode ? 'w-1/2 border-r border-white/10' : 'flex-1'} flex flex-col relative`}>
                         {resultLeft && (
                             <ThreadSelector 
                                 profiles={profilesLeft} 
@@ -355,7 +428,7 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
 
                     {/* Right Pane (Compare) */}
                     {compareMode && (
-                        <div className="flex-1 flex flex-col relative">
+                        <div className="w-1/2 flex flex-col relative">
                             {resultRight && (
                                 <ThreadSelector 
                                     profiles={profilesRight} 
@@ -401,6 +474,22 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                 </div>
             </main>
 
+            {isSplitAnalyzerOpen && (
+                <div className="h-1/3 border-t border-indigo-500/20 bg-[#0f172a] overflow-hidden flex flex-col z-40">
+                    <SplitAnalyzerPanel
+                        results={{ results: analysisResults, pointResults: pointResults }}
+                        onClose={() => setIsSplitAnalyzerOpen(false)}
+                        isLoading={isSplitAnalyzing}
+                        progress={analysisProgress}
+                        onJumpToRange={(lane, start, end) => {
+                            // Jump logic for SpeedScope segments
+                            console.log(`Jump to ${lane} ${start}-${end}`);
+                            // Optional: Implement jump to segment in PerfDashboard
+                        }}
+                    />
+                </div>
+            )}
+
             {isAnalyzing && (
                 <div className="absolute inset-0 z-50 bg-[#0b0f19]/80 flex flex-col items-center justify-center backdrop-blur-sm">
                     <motion.div
@@ -408,7 +497,7 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                         transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
                         className="mb-4"
                     >
-                        <Lucide.Loader2 size={40} className="text-indigo-500" />
+                        <Loader2 size={40} className="text-indigo-500" />
                     </motion.div>
                     <p className="text-sm font-black text-indigo-300 uppercase tracking-[0.2em] animate-pulse">Analyzing Speed Scope Data...</p>
                 </div>

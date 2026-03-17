@@ -226,7 +226,8 @@
     - **데이터 분석 엔진 고도화**: `Self Time`(자식 제외 실행 시간) 계산 및 함수별 `Total/Self` 통계 합산 로직 탑재. [NEW]
     - **Speedscope 스타일 상세 UI**: 세그먼트 클릭 시 하단에 `This Instance` 및 `All Instances` 통계 테이블과 호출 스택(Stack Trace) 리스트 제공. (데이터 누락 버그 해결 완비) [FIXED]
     - **멀티 스레드/프로파일 전환**: 파일 내의 모든 프로파일을 자유롭게 전환 가능하며, 전환 시 통계 데이터 실시간 갱신.
-- **Data Flow**: `Raw Data` -> `SpeedScopeParser (Self Time/Stats Calculation)` -> `PerfFlameGraph` & `PerfSegmentDetail`
+    - **Analyze Diff (프로파일 비교)**: 두 SpeedScope JSON 프로파일 간의 실행 흐름과 시간 차이를 분석하여 `SplitAnalyzerPanel`을 통해 시각화합니다. 🐧⚡ [NEW]
+- **Data Flow**: `Raw Data` -> `SpeedScopeParser` -> `PerfDashboard` -> `SplitAnalysisWorker` -> `SplitAnalyzerPanel`
 
 ### [[PostTool Plugin]]
 - **ID**: `plugin-post-tool`
