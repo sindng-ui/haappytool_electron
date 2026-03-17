@@ -17,10 +17,15 @@ export interface PerfTopBarProps {
     jumpToNavSegment: (direction: -1 | 1) => void;
     searchInput: string;
     setSearchInput: (val: string) => void;
+    searchTerms: string[];
+    addSearchTerm: (term: string) => void;
+    removeSearchTerm: (term: string) => void;
     searchRef: React.RefObject<HTMLInputElement>;
     onClose: () => void;
     minimized: boolean;
     setMinimized: (min: boolean) => void;
+    perfThreshold: number;
+    setPerfThreshold: (val: number) => void;
 }
 
 const Scorecard: React.FC<{ label: string; value: string | number; icon: React.ReactNode; color: string; subValue?: string }> = ({ label, value, icon, color, subValue }) => (
@@ -51,11 +56,25 @@ export const PerfTopBar: React.FC<PerfTopBarProps> = ({
     jumpToNavSegment,
     searchInput,
     setSearchInput,
+    searchTerms,
+    addSearchTerm,
+    removeSearchTerm,
     searchRef,
     onClose,
-    minimized,
-    setMinimized
+    minimized: boolean,
+    setMinimized,
+    perfThreshold,
+    setPerfThreshold
 }) => {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && searchInput.trim()) {
+            addSearchTerm(searchInput.trim());
+            setSearchInput('');
+        } else if (e.key === 'Backspace' && !searchInput && searchTerms.length > 0) {
+            removeSearchTerm(searchTerms[searchTerms.length - 1]);
+        }
+    };
+
     return (
         <div className="h-20 shrink-0 border-b border-white/5 bg-slate-900/60  px-4 flex items-center justify-between z-50">
             <div className="flex items-center gap-3">
@@ -65,19 +84,18 @@ export const PerfTopBar: React.FC<PerfTopBarProps> = ({
                     icon={<Lucide.Activity size={14} />}
                     color="#6366f1"
                 />
-                <Scorecard
-                    label="Pass Rate"
-                    value={(() => {
-                        const individualCount = result.segments.filter(s => s.tid !== 'Global').length;
-                        const total = Math.max(1, individualCount);
-                        const rate = ((total - result.failCount) / total) * 100;
-                        const displayRate = (result.failCount > 0 && rate > 99.9) ? "99.9" : rate.toFixed(1);
-                        return `${displayRate}%`;
-                    })()}
-                    icon={<Lucide.CheckCircle2 size={14} />}
-                    color="#10b981"
-                    subValue={`${result.failCount} slow ops`}
-                />
+                {(() => {
+                    const currentSlowCount = result.segments.filter(s => s.tid !== 'Global' && s.duration >= perfThreshold).length;
+                    return (
+                        <Scorecard
+                            label="Slow Ops"
+                            value={currentSlowCount}
+                            icon={<Lucide.AlertTriangle size={14} />}
+                            color={currentSlowCount > 0 ? "#f43f5e" : "#10b981"}
+                            subValue="exceed threshold"
+                        />
+                    );
+                })()}
                 <Scorecard
                     label="Total Time"
                     value={formatDuration(result.totalDuration)}
@@ -99,7 +117,7 @@ export const PerfTopBar: React.FC<PerfTopBarProps> = ({
                                 } else {
                                     setSelectedSegmentId(null);
                                     const failIds = result.segments
-                                        .filter(s => s.duration >= (result.perfThreshold || 1000))
+                                        .filter(s => s.duration >= perfThreshold)
                                         .map(s => s.id);
                                     setMultiSelectedIds(failIds);
                                 }
@@ -125,6 +143,20 @@ export const PerfTopBar: React.FC<PerfTopBarProps> = ({
                     </div>
 
                     <div className="w-px h-6 bg-white/10 mx-1" />
+                    <div className="flex items-center gap-2 bg-slate-900/60 rounded-xl px-2.5 py-1.5 border border-white/5 hover:border-indigo-500/30 transition-colors">
+                        <Lucide.Clock size={12} className="text-amber-400 group-hover:animate-spin-slow" />
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">Threshold</span>
+                        <input
+                            type="number"
+                            value={perfThreshold}
+                            onChange={(e) => setPerfThreshold(Number(e.target.value))}
+                            className="w-14 bg-transparent text-[11px] font-mono text-amber-400 outline-none text-center"
+                            placeholder="ms"
+                        />
+                        <span className="text-[8px] text-slate-700 font-bold uppercase">ms</span>
+                    </div>
+
+                    <div className="w-px h-6 bg-white/10 mx-1" />
                     <div className="flex items-center gap-2 bg-black/20 rounded-xl px-2 py-1">
                         <button
                             onClick={() => jumpToNavSegment(-1)}
@@ -133,11 +165,11 @@ export const PerfTopBar: React.FC<PerfTopBarProps> = ({
                         >
                             <Lucide.ChevronLeft size={16} />
                         </button>
-                        <div className="flex flex-col items-center min-w-[45px]">
-                            <span className={`text-[10px] font-mono font-black leading-none ${navSegments.length > 0 ? 'text-white' : 'text-slate-600'}`}>
+                        <div className="flex flex-col items-center min-w-[60px]">
+                            <span className={`text-xl font-mono font-black leading-none ${navSegments.length > 0 ? 'text-white' : 'text-slate-600'}`}>
                                 {navSegments.length > 0 ? (currentNavIndex >= 0 ? currentNavIndex + 1 : '-') : '0'}
                             </span>
-                            <span className="text-[7px] text-slate-500 font-black uppercase mt-0.5 tracking-tighter">
+                            <span className="text-[10px] text-slate-500 font-black uppercase mt-1 tracking-tighter">
                                 of {navSegments.length}
                             </span>
                         </div>
@@ -151,17 +183,31 @@ export const PerfTopBar: React.FC<PerfTopBarProps> = ({
                     </div>
                 </div>
 
-                {/* Search Input */}
-                <div className="flex items-center bg-slate-950/60 rounded-2xl border border-white/10 px-4 py-2 w-64 focus-within:border-indigo-500/50 transition-all shadow-inner">
-                    <Lucide.Search size={14} className="text-slate-500 mr-2" />
-                    <input
-                        ref={searchRef}
-                        type="text"
-                        placeholder="Search segments..."
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
-                        className="bg-transparent text-xs text-white w-full focus:outline-none placeholder:text-slate-600 font-mono"
-                    />
+                {/* Tag-based Search Input */}
+                <div className="flex items-center bg-slate-950/60 rounded-2xl border border-white/10 px-3 py-1.5 min-w-[280px] focus-within:border-indigo-500/50 transition-all shadow-inner relative group">
+                    <Lucide.Search size={14} className="text-slate-500 mr-2 shrink-0" />
+                    <div className="flex flex-wrap items-center gap-1.5 max-w-[400px]">
+                        {searchTerms.map(term => (
+                            <div key={term} className="flex items-center gap-1 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold animate-in fade-in zoom-in duration-200">
+                                <span>{term}</span>
+                                <button
+                                    onClick={() => removeSearchTerm(term)}
+                                    className="hover:text-white transition-colors"
+                                >
+                                    <Lucide.X size={10} />
+                                </button>
+                            </div>
+                        ))}
+                        <input
+                            ref={searchRef}
+                            type="text"
+                            placeholder={searchTerms.length === 0 ? "Search segments..." : ""}
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className="bg-transparent text-[11px] text-white focus:outline-none placeholder:text-slate-600 font-mono flex-1 min-w-[80px]"
+                        />
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-3">

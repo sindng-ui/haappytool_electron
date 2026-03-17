@@ -25,7 +25,6 @@ export function usePerfDashboardState({
     const [viewMode, setViewMode] = useState<'chart' | 'list'>('chart');
     const [minimized, setMinimized] = useState(false);
     const [searchInput, setSearchInput] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
     const searchRef = useRef<HTMLInputElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const flameChartContainerRef = useRef<HTMLDivElement>(null);
@@ -45,47 +44,61 @@ export function usePerfDashboardState({
     const [showOnlyFail, setShowOnlyFail] = useState(false);
     const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([]);
     const [lockedTid, setLockedTid] = useState<string | null>(null);
+    const [perfThreshold, setPerfThreshold] = useState<number>(result?.perfThreshold || 1000);
 
-    const checkSegmentMatch = useCallback((s: AnalysisSegment, query: string, tags: string[] = []) => {
-        // 1. Tag match (OR condition) - Provided via plugin UI
-        if (tags.length > 0) {
-            const isTagMatch = tags.some(tag => {
-                const t = tag.toLowerCase();
-                return (
-                    s.name.toLowerCase().includes(t) ||
-                    (s.fileName && s.fileName.toLowerCase().includes(t)) ||
-                    (s.functionName && s.functionName.toLowerCase().includes(t)) ||
-                    (s.logs && s.logs.some(log => log.toLowerCase().includes(t)))
-                );
-            });
-            if (isTagMatch) return true;
+    // --- Search Token (Tags) Logic ---
+    const [searchTerms, setSearchTerms] = useState<string[]>([]);
+
+    const addSearchTerm = useCallback((term: string) => {
+        const trimmed = term.trim().toLowerCase();
+        if (trimmed && !searchTerms.includes(trimmed)) {
+            setSearchTerms(prev => [...prev, trimmed]);
         }
+    }, [searchTerms]);
 
-        if (!query) return tags.length === 0; // If no query and no tags matched, return false if tags were provided
-
-        const q = query.toLowerCase().trim();
-
-        if (q.startsWith('tid:')) {
-            const val = q.substring(4).trim();
-            return s.tid?.toLowerCase().includes(val) || false;
-        }
-        if (q.startsWith('file:')) {
-            const val = q.substring(5).trim();
-            return s.fileName?.toLowerCase().includes(val) || false;
-        }
-        if (q.startsWith('func:')) {
-            const val = q.substring(5).trim();
-            return s.functionName?.toLowerCase().includes(val) || false;
-        }
-
-        return (
-            s.name.toLowerCase().includes(q) ||
-            (s.tid && s.tid.toLowerCase().includes(q)) ||
-            (s.fileName && s.fileName.toLowerCase().includes(q)) ||
-            (s.functionName && s.functionName.toLowerCase().includes(q)) ||
-            (s.logs && s.logs.some(log => log.toLowerCase().includes(q)))
-        );
+    const removeSearchTerm = useCallback((term: string) => {
+        setSearchTerms(prev => prev.filter(t => t !== term));
     }, []);
+
+    const checkSegmentMatch = useCallback((s: AnalysisSegment, currentActiveTags: string[]) => {
+        // 1. Plugin Active Tags (OR)
+        const isTagMatch = currentActiveTags.length === 0 || currentActiveTags.some(tag => {
+            const t = tag.toLowerCase();
+            return (
+                s.name.toLowerCase().includes(t) ||
+                (s.fileName && s.fileName.toLowerCase().includes(t)) ||
+                (s.functionName && s.functionName.toLowerCase().includes(t)) ||
+                (s.logs && s.logs.some(log => log.toLowerCase().includes(t)))
+            );
+        });
+        if (!isTagMatch) return false;
+
+        // 2. Search Box Terms (OR)
+        if (searchTerms.length === 0) return true;
+
+        return searchTerms.some(term => {
+            if (term.startsWith('tid:')) {
+                const val = term.substring(4).trim();
+                return s.tid?.toLowerCase().includes(val) || false;
+            }
+            if (term.startsWith('file:')) {
+                const val = term.substring(5).trim();
+                return s.fileName?.toLowerCase().includes(val) || false;
+            }
+            if (term.startsWith('func:')) {
+                const val = term.substring(5).trim();
+                return s.functionName?.toLowerCase().includes(val) || false;
+            }
+
+            return (
+                s.name.toLowerCase().includes(term) ||
+                (s.tid && s.tid.toLowerCase().includes(term)) ||
+                (s.fileName && s.fileName.toLowerCase().includes(term)) ||
+                (s.functionName && s.functionName.toLowerCase().includes(term)) ||
+                (s.logs && s.logs.some(log => log.toLowerCase().includes(term)))
+            );
+        });
+    }, [searchTerms]);
 
     const navSegments = useMemo(() => {
         if (!result) return [];
@@ -94,11 +107,11 @@ export function usePerfDashboardState({
         if (lockedTid) {
             filtered = filtered.filter(s => s.tid === lockedTid);
         }
-        if (searchQuery || activeTags.length > 0) {
-            filtered = filtered.filter(s => checkSegmentMatch(s, searchQuery, activeTags));
+        if (searchTerms.length > 0 || activeTags.length > 0) {
+            filtered = filtered.filter(s => checkSegmentMatch(s, activeTags));
         }
         if (showOnlyFail) {
-            filtered = filtered.filter(s => s.status === 'fail' || s.duration >= (result.perfThreshold || 1000));
+            filtered = filtered.filter(s => s.duration >= perfThreshold);
         }
         if (trimRange) {
             filtered = filtered.filter(s =>
@@ -110,15 +123,10 @@ export function usePerfDashboardState({
         if (lockedTid) {
             return filtered.sort((a, b) => a.startTime - b.startTime);
         }
-
-        // Default sort for navigation:
-        // If showOnlyFail is on, we might want "Time-sequential" or "Longest-first" navigate.
-        // User requested: "시간순 탐색, 오래걸린순 탐색 선택"
-        // For now, let's default to sequential if showOnlyFail is on, or longest if general search.
         if (showOnlyFail) return filtered.sort((a, b) => a.startTime - b.startTime);
 
         return filtered.sort((a, b) => b.duration - a.duration).slice(0, 500);
-    }, [result, showOnlyFail, searchQuery, activeTags, trimRange, lockedTid, checkSegmentMatch]);
+    }, [result, showOnlyFail, searchTerms, activeTags, trimRange, lockedTid, checkSegmentMatch, perfThreshold]);
 
     const currentNavIndex = useMemo(() => {
         if (!selectedSegmentId || navSegments.length === 0) return -1;
@@ -143,7 +151,7 @@ export function usePerfDashboardState({
         }
     }, [result, navSegments, currentNavIndex, onJumpToRange, jumpToNavSegmentZoom]);
 
-    // Keyboard Shortcuts (F3/F4 and globals)
+    // Keyboard Shortcuts
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Shift') setIsShiftPressed(true);
@@ -192,22 +200,6 @@ export function usePerfDashboardState({
         return () => window.removeEventListener('keydown', handleKeyDownNav);
     }, [jumpToNavSegment, isActive, isOpen]);
 
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            const trimmedInput = searchInput.trim();
-            setSearchQuery(trimmedInput);
-
-            if (trimmedInput !== '' && result) {
-                const hasMatch = result.segments.some(s => checkSegmentMatch(s, trimmedInput, activeTags));
-                if (hasMatch) {
-                    setSelectedSegmentId(null);
-                    setMultiSelectedIds([]);
-                }
-            }
-        }, 500);
-        return () => clearTimeout(timeout);
-    }, [searchInput, result]);
-
     const dragCleanupRef = useRef<(() => void) | null>(null);
 
     useEffect(() => {
@@ -219,6 +211,9 @@ export function usePerfDashboardState({
     useEffect(() => {
         if (result) {
             setIsInitialDrawComplete(false);
+            if (result.perfThreshold) {
+                setPerfThreshold(result.perfThreshold);
+            }
         }
     }, [result]);
 
@@ -313,7 +308,7 @@ export function usePerfDashboardState({
         viewMode, setViewMode,
         minimized, setMinimized,
         searchInput, setSearchInput,
-        searchQuery,
+        searchTerms, addSearchTerm, removeSearchTerm,
         searchRef, canvasRef, flameChartContainerRef, dragCleanupRef,
         isInitialDrawComplete, setIsInitialDrawComplete,
         trimRange, setTrimRange,
@@ -322,6 +317,7 @@ export function usePerfDashboardState({
         isShiftPressed, showOnlyFail, setShowOnlyFail,
         multiSelectedIds, setMultiSelectedIds,
         lockedTid, setLockedTid,
+        perfThreshold, setPerfThreshold,
         navSegments, currentNavIndex, jumpToNavSegment,
         checkSegmentMatch,
         isScanningStatus

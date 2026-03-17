@@ -5,25 +5,27 @@ import { AnalysisResult, AnalysisSegment } from '../../../utils/perfAnalysis';
 export interface PerfBottleneckListProps {
     result: AnalysisResult;
     showOnlyFail: boolean;
-    searchQuery: string;
-    checkSegmentMatch: (s: AnalysisSegment, query: string) => boolean;
+    searchTerms: string[];
+    checkSegmentMatch: (s: AnalysisSegment, currentActiveTags: string[]) => boolean;
     selectedSegmentId: string | null;
     setSelectedSegmentId: (id: string | null) => void;
     setMultiSelectedIds: (ids: string[]) => void;
     onJumpToRange?: (start: number, end: number) => void;
     onViewRawRange?: (originalStart: number, originalEnd: number, filteredIndex?: number) => void;
+    perfThreshold: number;
 }
 
 export const PerfBottleneckList: React.FC<PerfBottleneckListProps> = ({
     result,
     showOnlyFail,
-    searchQuery,
+    searchTerms,
     checkSegmentMatch,
     selectedSegmentId,
     setSelectedSegmentId,
     setMultiSelectedIds,
     onJumpToRange,
     onViewRawRange,
+    perfThreshold
 }) => {
     return (
         <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
@@ -37,12 +39,12 @@ export const PerfBottleneckList: React.FC<PerfBottleneckListProps> = ({
                     </tr>
                 </thead>
                 <tbody>
-                    {[...result.segments].filter(s => !showOnlyFail || s.duration >= (result.perfThreshold || 1000)).sort((a, b) => b.duration - a.duration).slice(0, 200)
-                        .filter(s => checkSegmentMatch(s, searchQuery))
+                    {[...result.segments].filter(s => !showOnlyFail || s.duration >= perfThreshold).sort((a, b) => b.duration - a.duration).slice(0, 200)
+                        .filter(s => checkSegmentMatch(s, []))
                         .map(s => {
                             const isGroup = s.id.startsWith('group-');
                             const isInterval = s.id.startsWith('interval-');
-                            const isBottleneck = s.duration >= (result.perfThreshold || 1000);
+                            const isBottleneck = s.duration >= perfThreshold;
 
                             return (
                                 <tr

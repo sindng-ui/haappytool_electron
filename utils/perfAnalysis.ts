@@ -17,6 +17,7 @@ export interface AnalysisSegment {
     status: 'pass' | 'fail';
     logs: string[]; // Stores [startLineContent, endLineContent] for combos
     lane?: number;
+    color?: string; // Color based on name hash (Speedscope style)
     dangerColor?: string; // Color based on danger thresholds
 
     // Enhanced Metadata
@@ -26,6 +27,7 @@ export interface AnalysisSegment {
     endFileName?: string;
     endFunctionName?: string;
     intervalIndex?: number;
+    selfTime?: number; // Self execution time (excluding children)
 }
 
 export interface AnalysisResult {
@@ -39,6 +41,7 @@ export interface AnalysisResult {
     failCount: number;
     bottlenecks: AnalysisSegment[];
     perfThreshold: number;
+    functionStats?: Record<string, { totalTime: number; selfTime: number; count: number }>;
     lineOffsets?: [number, number][];
 }
 
@@ -104,6 +107,31 @@ export const extractLogIds = (line: string): { pid: string | null, tid: string |
     }
 
     return { pid, tid };
+};
+
+/**
+ * [SpeedScope Style] Generates a consistent HSL color based on a string (function name).
+ * Uses a simple but fast hash to ensure stable colors across sessions.
+ */
+export const getSegmentColor = (name: string): string => {
+    if (!name) return '#64748b'; // Default slate
+    
+    // 1. Simple fast hash
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = (hash << 5) - hash + name.charCodeAt(i);
+        hash |= 0; // Convert to 32bit integer
+    }
+
+    // 2. Generate HSL (Speedscope typically uses a certain range)
+    // Hue: 0-360
+    // Saturation: 15-30% (Deep Muted)
+    // Lightness: 20-35% (Dark/Muted like real Speedscope)
+    const h = Math.abs(hash % 360);
+    const s = 15 + (Math.abs(hash >> 8) % 15);
+    const l = 20 + (Math.abs(hash >> 16) % 15);
+
+    return `hsl(${h}, ${s}%, ${l}%)`;
 };
 
 // ✅ [HYPER-PERFORMANCE] Extensions for fast metadata parsing

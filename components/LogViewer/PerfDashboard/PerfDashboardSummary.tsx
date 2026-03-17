@@ -13,6 +13,7 @@ interface PerfDashboardSummaryProps {
     setSelectedSegmentId: (id: string | null) => void;
     onViewRawRange?: (start: number, end: number, highlight?: number) => void;
     onCopyRawRange?: (start: number, end: number) => void;
+    perfThreshold: number;
 }
 
 export const PerfDashboardSummary: React.FC<PerfDashboardSummaryProps> = ({
@@ -23,24 +24,22 @@ export const PerfDashboardSummary: React.FC<PerfDashboardSummaryProps> = ({
     selectedSegmentId,
     setSelectedSegmentId,
     onViewRawRange,
-    onCopyRawRange
+    onCopyRawRange,
+    perfThreshold
 }) => {
     if (isFullScreen || !result) return null;
 
     const individual = flameSegments.filter(s => s.tid !== 'Global');
-    const filteredFail = individual.filter(s => s.duration >= (result.perfThreshold || 1000)).length;
-    const total = Math.max(1, individual.length);
-    const rate = ((total - filteredFail) / total) * 100;
-    const displayRate = (filteredFail > 0 && rate > 99.9) ? "99.9" : rate.toFixed(1);
+    const filteredFail = individual.filter(s => s.duration >= perfThreshold).length;
 
     return (
         <div className="w-64 shrink-0 border-r border-white/5 bg-slate-900/50 p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
             {/* Quick Stats */}
             <div className="grid grid-cols-2 gap-2">
                 <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
-                    <span className="text-[9px] text-slate-500 uppercase font-black block mb-1">Pass Rate</span>
-                    <span className={`text-lg font-black ${filteredFail === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                        {displayRate}%
+                    <span className="text-[9px] text-slate-500 uppercase font-black block mb-1">Total Ops</span>
+                    <span className="text-lg font-black text-indigo-400">
+                        {individual.length}
                     </span>
                 </div>
                 <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
@@ -56,7 +55,7 @@ export const PerfDashboardSummary: React.FC<PerfDashboardSummaryProps> = ({
                 {useCompactDetail && selectedSegmentId && result && (() => {
                     const s = result.segments.find(sg => sg.id === selectedSegmentId);
                     if (!s) return null;
-                    const isBottleneck = s.duration >= (result.perfThreshold || 1000);
+                    const isBottleneck = s.duration >= perfThreshold;
                     return (
                         <motion.div
                             initial={{ height: 0, opacity: 0 }}

@@ -29,8 +29,8 @@ export interface PerfChartLayoutProps {
 
     // Interactions
     isShiftPressed: boolean;
-    searchQuery: string;
-    checkSegmentMatch: (s: AnalysisSegment, query: string) => boolean;
+    searchTerms: string[];
+    checkSegmentMatch: (s: AnalysisSegment, currentActiveTags: string[]) => boolean;
     showOnlyFail: boolean;
     selectedSegmentId: string | null;
     setSelectedSegmentId: (id: string | null) => void;
@@ -44,6 +44,7 @@ export interface PerfChartLayoutProps {
     isOpen: boolean;
     setIsInitialDrawComplete: React.Dispatch<React.SetStateAction<boolean>>;
     exportCanvasRef: React.RefObject<HTMLCanvasElement>;
+    perfThreshold: number;
 
     // Axis ticks helper function
     generateTicks: (start: number, end: number, minTicks?: number) => number[];
@@ -52,10 +53,10 @@ export interface PerfChartLayoutProps {
 export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
     result, flameSegments, maxLane, laneTidMap, palette, trimRange, flameZoom, applyZoom,
     showTidColumn, lockedTid, setLockedTid, selectedTid,
-    measureRange, setMeasureRange, isShiftPressed, searchQuery, checkSegmentMatch, showOnlyFail,
+    measureRange, setMeasureRange, isShiftPressed, searchTerms, checkSegmentMatch, showOnlyFail,
     selectedSegmentId, setSelectedSegmentId, multiSelectedIds, setMultiSelectedIds,
     onJumpToRange, onViewRawRange, isActive, isOpen, setIsInitialDrawComplete, exportCanvasRef,
-    generateTicks, flameChartContainerRef, dragCleanupRef
+    generateTicks, flameChartContainerRef, dragCleanupRef, perfThreshold
 }) => {
     // TID 컬럼 제외 실제 차트 영역의 ref — 이 div 기준으로 마우스 좌표를 계산하면 오프셋 보정 불필요
     const innerChartRef = React.useRef<HTMLDivElement>(null);
@@ -69,7 +70,7 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                 <div
                     className="flex flex-row min-w-full relative"
                     style={{
-                        height: `${Math.max(200, (maxLane + 1) * 28 + 24)}px`
+                        height: `${Math.max(200, (maxLane + 1) * 24 + 24)}px`
                     }}
                 >
                     {/* TID Sidebar (Sticky Left) */}
@@ -90,8 +91,8 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                                 return (
                                     <div
                                         key={`tid-label-${i}`}
-                                        className={`absolute left-0 right-0 h-[24px] flex items-center pr-1 transition-all ${isTidSelected ? 'z-[110]' : ''}`}
-                                        style={{ top: `${i * 28 + 24}px` }}
+                                        className={`absolute left-0 right-0 h-[20px] flex items-center pr-1 transition-all ${isTidSelected ? 'z-[110]' : ''}`}
+                                        style={{ top: `${i * 24 + 24}px` }}
                                     >
                                         {isFirstInTid ? (
                                             <div
@@ -185,7 +186,7 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                         {/* Global Divider Line */}
                         <div
                             className="absolute left-0 right-0 h-px bg-white/10 z-[10] shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
-                            style={{ top: '52px' }} // lane 0 is from 24 to 44. 24 + 28 = 52.
+                            style={{ top: '48px' }} // lane 0 is from 24 to 46. 24 + 24 = 48.
                         />
                         {/* Selected TID Lane Highlight */}
                         {selectedTid && Array.from({ length: maxLane + 1 }).map((_, i) => {
@@ -193,8 +194,8 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                             return (
                                 <div
                                     key={`tid-bg-${i}`}
-                                    className="absolute left-0 right-0 h-[24px] bg-indigo-500/[0.04] pointer-events-none z-0"
-                                    style={{ top: `${i * 28 + 24}px` }}
+                                    className="absolute left-0 right-0 h-[22px] bg-indigo-500/[0.04] pointer-events-none z-0"
+                                    style={{ top: `${i * 24 + 24}px` }}
                                 />
                             );
                         })}
@@ -257,7 +258,7 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                             flameZoom={flameZoom}
                             applyZoom={applyZoom}
                             isShiftPressed={isShiftPressed}
-                            searchQuery={searchQuery}
+                            searchTerms={searchTerms}
                             checkSegmentMatch={checkSegmentMatch}
                             showOnlyFail={showOnlyFail}
                             lockedTid={lockedTid}
@@ -272,6 +273,8 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                             isOpen={isOpen}
                             setIsInitialDrawComplete={setIsInitialDrawComplete}
                             exportCanvasRef={exportCanvasRef}
+                            perfThreshold={perfThreshold}
+                            generateTicks={generateTicks}
                         />
                     </div>
                 </div>

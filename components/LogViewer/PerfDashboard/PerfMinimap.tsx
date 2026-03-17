@@ -5,19 +5,19 @@ export interface PerfMinimapProps {
     result: AnalysisResult | null;
     flameSegments: AnalysisSegment[];
     maxLane: number;
-    searchQuery: string;
+    searchTerms: string[];
     palette: string[];
     trimRange: { startTime: number; endTime: number } | null;
     flameZoom: { startTime: number; endTime: number } | null;
     applyZoom: (newZoom: { startTime: number; endTime: number } | null) => void;
-    checkSegmentMatch: (s: AnalysisSegment, query: string) => boolean;
+    checkSegmentMatch: (s: AnalysisSegment, currentActiveTags: string[]) => boolean;
 }
 
 export const PerfMinimap: React.FC<PerfMinimapProps> = ({
     result,
     flameSegments,
     maxLane,
-    searchQuery,
+    searchTerms,
     palette,
     trimRange,
     flameZoom,
@@ -69,10 +69,10 @@ export const PerfMinimap: React.FC<PerfMinimapProps> = ({
                 const yOffset = maxLane > 0 ? (s.lane / (maxLane + 1)) * (height - 4) : 0;
                 const laneH = Math.max(2, height / (maxLane + 1));
 
-                const isMatch = searchQuery !== '' && checkSegmentMatch(s, searchQuery);
-                const finalOpacity = searchQuery !== '' ? (isMatch ? 0.8 : 0.1) : 0.8;
+                const isMatch = searchTerms.length > 0 && checkSegmentMatch(s, []);
+                const finalOpacity = searchTerms.length > 0 ? (isMatch ? 0.8 : 0.1) : 0.8;
 
-                if (w > 1.5 || (searchQuery !== '' && isMatch)) {
+                if (w > 1.5 || (searchTerms.length > 0 && isMatch)) {
                     // Draw normally for visible or matched segments
                     ctx.globalAlpha = finalOpacity;
                     ctx.fillStyle = s.dangerColor || (s.duration >= (result.perfThreshold || 1000) ? '#be123c' : palette[s.lane % palette.length]);
@@ -131,7 +131,7 @@ export const PerfMinimap: React.FC<PerfMinimapProps> = ({
         return () => {
             if (rafId) cancelAnimationFrame(rafId);
         };
-    }, [result, flameSegments, maxLane, searchQuery, palette, checkSegmentMatch]);
+    }, [result, flameSegments, maxLane, searchTerms, palette, checkSegmentMatch]);
     // Notice: zoom, scroll, trim excluded. Only static elements redraw minimap!
 
     if (!result || flameSegments.length === 0) return null;

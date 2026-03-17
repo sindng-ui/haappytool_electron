@@ -21,6 +21,9 @@ interface PerfDashboardHeaderBarProps {
     jumpToNavSegment: (direction: -1 | 1) => void;
     searchInput: string;
     setSearchInput: (v: string) => void;
+    addSearchTerm: (term: string) => void;
+    removeSearchTerm: (term: string) => void;
+    searchTerms: string[];
     searchRef: RefObject<HTMLInputElement>;
     viewMode: 'chart' | 'list';
     setViewMode: (v: 'chart' | 'list') => void;
@@ -28,6 +31,8 @@ interface PerfDashboardHeaderBarProps {
     minimized: boolean;
     setMinimized: (v: boolean) => void;
     onClose: () => void;
+    perfThreshold: number;
+    setPerfThreshold: (v: number) => void;
 }
 
 export const PerfDashboardHeaderBar: React.FC<PerfDashboardHeaderBarProps> = ({
@@ -37,9 +42,10 @@ export const PerfDashboardHeaderBar: React.FC<PerfDashboardHeaderBarProps> = ({
     multiSelectedIds, setMultiSelectedIds, setSelectedSegmentId,
     showOnlyFail, setShowOnlyFail,
     navSegments, currentNavIndex, jumpToNavSegment,
-    searchInput, setSearchInput, searchRef,
+    searchInput, setSearchInput, addSearchTerm, removeSearchTerm, searchTerms, searchRef,
     viewMode, setViewMode, handleExportImage,
-    minimized, setMinimized, onClose
+    minimized, setMinimized, onClose,
+    perfThreshold, setPerfThreshold
 }) => (
     <div className="h-10 shrink-0 flex items-center justify-between px-4 bg-slate-900 border-b border-white/5 select-none">
         {/* Left: Title & Info */}
@@ -52,7 +58,7 @@ export const PerfDashboardHeaderBar: React.FC<PerfDashboardHeaderBarProps> = ({
                 <>
                     <div className="h-3 w-px bg-slate-700 mx-1" />
                     <span className="text-[10px] text-slate-500 font-mono">
-                        {result.totalDuration.toLocaleString()}ms • {result.segments.length} segments • Limit: {result.perfThreshold}ms
+                        {result.totalDuration.toLocaleString()}ms • {result.segments.length} segments • Limit: {perfThreshold}ms
                     </span>
                 </>
             )}
@@ -90,7 +96,7 @@ export const PerfDashboardHeaderBar: React.FC<PerfDashboardHeaderBarProps> = ({
                                 } else {
                                     setSelectedSegmentId(null);
                                     const failIds = result.segments
-                                        .filter(s => s.duration >= (result.perfThreshold || 1000))
+                                        .filter(s => s.duration >= perfThreshold)
                                         .map(s => s.id);
                                     setMultiSelectedIds(failIds);
                                 }

@@ -58,7 +58,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         viewMode, setViewMode,
         minimized, setMinimized,
         searchInput, setSearchInput,
-        searchQuery,
+        searchTerms, addSearchTerm, removeSearchTerm,
         searchRef, canvasRef, flameChartContainerRef, dragCleanupRef,
         isInitialDrawComplete, setIsInitialDrawComplete,
         trimRange, setTrimRange,
@@ -67,6 +67,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         isShiftPressed, showOnlyFail, setShowOnlyFail,
         multiSelectedIds, setMultiSelectedIds,
         lockedTid, setLockedTid,
+        perfThreshold, setPerfThreshold,
         navSegments, currentNavIndex, jumpToNavSegment,
         checkSegmentMatch,
         isScanningStatus
@@ -226,6 +227,9 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                 jumpToNavSegment={jumpToNavSegment}
                 searchInput={searchInput}
                 setSearchInput={setSearchInput}
+                searchTerms={searchTerms}
+                addSearchTerm={addSearchTerm}
+                removeSearchTerm={removeSearchTerm}
                 searchRef={searchRef}
                 viewMode={viewMode}
                 setViewMode={setViewMode}
@@ -233,6 +237,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                 minimized={minimized}
                 setMinimized={setMinimized}
                 onClose={onClose}
+                perfThreshold={perfThreshold}
+                setPerfThreshold={setPerfThreshold}
             />
 
             {/* Content Body */}
@@ -261,6 +267,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                             setSelectedSegmentId={setSelectedSegmentId}
                             onViewRawRange={onViewRawRange}
                             onCopyRawRange={onCopyRawRange}
+                            perfThreshold={perfThreshold}
                         />
 
                         {/* Main View Area (Right) */}
@@ -281,10 +288,15 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                     jumpToNavSegment={jumpToNavSegment}
                                     searchInput={searchInput}
                                     setSearchInput={setSearchInput}
+                                    searchTerms={searchTerms}
+                                    addSearchTerm={addSearchTerm}
+                                    removeSearchTerm={removeSearchTerm}
                                     searchRef={searchRef}
                                     onClose={onClose}
                                     minimized={minimized}
                                     setMinimized={setMinimized}
+                                    perfThreshold={perfThreshold}
+                                    setPerfThreshold={setPerfThreshold}
                                 />
                             )}
                             {viewMode === 'chart' && flameZoom && (
@@ -354,7 +366,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                     measureRange={measureRange}
                                     setMeasureRange={setMeasureRange}
                                     isShiftPressed={isShiftPressed}
-                                    searchQuery={searchQuery}
+                                    searchTerms={searchTerms}
                                     checkSegmentMatch={checkSegmentMatch}
                                     showOnlyFail={showOnlyFail}
                                     selectedSegmentId={selectedSegmentId}
@@ -370,6 +382,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                     generateTicks={generateTicks}
                                     flameChartContainerRef={flameChartContainerRef}
                                     dragCleanupRef={dragCleanupRef}
+                                    perfThreshold={perfThreshold}
                                 />
                             )}
 
@@ -378,7 +391,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                     result={result}
                                     flameSegments={flameSegments}
                                     maxLane={maxLane}
-                                    searchQuery={searchQuery}
+                                    searchTerms={searchTerms}
                                     palette={palette}
                                     trimRange={trimRange}
                                     flameZoom={flameZoom}
@@ -391,13 +404,14 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                 <PerfBottleneckList
                                     result={result}
                                     showOnlyFail={showOnlyFail}
-                                    searchQuery={searchQuery}
+                                    searchTerms={searchTerms}
                                     checkSegmentMatch={checkSegmentMatch}
                                     selectedSegmentId={selectedSegmentId}
                                     setSelectedSegmentId={setSelectedSegmentId}
                                     setMultiSelectedIds={setMultiSelectedIds}
                                     onJumpToRange={onJumpToRange}
                                     onViewRawRange={onViewRawRange}
+                                    perfThreshold={perfThreshold}
                                 />
                             )}
 

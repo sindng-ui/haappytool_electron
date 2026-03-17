@@ -14,8 +14,8 @@ interface PerfFlameGraphProps {
     applyZoom: (zoom: { startTime: number; endTime: number; } | null) => void;
 
     isShiftPressed: boolean;
-    searchQuery: string;
-    checkSegmentMatch: (s: AnalysisSegment, query: string, tags?: string[]) => boolean | null;
+    searchTerms: string[];
+    checkSegmentMatch: (s: AnalysisSegment, currentActiveTags: string[]) => boolean;
     showOnlyFail: boolean;
     lockedTid: string | null;
     selectedTid: string | null;
@@ -33,6 +33,8 @@ interface PerfFlameGraphProps {
     isOpen: boolean;
     setIsInitialDrawComplete: (complete: boolean) => void;
     exportCanvasRef?: React.RefObject<HTMLCanvasElement>;
+    perfThreshold: number;
+    generateTicks: (start: number, end: number, minTicks?: number) => number[];
 }
 
 export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
@@ -45,7 +47,7 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
     flameZoom,
     applyZoom,
     isShiftPressed,
-    searchQuery,
+    searchTerms,
     checkSegmentMatch,
     showOnlyFail,
     lockedTid,
@@ -60,7 +62,9 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
     isActive,
     isOpen,
     setIsInitialDrawComplete,
-    exportCanvasRef
+    exportCanvasRef,
+    perfThreshold,
+    generateTicks
 }) => {
     const internalCanvasRef = useRef<HTMLCanvasElement>(null);
     const canvasRef = exportCanvasRef || internalCanvasRef;
@@ -148,7 +152,7 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
         isDirtyRef.current = true;
     }, [
         result, flameZoom, selectedSegmentId, hoveredSegmentId, mousePos,
-        searchQuery, multiSelectedIds, lockedTid, isShiftPressed
+        searchTerms, multiSelectedIds, lockedTid, isShiftPressed
     ]);
 
     const drawFlameChart = (): boolean => {
@@ -184,7 +188,7 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
             width: rect.width,
             height: rect.height,
             palette,
-            searchQuery,
+            searchTerms,
             checkSegmentMatch,
             showOnlyFail,
             lockedTid,
@@ -192,9 +196,10 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
             selectedSegmentId,
             multiSelectedIds,
             hoveredSegmentId,
-            perfThreshold: currentResult.perfThreshold || 1000,
+            perfThreshold,
             activeTags,
-            mousePos
+            mousePos,
+            ticks: generateTicks(viewStart, viewStart + viewDuration, 8)
         });
 
         return true;

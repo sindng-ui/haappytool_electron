@@ -6,8 +6,8 @@ export interface DrawOptions {
     width: number;
     height: number;
     palette: string[];
-    searchQuery: string;
-    checkSegmentMatch: (s: AnalysisSegment, query: string, tags?: string[]) => boolean | null;
+    searchTerms: string[];
+    checkSegmentMatch: (s: AnalysisSegment, currentActiveTags: string[]) => boolean;
     showOnlyFail: boolean;
     lockedTid: string | null;
     selectedTid: string | null;
@@ -17,6 +17,7 @@ export interface DrawOptions {
     perfThreshold: number;
     mousePos: { time: number } | null;
     activeTags?: string[];
+    ticks?: number[];
 }
 
 export class PerfFlameGraphRenderer {
@@ -40,6 +41,26 @@ export class PerfFlameGraphRenderer {
         ctx.setLineDash([]);
     }
 
+    static drawVerticalGrid(
+        ctx: CanvasRenderingContext2D,
+        options: Pick<DrawOptions, 'viewStart' | 'viewDuration' | 'width' | 'height' | 'ticks'>
+    ) {
+        const { ticks, viewStart, viewDuration, width, height } = options;
+        if (!ticks || ticks.length === 0) return;
+
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+
+        ticks.forEach(t => {
+            const x = ((t - viewStart) / viewDuration) * width;
+            if (x < 0 || x > width) return;
+            ctx.moveTo(x, 0); // Start from top
+            ctx.lineTo(x, height);
+        });
+        ctx.stroke();
+    }
+
     static drawFlameChart(
         ctx: CanvasRenderingContext2D,
         result: AnalysisResult,
@@ -48,13 +69,16 @@ export class PerfFlameGraphRenderer {
     ) {
         const {
             viewStart, viewDuration, width, height, palette,
-            searchQuery, checkSegmentMatch, showOnlyFail,
+            searchTerms, checkSegmentMatch, showOnlyFail,
             lockedTid, selectedTid, selectedSegmentId, multiSelectedIds,
             hoveredSegmentId, perfThreshold, mousePos, activeTags = []
         } = options;
 
-        ctx.fillStyle = '#0f172a';
+        ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, width, height);
+
+        // Draw background grid lines
+        this.drawVerticalGrid(ctx, { ticks: options.ticks, viewStart, viewDuration, width, height });
 
         const viewEnd = viewStart + viewDuration;
         const visibleSegments = flameSegments.filter(s => s.endTime >= viewStart && s.startTime <= viewEnd);
@@ -63,12 +87,12 @@ export class PerfFlameGraphRenderer {
         visibleSegments.forEach(s => {
             const x = ((s.startTime - viewStart) / viewDuration) * width;
             const w = Math.max(s.duration === 0 ? 3 : 0.5, (s.duration / viewDuration) * width);
-            const y = s.lane * 28 + 24;
-            const h = 20;
+            const y = s.lane * 24 + 24;
+            const h = 22;
 
             const isSelected = s.id === selectedSegmentId || multiSelectedIds.includes(s.id);
             const isHovered = s.id === hoveredSegmentId;
-            const isMatch = (searchQuery !== '' || activeTags.length > 0) && checkSegmentMatch(s, searchQuery, activeTags);
+            const isMatch = (searchTerms.length > 0 || activeTags.length > 0) && checkSegmentMatch(s, []);
             const isGlobal = s.tid === 'Global';
 
             if (isSelected || isHovered || isMatch || w > 3) {
@@ -76,33 +100,28 @@ export class PerfFlameGraphRenderer {
                 const effectiveSelectedTid = lockedTid || selectedTid;
                 const isTidFocused = effectiveSelectedTid !== null && s.tid === effectiveSelectedTid;
 
-                let baseOpacity = (isSelected || isMatch || isHovered) ? 1 : (isGlobal ? 0.35 : 0.9);
+                let baseOpacity = (isSelected || isHovered) ? 1 : (isGlobal ? 0.35 : 1.0);
                 if (effectiveSelectedTid !== null && !isTidFocused) baseOpacity *= (lockedTid ? 0.1 : 0.3);
 
                 // [SpeedScope Requirement] Fail Only mode: highlight only fails
                 if (showOnlyFail && !isFail) baseOpacity = Math.min(baseOpacity, 0.08);
 
                 // [SpeedScope Requirement] Keyword Search mode: highlight only matches
-                if ((searchQuery !== '' || activeTags.length > 0) && !isMatch) {
+                if ((searchTerms.length > 0 || activeTags.length > 0) && !isMatch) {
                     baseOpacity = Math.min(baseOpacity, 0.08);
                 }
 
                 const finalOpacity = baseOpacity;
-
-                const baseColor = (isSelected || isMatch) ? '#6366f1' : (s.dangerColor || (isFail ? '#be123c' : palette[s.lane % palette.length]));
+                const baseColor = isSelected ? '#6366f1' : (s.color || s.dangerColor || palette[s.lane % palette.length]);
 
                 ctx.globalAlpha = finalOpacity;
                 ctx.fillStyle = baseColor;
 
                 ctx.beginPath();
-                if (w > 1.5) {
-                    ctx.roundRect(x, y, w, h, isGlobal ? 2 : 4);
-                } else {
-                    ctx.rect(x, y, w, h);
-                }
+                ctx.rect(x, y, w, h); // Use sharp rect for original look
                 ctx.fill();
 
-                if (isSelected || isHovered || isMatch) {
+                if (isSelected || isHovered) {
                     ctx.strokeStyle = isGlobal ? '#f59e0b' : 'white';
                     ctx.lineWidth = isSelected ? 2 : 1;
                     ctx.stroke();
@@ -111,7 +130,7 @@ export class PerfFlameGraphRenderer {
                 const pixX = Math.floor(x * 2) / 2;
                 const key = `${s.lane}-${pixX}`;
                 const isFail = s.duration >= (perfThreshold || 1000);
-                const baseColor = (s.dangerColor || (isFail ? '#be123c' : palette[s.lane % palette.length]));
+                const baseColor = (s.color || s.dangerColor || palette[s.lane % palette.length]);
                 if (!pixelGrid.has(key) || isFail) {
                     pixelGrid.set(key, { x, y, w: Math.max(0.5, w), color: baseColor });
                 } else {
@@ -122,26 +141,29 @@ export class PerfFlameGraphRenderer {
         });
 
         // Fail Only opacity override for dense segments
-        ctx.globalAlpha = (showOnlyFail || searchQuery !== '' || activeTags.length > 0) ? 0.1 : 0.9;
+        ctx.globalAlpha = (showOnlyFail || searchTerms.length > 0 || activeTags.length > 0) ? 0.1 : 1.0;
         pixelGrid.forEach(p => {
             ctx.fillStyle = p.color;
-            ctx.fillRect(p.x, p.y, Math.max(0.5, p.w), 20);
+            ctx.fillRect(p.x, p.y, Math.max(0.5, p.w), 22); // match segment height
         });
         ctx.globalAlpha = 1;
 
+        // Draw background grid lines AGAIN on top of segments but under text
+        this.drawVerticalGrid(ctx, { ticks: options.ticks, viewStart, viewDuration, width, height });
+
         // --- Segment Name Text Rendering ---
-        ctx.font = `bold 9px 'Inter', system-ui, sans-serif`;
+        ctx.font = `700 10px 'Inter', system-ui, sans-serif`; // Sharper weight and slightly larger
         ctx.textBaseline = 'middle';
         visibleSegments.forEach(s => {
             const x = ((s.startTime - viewStart) / viewDuration) * width;
             const w = Math.max(s.duration === 0 ? 3 : 0.5, (s.duration / viewDuration) * width);
-            const y = s.lane * 28 + 24;
-            const h = 20;
+            const y = s.lane * 24 + 24;
+            const h = 22;
 
             if (w < 30) return;
 
             const isSelected = s.id === selectedSegmentId || multiSelectedIds.includes(s.id);
-            const isMatch = (searchQuery !== '' || activeTags.length > 0) && checkSegmentMatch(s, searchQuery, activeTags);
+            const isMatch = (searchTerms.length > 0 || activeTags.length > 0) && checkSegmentMatch(s, []);
             const isFail = s.duration >= (perfThreshold || 1000);
             const isGlobal = s.tid === 'Global';
 
@@ -149,7 +171,7 @@ export class PerfFlameGraphRenderer {
             let opacity = isGlobal ? 0.35 : 0.9;
             if (effectiveSelectedTid && s.tid !== effectiveSelectedTid) opacity *= (lockedTid ? 0.1 : 0.3);
             if (showOnlyFail && !isFail) opacity = Math.min(opacity, 0.08);
-            if ((searchQuery !== '' || activeTags.length > 0) && !isMatch) opacity = 0.08;
+            if ((searchTerms.length > 0 || activeTags.length > 0) && !isMatch) opacity = 0.08;
             if (opacity < 0.15) return;
 
             const PAD = 5;
@@ -161,8 +183,8 @@ export class PerfFlameGraphRenderer {
             ctx.rect(x, y, w, h);
             ctx.clip();
 
-            ctx.globalAlpha = Math.min(1, opacity * 1.5);
-            ctx.fillStyle = (isSelected || isMatch || isFail) ? '#fff' : 'rgba(255,255,255,0.85)';
+            ctx.globalAlpha = Math.min(1, opacity * 1.8); // Higher opacity for text
+            ctx.fillStyle = (isSelected || isFail) ? '#ffffff' : '#ffffff'; // Solid white for maximum contrast
 
             let displayName = s.name || '';
             if (s.fileName && s.functionName) {
@@ -171,7 +193,7 @@ export class PerfFlameGraphRenderer {
                 displayName = `${s.fileName}(${s.startLine})`;
             }
 
-            ctx.fillText(displayName, x + PAD, y + h / 2, maxTextW);
+            ctx.fillText(displayName, Math.round(x + PAD), Math.round(y + h / 2)); // No maxWidth to avoid blur, Round coordinates
             ctx.restore();
         });
 

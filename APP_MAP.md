@@ -216,11 +216,16 @@
 - **Core Interface**:
   - `analyzePerformance()`: 캡처된 데이터 분석 및 시각화
 - [Analyze] Performance analysis with Flame Graph.
-- [Speed Scope Analyzer](file:///c:/AntigravityWorkspace/happytool_electron/haappytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
-  - [View] Speed Scope JSON (.dotnet-trace) visualizer.
-  - [Filter] Main-thread targeting, fail-time thresholds, multi-keyword search.
-  - [Compare] Dual-pane file comparison.
-- **Data Flow**: `Raw Data` -> `Parser` -> `Timeline View`
+- **위치**: `components/SpeedScope/SpeedScopePlugin.tsx`, `workers/SpeedScopeParser.worker.ts`
+- **주요 기능**:
+    - **Speedscope 포맷 완벽 대응**: `evented` 및 `sampled` 프로파일 형식 지원.
+    - **시간 단위 표준화**: `ns`, `us`, `ms`, `s` 단위를 `ms`로 자동 통합.
+    - **고급 색상 시스템**: 함수 이름 기반 해싱 컬러링에 **파스텔 톤다운(Muted Pastel)**을 적용하여 시각적 피로도 최소화. [NEW]
+    - **Fail Threshold UI 개선**: 입력 필드를 `PerfTopBar`로 이동하여 직관성을 높이고, `Fail Only` 필터와 연동하여 실시간 필터링 지원. [NEW] [HOT]
+    - **데이터 분석 엔진 고도화**: `Self Time`(자식 제외 실행 시간) 계산 및 함수별 `Total/Self` 통계 합산 로직 탑재. [NEW]
+    - **Speedscope 스타일 상세 UI**: 세그먼트 클릭 시 하단에 `This Instance` 및 `All Instances` 통계 테이블과 호출 스택(Stack Trace) 리스트 제공. (데이터 누락 버그 해결 완비) [FIXED]
+    - **멀티 스레드/프로파일 전환**: 파일 내의 모든 프로파일을 자유롭게 전환 가능하며, 전환 시 통계 데이터 실시간 갱신.
+- **Data Flow**: `Raw Data` -> `SpeedScopeParser (Self Time/Stats Calculation)` -> `PerfFlameGraph` & `PerfSegmentDetail`
 
 ### [[PostTool Plugin]]
 - **ID**: `plugin-post-tool`

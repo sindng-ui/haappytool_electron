@@ -2,19 +2,50 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import * as Lucide from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AnalysisResult } from '../../utils/perfAnalysis';
+import { AnalysisResult, AnalysisSegment } from '../../utils/perfAnalysis';
 import { PerfDashboard } from '../LogViewer/PerfDashboard';
 import { getStoredValue, setStoredValue } from '../../utils/db';
 import SpeedScopeWorker from '../../workers/SpeedScopeParser.worker.ts?worker';
 
 const {
     UploadCloud, Activity, Clock, Search, ChevronLeft, ChevronRight,
-    Trash2, Plus, RotateCcw, Columns, Maximize2
+    Trash2, Plus, RotateCcw, Columns, Maximize2, Cpu
 } = Lucide;
 
 interface SpeedScopePluginProps {
     isActive?: boolean;
 }
+
+const ThreadSelector: React.FC<{
+    profiles: any[];
+    selectedIndex: number;
+    onSelect: (idx: number) => void;
+    side: 'left' | 'right';
+}> = ({ profiles, selectedIndex, onSelect, side }) => {
+    if (profiles.length <= 1) return null;
+
+    return (
+        <div className="flex items-center gap-2 p-1.5 bg-[#1a1f2e]/60 backdrop-blur-md border-b border-white/5 overflow-x-auto scrollbar-hide no-drag">
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-indigo-500/10 rounded-md border border-indigo-500/20 mr-2 shrink-0">
+                <Cpu size={12} className="text-indigo-400" />
+                <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-tighter">Threads</span>
+            </div>
+            {profiles.map((p, idx) => (
+                <button
+                    key={`${side}-${idx}`}
+                    onClick={() => onSelect(idx)}
+                    className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold transition-all border ${
+                        selectedIndex === idx 
+                        ? 'bg-indigo-600 border-indigo-400 text-white shadow-[0_0_10px_rgba(99,102,241,0.3)]' 
+                        : 'bg-slate-800/50 border-white/10 text-slate-400 hover:border-indigo-500/30'
+                    }`}
+                >
+                    {p.name || `Thread ${idx}`} <span className="opacity-50 text-[8px] ml-1 uppercase">{p.type}</span>
+                </button>
+            ))}
+        </div>
+    );
+};
 
 const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) => {
     const { addToast } = useToast();
@@ -26,6 +57,14 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
     // Results
     const [resultLeft, setResultLeft] = useState<AnalysisResult | null>(null);
     const [resultRight, setResultRight] = useState<AnalysisResult | null>(null);
+    
+    // Multi-Profile Storage
+    const [allSegmentsLeft, setAllSegmentsLeft] = useState<AnalysisSegment[][] | null>(null);
+    const [allSegmentsRight, setAllSegmentsRight] = useState<AnalysisSegment[][] | null>(null);
+    const [profilesLeft, setProfilesLeft] = useState<any[]>([]);
+    const [profilesRight, setProfilesRight] = useState<any[]>([]);
+    const [selIdxLeft, setSelIdxLeft] = useState(0);
+    const [selIdxRight, setSelIdxRight] = useState(0);
 
     // UI States
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -33,6 +72,10 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
     const [searchKeywords, setSearchKeywords] = useState<string[]>([]);
     const [newKeyword, setNewKeyword] = useState('');
     const [compareMode, setCompareMode] = useState(false);
+
+    // Drag & Drop States
+    const [isDraggingLeft, setIsDraggingLeft] = useState(false);
+    const [isDraggingRight, setIsDraggingRight] = useState(false);
 
     const workerRef = useRef<Worker | null>(null);
 
@@ -66,12 +109,19 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
         localStorage.setItem('happytool_speedscope_keywords', JSON.stringify(searchKeywords));
     }, [searchKeywords]);
 
-    const handleFileLoad = async (file: File, side: 'left' | 'right') => {
+    const handleFileLoad = useCallback(async (file: File, side: 'left' | 'right') => {
         const text = await file.text();
-        const path = window.electronAPI.getFilePath(file);
+        const path = window.electronAPI ? window.electronAPI.getFilePath(file) : file.name;
 
-        if (side === 'left') setFileLeft({ path, name: file.name });
-        else setFileRight({ path, name: file.name });
+        if (side === 'left') {
+            setFileLeft({ path, name: file.name });
+            setResultLeft(null);
+            setAllSegmentsLeft(null);
+        } else {
+            setFileRight({ path, name: file.name });
+            setResultRight(null);
+            setAllSegmentsRight(null);
+        }
 
         setIsAnalyzing(true);
         const worker = getWorker();
@@ -82,10 +132,20 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
             if (resId !== requestId) return;
 
             if (type === 'ANALYSIS_COMPLETE') {
-                if (side === 'left') setResultLeft(payload.result);
-                else setResultRight(payload.result);
+                const res = payload.result;
+                if (side === 'left') {
+                    setAllSegmentsLeft(res.allSegments);
+                    setProfilesLeft(res.profiles);
+                    setSelIdxLeft(res.selectedProfileIndex);
+                    setResultLeft(res);
+                } else {
+                    setAllSegmentsRight(res.allSegments);
+                    setProfilesRight(res.profiles);
+                    setSelIdxRight(res.selectedProfileIndex);
+                    setResultRight(res);
+                }
                 setIsAnalyzing(false);
-                addToast(`${side === 'left' ? 'First' : 'Second'} file analyzed successfully.`, "success");
+                addToast(`${side === 'left' ? 'First' : 'Second'} file analyzed successfully. Supported ${res.profiles.length} profiles.`, "success");
                 worker.removeEventListener('message', handleMessage);
             } else if (type === 'ERROR') {
                 setIsAnalyzing(false);
@@ -108,7 +168,62 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
             },
             requestId
         });
+    }, [failThreshold, getWorker, addToast]);
+
+    const switchProfile = (side: 'left' | 'right', index: number) => {
+        if (side === 'left' && allSegmentsLeft && profilesLeft[index]) {
+            setSelIdxLeft(index);
+            const segments = allSegmentsLeft[index];
+            const pInfo = profilesLeft[index];
+            setResultLeft(prev => prev ? {
+                ...prev,
+                segments: [...segments].sort((a, b) => a.startTime - b.startTime),
+                totalDuration: pInfo.duration,
+                startTime: Math.min(...segments.map(s => s.startTime)),
+                endTime: Math.max(...segments.map(s => s.endTime)),
+                logCount: pInfo.segmentCount,
+                passCount: segments.filter(s => s.status === 'pass').length,
+                failCount: segments.filter(s => s.status === 'fail').length,
+                bottlenecks: segments.filter(s => s.status === 'fail'),
+                functionStats: pInfo.functionStats,
+            } : null);
+        } else if (side === 'right' && allSegmentsRight && profilesRight[index]) {
+            setSelIdxRight(index);
+            const segments = allSegmentsRight[index];
+            const pInfo = profilesRight[index];
+            setResultRight(prev => prev ? {
+                ...prev,
+                segments: [...segments].sort((a, b) => a.startTime - b.startTime),
+                totalDuration: pInfo.duration,
+                startTime: Math.min(...segments.map(s => s.startTime)),
+                endTime: Math.max(...segments.map(s => s.endTime)),
+                logCount: pInfo.segmentCount,
+                passCount: segments.filter(s => s.status === 'pass').length,
+                failCount: segments.filter(s => s.status === 'fail').length,
+                bottlenecks: segments.filter(s => s.status === 'fail'),
+                functionStats: pInfo.functionStats,
+            } : null);
+        }
     };
+
+    const handleDrag = useCallback((e: React.DragEvent, side: 'left' | 'right', isEntering: boolean) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (side === 'left') setIsDraggingLeft(isEntering);
+        else setIsDraggingRight(isEntering);
+    }, []);
+
+    const handleDrop = useCallback((e: React.DragEvent, side: 'left' | 'right') => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (side === 'left') setIsDraggingLeft(false);
+        else setIsDraggingRight(false);
+
+        const file = e.dataTransfer.files?.[0];
+        if (file) {
+            handleFileLoad(file, side);
+        }
+    }, [handleFileLoad]);
 
     const addKeyword = () => {
         if (newKeyword.trim() && !searchKeywords.includes(newKeyword.trim())) {
@@ -132,7 +247,8 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
 
                 <div className="flex items-center gap-2 no-drag">
                     {/* Controls */}
-                    <div className="flex items-center gap-1.5 bg-slate-900/50 border border-white/5 px-2 py-1 rounded-lg">
+                    <div className="flex items-center gap-1.5 bg-slate-900/50 border border-white/5 px-2 py-1 rounded-lg invisible h-0 w-0">
+                        {/* PerfTopBar로 이동됨 */}
                         <Clock size={12} className="text-amber-400" />
                         <span className="text-[10px] font-bold text-slate-400 uppercase mr-1">Fail Threshold</span>
                         <input
@@ -156,6 +272,7 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                         onClick={() => {
                             setFileLeft(null); setFileRight(null);
                             setResultLeft(null); setResultRight(null);
+                            setAllSegmentsLeft(null); setAllSegmentsRight(null);
                         }}
                         className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-all"
                         title="Reset All"
@@ -193,19 +310,35 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                 <div className={`flex-1 flex ${compareMode ? 'flex-row' : 'flex-col'} overflow-hidden`}>
                     {/* Left Pane / Single Pane */}
                     <div className={`flex-1 flex flex-col relative ${compareMode ? 'border-r border-white/10' : ''}`}>
+                        {resultLeft && (
+                            <ThreadSelector 
+                                profiles={profilesLeft} 
+                                selectedIndex={selIdxLeft} 
+                                onSelect={(idx) => switchProfile('left', idx)} 
+                                side="left"
+                            />
+                        )}
                         {!resultLeft ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center p-10">
-                                <label className="flex flex-col items-center cursor-pointer group">
-                                    <div className="p-10 bg-slate-900/50 border-2 border-dashed border-white/10 rounded-3xl group-hover:border-indigo-500/50 transition-all flex flex-col items-center group-hover:bg-indigo-500/5">
-                                        <UploadCloud size={48} className="text-slate-600 group-hover:text-indigo-400 transition-colors mb-4" />
-                                        <p className="text-sm font-bold text-slate-400">Drop SpeedScope JSON or Click</p>
-                                        <p className="text-[10px] text-slate-600 mt-2 uppercase font-black tracking-widest">Target: Main Thread Only</p>
+                                <label 
+                                    className={`flex flex-col items-center cursor-pointer group transition-all duration-300 ${isDraggingLeft ? 'scale-105' : ''}`}
+                                    onDragOver={(e) => handleDrag(e, 'left', true)}
+                                    onDragEnter={(e) => handleDrag(e, 'left', true)}
+                                    onDragLeave={(e) => handleDrag(e, 'left', false)}
+                                    onDrop={(e) => handleDrop(e, 'left')}
+                                >
+                                    <div className={`p-10 bg-slate-900/50 border-2 border-dashed rounded-3xl transition-all flex flex-col items-center ${isDraggingLeft ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'border-white/10 group-hover:border-indigo-500/50 group-hover:bg-indigo-500/5'}`}>
+                                        <UploadCloud size={48} className={`transition-colors mb-4 ${isDraggingLeft ? 'text-indigo-400' : 'text-slate-600 group-hover:text-indigo-400'}`} />
+                                        <p className={`text-sm font-bold transition-colors ${isDraggingLeft ? 'text-indigo-200' : 'text-slate-400'}`}>
+                                            {isDraggingLeft ? 'Release to Start Analysis' : 'Drop SpeedScope JSON or Click'}
+                                        </p>
+                                        <p className="text-[10px] text-slate-600 mt-2 uppercase font-black tracking-widest text-center">Full Profile Support & Auto-Conversion</p>
                                     </div>
                                     <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleFileLoad(e.target.files[0], 'left')} />
                                 </label>
                             </div>
                         ) : (
-                            <div className="flex-1 overflow-hidden relative">
+                            <div className="flex-1 overflow-hidden relative" data-pane-id="left">
                                 <PerfDashboard
                                     isOpen={true} isActive={isActive}
                                     result={resultLeft}
@@ -223,18 +356,34 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                     {/* Right Pane (Compare) */}
                     {compareMode && (
                         <div className="flex-1 flex flex-col relative">
+                            {resultRight && (
+                                <ThreadSelector 
+                                    profiles={profilesRight} 
+                                    selectedIndex={selIdxRight} 
+                                    onSelect={(idx) => switchProfile('right', idx)} 
+                                    side="right"
+                                />
+                            )}
                             {!resultRight ? (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center p-10">
-                                    <label className="flex flex-col items-center cursor-pointer group">
-                                        <div className="p-10 bg-slate-900/50 border-2 border-dashed border-white/10 rounded-3xl group-hover:border-indigo-500/50 transition-all flex flex-col items-center group-hover:bg-indigo-500/5">
-                                            <UploadCloud size={48} className="text-slate-600 group-hover:text-indigo-400 transition-colors mb-4" />
-                                            <p className="text-sm font-bold text-slate-400">Load Second File to Compare</p>
+                                    <label 
+                                        className={`flex flex-col items-center cursor-pointer group transition-all duration-300 ${isDraggingRight ? 'scale-105' : ''}`}
+                                        onDragOver={(e) => handleDrag(e, 'right', true)}
+                                        onDragEnter={(e) => handleDrag(e, 'right', true)}
+                                        onDragLeave={(e) => handleDrag(e, 'right', false)}
+                                        onDrop={(e) => handleDrop(e, 'right')}
+                                    >
+                                        <div className={`p-10 bg-slate-900/50 border-2 border-dashed rounded-3xl transition-all flex flex-col items-center ${isDraggingRight ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'border-white/10 group-hover:border-indigo-500/50 group-hover:bg-indigo-500/5'}`}>
+                                            <UploadCloud size={48} className={`transition-colors mb-4 ${isDraggingRight ? 'text-indigo-400' : 'text-slate-600 group-hover:text-indigo-400'}`} />
+                                            <p className={`text-sm font-bold transition-colors ${isDraggingRight ? 'text-indigo-200' : 'text-slate-400'}`}>
+                                                {isDraggingRight ? 'Release to Load' : 'Load Second File to Compare'}
+                                            </p>
                                         </div>
                                         <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleFileLoad(e.target.files[0], 'right')} />
                                     </label>
                                 </div>
                             ) : (
-                                <div className="flex-1 overflow-hidden relative">
+                                <div className="flex-1 overflow-hidden relative" data-pane-id="right">
                                     <PerfDashboard
                                         isOpen={true} isActive={isActive}
                                         result={resultRight}
