@@ -215,6 +215,11 @@
   - `Main Logic`: [PerfToolPlugin.tsx](./plugins/core/PerfToolPlugin.tsx)
 - **Core Interface**:
   - `analyzePerformance()`: 캡처된 데이터 분석 및 시각화
+- [Analyze] Performance analysis with Flame Graph.
+- [Speed Scope Analyzer](file:///c:/AntigravityWorkspace/happytool_electron/haappytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
+  - [View] Speed Scope JSON (.dotnet-trace) visualizer.
+  - [Filter] Main-thread targeting, fail-time thresholds, multi-keyword search.
+  - [Compare] Dual-pane file comparison.
 - **Data Flow**: `Raw Data` -> `Parser` -> `Timeline View`
 
 ### [[PostTool Plugin]]

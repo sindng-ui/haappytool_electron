@@ -168,3 +168,33 @@ export const PerfToolPlugin: HappyPlugin = {
     component: PerfTool,
     order: 17,
 };
+
+const SpeedScope = React.lazy(() => import('../../components/SpeedScope/SpeedScopePlugin'));
+
+export const SpeedScopePlugin: HappyPlugin = {
+    id: ToolId.SPEED_SCOPE,
+    name: 'Speed Scope',
+    icon: Activity,
+    component: SpeedScope,
+    order: 18,
+};
+
+export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
+    [ToolId.LOG_EXTRACTOR]: LogExtractorPlugin,
+    [ToolId.POST_TOOL]: PostToolPlugin,
+    [ToolId.JSON_TOOLS]: JsonToolsPlugin,
+    [ToolId.TPK_EXTRACTOR]: TpkExtractorPlugin,
+    [ToolId.SMARTTHINGS_DEVICES]: SmartThingsDevicesPlugin,
+    [ToolId.SMARTTHINGS_LAB]: SmartThingsLabPluginWrapper,
+    [ToolId.REVERSE_ENGINEER]: ReverseEngineerPlugin,
+    [ToolId.BLOCK_TEST]: BlockTestPlugin,
+    [ToolId.EASY_UML]: EasyUMLPlugin,
+    [ToolId.CPU_ANALYZER]: CpuAnalyzerPlugin,
+    [ToolId.SMART_HOME_DASHBOARD]: SmartHomeDashboardPlugin,
+    [ToolId.SCREEN_MATCHER]: ScreenMatcherPlugin,
+    [ToolId.AI_ASSISTANT]: AiAssistantPlugin,
+    [ToolId.TIZEN_LAB]: TizenLabPluginWrapper,
+    [ToolId.EASY_POST]: EasyPostPlugin,
+    [ToolId.PERF_TOOL]: PerfToolPlugin,
+    [ToolId.SPEED_SCOPE]: SpeedScopePlugin,
+};

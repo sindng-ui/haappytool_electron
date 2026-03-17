@@ -15,10 +15,11 @@ interface PerfFlameGraphProps {
 
     isShiftPressed: boolean;
     searchQuery: string;
-    checkSegmentMatch: (s: AnalysisSegment, query: string) => boolean | null;
+    checkSegmentMatch: (s: AnalysisSegment, query: string, tags?: string[]) => boolean | null;
     showOnlyFail: boolean;
     lockedTid: string | null;
     selectedTid: string | null;
+    activeTags?: string[];
 
     selectedSegmentId: string | null;
     setSelectedSegmentId: (id: string | null) => void;
@@ -49,6 +50,7 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
     showOnlyFail,
     lockedTid,
     selectedTid,
+    activeTags = [],
     selectedSegmentId,
     setSelectedSegmentId,
     multiSelectedIds,
@@ -191,6 +193,7 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
             multiSelectedIds,
             hoveredSegmentId,
             perfThreshold: currentResult.perfThreshold || 1000,
+            activeTags,
             mousePos
         });
 

@@ -7,7 +7,7 @@ export interface DrawOptions {
     height: number;
     palette: string[];
     searchQuery: string;
-    checkSegmentMatch: (s: AnalysisSegment, query: string) => boolean | null;
+    checkSegmentMatch: (s: AnalysisSegment, query: string, tags?: string[]) => boolean | null;
     showOnlyFail: boolean;
     lockedTid: string | null;
     selectedTid: string | null;
@@ -16,6 +16,7 @@ export interface DrawOptions {
     hoveredSegmentId: string | null;
     perfThreshold: number;
     mousePos: { time: number } | null;
+    activeTags?: string[];
 }
 
 export class PerfFlameGraphRenderer {
@@ -49,7 +50,7 @@ export class PerfFlameGraphRenderer {
             viewStart, viewDuration, width, height, palette,
             searchQuery, checkSegmentMatch, showOnlyFail,
             lockedTid, selectedTid, selectedSegmentId, multiSelectedIds,
-            hoveredSegmentId, perfThreshold, mousePos
+            hoveredSegmentId, perfThreshold, mousePos, activeTags = []
         } = options;
 
         ctx.fillStyle = '#0f172a';
@@ -67,7 +68,7 @@ export class PerfFlameGraphRenderer {
 
             const isSelected = s.id === selectedSegmentId || multiSelectedIds.includes(s.id);
             const isHovered = s.id === hoveredSegmentId;
-            const isMatch = searchQuery !== '' && checkSegmentMatch(s, searchQuery);
+            const isMatch = (searchQuery !== '' || activeTags.length > 0) && checkSegmentMatch(s, searchQuery, activeTags);
             const isGlobal = s.tid === 'Global';
 
             if (isSelected || isHovered || isMatch || w > 3) {
@@ -77,8 +78,16 @@ export class PerfFlameGraphRenderer {
 
                 let baseOpacity = (isSelected || isMatch || isHovered) ? 1 : (isGlobal ? 0.35 : 0.9);
                 if (effectiveSelectedTid !== null && !isTidFocused) baseOpacity *= (lockedTid ? 0.1 : 0.3);
-                if (showOnlyFail && !isFail) baseOpacity = Math.min(baseOpacity, 0.12);
-                const finalOpacity = searchQuery !== '' ? (isMatch ? baseOpacity : 0.1) : baseOpacity;
+
+                // [SpeedScope Requirement] Fail Only mode: highlight only fails
+                if (showOnlyFail && !isFail) baseOpacity = Math.min(baseOpacity, 0.08);
+
+                // [SpeedScope Requirement] Keyword Search mode: highlight only matches
+                if ((searchQuery !== '' || activeTags.length > 0) && !isMatch) {
+                    baseOpacity = Math.min(baseOpacity, 0.08);
+                }
+
+                const finalOpacity = baseOpacity;
 
                 const baseColor = (isSelected || isMatch) ? '#6366f1' : (s.dangerColor || (isFail ? '#be123c' : palette[s.lane % palette.length]));
 
@@ -113,7 +122,7 @@ export class PerfFlameGraphRenderer {
         });
 
         // Fail Only opacity override for dense segments
-        ctx.globalAlpha = showOnlyFail ? 0.2 : 0.9;
+        ctx.globalAlpha = (showOnlyFail || searchQuery !== '' || activeTags.length > 0) ? 0.1 : 0.9;
         pixelGrid.forEach(p => {
             ctx.fillStyle = p.color;
             ctx.fillRect(p.x, p.y, Math.max(0.5, p.w), 20);
@@ -132,15 +141,15 @@ export class PerfFlameGraphRenderer {
             if (w < 30) return;
 
             const isSelected = s.id === selectedSegmentId || multiSelectedIds.includes(s.id);
-            const isMatch = searchQuery !== '' && checkSegmentMatch(s, searchQuery);
+            const isMatch = (searchQuery !== '' || activeTags.length > 0) && checkSegmentMatch(s, searchQuery, activeTags);
             const isFail = s.duration >= (perfThreshold || 1000);
             const isGlobal = s.tid === 'Global';
 
             const effectiveSelectedTid = lockedTid || selectedTid;
             let opacity = isGlobal ? 0.35 : 0.9;
             if (effectiveSelectedTid && s.tid !== effectiveSelectedTid) opacity *= (lockedTid ? 0.1 : 0.3);
-            if (showOnlyFail && !isFail) opacity = Math.min(opacity, 0.12);
-            if (searchQuery !== '' && !isMatch) opacity = 0.1;
+            if (showOnlyFail && !isFail) opacity = Math.min(opacity, 0.08);
+            if ((searchQuery !== '' || activeTags.length > 0) && !isMatch) opacity = 0.08;
             if (opacity < 0.15) return;
 
             const PAD = 5;

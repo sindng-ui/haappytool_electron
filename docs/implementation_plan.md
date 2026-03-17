@@ -1,53 +1,68 @@
-# CLI Analyze-Diff 안정화 및 CliApp 리팩토링 계획 🐧🚀
+# Speed Scope 분석 플러그인 구현 계획
 
-형님, 현재 CLI 모드가 개발 환경에서 Vite 서버가 안 켜져 있으면 무한 대기 타는 문제를 확인했습니다. 
-또한 `CliApp.tsx`가 500줄을 넘어서 리팩토링이 필요한 시점이네요! 깔끔하게 정리해 드리겠습니다.
-
-## User Review Required
-
-> [!IMPORTANT]
-> - CLI 실행 시 Vite 서버(`localhost:3000`)가 없으면 `dist` 폴더의 빌드 파일을 찾아 실행하도록 로직을 개선할 예정입니다.
-> - `CliApp.tsx`의 비대한 로직들을 기능별(Analyze Diff, Log Extractor 등)로 분리하여 가독성과 유지보수성을 높이겠습니다.
-> - 빌드 파일이 없는 상태에서 Vite도 안 켜져 있으면 형님께 친절하게 빌드나 서버 실행을 요청하게 하겠습니다.
+형님! 요청하신 Speed Scope 분석 플러그인 구현 계획서입니다. 기존 Perf Tool의 강력한 시각화 엔진을 활용하면서도, Speed Scope 특유의 계층형 데이터를 완벽하게 지원하도록 설계했습니다.
 
 ## Proposed Changes
 
-### [Component] CLI Orchestration & Startup
-Vite 서버 연결 실패 시 Fallback 로직을 추가하고, GPU 관련 경고를 최소화합니다.
-
-#### [MODIFY] [main.cjs](file:///k:/Antigravity_Projects/gitbase/happytool_electron/electron/main.cjs)
-- CLI 모드에서도 GPU 관련 환경 변수를 더 확실히 차단하여 가상화 환경(WSL)에서의 오류를 줄입니다.
-
-#### [MODIFY] [cli.cjs](file:///k:/Antigravity_Projects/gitbase/happytool_electron/electron/cli.cjs)
-- `createHiddenWindow`에 타임아웃(5초)을 도입합니다.
-- Vite 서버 접속 실패 시 `app://` 프로토콜(빌드된 파일)로 자동 전환을 시도합니다.
-- `cli-ready` 대기 중에 실패할 경우 터미널에 명확한 에러 메시지를 출력하고 종료합니다.
+### 1. 전역 시스템 설정 및 플러그인 등록
+- **[MODIFY] [types.ts](file:///c:/AntigravityWorkspace/happytool_electron/haappytool_electron/types.ts)**
+  - `ToolId` 열거형에 `SPEED_SCOPE` 추가.
+- **[MODIFY] [wrappers.ts](file:///c:/AntigravityWorkspace/happytool_electron/haappytool_electron/plugins/core/wrappers.ts)**
+  - `SpeedScope` 컴포넌트 Lazy Load 설정 및 `SpeedScopePlugin` 래퍼 정의.
+- **[MODIFY] [registry.ts](file:///c:/AntigravityWorkspace/happytool_electron/haappytool_electron/plugins/registry.ts)**
+  - `ALL_PLUGINS` 리스트에 `SpeedScopePlugin` 등록.
 
 ---
 
-### [Component] CLI Renderer Refactoring
-`CliApp.tsx`가 지나치게 비대하므로 기능을 분리합니다.
-
-#### [NEW] [useCliHandlers.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/hooks/useCliHandlers.ts)
-- `handleLogExtractor`, `handleAnalyzeDiff` 등 거대 핸들러들을 훅으로 분리합니다.
-
-#### [MODIFY] [CliApp.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/CliApp.tsx)
-- 500줄 이하로 줄이기 위해 핸들러 로직을 외부 훅으로 이전합니다.
-- UI와 오케스트레이션 로직을 분리합니다.
+### 2. Speed Scope 핵심 로직 (Engine)
+- **[NEW] SpeedScopeParser.worker.ts** (in `workers/`)
+  - `dotnet-trace` Speed Scope JSON 포맷 파싱.
+  - **[IMPORTANT] 메인 스레드(Main Thread) 자동 식별 및 필터링**: 여러 스레드 데이터 중 메인 스레드 프로파일만 추출하여 분석 대상으로 삼습니다.
+  - `profiles.events` 기반의 Call Stack Depth 계산 및 `AnalysisSegment` 변환.
+  - 대용량 JSON 처리를 위한 스트리밍 파서(선택적) 또는 최적화된 루프 구현.
+- **[NEW] useSpeedScopeState.ts** (in `components/SpeedScope/hooks/`)
+  - 파일 로드, 파싱 상태 관리.
+  - 다중 검색 키워드 로컬 저장소(`localStorage`) 연동 및 관리.
+  - 비교 모드 시 두 파일의 데이터 동기화 관리.
 
 ---
 
-### [Document] Documentation Updates
-#### [MODIFY] [APP_MAP.md](file:///k:/Antigravity_Projects/gitbase/happytool_electron/APP_MAP.md)
-- 변경된 파일 구조 및 CLI 안정화 처리 내용을 업데이트합니다.
+### 3. UI 및 시각화 (Components)
+- **[NEW] SpeedScopePlugin.tsx** (in `components/SpeedScope/`)
+  - 플러그인 메인 레이아웃.
+  - 파일 드롭존 (싱글/듀얼 지원).
+  - 상단 컨트롤 바 (Fail 시간 입력, 다중 키워드 검색, 탐색 버튼).
+- **[MODIFY] PerfDashboard.tsx** (재사용 및 확장)
+  - `failThreshold` (ms) 프로퍼티 추가: 임계값보다 긴 세그먼트 하이라이트.
+  - 다중 키워드 매칭 로직 강화 (OR 조건 검색).
+  - 네비게이션 인덱싱 로직에 필터 조건 반영.
+
+---
+
+### 4. 주요 기능 상세 구현
+- **Fail Only 탐색**:
+  - `failThreshold`보다 큰 세그먼트들만 추출하여 `< >` 버튼으로 시간순/오래걸린순 탐색 제공.
+- **다중 키워드 검색**:
+  - 유저가 입력한 여러 단어 중 하나라도 포함된 세그먼트를 밝게 표시.
+  - 검색 히스토리는 로컬 저장소에 보관하여 재사용 가능.
+- **파일 비교 (Comparison Mode)**:
+  - 두 파일을 로드했을 때 좌우 또는 상하 분할 뷰 제공.
+  - 한쪽에서 줌/팬/필터링 시 다른 쪽도 연동되는 Sync 기능 제공 (옵션).
 
 ## Verification Plan
 
 ### Automated Tests
-- CLI가 Vite 서버 없이도 정상적으로 에러를 뱉거나(빌드 없을 시) 빌드 파일로 실행되는지 확인하는 스크립트를 작성하여 테스트합니다.
-- `npm run cli -- --help` 명령어가 즉각 응답하는지 확인합니다.
+- `workers/SpeedScopeParser.test.ts`: 다양한 크기와 깊이의 Speed Scope JSON 파싱 정확도 검증.
+- `utils/searchUtils.test.ts`: 다중 키워드 매칭 로직 유닛 테스트.
 
 ### Manual Verification
-1. **Vite 서버 종료 상태**에서 `npm run cli -- analyze-diff ...` 실행 -> 5초 내에 "Building not found or Server not running" 메시지 혹은 빌드 파일 로드 확인.
-2. **Vite 서버 실행 상태**에서 동일 명령 실행 -> 정상 동작 확인.
-3. 리팩토링 후 `CliApp`이 정상적으로 각 커맨드(Log Extractor, Analyze Diff 등)를 수행하는지 확인.
+1. `dotnet-trace`로 추출한 실제 Speed Scope JSON 파일 로드 테스트.
+2. Fail 시간(ms) 입력 후 Flame Map 상의 하이라이트 변화 확인.
+3. 다중 키워드 입력 후 검색 결과 하이라이트 및 탐색 네비게이션 동작 확인.
+4. 파일 2개 드롭 후 비교 모드 UI 및 필터 연동 확인.
+5. 대용량 파일(100MB+) 로드 시 UI 프리징 여부 및 Worker 동작 확인.
+
+---
+형님, 위 계획대로 진행해도 될까요? 승인해주시면 바로 코딩 들어가겠습니다!
+
+<button id="proceed_button">Proceed</button>

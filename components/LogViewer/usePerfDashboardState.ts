@@ -46,30 +46,46 @@ export function usePerfDashboardState({
     const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([]);
     const [lockedTid, setLockedTid] = useState<string | null>(null);
 
-    function checkSegmentMatch(s: AnalysisSegment, query: string) {
-        if (!query) return true;
+    const checkSegmentMatch = useCallback((s: AnalysisSegment, query: string, tags: string[] = []) => {
+        // 1. Tag match (OR condition) - Provided via plugin UI
+        if (tags.length > 0) {
+            const isTagMatch = tags.some(tag => {
+                const t = tag.toLowerCase();
+                return (
+                    s.name.toLowerCase().includes(t) ||
+                    (s.fileName && s.fileName.toLowerCase().includes(t)) ||
+                    (s.functionName && s.functionName.toLowerCase().includes(t)) ||
+                    (s.logs && s.logs.some(log => log.toLowerCase().includes(t)))
+                );
+            });
+            if (isTagMatch) return true;
+        }
+
+        if (!query) return tags.length === 0; // If no query and no tags matched, return false if tags were provided
+
         const q = query.toLowerCase().trim();
 
         if (q.startsWith('tid:')) {
             const val = q.substring(4).trim();
-            return s.tid?.toLowerCase().includes(val);
+            return s.tid?.toLowerCase().includes(val) || false;
         }
         if (q.startsWith('file:')) {
             const val = q.substring(5).trim();
-            return s.fileName?.toLowerCase().includes(val);
+            return s.fileName?.toLowerCase().includes(val) || false;
         }
         if (q.startsWith('func:')) {
             const val = q.substring(5).trim();
-            return s.functionName?.toLowerCase().includes(val);
+            return s.functionName?.toLowerCase().includes(val) || false;
         }
 
         return (
             s.name.toLowerCase().includes(q) ||
-            s.tid?.toLowerCase().includes(q) ||
-            s.fileName?.toLowerCase().includes(q) ||
-            s.functionName?.toLowerCase().includes(q)
+            (s.tid && s.tid.toLowerCase().includes(q)) ||
+            (s.fileName && s.fileName.toLowerCase().includes(q)) ||
+            (s.functionName && s.functionName.toLowerCase().includes(q)) ||
+            (s.logs && s.logs.some(log => log.toLowerCase().includes(q)))
         );
-    }
+    }, []);
 
     const navSegments = useMemo(() => {
         if (!result) return [];
@@ -78,16 +94,11 @@ export function usePerfDashboardState({
         if (lockedTid) {
             filtered = filtered.filter(s => s.tid === lockedTid);
         }
-        if (searchQuery) {
-            filtered = filtered.filter(s => checkSegmentMatch(s, searchQuery));
+        if (searchQuery || activeTags.length > 0) {
+            filtered = filtered.filter(s => checkSegmentMatch(s, searchQuery, activeTags));
         }
         if (showOnlyFail) {
             filtered = filtered.filter(s => s.status === 'fail' || s.duration >= (result.perfThreshold || 1000));
-        }
-        if (activeTags.length > 0) {
-            filtered = filtered.filter(s =>
-                s.logs?.some(log => activeTags.some(tag => log.includes(tag)))
-            );
         }
         if (trimRange) {
             filtered = filtered.filter(s =>
@@ -100,8 +111,14 @@ export function usePerfDashboardState({
             return filtered.sort((a, b) => a.startTime - b.startTime);
         }
 
-        return filtered.sort((a, b) => b.duration - a.duration).slice(0, 200);
-    }, [result, showOnlyFail, searchQuery, activeTags, trimRange, lockedTid]);
+        // Default sort for navigation:
+        // If showOnlyFail is on, we might want "Time-sequential" or "Longest-first" navigate.
+        // User requested: "시간순 탐색, 오래걸린순 탐색 선택"
+        // For now, let's default to sequential if showOnlyFail is on, or longest if general search.
+        if (showOnlyFail) return filtered.sort((a, b) => a.startTime - b.startTime);
+
+        return filtered.sort((a, b) => b.duration - a.duration).slice(0, 500);
+    }, [result, showOnlyFail, searchQuery, activeTags, trimRange, lockedTid, checkSegmentMatch]);
 
     const currentNavIndex = useMemo(() => {
         if (!selectedSegmentId || navSegments.length === 0) return -1;
@@ -181,7 +198,7 @@ export function usePerfDashboardState({
             setSearchQuery(trimmedInput);
 
             if (trimmedInput !== '' && result) {
-                const hasMatch = result.segments.some(s => checkSegmentMatch(s, trimmedInput));
+                const hasMatch = result.segments.some(s => checkSegmentMatch(s, trimmedInput, activeTags));
                 if (hasMatch) {
                     setSelectedSegmentId(null);
                     setMultiSelectedIds([]);
