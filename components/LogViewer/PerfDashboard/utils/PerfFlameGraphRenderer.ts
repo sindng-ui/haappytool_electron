@@ -18,6 +18,7 @@ export interface DrawOptions {
     mousePos: { time: number } | null;
     activeTags?: string[];
     ticks?: number[];
+    highlightName?: string | null;
 }
 
 export class PerfFlameGraphRenderer {
@@ -71,7 +72,8 @@ export class PerfFlameGraphRenderer {
             viewStart, viewDuration, width, height, palette,
             searchTerms, checkSegmentMatch, showOnlyFail,
             lockedTid, selectedTid, selectedSegmentId, multiSelectedIds,
-            hoveredSegmentId, perfThreshold, mousePos, activeTags = []
+            hoveredSegmentId, perfThreshold, mousePos, activeTags = [],
+            highlightName = null
         } = options;
 
         ctx.fillStyle = '#000000';
@@ -106,9 +108,13 @@ export class PerfFlameGraphRenderer {
                 // [SpeedScope Requirement] Fail Only mode: highlight only fails
                 if (showOnlyFail && !isFail) baseOpacity = Math.min(baseOpacity, 0.08);
 
-                // [SpeedScope Requirement] Keyword Search mode: highlight only matches
                 if ((searchTerms.length > 0 || activeTags.length > 0) && !isMatch) {
                     baseOpacity = Math.min(baseOpacity, 0.08);
+                }
+
+                // [NEW] Spotlight Highlight Effect
+                if (highlightName && s.name !== highlightName) {
+                    baseOpacity = Math.min(baseOpacity, 0.05); // Dim others to almost invisible but enough to see context
                 }
 
                 const finalOpacity = baseOpacity;
@@ -172,6 +178,8 @@ export class PerfFlameGraphRenderer {
             if (effectiveSelectedTid && s.tid !== effectiveSelectedTid) opacity *= (lockedTid ? 0.1 : 0.3);
             if (showOnlyFail && !isFail) opacity = Math.min(opacity, 0.08);
             if ((searchTerms.length > 0 || activeTags.length > 0) && !isMatch) opacity = 0.08;
+            if (highlightName && s.name !== highlightName) opacity = 0.05;
+
             if (opacity < 0.15) return;
 
             const PAD = 5;

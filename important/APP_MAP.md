@@ -257,6 +257,7 @@
   - `Renderer`: [PerfFlameGraphRenderer.ts](./components/LogViewer/PerfDashboard/utils/PerfFlameGraphRenderer.ts)
 - **Core Interface**:
   - `analyzePerfSegments()`: 로그 간 시간 차이를 계산하여 병목 지점 추출
+  - `PerfHeavyHitters`: Self-Time(순수 실행시간) 기준 상위 10개 함수를 추출하여 시각화 및 자동 검색 연결
   - `extractTimestamp()`: 다양한 로그 포맷에서 타임스탬프 파싱
 - **Data Flow**: `Filtered Logs` -> `perfAnalysis.ts` -> `Segments/Heatmap` -> `Canvas Layer`
 

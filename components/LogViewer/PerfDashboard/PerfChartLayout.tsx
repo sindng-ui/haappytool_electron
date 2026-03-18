@@ -48,6 +48,7 @@ export interface PerfChartLayoutProps {
 
     // Axis ticks helper function
     generateTicks: (start: number, end: number, minTicks?: number) => number[];
+    highlightName: string | null;
 }
 
 export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
@@ -56,7 +57,7 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
     measureRange, setMeasureRange, isShiftPressed, searchTerms, checkSegmentMatch, showOnlyFail,
     selectedSegmentId, setSelectedSegmentId, multiSelectedIds, setMultiSelectedIds,
     onJumpToRange, onViewRawRange, isActive, isOpen, setIsInitialDrawComplete, exportCanvasRef,
-    generateTicks, flameChartContainerRef, dragCleanupRef, perfThreshold
+    generateTicks, flameChartContainerRef, dragCleanupRef, perfThreshold, highlightName
 }) => {
     // TID 컬럼 제외 실제 차트 영역의 ref — 이 div 기준으로 마우스 좌표를 계산하면 오프셋 보정 불필요
     const innerChartRef = React.useRef<HTMLDivElement>(null);
@@ -275,6 +276,7 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                             exportCanvasRef={exportCanvasRef}
                             perfThreshold={perfThreshold}
                             generateTicks={generateTicks}
+                            highlightName={highlightName}
                         />
                     </div>
                 </div>

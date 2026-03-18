@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as Lucide from 'lucide-react';
+import { PerfHeavyHitters } from './PerfDashboard/PerfHeavyHitters';
 import { AnalysisResult, AnalysisSegment } from '../../utils/perfAnalysis';
 import { formatDuration } from '../../utils/logTime';
 import { useToast } from '../../contexts/ToastContext';
@@ -70,7 +71,8 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         perfThreshold, setPerfThreshold,
         navSegments, currentNavIndex, jumpToNavSegment,
         checkSegmentMatch,
-        isScanningStatus
+        isScanningStatus,
+        highlightName, setHighlightName
     } = usePerfDashboardState({
         result,
         isAnalyzing,
@@ -272,6 +274,17 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
 
                         {/* Main View Area (Right) */}
                         <div className="flex-1 bg-black/20 relative overflow-hidden flex flex-col min-h-0">
+                            {/* 🔥 Heavy Hitters Insight Panel: Top Bottlenecks by Self-Time */}
+                            {!isScanningStatus && result && viewMode === 'chart' && (
+                                <PerfHeavyHitters 
+                                    result={result} 
+                                    highlightName={highlightName}
+                                    onToggleHighlight={(name) => {
+                                        setHighlightName(prev => prev === name ? null : name);
+                                    }}
+                                />
+                            )}
+
                             {/* FullScreen Top Bar Utility */}
                             {isFullScreen && (
                                 <PerfTopBar
@@ -385,6 +398,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                         flameChartContainerRef={flameChartContainerRef}
                                         dragCleanupRef={dragCleanupRef}
                                         perfThreshold={perfThreshold}
+                                        highlightName={highlightName}
                                     />
                                 )}
 

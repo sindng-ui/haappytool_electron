@@ -45,6 +45,7 @@ export function usePerfDashboardState({
     const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([]);
     const [lockedTid, setLockedTid] = useState<string | null>(null);
     const [perfThreshold, setPerfThreshold] = useState<number>(result?.perfThreshold || 1000);
+    const [highlightName, setHighlightName] = useState<string | null>(null);
 
     // --- Search Token (Tags) Logic ---
     const [searchTerms, setSearchTerms] = useState<string[]>([]);
@@ -323,6 +324,7 @@ export function usePerfDashboardState({
         perfThreshold, setPerfThreshold,
         navSegments, currentNavIndex, jumpToNavSegment,
         checkSegmentMatch,
-        isScanningStatus
+        isScanningStatus,
+        highlightName, setHighlightName
     };
 }

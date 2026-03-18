@@ -35,6 +35,7 @@ interface PerfFlameGraphProps {
     exportCanvasRef?: React.RefObject<HTMLCanvasElement>;
     perfThreshold: number;
     generateTicks: (start: number, end: number, minTicks?: number) => number[];
+    highlightName: string | null;
 }
 
 export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
@@ -64,7 +65,8 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
     setIsInitialDrawComplete,
     exportCanvasRef,
     perfThreshold,
-    generateTicks
+    generateTicks,
+    highlightName
 }) => {
     const internalCanvasRef = useRef<HTMLCanvasElement>(null);
     const canvasRef = exportCanvasRef || internalCanvasRef;
@@ -153,7 +155,7 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
     }, [
         result, flameZoom, selectedSegmentId, hoveredSegmentId, mousePos,
         searchTerms, multiSelectedIds, lockedTid, isShiftPressed, activeTags,
-        showOnlyFail, perfThreshold
+        showOnlyFail, perfThreshold, highlightName
     ]);
 
     const drawFlameChart = (): boolean => {
@@ -200,7 +202,8 @@ export const PerfFlameGraph: React.FC<PerfFlameGraphProps> = ({
             perfThreshold,
             activeTags,
             mousePos,
-            ticks: generateTicks(viewStart, viewStart + viewDuration, 8)
+            ticks: generateTicks(viewStart, viewStart + viewDuration, 8),
+            highlightName
         });
 
         return true;
