@@ -255,7 +255,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="flex-1 flex overflow-hidden"
+                        className="flex-1 flex min-h-0 overflow-hidden"
                     >
                         {/* Summary & Controls Panel (Left) - Hidden in FullScreen */}
                         <PerfDashboardSummary
@@ -271,7 +271,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                         />
 
                         {/* Main View Area (Right) */}
-                        <div className="flex-1 bg-black/20 relative overflow-hidden flex flex-col">
+                        <div className="flex-1 bg-black/20 relative overflow-hidden flex flex-col min-h-0">
                             {/* FullScreen Top Bar Utility */}
                             {isFullScreen && (
                                 <PerfTopBar
@@ -348,72 +348,75 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                 </button>
                             )}
 
-                            {/* Flame Chart Canvas Area (Replaced by PerfChartLayout) */}
-                            {viewMode === 'chart' && result && (
-                                <PerfChartLayout
-                                    result={result}
-                                    flameSegments={flameSegments}
-                                    maxLane={maxLane}
-                                    laneTidMap={laneTidMap}
-                                    palette={palette}
-                                    trimRange={trimRange}
-                                    flameZoom={flameZoom}
-                                    applyZoom={applyZoom}
-                                    showTidColumn={showTidColumn}
-                                    lockedTid={lockedTid}
-                                    setLockedTid={setLockedTid}
-                                    selectedTid={selectedTid}
-                                    measureRange={measureRange}
-                                    setMeasureRange={setMeasureRange}
-                                    isShiftPressed={isShiftPressed}
-                                    searchTerms={searchTerms}
-                                    checkSegmentMatch={checkSegmentMatch}
-                                    showOnlyFail={showOnlyFail}
-                                    selectedSegmentId={selectedSegmentId}
-                                    setSelectedSegmentId={setSelectedSegmentId}
-                                    multiSelectedIds={multiSelectedIds}
-                                    setMultiSelectedIds={setMultiSelectedIds}
-                                    onJumpToRange={onJumpToRange}
-                                    onViewRawRange={onViewRawRange}
-                                    isActive={true} // Assuming it's active when rendered
-                                    isOpen={true} // Assuming it's open when rendered
-                                    setIsInitialDrawComplete={setIsInitialDrawComplete}
-                                    exportCanvasRef={canvasRef}
-                                    generateTicks={generateTicks}
-                                    flameChartContainerRef={flameChartContainerRef}
-                                    dragCleanupRef={dragCleanupRef}
-                                    perfThreshold={perfThreshold}
-                                />
-                            )}
+                            {/* 📦 Constrained Middle Container: Chart or List area */}
+                            <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+                                {/* Flame Chart Canvas Area (Replaced by PerfChartLayout) */}
+                                {viewMode === 'chart' && result && (
+                                    <PerfChartLayout
+                                        result={result}
+                                        flameSegments={flameSegments}
+                                        maxLane={maxLane}
+                                        laneTidMap={laneTidMap}
+                                        palette={palette}
+                                        trimRange={trimRange}
+                                        flameZoom={flameZoom}
+                                        applyZoom={applyZoom}
+                                        showTidColumn={showTidColumn}
+                                        lockedTid={lockedTid}
+                                        setLockedTid={setLockedTid}
+                                        selectedTid={selectedTid}
+                                        measureRange={measureRange}
+                                        setMeasureRange={setMeasureRange}
+                                        isShiftPressed={isShiftPressed}
+                                        searchTerms={searchTerms}
+                                        checkSegmentMatch={checkSegmentMatch}
+                                        showOnlyFail={showOnlyFail}
+                                        selectedSegmentId={selectedSegmentId}
+                                        setSelectedSegmentId={setSelectedSegmentId}
+                                        multiSelectedIds={multiSelectedIds}
+                                        setMultiSelectedIds={setMultiSelectedIds}
+                                        onJumpToRange={onJumpToRange}
+                                        onViewRawRange={onViewRawRange}
+                                        isActive={true} // Assuming it's active when rendered
+                                        isOpen={true} // Assuming it's open when rendered
+                                        setIsInitialDrawComplete={setIsInitialDrawComplete}
+                                        exportCanvasRef={canvasRef}
+                                        generateTicks={generateTicks}
+                                        flameChartContainerRef={flameChartContainerRef}
+                                        dragCleanupRef={dragCleanupRef}
+                                        perfThreshold={perfThreshold}
+                                    />
+                                )}
 
-                            {viewMode === 'chart' && flameSegments.length > 0 && (
-                                <PerfMinimap
-                                    result={result}
-                                    flameSegments={flameSegments}
-                                    maxLane={maxLane}
-                                    searchTerms={searchTerms}
-                                    palette={palette}
-                                    trimRange={trimRange}
-                                    flameZoom={flameZoom}
-                                    applyZoom={applyZoom}
-                                    checkSegmentMatch={checkSegmentMatch}
-                                />
-                            )}
+                                {viewMode === 'chart' && flameSegments.length > 0 && (
+                                    <PerfMinimap
+                                        result={result}
+                                        flameSegments={flameSegments}
+                                        maxLane={maxLane}
+                                        searchTerms={searchTerms}
+                                        palette={palette}
+                                        trimRange={trimRange}
+                                        flameZoom={flameZoom}
+                                        applyZoom={applyZoom}
+                                        checkSegmentMatch={checkSegmentMatch}
+                                    />
+                                )}
 
-                            {viewMode === 'list' && (
-                                <PerfBottleneckList
-                                    result={result}
-                                    showOnlyFail={showOnlyFail}
-                                    searchTerms={searchTerms}
-                                    checkSegmentMatch={checkSegmentMatch}
-                                    selectedSegmentId={selectedSegmentId}
-                                    setSelectedSegmentId={setSelectedSegmentId}
-                                    setMultiSelectedIds={setMultiSelectedIds}
-                                    onJumpToRange={onJumpToRange}
-                                    onViewRawRange={onViewRawRange}
-                                    perfThreshold={perfThreshold}
-                                />
-                            )}
+                                {viewMode === 'list' && (
+                                    <PerfBottleneckList
+                                        result={result}
+                                        showOnlyFail={showOnlyFail}
+                                        searchTerms={searchTerms}
+                                        checkSegmentMatch={checkSegmentMatch}
+                                        selectedSegmentId={selectedSegmentId}
+                                        setSelectedSegmentId={setSelectedSegmentId}
+                                        setMultiSelectedIds={setMultiSelectedIds}
+                                        onJumpToRange={onJumpToRange}
+                                        onViewRawRange={onViewRawRange}
+                                        perfThreshold={perfThreshold}
+                                    />
+                                )}
+                            </div>
 
 
 
