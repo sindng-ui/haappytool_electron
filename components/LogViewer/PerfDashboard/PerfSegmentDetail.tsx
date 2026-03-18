@@ -133,18 +133,18 @@ export const PerfSegmentDetail: React.FC<PerfSegmentDetailProps> = ({
                                         </button>
                                     </div>
                                 </div>
-                                <div className="flex-1 overflow-y-auto p-2 space-y-0.5 custom-scrollbar">
+                                <div className="flex-1 overflow-auto p-2 space-y-0.5 custom-scrollbar">
                                     {stackTrace.map((stackSeg, idx) => (
                                         <div 
                                             key={`${stackSeg.id}-${idx}`}
-                                            className="flex items-center gap-2 group cursor-pointer hover:bg-white/5 p-1 rounded transition-all"
+                                            className="flex items-center gap-2 group cursor-pointer hover:bg-white/5 p-1 rounded transition-all w-max min-w-full"
                                             onClick={() => setSelectedSegmentId(stackSeg.id)}
                                         >
                                             <div 
                                                 className="w-3 h-3 rounded-sm shrink-0 border border-white/10" 
                                                 style={{ backgroundColor: stackSeg.color }}
                                             ></div>
-                                            <span className="text-slate-400 group-hover:text-indigo-300 truncate transition-colors">
+                                            <span className="text-slate-400 group-hover:text-indigo-300 whitespace-nowrap transition-colors">
                                                 {idx > 0 && <span className="opacity-30 mr-1">&gt;</span>}
                                                 {stackSeg.name}
                                             </span>
