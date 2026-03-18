@@ -144,7 +144,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
 
     return (
         <div
-            className={`w-full z-10 flex flex-col transition-all duration-300 ease-in-out relative group/dashboard perf-dashboard-container ${isFullScreen ? 'h-full flex-1' : 'border-b-[6px] border-[#080b14] shadow-[0_8px_16px_rgba(0,0,0,0.6)]'}`}
+            className={`w-full z-10 flex flex-col transition-all duration-300 ease-in-out relative group/dashboard perf-dashboard-container overflow-hidden ${isFullScreen ? 'h-full flex-1' : 'border-b-[6px] border-[#080b14] shadow-[0_8px_16px_rgba(0,0,0,0.6)]'}`}
             style={isFullScreen ? { backgroundColor: '#0f172a' } : {
                 height: minimized ? '40px' : `${height}px`,
                 backgroundColor: '#0f172a' // Slate-950 distinct bg
@@ -255,7 +255,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="flex-1 flex min-h-0 overflow-hidden"
+                        className="flex-1 flex min-h-0 h-full overflow-hidden"
                     >
                         {/* Summary & Controls Panel (Left) - Hidden in FullScreen */}
                         <PerfDashboardSummary
@@ -349,7 +349,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                             )}
 
                             {/* 📦 Constrained Middle Container: Chart or List area */}
-                            <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+                            <div className="flex-[1_1_0%] flex flex-col min-h-0 overflow-hidden relative">
                                 {/* Flame Chart Canvas Area (Replaced by PerfChartLayout) */}
                                 {viewMode === 'chart' && result && (
                                     <PerfChartLayout
@@ -388,20 +388,6 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                     />
                                 )}
 
-                                {viewMode === 'chart' && flameSegments.length > 0 && (
-                                    <PerfMinimap
-                                        result={result}
-                                        flameSegments={flameSegments}
-                                        maxLane={maxLane}
-                                        searchTerms={searchTerms}
-                                        palette={palette}
-                                        trimRange={trimRange}
-                                        flameZoom={flameZoom}
-                                        applyZoom={applyZoom}
-                                        checkSegmentMatch={checkSegmentMatch}
-                                    />
-                                )}
-
                                 {viewMode === 'list' && (
                                     <PerfBottleneckList
                                         result={result}
@@ -418,9 +404,22 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                 )}
                             </div>
 
+                            {/* 🗺️ Minimap: Outside flex-1 and shrink-0 to preserve space */}
+                            {viewMode === 'chart' && flameSegments.length > 0 && (
+                                <PerfMinimap
+                                    result={result}
+                                    flameSegments={flameSegments}
+                                    maxLane={maxLane}
+                                    searchTerms={searchTerms}
+                                    palette={palette}
+                                    trimRange={trimRange}
+                                    flameZoom={flameZoom}
+                                    applyZoom={applyZoom}
+                                    checkSegmentMatch={checkSegmentMatch}
+                                />
+                            )}
 
-
-                            {/* Docked Detail Panel (Definitive Map visibility solution) */}
+                            {/* 📄 Docked Detail Panel: Always at the bottom */}
                             <PerfSegmentDetail
                                 useCompactDetail={useCompactDetail!}
                                 selectedSegmentId={selectedSegmentId}

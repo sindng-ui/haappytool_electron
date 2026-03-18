@@ -62,7 +62,7 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
     const innerChartRef = React.useRef<HTMLDivElement>(null);
 
     return (
-        <div className="flex-1 w-full relative flex flex-col min-h-0 bg-slate-900 overflow-hidden">
+        <div className="w-full relative flex flex-col h-full bg-slate-900 overflow-hidden">
             <div
                 className="flex-1 overflow-auto custom-scrollbar relative flex bg-black/40"
                 ref={flameChartContainerRef}
