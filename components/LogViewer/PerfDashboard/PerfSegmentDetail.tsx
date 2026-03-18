@@ -63,52 +63,56 @@ export const PerfSegmentDetail: React.FC<PerfSegmentDetailProps> = ({
                         <div className="flex h-[180px]">
                             {/* Left: Statistics Tables */}
                             <div className="w-[350px] border-r border-white/10 flex flex-col shrink-0">
-                                <table className="w-full border-collapse">
+                                <table className="w-full h-full border-collapse">
                                     <thead>
                                         <tr className="bg-slate-800/50 text-slate-400">
                                             <th className="border border-white/10 px-2 py-1 font-bold text-center w-1/2">This Instance</th>
                                             <th className="border border-white/10 px-2 py-1 font-bold text-center w-1/2">All Instances</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        <tr className="text-slate-300">
-                                            <td className="border border-white/10 p-0">
-                                                <div className="flex justify-between border-b border-white/5 bg-slate-900/30">
-                                                    <span className="px-2 py-0.5 border-r border-white/10 w-1/2 text-center text-[10px] text-slate-500 font-bold uppercase">Total</span>
-                                                    <span className="px-2 py-0.5 w-1/2 text-center text-[10px] text-slate-500 font-bold uppercase">Self</span>
-                                                </div>
-                                                <div className="flex justify-between border-b border-white/10">
-                                                    <span className="px-2 py-1 border-r border-white/10 w-1/2 text-center">{formatTime(s.duration)}</span>
-                                                    <span className="px-2 py-1 w-1/2 text-center">{formatTime(s.selfTime || 0)}</span>
-                                                </div>
-                                                <div className="flex flex-1 min-h-[50px]">
-                                                    <div className="w-1/2 bg-indigo-500/20 relative flex flex-col items-center justify-end pb-1 border-r border-cyan-500/30">
-                                                        <div className="absolute inset-x-0 bottom-0 bg-indigo-500/40" style={{ height: `${(s.duration / totalDuration) * 100}%` }}></div>
-                                                        <span className="relative z-10 font-bold text-indigo-300">{formatPercent(s.duration, totalDuration)}</span>
+                                    <tbody className="h-full">
+                                        <tr className="text-slate-300 h-full">
+                                            <td className="border border-white/10 p-0 h-full">
+                                                <div className="flex flex-col h-full">
+                                                    <div className="flex justify-between border-b border-white/5 bg-slate-900/30">
+                                                        <span className="px-2 py-0.5 border-r border-white/10 w-1/2 text-center text-[10px] text-slate-500 font-bold uppercase">Total</span>
+                                                        <span className="px-2 py-0.5 w-1/2 text-center text-[10px] text-slate-500 font-bold uppercase">Self</span>
                                                     </div>
-                                                    <div className="w-1/2 bg-cyan-700/20 relative flex flex-col items-center justify-end pb-1">
-                                                        <div className="absolute inset-x-0 bottom-0 bg-cyan-500/40" style={{ height: `${((s.selfTime || 0) / totalDuration) * 100}%` }}></div>
-                                                        <span className="relative z-10 font-bold text-cyan-300">{formatPercent(s.selfTime || 0, totalDuration)}</span>
+                                                    <div className="flex justify-between border-b border-white/10">
+                                                        <span className="px-2 py-1 border-r border-white/10 w-1/2 text-center">{formatTime(s.duration)}</span>
+                                                        <span className="px-2 py-1 w-1/2 text-center">{formatTime(s.selfTime || 0)}</span>
+                                                    </div>
+                                                    <div className="flex flex-1 min-h-[50px]">
+                                                        <div className="w-1/2 bg-indigo-500/20 relative flex flex-col items-center justify-end pb-1 border-r border-cyan-500/30">
+                                                            <div className="absolute inset-x-0 bottom-0 bg-indigo-500/40" style={{ height: `${(s.duration / totalDuration) * 100}%` }}></div>
+                                                            <span className="relative z-10 font-bold text-indigo-300">{formatPercent(s.duration, totalDuration)}</span>
+                                                        </div>
+                                                        <div className="w-1/2 bg-cyan-700/20 relative flex flex-col items-center justify-end pb-1">
+                                                            <div className="absolute inset-x-0 bottom-0 bg-cyan-500/40" style={{ height: `${((s.selfTime || 0) / totalDuration) * 100}%` }}></div>
+                                                            <span className="relative z-10 font-bold text-cyan-300">{formatPercent(s.selfTime || 0, totalDuration)}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="border border-white/10 p-0">
-                                                <div className="flex justify-between border-b border-white/5 bg-slate-900/30">
-                                                    <span className="px-2 py-0.5 border-r border-white/10 w-1/2 text-center text-[10px] text-slate-500 font-bold uppercase">Total</span>
-                                                    <span className="px-2 py-0.5 w-1/2 text-center text-[10px] text-slate-500 font-bold uppercase">Self</span>
-                                                </div>
-                                                <div className="flex justify-between border-b border-white/10">
-                                                    <span className="px-2 py-1 border-r border-white/10 w-1/2 text-center">{stats ? formatTime(stats.totalTime) : '-'}</span>
-                                                    <span className="px-2 py-1 w-1/2 text-center">{stats ? formatTime(stats.selfTime) : '-'}</span>
-                                                </div>
-                                                <div className="flex flex-1 min-h-[50px]">
-                                                    <div className="w-1/2 bg-indigo-500/10 relative flex flex-col items-center justify-end pb-1 border-r border-cyan-500/10">
-                                                        <div className="absolute inset-x-0 bottom-0 bg-indigo-500/30" style={{ height: `${stats ? (stats.totalTime / totalDuration) * 100 : 0}%` }}></div>
-                                                        <span className="relative z-10 font-bold text-indigo-400/80">{stats ? formatPercent(stats.totalTime, totalDuration) : '-'}</span>
+                                            <td className="border border-white/10 p-0 h-full">
+                                                <div className="flex flex-col h-full">
+                                                    <div className="flex justify-between border-b border-white/5 bg-slate-900/30">
+                                                        <span className="px-2 py-0.5 border-r border-white/10 w-1/2 text-center text-[10px] text-slate-500 font-bold uppercase">Total</span>
+                                                        <span className="px-2 py-0.5 w-1/2 text-center text-[10px] text-slate-500 font-bold uppercase">Self</span>
                                                     </div>
-                                                    <div className="w-1/2 bg-cyan-700/10 relative flex flex-col items-center justify-end pb-1">
-                                                        <div className="absolute inset-x-0 bottom-0 bg-cyan-500/30" style={{ height: `${stats ? (stats.selfTime / totalDuration) * 100 : 0}%` }}></div>
-                                                        <span className="relative z-10 font-bold text-cyan-400/80">{stats ? formatPercent(stats.selfTime, totalDuration) : '-'}</span>
+                                                    <div className="flex justify-between border-b border-white/10">
+                                                        <span className="px-2 py-1 border-r border-white/10 w-1/2 text-center">{stats ? formatTime(stats.totalTime) : '-'}</span>
+                                                        <span className="px-2 py-1 w-1/2 text-center">{stats ? formatTime(stats.selfTime) : '-'}</span>
+                                                    </div>
+                                                    <div className="flex flex-1 min-h-[50px]">
+                                                        <div className="w-1/2 bg-indigo-500/10 relative flex flex-col items-center justify-end pb-1 border-r border-cyan-500/10">
+                                                            <div className="absolute inset-x-0 bottom-0 bg-indigo-500/30" style={{ height: `${stats ? (stats.totalTime / totalDuration) * 100 : 0}%` }}></div>
+                                                            <span className="relative z-10 font-bold text-indigo-400/80">{stats ? formatPercent(stats.totalTime, totalDuration) : '-'}</span>
+                                                        </div>
+                                                        <div className="w-1/2 bg-cyan-700/10 relative flex flex-col items-center justify-end pb-1">
+                                                            <div className="absolute inset-x-0 bottom-0 bg-cyan-500/30" style={{ height: `${stats ? (stats.selfTime / totalDuration) * 100 : 0}%` }}></div>
+                                                            <span className="relative z-10 font-bold text-cyan-400/80">{stats ? formatPercent(stats.selfTime, totalDuration) : '-'}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
