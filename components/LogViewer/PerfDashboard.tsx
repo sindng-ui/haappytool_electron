@@ -73,7 +73,9 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
         checkSegmentMatch,
         isScanningStatus,
         highlightName, setHighlightName,
-        milestones, scrollToMilestone, addUserMilestone
+        milestones, addUserMilestone,
+        selectedMilestoneTime, setSelectedMilestoneTime,
+        deleteUserMilestone, updateUserMilestone
     } = usePerfDashboardState({
         result,
         isAnalyzing,
@@ -401,8 +403,13 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
                                         perfThreshold={perfThreshold}
                                         highlightName={highlightName}
                                         milestones={milestones}
-                                        onMilestoneClick={scrollToMilestone}
                                         addUserMilestone={addUserMilestone}
+                                        selectedMilestoneTime={selectedMilestoneTime}
+                                        setSelectedMilestoneTime={(time) => {
+                                            setSelectedMilestoneTime(time);
+                                        }}
+                                        deleteUserMilestone={deleteUserMilestone}
+                                        updateUserMilestone={updateUserMilestone}
                                     />
                                 )}
 

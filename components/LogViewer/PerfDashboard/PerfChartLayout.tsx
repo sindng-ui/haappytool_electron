@@ -51,8 +51,11 @@ export interface PerfChartLayoutProps {
     generateTicks: (start: number, end: number, minTicks?: number) => number[];
     highlightName: string | null;
     milestones: { time: number; label: string; color: string }[];
-    onMilestoneClick: (time: number) => void;
     addUserMilestone: (time: number, label: string) => void;
+    selectedMilestoneTime: number | null;
+    setSelectedMilestoneTime: (time: number | null) => void;
+    deleteUserMilestone: (time: number) => void;
+    updateUserMilestone: (time: number, label: string) => void;
 }
 
 export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
@@ -62,11 +65,13 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
     selectedSegmentId, setSelectedSegmentId, multiSelectedIds, setMultiSelectedIds,
     onJumpToRange, onViewRawRange, isActive, isOpen, setIsInitialDrawComplete, exportCanvasRef,
     generateTicks, flameChartContainerRef, dragCleanupRef, perfThreshold, highlightName,
-    milestones, onMilestoneClick, addUserMilestone
+    milestones, addUserMilestone, selectedMilestoneTime, setSelectedMilestoneTime,
+    deleteUserMilestone, updateUserMilestone
 }) => {
     // TID 컬럼 제외 실제 차트 영역의 ref — 이 div 기준으로 마우스 좌표를 계산하면 오프셋 보정 불필요
     const innerChartRef = React.useRef<HTMLDivElement>(null);
     const [pendingMilestone, setPendingMilestone] = React.useState<{ x: number; y: number; time: number } | null>(null);
+    const [editingMilestone, setEditingMilestone] = React.useState<{ x: number; y: number; time: number; label: string } | null>(null);
 
     return (
         <div className="w-full relative flex flex-col h-full bg-slate-900 overflow-hidden">
@@ -231,7 +236,16 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                                         viewStart={viewStart}
                                         viewDuration={viewDuration}
                                         width={innerChartRef.current?.clientWidth || 0}
-                                        onMilestoneClick={onMilestoneClick}
+                                        selectedTime={selectedMilestoneTime}
+                                        onSelect={setSelectedMilestoneTime}
+                                        onDoubleClick={(time, label) => {
+                                            // Calculate clientX/Y from relative Time
+                                            const rect = innerChartRef.current?.getBoundingClientRect();
+                                            if (rect) {
+                                                const x = rect.left + ((time - viewStart) / viewDuration) * rect.width;
+                                                setEditingMilestone({ x, y: rect.top + 20, time, label });
+                                            }
+                                        }}
                                     />
                                 );
                             })()}
@@ -333,12 +347,25 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
             {/* 💡 Pending Milestone Input Overlay (Replacement for prompt) */}
             {pendingMilestone && (
                 <MilestoneInputOverlay 
+                    mode="add"
                     pendingMilestone={pendingMilestone}
                     onSave={(label) => {
                         addUserMilestone(pendingMilestone.time, label);
                         setPendingMilestone(null);
                     }}
                     onCancel={() => setPendingMilestone(null)}
+                />
+            )}
+            {editingMilestone && (
+                <MilestoneInputOverlay 
+                    mode="edit"
+                    initialLabel={editingMilestone.label}
+                    pendingMilestone={editingMilestone}
+                    onSave={(label) => {
+                        updateUserMilestone(editingMilestone.time, label);
+                        setEditingMilestone(null);
+                    }}
+                    onCancel={() => setEditingMilestone(null)}
                 />
             )}
         </div>
@@ -349,21 +376,23 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
  * 💡 별도 컴포넌트로 분리하여 타이핑 시 PerfChartLayout 전체가 리렌더링되는 성능 이슈 해결
  */
 interface MilestoneInputOverlayProps {
+    mode: 'add' | 'edit';
+    initialLabel?: string;
     pendingMilestone: { x: number; y: number; time: number };
     onSave: (label: string) => void;
     onCancel: () => void;
 }
 
-const MilestoneInputOverlay: React.FC<MilestoneInputOverlayProps> = ({ pendingMilestone, onSave, onCancel }) => {
-    const [label, setLabel] = React.useState('User Mark');
+const MilestoneInputOverlay: React.FC<MilestoneInputOverlayProps> = ({ mode, initialLabel, pendingMilestone, onSave, onCancel }) => {
+    const [label, setLabel] = React.useState(initialLabel || 'User Mark');
 
     return (
         <div 
-            className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/20 backdrop-blur-[2px]"
+            className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40"
             onClick={onCancel}
         >
             <div 
-                className="bg-slate-900 border border-indigo-500/50 rounded-xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col gap-3 min-w-[280px] animate-in zoom-in-95 duration-200"
+                className="bg-slate-900 border border-indigo-500/50 rounded-xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col gap-3 min-w-[280px]"
                 onClick={e => e.stopPropagation()}
                 style={{
                     position: 'fixed',
@@ -372,8 +401,8 @@ const MilestoneInputOverlay: React.FC<MilestoneInputOverlayProps> = ({ pendingMi
                 }}
             >
                 <div className="flex items-center gap-2 text-indigo-400">
-                    <Lucide.Flag size={14} className="animate-bounce" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Add Milestone</span>
+                    <Lucide.Flag size={14} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">{mode === 'edit' ? 'Edit Milestone' : 'Add Milestone'}</span>
                 </div>
                 <input
                     autoFocus

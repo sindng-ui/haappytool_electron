@@ -50,6 +50,16 @@ export function usePerfDashboardState({
     // --- Milestone Logic ---
     const [milestoneKeywords, setMilestoneKeywords] = useState<string[]>(['OnCreate', 'OnResume', 'OnPause', 'Finished', 'AppStart', 'PageTransitions']);
     const [userMilestones, setUserMilestones] = useState<{ time: number; label: string; color: string }[]>([]);
+    const [selectedMilestoneTime, setSelectedMilestoneTime] = useState<number | null>(null);
+
+    const deleteUserMilestone = useCallback((time: number) => {
+        setUserMilestones(prev => prev.filter(m => m.time !== time));
+        if (selectedMilestoneTime === time) setSelectedMilestoneTime(null);
+    }, [selectedMilestoneTime]);
+
+    const updateUserMilestone = useCallback((time: number, newLabel: string) => {
+        setUserMilestones(prev => prev.map(m => m.time === time ? { ...m, label: newLabel } : m));
+    }, []);
 
     const addUserMilestone = useCallback((time: number, label: string) => {
         const colors = ['#f59e0b', '#ec4899', '#8b5cf6', '#10b981', '#3b82f6'];
@@ -321,49 +331,24 @@ export function usePerfDashboardState({
         return () => window.removeEventListener('wheel', onGlobalWheel);
     }, [result, isActive, paneId, trimRange, handleWheelZoom, handleWheelPan, zoomRef]);
 
+    useEffect(() => {
+        if (!isActive) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedMilestoneTime !== null) {
+                // Check if not in input
+                if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+                deleteUserMilestone(selectedMilestoneTime);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isActive, selectedMilestoneTime, deleteUserMilestone]);
+
     const milestones = useMemo(() => {
         if (!result) return [];
-        const found: { time: number; label: string; color: string }[] = [];
-        const seen = new Set<string>();
+        return [...userMilestones].sort((a, b) => a.time - b.time);
+    }, [result, userMilestones]);
 
-        // Palette for milestones
-        const colors = ['#f59e0b', '#ec4899', '#8b5cf6', '#10b981', '#3b82f6'];
-
-        // 1. Automatic Milestones
-        if (milestoneKeywords.length > 0) {
-            result.segments.forEach(s => {
-                const name = s.name || '';
-                const matchingKeyword = milestoneKeywords.find(k => name.toLowerCase().includes(k.toLowerCase()));
-                if (matchingKeyword) {
-                    const key = `${Math.floor(s.startTime)}-${name}`;
-                    if (!seen.has(key)) {
-                        found.push({
-                            time: s.startTime,
-                            label: name,
-                            color: colors[found.length % colors.length]
-                        });
-                        seen.add(key);
-                    }
-                }
-            });
-        }
-
-        // 2. User Milestones
-        userMilestones.forEach(um => {
-            found.push(um);
-        });
-
-        return found.sort((a, b) => a.time - b.time);
-    }, [result, milestoneKeywords, userMilestones]);
-
-    const scrollToMilestone = useCallback((time: number) => {
-        if (!result) return;
-        const duration = 500; // Show 500ms window around milestone
-        applyZoom({
-            startTime: Math.max(result.startTime, time - 100),
-            endTime: Math.min(result.endTime, time + 400)
-        });
-    }, [result, applyZoom]);
 
     return {
         selectedSegmentId, setSelectedSegmentId,
@@ -384,7 +369,9 @@ export function usePerfDashboardState({
         checkSegmentMatch,
         isScanningStatus,
         highlightName, setHighlightName,
-        milestones, milestoneKeywords, setMilestoneKeywords, scrollToMilestone,
-        addUserMilestone, userMilestones, setUserMilestones
+        milestones, milestoneKeywords, setMilestoneKeywords,
+        addUserMilestone, userMilestones, setUserMilestones,
+        selectedMilestoneTime, setSelectedMilestoneTime,
+        deleteUserMilestone, updateUserMilestone
     };
 }
