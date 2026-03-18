@@ -143,7 +143,8 @@ const AppContent: React.FC = () => {
     ToolId.BLOCK_TEST,
     ToolId.JSON_TOOLS,
     ToolId.POST_TOOL,
-    ToolId.TPK_EXTRACTOR
+    ToolId.TPK_EXTRACTOR,
+    ToolId.SPEED_SCOPE
   ];
 
   const [enabledPlugins, setEnabledPlugins] = useState<string[]>(defaultEnabledPlugins);

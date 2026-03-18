@@ -215,18 +215,33 @@
   - `Main Logic`: [PerfToolPlugin.tsx](./plugins/core/PerfToolPlugin.tsx)
 - **Core Interface**:
   - `analyzePerformance()`: 캡처된 데이터 분석 및 시각화
-- [Analyze] Performance analysis with Flame Graph.
-- **위치**: `components/SpeedScope/SpeedScopePlugin.tsx`, `workers/SpeedScopeParser.worker.ts`
-- **주요 기능**:
-    - **Speedscope 포맷 완벽 대응**: `evented` 및 `sampled` 프로파일 형식 지원.
-    - **시간 단위 표준화**: `ns`, `us`, `ms`, `s` 단위를 `ms`로 자동 통합.
-    - **고급 색상 시스템**: 함수 이름 기반 해싱 컬러링에 **파스텔 톤다운(Muted Pastel)**을 적용하여 시각적 피로도 최소화. [NEW]
-    - **Fail Threshold UI 개선**: 입력 필드를 `PerfTopBar`로 이동하여 직관성을 높이고, `Fail Only` 필터와 연동하여 실시간 필터링 지원. [NEW] [HOT]
-    - **검색 기능 고도화**: 대소문자 무시(Case-insensitive) 검색, 백스페이스를 통한 태그 삭제 편의성 개선, 키워드 추가/삭제 시 차트 즉시 업데이트 보장 로직 탑재. [NEW] [HOT]
-    - **데이터 분석 엔진 고도화**: `Self Time`(자식 제외 실행 시간) 계산 및 함수별 `Total/Self` 통계 합산 로직 탑재. [NEW]
-    - **Speedscope 스타일 상세 UI**: 세그먼트 클릭 시 하단에 `This Instance` 및 `All Instances` 통계 테이블과 호출 스택(Stack Trace) 리스트 제공. (데이터 누락 버그 해결 완비) [FIXED]
-    - **멀티 스레드/프로파일 전환**: 파일 내의 모든 프로파일을 자유롭게 전환 가능하며, 전환 시 통계 데이터 실시간 갱신.
-    - **Analyze Diff (프로파일 비교)**: 두 SpeedScope JSON 프로파일 간의 실행 흐름과 시간 차이를 분석하여 `SplitAnalyzerPanel`을 통해 시각화합니다. 🐧⚡ [NEW]
+- [x] **Speedscope Analyzer**
+    - **ID**: `plugin-speed-scope`
+    - **Keywords**: [`Speedscope`, `Flame Graph`, `Performance Analysis`, `CPU Profile`]
+    - **Location**:
+        - `View`: [SpeedScopePlugin.tsx](./components/SpeedScope/SpeedScopePlugin.tsx)
+        - `Worker`: [SpeedScopeParser.worker.ts](./workers/SpeedScopeParser.worker.ts)
+    - **Features**:
+        - **Speedscope 포맷 완벽 대응**: `evented` 및 `sampled` 프로파일 형식 지원.
+        - **고급 색상 시스템**: 함수 이름 기반 해싱 컬러링에 파스텔 톤다운 적용.
+        - **Fail Threshold & Fail Only**: 실시간 성능 필터링 지원. [HOT]
+        - **검색 & 태그**: 대소문자 무시 검색 및 태그 기반 필터링. [HOT]
+        - **Self Time 계산**: 순수 실행 시간 통계 자동 산출.
+        - **Interactive Detail View**: 인스턴스별 통계 및 호출 스택(Stack Trace) 제공.
+        - **Analyze Diff (프로파일 비교)**: 두 JSON 프로파일 간 성능 차이 분석 및 시각화. 🐧⚡
+    - **Data Flow**: `Raw Data` -> `SpeedScopeParser` -> `PerfDashboard` -> `SplitAnalysisWorker` -> `SplitAnalyzerPanel`
+
+#### [[Milestone Timeline Board]] [NEW] 🚩
+성능 타임라인 상에 중요한 기점을 시각화하여 복잡한 구간 내에서 내비게이션을 돕는 기능입니다.
+- **ID**: `feature-perf-milestone`
+- **Location**:
+  - `UI`: [PerfMilestoneBar.tsx](./components/LogViewer/PerfDashboard/PerfMilestoneBar.tsx)
+  - `Layout`: [PerfChartLayout.tsx](./components/LogViewer/PerfDashboard/PerfChartLayout.tsx)
+  - `Logic`: [usePerfDashboardState.ts](./components/LogViewer/usePerfDashboardState.ts)
+- **Features**:
+  - **자동 마일스톤**: 로그 내 특정 키워드(`OnCreate`, `OnResume`, `Finished` 등) 감지 시 자동 깃발 생성
+  - **사용자 정의 마일스톤**: 차트 영역 **우클릭(Right Click)**으로 원하는 지점에 즉시 마일스톤 추가 가능 [NEW]
+  - **Interaction**: 깃발 클릭 시 해당 시점으로 즉시 이동, 호버 시 하단 툴팁으로 상세 정보 확인
 - **Data Flow**: `Raw Data` -> `SpeedScopeParser` -> `PerfDashboard` -> `SplitAnalysisWorker` -> `SplitAnalyzerPanel`
 
 ### [[PostTool Plugin]]

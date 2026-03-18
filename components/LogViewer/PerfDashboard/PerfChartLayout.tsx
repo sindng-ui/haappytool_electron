@@ -2,6 +2,7 @@ import React from 'react';
 import * as Lucide from 'lucide-react';
 import { AnalysisResult, AnalysisSegment } from '../../../utils/perfAnalysis';
 import { PerfFlameGraph } from './PerfFlameGraph';
+import { PerfMilestoneBar } from './PerfMilestoneBar';
 
 export interface PerfChartLayoutProps {
     result: AnalysisResult;
@@ -49,6 +50,9 @@ export interface PerfChartLayoutProps {
     // Axis ticks helper function
     generateTicks: (start: number, end: number, minTicks?: number) => number[];
     highlightName: string | null;
+    milestones: { time: number; label: string; color: string }[];
+    onMilestoneClick: (time: number) => void;
+    addUserMilestone: (time: number, label: string) => void;
 }
 
 export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
@@ -57,10 +61,12 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
     measureRange, setMeasureRange, isShiftPressed, searchTerms, checkSegmentMatch, showOnlyFail,
     selectedSegmentId, setSelectedSegmentId, multiSelectedIds, setMultiSelectedIds,
     onJumpToRange, onViewRawRange, isActive, isOpen, setIsInitialDrawComplete, exportCanvasRef,
-    generateTicks, flameChartContainerRef, dragCleanupRef, perfThreshold, highlightName
+    generateTicks, flameChartContainerRef, dragCleanupRef, perfThreshold, highlightName,
+    milestones, onMilestoneClick, addUserMilestone
 }) => {
     // TID 컬럼 제외 실제 차트 영역의 ref — 이 div 기준으로 마우스 좌표를 계산하면 오프셋 보정 불필요
     const innerChartRef = React.useRef<HTMLDivElement>(null);
+    const [pendingMilestone, setPendingMilestone] = React.useState<{ x: number; y: number; time: number } | null>(null);
 
     return (
         <div className="w-full relative flex flex-col h-full bg-slate-900 overflow-hidden">
@@ -68,18 +74,18 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                 className="flex-1 overflow-auto custom-scrollbar relative flex bg-black/40"
                 ref={flameChartContainerRef}
             >
-                <div
-                    className="flex flex-row min-w-full relative"
-                    style={{
-                        height: `${Math.max(200, (maxLane + 1) * 24 + 24)}px`
-                    }}
-                >
+                    <div
+                        className="flex flex-row min-w-full relative"
+                        style={{
+                            height: `${Math.max(200, (maxLane + 1) * 24 + 40)}px` // 24 (axis) + 16 (pt-4) = 40
+                        }}
+                    >
                     {/* TID Sidebar (Sticky Left) */}
                     {showTidColumn && (
-                        <div className="sticky left-0 w-[52px] shrink-0 z-[100] pointer-events-none bg-slate-900/95 ">
+                        <div className="sticky left-0 w-[52px] shrink-0 z-[100] pointer-events-none bg-slate-900/95 pt-4">
                             <div className="absolute top-0 bottom-0 right-0 w-px bg-white/5 shadow-[2px_0_10px_rgba(0,0,0,0.5)]" />
-                            <div className="absolute left-0 right-0 h-px bg-white/10" style={{ top: '52px' }} />
-                            <div className="absolute top-0 left-0 right-0 h-5 border-b border-white/5 flex items-center justify-center bg-slate-950/20 ">
+                            <div className="absolute left-0 right-0 h-px bg-white/10" style={{ top: '40px' }} />
+                            <div className="absolute top-4 left-0 right-0 h-6 border-b border-white/5 flex items-center justify-center bg-slate-950/20 ">
                                 <span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.3em]">TID</span>
                             </div>
                             {Array.from({ length: maxLane + 1 }).map((_, i) => {
@@ -93,7 +99,7 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                                     <div
                                         key={`tid-label-${i}`}
                                         className={`absolute left-0 right-0 h-[20px] flex items-center pr-1 transition-all ${isTidSelected ? 'z-[110]' : ''}`}
-                                        style={{ top: `${i * 24 + 24}px` }}
+                                        style={{ top: `${i * 24 + 40}px` }} // 24 + 16 = 40
                                     >
                                         {isFirstInTid ? (
                                             <div
@@ -125,8 +131,20 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
 
                     {/* Scrollable Map Area — TID 제외 순수 차트 영역, 마우스 좌표 기준점 */}
                     <div
-                        className="flex-1 relative bg-slate-950/20"
+                        className="flex-1 relative bg-slate-950/20 pt-4"
                         ref={innerChartRef}
+                        onContextMenu={(e) => {
+                            e.preventDefault();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            const widthPercent = x / rect.width;
+                            
+                            const viewStart = flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime);
+                            const viewEnd = flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime);
+                            const currentTime = viewStart + (viewEnd - viewStart) * widthPercent;
+
+                            setPendingMilestone({ x: e.clientX, y: e.clientY, time: currentTime });
+                        }}
                         onMouseDown={(e) => {
                             if (isShiftPressed) {
                                 e.preventDefault();
@@ -187,7 +205,7 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                         {/* Global Divider Line */}
                         <div
                             className="absolute left-0 right-0 h-px bg-white/10 z-[10] shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
-                            style={{ top: '48px' }} // lane 0 is from 24 to 46. 24 + 24 = 48.
+                            style={{ top: '64px' }} // 40 (start) + 24 = 64
                         />
                         {/* Selected TID Lane Highlight */}
                         {selectedTid && Array.from({ length: maxLane + 1 }).map((_, i) => {
@@ -196,12 +214,27 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                                 <div
                                     key={`tid-bg-${i}`}
                                     className="absolute left-0 right-0 h-[22px] bg-indigo-500/[0.04] pointer-events-none z-0"
-                                    style={{ top: `${i * 24 + 24}px` }}
+                                    style={{ top: `${i * 24 + 40}px` }} // 24 + 16(pt-4) = 40
                                 />
                             );
                         })}
                         {/* Time Axis */}
-                        <div className="absolute top-0 left-0 right-0 h-6 border-b border-white/5 text-slate-400 font-mono text-[9px] select-none pointer-events-none z-[110] overflow-visible">
+                        <div className="absolute top-4 left-0 right-0 h-6 border-b border-white/5 text-slate-400 font-mono text-[9px] select-none pointer-events-none z-[110] overflow-visible">
+                            {/* Milestone Markers */}
+                            {(() => {
+                                const viewStart = flameZoom?.startTime ?? (trimRange?.startTime ?? result.startTime);
+                                const viewEnd = flameZoom?.endTime ?? (trimRange?.endTime ?? result.endTime);
+                                const viewDuration = Math.max(1, viewEnd - viewStart);
+                                return (
+                                    <PerfMilestoneBar 
+                                        milestones={milestones}
+                                        viewStart={viewStart}
+                                        viewDuration={viewDuration}
+                                        width={innerChartRef.current?.clientWidth || 0}
+                                        onMilestoneClick={onMilestoneClick}
+                                    />
+                                );
+                            })()}
                             {(() => {
                                 const baseTime = flameSegments.length > 0
                                     ? Math.min(...flameSegments.map(s => s.startTime))
@@ -240,13 +273,22 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                                         width: `${Math.max(0.1, widthPercent)}%`
                                     }}
                                 >
-                                    <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-amber-500 text-amber-950 font-bold text-[11px] px-2.5 py-1 rounded shadow-lg whitespace-nowrap flex items-center gap-1.5  border border-amber-400">
+                                    <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-amber-500 text-amber-950 font-bold text-[11px] px-2.5 py-1 rounded shadow-lg whitespace-nowrap flex items-center gap-1.5  border border-amber-400">
                                         <Lucide.Clock size={11} />
                                         {(rulerEnd - rulerStart).toLocaleString(undefined, { maximumFractionDigits: 2 })}ms
                                     </div>
                                 </div>
                             );
                         })()}
+
+                        {/* 💡 Lane Backgrounds (Re-added) */}
+                        {Array.from({ length: maxLane + 1 }).map((_, i) => (
+                            <div
+                                key={`lane-bg-${i}`}
+                                className="absolute left-0 right-0 h-[22px] bg-white/[0.02] pointer-events-none"
+                                style={{ top: `${i * 24 + 40}px`, zIndex: 0 }}
+                            />
+                        ))}
 
                         {/* 💡 Canvas-based Flame Chart Rendering */}
                         <PerfFlameGraph
@@ -277,6 +319,7 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                             perfThreshold={perfThreshold}
                             generateTicks={generateTicks}
                             highlightName={highlightName}
+                            milestones={milestones}
                         />
                     </div>
                 </div>
@@ -286,6 +329,70 @@ export const PerfChartLayout: React.FC<PerfChartLayoutProps> = ({
                         <span className="text-xs uppercase tracking-widest font-bold">No segments found</span>
                     </div>
                 )}
+            </div>
+            {/* 💡 Pending Milestone Input Overlay (Replacement for prompt) */}
+            {pendingMilestone && (
+                <MilestoneInputOverlay 
+                    pendingMilestone={pendingMilestone}
+                    onSave={(label) => {
+                        addUserMilestone(pendingMilestone.time, label);
+                        setPendingMilestone(null);
+                    }}
+                    onCancel={() => setPendingMilestone(null)}
+                />
+            )}
+        </div>
+    );
+};
+
+/**
+ * 💡 별도 컴포넌트로 분리하여 타이핑 시 PerfChartLayout 전체가 리렌더링되는 성능 이슈 해결
+ */
+interface MilestoneInputOverlayProps {
+    pendingMilestone: { x: number; y: number; time: number };
+    onSave: (label: string) => void;
+    onCancel: () => void;
+}
+
+const MilestoneInputOverlay: React.FC<MilestoneInputOverlayProps> = ({ pendingMilestone, onSave, onCancel }) => {
+    const [label, setLabel] = React.useState('User Mark');
+
+    return (
+        <div 
+            className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/20 backdrop-blur-[2px]"
+            onClick={onCancel}
+        >
+            <div 
+                className="bg-slate-900 border border-indigo-500/50 rounded-xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col gap-3 min-w-[280px] animate-in zoom-in-95 duration-200"
+                onClick={e => e.stopPropagation()}
+                style={{
+                    position: 'fixed',
+                    left: Math.max(20, Math.min(window.innerWidth - 300, pendingMilestone.x - 140)),
+                    top: Math.max(20, Math.min(window.innerHeight - 150, pendingMilestone.y - 60))
+                }}
+            >
+                <div className="flex items-center gap-2 text-indigo-400">
+                    <Lucide.Flag size={14} className="animate-bounce" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Add Milestone</span>
+                </div>
+                <input
+                    autoFocus
+                    className="bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-all font-bold"
+                    value={label}
+                    onChange={e => setLabel(e.target.value)}
+                    onKeyDown={e => {
+                        if (e.key === 'Enter' && label.trim()) {
+                            onSave(label.trim());
+                        } else if (e.key === 'Escape') {
+                            onCancel();
+                        }
+                    }}
+                    placeholder="Enter marker name..."
+                />
+                <div className="flex justify-between items-center text-[9px] text-slate-500 font-bold uppercase">
+                    <span>Press Enter to Save</span>
+                    <span className="opacity-50">ESC to Cancel</span>
+                </div>
             </div>
         </div>
     );

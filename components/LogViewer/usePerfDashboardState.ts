@@ -47,6 +47,20 @@ export function usePerfDashboardState({
     const [perfThreshold, setPerfThreshold] = useState<number>(result?.perfThreshold || 1000);
     const [highlightName, setHighlightName] = useState<string | null>(null);
 
+    // --- Milestone Logic ---
+    const [milestoneKeywords, setMilestoneKeywords] = useState<string[]>(['OnCreate', 'OnResume', 'OnPause', 'Finished', 'AppStart', 'PageTransitions']);
+    const [userMilestones, setUserMilestones] = useState<{ time: number; label: string; color: string }[]>([]);
+
+    const addUserMilestone = useCallback((time: number, label: string) => {
+        const colors = ['#f59e0b', '#ec4899', '#8b5cf6', '#10b981', '#3b82f6'];
+        const newMilestone = {
+            time,
+            label,
+            color: colors[(milestoneKeywords.length + userMilestones.length) % colors.length]
+        };
+        setUserMilestones(prev => [...prev, newMilestone].sort((a, b) => a.time - b.time));
+    }, [milestoneKeywords.length, userMilestones.length]);
+
     // --- Search Token (Tags) Logic ---
     const [searchTerms, setSearchTerms] = useState<string[]>([]);
 
@@ -307,6 +321,50 @@ export function usePerfDashboardState({
         return () => window.removeEventListener('wheel', onGlobalWheel);
     }, [result, isActive, paneId, trimRange, handleWheelZoom, handleWheelPan, zoomRef]);
 
+    const milestones = useMemo(() => {
+        if (!result) return [];
+        const found: { time: number; label: string; color: string }[] = [];
+        const seen = new Set<string>();
+
+        // Palette for milestones
+        const colors = ['#f59e0b', '#ec4899', '#8b5cf6', '#10b981', '#3b82f6'];
+
+        // 1. Automatic Milestones
+        if (milestoneKeywords.length > 0) {
+            result.segments.forEach(s => {
+                const name = s.name || '';
+                const matchingKeyword = milestoneKeywords.find(k => name.toLowerCase().includes(k.toLowerCase()));
+                if (matchingKeyword) {
+                    const key = `${Math.floor(s.startTime)}-${name}`;
+                    if (!seen.has(key)) {
+                        found.push({
+                            time: s.startTime,
+                            label: name,
+                            color: colors[found.length % colors.length]
+                        });
+                        seen.add(key);
+                    }
+                }
+            });
+        }
+
+        // 2. User Milestones
+        userMilestones.forEach(um => {
+            found.push(um);
+        });
+
+        return found.sort((a, b) => a.time - b.time);
+    }, [result, milestoneKeywords, userMilestones]);
+
+    const scrollToMilestone = useCallback((time: number) => {
+        if (!result) return;
+        const duration = 500; // Show 500ms window around milestone
+        applyZoom({
+            startTime: Math.max(result.startTime, time - 100),
+            endTime: Math.min(result.endTime, time + 400)
+        });
+    }, [result, applyZoom]);
+
     return {
         selectedSegmentId, setSelectedSegmentId,
         viewMode, setViewMode,
@@ -325,6 +383,8 @@ export function usePerfDashboardState({
         navSegments, currentNavIndex, jumpToNavSegment,
         checkSegmentMatch,
         isScanningStatus,
-        highlightName, setHighlightName
+        highlightName, setHighlightName,
+        milestones, milestoneKeywords, setMilestoneKeywords, scrollToMilestone,
+        addUserMilestone, userMilestones, setUserMilestones
     };
 }

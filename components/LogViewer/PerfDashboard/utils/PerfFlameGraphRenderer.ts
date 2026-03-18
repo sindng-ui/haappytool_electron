@@ -19,6 +19,7 @@ export interface DrawOptions {
     activeTags?: string[];
     ticks?: number[];
     highlightName?: string | null;
+    milestones?: { time: number; label: string; color: string }[];
 }
 
 export class PerfFlameGraphRenderer {
@@ -89,7 +90,7 @@ export class PerfFlameGraphRenderer {
         visibleSegments.forEach(s => {
             const x = ((s.startTime - viewStart) / viewDuration) * width;
             const w = Math.max(s.duration === 0 ? 3 : 0.5, (s.duration / viewDuration) * width);
-            const y = s.lane * 24 + 24;
+            const y = s.lane * 24 + 40;
             const h = 22;
 
             const isSelected = s.id === selectedSegmentId || multiSelectedIds.includes(s.id);
@@ -154,8 +155,24 @@ export class PerfFlameGraphRenderer {
         });
         ctx.globalAlpha = 1;
 
-        // Draw background grid lines AGAIN on top of segments but under text
         this.drawVerticalGrid(ctx, { ticks: options.ticks, viewStart, viewDuration, width, height });
+
+        // --- Milestone Guide Lines ---
+        const { milestones = [] } = options;
+        if (milestones.length > 0) {
+            ctx.setLineDash([2, 4]);
+            milestones.forEach(m => {
+                if (m.time >= viewStart && m.time <= viewEnd) {
+                    const x = ((m.time - viewStart) / viewDuration) * width;
+                    ctx.strokeStyle = m.color + '44'; // 44 is hex for low opacity (alpha)
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+                }
+            });
+            ctx.setLineDash([]);
+        }
 
         // --- Segment Name Text Rendering ---
         ctx.font = `700 10px 'Inter', system-ui, sans-serif`; // Sharper weight and slightly larger
@@ -163,7 +180,7 @@ export class PerfFlameGraphRenderer {
         visibleSegments.forEach(s => {
             const x = ((s.startTime - viewStart) / viewDuration) * width;
             const w = Math.max(s.duration === 0 ? 3 : 0.5, (s.duration / viewDuration) * width);
-            const y = s.lane * 24 + 24;
+            const y = s.lane * 24 + 40;
             const h = 22;
 
             if (w < 30) return;
