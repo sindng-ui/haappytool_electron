@@ -144,7 +144,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
 
     return (
         <div
-            className={`w-full z-10 flex flex-col transition-all duration-300 ease-in-out relative group/dashboard perf-dashboard-container overflow-hidden ${isFullScreen ? 'h-full flex-1' : 'border-b-[6px] border-[#080b14] shadow-[0_8px_16px_rgba(0,0,0,0.6)]'}`}
+            className={`w-full z-10 flex flex-col transition-all duration-300 ease-in-out relative group/dashboard perf-dashboard-container overflow-hidden max-h-full min-h-0 ${isFullScreen ? 'h-full flex-1' : 'border-b-[6px] border-[#080b14] shadow-[0_8px_16px_rgba(0,0,0,0.6)]'}`}
             style={isFullScreen ? { backgroundColor: '#0f172a' } : {
                 height: minimized ? '40px' : `${height}px`,
                 backgroundColor: '#0f172a' // Slate-950 distinct bg

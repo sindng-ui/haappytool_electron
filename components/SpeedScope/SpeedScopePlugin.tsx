@@ -380,9 +380,9 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                     </div>
                 </div>
 
-                <div className={`flex-1 flex ${compareMode ? 'flex-row' : 'flex-col'} overflow-hidden w-full`}>
+                <div className={`flex-1 flex ${compareMode ? 'flex-row' : 'flex-col'} overflow-hidden w-full min-h-0`}>
                     {/* Left Pane / Single Pane */}
-                    <div className={`${compareMode ? 'w-1/2 border-r border-white/10' : 'flex-1'} flex flex-col relative`}>
+                    <div className={`${compareMode ? 'w-1/2 border-r border-white/10' : 'flex-1'} flex flex-col relative min-h-0`}>
                         {resultLeft && (
                             <ThreadSelector 
                                 profiles={profilesLeft} 
@@ -411,7 +411,7 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                                 </label>
                             </div>
                         ) : (
-                            <div className="flex-1 overflow-hidden relative" data-pane-id="left">
+                            <div className="flex-1 overflow-hidden relative min-h-0" data-pane-id="left">
                                 <PerfDashboard
                                     isOpen={true} isActive={isActive}
                                     result={resultLeft}
@@ -428,7 +428,7 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
 
                     {/* Right Pane (Compare) */}
                     {compareMode && (
-                        <div className="w-1/2 flex flex-col relative">
+                        <div className="w-1/2 flex flex-col relative min-h-0">
                             {resultRight && (
                                 <ThreadSelector 
                                     profiles={profilesRight} 
@@ -456,7 +456,7 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                                     </label>
                                 </div>
                             ) : (
-                                <div className="flex-1 overflow-hidden relative" data-pane-id="right">
+                                <div className="flex-1 overflow-hidden relative min-h-0" data-pane-id="right">
                                     <PerfDashboard
                                         isOpen={true} isActive={isActive}
                                         result={resultRight}
