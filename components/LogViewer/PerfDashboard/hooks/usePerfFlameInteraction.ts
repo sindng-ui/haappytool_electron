@@ -38,9 +38,9 @@ export const usePerfFlameInteraction = ({
             const s = flameSegments[i];
             const x = ((s.startTime - viewStart) / viewDuration) * width;
             const w = Math.max(s.duration === 0 ? 3 : 0.5, (s.duration / viewDuration) * width);
-            const y = s.lane * 28 + 24;
+            const y = s.lane * 24 + 24;
 
-            if (mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + 20) {
+            if (mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + 22) {
                 if (s.tid === 'Global') {
                     globalFallback = s;
                 } else {

@@ -252,8 +252,9 @@
 - **ID**: `logic-perf-analysis`
 - **Keywords**: [`성능 분석`, `performance`, `heat map`, `bottleneck`, `time gap`, `flame map`, `플레임 맵`]
 - **Location**:
-  - `Logic`: [perfAnalysis.ts](./utils/perfAnalysis.ts)
-  - `View`: [PerfDashboard.tsx](./components/LogViewer/PerfDashboard.tsx)
+  - `Logic`: [perfAnalysis.ts](./utils/perfAnalysis.ts), [usePerfFlameInteraction.ts](./components/LogViewer/PerfDashboard/hooks/usePerfFlameInteraction.ts)
+  - `View`: [PerfDashboard.tsx](./components/LogViewer/PerfDashboard.tsx), [PerfFlameGraph.tsx](./components/LogViewer/PerfDashboard/PerfFlameGraph.tsx)
+  - `Renderer`: [PerfFlameGraphRenderer.ts](./components/LogViewer/PerfDashboard/utils/PerfFlameGraphRenderer.ts)
 - **Core Interface**:
   - `analyzePerfSegments()`: 로그 간 시간 차이를 계산하여 병목 지점 추출
   - `extractTimestamp()`: 다양한 로그 포맷에서 타임스탬프 파싱
