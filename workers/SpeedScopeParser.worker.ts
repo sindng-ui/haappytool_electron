@@ -238,7 +238,11 @@ ctx.onmessage = (evt) => {
             }
 
             // Default to "Main Thread" or the most active profile
-            const mainThreadPatterns = ['main thread', 'thread (0)', 'crrenderermain', 'main', 'root', 'ui'];
+            const mainThreadPatterns = [
+                'main thread', 'thread (0)', 'crrenderermain', 'main', 'root', 'ui',
+                'mainloop', 'ecore_main', 'app_main', 'activitythread', 'winmain', 
+                'messageloop', 'primary', 'application', 'uithread'
+            ];
             let bestIdx = profileInfos.findIndex(p => 
                 mainThreadPatterns.some(pattern => p.name.toLowerCase().includes(pattern))
             );
