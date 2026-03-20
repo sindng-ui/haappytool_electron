@@ -241,11 +241,30 @@ ctx.onmessage = (evt) => {
             const mainThreadPatterns = [
                 'main thread', 'thread (0)', 'crrenderermain', 'main', 'root', 'ui',
                 'mainloop', 'ecore_main', 'app_main', 'activitythread', 'winmain', 
-                'messageloop', 'primary', 'application', 'uithread'
+                'messageloop', 'primary', 'application', 'uithread', 'process32'
             ];
+
+            // 1. Try pattern matching in profile name
             let bestIdx = profileInfos.findIndex(p => 
                 mainThreadPatterns.some(pattern => p.name.toLowerCase().includes(pattern))
             );
+
+            // 2. If not found, try searching for Process32 Process(PID) in root segments
+            // This pattern indicates the main process/thread initialization
+            if (bestIdx === -1) {
+                const procRegex = /Process32\s+Process\((\d+)\)/i;
+                for (let i = 0; i < allProfilesSegments.length; i++) {
+                    const segments = allProfilesSegments[i];
+                    // Look through the first few root segments for the process metadata
+                    const hasProcInfo = segments.slice(0, 50).some(s => s.lane === 0 && procRegex.test(s.name));
+                    if (hasProcInfo) {
+                        bestIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            // 3. Fallback to most active
             if (bestIdx === -1) {
                 bestIdx = profileInfos.reduce((prev, curr, idx) => curr.segmentCount > profileInfos[prev].segmentCount ? idx : prev, 0);
             }

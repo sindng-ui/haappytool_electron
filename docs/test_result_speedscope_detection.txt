@@ -1,0 +1,23 @@
+
+Speedscope Main Thread Detection Test Results
+Date: 2026-03-20
+
+Test Script: test/test_speedscope_detection.ts
+
+Test Case:
+1. Worker Thread (No pattern)
+2. Thread "1640" with segment "Process32 Process(1640) (1640) Args: ..."
+3. Idle Thread
+
+Result:
+Detected Main Thread Index: 1
+Detected Main Thread Name: 1640
+SUCCESS: Correct main thread detected based on Process32 pattern.
+
+Regression Check:
+- Existing keywords (main, ui, thread (0), etc.) still work via indexFind.
+- Fallback to segment count still works if no pattern matches.
+
+Performance Audit:
+- Root segment check is limited to first 50 segments per profile.
+- Minimal overhead for typical profiles.
