@@ -241,7 +241,8 @@ ctx.onmessage = (evt) => {
             const mainThreadPatterns = [
                 'main thread', 'thread (0)', 'crrenderermain', 'main', 'root', 'ui',
                 'mainloop', 'ecore_main', 'app_main', 'activitythread', 'winmain', 
-                'messageloop', 'primary', 'application', 'uithread', 'process32'
+                'messageloop', 'primary', 'application', 'uithread', 'process32',
+                'procoes32', 'proces'
             ];
 
             // 1. Try pattern matching in profile name
@@ -252,12 +253,23 @@ ctx.onmessage = (evt) => {
             // 2. If not found, try searching for Process32 Process(PID) in root segments
             // This pattern indicates the main process/thread initialization
             if (bestIdx === -1) {
-                const procRegex = /Process32\s+Process\((\d+)\)/i;
+                const procRegex = /(?:Process32|Procoes32)\s+(?:Process|Proces)\((\d+)\)/i;
                 for (let i = 0; i < allProfilesSegments.length; i++) {
                     const segments = allProfilesSegments[i];
                     // Look through the first few root segments for the process metadata
-                    const hasProcInfo = segments.slice(0, 50).some(s => s.lane === 0 && procRegex.test(s.name));
-                    if (hasProcInfo) {
+                    const procSegment = segments.slice(0, 50).find(s => s.lane === 0 && procRegex.test(s.name));
+                    if (procSegment) {
+                        const match = procSegment.name.match(procRegex);
+                        if (match) {
+                            const pid = match[1];
+                            // Try to find a profile named exactly this PID
+                            const pidIdx = profileInfos.findIndex(p => p.name === pid);
+                            if (pidIdx !== -1) {
+                                bestIdx = pidIdx;
+                                break;
+                            }
+                        }
+                        // Fallback to the current profile if no profile matches PID
                         bestIdx = i;
                         break;
                     }

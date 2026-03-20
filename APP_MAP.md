@@ -228,7 +228,7 @@
         - **검색 & 태그**: 대소문자 무시 검색 및 태그 기반 필터링. [HOT]
         - **Self Time 계산**: 순수 실행 시간 통계 자동 산출.
         - **Interactive Detail View**: 인스턴스별 통계 및 호출 스택(Stack Trace) 제공.
-        - **메인 스레드 자동 탐지 및 선택 기능 강화**: Tizen(`MainLoop`), Android(`ActivityThread`), Windows(`WinMain`) 등 주 플랫폼의 메인 루프를 자동으로 식별하여 최적의 프로파일을 기본 선택합니다. [NEW]
+        - **메인 스레드 자동 탐지 및 선택 기능 강화**: Tizen(`MainLoop`), Android(`ActivityThread`), Windows(`WinMain`) 등 주 플랫폼의 메인 루프뿐만 아니라, 메타데이터의 **PID 정보를 분석(오타 패턴 지원)**하여 최적의 프로파일을 자동으로 식별하고 선택합니다. [UPDATED]
         - **Analyze Diff (프로파일 비교)**: 두 JSON 프로파일 간 성능 차이 분석 및 시각화. 🐧⚡
     - **Data Flow**: `Raw Data` -> `SpeedScopeParser` -> `PerfDashboard` -> `SplitAnalysisWorker` -> `SplitAnalyzerPanel`
 
