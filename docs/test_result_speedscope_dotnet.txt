@@ -1,0 +1,6 @@
+[PASS] dotnet trace style - Managed Thread
+[PASS] dotnet trace style - Thread 0
+[PASS] Filename match priority
+[PASS] Process32 Metadata pattern
+
+Final Result: 4/4 passed.

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://www.speedscope.app/file-format-schema.json",
+  "shared": {
+    "frames": [
+      {"name": "Native: ecore_main_loop_iterate"},
+      {"name": "Native: _evas_canvas_event_feed"},
+      {"name": "Native: dotnet_runtime_setup_hnd"},
+      {"name": "Tizen.TV.SmartThingsApp.Program.Main"},
+      {"name": "Tizen.TV.SmartThingsApp.Lifecycle.OnCreate"},
+      {"name": "Tizen.TV.SmartThingsApp.Lifecycle.OnAppControlReceived"},
+      {"name": "Tizen.TV.SmartThingsApp.Lifecycle.OnResume"},
+      {"name": "Tizen.TV.SmartThingsApp.ViewModel.MainViewModel.<InitializeAsync>d__12.MoveNext()"},
+      {"name": "System.Runtime.CompilerServices.AsyncTaskMethodBuilder.Start"},
+      {"name": "Tizen.TV.SmartThingsApp.Data.DBHandler.<GetCachedDeviceDataAsync>d__4.MoveNext()"},
+      {"name": "Tizen.TV.SmartThingsApp.Data.DBHandler.OpenSqliteConnection"},
+      {"name": "System.Data.SQLite.SQLiteConnection.Open"},
+      {"name": "Native: libsqlite3.so!sqlite3_step"},
+      {"name": "Tizen.TV.SmartThingsApp.Model.DeviceMapper.ComplexJsonMapping"},
+      {"name": "Newtonsoft.Json.JsonTextReader.Read"},
+      {"name": "System.Collections.Generic.List`1.Add"},
+      {"name": "Tizen.TV.SmartThingsApp.View.DeviceListView.OnBindingContextChanged"},
+      {"name": "Tizen.UI.Framework.Controls.CollectionView.UpdateItems"},
+      {"name": "Tizen.UI.Framework.Renderer.NUI.VisualBase.DoRender"},
+      {"name": "Native: libdali-core.so!Dali::Internal::Scene::Render"},
+      {"name": "Native: libglesv2.so!glDrawElements"},
+      {"name": "System.GC.Collect"},
+      {"name": "System.Threading.Tasks.Task.WaitAll"},
+      {"name": "Tizen.TV.SmartThingsApp.Network.CloudSync.FetchStatus"}
+    ]
+  },
+  "profiles": [
+    {
+      "type": "sampled",
+      "name": "Thread 0x1A4 (Main UI Thread)",
+      "unit": "milliseconds",
+      "startValue": 0,
+      "endValue": 10000,
+      "samples": [
+        [0, 1, 3, 4], 
+        [0, 1, 3, 5], 
+        [0, 1, 3, 6, 7, 8], 
+        [0, 1, 3, 6, 21, 22],
+        [0, 1, 3, 6, 16, 17, 18, 19, 20], 
+        [0]
+      ],
+      "weights": [1000, 1000, 2000, 1500, 4000, 500]
+    },
+    {
+      "type": "sampled",
+      "name": "Thread 0x2B8 (Worker - DB/Network)",
+      "unit": "milliseconds",
+      "startValue": 0,
+      "endValue": 10000,
+      "samples": [
+        [9, 10, 11, 12], 
+        [9, 13, 14, 15], 
+        [23], 
+        [21]
+      ],
+      "weights": [3000, 3000, 3000, 1000]
+    }
+  ],
+  "activeProfileIndex": 0
+}

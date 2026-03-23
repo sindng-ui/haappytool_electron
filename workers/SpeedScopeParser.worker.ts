@@ -1,5 +1,6 @@
 /* eslint-disable no-restricted-globals */
 import { AnalysisResult, AnalysisSegment, getSegmentColor } from '../utils/perfAnalysis';
+import { detectMainThread } from '../utils/speedScopeUtils';
 
 const ctx: Worker = self as any;
 
@@ -193,11 +194,6 @@ ctx.onmessage = (evt) => {
                     });
 
                     // Post-process segments to calculate selfTime
-                    // For sampled profiles, selfTime is simply the weight of the samples where this frame is at the top.
-                    // But we merged segments. Let's calculate selfTime by looking at the overlaps.
-                    // Actually, a simpler way for sampled: Each sample weight 'w' adds 'w' to the selfTime of the TOP frame of that sample.
-                    // But segments are merged. Let's just track selfTime per name/id later.
-                    // Wait, the easiest way: for each segment, selfTime = duration - sum(children duration).
                     segments.forEach(s => {
                         const children = segments.filter(child => 
                             child.lane === (s.lane! + 1) && 
@@ -237,49 +233,8 @@ ctx.onmessage = (evt) => {
                 return;
             }
 
-            // Default to "Main Thread" or the most active profile
-            const mainThreadPatterns = [
-                'main thread', 'thread (0)', 'crrenderermain', 'main', 'root', 'ui',
-                'mainloop', 'ecore_main', 'app_main', 'activitythread', 'winmain', 
-                'messageloop', 'primary', 'application', 'uithread', 'process32',
-                'procoes32', 'proces'
-            ];
-
-            // 1. Try pattern matching in profile name
-            let bestIdx = profileInfos.findIndex(p => 
-                mainThreadPatterns.some(pattern => p.name.toLowerCase().includes(pattern))
-            );
-
-            // 2. If not found, try searching for Process32 Process(PID) in root segments
-            // This pattern indicates the main process/thread initialization
-            if (bestIdx === -1) {
-                const procRegex = /(?:Process32|Procoes32)\s+(?:Process|Proces)\((\d+)\)/i;
-                for (let i = 0; i < allProfilesSegments.length; i++) {
-                    const segments = allProfilesSegments[i];
-                    // Look through the first few root segments for the process metadata
-                    const procSegment = segments.slice(0, 50).find(s => s.lane === 0 && procRegex.test(s.name));
-                    if (procSegment) {
-                        const match = procSegment.name.match(procRegex);
-                        if (match) {
-                            const pid = match[1];
-                            // Try to find a profile named exactly this PID
-                            const pidIdx = profileInfos.findIndex(p => p.name === pid);
-                            if (pidIdx !== -1) {
-                                bestIdx = pidIdx;
-                                break;
-                            }
-                        }
-                        // Fallback to the current profile if no profile matches PID
-                        bestIdx = i;
-                        break;
-                    }
-                }
-            }
-
-            // 3. Fallback to most active
-            if (bestIdx === -1) {
-                bestIdx = profileInfos.reduce((prev, curr, idx) => curr.segmentCount > profileInfos[prev].segmentCount ? idx : prev, 0);
-            }
+            // Heuristic Detection
+            const bestIdx = detectMainThread(profileInfos, fileName, allProfilesSegments);
 
             const selectedProfileData = allProfilesSegments[bestIdx];
             const pInfo = profileInfos[bestIdx];
@@ -300,10 +255,6 @@ ctx.onmessage = (evt) => {
                 functionStats: pInfo.functionStats
             };
 
-            // To support switching, we might need a way to send other profiles. 
-            // For now, let's include all profiles in a map to avoid repeated parsing if small, 
-            // but for performance, we return the "best" one and UI can request another?
-            // Actually, let's send ALL segments grouped by profile index to the UI.
             (result as any).allSegments = allProfilesSegments;
 
             ctx.postMessage({ type: 'ANALYSIS_COMPLETE', payload: { result }, requestId });

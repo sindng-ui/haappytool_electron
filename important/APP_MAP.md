@@ -151,11 +151,12 @@
 - **ID**: `plugin-speedscope`
 - **Keywords**: [`SpeedScope`, `JSON`, `Performance`, `Main Thread`, `Sampling`, `Profile`]
 - **Location**:
+- [x] Location:
   - `Main View`: [SpeedScopePlugin.tsx](./components/SpeedScope/SpeedScopePlugin.tsx)
   - `Parser Worker`: [SpeedScopeParser.worker.ts](./workers/SpeedScopeParser.worker.ts)
 - **Core Interface**:
   - `PARSE_SPEED_SCOPE`: Speedscope JSON 파싱 및 프로파일 추출
-  - `Main Thread Detection`: `mainThreadPatterns` 및 `Process32 Process(PID)` 패턴 기반 자동 감지 로직 (2026-03-20 업데이트)
+  - `Main Thread Detection`: .NET(`Managed Thread`, `0x`), 파일명 매칭, 활성도(SegmentCount) 가중치 및 `Process32` 패턴을 결합된 하이브리드 감지 로직 (2026-03-24 업데이트)
 - **Data Flow**: `SpeedScope JSON` -> `Worker(Parser)` -> `Heuristic Detection` -> `PerfDashboard Rendering`
 
 ### [[PostTool Plugin]]
