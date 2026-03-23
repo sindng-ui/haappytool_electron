@@ -45,7 +45,8 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
         executeScenario,
         activeScenarioId,
         scenarioStats,
-        lastReportUrl
+        lastReportUrl,
+        elapsedTime
     } = useBlockTest(isActive);
 
     const [sidebarTab, setSidebarTab] = useState<'blocks' | 'scenarios'>('blocks');
@@ -106,6 +107,7 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
                 onStop={stopPipeline}
                 onClose={() => setIsRunnerOpen(false)}
                 reportUrl={lastReportUrl}
+                elapsedTime={elapsedTime}
             />
         );
     }
@@ -123,6 +125,7 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
                 onStop={stopPipeline}
                 onClose={() => setIsRunnerOpen(false)}
                 reportUrl={lastReportUrl}
+                elapsedTime={elapsedTime}
             />
         );
     }

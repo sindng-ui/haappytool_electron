@@ -71,6 +71,22 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
 
     // Report State
     const [lastReportUrl, setLastReportUrl] = useState<string | null>(null);
+    const [elapsedTime, setElapsedTime] = useState(0);
+
+    // Timer Effect
+    useEffect(() => {
+        let interval: NodeJS.Timeout | null = null;
+        if (isRunning) {
+            interval = setInterval(() => {
+                setElapsedTime(prev => prev + 1);
+            }, 1000);
+        } else {
+            if (interval) clearInterval(interval);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [isRunning]);
 
     // Socket ref
     const socketRef = useRef<Socket | null>(null);
@@ -380,6 +396,7 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
         if (isRunning) return;
         setIsRunning(true);
         setIsRunnerOpen(true);
+        setElapsedTime(0); // Reset timer
         setActivePipelineId(pipeline.id);
         setExecutionLogs([]);
         fullLogsRef.current = []; // Clear full logs
@@ -444,6 +461,7 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
         if (isRunning) return;
         setIsRunning(true);
         setIsRunnerOpen(true);
+        setElapsedTime(0); // Reset timer
         setActiveScenarioId(scenario.id);
         setActivePipelineId(null); // Will set per step
         setExecutionLogs([]);
@@ -899,6 +917,7 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
         completedStepCount, // Export this
         isRunnerOpen,
         setIsRunnerOpen,
-        lastReportUrl // Export
+        lastReportUrl, // Export
+        elapsedTime
     };
 };

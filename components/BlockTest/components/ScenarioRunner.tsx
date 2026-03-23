@@ -18,6 +18,7 @@ interface ScenarioRunnerProps {
     onStop: () => void;
     onClose: () => void;
     reportUrl?: string | null;
+    elapsedTime?: number;
 }
 
 const ScenarioRunner: React.FC<ScenarioRunnerProps> = ({
@@ -33,7 +34,8 @@ const ScenarioRunner: React.FC<ScenarioRunnerProps> = ({
     isRunning,
     onStop,
     onClose,
-    reportUrl
+    reportUrl,
+    elapsedTime
 }) => {
     // Determine active pipeline data
     const activePipeline = pipelines.find(p => p.id === activePipelineId);
@@ -57,6 +59,10 @@ const ScenarioRunner: React.FC<ScenarioRunnerProps> = ({
                         <div className="flex items-center gap-2">
                             <Lucide.Film size={16} className="text-indigo-400" />
                             <h2 className="text-sm font-bold text-slate-200">{scenario.name}</h2>
+                            <div className="flex items-center gap-1.5 ml-2 px-2 py-0.5 bg-slate-800/50 rounded-full border border-slate-700">
+                                <Lucide.Clock size={12} className="text-slate-400" />
+                                <span className="text-[11px] font-mono font-bold text-indigo-400">{elapsedTime}s</span>
+                            </div>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-slate-500">
                             <div className="w-24 h-1.5 bg-slate-700 rounded-full overflow-hidden">

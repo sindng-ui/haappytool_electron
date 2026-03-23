@@ -18,9 +18,10 @@ interface PipelineRunnerProps {
     onClose: () => void;
     embedded?: boolean;
     reportUrl?: string | null;
+    elapsedTime?: number;
 }
 
-const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs, activeItemId, stats, completedCount, isRunning, onStop, onClose, embedded, reportUrl }) => {
+const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs, activeItemId, stats, completedCount, isRunning, onStop, onClose, embedded, reportUrl, elapsedTime }) => {
     const listContainerRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll to active item in List View
@@ -87,7 +88,15 @@ const PipelineRunner: React.FC<PipelineRunnerProps> = ({ pipeline, blocks, logs,
                         </button>
                     )}
                     <div className="no-drag">
-                        {!embedded && <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{pipeline.name}</h2>}
+                        {!embedded && (
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{pipeline.name}</h2>
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700">
+                                    <Lucide.Clock size={12} className="text-slate-400" />
+                                    <span className="text-[11px] font-mono font-bold text-indigo-500 dark:text-indigo-400">{elapsedTime}s</span>
+                                </div>
+                            </div>
+                        )}
                         <div className="flex items-center gap-4 text-xs text-slate-500 mt-1">
                             {isRunning ? (
                                 <div className="flex items-center gap-2">
