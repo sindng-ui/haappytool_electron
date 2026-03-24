@@ -31,6 +31,9 @@ export const BookmarkManager = {
     invalidateCache: () => {
         bookmarkCacheDirty = true;
     },
+    getOriginalBookmarksSorted: (): number[] => {
+        return Array.from(originalBookmarks).sort((a, b) => a - b);
+    },
     getVisualBookmarks: (filteredIndices: Int32Array | null): number[] => {
         if (!filteredIndices) return [];
 
@@ -62,34 +65,33 @@ export const BookmarkManager = {
     },
     toggleBookmark: (
         visualIndex: number,
-        filteredIndices: Int32Array | null,
-        respond: (response: any) => void
-    ) => {
+        filteredIndices: Int32Array | null
+    ): { originalIndex: number, isAdded: boolean } | null => {
         if (!filteredIndices) {
             console.warn('[Worker] Toggle Bookmark: No filtered indices available');
-            return;
+            return null;
         }
         if (visualIndex < 0 || visualIndex >= filteredIndices.length) {
             console.warn(`[Worker] Toggle Bookmark: Index out of bounds (visual=${visualIndex}, max=${filteredIndices.length})`);
-            return;
+            return null;
         }
 
         const originalIndex = filteredIndices[visualIndex];
         console.log(`[Worker] Toggling Bookmark: Visual=${visualIndex} -> Original=${originalIndex}`);
 
+        let isAdded = false;
         if (originalBookmarks.has(originalIndex)) {
             originalBookmarks.delete(originalIndex);
             console.log(`[Worker] Bookmark REMOVED (Total: ${originalBookmarks.size})`);
+            isAdded = false;
         } else {
             originalBookmarks.add(originalIndex);
             console.log(`[Worker] Bookmark ADDED (Total: ${originalBookmarks.size})`);
+            isAdded = true;
         }
 
         BookmarkManager.invalidateCache();
-        const vBookmarks = BookmarkManager.getVisualBookmarks(filteredIndices);
-        console.log(`[Worker] Sending Updated Visual Bookmarks: count=${vBookmarks.length}`);
-
-        respond({ type: 'BOOKMARKS_UPDATED', payload: { visualBookmarks: vBookmarks }, requestId: '' });
+        return { originalIndex, isAdded };
     },
     clearBookmarks: (respond: (response: any) => void) => {
         BookmarkManager.clearAll();

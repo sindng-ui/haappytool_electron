@@ -18,6 +18,19 @@ export interface DataReaderContext {
     postMessage: (message: any, transferables?: Transferable[]) => void;
 }
 
+function binarySearch(arr: Int32Array, val: number): number {
+    let low = 0;
+    let high = arr.length - 1;
+    while (low <= high) {
+        const mid = (low + high) >>> 1;
+        const midVal = arr[mid];
+        if (midVal === val) return mid;
+        else if (midVal < val) low = mid + 1;
+        else high = mid - 1;
+    }
+    return -1;
+}
+
 export const getLines = async (context: DataReaderContext, startFilterIndex: number, count: number, requestId: string) => {
     const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = context;
 
@@ -289,7 +302,7 @@ export const getSurroundingLines = async (context: DataReaderContext, absoluteIn
     respond({ type: 'LINES_DATA', payload: { lines: resultLines }, requestId });
 };
 
-export const getLinesByIndices = async (context: DataReaderContext, indices: number[], requestId: string) => {
+export const getLinesByIndices = async (context: DataReaderContext, indices: number[], requestId: string, isAbsolute: boolean = false) => {
     const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = context;
 
     if (!filteredIndices) {
@@ -307,15 +320,24 @@ export const getLinesByIndices = async (context: DataReaderContext, indices: num
             return;
         }
         for (const idx of sortedIndices) {
-            if (idx >= 0 && idx < filteredIndices.length) {
-                const originalIdx = filteredIndices[idx];
+            let visualIdx = idx;
+            let originalIdx = -1;
+
+            if (isAbsolute) {
+                visualIdx = binarySearch(filteredIndices, idx);
+                originalIdx = idx;
+            } else if (idx >= 0 && idx < filteredIndices.length) {
+                originalIdx = filteredIndices[idx];
+            }
+
+            if (originalIdx !== -1 && visualIdx !== -1) {
                 const start = lineOffsetsStream[originalIdx];
                 const len = lineLengthsStream[originalIdx];
                 const text = decoder.decode(logBuffer.subarray(start, start + len).slice());
                 resultLines.push({
                     lineNum: originalIdx + 1,
                     content: text,
-                    formattedLineIndex: idx
+                    formattedLineIndex: visualIdx
                 });
             }
         }
@@ -339,27 +361,34 @@ export const getLinesByIndices = async (context: DataReaderContext, indices: num
         };
 
         for (const idx of sortedIndices) {
-            if (idx >= 0 && idx < filteredIndices.length) {
-                const originalIdx = filteredIndices[idx];
-                if (originalIdx < lineOffsets.length) {
-                    const startByte = Number(lineOffsets[originalIdx]);
-                    const fileSize = context.isLocalFileMode ? context.localFileSize! : currentFile!.size;
-                    const endByte = originalIdx < lineOffsets.length - 1 ? Number(lineOffsets[originalIdx + 1]) : fileSize;
+            let visualIdx = idx;
+            let originalIdx = -1;
 
-                    if (startByte < endByte) {
-                        let text = '';
-                        if (context.isLocalFileMode) {
-                            const buffer = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: startByte, end: endByte });
-                            text = decoder.decode(buffer);
-                        } else {
-                            text = await readSlice(currentFile!.slice(startByte, endByte));
-                        }
-                        resultLines.push({
-                            lineNum: originalIdx + 1,
-                            content: text.replace(/\r?\n$/, ''),
-                            formattedLineIndex: idx
-                        });
+            if (isAbsolute) {
+                visualIdx = binarySearch(filteredIndices, idx);
+                originalIdx = idx;
+            } else if (idx >= 0 && idx < filteredIndices.length) {
+                originalIdx = filteredIndices[idx];
+            }
+
+            if (originalIdx !== -1 && visualIdx !== -1 && originalIdx < lineOffsets.length) {
+                const startByte = Number(lineOffsets[originalIdx]);
+                const fileSize = context.isLocalFileMode ? context.localFileSize! : currentFile!.size;
+                const endByte = originalIdx < lineOffsets.length - 1 ? Number(lineOffsets[originalIdx + 1]) : fileSize;
+
+                if (startByte < endByte) {
+                    let text = '';
+                    if (context.isLocalFileMode) {
+                        const buffer = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: startByte, end: endByte });
+                        text = decoder.decode(buffer);
+                    } else {
+                        text = await readSlice(currentFile!.slice(startByte, endByte));
                     }
+                    resultLines.push({
+                        lineNum: originalIdx + 1,
+                        content: text.replace(/\r?\n$/, ''),
+                        formattedLineIndex: visualIdx
+                    });
                 }
             }
         }

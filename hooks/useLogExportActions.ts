@@ -67,7 +67,7 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
         });
     }, [rightWorkerRef, rightPendingRequests]);
 
-    const requestBookmarkedLines = useCallback((indices: number[], paneId: 'left' | 'right') => {
+    const requestBookmarkedLines = useCallback((indices: number[], paneId: 'left' | 'right', isAbsolute: boolean = false) => {
         return new Promise<any[]>((resolve) => {
             const worker = paneId === 'left' ? leftWorkerRef.current : rightWorkerRef.current;
             const requestMap = paneId === 'left' ? leftPendingRequests.current : rightPendingRequests.current;
@@ -76,7 +76,7 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
 
             const reqId = Math.random().toString(36).substring(7);
             requestMap.set(reqId, resolve);
-            worker.postMessage({ type: 'GET_LINES_BY_INDICES', payload: { indices }, requestId: reqId });
+            worker.postMessage({ type: 'GET_LINES_BY_INDICES', payload: { indices, isAbsolute }, requestId: reqId });
         });
     }, [leftWorkerRef, rightWorkerRef, leftPendingRequests, rightPendingRequests]);
 

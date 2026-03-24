@@ -87,7 +87,7 @@
 
 ### [[Log Viewer Components (The Alleys)]]
 - **ID**: `ui-log-viewer-sub`
-- **Keywords**: [`북마크 모달`, `단축키`, `줄 이동`, `BookmarksModal`, `GoToLine`, `Shortcuts`, `누적 시간`, `Shift+Click 범위 선택`]
+- **Keywords**: [`북마크 모달`, `단축키`, `줄 이동`, `BookmarksModal`, `GoToLine`, `Shortcuts`, `누적 시간`, `Shift+Click 범위 선택`, `북마크 상시 표시 (필터 무시)`]
 - **Location**:
   - `Modal`: [BookmarksModal.tsx](./components/BookmarksModal.tsx), [GoToLineModal.tsx](./components/GoToLineModal.tsx)
   - `Panel`: [KeyboardShortcutsPanel.tsx](./components/KeyboardShortcutsPanel.tsx)

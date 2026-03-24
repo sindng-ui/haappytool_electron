@@ -181,6 +181,97 @@ const respond = (response: LogWorkerResponse) => {
 const invalidateBookmarkCache = () => BookmarkManager.invalidateCache();
 const getVisualBookmarks = (): number[] => BookmarkManager.getVisualBookmarks(filteredIndices);
 
+// --- Helper: Merge Sorted Arrays (Unique) ---
+const mergeSortedUnique = (a: Int32Array, b: number[]): Int32Array => {
+    if (b.length === 0) return a;
+    if (a.length === 0) return new Int32Array(b);
+
+    const result = new Int32Array(a.length + b.length);
+    let i = 0, j = 0, k = 0;
+
+    while (i < a.length && j < b.length) {
+        if (a[i] < b[j]) {
+            result[k++] = a[i++];
+        } else if (a[i] > b[j]) {
+            result[k++] = b[j++];
+        } else {
+            // Duplicate
+            result[k++] = a[i++];
+            j++;
+        }
+    }
+    while (i < a.length) result[k++] = a[i++];
+    while (j < b.length) result[k++] = b[j++];
+
+    return result.subarray(0, k);
+};
+
+const getSingleLineContent = async (originalIdx: number): Promise<string> => {
+    const decoder = new TextDecoder();
+    try {
+        if (isStreamMode) {
+            if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) return '';
+            const start = lineOffsetsStream[originalIdx];
+            const len = lineLengthsStream[originalIdx];
+            return decoder.decode(logBuffer.subarray(start, start + len).slice()).replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+        } else if (isLocalFileMode && localFilePath) {
+            const offset = lineOffsets![originalIdx];
+            const nextOffset = originalIdx < lineOffsets!.length - 1 ? lineOffsets![originalIdx + 1] : BigInt(localFileSize);
+            const uint8View = await rpcCall('readFileSegment', { path: localFilePath, start: Number(offset), end: Number(nextOffset) });
+            return decoder.decode(uint8View).replace(/\r?\n$/, '').replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+        } else if (currentFile && lineOffsets) {
+            const offset = lineOffsets[originalIdx];
+            const nextOffset = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
+            const chunkBlob = currentFile.slice(Number(offset), Number(nextOffset));
+            const arrayBuf = await chunkBlob.arrayBuffer();
+            const uint8View = new Uint8Array(arrayBuf);
+            return decoder.decode(uint8View).replace(/\r?\n$/, '').replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+        }
+    } catch (e) {
+        console.error('[Worker] getSingleLineContent failed', e);
+    }
+    return '';
+};
+
+const removeFromFilteredIndices = (visualIdx: number) => {
+    if (!filteredIndices) return;
+    const newLen = filteredIndices.length - 1;
+    if (visualIdx < newLen) {
+        filteredIndicesBuffer.set(filteredIndicesBuffer.subarray(visualIdx + 1, filteredIndices.length), visualIdx);
+    }
+    filteredIndices = (filteredIndicesBuffer as any).subarray(0, newLen);
+    invalidateBookmarkCache();
+};
+
+const insertIntoFilteredIndicesSorted = (originalIdx: number) => {
+    if (!filteredIndices) return;
+    
+    // Find insertion point
+    let low = 0;
+    let high = filteredIndices.length - 1;
+    let insertAt = filteredIndices.length;
+
+    while (low <= high) {
+        const mid = (low + high) >>> 1;
+        if (filteredIndices[mid] === originalIdx) return; // Already exists
+        if (filteredIndices[mid] < originalIdx) {
+            low = mid + 1;
+            insertAt = low;
+        } else {
+            high = mid - 1;
+            insertAt = mid;
+        }
+    }
+
+    if (filteredIndices.length >= MAX_LINES) return;
+
+    // Shift right
+    filteredIndicesBuffer.set(filteredIndicesBuffer.subarray(insertAt, filteredIndices.length), insertAt + 1);
+    filteredIndicesBuffer[insertAt] = originalIdx;
+    filteredIndices = (filteredIndicesBuffer as any).subarray(0, filteredIndices.length + 1);
+    invalidateBookmarkCache();
+};
+
 // --- Helper: Match Logic ---
 // NOTE: Extracted to utils/logFiltering.ts for testability and reusability
 // (imports moved to top)
@@ -580,9 +671,13 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                 }
             }
 
+            // --- Merge Bookmarks (Persistent Visualization) ---
+            const bookmarks = BookmarkManager.getOriginalBookmarksSorted();
+            const mergedMatches = mergeSortedUnique(finalMatches, bookmarks);
+
             // ✅ Shared Buffer 크기 초과 방지
-            const safeMatchCount = Math.min(finalMatches.length, MAX_LINES);
-            filteredIndicesBuffer.set(finalMatches.subarray(0, safeMatchCount));
+            const safeMatchCount = Math.min(mergedMatches.length, MAX_LINES);
+            filteredIndicesBuffer.set(mergedMatches.subarray(0, safeMatchCount));
             filteredIndices = (filteredIndicesBuffer as any).subarray(0, safeMatchCount);
 
             if (finalMatches.length > MAX_LINES) {
@@ -829,10 +924,38 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             await applyFilter(payload);
             break;
         case 'TOGGLE_BOOKMARK':
-            BookmarkManager.toggleBookmark(payload.visualIndex, filteredIndices, respond);
+            const toggleResult = BookmarkManager.toggleBookmark(payload.visualIndex, filteredIndices);
+            if (toggleResult) {
+                const { originalIndex, isAdded } = toggleResult;
+                if (!isAdded) {
+                    // Removed: check if it still matches filter
+                    const content = await getSingleLineContent(originalIndex);
+                    const isMatch = checkIsMatch(content, currentRule, false, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder);
+                    if (!isMatch) {
+                        // Remove from view as it's no longer bookmarked and doesn't match filter
+                        removeFromFilteredIndices(payload.visualIndex);
+                    }
+                } else {
+                    // Added: it's already in view since user clicked it
+                }
+                
+                // Always notify UI of updated bookmarks and match count (in case it changed)
+                respond({
+                    type: 'FILTER_COMPLETE',
+                    payload: {
+                        matchCount: filteredIndices ? filteredIndices.length : 0,
+                        totalLines: isStreamMode ? streamLineCount : (lineOffsets ? lineOffsets.length : 0),
+                        visualBookmarks: getVisualBookmarks()
+                    }
+                });
+            }
             break;
         case 'CLEAR_BOOKMARKS':
             BookmarkManager.clearBookmarks(respond);
+            if (currentRule && (currentRule.excludes.length > 0 || currentRule.includeGroups.length > 0 || currentQuickFilter !== 'none')) {
+                // Re-apply filter to remove lines that were only visible because of bookmarks
+                await applyFilter(currentRule as any);
+            }
             break;
         case 'GET_LINES':
             if (payload.startLine === undefined && payload.startFilterIndex !== undefined) {
@@ -851,7 +974,7 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             await DataReader.getRawLines(getDataReaderContext(), payload.startLine, payload.count, requestId || '');
             break;
         case 'GET_LINES_BY_INDICES':
-            await DataReader.getLinesByIndices(getDataReaderContext(), payload.indices, requestId || '');
+            await DataReader.getLinesByIndices(getDataReaderContext(), payload.indices, requestId || '', !!payload.isAbsolute);
             break;
         case 'FIND_HIGHLIGHT':
             if (payload.startIndex === undefined && payload.startFilterIndex !== undefined) {
