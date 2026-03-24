@@ -1,30 +1,31 @@
-# Speedscope 메인 스레드 탐지 개선 계획 🐧
+# 북마크 모달 누적 시간 표시 구현 계획 🐧
 
-형님! Speedscope 플러그인에서 메인 스레드를 더 똑똑하게 찾을 수 있도록 개선하겠습니다. 제보해주신 `Process32 Process(PID)(TID)` 패턴을 적극 활용하여, PID와 TID가 같은 스레드(보통 메인 스레드죠!)를 우선적으로 찾도록 로직을 보강하겠습니다.
+형님! 북마크 모달에서 각 북마크 간의 시간 차이뿐만 아니라, 첫 번째 북마크를 기준으로 한 **누적 시간(Accumulated Time)**을 볼 수 있도록 기능을 추가하겠습니다.
 
 ## 1. 개요
-현재 `detectMainThread` 로직이 특정 환경의 Speedscope JSON에서 메인 스레드를 제대로 식별하지 못하는 문제를 해결합니다.
+현재 북마크 모달은 인접한 북마크 간의 시간차만 보여주고 있습니다. 분석의 흐름을 더 잘 파악하기 위해, 첫 번째로 지정한 북마크 시점으로부터 얼마나 시간이 흘렀는지 표시하는 열을 추가합니다.
 
 ## 2. 주요 변경 사항
 
-### [[Speedscope Utils]]
-- **대상 파일**: [speedScopeUtils.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/utils/speedScopeUtils.ts)
+### [[Bookmarks Modal]]
+- **대상 파일**: [BookmarksModal.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/BookmarksModal.tsx)
 - **변경 내용**:
-  - `procRegex`를 더 명확하게 개선하여 `Process(PID)(TID)` 패턴을 완벽히 지원합니다.
-  - 최상단 세그먼트(Lane 0)에서 추출한 PID와 TID가 동일한 경우, 해당 스레드를 메인 스레드로 강력하게 추정합니다.
-  - 기존 코드의 `pidIdx` 검색 부분에서 발견된 괄호 오타(논리 오류)를 수정합니다.
-  - `mainThreadPatterns`에 'process' 관련 키워드가 너무 포괄적일 수 있으므로 검토 및 조정합니다.
+  - `BookmarkLine` 인터페이스에 `accumulatedTimeStr`, `accumulatedTimeClass` 필드 추가.
+  - 데이터 로딩(`useEffect`) 시 첫 번째 북마크의 타임스탬프를 `firstTs`로 저장.
+  - 각 북마크마다 `currentTs - firstTs`를 계산하여 누적 시간 포맷팅.
+  - **UI 레이아웃 변경**:
+    - 기존 'Time Diff' 열 옆에 'Accumulated' 열 추가.
+    - `BookmarkRow` 컴포넌트에 누적 시간 표시 영역 추가.
+    - 헤더 영역에 컬럼 타이틀 추가.
+
+### [[Export 기능]] (옵션)
+- JSON/Confluence Export 시에도 누적 시간 정보가 포함되도록 수정할지 검토 (형님 의견에 따라 추가 가능).
 
 ## 3. 검증 계획
-
-### 자동화 테스트
-- `test/utils/speedScopeUtils.test.ts` (신규 생성 가능성 있음) 파일을 통해 다양한 패턴의 Speedscope 데이터로 메인 스레드가 제대로 잡히는지 확인합니다.
-- 특히 형님이 주신 `Process32 Process(1492)(1492)` 패턴을 포함한 더미 데이터를 사용하여 검증합니다.
-
-### 수동 검증
-- 실제 문제가 발생했던 Speedscope JSON 파일을 로드하여 메인 스레드가 자동으로 선택되는지 확인합니다.
+- 북마크를 여러 개 추가한 후 `Ctrl + B`로 모달을 열어 첫 번째 행은 `0.000s`, 이후 행들은 누적된 시간이 정상적으로 표시되는지 확인.
+- 북마크 삭제 시 누적 시간이 재계산되어야 하는지 확인 (현재 로직상 모달 열릴 때마다 재계산되므로 정상 동작 예상).
 
 ---
 
-형님, 이 계획대로 진행해도 될까요? OK 하시면 바로 코드 수정 들어가겠습니다! 🚀
+형님, 분석용으로 아주 유용한 기능이 될 것 같습니다! 이대로 진행할까요? 🚀
 <button>proceed</button>

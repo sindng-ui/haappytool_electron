@@ -28,6 +28,8 @@ interface BookmarkLine {
     originalLineNum?: string;
     timeDiffStr?: string;
     timeDiffClass?: string;
+    accumulatedTimeStr?: string;
+    accumulatedTimeClass?: string;
 }
 
 export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
@@ -75,13 +77,18 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
                 }
 
                 // ✅ 전처리: 렌더링 루프 밖에서 미리 모든 계산을 끝냅니다.
+                const firstTs = fetched.length > 0 ? extractTimestamp(fetched[0].content) : null;
+
                 const processedLines: BookmarkLine[] = fetched.map((item, idx) => {
                     let timeDiffStr = "";
                     let timeDiffClass = "";
+                    let accumulatedTimeStr = "";
+                    let accumulatedTimeClass = "text-slate-400 dark:text-slate-500";
+
+                    const currentTs = extractTimestamp(item.content);
 
                     if (idx > 0) {
                         const prevItem = fetched[idx - 1];
-                        const currentTs = extractTimestamp(item.content);
                         const prevTs = extractTimestamp(prevItem.content);
 
                         if (currentTs !== null && prevTs !== null) {
@@ -99,12 +106,26 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
                             }
                             timeDiffStr = `${sign}${text}`;
                         }
+                    } else if (idx === 0) {
+                        accumulatedTimeStr = "0.000s";
+                        accumulatedTimeClass = "text-slate-400 dark:text-slate-500 font-bold";
+                    }
+
+                    if (idx > 0 && firstTs !== null && currentTs !== null) {
+                        const accDiff = currentTs - firstTs;
+                        const absAccDiff = Math.abs(accDiff);
+                        const accSign = accDiff >= 0 ? "" : "-";
+                        let accText = absAccDiff < 60000 ? (absAccDiff / 1000).toFixed(3) + "s" : formatDuration(absAccDiff);
+                        accumulatedTimeStr = `${accSign}${accText}`;
+                        accumulatedTimeClass = "text-emerald-600 dark:text-emerald-400 font-medium";
                     }
 
                     return {
                         ...item,
                         timeDiffStr,
-                        timeDiffClass
+                        timeDiffClass,
+                        accumulatedTimeStr,
+                        accumulatedTimeClass
                     };
                 });
 
@@ -134,10 +155,22 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
                     timeDiff = (diff >= 0 ? '+' : '-') + (Math.abs(diff) < 60000 ? (Math.abs(diff) / 1000).toFixed(3) + 's' : formatDuration(Math.abs(diff)));
                 }
             }
+            
+            let accumulatedTime = '';
+            if (lines.length > 0) {
+                const firstTs = extractTimestamp(lines[0].content);
+                const currTs = extractTimestamp(line.content);
+                if (firstTs !== null && currTs !== null) {
+                    const accDiff = currTs - firstTs;
+                    accumulatedTime = (accDiff >= 0 ? '' : '-') + (Math.abs(accDiff) < 60000 ? (Math.abs(accDiff) / 1000).toFixed(3) + 's' : formatDuration(Math.abs(accDiff)));
+                }
+            }
+
             return {
                 line: line.originalLineNum || line.lineNum,
                 content: line.content,
-                timeDiff
+                timeDiff,
+                accumulatedTime
             };
         });
 
@@ -256,21 +289,29 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
                             <p className="text-sm opacity-70">Double-click the line number column to bookmark lines.</p>
                         </div>
                     ) : (
-                        <Virtuoso
-                            style={{ height: '100%' }}
-                            data={lines}
-                            itemContent={(index, item) => (
-                                <BookmarkRow
-                                    key={item.formattedLineIndex}
-                                    item={item}
-                                    onJump={onJump}
-                                    onClose={onClose}
-                                    onDelete={onDeleteBookmark}
-                                    highlights={highlights}
-                                    caseSensitive={caseSensitive}
-                                />
-                            )}
-                        />
+                        <>
+                            <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-950/30 text-[10px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400">
+                                <div className="w-16 shrink-0 py-1 px-3 text-right border-r border-slate-200 dark:border-slate-800">Line</div>
+                                <div className="w-28 shrink-0 py-1 px-3 text-right border-r border-slate-200 dark:border-slate-800">Time Diff</div>
+                                <div className="w-28 shrink-0 py-1 px-3 text-right border-r border-slate-200 dark:border-slate-800">Acc. Time</div>
+                                <div className="flex-1 py-1 px-3">Content</div>
+                            </div>
+                            <Virtuoso
+                                style={{ height: 'calc(100% - 20px)' }}
+                                data={lines}
+                                itemContent={(index, item) => (
+                                    <BookmarkRow
+                                        key={item.formattedLineIndex}
+                                        item={item}
+                                        onJump={onJump}
+                                        onClose={onClose}
+                                        onDelete={onDeleteBookmark}
+                                        highlights={highlights}
+                                        caseSensitive={caseSensitive}
+                                    />
+                                )}
+                            />
+                        </>
                     )}
                 </div>
 
@@ -312,8 +353,13 @@ const BookmarkRow: React.FC<{
             </div>
 
             {/* Time Diff Column */}
-            <div className={`w-32 shrink-0 py-2 px-3 text-right font-mono text-[11px] border-r border-slate-100 dark:border-slate-800 whitespace-nowrap overflow-hidden text-ellipsis ${item.timeDiffStr ? (item.timeDiffClass || 'text-slate-500 dark:text-slate-400') : 'text-transparent'}`}>
+            <div className={`w-28 shrink-0 py-2 px-3 text-right font-mono text-[11px] border-r border-slate-100 dark:border-slate-800 whitespace-nowrap overflow-hidden text-ellipsis ${item.timeDiffStr ? (item.timeDiffClass || 'text-slate-500 dark:text-slate-400') : 'text-transparent'}`}>
                 {item.timeDiffStr || "-"}
+            </div>
+
+            {/* Accumulated Time Column */}
+            <div className={`w-28 shrink-0 py-2 px-3 text-right font-mono text-[11px] border-r border-slate-100 dark:border-slate-800 whitespace-nowrap overflow-hidden text-ellipsis ${item.accumulatedTimeStr ? (item.accumulatedTimeClass || 'text-slate-500 dark:text-slate-400') : 'text-transparent'}`}>
+                {item.accumulatedTimeStr || "-"}
             </div>
 
             {/* Content */}
