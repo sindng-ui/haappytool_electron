@@ -38,7 +38,32 @@ export function detectMainThread(
         }
     }
 
-    // Priority 1: Pattern matching with highest activity
+    // Priority 1: Process32/Process(PID)(TID) pattern in root segments
+    // This is the most reliable source of truth as it's extracted from the trace metadata
+    const procRegex = /(?:Process32|Procoes32|Process|Proces)\s+(?:Process|Proces)\((\d+)\)(?:\((\d+)\))?/i;
+    for (let i = 0; i < allProfilesSegments.length; i++) {
+        const segments = allProfilesSegments[i];
+        const procSegment = segments.slice(0, 50).find(s => s.lane === 0 && procRegex.test(s.name));
+        if (procSegment) {
+            const match = procSegment.name.match(procRegex);
+            if (match) {
+                const pid = match[1];
+                const tid = match[2] || pid;
+                
+                const pidIdx = profileInfos.findIndex(p => 
+                    p.name === pid || 
+                    p.name === tid ||
+                    p.name.includes(`(${pid})`) || 
+                    p.name.includes(`(${tid})`)
+                );
+                
+                if (pidIdx !== -1) return pidIdx;
+            }
+            return i;
+        }
+    }
+
+    // Priority 2: Pattern matching with highest activity
     profileInfos.forEach((p, idx) => {
         const pName = p.name.toLowerCase();
         const hasPattern = mainThreadPatterns.some(pattern => pName.includes(pattern));
@@ -51,26 +76,6 @@ export function detectMainThread(
     });
 
     if (bestIdx !== -1) return bestIdx;
-
-    // Priority 2: Process32/Process(PID) pattern in root segments
-    // This handles cases where profiles are named only by PID
-    const procRegex = /(?:Process32|Procoes32|Process|Proces)\s+(?:Process|Proces)\((\d+)\)/i;
-    for (let i = 0; i < allProfilesSegments.length; i++) {
-        const segments = allProfilesSegments[i];
-        // Look through the first few root segments for the process metadata
-        const procSegment = segments.slice(0, 50).find(s => s.lane === 0 && procRegex.test(s.name));
-        if (procSegment) {
-            const match = procSegment.name.match(procRegex);
-            if (match) {
-                const pid = match[1];
-                // Try to find a profile named exactly this PID or containing it
-                const pidIdx = profileInfos.findIndex(p => p.name === pid || p.name.includes(`(${pid})` || p.name.toLowerCase().includes('process')));
-                if (pidIdx !== -1) return pidIdx;
-            }
-            // Fallback to the current profile if it contains the metadata but no profile matches PID
-            return i;
-        }
-    }
 
     // Fallback: Most active (highest segment count)
     return profileInfos.reduce((prev, curr, idx) => curr.segmentCount > profileInfos[prev].segmentCount ? idx : prev, 0);

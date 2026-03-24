@@ -1,37 +1,30 @@
-# 사용자 정의 마일스톤 기능 추가 계획서 🐧🚩🛠️
+# Speedscope 메인 스레드 탐지 개선 계획 🐧
 
-형님! 마일스톤 자동 지정의 비밀을 알려드리고, 직접 마일스톤을 깃발로 꽂을 수 있는 기능을 제안합니다!
+형님! Speedscope 플러그인에서 메인 스레드를 더 똑똑하게 찾을 수 있도록 개선하겠습니다. 제보해주신 `Process32 Process(PID)(TID)` 패턴을 적극 활용하여, PID와 TID가 같은 스레드(보통 메인 스레드죠!)를 우선적으로 찾도록 로직을 보강하겠습니다.
 
-## ❓ 질문 답변: 자동 마일스톤의 기준
-현재 마일스톤은 로그 내의 함수명이나 세그먼트 이름에서 **특정 키워드**를 감지하여 자동으로 생성됩니다.
-- **감지 키워드**: `OnCreate`, `OnResume`, `OnPause`, `Finished`, `AppStart`, `PageTransitions` 등
-- 로그를 분석하다가 위 단어들이 포함된 중요한 시점을 발견하면 시스템이 알아서 노란색, 분홍색 등 알록달록한 깃발을 꽂아주는 방식입니다!
+## 1. 개요
+현재 `detectMainThread` 로직이 특정 환경의 Speedscope JSON에서 메인 스레드를 제대로 식별하지 못하는 문제를 해결합니다.
 
----
+## 2. 주요 변경 사항
 
-## 🚀 Proposed Changes (사용자 정의 마일스톤)
+### [[Speedscope Utils]]
+- **대상 파일**: [speedScopeUtils.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/utils/speedScopeUtils.ts)
+- **변경 내용**:
+  - `procRegex`를 더 명확하게 개선하여 `Process(PID)(TID)` 패턴을 완벽히 지원합니다.
+  - 최상단 세그먼트(Lane 0)에서 추출한 PID와 TID가 동일한 경우, 해당 스레드를 메인 스레드로 강력하게 추정합니다.
+  - 기존 코드의 `pidIdx` 검색 부분에서 발견된 괄호 오타(논리 오류)를 수정합니다.
+  - `mainThreadPatterns`에 'process' 관련 키워드가 너무 포괄적일 수 있으므로 검토 및 조정합니다.
 
-사용자가 차트 위에서 우클릭을 하면 해당 시점에 커스텀 마일스톤을 추가할 수 있도록 기능을 확장하겠습니다.
+## 3. 검증 계획
 
-### 1. [Logic] usePerfDashboardState.ts
-- `userMilestones` 상태 변수 추가 (사용자가 직접 추가한 마일스톤 저장)
-- `addUserMilestone(time, label)` 함수 구현
-- 자동 마일스톤과 사용자 마일스톤을 합쳐서 하나의 리스트로 제공하도록 `milestones` 로직 수정
+### 자동화 테스트
+- `test/utils/speedScopeUtils.test.ts` (신규 생성 가능성 있음) 파일을 통해 다양한 패턴의 Speedscope 데이터로 메인 스레드가 제대로 잡히는지 확인합니다.
+- 특히 형님이 주신 `Process32 Process(1492)(1492)` 패턴을 포함한 더미 데이터를 사용하여 검증합니다.
 
-### 2. [UI] PerfChartLayout.tsx
-- 차트 영역(`innerChartRef`)에 `onContextMenu` (우클릭) 핸들러 추가
-- 우클릭 시점의 X 좌표를 기반으로 타임라인 상의 **시간(ms)** 계산
-- 브라우저 기본 컨텍스트 메뉴를 막고, 간단한 레이블 입력 프롬프트(혹은 즉시 추가)를 통해 마일스톤 생성
-
----
-
-## ✅ Verification Plan
-
-### Manual Verification
-- 차트 위 아무 곳이나 우클릭하여 깃발이 생성되는지 확인
-- 생성된 깃발에 마우스를 올려 입력한 레이블이 툴팁으로 나오는지 확인
-- 줌/팬 이동 시에도 생성된 깃발이 위치를 잘 지키는지 확인
+### 수동 검증
+- 실제 문제가 발생했던 Speedscope JSON 파일을 로드하여 메인 스레드가 자동으로 선택되는지 확인합니다.
 
 ---
 
-형님, 이 계획대로 진행할까요? 아래 버튼을 눌러주시면 바로 작업 들어갑니다! 🐧🥊
+형님, 이 계획대로 진행해도 될까요? OK 하시면 바로 코드 수정 들어가겠습니다! 🚀
+<button>proceed</button>
