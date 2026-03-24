@@ -39,12 +39,14 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
 }) => {
     const [lines, setLines] = useState<BookmarkLine[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [shiftSelectedIdx, setShiftSelectedIdx] = useState<number | null>(null);
+    const [shiftAnchorIdx, setShiftAnchorIdx] = useState<number | null>(null);
+    const [shiftEndIdx, setShiftEndIdx] = useState<number | null>(null);
     const { addToast } = useToast();
 
     // Reset shift selection when modal opens/closes or bookmarks change
     useEffect(() => {
-        setShiftSelectedIdx(null);
+        setShiftAnchorIdx(null);
+        setShiftEndIdx(null);
     }, [isOpen, bookmarks]);
 
     // Export Dropdown State
@@ -312,16 +314,21 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
                                         item={item}
                                         onJump={onJump}
                                         onShiftClick={(idx) => {
-                                            if (shiftSelectedIdx === null) {
-                                                setShiftSelectedIdx(idx);
+                                            if (shiftAnchorIdx === null || (shiftAnchorIdx !== null && shiftEndIdx !== null)) {
+                                                // Start new selection or reset previous (1st click)
+                                                setShiftAnchorIdx(idx);
+                                                setShiftEndIdx(null);
                                             } else {
+                                                // Complete range (2nd click)
+                                                setShiftEndIdx(idx);
                                                 if (onSelectRange) {
-                                                    onSelectRange(shiftSelectedIdx, idx);
-                                                    onClose();
+                                                    onSelectRange(shiftAnchorIdx, idx);
                                                 }
+                                                // ✅ Do NOT call onClose() here as requested
                                             }
                                         }}
-                                        isShiftSelected={shiftSelectedIdx === item.formattedLineIndex}
+                                        shiftAnchorIdx={shiftAnchorIdx}
+                                        shiftEndIdx={shiftEndIdx}
                                         onClose={onClose}
                                         onDelete={onDeleteBookmark}
                                         highlights={highlights}
@@ -353,14 +360,35 @@ const BookmarkRow: React.FC<{
     item: BookmarkLine;
     onJump: (index: number) => void;
     onShiftClick: (index: number) => void;
-    isShiftSelected: boolean;
+    shiftAnchorIdx: number | null;
+    shiftEndIdx: number | null;
     onClose: () => void;
     onDelete?: (index: number) => void;
     highlights?: LogHighlight[];
     caseSensitive?: boolean;
-}> = React.memo(({ item, onJump, onShiftClick, isShiftSelected, onClose, onDelete, highlights, caseSensitive }) => {
+}> = React.memo(({ item, onJump, onShiftClick, shiftAnchorIdx, shiftEndIdx, onClose, onDelete, highlights, caseSensitive }) => {
+    
+    // ✅ Calculate if current row is part of the shift-selection range
+    const isHighlighted = useMemo(() => {
+        if (shiftAnchorIdx === null) return false;
+        
+        const current = item.formattedLineIndex;
+        if (shiftEndIdx === null) {
+            return current === shiftAnchorIdx;
+        }
+        
+        const start = Math.min(shiftAnchorIdx, shiftEndIdx);
+        const end = Math.max(shiftAnchorIdx, shiftEndIdx);
+        return current >= start && current <= end;
+    }, [item.formattedLineIndex, shiftAnchorIdx, shiftEndIdx]);
+
     return (
         <div
+            onMouseDown={(e) => {
+                if (e.shiftKey) {
+                    e.preventDefault(); // ✅ Shift+클릭 시 텍스트 선택 방지
+                }
+            }}
             onClick={(e) => {
                 if (e.shiftKey) {
                     onShiftClick(item.formattedLineIndex);
@@ -370,8 +398,8 @@ const BookmarkRow: React.FC<{
                 }
             }}
             className={`group flex cursor-pointer border-b border-slate-100 dark:border-slate-800 transition-colors ${
-                isShiftSelected 
-                ? "bg-blue-100/50 dark:bg-blue-900/30 ring-1 ring-inset ring-blue-500/50" 
+                isHighlighted 
+                ? "bg-blue-100/60 dark:bg-blue-900/40 ring-1 ring-inset ring-blue-500/50" 
                 : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
             }`}
         >
