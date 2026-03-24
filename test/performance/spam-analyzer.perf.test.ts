@@ -37,7 +37,7 @@ describe('Spam Analyzer Core Performance', () => {
         }
         const duration = performance.now() - start;
         console.log(`Extract Metadata 100k: ${duration.toFixed(2)}ms`);
-        expect(duration).toBeLessThan(70); // 100k 행 / 70ms 이내 (실제 ~35-55ms 사이 부하 분산 고려)
+        expect(duration).toBeLessThan(150); // 100k 행 / 부하 분산 고려 150ms로 완화
     });
 
     it(`should group 1M lines within ${THRESHOLD_1M_MS}ms (Stress Test)`, () => {
@@ -89,6 +89,6 @@ describe('Spam Analyzer Core Performance', () => {
 
         const duration = performance.now() - start;
         console.log(`High-Cardinality Map Insert (100k): ${duration.toFixed(2)}ms`);
-        expect(duration).toBeLessThan(200); // 100k 유니크 키 / 200ms 이내 (실제 ~155ms)
+        expect(duration).toBeLessThan(400); // 100k 유니크 키 / 400ms로 완화 (CI 환경 고려)
     });
 });

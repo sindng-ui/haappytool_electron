@@ -323,9 +323,9 @@ export const computeAliasIntervals = (
             const start = events[i];
             const end = events[i + 1];
 
-            // 🐧⚡ [FIX] 동일명 Alias 반복(A ➔ A)은 Global Batch와 LCS Burst Grouping으로 완벽히 커버되므로
-            // N번째 맹목적 매칭 시 엉뚱한 구간이 연결되는 버그를 방지하기 위해 여기서 생성하지 않습니다.
-            if (start.alias === end.alias) continue;
+            // 🐧⚡ [FIX] 완전 동일한 시그니처의 반복(A ➔ A)은 Global Batch와 LCS Burst Grouping으로 완벽히 커버되므로
+            // 무의미한 1:1 간격 생성을 방지하기 위해 스킵합니다. (단, Alias가 같더라도 시그니처가 다르면 진행)
+            if (getFormattedEventSig(start) === getFormattedEventSig(end)) continue;
 
             if (start.timestamp && end.timestamp) {
                 intervals.push({

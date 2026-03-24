@@ -82,6 +82,7 @@ vi.mock('lucide-react', () => ({
     Camera: () => <div data-testid="icon-camera" />,
     Star: () => <div data-testid="icon-star" />,
     Lock: () => <div data-testid="icon-lock" />,
+    AlertTriangle: () => <div data-testid="icon-alert-triangle" />,
 }));
 
 describe('PerfDashboard Component', () => {

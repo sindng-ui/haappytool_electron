@@ -18,7 +18,7 @@ export interface DataReaderContext {
     postMessage: (message: any, transferables?: Transferable[]) => void;
 }
 
-function binarySearch(arr: Int32Array, val: number): number {
+export function binarySearch(arr: Int32Array, val: number): number {
     let low = 0;
     let high = arr.length - 1;
     while (low <= high) {

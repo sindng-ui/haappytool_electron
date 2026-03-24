@@ -8,6 +8,7 @@ import { extractTimestamp } from '../utils/logTime';
 import { analyzePerfSegments, extractSourceMetadata } from '../utils/perfAnalysis';
 import * as AnalysisHandlers from './workerAnalysisHandlers';
 import LogFilterSubWorker from './LogFilterSub.worker.ts?worker';
+import { mergeSortedUnique } from './workerUtils';
 
 const ctx: Worker = self as any;
 ctx.onerror = (e) => {
@@ -182,29 +183,7 @@ const invalidateBookmarkCache = () => BookmarkManager.invalidateCache();
 const getVisualBookmarks = (): number[] => BookmarkManager.getVisualBookmarks(filteredIndices);
 
 // --- Helper: Merge Sorted Arrays (Unique) ---
-const mergeSortedUnique = (a: Int32Array, b: number[]): Int32Array => {
-    if (b.length === 0) return a;
-    if (a.length === 0) return new Int32Array(b);
-
-    const result = new Int32Array(a.length + b.length);
-    let i = 0, j = 0, k = 0;
-
-    while (i < a.length && j < b.length) {
-        if (a[i] < b[j]) {
-            result[k++] = a[i++];
-        } else if (a[i] > b[j]) {
-            result[k++] = b[j++];
-        } else {
-            // Duplicate
-            result[k++] = a[i++];
-            j++;
-        }
-    }
-    while (i < a.length) result[k++] = a[i++];
-    while (j < b.length) result[k++] = b[j++];
-
-    return result.subarray(0, k);
-};
+// Imported from ./workerUtils
 
 const getSingleLineContent = async (originalIdx: number): Promise<string> => {
     const decoder = new TextDecoder();
