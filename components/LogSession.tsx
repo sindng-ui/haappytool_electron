@@ -670,6 +670,28 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         rightViewerRef.current?.scrollToIndex(index);
     }, [setActiveLineIndexRight, setSelectedIndicesRight]);
 
+    const handleSelectRangeLeft = React.useCallback((start: number, end: number) => {
+        handleFocusPaneRequest('left');
+        setActiveLineIndexLeft(start);
+        const min = Math.min(start, end);
+        const max = Math.max(start, end);
+        const range = new Set<number>();
+        for (let i = min; i <= max; i++) range.add(i);
+        setSelectedIndicesLeft(range);
+        leftViewerRef.current?.scrollToIndex(min, { align: 'center' });
+    }, [handleFocusPaneRequest, setActiveLineIndexLeft, setSelectedIndicesLeft]);
+
+    const handleSelectRangeRight = React.useCallback((start: number, end: number) => {
+        handleFocusPaneRequest('right');
+        setActiveLineIndexRight(start);
+        const min = Math.min(start, end);
+        const max = Math.max(start, end);
+        const range = new Set<number>();
+        for (let i = min; i <= max; i++) range.add(i);
+        setSelectedIndicesRight(range);
+        rightViewerRef.current?.scrollToIndex(min, { align: 'center' });
+    }, [handleFocusPaneRequest, setActiveLineIndexRight, setSelectedIndicesRight]);
+
     // Page Navigation Handlers
     const handlePageNavRequestLeft = React.useCallback((direction: 'next' | 'prev') => {
         if (direction === 'next') {
@@ -1355,6 +1377,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     handleFocusPaneRequest('left');
                     jumpToGlobalLine(index, 'left');
                 }}
+                onSelectRange={handleSelectRangeLeft}
                 requestLines={requestLeftBookmarkedLines}
                 title={`Bookmarks - ${leftFileName || 'Left Pane'}`}
                 onClearAll={clearLeftBookmarks}
@@ -1373,6 +1396,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                         handleFocusPaneRequest('right');
                         jumpToGlobalLine(index, 'right');
                     }}
+                    onSelectRange={handleSelectRangeRight}
                     requestLines={requestRightBookmarkedLines}
                     title={`Bookmarks - ${rightFileName || 'Right Pane'}`}
                     onClearAll={clearRightBookmarks}

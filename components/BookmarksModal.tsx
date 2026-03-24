@@ -14,6 +14,7 @@ interface BookmarksModalProps {
     requestLines: (indices: number[]) => Promise<{ lineNum: number, content: string, formattedLineIndex: number }[]>;
     bookmarks: Set<number>;
     onJump: (index: number) => void;
+    onSelectRange?: (start: number, end: number) => void;
     highlights?: LogHighlight[];
     caseSensitive?: boolean;
     title?: string;
@@ -34,11 +35,17 @@ interface BookmarkLine {
 
 export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
     isOpen, onClose, requestLines, bookmarks, onJump, highlights, caseSensitive, title = "Bookmarks",
-    onClearAll, onDeleteBookmark
+    onClearAll, onDeleteBookmark, onSelectRange
 }) => {
     const [lines, setLines] = useState<BookmarkLine[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [shiftSelectedIdx, setShiftSelectedIdx] = useState<number | null>(null);
     const { addToast } = useToast();
+
+    // Reset shift selection when modal opens/closes or bookmarks change
+    useEffect(() => {
+        setShiftSelectedIdx(null);
+    }, [isOpen, bookmarks]);
 
     // Export Dropdown State
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
@@ -304,6 +311,17 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
                                         key={item.formattedLineIndex}
                                         item={item}
                                         onJump={onJump}
+                                        onShiftClick={(idx) => {
+                                            if (shiftSelectedIdx === null) {
+                                                setShiftSelectedIdx(idx);
+                                            } else {
+                                                if (onSelectRange) {
+                                                    onSelectRange(shiftSelectedIdx, idx);
+                                                    onClose();
+                                                }
+                                            }
+                                        }}
+                                        isShiftSelected={shiftSelectedIdx === item.formattedLineIndex}
                                         onClose={onClose}
                                         onDelete={onDeleteBookmark}
                                         highlights={highlights}
@@ -334,18 +352,28 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
 const BookmarkRow: React.FC<{
     item: BookmarkLine;
     onJump: (index: number) => void;
+    onShiftClick: (index: number) => void;
+    isShiftSelected: boolean;
     onClose: () => void;
     onDelete?: (index: number) => void;
     highlights?: LogHighlight[];
     caseSensitive?: boolean;
-}> = React.memo(({ item, onJump, onClose, onDelete, highlights, caseSensitive }) => {
+}> = React.memo(({ item, onJump, onShiftClick, isShiftSelected, onClose, onDelete, highlights, caseSensitive }) => {
     return (
         <div
-            onClick={() => {
-                onJump(item.formattedLineIndex);
-                onClose();
+            onClick={(e) => {
+                if (e.shiftKey) {
+                    onShiftClick(item.formattedLineIndex);
+                } else {
+                    onJump(item.formattedLineIndex);
+                    onClose();
+                }
             }}
-            className="group flex hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer border-b border-slate-100 dark:border-slate-800 transition-colors"
+            className={`group flex cursor-pointer border-b border-slate-100 dark:border-slate-800 transition-colors ${
+                isShiftSelected 
+                ? "bg-blue-100/50 dark:bg-blue-900/30 ring-1 ring-inset ring-blue-500/50" 
+                : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
+            }`}
         >
             {/* Line Number */}
             <div className="w-16 shrink-0 py-2 px-3 text-right font-mono text-xs text-slate-400 border-r border-slate-100 dark:border-slate-800 group-hover:text-yellow-600 dark:group-hover:text-yellow-500">

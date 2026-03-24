@@ -1,31 +1,39 @@
-# 북마크 모달 누적 시간 표시 구현 계획 🐧
+# 북마크 모달 Shift+Click 범위 선택 기능 구현 계획 🐧
 
-형님! 북마크 모달에서 각 북마크 간의 시간 차이뿐만 아니라, 첫 번째 북마크를 기준으로 한 **누적 시간(Accumulated Time)**을 볼 수 있도록 기능을 추가하겠습니다.
+형님! 북마크 모달에서 특정 구간을 빠르게 선택할 수 있도록 Shift+Click 기능을 추가하겠습니다.
 
 ## 1. 개요
-현재 북마크 모달은 인접한 북마크 간의 시간차만 보여주고 있습니다. 분석의 흐름을 더 잘 파악하기 위해, 첫 번째로 지정한 북마크 시점으로부터 얼마나 시간이 흘렀는지 표시하는 열을 추가합니다.
+북마크 모달에서 두 개의 북마크를 Shift+Click으로 선택하면, 모달이 닫히면서 메인 로그 뷰어에서 해당 구간 전체가 선택되도록 구현합니다.
 
 ## 2. 주요 변경 사항
 
 ### [[Bookmarks Modal]]
 - **대상 파일**: [BookmarksModal.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/BookmarksModal.tsx)
 - **변경 내용**:
-  - `BookmarkLine` 인터페이스에 `accumulatedTimeStr`, `accumulatedTimeClass` 필드 추가.
-  - 데이터 로딩(`useEffect`) 시 첫 번째 북마크의 타임스탬프를 `firstTs`로 저장.
-  - 각 북마크마다 `currentTs - firstTs`를 계산하여 누적 시간 포맷팅.
-  - **UI 레이아웃 변경**:
-    - 기존 'Time Diff' 열 옆에 'Accumulated' 열 추가.
-    - `BookmarkRow` 컴포넌트에 누적 시간 표시 영역 추가.
-    - 헤더 영역에 컬럼 타이틀 추가.
+  - `shiftSelectedIdx` 상태(State) 추가: 첫 번째 Shift+Click된 북마크의 인덱스를 저장.
+  - `BookmarkRow` 컴포넌트 수정:
+    - 클릭 이벤트 발생 시 `event.shiftKey` 확인.
+    - Shift+Click 시: 
+      - 첫 번째 클릭이면 `shiftSelectedIdx`에 저장하고 모달 유지.
+      - 두 번째 클릭이면 `onSelectRange` 콜백 호출 후 모달 닫기.
+    - 스타일 추가: `shiftSelectedIdx`에 해당하는 행은 시각적으로 강조(예: 배경색 변경).
 
-### [[Export 기능]] (옵션)
-- JSON/Confluence Export 시에도 누적 시간 정보가 포함되도록 수정할지 검토 (형님 의견에 따라 추가 가능).
+### [[Log Session]]
+- **대상 파일**: [LogSession.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogSession.tsx)
+- **변경 내용**:
+  - `handleSelectRange` 콜백 정의:
+    - `setActiveLineIndex`를 사용하여 첫 번째 인덱스를 앵커(anchor)로 설정.
+    - `handleLineClick`을 `isShift: true` 옵션과 함께 호출하여 범위를 선택.
+    - 필요시 선택된 영역이 보이도록 스크롤 이동.
+  - `BookmarksModal`에 `onSelectRange` 프롭 전달.
 
 ## 3. 검증 계획
-- 북마크를 여러 개 추가한 후 `Ctrl + B`로 모달을 열어 첫 번째 행은 `0.000s`, 이후 행들은 누적된 시간이 정상적으로 표시되는지 확인.
-- 북마크 삭제 시 누적 시간이 재계산되어야 하는지 확인 (현재 로직상 모달 열릴 때마다 재계산되므로 정상 동작 예상).
+1. `Ctrl + B`로 북마크 모달 열기.
+2. 특정 북마크를 `Shift + Click`: 모달이 닫히지 않고 해당 행이 강조되는지 확인.
+3. 다른 북마크를 `Shift + Click`: 모달이 닫히고 메인 화면에서 두 북마크 사이의 모든 로그가 선택되는지 확인.
+4. 일반 클릭 시에는 기존처럼 즉시 점프하고 모달이 닫히는지 확인.
 
 ---
 
-형님, 분석용으로 아주 유용한 기능이 될 것 같습니다! 이대로 진행할까요? 🚀
+형님, 로그 분석할 때 구간 선택이 훨씬 편해지실 겁니다! 진행할까요? 🚀
 <button>proceed</button>
