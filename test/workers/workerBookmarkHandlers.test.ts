@@ -58,4 +58,18 @@ describe('workerBookmarkHandlers - BookmarkManager', () => {
         BookmarkManager.clearBookmarks(() => {});
         expect(BookmarkManager.getOriginalBookmarksSorted()).toEqual([]);
     });
+
+    it('should correctly handle toggling bookmark when filtering is active', () => {
+        const filteredIndices = new Int32Array([10, 20, 30, 40, 50]);
+        
+        // Toggle visual index 2 (absolute 30)
+        BookmarkManager.toggleBookmark(2, filteredIndices);
+        expect(BookmarkManager.getOriginalBookmarksSorted()).toEqual([30]);
+        expect(BookmarkManager.getVisualBookmarks(filteredIndices)).toEqual([2]);
+        
+        // Filter changes: only 30 remains
+        const filteredIndices2 = new Int32Array([30, 60, 70]);
+        // Visual index of absolute 30 is now 0
+        expect(BookmarkManager.getVisualBookmarks(filteredIndices2)).toEqual([0]);
+    });
 });

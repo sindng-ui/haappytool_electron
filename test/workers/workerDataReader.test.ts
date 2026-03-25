@@ -61,4 +61,15 @@ describe('workerDataReader - getLinesByIndices', () => {
         const response = mockContext.respond.mock.calls[2][0];
         expect(response.payload.lines).toHaveLength(0);
     });
+
+    it('[REGRESSION] should return nothing if visual index is passed with isAbsolute:true while filtering is active', async () => {
+        // This simulates the bug fixed in LogSession.tsx
+        // index 2 is a visual index (intended for absolute index 30), 
+        // but if treated as absolute 2, it won't be found in filteredIndices [10, 20, 30, 40, 50]
+        const indices = [2]; 
+        await getLinesByIndices(mockContext, indices, 'req-reg', true);
+
+        const response = mockContext.respond.mock.calls.find(c => c[0].requestId === 'req-reg')[0];
+        expect(response.payload.lines).toHaveLength(0);
+    });
 });
