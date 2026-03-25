@@ -110,8 +110,10 @@
 - **Interactions**:
   - `Scroll`: 가상 스크롤을 통한 세그먼트 단위 로딩 (`onScrollRequest`)
   - `Ctrl+F`: 검색 바 활성화
-  - `Double Click`: 북마크 토글
-  - **라인 넘버 토글(Show Line Numbers)**: 거터(Gutter)의 인덱스(#)와 원본 라인 번호를 선택적으로 숨길 수 있는 기능을 추가했습니다. 화면을 가로로 더 넓게 쓰고 싶을 때 유용하며, `View Settings`에서 토글 가능합니다. [NEW]
+  - `Space`: 북마크 토글 [MOD]
+  - `Double Click`: 원본 로그 문맥(Raw Context) 보기 [MOD]
+  - **Bug Fix (Bookmarks)**: 필터링된 상태에서 북마크 모달이 비어 보이던 인덱스 매칭 오류(`isAbsolute` 플래그 오설정)를 해결했습니다. [FIX]
+  - **라인 넘버 토글(Show Line Numbers)**: 居터(Gutter)의 인덱스(#)와 원본 라인 번호를 선택적으로 숨길 수 있는 기능을 추가했습니다. 화면을 가로로 더 넓게 쓰고 싶을 때 유용하며, `View Settings`에서 토글 가능합니다. [NEW]
   - **Happy Combo Section**: `Zap` 아이콘 기반의 강력한 필터링 규칙 관리.
     - **마스터 토글**: "Happy Combos" 헤더의 체크박스로 미션 내 모든 해피콤보를 한 번에 켜고 끌 수 있음. [NEW]
     - **Root/Branch 관리**: 트리 구조로 로그 태그를 그룹화하여 관리. Root는 OR, Branch는 AND 조건으로 매칭.

@@ -481,8 +481,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
     const rowHeight = logViewPreferences?.rowHeight || 24; // Use preference or default
 
-    const requestLeftBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'left', true), [requestBookmarkedLines]);
-    const requestRightBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'right', true), [requestBookmarkedLines]);
+    const requestLeftBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'left', false), [requestBookmarkedLines]);
+    const requestRightBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'right', false), [requestBookmarkedLines]);
 
     // Track latest state for global shortcuts
     const stateRef = React.useRef({ activeLineIndexLeft, activeLineIndexRight, selectedIndicesLeft, selectedIndicesRight, leftBookmarks, rightBookmarks });

@@ -1,37 +1,36 @@
-# 북마크 로그 필터링 무시 및 상시 표시 구현 계획 🐧
+# 북마크 모달 필터링 상태 표시 버그 수정 계획 🐧🛠️
 
-형님! 북마크한 로그들이 소중한 정보인 만큼, 필터링을 해도 항상 눈에 보이도록 꼼꼼하게 작업하겠습니다.
+형님, 로그 필터링 상태에서 북마크를 지정했을 때 북마크 모달에 내용이 표시되지 않는 문제를 해결하기 위한 계획입니다.
 
-## 1. 개요
-필터링 조건(Include/Exclude/Quick Filter)과 상관없이, 북마크된 로그 라인은 항상 `Log Viewer`에 표시되도록 머지(Merge) 로직을 추가합니다.
+## 원인 분석
+`LogSession.tsx`에서 북마크 모달에 전달되는 `requestLeftBookmarkedLines`와 `requestRightBookmarkedLines` 함수가 워커에 데이터를 요청할 때 `isAbsolute` 플래그를 `true`로 설정하고 있습니다. 하지만 UI에서 관리되는 북마크 인덱스는 **시각적 인덱스(Visual Index)**이므로, 워커의 `getLinesByIndices`에서 절대 인덱스로 오인하여 데이터를 찾지 못하는 현상이 발생했습니다.
 
-## 2. 주요 변경 사항
+## Proposed Changes
 
-### [[Worker Logic]]
-- **대상 파일**: [LogProcessor.worker.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/LogProcessor.worker.ts)
-- **변경 내용**:
-  - `applyFilter` 함수 수정:
-    - 필터링된 결과(`finalMatches`)에 현재 북마크된 인덱스들을 병합.
-    - 병합 시 **정렬 상태 유지** 및 **중복 제거** (성능 최적화를 위해 O(N) Merge 사용).
-  - `TOGGLE_BOOKMARK` 핸들러 수정:
-    - 북마크 해제 시, 해당 라인이 현재 필터 조건에 맞지 않는다면 `filteredIndices`에서 즉시 제거하여 실시간성 확보.
+### [Log Extractor UI]
 
-- **대상 파일**: [workerBookmarkHandlers.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/workers/workerBookmarkHandlers.ts)
-- **변경 내용**:
-  - `getOriginalBookmarksSorted()` 메서드 추가: 정렬된 북마크 인덱스 배열 반환.
-  - `toggleBookmark` 반환값 수정: 삭제된 인덱스 정보를 반환하여 워커에서 후속 처리(가시성 업데이트) 가능하게 함.
+#### [MODIFY] [LogSession.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogSession.tsx)
+- `requestLeftBookmarkedLines`와 `requestRightBookmarkedLines` 호출 시 `isAbsolute` 인자를 `false`로 변경합니다.
 
-### [[Utility]]
-- **대상 파일**: [logFiltering.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/utils/logFiltering.ts)
-- **변경 내용**: (필요 시) 매칭 로직 재사용성 확인.
+```typescript
+// AS-IS
+const requestLeftBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'left', true), [requestBookmarkedLines]);
+const requestRightBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'right', true), [requestBookmarkedLines]);
 
-## 3. 검증 계획
-1. 특정 로그 라인 북마크.
-2. 해당 라인이 포함되지 않는 필터 입력: 북마크된 라인이 여전히 리스트에 남아있는지 확인.
-3. 북마크 해제: 필터 조건에 맞지 않는 라인이라면 즉시 사라지는지 확인.
-4. 대용량 파일(100만 라인+)에서 필터링 성능 저하 여부 체크 (정렬 병합 방식이므로 영향 미미 예상).
+// TO-BE
+const requestLeftBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'left', false), [requestBookmarkedLines]);
+const requestRightBookmarkedLines = React.useCallback((indices: number[]) => requestBookmarkedLines(indices, 'right', false), [requestBookmarkedLines]);
+```
 
----
+## Verification Plan
 
-형님, 북마크가 필터의 파도를 뚫고 항상 살아남게 만들겠습니다! 진행할까요? 🚀
-<button>proceed</button>
+### Manual Verification
+1. 로그 파일을 엽니다.
+2. 특정 키워드로 필터링을 적용합니다.
+3. 필터링된 결과 중 일부 라인에 북마크를 추가합니다 (Space 키).
+4. 북마크 모달을 엽니다 (Ctrl + B).
+5. 북마크된 라인들이 모달에 정상적으로 표시되는지 확인합니다.
+6. 북마크를 클릭하여 해당 위치로 이동하는지 확인합니다.
+7. 필터가 없는 상태에서도 북마크 모달이 정상 동작하는지 다시 한 번 확인합니다.
+
+<button id="proceed_button">Proceed</button>
