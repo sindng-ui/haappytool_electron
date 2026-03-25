@@ -424,10 +424,10 @@ app.whenReady().then(async () => {
     let fakeProgress = 0;
     const progressInterval = setInterval(() => {
         if (fakeProgress < 95) {
-            fakeProgress += (95 - fakeProgress) * 0.1;
+            fakeProgress += (95 - fakeProgress) * 0.12;
             sendProgress(fakeProgress, 'Starting internal services...');
         }
-    }, 400);
+    }, 90);
 
     // 둘 다 기다림
     await Promise.all([windowLoadPromise, serverStartPromise]);

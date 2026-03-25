@@ -17,6 +17,7 @@
 - **Core Interface**:
   - `AppContent`: 전역 상태(Settings, Plugin 등) 관리의 핵심 컴포넌트
   - `HappyToolProvider`: 전역 Context 공급
+  - `LoadingSplash`: **터미널 스타일(Terminal Style)**의 실시간 시스템 로그 배경이 적용된 프리미엄 로딩 화면. 폰트 크기 최적화(`text-2xl`)를 통해 시작 로그의 가독성과 노출량을 극대화함. [UPDATED]
 - **Data Flow**: `localStorage` -> `Settings Load` -> `Context State` -> `Plugin Injection`
 
 ### [[Plugin Registry & Injection]]
