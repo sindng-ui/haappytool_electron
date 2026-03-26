@@ -156,7 +156,7 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
           targetUAMap.set(key, { count: 0, examples: [], variables: currentUAVars, endpointStats: new Map() });
         }
         const uaData = targetUAMap.get(key)!;
-        uaData.count++;
+        // count will be incremented when traffic is matched, not on log appearance
         if (uaData.examples.length < 2) uaData.examples.push(cleanLine.trim());
       }
     }
@@ -204,7 +204,9 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
                   endpointStats: new Map() 
                 });
              }
-             recordHit(targetUAMap.get(uaKey)!.endpointStats);
+             const uaData = targetUAMap.get(uaKey)!;
+             uaData.count++; // Increment parent UA's hit count on each traffic match
+             recordHit(uaData.endpointStats);
           }
         }
         currentUAVars = null;
@@ -234,7 +236,9 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
               endpointStats: new Map() 
             });
           }
-          recordLogHit(targetUAMap.get(uaKey)!.endpointStats);
+          const uaData = targetUAMap.get(uaKey)!;
+          uaData.count++; // Increment parent UA's hit count on each log match
+          recordLogHit(uaData.endpointStats);
         }
         currentUAVars = null;
       }
