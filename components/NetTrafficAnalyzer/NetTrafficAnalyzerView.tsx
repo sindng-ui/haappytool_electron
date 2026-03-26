@@ -26,7 +26,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
 
   // Patterns
   const [patterns, setPatterns] = useState<TrafficPattern[]>([
-    { id: '1', alias: 'Smart Traffic', keywords: 'ST_APP, https://', extractRegex: '', enabled: true }
+    { id: '1', alias: 'Keywords', keywords: 'ST_APP, https://', extractRegex: '', enabled: true }
   ]);
   const [uaPattern, setUAPattern] = useState<UAPattern>({
     keywords: 'ST_APP, User Agent',
@@ -418,15 +418,15 @@ const NetTrafficAnalyzerView: React.FC = () => {
         {/* Left Config Panel (Synced with Log Extractor) */}
         <div className="w-[450px] border-r border-indigo-500/10 bg-[#0f172a] p-4 shrink-0 flex flex-col overflow-y-auto custom-scrollbar z-10 space-y-6">
 
-          <div className="space-y-4">
+          <div className="space-y-10">
             <div className="flex items-center space-x-2 pb-2 border-b border-slate-800/80">
               <Lucide.Settings size={14} className="text-indigo-300" />
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">Pipeline config</span>
             </div>
 
             {/* Section: File */}
-            <div className="space-y-2.5">
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">01. Log Input</div>
+            <div className="space-y-3">
+              <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] border-l-2 border-indigo-500 pl-3 py-0.5">01. Log Input</div>
               {activeTab === 'single' ? renderFileDropArea('single', singleFile, 'Source Log') : (
                 <div className="grid grid-cols-2 gap-2">
                   {renderFileDropArea('left', leftFile, 'Primary')}
@@ -436,8 +436,8 @@ const NetTrafficAnalyzerView: React.FC = () => {
             </div>
 
             {/* Section: UA */}
-            <div className="space-y-2.5">
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">02. Ussr Agent</div>
+            <div className="space-y-3">
+              <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] border-l-2 border-indigo-500 pl-3 py-0.5">02. User Agent</div>
               <div className="bg-slate-900/40 border border-slate-800 p-3 rounded-lg space-y-4">
                 <label className="flex items-center space-x-3 cursor-pointer group">
                   <input type="checkbox" checked={uaPattern.enabled} onChange={(e) => setUAPattern({ ...uaPattern, enabled: e.target.checked })} className="rounded bg-slate-950 border-slate-800 text-indigo-500 w-3.5 h-3.5" />
@@ -455,13 +455,12 @@ const NetTrafficAnalyzerView: React.FC = () => {
             </div>
 
             {/* Section: Rules */}
-            <div className="space-y-2.5">
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">03. Traffic Pattern</div>
+            <div className="space-y-3">
+              <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] border-l-2 border-indigo-500 pl-3 py-0.5">03. Traffic Pattern</div>
               {patterns.map(p => (
                 <div key={p.id} className="bg-slate-900/40 border border-slate-800 p-2.5 rounded-lg space-y-2 group">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-2">
-                      <input type="checkbox" checked={p.enabled} onChange={(e) => handleUpdatePattern(p.id, 'enabled', e.target.checked)} className="rounded bg-slate-950 border-slate-800 text-amber-500 w-3 h-3" />
                       <input type="text" value={p.alias} onChange={(e) => handleUpdatePattern(p.id, 'alias', e.target.value)} className="bg-transparent border-0 p-0 text-[10px] font-black uppercase text-amber-400 outline-none w-24" placeholder="Rule name" />
                     </div>
                     <button className="text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemovePattern(p.id)}><Lucide.Trash2 size={12} /></button>
