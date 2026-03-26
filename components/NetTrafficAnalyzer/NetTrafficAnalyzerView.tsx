@@ -244,8 +244,29 @@ const NetTrafficAnalyzerView: React.FC = () => {
   const renderUATable = (data: UAResult[], title: string) => {
     return (
       <div className="flex flex-col h-full bg-[#0b0f19] rounded-lg border border-indigo-500/20 overflow-hidden">
-        <div className="bg-[#0f172a] h-8 px-3 flex items-center justify-between border-b border-indigo-500/30">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</span>
+        <div className="bg-[#0f172a] h-10 px-3 flex items-center justify-between border-b border-indigo-500/30">
+          <div className="flex items-center space-x-4">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</span>
+            <div className="flex items-center space-x-1 border-l border-slate-800 pl-4 h-4">
+              <button
+                className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-tight"
+                onClick={() => {
+                  const allKeys = new Set(expandedKeys);
+                  data.forEach(row => allKeys.add(`ua-${JSON.stringify(row.variables)}`));
+                  setExpandedKeys(allKeys);
+                }}
+              >Expand All</button>
+              <span className="text-slate-700 text-[10px]">/</span>
+              <button
+                className="text-[9px] font-bold text-slate-500 hover:text-slate-400 transition-colors uppercase tracking-tight"
+                onClick={() => {
+                  const newKeys = new Set(expandedKeys);
+                  data.forEach(row => newKeys.delete(`ua-${JSON.stringify(row.variables)}`));
+                  setExpandedKeys(newKeys);
+                }}
+              >Collapse All</button>
+            </div>
+          </div>
           <span className="text-[10px] text-slate-500">{data.length} Clients</span>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -321,13 +342,21 @@ const NetTrafficAnalyzerView: React.FC = () => {
                                 </thead>
                                 <tbody>
                                   {row.endpoints.map((ep, eIdx) => {
+                                    const epKey = `${uaKey}-${ep.templateUri}`;
+                                    const isEpExpanded = expandedKeys.has(epKey);
                                     const hasVariations = ep.rawCalls.length > 1;
                                     return (
                                       <React.Fragment key={eIdx}>
                                         <tr className="border-b border-slate-900 hover:bg-slate-900/50">
-                                          <td className="px-3 py-1 font-mono text-indigo-300 opacity-80">
+                                          <td className="px-3 py-1 font-mono text-indigo-300 opacity-80 cursor-pointer" onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleExpand(epKey);
+                                          }}>
                                             <div className="flex items-center justify-between group/ep">
-                                              <span>{ep.templateUri}</span>
+                                              <div className="flex items-center space-x-1.5 min-w-0 flex-1">
+                                                {hasVariations && <Lucide.ChevronRight size={10} className={`transition-transform ${isEpExpanded ? 'rotate-90 text-indigo-400' : 'text-slate-600'}`} />}
+                                                <span className="truncate">{ep.templateUri}</span>
+                                              </div>
                                               <button
                                                 className="opacity-0 group-hover/ep:opacity-100 p-1 text-slate-500 hover:text-white transition-opacity"
                                                 onClick={(e) => {
@@ -342,7 +371,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
                                           </td>
                                           <td className="px-3 py-1 text-right font-bold text-indigo-400 tabular-nums">{ep.totalCount}</td>
                                         </tr>
-                                        {hasVariations && (
+                                        {hasVariations && isEpExpanded && (
                                           <tr className="bg-slate-950/20">
                                             <td colSpan={2} className="p-1 px-4">
                                               <div className="space-y-1 border-l border-indigo-500/10 pl-3 my-1">
