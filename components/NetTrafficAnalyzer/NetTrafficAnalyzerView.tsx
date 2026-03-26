@@ -86,9 +86,24 @@ const NetTrafficAnalyzerView: React.FC = () => {
   const renderFileDropArea = (target: 'single' | 'left' | 'right', file: File | null, label: string) => {
     return (
       <div 
-        className={`flex-1 min-h-[70px] border border-dashed rounded-lg flex flex-col items-center justify-center p-2 transition-all ${
-          file ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-800 bg-slate-900/40'
+        className={`flex-1 min-h-[70px] border border-dashed rounded-lg flex flex-col items-center justify-center p-2 transition-all group ${
+          file ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-800 bg-slate-900/40 hover:border-indigo-500/50 hover:bg-slate-900/60'
         }`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const droppedFile = e.dataTransfer.files[0];
+          if (droppedFile) {
+            if (target === 'single') setSingleFile(droppedFile);
+            else if (target === 'left') setLeftFile(droppedFile);
+            else setRightFile(droppedFile);
+            addToast(`File loaded: ${droppedFile.name}`, 'success', 2000);
+          }
+        }}
       >
         {file ? (
           <div className="flex flex-col items-center">
