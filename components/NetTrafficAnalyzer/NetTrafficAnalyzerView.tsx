@@ -106,6 +106,15 @@ const NetTrafficAnalyzerView: React.FC = () => {
     return `ua-${JSON.stringify(sorted)}`;
   };
 
+  const toggleClusterExpand = (uaKey: string) => {
+    setExpandedKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(uaKey)) next.delete(uaKey);
+      else next.add(uaKey);
+      return next;
+    });
+  };
+
   const formatTemplateGroup = (group: TemplateGroup): string => {
     let md = `### Endpoint Analysis: ${group.alias || 'Auto'}\n\n`;
     md += `| Attribute | Value |` + '\n';
@@ -339,7 +348,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
                   <React.Fragment key={uaKey}>
                     <tr
                       className={`hover:bg-indigo-500/5 border-b border-slate-900 transition-colors cursor-pointer ${isExpanded ? 'bg-indigo-500/10' : ''}`}
-                      onClick={() => toggleExpand(uaKey)}
+                      onClick={() => toggleClusterExpand(uaKey)}
                     >
                       <td className="px-2 py-2">
                         <div className="flex items-start space-x-1.5">
@@ -402,7 +411,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
                                           }}>
                                             <div className="flex items-center justify-between group/ep">
                                               <div className="flex items-center space-x-1.5 min-w-0 flex-1">
-                                                {hasVariations && <Lucide.ChevronRight size={10} className={`transition-transform ${isEpExpanded ? 'rotate-90 text-indigo-400' : 'text-slate-600'}`} />}
+                                                <Lucide.ChevronRight size={10} className={`transition-transform ${isEpExpanded ? 'rotate-90 text-indigo-400' : 'text-slate-600'}`} />
                                                 <span className="truncate">{ep.templateUri}</span>
                                               </div>
                                               <button
@@ -419,14 +428,26 @@ const NetTrafficAnalyzerView: React.FC = () => {
                                           </td>
                                           <td className="px-3 py-1 text-right font-bold text-indigo-400 tabular-nums">{ep.totalCount}</td>
                                         </tr>
-                                        {hasVariations && isEpExpanded && (
+                                        {isEpExpanded && (
                                           <tr className="bg-slate-950/20">
                                             <td colSpan={2} className="p-1 px-4">
                                               <div className="space-y-1 border-l border-indigo-500/10 pl-3 my-1">
                                                 {ep.rawCalls.map((rc, rcIdx) => (
-                                                  <div key={rcIdx} className="flex justify-between items-center text-[9px] text-slate-500 font-mono">
-                                                    <span className="truncate flex-1 pr-2 opacity-70 italic">{rc.rawUri}</span>
-                                                    <span className="shrink-0 font-bold opacity-50">x{rc.count}</span>
+                                                  <div key={rcIdx} className="bg-slate-900/50 rounded border border-slate-800 overflow-hidden text-[10px] group/rc mb-1 last:mb-0">
+                                                    <div className="bg-slate-950 px-2 py-0.5 flex justify-between items-center border-b border-slate-800">
+                                                      <div className="font-mono text-indigo-300 break-all flex-1 text-[9px]">{rc.rawUri}</div>
+                                                      <div className="flex items-center space-x-1.5 ml-2">
+                                                        <button className="text-slate-500 hover:text-white" onClick={() => copyToClipboard(rc.rawUri, 'Path copied')}><Lucide.Copy size={9} /></button>
+                                                        <div className="font-bold text-slate-500 font-mono text-[9px]">x{rc.count}</div>
+                                                      </div>
+                                                    </div>
+                                                    <div className="p-1 space-y-0.5 bg-slate-900/30">
+                                                      {rc.examples.map((ex, exIdx) => (
+                                                        <div key={exIdx} className="text-[8px] font-mono text-slate-500 whitespace-pre-wrap break-all pl-1.5 border-l border-emerald-500/10 leading-tight italic">
+                                                          {ex}
+                                                        </div>
+                                                      ))}
+                                                    </div>
                                                   </div>
                                                 ))}
                                               </div>
