@@ -159,6 +159,20 @@
   - `Main Thread Detection`: .NET(`Managed Thread`, `0x`), 파일명 매칭, 최상단 세그먼트의 `Process32` (PID/TID) 메타데이터 우선 분석 및 활성도(SegmentCount) 가중치를 결합한 하이브리드 감지 로직 (2026-03-24 최종 개선)
 - **Data Flow**: `SpeedScope JSON` -> `Worker(Parser)` -> `Heuristic Detection` -> `PerfDashboard Rendering`
 
+### [[NetTraffic Analyzer (네트워크 트래픽 분석기)]] 🐧⚡ [NEW]
+- **ID**: `NET_TRAFFIC_ANALYZER`
+- **Keywords**: [`네트워크`, `트래픽`, `URI 정규화`, `User Agent`, `UA 분석`, `Markdown Copy`]
+- **Location**:
+  - `View`: [NetTrafficAnalyzerView.tsx](./components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx)
+  - `Worker`: [NetTraffic.worker.ts](./workers/NetTraffic.worker.ts)
+  - `Logic`: [useNetTrafficLogic.ts](./hooks/useNetTrafficLogic.ts)
+- **Core Interface**:
+  - `URI Normalization`: UUID 자동 감지 및 `$(UUID)` 치환 통계
+  - `3-Level Hierarchy`: User Agent > API Template > Raw URI 드릴다운
+  - `One-shot Attribution`: UA 로그 1개당 직후 트래픽 1건 매칭 로직 (No UA 자동 분류)
+  - `Markdown Table Copy`: 계층 구조 전체를 마크다운 표로 변환 및 클립보드 복사
+- **Data Flow**: `Log File` -> `Worker(Hierarchical Parsing)` -> `UA Context Matching` -> `UI Tree View`
+
 ### [[PostTool Plugin]]
 - **ID**: `plugin-post-tool`
 - **Keywords**: [`HTTP`, `REST`, `Postman`, `API Test`]

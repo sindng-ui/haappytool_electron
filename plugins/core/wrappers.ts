@@ -169,14 +169,24 @@ export const PerfToolPlugin: HappyPlugin = {
     order: 17,
 };
 
-const SpeedScope = React.lazy(() => import('../../components/SpeedScope/SpeedScopePlugin'));
+// const SpeedScope = React.lazy(() => import('../../components/SpeedScope/SpeedScopePlugin')); // 임시 주석: 물리 파일 누락
 
-export const SpeedScopePlugin: HappyPlugin = {
-    id: ToolId.SPEED_SCOPE,
-    name: 'Speed Scope',
-    icon: Activity,
-    component: SpeedScope,
-    order: 18,
+// export const SpeedScopePlugin: HappyPlugin = {
+//     id: ToolId.SPEED_SCOPE,
+//     name: 'Speed Scope',
+//     icon: Activity,
+//     component: SpeedScope,
+//     order: 18,
+// };
+
+const NetTrafficAnalyzer = React.lazy(() => import('../../components/NetTrafficAnalyzer/NetTrafficAnalyzerPlugin'));
+
+export const NetTrafficAnalyzerPluginWrapper: HappyPlugin = {
+    id: ToolId.NET_TRAFFIC_ANALYZER,
+    name: 'NetTraffic',
+    icon: Network,
+    component: NetTrafficAnalyzer,
+    order: 19,
 };
 
 export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
@@ -196,5 +206,6 @@ export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
     [ToolId.TIZEN_LAB]: TizenLabPluginWrapper,
     [ToolId.EASY_POST]: EasyPostPlugin,
     [ToolId.PERF_TOOL]: PerfToolPlugin,
-    [ToolId.SPEED_SCOPE]: SpeedScopePlugin,
+    [ToolId.SPEED_SCOPE]: undefined as any, // Temporary
+    [ToolId.NET_TRAFFIC_ANALYZER]: NetTrafficAnalyzerPluginWrapper,
 };

@@ -16,7 +16,8 @@ import {
     TizenLabPluginWrapper,
     EasyPostPlugin,
     PerfToolPlugin,
-    SpeedScopePlugin
+    // SpeedScopePlugin, // 임시 주석: 물리 파일 누락 방지
+    NetTrafficAnalyzerPluginWrapper
 } from './core/wrappers';
 
 // Registry array to hold all registered plugins
@@ -38,7 +39,8 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     TizenLabPluginWrapper,
     EasyPostPlugin,
     PerfToolPlugin,
-    SpeedScopePlugin
+    // SpeedScopePlugin,
+    NetTrafficAnalyzerPluginWrapper
 ];
 
 export const getPluginById = (id: string): HappyPlugin | undefined => {

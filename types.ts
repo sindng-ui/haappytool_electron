@@ -18,6 +18,7 @@ export enum ToolId {
   EASY_POST = 'EASY_POST',
   PERF_TOOL = 'PERF_TOOL',
   SPEED_SCOPE = 'SPEED_SCOPE',
+  NET_TRAFFIC_ANALYZER = 'NET_TRAFFIC_ANALYZER',
 }
 
 export interface LogHighlight {
