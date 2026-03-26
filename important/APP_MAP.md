@@ -174,7 +174,8 @@
   - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드 (구 Static 탭)
   - `One-shot Attribution`: UA 로그 1개당 직후 트래픽 1건 매칭 로직 (No UA 자동 분류)
   - `Deep Hierarchical Copy`: UA 및 엔드포인트 단위의 마크다운 계층 구조(Raw URI 포함) 전체 복사 지원
-- **Data Flow**: `Log File` -> `Worker(Hierarchical Parsing)` -> `UA Context Matching` -> `UI Tree View`
+  - `Raw View Navigator`: 분석 결과 항목에서 실제 원본 로그 라인으로 즉송 이동(Jump) 및 이전/다음 탐색 모달 기능 (1000라인 단위 컨텍스트 윈도우 지원) 🐧🔍🚀 [NEW]
+- **Data Flow**: `Log File` -> `Worker(Hierarchical Parsing with Line Indexing)` -> `UA Context Matching` -> `UI Tree View` -> `RawView Jump`
 
 ### [[PostTool Plugin]]
 - **ID**: `plugin-post-tool`

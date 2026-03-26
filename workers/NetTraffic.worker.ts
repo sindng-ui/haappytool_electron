@@ -5,6 +5,7 @@ export interface RawCall {
   rawUri: string;
   count: number;
   examples: string[];
+  lineIndices: number[];
 }
 
 export interface TemplateGroup {
@@ -60,6 +61,9 @@ type StatsMap = Map<string, { totalCount: number, rawMap: Map<string, { count: n
 let singleStats: StatsMap = new Map();
 let leftStats: StatsMap = new Map();
 let rightStats: StatsMap = new Map();
+
+// Line counters
+let lineCounts = { single: 0, left: 0, right: 0 };
 
 // UA Stats
 type UAMap = Map<string, { 
@@ -141,7 +145,7 @@ const templateToRegex = (template: string): RegExp | null => {
   }
 };
 
-const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, targetInsights: InternalInsights) => {
+const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, targetInsights: InternalInsights, lineIdx: number) => {
   const cleanLine = stripAnsi(line);
   
   // 1. Check for User Agent line
@@ -186,10 +190,11 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
             if (!stats.has(templateUri)) stats.set(templateUri, { totalCount: 0, rawMap: new Map() });
             const tData = stats.get(templateUri)!;
             tData.totalCount++;
-            if (!tData.rawMap.has(rawUri)) tData.rawMap.set(rawUri, { count: 0, examples: [] });
+            if (!tData.rawMap.has(rawUri)) tData.rawMap.set(rawUri, { count: 0, examples: [], lineIndices: [] });
             const rData = tData.rawMap.get(rawUri)!;
             rData.count++;
             if (rData.examples.length < 3) rData.examples.push(cleanLine.trim());
+            if (rData.lineIndices.length < 100) rData.lineIndices.push(lineIdx);
           };
 
           recordHit(targetStats);
@@ -218,10 +223,11 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
           if (!stats.has(templateUri)) stats.set(templateUri, { totalCount: 0, rawMap: new Map() });
           const tData = stats.get(templateUri)!;
           tData.totalCount++;
-          if (!tData.rawMap.has(rawUri)) tData.rawMap.set(rawUri, { count: 0, examples: [] });
+          if (!tData.rawMap.has(rawUri)) tData.rawMap.set(rawUri, { count: 0, examples: [], lineIndices: [] });
           const rData = tData.rawMap.get(rawUri)!;
           rData.count++;
           if (rData.examples.length < 1) rData.examples.push(cleanLine.trim());
+          if (rData.lineIndices.length < 100) rData.lineIndices.push(lineIdx);
         };
 
         recordLogHit(targetStats);
@@ -263,6 +269,7 @@ self.onmessage = (e: MessageEvent) => {
       leftInsights = createEmptyInsights();
       rightInsights = createEmptyInsights();
       buffers.single = ''; buffers.left = ''; buffers.right = '';
+      lineCounts.single = 0; lineCounts.left = 0; lineCounts.right = 0;
       break;
       
     case 'PROCESS_CHUNK': {
@@ -273,7 +280,9 @@ self.onmessage = (e: MessageEvent) => {
       buffers[target] += chunk;
       let lines = buffers[target].split('\n');
       buffers[target] = lines.pop() || '';
-      for (const line of lines) processLine(line, tStats, tUA, tInsights);
+      for (const line of lines) {
+        processLine(line, tStats, tUA, tInsights, lineCounts[target]++);
+      }
       break;
     }
       
@@ -283,7 +292,7 @@ self.onmessage = (e: MessageEvent) => {
       const fUA = target === 'single' ? singleUAMap : target === 'left' ? leftUAMap : rightUAMap;
       const fInsights = target === 'single' ? singleInsights : target === 'left' ? leftInsights : rightInsights;
       
-      if (buffers[target].trim()) processLine(buffers[target], fStats, fUA, fInsights);
+      if (buffers[target].trim()) processLine(buffers[target], fStats, fUA, fInsights, lineCounts[target]++);
       buffers[target] = '';
       
       const formatStats = (stats: StatsMap): TemplateGroup[] => {
@@ -292,7 +301,7 @@ self.onmessage = (e: MessageEvent) => {
           templateUri,
           totalCount: data.totalCount,
           rawCalls: Array.from(data.rawMap.entries()).map(([rawUri, rd]) => ({
-            rawUri, count: rd.count, examples: rd.examples
+            rawUri, count: rd.count, examples: rd.examples, lineIndices: rd.lineIndices
           })).sort((a, b) => b.count - a.count)
         })).sort((a, b) => b.totalCount - a.totalCount);
       };

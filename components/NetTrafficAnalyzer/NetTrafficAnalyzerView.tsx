@@ -5,6 +5,109 @@ import { useNetTrafficLogic } from '../../hooks/useNetTrafficLogic';
 import { useToast } from '../../contexts/ToastContext';
 import { TrafficPattern, TemplateGroup, RawCall, UAPattern, UAResult } from '../../workers/NetTraffic.worker';
 
+const RawLogNavigator: React.FC<{
+  file: File | null;
+  lineIndices: number[];
+  onClose: () => void;
+  title: string;
+}> = ({ file, lineIndices, onClose, title }) => {
+  const [lines, setLines] = useState<string[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const lineRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    if (file) {
+      setLoading(true);
+      file.text().then(text => {
+        setLines(text.split('\n'));
+        setLoading(false);
+      }).catch(err => {
+        console.error('Failed to read log file', err);
+        setLoading(false);
+      });
+    }
+  }, [file]);
+
+  useEffect(() => {
+    if (!loading && lines.length > 0 && lineIndices.length > 0) {
+      const targetLine = lineIndices[currentIndex];
+      const el = lineRefs.current[targetLine];
+      if (el) {
+        el.scrollIntoView({ behavior: 'auto', block: 'center' });
+      }
+    }
+  }, [currentIndex, lines, loading, lineIndices]);
+
+  if (!file) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-8">
+      <div className="bg-[#0f172a] border border-indigo-500/30 rounded-xl shadow-2xl w-[90vw] h-[85vh] flex flex-col overflow-hidden max-w-6xl">
+        {/* Header */}
+        <div className="h-12 border-b border-indigo-500/20 bg-[#0b0f19] px-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center space-x-4">
+            <span className="text-[10px] font-black uppercase text-indigo-400 tracking-widest leading-none bg-indigo-500/10 px-2 py-1.5 rounded">{title}</span>
+            <div className="h-4 w-[1px] bg-slate-800" />
+            <div className="flex items-center space-x-3">
+              <button 
+                className="w-8 h-8 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all disabled:opacity-20 active:scale-95"
+                onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+                disabled={currentIndex === 0}
+              ><Lucide.ChevronLeft size={18} /></button>
+              
+              <div className="flex flex-col items-center min-w-[120px]">
+                <div className="text-[14px] font-black text-white tabular-nums leading-none mb-1">
+                  Line {lineIndices[currentIndex] + 1}
+                </div>
+                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">
+                  Match {currentIndex + 1} of {lineIndices.length}
+                </div>
+              </div>
+
+              <button 
+                className="w-8 h-8 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all disabled:opacity-20 active:scale-95"
+                onClick={() => setCurrentIndex(prev => Math.min(lineIndices.length - 1, prev + 1))}
+                disabled={currentIndex === lineIndices.length - 1}
+              ><Lucide.ChevronRight size={18} /></button>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all active:scale-90"><Lucide.X size={18} /></button>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-auto bg-[#0b0f19] custom-scrollbar p-0 font-mono text-[11px] relative scroll-smooth" ref={containerRef}>
+          {loading ? (
+             <div className="h-full flex flex-col items-center justify-center space-y-4 opacity-50">
+               <Lucide.Loader size={32} className="animate-spin text-indigo-500" />
+               <span className="text-[10px] uppercase font-black tracking-[0.2em] text-slate-400">Inflating Log Buffer...</span>
+             </div>
+          ) : (
+             <div className="space-y-0 min-w-max pb-[40vh]">
+               {lines.map((line, idx) => {
+                 const isSelected = lineIndices[currentIndex] === idx;
+                 if (!isSelected && Math.abs(lineIndices[currentIndex] - idx) > 400) return null;
+                 
+                 return (
+                   <div 
+                     key={idx} 
+                     ref={el => { lineRefs.current[idx] = el; }}
+                     className={`flex space-x-4 px-3 py-0.5 group transition-colors ${isSelected ? 'bg-indigo-500/20 border-l-4 border-indigo-500 opacity-100 z-10 sticky top-0 bottom-0 shadow-[0_0_20px_rgba(79,70,229,0.2)]' : 'hover:bg-slate-900/40 opacity-40 hover:opacity-100'}`}
+                   >
+                     <span className={`w-14 shrink-0 text-right font-mono text-[10px] select-none border-r border-slate-800 pr-3 ${isSelected ? 'text-indigo-400 font-black' : 'text-slate-700'}`}>{idx + 1}</span>
+                     <span className={`whitespace-pre pr-8 ${isSelected ? 'text-slate-100 font-medium' : 'text-slate-500 group-hover:text-slate-400'}`}>{line}</span>
+                   </div>
+                 );
+               })}
+             </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const LOCAL_STORAGE_KEY_UA = 'happytool_nettraffic_ua_pattern';
 const LOCAL_STORAGE_KEY_PATTERNS = 'happytool_nettraffic_traffic_patterns';
 
@@ -18,6 +121,9 @@ const NetTrafficAnalyzerView: React.FC = () => {
   const [leftFile, setLeftFile] = useState<File | null>(null);
   const [rightFile, setRightFile] = useState<File | null>(null);
 
+  // Navigator
+  const [navSource, setNavSource] = useState<{ file: File; lineIndices: number[]; title: string } | null>(null);
+
   // Design Constants (Synced with Log Extractor)
   const COLORS = {
     bg: '#0b0f19',
@@ -28,13 +134,33 @@ const NetTrafficAnalyzerView: React.FC = () => {
   };
 
   // Patterns
-  const [patterns, setPatterns] = useState<TrafficPattern[]>([
-    { id: '1', alias: 'Keywords', keywords: 'ST_APP, https://', extractRegex: '', enabled: true }
-  ]);
-  const [uaPattern, setUAPattern] = useState<UAPattern>({
-    keywords: 'ST_APP, User Agent',
-    template: 'User Agent> $(ClientName)/$(ClientVersion)/$(AppName)/$(AppVersion)/asdf',
-    enabled: true
+  const [patterns, setPatterns] = useState<TrafficPattern[]>(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_PATTERNS);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.error('Failed to parse saved traffic patterns', e);
+      }
+    }
+    return [{ id: '1', alias: 'Keywords', keywords: 'ST_APP, https://', extractRegex: '', enabled: true }];
+  });
+
+  const [uaPattern, setUAPattern] = useState<UAPattern>(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_UA);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved UA pattern', e);
+      }
+    }
+    return {
+      keywords: 'ST_APP, User Agent',
+      template: 'User Agent> $(ClientName)/$(ClientVersion)/$(AppName)/$(AppVersion)/asdf',
+      enabled: true
+    };
   });
 
   const {
@@ -45,28 +171,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
     startAnalysis
   } = useNetTrafficLogic();
 
-  // Persistence (로컬 저장소 연동)
-  useEffect(() => {
-    const savedUA = localStorage.getItem(LOCAL_STORAGE_KEY_UA);
-    const savedPatterns = localStorage.getItem(LOCAL_STORAGE_KEY_PATTERNS);
-    if (savedUA) {
-      try {
-        setUAPattern(JSON.parse(savedUA));
-      } catch (e) {
-        console.error('Failed to parse saved UA pattern', e);
-      }
-    }
-    if (savedPatterns) {
-      try {
-        const parsed = JSON.parse(savedPatterns);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setPatterns(parsed);
-        }
-      } catch (e) {
-        console.error('Failed to parse saved traffic patterns', e);
-      }
-    }
-  }, []);
+  // Persistence (로컬 저장소 자동 저장)
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY_UA, JSON.stringify(uaPattern));
@@ -199,7 +304,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
     );
   };
 
-  const renderTable = (data: TemplateGroup[], title: string) => {
+  const renderTable = (data: TemplateGroup[], title: string, sourceFile: File | null) => {
     return (
       <div className="flex flex-col h-full bg-[#0b0f19] rounded-lg border border-indigo-500/20 overflow-hidden">
         <div className="bg-[#0f172a] h-8 px-3 flex items-center justify-between border-b border-indigo-500/30">
@@ -287,16 +392,16 @@ const NetTrafficAnalyzerView: React.FC = () => {
                                 <div className="bg-slate-950 px-2 py-1 flex justify-between items-center border-b border-slate-800">
                                   <div className="font-mono text-indigo-300 break-all flex-1">{rc.rawUri}</div>
                                   <div className="flex items-center space-x-2 ml-4">
+                                    <button 
+                                      className="w-6 h-6 flex items-center justify-center bg-slate-900 border border-slate-800 rounded text-slate-500 hover:text-emerald-400 hover:border-emerald-500/30 transition-all active:scale-90"
+                                      onClick={() => setNavSource({ file: sourceFile!, lineIndices: rc.lineIndices || [], title: rc.rawUri })}
+                                      title="Jump to Raw View"
+                                    >
+                                       <Lucide.Eye size={10} />
+                                    </button>
                                     <button className="text-slate-500 hover:text-white" onClick={() => copyToClipboard(rc.rawUri, 'Path copied')}><Lucide.Copy size={11} /></button>
                                     <div className="font-bold text-slate-500 font-mono">x{rc.count}</div>
                                   </div>
-                                </div>
-                                <div className="p-1 space-y-0.5">
-                                  {rc.examples.map((ex, exIdx) => (
-                                    <div key={exIdx} className="text-[9px] font-mono text-slate-500 whitespace-pre-wrap break-all pl-2 border-l border-emerald-500/20 leading-tight">
-                                      {ex}
-                                    </div>
-                                  ))}
                                 </div>
                               </div>
                             ))}
@@ -314,7 +419,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
     );
   };
 
-  const renderUATable = (data: UAResult[], title: string) => {
+  const renderUATable = (data: UAResult[], title: string, sourceFile: File | null) => {
     return (
       <div className="flex flex-col h-full bg-[#0b0f19] rounded-lg border border-indigo-500/20 overflow-hidden">
         <div className="bg-[#0f172a] h-10 px-3 flex items-center justify-between border-b border-indigo-500/30">
@@ -480,16 +585,18 @@ const NetTrafficAnalyzerView: React.FC = () => {
                                                     <div className="bg-slate-950 px-2 py-0.5 flex justify-between items-center border-b border-slate-800">
                                                       <div className="font-mono text-indigo-300 break-all flex-1 text-[9px]">{rc.rawUri}</div>
                                                       <div className="flex items-center space-x-1.5 ml-2">
-                                                        <button className="text-slate-500 hover:text-white" onClick={() => copyToClipboard(rc.rawUri, 'Path copied')}><Lucide.Copy size={9} /></button>
-                                                        <div className="font-bold text-slate-500 font-mono text-[9px]">x{rc.count}</div>
+                                                        <button 
+                                                          className="w-6 h-6 flex items-center justify-center bg-slate-900 border border-slate-800 rounded text-slate-500 hover:text-emerald-400 hover:border-emerald-500/30 transition-all active:scale-90"
+                                                          onClick={() => setNavSource({ file: sourceFile!, lineIndices: rc.lineIndices || [], title: rc.rawUri })}
+                                                          title="Jump to Raw View"
+                                                        >
+                                                           <Lucide.Eye size={10} />
+                                                        </button>
+                                                        <button className="w-6 h-6 flex items-center justify-center bg-slate-900 border border-slate-800 rounded text-slate-500 hover:text-white transition-all active:scale-90" onClick={() => copyToClipboard(rc.rawUri, 'Path copied')}>
+                                                           <Lucide.Copy size={10} />
+                                                        </button>
+                                                        <div className="font-bold text-slate-500 font-mono text-[9px] min-w-[30px] text-right">x{rc.count}</div>
                                                       </div>
-                                                    </div>
-                                                    <div className="p-1 space-y-0.5 bg-slate-900/30">
-                                                      {rc.examples.map((ex, exIdx) => (
-                                                        <div key={exIdx} className="text-[8px] font-mono text-slate-500 whitespace-pre-wrap break-all pl-1.5 border-l border-emerald-500/10 leading-tight italic">
-                                                          {ex}
-                                                        </div>
-                                                      ))}
                                                     </div>
                                                   </div>
                                                 ))}
@@ -517,7 +624,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
     );
   };
 
-  const renderInsightsTab = (insights: any, sourceName: string) => {
+  const renderInsightsTab = (insights: any, sourceName: string, sourceFile: File | null) => {
     const timelineEntries = (Object.entries(insights.timeline) as [string, number][]).sort((a, b) => {
       if (a[0].endsWith('m') && b[0].endsWith('m')) return parseInt(a[0]) - parseInt(b[0]);
       return a[0].localeCompare(b[0]);
@@ -650,7 +757,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
               {activeTab === 'single' ? renderFileDropArea('single', singleFile, 'Source Log') : (
                 <div className="grid grid-cols-2 gap-2">
                   {renderFileDropArea('left', leftFile, 'Primary')}
-                  {renderFileDropArea('right', rightFile, 'Refernce')}
+                  {renderFileDropArea('right', rightFile, 'Reference')}
                 </div>
               )}
             </div>
@@ -732,17 +839,17 @@ const NetTrafficAnalyzerView: React.FC = () => {
               </div>
             ) : (
               <div className="flex-1 overflow-hidden flex flex-col">
-                {resultTab === 'endpoints' && renderTable(singleResult.filter(g => g.templateUri.includes('$(UUID)')), 'Master API Index')}
-                {resultTab === 'ua' && renderUATable(singleUAResult, 'Client Fingerprint Clusters')}
-                {resultTab === 'insights' && (activeTab === 'single' ? renderInsightsTab(singleInsights, 'Primary') : (
+                {resultTab === 'endpoints' && renderTable(singleResult.filter(g => g.templateUri.includes('$(UUID)')), 'Master API Index', singleFile)}
+                {resultTab === 'ua' && renderUATable(singleUAResult, 'Client Fingerprint Clusters', singleFile)}
+                {resultTab === 'insights' && (activeTab === 'single' ? renderInsightsTab(singleInsights, 'Primary', singleFile) : (
                   <div className="flex-1 flex space-x-2 overflow-hidden">
                     <div className="flex-1 flex flex-col border border-slate-900 rounded-lg overflow-hidden">
                       <div className="bg-indigo-900/20 px-3 py-1 text-[8px] font-black uppercase text-indigo-400 border-b border-indigo-900/30">Primary source</div>
-                      {renderInsightsTab(leftInsights, 'Primary')}
+                      {renderInsightsTab(leftInsights, 'Primary', leftFile)}
                     </div>
                     <div className="flex-1 flex flex-col border border-slate-900 rounded-lg overflow-hidden">
                       <div className="bg-rose-900/20 px-3 py-1 text-[8px] font-black uppercase text-rose-400 border-b border-rose-900/30">Reference source</div>
-                      {renderInsightsTab(rightInsights, 'Reference')}
+                      {renderInsightsTab(rightInsights, 'Reference', rightFile)}
                     </div>
                   </div>
                 ))}
@@ -764,6 +871,14 @@ const NetTrafficAnalyzerView: React.FC = () => {
           </div>
         </div>
       </div>
+      {navSource && (
+        <RawLogNavigator 
+          file={navSource.file} 
+          lineIndices={navSource.lineIndices} 
+          onClose={() => setNavSource(null)} 
+          title={navSource.title} 
+        />
+      )}
     </div>
   );
 };

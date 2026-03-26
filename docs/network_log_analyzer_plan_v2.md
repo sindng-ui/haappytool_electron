@@ -1,27 +1,28 @@
-# NetTraffic 플러그인 선별적 복구 계획
+# NetTraffic 설정 영속화 및 빌드 오류 수정
 
-형님, 꼬여버린 Git 실타래를 제가 깔끔하게 풀어서 **오늘 작업한 NetTraffic 기능만** 쏙쏙 골라 `0328` 브랜치에 심어드리겠습니다! 🐧🛠️
+이미 구현된 로컬 저장 로직이 초기 렌더링 시 기본값에 의해 덮어씌워지는 현상을 방지하기 위해, 상태 초기화 방식을 개선하고 빌드 에러를 점검합니다. 🐧🛠️💾✨🩹🚀
 
-## 🎯 목표
-- `stash@{0}`에 섞여 있는 파일들 중 `NetTraffic` 관련 파일만 추출
-- `SpeedScope` 등 불필요한 변경사항 제외하고 순수하게 `NetTraffic` 기능만 복구
-- 최신 `0328` 브랜치 상태 유지
+## 사용자 검토 필요
+- **localStorage 초기화**: `useState` 이니셜라이저를 사용하여 컴포넌트 생성 즉시 데이터를 복원합니다.
+- **빌드 오류 확인**: `vite` 실행 시 발생했던 에러를 해결하여 정상적인 개발 환경을 복구합니다.
 
-## 🛠️ 추출 대상 파일 (New Files)
-다음 파일들은 `stash@{0}`에서 그대로 가져옵니다:
-- [NEW] `components/NetTrafficAnalyzer/NetTrafficAnalyzerPlugin.tsx`
-- [NEW] `components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx`
-- [NEW] `hooks/useNetTrafficLogic.ts`
-- [NEW] `workers/NetTraffic.worker.ts`
-- [NEW] `docs/network_log_analyzer_plan.md`
-- [NEW] `docs/test_result.txt`
+## 제안된 변경 사항
 
-## 📝 선별 수정 대상 (Modified Files)
-다음 파일들은 `SpeedScope` 정보를 제외하고 `NetTraffic` 정보만 추가합니다:
-- [MODIFY] `types.ts`: `NET_TRAFFIC_ANALYZER` enum 추가
-- [MODIFY] `plugins/registry.ts`: `NetTraffic` 플러그인 등록
-- [MODIFY] `plugins/core/wrappers.ts`: `NetTraffic` 컴포넌트 Lazy Load 및 Wrapper 설정
-- [MODIFY] `important/APP_MAP.md`: `NetTraffic` 업데이트 내역 반영
+### [NetTrafficAnalyzerView Component]
+#### [MODIFY] [NetTrafficAnalyzerView.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx)
+- `patterns` 및 `uaPattern` 상태의 초기값 설정 로직을 `localStorage` 읽기 우선으로 변경.
+- 마운트 시 `localStorage`를 읽어오던 기존 `useEffect` 블록 제거.
+- `RawLogNavigator` 모달 표시 도중 분석 결과 탭이 변경되어도 상태가 유지되도록 정비.
+
+## 검증 계획
+
+### 자동 테스트
+- `npm run electron:dev` 실행 후 정상 기동 확인.
+
+### 수동 검증
+1. `User Agent` 및 `Traffic Pattern` 섹션에 임의의 텍스트 입력.
+2. 앱 새로고침 후 입력 데이터 유지 여부 확인.
+3. '눈(Eye)' 버튼 클릭 시 `RawLogNavigator`가 정상 동작하는지 재확인.
 
 ---
-형님, 이 계획대로 진행해도 될까요? **Proceed** 버튼을 눌러주시면 바로 수술 들어갑니다! 🐧💉🚀
+형님, 계획대로 진행해도 될까요? **Proceed** 버튼 대신 채팅으로 승인 부탁드립니다! 🐧💎🎯🔍🚀✨🎨🏁
