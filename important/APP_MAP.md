@@ -123,10 +123,27 @@
   - `Shift + Click`: 범위 선택
   - `Copy as Confluence`: 선택 영역 또는 북마크를 Confluence 테이블 형식으로 변환 및 복사
 
+### [[NetTraffic Analyzer (네트워크 트래픽 분석기)]] 🐧⚡ [CORE]
+- **ID**: `NET_TRAFFIC_ANALYZER`
+- **Keywords**: [`네트워크`, `트래픽`, `URI 정규화`, `User Agent`, `UA 분석`, `Markdown Copy`, `Raw Log Jump`]
+- **Location**:
+  - `View`: [NetTrafficAnalyzerView.tsx](./components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx)
+  - `Worker`: [NetTraffic.worker.ts](./workers/NetTraffic.worker.ts)
+  - `Logic`: [useNetTrafficLogic.ts](./hooks/useNetTrafficLogic.ts)
+- **Core Interface**:
+  - `Registry Priority`: `registry.ts`에서 `LogExtractor` 바로 다음 순위로 배치되어 기본 도구로 선점됨. 펭-고! 🐧🚀
+  - `Log Extractor Sync UI`: Log Extractor의 디자인 언어 전면 이식
+  - `URI Normalization`: UUID 자동 감지 및 `$(UUID)` 치환 통계
+  - `3-Level Hierarchy`: User Agent > API Template > Raw URI 드릴다운
+  - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드
+  - `Raw View Navigator`: 분석 결과 항목에서 실제 원본 로그 라인으로 즉송 이동(Jump) 및 네비게이션 모달 (1000라인 컨텍스트 지원) 🐧🔍🚀
+  - `Persistence`: `useState` 이니셜라이저를 통한 로컬 저장소(`localStorage`) 설정 즉시 복원. 🐧💾✅
+- **Data Flow**: `Log File` -> `Worker` -> `UA Context Matching` -> `UI Tree View` -> `RawView Jump`
+
 ---
 
 ## 3. Major Plugins (주요 플러그인)
-검증된 안정성과 높은 사용 빈도를 가진 핵심 도구들입니다. **실험실 플러그인보다 우선적으로 관리 및 참조**됩니다.
+기본적으로 활성화되어 있으며 높은 사용 빈도를 가진 핵심 도구들입니다.
 
 ### [[EasyPost Plugin]]
 - **ID**: `plugin-easy-post`
@@ -147,35 +164,35 @@
   - `analyzePerformance()`: 캡처된 데이터 분석 및 시각화
 - **Data Flow**: `Raw Data` -> `Parser` -> `Timeline View`
 
-### [[SpeedScope Plugin]]
-- **ID**: `plugin-speedscope`
-- **Keywords**: [`SpeedScope`, `JSON`, `Performance`, `Main Thread`, `Sampling`, `Profile`]
-- **Location**:
-- [x] Location:
-  - `Main View`: [SpeedScopePlugin.tsx](./components/SpeedScope/SpeedScopePlugin.tsx)
-  - `Parser Worker`: [SpeedScopeParser.worker.ts](./workers/SpeedScopeParser.worker.ts)
-- **Core Interface**:
-  - `PARSE_SPEED_SCOPE`: Speedscope JSON 파싱 및 프로파일 추출
-  - `Main Thread Detection`: .NET(`Managed Thread`, `0x`), 파일명 매칭, 최상단 세그먼트의 `Process32` (PID/TID) 메타데이터 우선 분석 및 활성도(SegmentCount) 가중치를 결합한 하이브리드 감지 로직 (2026-03-24 최종 개선)
-- **Data Flow**: `SpeedScope JSON` -> `Worker(Parser)` -> `Heuristic Detection` -> `PerfDashboard Rendering`
 
-### [[NetTraffic Analyzer (네트워크 트래픽 분석기)]] 🐧⚡ [NEW]
+### [[NetTraffic Analyzer (네트워크 트래픽 분석기)]] 🐧⚡ [CORE]
 - **ID**: `NET_TRAFFIC_ANALYZER`
-- **Keywords**: [`네트워크`, `트래픽`, `URI 정규화`, `User Agent`, `UA 분석`, `Markdown Copy`]
+- **Keywords**: [`네트워크`, `트래픽`, `URI 정규화`, `User Agent`, `UA 분석`, `Markdown Copy`, `Raw Log Jump`]
 - **Location**:
   - `View`: [NetTrafficAnalyzerView.tsx](./components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx)
   - `Worker`: [NetTraffic.worker.ts](./workers/NetTraffic.worker.ts)
   - `Logic`: [useNetTrafficLogic.ts](./hooks/useNetTrafficLogic.ts)
 - **Core Interface**:
-  - `Log Extractor Sync UI`: Log Extractor의 디자인 언어(Slate-950, Indigo-500/30 Border, Compact Padding) 전면 이식
-  - `Smart Log Input`: 드롭 영역 클릭 시 파일 탐색기 연동 및 드래그 앤 드롭 지원 (높이 110px 확장으로 시인성 강화)
+  - `Registry Priority`: `registry.ts`에서 `LogExtractor` 바로 다음 순위로 배치되어 기본 도구로 선점됨. 펭-고! 🐧🚀
+  - `Log Extractor Sync UI`: Log Extractor의 디자인 언어 전면 이식
   - `URI Normalization`: UUID 자동 감지 및 `$(UUID)` 치환 통계
-  - `3-Level Hierarchy`: User Agent > API Template > Raw URI 드릴다운 (정규화된 Key 기반 안정적 토글 및 일괄 확장/축소 지원)
-  - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드 (구 Static 탭)
-  - `One-shot Attribution`: UA 로그 1개당 직후 트래픽 1건 매칭 로직 (No UA 자동 분류)
-  - `Deep Hierarchical Copy`: UA 및 엔드포인트 단위의 마크다운 계층 구조(Raw URI 포함) 전체 복사 지원
-  - `Raw View Navigator`: 분석 결과 항목에서 실제 원본 로그 라인으로 즉송 이동(Jump) 및 이전/다음 탐색 모달 기능 (1000라인 단위 컨텍스트 윈도우 지원) 🐧🔍🚀 [NEW]
-- **Data Flow**: `Log File` -> `Worker(Hierarchical Parsing with Line Indexing)` -> `UA Context Matching` -> `UI Tree View` -> `RawView Jump`
+  - `3-Level Hierarchy`: User Agent > API Template > Raw URI 드릴다운
+  - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드
+  - `Raw View Navigator`: 분석 결과 항목에서 실제 원본 로그 라인으로 즉송 이동(Jump) 및 네비게이션 모달 (1000라인 컨텍스트 지원) 🐧🔍🚀
+  - `Persistence`: `useState` 이니셜라이저를 통한 로컬 저장소(`localStorage`) 설정 즉시 복원. 🐧💾✅
+- **Data Flow**: `Log File` -> `Worker` -> `UA Context Matching` -> `UI Tree View` -> `RawView Jump`
+
+
+### [[SpeedScope Plugin]]
+- **ID**: `plugin-speedscope`
+- **Keywords**: [`SpeedScope`, `JSON`, `Performance`, `Main Thread`, `Sampling`, `Profile`]
+- **Location**:
+  - `Main View`: [SpeedScopePlugin.tsx](./components/SpeedScope/SpeedScopePlugin.tsx)
+  - `Parser Worker`: [SpeedScopeParser.worker.ts](./workers/SpeedScopeParser.worker.ts)
+- **Core Interface**:
+  - `PARSE_SPEED_SCOPE`: Speedscope JSON 파싱 및 프로파일 추출
+  - `Main Thread Detection`: 하이브리드 감지 로직 적용
+- **Data Flow**: `SpeedScope JSON` -> `Worker(Parser)` -> `Heuristic Detection` -> `PerfDashboard Rendering`
 
 ### [[PostTool Plugin]]
 - **ID**: `plugin-post-tool`

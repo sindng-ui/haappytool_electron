@@ -144,7 +144,8 @@ const AppContent: React.FC = () => {
     ToolId.JSON_TOOLS,
     ToolId.POST_TOOL,
     ToolId.TPK_EXTRACTOR,
-    ToolId.SPEED_SCOPE
+    ToolId.SPEED_SCOPE,
+    ToolId.NET_TRAFFIC_ANALYZER
   ];
 
   const [enabledPlugins, setEnabledPlugins] = useState<string[]>(defaultEnabledPlugins);
@@ -228,6 +229,19 @@ const AppContent: React.FC = () => {
         }
         if (parsed.lastEndpoint) setLastApiUrl(parsed.lastEndpoint);
         if (parsed.defaultOutputFolder) setDefaultOutputFolder(parsed.defaultOutputFolder);
+        
+        // NetTraffic Analyzer Migration: Ensure it's enabled if it's a new core plugin
+        if (parsed.enabledPlugins) {
+          const currentEnabled = Array.isArray(parsed.enabledPlugins) ? parsed.enabledPlugins : [];
+          if (!currentEnabled.includes(ToolId.NET_TRAFFIC_ANALYZER)) {
+            console.log('[App] Migrating: Adding NetTraffic Analyzer to enabled plugins');
+            setEnabledPlugins([...currentEnabled, ToolId.NET_TRAFFIC_ANALYZER]);
+          } else {
+            setEnabledPlugins(currentEnabled);
+          }
+        } else {
+          setEnabledPlugins(defaultEnabledPlugins);
+        }
 
       } catch (e) {
         console.error("Failed to load settings", e);

@@ -1,8 +1,8 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol } = require('electron');
+const electron = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol } = electron;
 const path = require('path');
 const fs = require('fs/promises');
 const originalFs = require('fs');
-const { startServer } = require('../server/index.cjs');
 
 // ✅ CLI 실행 시 GUI와 데이터 잠금 충돌을 피하기 위해 전용 경로 설정
 // 이 로직은 app.whenReady() 이전에 실행되어야 안전합니다.
@@ -14,15 +14,17 @@ if (isCliMode) {
 }
 
 // ✅ WSL/Virtual Drive(Y:) Environment Fixes & SharedArrayBuffer Enable
-app.commandLine.appendSwitch('disable-gpu');
-app.commandLine.appendSwitch('disable-software-rasterizer');
-app.commandLine.appendSwitch('no-sandbox');
-app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer');
-// ✅ GPU 캐시 오류 수정: 캐시 크기 0으로 설정하여 캐시 생성 시도를 막음 🐧🔧
-app.commandLine.appendSwitch('disk-cache-size', '0');
-app.commandLine.appendSwitch('media-cache-size', '0');
-app.commandLine.appendSwitch('disable-gpu-shader-disk-cache'); // ✅ 셰이더 캐시도 차단! 🐧
-app.disableHardwareAcceleration();
+if (app && app.commandLine) {
+  app.commandLine.appendSwitch('disable-gpu');
+  app.commandLine.appendSwitch('disable-software-rasterizer');
+  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer');
+  // ✅ GPU 캐시 오류 수정: 캐시 크기 0으로 설정하여 캐시 생성 시도를 막음 🐧🔧
+  app.commandLine.appendSwitch('disk-cache-size', '0');
+  app.commandLine.appendSwitch('media-cache-size', '0');
+  app.commandLine.appendSwitch('disable-gpu-shader-disk-cache'); // ✅ 셰이더 캐시도 차단! 🐧
+  app.disableHardwareAcceleration();
+}
 
 // ✅ 하위 호환성 및 보안을 위해 프로토콜 등록을 최상단으로 이동 (whenReady 이전) 🐧🛡️
 protocol.registerSchemesAsPrivileged([
@@ -416,7 +418,11 @@ app.whenReady().then(async () => {
     let serverStarted = false;
     let serverError = null;
     const serverStartPromise = (async () => {
-        try { await startServer(app.getPath('userData')); serverStarted = true; }
+        try { 
+            const { startServer } = require('../server/index.cjs');
+            await startServer(app.getPath('userData')); 
+            serverStarted = true; 
+        }
         catch (e) { serverError = e; console.error('Failed to start internal server:', e); }
     })();
 

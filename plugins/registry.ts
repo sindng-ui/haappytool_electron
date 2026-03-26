@@ -24,6 +24,7 @@ import {
 export const ALL_PLUGINS: HappyPlugin[] = [
 
     LogExtractorPlugin,
+    NetTrafficAnalyzerPluginWrapper,
     PostToolPlugin,
     JsonToolsPlugin,
     TpkExtractorPlugin,
@@ -40,7 +41,6 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     EasyPostPlugin,
     PerfToolPlugin,
     SpeedScopePlugin,
-    NetTrafficAnalyzerPluginWrapper
 ];
 
 export const getPluginById = (id: string): HappyPlugin | undefined => {
