@@ -170,10 +170,10 @@
   - `Log Extractor Sync UI`: Log Extractor의 디자인 언어(Slate-950, Indigo-500/30 Border, Compact Padding) 전면 이식
   - `Smart Log Input`: 드롭 영역 클릭 시 파일 탐색기 연동 및 드래그 앤 드롭 지원 (높이 110px 확장으로 시인성 강화)
   - `URI Normalization`: UUID 자동 감지 및 `$(UUID)` 치환 통계
-  - `3-Level Hierarchy`: User Agent > API Template > Raw URI 드릴다운
+  - `3-Level Hierarchy`: User Agent > API Template > Raw URI 드릴다운 (정규화된 Key 기반 안정적 토글 및 일괄 확장/축소 지원)
   - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드 (구 Static 탭)
   - `One-shot Attribution`: UA 로그 1개당 직후 트래픽 1건 매칭 로직 (No UA 자동 분류)
-  - `Markdown Table Copy`: 계층 구조 전체를 마크다운 표로 변환 및 클립보드 복사
+  - `Deep Hierarchical Copy`: UA 및 엔드포인트 단위의 마크다운 계층 구조(Raw URI 포함) 전체 복사 지원
 - **Data Flow**: `Log File` -> `Worker(Hierarchical Parsing)` -> `UA Context Matching` -> `UI Tree View`
 
 ### [[PostTool Plugin]]

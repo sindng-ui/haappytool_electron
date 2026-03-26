@@ -1,9 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import * as Lucide from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useNetTrafficLogic } from '../../hooks/useNetTrafficLogic';
 import { useToast } from '../../contexts/ToastContext';
 import { TrafficPattern, TemplateGroup, RawCall, UAPattern, UAResult } from '../../workers/NetTraffic.worker';
+
+const LOCAL_STORAGE_KEY_UA = 'happytool_nettraffic_ua_pattern';
+const LOCAL_STORAGE_KEY_PATTERNS = 'happytool_nettraffic_traffic_patterns';
 
 const NetTrafficAnalyzerView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'single' | 'compare'>('single');
@@ -42,6 +45,37 @@ const NetTrafficAnalyzerView: React.FC = () => {
     startAnalysis
   } = useNetTrafficLogic();
 
+  // Persistence (로컬 저장소 연동)
+  useEffect(() => {
+    const savedUA = localStorage.getItem(LOCAL_STORAGE_KEY_UA);
+    const savedPatterns = localStorage.getItem(LOCAL_STORAGE_KEY_PATTERNS);
+    if (savedUA) {
+      try {
+        setUAPattern(JSON.parse(savedUA));
+      } catch (e) {
+        console.error('Failed to parse saved UA pattern', e);
+      }
+    }
+    if (savedPatterns) {
+      try {
+        const parsed = JSON.parse(savedPatterns);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setPatterns(parsed);
+        }
+      } catch (e) {
+        console.error('Failed to parse saved traffic patterns', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY_UA, JSON.stringify(uaPattern));
+  }, [uaPattern]);
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY_PATTERNS, JSON.stringify(patterns));
+  }, [patterns]);
+
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
@@ -62,6 +96,14 @@ const NetTrafficAnalyzerView: React.FC = () => {
   const copyToClipboard = (text: string, summary: string) => {
     navigator.clipboard.writeText(text);
     addToast(summary, 'success', 2000);
+  };
+
+  const getUAKey = (vars: Record<string, string>) => {
+    const sorted = Object.keys(vars).sort().reduce((acc, k) => {
+      acc[k] = vars[k];
+      return acc;
+    }, {} as any);
+    return `ua-${JSON.stringify(sorted)}`;
   };
 
   const formatTemplateGroup = (group: TemplateGroup): string => {
@@ -255,10 +297,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
                 onClick={() => {
                   setExpandedKeys(prev => {
                     const next = new Set(prev);
-                    data.forEach(row => {
-                      const uaKey = `ua-${Object.entries(row.variables).sort().map(e => e.join(':')).join('|')}`;
-                      next.add(uaKey);
-                    });
+                    data.forEach(row => next.add(getUAKey(row.variables)));
                     return next;
                   });
                 }}
@@ -269,10 +308,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
                 onClick={() => {
                   setExpandedKeys(prev => {
                     const next = new Set(prev);
-                    data.forEach(row => {
-                      const uaKey = `ua-${Object.entries(row.variables).sort().map(e => e.join(':')).join('|')}`;
-                      next.delete(uaKey);
-                    });
+                    data.forEach(row => next.delete(getUAKey(row.variables)));
                     return next;
                   });
                 }}
@@ -297,7 +333,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
                 if (!aIsNone && bIsNone) return -1;
                 return b.count - a.count;
               }).map((row, idx) => {
-                const uaKey = `ua-${Object.entries(row.variables).sort((a, b) => a[0].localeCompare(b[0])).map(e => e.join(':')).join('|')}`;
+                const uaKey = getUAKey(row.variables);
                 const isExpanded = expandedKeys.has(uaKey);
                 return (
                   <React.Fragment key={uaKey}>
