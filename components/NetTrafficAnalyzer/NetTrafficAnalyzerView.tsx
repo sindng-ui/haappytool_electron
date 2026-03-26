@@ -439,10 +439,6 @@ const NetTrafficAnalyzerView: React.FC = () => {
             <div className="space-y-3">
               <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] border-l-2 border-indigo-500 pl-3 py-0.5">02. User Agent</div>
               <div className="bg-slate-900/40 border border-slate-800 p-3 rounded-lg space-y-4">
-                <label className="flex items-center space-x-3 cursor-pointer group">
-                  <input type="checkbox" checked={uaPattern.enabled} onChange={(e) => setUAPattern({ ...uaPattern, enabled: e.target.checked })} className="rounded bg-slate-950 border-slate-800 text-indigo-500 w-3.5 h-3.5" />
-                  <span className="text-[10px] font-bold text-slate-200 uppercase tracking-tight group-hover:text-indigo-400 transition-colors">Enabled ID tracking</span>
-                </label>
                 <div className="space-y-1">
                   <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Keywords</label>
                   <input type="text" value={uaPattern.keywords} onChange={(e) => setUAPattern({ ...uaPattern, keywords: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-[11px] font-mono focus:border-indigo-500/50 outline-none text-slate-300" placeholder="Keywords..." />
