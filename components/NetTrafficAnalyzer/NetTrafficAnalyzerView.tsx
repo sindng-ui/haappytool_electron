@@ -561,57 +561,57 @@ const NetTrafficAnalyzerView: React.FC = () => {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Panel: Settings */}
-        <div className="w-[320px] border-r border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-950 p-6 shrink-0 flex flex-col overflow-y-auto custom-scrollbar z-10 space-y-8">
+        {/* Left Panel: Settings - Expanded Width from 320px to 450px for better visibility */}
+        <div className="w-[450px] border-r border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-950 p-8 shrink-0 flex flex-col overflow-y-auto custom-scrollbar z-10 space-y-10">
           
           {/* Section 1: Data Acquisition */}
-          <div className="space-y-4">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center mb-5">
-               <Lucide.Database size={16} className="mr-3 text-indigo-500" /> 01. Data Acquisition
+          <div className="space-y-5">
+            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center mb-6">
+               <Lucide.Database size={18} className="mr-3 text-indigo-500" /> 01. Data Acquisition
             </h3>
-            <div className="space-y-4">
+            <div className="space-y-5">
               {activeTab === 'single' ? renderFileDropArea('single', singleFile, 'Source Log') : (
-                <div className="flex flex-col space-y-3">
-                  {renderFileDropArea('left', leftFile, 'Primary')}
-                  {renderFileDropArea('right', rightFile, 'Reference')}
+                <div className="flex flex-col space-y-4">
+                  {renderFileDropArea('left', leftFile, 'Primary Dataset')}
+                  {renderFileDropArea('right', rightFile, 'Reference Dataset')}
                 </div>
               )}
             </div>
           </div>
 
           {/* Section 2: User Agent Profile */}
-          <div className="space-y-4">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center mb-5">
-               <Lucide.UserSearch size={16} className="mr-3 text-emerald-500" /> 02. Client context
+          <div className="space-y-5">
+            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center mb-6">
+               <Lucide.UserSearch size={18} className="mr-3 text-emerald-500" /> 02. Client context
             </h3>
-            <div className="group bg-indigo-50/20 dark:bg-indigo-900/10 backdrop-blur-md rounded-2xl border border-indigo-100/30 dark:border-indigo-500/10 p-5 shadow-inner transition-all hover:border-indigo-500/20 space-y-4">
-               <label className="flex items-center space-x-3 cursor-pointer group/toggle">
+            <div className="group bg-indigo-50/20 dark:bg-indigo-900/10 backdrop-blur-md rounded-2xl border border-indigo-100/30 dark:border-indigo-500/10 p-6 shadow-inner transition-all hover:border-indigo-500/20 space-y-5">
+               <label className="flex items-center space-x-4 cursor-pointer group/toggle">
                  <div className="relative">
                     <input type="checkbox" className="sr-only peer" checked={uaPattern.enabled} onChange={(e) => setUAPattern({...uaPattern, enabled: e.target.checked})} />
-                    <div className="w-9 h-5 bg-slate-200 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 transition-colors"></div>
+                    <div className="w-10 h-6 bg-slate-200 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 transition-colors"></div>
                  </div>
-                 <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-tight group-hover/toggle:text-indigo-500 transition-colors">Active Identifier</span>
+                 <span className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-tight group-hover/toggle:text-indigo-500 transition-colors">Toggle Context Engine</span>
                </label>
                
-               <div className="space-y-1">
-                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Required Keywords</label>
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Required Keywords</label>
                  <input 
                     type="text" 
                     value={uaPattern.keywords} 
                     onChange={(e) => setUAPattern({...uaPattern, keywords: e.target.value})} 
-                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-900 rounded-xl px-4 py-2 text-xs font-mono focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
-                    placeholder="e.g. User Agent, Device"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-900 rounded-2xl px-5 py-3 text-xs font-mono focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none shadow-sm"
+                    placeholder="e.g. User Agent, Device Signature"
                  />
                </div>
                
-               <div className="space-y-1">
-                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Registry Template</label>
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Registry Template (Extraction)</label>
                  <textarea 
-                    rows={2}
+                    rows={4}
                     value={uaPattern.template} 
                     onChange={(e) => setUAPattern({...uaPattern, template: e.target.value})} 
-                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-900 rounded-xl px-4 py-2 text-xs font-mono focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none resize-none"
-                    placeholder="$(Label) pattern"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-900 rounded-2xl px-5 py-3 text-xs font-mono focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none resize-none shadow-sm leading-relaxed"
+                    placeholder="Define $(Label) mapping here..."
                  />
                </div>
             </div>
