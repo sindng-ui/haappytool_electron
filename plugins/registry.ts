@@ -16,7 +16,7 @@ import {
     TizenLabPluginWrapper,
     EasyPostPlugin,
     PerfToolPlugin,
-    // SpeedScopePlugin, // 임시 주석: 물리 파일 누락 방지
+    SpeedScopePlugin,
     NetTrafficAnalyzerPluginWrapper
 } from './core/wrappers';
 
@@ -39,7 +39,7 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     TizenLabPluginWrapper,
     EasyPostPlugin,
     PerfToolPlugin,
-    // SpeedScopePlugin,
+    SpeedScopePlugin,
     NetTrafficAnalyzerPluginWrapper
 ];
 
