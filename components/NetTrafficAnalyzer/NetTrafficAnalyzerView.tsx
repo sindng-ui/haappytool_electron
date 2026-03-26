@@ -203,8 +203,28 @@ const NetTrafficAnalyzerView: React.FC = () => {
     return (
       <div className="flex flex-col h-full bg-[#0b0f19] rounded-lg border border-indigo-500/20 overflow-hidden">
         <div className="bg-[#0f172a] h-8 px-3 flex items-center justify-between border-b border-indigo-500/30">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</span>
-          <span className="text-[10px] text-slate-500">{data.length} Nodes</span>
+          <div className="flex items-center space-x-3">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</span>
+            <span className="text-[10px] text-slate-500">{data.length} Nodes</span>
+          </div>
+          <button
+            className="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-tight flex items-center space-x-1 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20"
+            onClick={() => {
+              let md = `## Master API Index: ${title}\n\n`;
+              [...data].sort((a, b) => b.totalCount - a.totalCount).forEach(g => {
+                md += `### ${g.templateUri} (Hits: ${g.totalCount})\n`;
+                md += `| Variation | Count |\n| :--- | :--- |\n`;
+                g.rawCalls.forEach(rc => {
+                  md += `| \`${rc.rawUri}\` | ${rc.count} |\n`;
+                });
+                md += `\n`;
+              });
+              copyToClipboard(md, 'Full API Index copied');
+            }}
+          >
+            <Lucide.Copy size={10} />
+            <span>Copy All</span>
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <table className="w-full text-left border-collapse text-[11px]">
@@ -311,7 +331,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
                   });
                 }}
               >Expand All</button>
-              <span className="text-slate-700 text-[10px]">/</span>
+              <span className="text-slate-700 text-[10px] self-center">/</span>
               <button
                 className="text-[9px] font-bold text-slate-500 hover:text-slate-400 transition-colors uppercase tracking-tight"
                 onClick={() => {
@@ -323,8 +343,31 @@ const NetTrafficAnalyzerView: React.FC = () => {
                 }}
               >Collapse All</button>
             </div>
+            <span className="text-[10px] text-slate-500 border-l border-slate-800 pl-4 h-4 flex items-center">{data.length} Clients</span>
           </div>
-          <span className="text-[10px] text-slate-500">{data.length} Clients</span>
+          <button
+            className="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-tight flex items-center space-x-1 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20"
+            onClick={() => {
+              let md = `# Client Fingerprint clusters: ${title}\n\n`;
+              [...data].sort((a, b) => b.count - a.count).forEach(row => {
+                const vars = Object.entries(row.variables).map(([k, v]) => `${k}: ${v}`).join(', ');
+                md += `## UA: [${vars}] (Hits: ${row.count})\n\n`;
+                row.endpoints.forEach(ep => {
+                  md += `### Pattern: ${ep.templateUri} (x${ep.totalCount})\n`;
+                  md += `| Variation | Count |\n| :--- | :--- |\n`;
+                  ep.rawCalls.forEach(rc => {
+                    md += `| \`${rc.rawUri}\` | ${rc.count} |\n`;
+                  });
+                  md += `\n`;
+                });
+                md += `---\n\n`;
+              });
+              copyToClipboard(md, 'All UA Data copied');
+            }}
+          >
+            <Lucide.Copy size={10} />
+            <span>Copy All Results</span>
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <table className="w-full text-left border-collapse text-[11px]">
@@ -483,6 +526,44 @@ const NetTrafficAnalyzerView: React.FC = () => {
 
     return (
       <div className="flex-1 overflow-y-auto p-2 space-y-3 custom-scrollbar">
+        <div className="flex items-center justify-between bg-slate-900/80 p-2 rounded border border-indigo-500/20 shadow-lg">
+          <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center">
+            <Lucide.FileText size={12} className="mr-2" /> Report: {sourceName}
+          </div>
+          <button
+            className="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-tight flex items-center space-x-1 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20"
+            onClick={() => {
+              let md = `# Network Insights Report: ${sourceName}\n\n`;
+              md += `## Summary Statistics\n`;
+              md += `- Total Requests: ${insights.totalRequests.toLocaleString()}\n`;
+              md += `- Unique Domains: ${Object.keys(insights.hosts).length}\n`;
+              md += `- Activity Span: ${timelineEntries.length} minutes\n\n`;
+              
+              md += `## Key Findings\n`;
+              if (insights.findings && insights.findings.length > 0) {
+                insights.findings.forEach((f: string) => md += `- ${f}\n`);
+              } else {
+                md += `- No specific anomalies detected.\n`;
+              }
+              
+              md += `\n## Top Hostnames\n`;
+              md += `| Hostname | Hits |\n| :--- | :--- |\n`;
+              Object.entries(insights.hosts).sort((a: any, b: any) => b[1] - a[1]).slice(0, 15).forEach(([h, c]) => {
+                md += `| ${h} | ${c} |\n`;
+              });
+              
+              md += `\n## Request Methods\n`;
+              Object.entries(insights.methods).sort((a: any, b: any) => b[1] - a[1]).forEach(([m, c]) => {
+                md += `- ${m}: ${c}\n`;
+              });
+              
+              copyToClipboard(md, `${sourceName} Report copied`);
+            }}
+          >
+            <Lucide.Copy size={10} />
+            <span>Copy Full Report</span>
+          </button>
+        </div>
         <div className="grid grid-cols-3 gap-2">
           {[
             { label: 'Total Volume', value: insights.totalRequests.toLocaleString(), color: 'indigo' },
@@ -540,13 +621,15 @@ const NetTrafficAnalyzerView: React.FC = () => {
   return (
     <div className={`flex flex-col h-full bg-[#0b0f19] font-sans selection:bg-indigo-500/20 text-slate-300`}>
       {/* Dynamic Tab Header (Log Extractor Look) */}
-      <div className="h-8 flex items-center bg-[#0f172a] border-b border-indigo-500/30 px-3 space-x-0.5 shrink-0 z-20">
+      <div className="h-8 flex items-center bg-[#0f172a] border-b border-indigo-500/30 px-3 space-x-0.5 shrink-0 z-20" style={{ WebkitAppRegion: 'drag' } as any}>
         <button
           className={`px-4 h-full text-[10px] font-bold uppercase tracking-wider rounded-t-lg transition-all border-l border-r border-t ${activeTab === 'single' ? 'bg-slate-900 border-indigo-500/40 text-slate-200 z-10' : 'bg-slate-950 border-transparent text-slate-500 hover:text-slate-300'}`}
+          style={{ WebkitAppRegion: 'no-drag' } as any}
           onClick={() => setActiveTab('single')}
         >Single View</button>
         <button
           className={`px-4 h-full text-[10px] font-bold uppercase tracking-wider rounded-t-lg transition-all border-l border-r border-t ${activeTab === 'compare' ? 'bg-slate-900 border-indigo-500/40 text-slate-200 z-10' : 'bg-slate-950 border-transparent text-slate-500 hover:text-slate-300'}`}
+          style={{ WebkitAppRegion: 'no-drag' } as any}
           onClick={() => setActiveTab('compare')}
         >Compare Engine</button>
       </div>
