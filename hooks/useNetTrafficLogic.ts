@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { TrafficPattern, TemplateGroup, UAPattern, UAResult } from '../workers/NetTraffic.worker';
+import { TrafficPattern, TemplateGroup, UAPattern, UAResult, InsightStats } from '../workers/NetTraffic.worker';
 
 export const useNetTrafficLogic = () => {
   const [analyzing, setAnalyzing] = useState(false);
@@ -12,6 +12,10 @@ export const useNetTrafficLogic = () => {
   const [leftUAResult, setLeftUAResult] = useState<UAResult[]>([]);
   const [rightUAResult, setRightUAResult] = useState<UAResult[]>([]);
 
+  const [singleInsights, setSingleInsights] = useState<InsightStats | null>(null);
+  const [leftInsights, setLeftInsights] = useState<InsightStats | null>(null);
+  const [rightInsights, setRightInsights] = useState<InsightStats | null>(null);
+
   const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
@@ -20,16 +24,19 @@ export const useNetTrafficLogic = () => {
     worker.onmessage = (e) => {
       const { type, payload } = e.data;
       if (type === 'RESULT_UPDATE') {
-        const { target, data, uaData } = payload;
+        const { target, data, uaData, insights } = payload;
         if (target === 'single') {
             setSingleResult(data);
             setSingleUAResult(uaData || []);
+            setSingleInsights(insights || null);
         } else if (target === 'left') {
             setLeftResult(data);
             setLeftUAResult(uaData || []);
+            setLeftInsights(insights || null);
         } else if (target === 'right') {
             setRightResult(data);
             setRightUAResult(uaData || []);
+            setRightInsights(insights || null);
         }
         setAnalyzing(false);
       }
@@ -79,6 +86,7 @@ export const useNetTrafficLogic = () => {
     setProgress(0);
     setSingleResult([]); setLeftResult([]); setRightResult([]);
     setSingleUAResult([]); setLeftUAResult([]); setRightUAResult([]);
+    setSingleInsights(null); setLeftInsights(null); setRightInsights(null);
     
     workerRef.current.postMessage({ type: 'INIT', payload: { patterns, uaPattern } });
     
@@ -103,6 +111,9 @@ export const useNetTrafficLogic = () => {
     singleUAResult,
     leftUAResult,
     rightUAResult,
+    singleInsights,
+    leftInsights,
+    rightInsights,
     startAnalysis
   };
 };

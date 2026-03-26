@@ -41,6 +41,13 @@ export interface UAPattern {
   enabled: boolean;
 }
 
+export interface InsightStats {
+  timeline: Record<string, number>; // Minute-bucket -> count
+  hosts: Record<string, number>;    // Domain -> count
+  methods: Record<string, number>;  // GET, POST -> count
+  totalRequests: number;
+}
+
 let patterns: TrafficPattern[] = [];
 let uaPattern: UAPattern | null = null;
 let uaRegex: RegExp | null = null;
@@ -54,7 +61,7 @@ let singleStats: StatsMap = new Map();
 let leftStats: StatsMap = new Map();
 let rightStats: StatsMap = new Map();
 
-// UA Stats: Map<UAKey, { count, examples, variables, endpointMap: Map<TemplateURI, { totalCount, rawMap: Map<RawURI, { count, examples }> }> }>
+// UA Stats
 type UAMap = Map<string, { 
   count: number, 
   examples: string[], 
@@ -65,6 +72,24 @@ let singleUAMap: UAMap = new Map();
 let leftUAMap: UAMap = new Map();
 let rightUAMap: UAMap = new Map();
 
+// Insights Stats
+interface InternalInsights {
+  timeline: Map<string, number>;
+  hosts: Map<string, number>;
+  methods: Map<string, number>;
+  totalRequests: number;
+}
+const createEmptyInsights = (): InternalInsights => ({
+  timeline: new Map(),
+  hosts: new Map(),
+  methods: new Map(),
+  totalRequests: 0
+});
+
+let singleInsights = createEmptyInsights();
+let leftInsights = createEmptyInsights();
+let rightInsights = createEmptyInsights();
+
 const UUID_REGEX = /[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}/g;
 const URI_REGEX = /https?:\/\/[^\s"'<>]+/g;
 const NO_UA_VARS = { AppName: 'No User Agent Detected' };
@@ -74,6 +99,32 @@ const stripAnsi = (str: string) => str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{
 
 const normalizeUri = (uri: string): string => {
   return uri.replace(UUID_REGEX, '$(UUID)');
+};
+
+const extractHost = (uri: string): string => {
+  const match = uri.match(/https?:\/\/([^\/\s]+)/);
+  return match ? match[1] : 'unknown';
+};
+
+const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
+const detectMethod = (line: string): string | null => {
+  for (const m of METHODS) {
+    if (line.includes(` ${m} `) || line.includes(`${m}>`) || line.startsWith(m + ' ')) return m;
+  }
+  return null;
+};
+
+const extractBucket = (line: string): string | null => {
+  // Matches 055.010 or HH:mm:ss
+  const match = line.match(/(\d{2}:\d{2}:\d{2})|(\d{2,})\./);
+  if (!match) return null;
+  if (match[1]) return match[1].substring(0, 5); // HH:mm
+  if (match[2]) {
+    const sec = parseInt(match[2]);
+    const min = Math.floor(sec / 60);
+    return `${min}m`;
+  }
+  return null;
 };
 
 const templateToRegex = (template: string): RegExp | null => {
@@ -90,7 +141,7 @@ const templateToRegex = (template: string): RegExp | null => {
   }
 };
 
-const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap) => {
+const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, targetInsights: InternalInsights) => {
   const cleanLine = stripAnsi(line);
   
   // 1. Check for User Agent line
@@ -118,8 +169,17 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap) =>
     if (keywords.every(kw => cleanLine.includes(kw))) {
       const uriMatches = cleanLine.match(URI_REGEX);
       if (uriMatches) {
+        // Collect Insights for this hit
+        const bucket = extractBucket(cleanLine);
+        const method = detectMethod(cleanLine);
+        if (bucket) targetInsights.timeline.set(bucket, (targetInsights.timeline.get(bucket) || 0) + 1);
+        if (method) targetInsights.methods.set(method, (targetInsights.methods.get(method) || 0) + 1);
+        targetInsights.totalRequests += uriMatches.length;
+
         for (const rawUri of uriMatches) {
           const templateUri = normalizeUri(rawUri);
+          const host = extractHost(rawUri);
+          targetInsights.hosts.set(host, (targetInsights.hosts.get(host) || 0) + 1);
           
           // Helper to record hit in a StatsMap
           const recordHit = (stats: StatsMap) => {
@@ -132,10 +192,8 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap) =>
             if (rData.examples.length < 3) rData.examples.push(cleanLine.trim());
           };
 
-          // Record globally
           recordHit(targetStats);
 
-          // Record UA-linked
           if (uaPattern?.enabled) {
              const uaKey = currentUAVars ? JSON.stringify(currentUAVars) : NO_UA_KEY;
              if (!targetUAMap.has(uaKey)) {
@@ -149,8 +207,6 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap) =>
              recordHit(targetUAMap.get(uaKey)!.endpointStats);
           }
         }
-        // User pointed out: 1 UA log -> 1 Traffic log block (line)
-        // Reset currentUAVars after the entire line's URI matches are processed.
         currentUAVars = null;
       } else {
         const templateUri = `[LOG] ${p.alias || 'General'}`;
@@ -180,8 +236,6 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap) =>
           }
           recordLogHit(targetUAMap.get(uaKey)!.endpointStats);
         }
-
-        // Reset after a pattern log too
         currentUAVars = null;
       }
     }
@@ -201,6 +255,9 @@ self.onmessage = (e: MessageEvent) => {
       currentUAVars = null;
       singleStats.clear(); leftStats.clear(); rightStats.clear();
       singleUAMap.clear(); leftUAMap.clear(); rightUAMap.clear();
+      singleInsights = createEmptyInsights();
+      leftInsights = createEmptyInsights();
+      rightInsights = createEmptyInsights();
       buffers.single = ''; buffers.left = ''; buffers.right = '';
       break;
       
@@ -208,10 +265,11 @@ self.onmessage = (e: MessageEvent) => {
       const { target, chunk } = payload;
       const tStats = target === 'single' ? singleStats : target === 'left' ? leftStats : rightStats;
       const tUA = target === 'single' ? singleUAMap : target === 'left' ? leftUAMap : rightUAMap;
+      const tInsights = target === 'single' ? singleInsights : target === 'left' ? leftInsights : rightInsights;
       buffers[target] += chunk;
       let lines = buffers[target].split('\n');
       buffers[target] = lines.pop() || '';
-      for (const line of lines) processLine(line, tStats, tUA);
+      for (const line of lines) processLine(line, tStats, tUA, tInsights);
       break;
     }
       
@@ -219,8 +277,9 @@ self.onmessage = (e: MessageEvent) => {
       const { target } = payload;
       const fStats = target === 'single' ? singleStats : target === 'left' ? leftStats : rightStats;
       const fUA = target === 'single' ? singleUAMap : target === 'left' ? leftUAMap : rightUAMap;
+      const fInsights = target === 'single' ? singleInsights : target === 'left' ? leftInsights : rightInsights;
       
-      if (buffers[target].trim()) processLine(buffers[target], fStats, fUA);
+      if (buffers[target].trim()) processLine(buffers[target], fStats, fUA, fInsights);
       buffers[target] = '';
       
       const formatStats = (stats: StatsMap): TemplateGroup[] => {
@@ -234,6 +293,8 @@ self.onmessage = (e: MessageEvent) => {
         })).sort((a, b) => b.totalCount - a.totalCount);
       };
 
+      const mapToRecord = (map: Map<string, number>) => Object.fromEntries(map);
+
       const trafficResult = formatStats(fStats);
       const uaResult: UAResult[] = Array.from(fUA.values()).map(d => ({
         variables: d.variables,
@@ -245,8 +306,15 @@ self.onmessage = (e: MessageEvent) => {
           rawCalls: t.rawCalls
         }))
       })).sort((a, b) => b.count - a.count);
+
+      const insightsPayload: InsightStats = {
+        timeline: mapToRecord(fInsights.timeline),
+        hosts: mapToRecord(fInsights.hosts),
+        methods: mapToRecord(fInsights.methods),
+        totalRequests: fInsights.totalRequests
+      };
       
-      self.postMessage({ type: 'RESULT_UPDATE', payload: { target, data: trafficResult, uaData: uaResult } });
+      self.postMessage({ type: 'RESULT_UPDATE', payload: { target, data: trafficResult, uaData: uaResult, insights: insightsPayload } });
       break;
     }
   }

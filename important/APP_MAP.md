@@ -169,6 +169,7 @@
 - **Core Interface**:
   - `URI Normalization`: UUID 자동 감지 및 `$(UUID)` 치환 통계
   - `3-Level Hierarchy`: User Agent > API Template > Raw URI 드릴다운
+  - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드 (구 Static 탭)
   - `One-shot Attribution`: UA 로그 1개당 직후 트래픽 1건 매칭 로직 (No UA 자동 분류)
   - `Markdown Table Copy`: 계층 구조 전체를 마크다운 표로 변환 및 클립보드 복사
 - **Data Flow**: `Log File` -> `Worker(Hierarchical Parsing)` -> `UA Context Matching` -> `UI Tree View`

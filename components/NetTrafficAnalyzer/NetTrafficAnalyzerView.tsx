@@ -7,7 +7,7 @@ import { TrafficPattern, TemplateGroup, RawCall, UAPattern, UAResult } from '../
 
 const NetTrafficAnalyzerView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'single' | 'compare'>('single');
-  const [resultTab, setResultTab] = useState<'endpoints' | 'ua' | 'static'>('endpoints');
+  const [resultTab, setResultTab] = useState<'endpoints' | 'ua' | 'insights'>('endpoints');
   const { addToast } = useToast();
   
   // Files
@@ -29,6 +29,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
     analyzing, progress, 
     singleResult, leftResult, rightResult, 
     singleUAResult, leftUAResult, rightUAResult, 
+    singleInsights, leftInsights, rightInsights,
     startAnalysis 
   } = useNetTrafficLogic();
   
@@ -177,7 +178,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
           <span>{title}</span>
           <span className="text-xs font-normal opacity-70">{data.length} Endpoints</span>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-white dark:bg-slate-900 shadow-sm text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider">
               <tr>
@@ -417,6 +418,121 @@ const NetTrafficAnalyzerView: React.FC = () => {
     );
   };
 
+  const renderInsightsTab = (insights: any, title: string) => {
+    if (!insights) return (
+      <div className="flex-1 flex flex-col items-center justify-center text-slate-400 italic">
+        <Lucide.ZapOff size={40} className="mb-2 opacity-20" />
+        <p>No insights found in this log.</p>
+      </div>
+    );
+
+    const timelineEntries = (Object.entries(insights.timeline) as [string, number][]).sort((a, b) => {
+      if (a[0].endsWith('m') && b[0].endsWith('m')) {
+        return parseInt(a[0]) - parseInt(b[0]);
+      }
+      return a[0].localeCompare(b[0]);
+    });
+    const maxTimeline = Math.max(...Object.values(insights.timeline) as number[], 1);
+    const hostEntries = (Object.entries(insights.hosts) as [string, number][]).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const methodEntries = (Object.entries(insights.methods) as [string, number][]).sort((a, b) => b[1] - a[1]);
+
+    return (
+      <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar overflow-x-hidden">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Requests</div>
+            <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{insights.totalRequests.toLocaleString()}</div>
+          </div>
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Unique Hosts</div>
+            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{Object.keys(insights.hosts).length}</div>
+          </div>
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Avg Load</div>
+            <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
+              {(insights.totalRequests / (timelineEntries.length || 1)).toFixed(1)} <span className="text-xs font-normal text-slate-400">req/min</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Timeline Chart */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center">
+            <Lucide.Activity size={14} className="mr-2 text-indigo-500" /> Traffic Timeline (Request Density)
+          </h4>
+          <div className="flex items-end space-x-1 h-32 w-full group/chart">
+            {timelineEntries.map(([min, count]) => (
+              <div key={min} className="flex-1 flex flex-col items-center group/bar h-full justify-end">
+                <div 
+                  className="w-full bg-indigo-500/20 group-hover/chart:bg-indigo-500/10 hover:!bg-indigo-500 transition-all rounded-t-sm relative"
+                  style={{ height: `${((count as number) / maxTimeline) * 100}%` }}
+                >
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] px-1 rounded opacity-0 group-hover/bar:opacity-100 whitespace-nowrap z-10">
+                    {min}: {count}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {timelineEntries.length === 0 && <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs italic">No time data available</div>}
+          </div>
+          <div className="flex justify-between mt-2 text-[8px] text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-1">
+             <span>{timelineEntries[0]?.[0] || 'Start'}</span>
+             <span>Time Axis (Bucketized)</span>
+             <span>{timelineEntries[timelineEntries.length-1]?.[0] || 'End'}</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Domains */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center">
+              <Lucide.Globe size={14} className="mr-2 text-emerald-500" /> Top Call Domains
+            </h4>
+            <div className="space-y-3">
+              {hostEntries.map(([host, count]) => (
+                <div key={host}>
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="font-mono text-slate-600 dark:text-slate-400 truncate mr-2">{host}</span>
+                    <span className="font-bold">{count}</span>
+                  </div>
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-emerald-500 h-full" style={{ width: `${((count as number) / insights.totalRequests) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Methods */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+             <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center">
+              <Lucide.Layers size={14} className="mr-2 text-amber-500" /> HTTP Method Distribution
+            </h4>
+            <div className="space-y-3">
+              {methodEntries.map(([method, count]) => (
+                <div key={method} className="flex items-center">
+                  <span className={`w-12 text-[10px] font-black text-center py-0.5 rounded mr-3 ${
+                    method === 'GET' ? 'bg-blue-100 text-blue-700' : 
+                    method === 'POST' ? 'bg-emerald-100 text-emerald-700' :
+                    method === 'PUT' ? 'bg-amber-100 text-amber-700' :
+                    'bg-slate-100 text-slate-700'
+                  }`}>{method}</span>
+                  <div className="flex-1 flex items-center">
+                    <div className="flex-1 bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mr-3">
+                      <div className="bg-slate-400 h-full" style={{ width: `${((count as number) / insights.totalRequests) * 100}%` }} />
+                    </div>
+                    <span className="text-[11px] font-bold w-8 text-right">{count}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 font-sans text-sm">
       {/* Header Tabs */}
@@ -433,7 +549,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left Panel: Settings */}
-        <div className="w-[35%] border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shrink-0 flex flex-col overflow-y-auto">
+        <div className="w-[35%] border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shrink-0 flex flex-col overflow-y-auto overflow-x-hidden">
           
           <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center">
             <Lucide.Database size={16} className="mr-2 text-indigo-500" /> 1. 로그 파일 수신
@@ -498,7 +614,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
         <div className="flex-1 p-4 bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col">
           {hasAnalyzed && !analyzing && (
             <div className="flex border-b border-slate-200 dark:border-slate-800 mb-4 space-x-6 shrink-0">
-              {(['endpoints', 'ua', 'static'] as const).map(t => (
+              {(['endpoints', 'ua', 'insights'] as const).map(t => (
                 <button key={t} onClick={() => setResultTab(t)} className={`pb-2 px-1 text-sm font-bold transition-colors capitalize ${resultTab === t ? 'text-indigo-500 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-600'}`}>{t}</button>
               ))}
             </div>
@@ -520,9 +636,20 @@ const NetTrafficAnalyzerView: React.FC = () => {
               </div>
             ) : (
               <div className="flex-1 overflow-hidden flex flex-col">
-                 {resultTab === 'endpoints' && renderTable(singleResult.filter(g => g.templateUri.includes('$(UUID)')), 'Aggregated API Endpoints')}
-                 {resultTab === 'ua' && renderUATable(singleUAResult, 'User Agent Breakdown')}
-                 {resultTab === 'static' && renderTable(singleResult.filter(g => !g.templateUri.includes('$(UUID)')), 'Static Requests / Other')}
+                  {resultTab === 'endpoints' && renderTable(singleResult.filter(g => g.templateUri.includes('$(UUID)')), 'Aggregated API Endpoints')}
+                  {resultTab === 'ua' && renderUATable(singleUAResult, 'User Agent Breakdown')}
+                  {resultTab === 'insights' && (activeTab === 'single' ? renderInsightsTab(singleInsights, 'Traffic Insights') : (
+                    <div className="flex-1 flex h-full space-x-2">
+                       <div className="flex-1 flex flex-col overflow-hidden border-r border-slate-200 dark:border-slate-800">
+                         <div className="bg-slate-100 dark:bg-slate-800 px-3 py-1 text-[10px] font-bold uppercase text-slate-500">Left File</div>
+                         {renderInsightsTab(leftInsights, 'Left Insights')}
+                       </div>
+                       <div className="flex-1 flex flex-col overflow-hidden">
+                         <div className="bg-slate-100 dark:bg-slate-800 px-3 py-1 text-[10px] font-bold uppercase text-slate-500">Right File</div>
+                         {renderInsightsTab(rightInsights, 'Right Insights')}
+                       </div>
+                    </div>
+                  ))}
               </div>
             )}
           </div>
