@@ -288,8 +288,14 @@ const NetTrafficAnalyzerView: React.FC = () => {
                             onClick={(e) => {
                               e.stopPropagation();
                               const vars = Object.entries(row.variables).map(([k, v]) => `${k}: ${v}`).join(', ');
-                              const text = `UA Context: [${vars}]\n` + row.endpoints.map(ep => `  - ${ep.templateUri} (x${ep.totalCount})`).join('\n');
-                              copyToClipboard(text, 'UA Hierarchy copied');
+                              const text = `UA Context: [${vars}]\n` + row.endpoints.map(ep => {
+                                let epText = `  - ${ep.templateUri} (x${ep.totalCount})`;
+                                if (ep.rawCalls.length > 1) {
+                                  epText += '\n' + ep.rawCalls.map(rc => `    * ${rc.rawUri} (x${rc.count})`).join('\n');
+                                }
+                                return epText;
+                              }).join('\n');
+                              copyToClipboard(text, 'UA Hierarchy (Deep) copied');
                             }}
                             title="Copy Hierarchy"
                           >
@@ -309,17 +315,50 @@ const NetTrafficAnalyzerView: React.FC = () => {
                               <table className="w-full text-left text-[10px] border-collapse">
                                 <thead className="bg-[#0f172a] text-slate-500">
                                   <tr>
-                                    <th className="px-2 py-1">Traffic Pattern</th>
-                                    <th className="px-2 py-1 text-right">Hit count</th>
+                                    <th className="px-3 py-1">Traffic Pattern</th>
+                                    <th className="px-3 py-1 text-right w-20">Hit count</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {row.endpoints.map((ep, eIdx) => (
-                                    <tr key={eIdx} className="border-b border-slate-900 hover:bg-slate-900/50">
-                                      <td className="px-2 py-1 font-mono text-indigo-300 opacity-80">{ep.templateUri}</td>
-                                      <td className="px-2 py-1 text-right font-bold text-indigo-400">{ep.totalCount}</td>
-                                    </tr>
-                                  ))}
+                                  {row.endpoints.map((ep, eIdx) => {
+                                    const hasVariations = ep.rawCalls.length > 1;
+                                    return (
+                                      <React.Fragment key={eIdx}>
+                                        <tr className="border-b border-slate-900 hover:bg-slate-900/50">
+                                          <td className="px-3 py-1 font-mono text-indigo-300 opacity-80">
+                                            <div className="flex items-center justify-between group/ep">
+                                              <span>{ep.templateUri}</span>
+                                              <button
+                                                className="opacity-0 group-hover/ep:opacity-100 p-1 text-slate-500 hover:text-white transition-opacity"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  const text = `Pattern: ${ep.templateUri}\n` + ep.rawCalls.map(rc => `  - ${rc.rawUri} (x${rc.count})`).join('\n');
+                                                  copyToClipboard(text, 'Endpoint variations copied');
+                                                }}
+                                              >
+                                                <Lucide.Copy size={10} />
+                                              </button>
+                                            </div>
+                                          </td>
+                                          <td className="px-3 py-1 text-right font-bold text-indigo-400 tabular-nums">{ep.totalCount}</td>
+                                        </tr>
+                                        {hasVariations && (
+                                          <tr className="bg-slate-950/20">
+                                            <td colSpan={2} className="p-1 px-4">
+                                              <div className="space-y-1 border-l border-indigo-500/10 pl-3 my-1">
+                                                {ep.rawCalls.map((rc, rcIdx) => (
+                                                  <div key={rcIdx} className="flex justify-between items-center text-[9px] text-slate-500 font-mono">
+                                                    <span className="truncate flex-1 pr-2 opacity-70 italic">{rc.rawUri}</span>
+                                                    <span className="shrink-0 font-bold opacity-50">x{rc.count}</span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </React.Fragment>
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             </div>
