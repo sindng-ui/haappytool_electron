@@ -101,9 +101,9 @@ const NetTrafficAnalyzerView: React.FC = () => {
             }}>Remove</button>
           </div>
         ) : (
-          <div className="flex flex-col items-center opacity-40">
-            <Lucide.Upload size={18} className="mb-1" />
-            <span className="text-[9px] font-bold uppercase tracking-widest">{label}</span>
+          <div className="flex flex-col items-center opacity-60 group-hover:opacity-100 transition-opacity">
+            <Lucide.Upload size={18} className="mb-1 text-slate-400" />
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Drag & Drop {label}</span>
           </div>
         )}
       </div>
@@ -357,13 +357,13 @@ const NetTrafficAnalyzerView: React.FC = () => {
           
           <div className="space-y-4">
              <div className="flex items-center space-x-2 pb-2 border-b border-slate-800/80">
-                <Lucide.Settings size={14} className="text-indigo-400" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Pipeline config</span>
+                <Lucide.Settings size={14} className="text-indigo-300" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">Pipeline config</span>
              </div>
 
              {/* Section: File */}
              <div className="space-y-2.5">
-               <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1">01. Log Input</div>
+               <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">01. Log Input</div>
                {activeTab === 'single' ? renderFileDropArea('single', singleFile, 'Source Log') : (
                 <div className="grid grid-cols-2 gap-2">
                   {renderFileDropArea('left', leftFile, 'Primary')}
@@ -374,18 +374,18 @@ const NetTrafficAnalyzerView: React.FC = () => {
 
              {/* Section: UA */}
              <div className="space-y-2.5">
-                <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1">02. Context Identification</div>
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">02. Context Identification</div>
                 <div className="bg-slate-900/40 border border-slate-800 p-3 rounded-lg space-y-4">
                    <label className="flex items-center space-x-3 cursor-pointer group">
                       <input type="checkbox" checked={uaPattern.enabled} onChange={(e) => setUAPattern({...uaPattern, enabled: e.target.checked})} className="rounded bg-slate-950 border-slate-800 text-indigo-500 w-3.5 h-3.5" />
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight group-hover:text-indigo-400 transition-colors">Enabled ID tracking</span>
+                      <span className="text-[10px] font-bold text-slate-200 uppercase tracking-tight group-hover:text-indigo-400 transition-colors">Enabled ID tracking</span>
                    </label>
                    <div className="space-y-1">
-                      <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Keywords</label>
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Keywords</label>
                       <input type="text" value={uaPattern.keywords} onChange={(e) => setUAPattern({...uaPattern, keywords: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-[11px] font-mono focus:border-indigo-500/50 outline-none text-slate-300" placeholder="Keywords..." />
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Template mapping</label>
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Template mapping</label>
                       <textarea rows={3} value={uaPattern.template} onChange={(e) => setUAPattern({...uaPattern, template: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-[11px] font-mono focus:border-indigo-500/50 outline-none resize-none text-slate-300 leading-tight" placeholder="Mapping..." />
                    </div>
                 </div>
@@ -393,7 +393,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
 
              {/* Section: Rules */}
              <div className="space-y-2.5">
-                <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1">03. Extraction logic</div>
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">03. Extraction logic</div>
                 {patterns.map(p => (
                   <div key={p.id} className="bg-slate-900/40 border border-slate-800 p-2.5 rounded-lg space-y-2 group">
                      <div className="flex justify-between items-center">
@@ -406,7 +406,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
                      <input type="text" value={p.keywords} onChange={(e) => handleUpdatePattern(p.id, 'keywords', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[10px] font-mono text-slate-400 outline-none" placeholder="Signature..." />
                   </div>
                 ))}
-                <button className="w-full h-8 border border-dashed border-slate-800 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-800/20 hover:text-slate-300" onClick={handleAddPattern}>+ Add Rule</button>
+                <button className="w-full h-8 border border-dashed border-slate-700 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-800/20 hover:text-slate-200 transition-colors" onClick={handleAddPattern}>+ Add Rule</button>
              </div>
           </div>
 
