@@ -168,6 +168,7 @@
   - `Logic`: [useNetTrafficLogic.ts](./hooks/useNetTrafficLogic.ts)
 - **Core Interface**:
   - `Log Extractor Sync UI`: Log Extractor의 디자인 언어(Slate-950, Indigo-500/30 Border, Compact Padding) 전면 이식
+  - `Smart Log Input`: 드롭 영역 클릭 시 파일 탐색기 연동 및 드래그 앤 드롭 지원 (높이 110px 확장으로 시인성 강화)
   - `URI Normalization`: UUID 자동 감지 및 `$(UUID)` 치환 통계
   - `3-Level Hierarchy`: User Agent > API Template > Raw URI 드릴다운
   - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드 (구 Static 탭)
