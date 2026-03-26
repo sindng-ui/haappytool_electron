@@ -51,10 +51,12 @@ const NetTrafficAnalyzerView: React.FC = () => {
   };
 
   const toggleExpand = (key: string) => {
-    const newSet = new Set(expandedKeys);
-    if (newSet.has(key)) newSet.delete(key);
-    else newSet.add(key);
-    setExpandedKeys(newSet);
+    setExpandedKeys(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) newSet.delete(key);
+      else newSet.add(key);
+      return newSet;
+    });
   };
 
   const copyToClipboard = (text: string, summary: string) => {
@@ -251,18 +253,28 @@ const NetTrafficAnalyzerView: React.FC = () => {
               <button
                 className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-tight"
                 onClick={() => {
-                  const allKeys = new Set(expandedKeys);
-                  data.forEach(row => allKeys.add(`ua-${JSON.stringify(row.variables)}`));
-                  setExpandedKeys(allKeys);
+                  setExpandedKeys(prev => {
+                    const next = new Set(prev);
+                    data.forEach(row => {
+                      const uaKey = `ua-${Object.entries(row.variables).sort().map(e => e.join(':')).join('|')}`;
+                      next.add(uaKey);
+                    });
+                    return next;
+                  });
                 }}
               >Expand All</button>
               <span className="text-slate-700 text-[10px]">/</span>
               <button
                 className="text-[9px] font-bold text-slate-500 hover:text-slate-400 transition-colors uppercase tracking-tight"
                 onClick={() => {
-                  const newKeys = new Set(expandedKeys);
-                  data.forEach(row => newKeys.delete(`ua-${JSON.stringify(row.variables)}`));
-                  setExpandedKeys(newKeys);
+                  setExpandedKeys(prev => {
+                    const next = new Set(prev);
+                    data.forEach(row => {
+                      const uaKey = `ua-${Object.entries(row.variables).sort().map(e => e.join(':')).join('|')}`;
+                      next.delete(uaKey);
+                    });
+                    return next;
+                  });
                 }}
               >Collapse All</button>
             </div>
@@ -285,10 +297,10 @@ const NetTrafficAnalyzerView: React.FC = () => {
                 if (!aIsNone && bIsNone) return -1;
                 return b.count - a.count;
               }).map((row, idx) => {
-                const uaKey = `ua-${JSON.stringify(row.variables)}`;
+                const uaKey = `ua-${Object.entries(row.variables).sort((a, b) => a[0].localeCompare(b[0])).map(e => e.join(':')).join('|')}`;
                 const isExpanded = expandedKeys.has(uaKey);
                 return (
-                  <React.Fragment key={idx}>
+                  <React.Fragment key={uaKey}>
                     <tr
                       className={`hover:bg-indigo-500/5 border-b border-slate-900 transition-colors cursor-pointer ${isExpanded ? 'bg-indigo-500/10' : ''}`}
                       onClick={() => toggleExpand(uaKey)}
