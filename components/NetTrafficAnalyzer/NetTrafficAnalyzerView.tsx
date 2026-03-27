@@ -94,44 +94,86 @@ const NetTrafficAnalyzerView: React.FC = () => {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-[420px] border-r border-indigo-500/10 bg-[#0f172a] p-5 shrink-0 flex flex-col overflow-y-auto custom-scrollbar z-10 space-y-8">
-          <div className="space-y-10">
-            <div className="flex items-center space-x-2 pb-2 border-b border-slate-800/80">
-              <Lucide.Settings size={14} className="text-indigo-400" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Analysis Pipeline</span>
+        <div className="w-[400px] border-r border-indigo-500/10 bg-[#0d1225] p-4 shrink-0 flex flex-col overflow-y-auto custom-scrollbar z-10 space-y-3">
+          {/* Section 01: Log Input */}
+          <div className="bg-[#0f172a] rounded-xl border border-cyan-500/15 overflow-hidden shadow-sm">
+            <div className="flex items-center space-x-2.5 px-4 py-2.5 bg-cyan-500/5 border-b border-cyan-500/10">
+              <div className="w-5 h-5 rounded flex items-center justify-center bg-cyan-500/15"><Lucide.FileText size={11} className="text-cyan-400" /></div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400">01. Log Input</span>
             </div>
-
-            <div className="space-y-4">
-              <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] border-l-2 border-indigo-500 pl-3 py-0.5">01. Log Input</div>
+            <div className="p-4">
               {activeTab === 'single' ? renderFileDropArea('single', singleFile, 'Source Log') : <div className="grid grid-cols-2 gap-3">{renderFileDropArea('left', leftFile, 'Primary')} {renderFileDropArea('right', rightFile, 'Reference')}</div>}
-            </div>
-
-            <div className="space-y-4">
-              <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] border-l-2 border-indigo-500 pl-3 py-0.5">02. User Agent</div>
-              <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-xl space-y-4 shadow-sm">
-                <div className="space-y-1.5"><label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Keywords</label><input type="text" value={uaPattern.keywords} onChange={(e) => setUAPattern({ ...uaPattern, keywords: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-[11px] font-mono focus:border-indigo-500/50 outline-none text-slate-300" /></div>
-                <div className="space-y-1.5"><label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Mapping Template</label><textarea rows={3} value={uaPattern.template} onChange={(e) => setUAPattern({ ...uaPattern, template: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-[11px] font-mono focus:border-indigo-500/50 outline-none resize-none text-slate-300 leading-tight" /></div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] border-l-2 border-indigo-500 pl-3 py-0.5">03. Traffic Rule</div>
-              {patterns.map(p => (
-                <div key={p.id} className="bg-slate-900/40 border border-slate-800 p-3 rounded-xl space-y-2.5 group shadow-sm transition-all hover:border-slate-700">
-                  <div className="flex justify-between items-center"><input type="text" value={p.alias} onChange={(e) => setPatterns(patterns.map(x => x.id === p.id ? { ...x, alias: e.target.value } : x))} className="bg-transparent border-0 p-0 text-[10px] font-black uppercase text-amber-400 outline-none w-32" placeholder="Rule name" /><button className="text-rose-500 opacity-0 group-hover/rule:opacity-100 transition-opacity" onClick={() => setPatterns(patterns.filter(x => x.id !== p.id))}><Lucide.Trash2 size={14} /></button></div>
-                  <input type="text" value={p.keywords} onChange={(e) => setPatterns(patterns.map(x => x.id === p.id ? { ...x, keywords: e.target.value } : x))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-[10px] font-mono text-slate-400 outline-none focus:border-indigo-500/30" placeholder="Signature (kw1, kw2...)" />
-                </div>
-              ))}
-              <button className="w-full h-10 border border-dashed border-slate-700 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-800/20 hover:text-slate-300 transition-all" onClick={() => setPatterns([...patterns, { id: Date.now().toString(), alias: '', keywords: '', extractRegex: '', enabled: true }])}>+ New Signature Rule</button>
             </div>
           </div>
 
-          <div className="mt-auto pt-8">
+          {/* Section 02: User Agent */}
+          <div className="bg-[#0f172a] rounded-xl border border-violet-500/15 overflow-hidden shadow-sm">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-violet-500/5 border-b border-violet-500/10">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-5 h-5 rounded flex items-center justify-center bg-violet-500/15"><Lucide.Users size={11} className="text-violet-400" /></div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-violet-400">02. User Agent</span>
+              </div>
+              <span className="text-[8px] text-slate-600 uppercase tracking-wider">UA Parser Config</span>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex items-center space-x-1.5">
+                  <Lucide.Key size={10} className="text-violet-400/60" />
+                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Detection Keywords</label>
+                </div>
+                <input type="text" value={uaPattern.keywords} onChange={(e) => setUAPattern({ ...uaPattern, keywords: e.target.value })} className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-lg px-3 py-2 text-[11px] font-mono focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 outline-none text-slate-300 transition-all" placeholder="e.g. User Agent, SC_SERVICE" />
+                <p className="text-[8px] text-slate-600 pl-0.5">로그에서 UA 정보를 포함하는 라인 감지 키워드</p>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center space-x-1.5">
+                  <Lucide.Braces size={10} className="text-violet-400/60" />
+                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Extraction Template</label>
+                </div>
+                <textarea rows={3} value={uaPattern.template} onChange={(e) => setUAPattern({ ...uaPattern, template: e.target.value })} className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-lg px-3 py-2 text-[11px] font-mono focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 outline-none resize-none text-slate-300 leading-relaxed transition-all" placeholder="User Agent> $(ClientName)/$(Version)" />
+                <p className="text-[8px] text-slate-600 pl-0.5">{'$(변수)'}{'로 추출할 필드를 지정'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 03: Traffic Rule */}
+          <div className="bg-[#0f172a] rounded-xl border border-amber-500/15 overflow-hidden shadow-sm">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-amber-500/5 border-b border-amber-500/10">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-5 h-5 rounded flex items-center justify-center bg-amber-500/15"><Lucide.Route size={11} className="text-amber-400" /></div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">03. Traffic Rule</span>
+              </div>
+              <span className="text-[8px] text-slate-600 tabular-nums">{patterns.length} rule{patterns.length > 1 ? 's' : ''}</span>
+            </div>
+            <div className="p-4 space-y-2.5">
+              {patterns.map(p => (
+                <div key={p.id} className="bg-slate-900/50 border border-slate-800/60 p-3 rounded-lg space-y-2 group hover:border-amber-500/20 transition-all">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center space-x-2">
+                      <Lucide.Tag size={10} className="text-amber-400/60" />
+                      <input type="text" value={p.alias} onChange={(e) => setPatterns(patterns.map(x => x.id === p.id ? { ...x, alias: e.target.value } : x))} className="bg-transparent border-0 p-0 text-[10px] font-black uppercase text-amber-400 outline-none w-28 placeholder:text-amber-400/30" placeholder="Rule name" />
+                    </div>
+                    <button className="text-rose-500/60 opacity-0 group-hover:opacity-100 transition-opacity hover:text-rose-400" onClick={() => setPatterns(patterns.filter(x => x.id !== p.id))}><Lucide.Trash2 size={12} /></button>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[7px] font-black text-slate-500 uppercase tracking-widest flex items-center space-x-1"><Lucide.Key size={8} className="text-amber-500/40" /><span>Signature Keywords</span></label>
+                    <input type="text" value={p.keywords} onChange={(e) => setPatterns(patterns.map(x => x.id === p.id ? { ...x, keywords: e.target.value } : x))} className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-lg px-3 py-1.5 text-[10px] font-mono text-slate-400 outline-none focus:border-amber-500/30 focus:ring-1 focus:ring-amber-500/15 transition-all" placeholder="kw1, kw2, kw3..." />
+                  </div>
+                </div>
+              ))}
+              <button className="w-full h-9 border border-dashed border-amber-500/20 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500 hover:bg-amber-500/5 hover:text-amber-400 hover:border-amber-500/30 transition-all flex items-center justify-center space-x-1.5" onClick={() => setPatterns([...patterns, { id: Date.now().toString(), alias: '', keywords: '', extractRegex: '', enabled: true }])}>
+                <Lucide.Plus size={12} /><span>New Rule</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Execute Button */}
+          <div className="mt-auto pt-4">
             <Button variant="primary" className={`w-full h-12 font-black uppercase tracking-[0.2em] rounded-xl border-b-[3px] shadow-xl ${analyzing ? 'bg-slate-800 border-slate-900 opacity-50' : 'bg-indigo-600 border-indigo-800 hover:bg-indigo-500 hover:-translate-y-0.5 active:translate-y-0'}`} onClick={handleStartAnalysis} disabled={analyzing || (activeTab === 'single' && !singleFile) || (activeTab === 'compare' && (!leftFile || !rightFile))}>
               <div className="flex items-center justify-center space-x-3">{analyzing ? <Lucide.Loader size={16} className="animate-spin" /> : <Lucide.Zap size={16} />}<span className="text-[11px]">{analyzing ? `Analyzing... ${progress}%` : 'Execute Analysis'}</span></div>
             </Button>
           </div>
         </div>
+
 
         <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden relative shadow-[inset_10px_0_20px_rgba(0,0,0,0.5)]">
           {/* Result Tabs with Icons */}
