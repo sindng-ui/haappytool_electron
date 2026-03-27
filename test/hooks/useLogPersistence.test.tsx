@@ -2,6 +2,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { useLogExtractorLogic } from '../../hooks/useLogExtractorLogic';
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { getStoredValue, setStoredValue } from '../../utils/db';
+import { workerRegistry } from '../../hooks/LogWorkerRegistry';
 
 // --- Mocks ---
 
@@ -39,6 +40,7 @@ describe('Log Persistence & Auto-loading', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         MockWorker.reset();
+        workerRegistry.clearAll(); // ✅ Reset singleton for each test
     });
 
     const defaultProps = {

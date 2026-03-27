@@ -90,6 +90,7 @@
   - `Smart Tab Refresh`: 탭 재활성화 시 중복 필터링을 방지하고, 규칙(Rule) 변경이 감지된 경우에만 효율적으로 리필터링을 수행하는 최적화 적용 🐧⚡
   - `Worker Persistence`: `LogWorkerRegistry`를 통해 탭 ID별 워커와 그 상태(Ready, TotalLines)를 보관하여, 탭 재마운트 시 즉각적인 UI 복구 및 불필요한 재인덱싱 방지. 🐧💾
   - `Worker Idempotency`: 워커 엔진 단에서 동일 파일에 대한 로딩 요청이 중복될 경우 이를 무시하도록 멱등성 로직 적용 (`LogProcessor.worker.ts`) 🐧🛡️
+  - `Test Compatibility`: 테스트 환경에서의 싱글톤 간섭을 방지하기 위해 `workerRegistry.clearAll()`을 통한 테스트 간 격리 보장 🐧🧪
 
 ### [[Log Viewer Components (The Alleys)]]
 - **ID**: `ui-log-viewer-sub`

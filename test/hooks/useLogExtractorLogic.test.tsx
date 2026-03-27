@@ -2,6 +2,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { useLogExtractorLogic } from '../../hooks/useLogExtractorLogic';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
+import { workerRegistry } from '../../hooks/LogWorkerRegistry';
 
 // --- Mocks ---
 
@@ -61,6 +62,7 @@ describe('useLogExtractorLogic (Frontend Logic)', () => {
         vi.clearAllMocks();
         mockedAddToast.mockClear();
         MockWorker.reset();
+        workerRegistry.clearAll(); // ✅ Reset singleton for each test
     });
 
     afterEach(() => {

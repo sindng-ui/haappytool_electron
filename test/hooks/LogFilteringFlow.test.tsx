@@ -2,6 +2,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { useLogExtractorLogic } from '../../hooks/useLogExtractorLogic';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { LogWorkerResponse } from '../../types';
+import { workerRegistry } from '../../hooks/LogWorkerRegistry';
 
 // --- Mocks ---
 
@@ -51,6 +52,7 @@ describe('Log Filtering Flow Integration Test', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         MockWorker.reset();
+        workerRegistry.clearAll(); // ✅ Reset singleton for each test
     });
 
     const defaultProps = {
