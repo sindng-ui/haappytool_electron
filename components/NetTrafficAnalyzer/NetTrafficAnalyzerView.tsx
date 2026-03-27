@@ -144,7 +144,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
         console.error('Failed to parse saved traffic patterns', e);
       }
     }
-    return [{ id: '1', alias: 'Keywords', keywords: 'ST_APP', extractRegex: '', enabled: true }];
+    return [{ id: '1', alias: 'Keywords', keywords: '', extractRegex: '', enabled: true }];
   });
 
   const [uaPattern, setUAPattern] = useState<UAPattern>(() => {
@@ -183,6 +183,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
 
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleStartAnalysis = async () => {
     setHasAnalyzed(true);
@@ -311,6 +312,26 @@ const NetTrafficAnalyzerView: React.FC = () => {
           <div className="flex items-center space-x-3">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</span>
             <span className="text-[10px] text-slate-500">{data.length} Nodes</span>
+            <div className="h-3 w-[1px] bg-slate-800" />
+            <span className="text-[10px] font-black text-indigo-400 tabular-nums">
+              Total Hits: {data.reduce((acc, curr) => acc + curr.totalCount, 0).toLocaleString()}
+            </span>
+          </div>
+          <div className="flex-1 max-w-xs mx-4 relative group">
+            <Lucide.Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400" />
+            <input 
+              type="text" 
+              placeholder="Search endpoints..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-950/50 border border-slate-800 hover:border-slate-700 focus:border-indigo-500/50 rounded-full pl-8 pr-4 py-1 text-[10px] outline-none transition-all placeholder:text-slate-600"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+              ><Lucide.X size={12} /></button>
+            )}
           </div>
           <button
             className="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-tight flex items-center space-x-1 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20"
@@ -340,7 +361,9 @@ const NetTrafficAnalyzerView: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {[...data].sort((a, b) => b.totalCount - a.totalCount).map((group, idx) => {
+              {data
+                .filter(g => !searchQuery || g.templateUri.toLowerCase().includes(searchQuery.toLowerCase()))
+                .sort((a, b) => b.totalCount - a.totalCount).map((group, idx) => {
                 const isExpanded = expandedKeys.has(group.templateUri);
                 return (
                   <React.Fragment key={idx}>
@@ -450,6 +473,22 @@ const NetTrafficAnalyzerView: React.FC = () => {
             </div>
             <span className="text-[10px] text-slate-500 border-l border-slate-800 pl-4 h-4 flex items-center">{data.length} Clients</span>
           </div>
+          <div className="flex-1 max-w-xs mx-4 relative group">
+            <Lucide.Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400" />
+            <input 
+              type="text" 
+              placeholder="Search UA or API..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-950/50 border border-slate-800 hover:border-slate-700 focus:border-indigo-500/50 rounded-full pl-8 pr-4 py-1 text-[10px] outline-none transition-all placeholder:text-slate-600"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+              ><Lucide.X size={12} /></button>
+            )}
+          </div>
           <button
             className="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-tight flex items-center space-x-1 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20"
             onClick={() => {
@@ -483,7 +522,11 @@ const NetTrafficAnalyzerView: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {[...data].sort((a, b) => {
+              {data.filter(row => {
+                const varsMatch = Object.values(row.variables).some(v => String(v).toLowerCase().includes(searchQuery.toLowerCase()));
+                const endpointsMatch = row.endpoints.some(ep => ep.templateUri.toLowerCase().includes(searchQuery.toLowerCase()));
+                return !searchQuery || varsMatch || endpointsMatch;
+              }).sort((a, b) => {
                 const aIsNone = Object.values(a.variables).some(v => String(v).includes('No User Agent Detected'));
                 const bIsNone = Object.values(b.variables).some(v => String(v).includes('No User Agent Detected'));
                 if (aIsNone && !bIsNone) return 1;

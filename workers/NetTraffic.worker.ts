@@ -95,8 +95,8 @@ let leftInsights = createEmptyInsights();
 let rightInsights = createEmptyInsights();
 
 const UUID_REGEX = /[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}/g;
-// Improved URI_REGEX to catch http(s) URLs OR paths starting with / (preceded by space/quote)
-const URI_REGEX = /(?:https?:\/\/[^\s"'<>]+|(?<=[\s"'])\/[^\s"'<>]+)/g;
+// Improved URI_REGEX to avoid catching trailing punctuation and handle common URI: tags
+const URI_REGEX = /(?:https?:\/\/[^\s"'<>()\[\]{},;]+|(?<=[\s"'])\/[^\s"'<>()\[\]{},;]+)/g;
 const NO_UA_VARS = { AppName: 'No User Agent Detected' };
 const NO_UA_KEY = JSON.stringify(NO_UA_VARS);
 
@@ -245,6 +245,7 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
           if (rData.lineIndices.length < 100) rData.lineIndices.push(lineIdx);
         };
 
+        targetInsights.totalRequests++;
         recordLogHit(targetStats);
 
         if (uaPattern?.enabled) {
