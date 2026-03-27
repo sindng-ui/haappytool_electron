@@ -87,10 +87,22 @@ const NetTrafficAnalyzerView: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-[#0b0f19] font-sans selection:bg-indigo-500/20 text-slate-300">
-      <div className="h-8 flex items-center bg-[#0f172a] border-b border-indigo-500/30 px-3 space-x-0.5 shrink-0 z-20">
-        {(['single', 'compare'] as const).map(t => (
-          <button key={t} className={`px-5 h-full text-[10px] font-black uppercase tracking-widest rounded-t-lg transition-all border-l border-r border-t ${activeTab === t ? 'bg-slate-900 border-indigo-500/40 text-slate-200 z-10' : 'bg-slate-950 border-transparent text-slate-500 hover:text-slate-300'}`} onClick={() => setActiveTab(t)}>{t} View</button>
-        ))}
+      <div className="h-8 flex items-center bg-[#0f172a] border-b border-indigo-500/30 px-3 shrink-0 z-20" style={{ WebkitAppRegion: 'drag' } as any}>
+        <div className="flex items-center space-x-2 mr-6 select-none">
+          <Lucide.Zap size={13} className="text-indigo-400 animate-pulse" />
+          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">NetTraffic Analyzer</span>
+        </div>
+        <div className="flex h-full space-x-0.5" style={{ WebkitAppRegion: 'no-drag' } as any}>
+          {(['single', 'compare'] as const).map(t => (
+            <button 
+              key={t} 
+              className={`px-5 h-full text-[10px] font-black uppercase tracking-widest rounded-t-lg transition-all border-l border-r border-t ${activeTab === t ? 'bg-slate-900 border-indigo-500/40 text-slate-200 z-10' : 'bg-slate-950 border-transparent text-slate-500 hover:text-slate-300'}`} 
+              onClick={() => setActiveTab(t)}
+            >
+              {t} View
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">

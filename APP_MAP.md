@@ -71,6 +71,15 @@
   - `Data Reader`: [workerDataReader.ts](./workers/workerDataReader.ts)
   - `Analysis`: [workerAnalysisHandlers.ts](./workers/workerAnalysisHandlers.ts)
 - **데이터 흐름**: Log Worker(Main) ↔ Log Worker(Sub/WASM) ↔ UI (SharedArrayBuffer Zero-copy Binary Read)
+### Worker Idempotency 🐧🏗️
+- `LogProcessor.worker.ts`: 동일 파일에 대한 중복 로딩 요청을 감지(`lastLoadedFile`)하고 무시하여 탭 전환/재정렬 시 자원 낭비를 방지함.
+
+### NetTraffic Engine Testing 🐧🧪🛡️
+- `NetTraffic.worker.ts`: 핵심 파싱 및 상태 관리 로직을 유닛 테스트 가능하도록 `export` 하고 `resetInternalState`를 도입함.
+- `NetTraffic.worker.test.ts`: 정규식 템플릿 엔진(`templateToRegex`), UUID 정규화, UA 클러스터링 로직을 343개 전체 테스트의 일부로 정밀 검증함.
+
+### UI / UX Enhancements 🐧✨
+- `NetTrafficAnalyzerView.tsx`: 상단 헤더 영역에 `-webkit-app-region: drag`를 적용하여 창 이동이 가능하도록 개선함. 탭 버튼 등 상호작용 요소에는 `no-drag`를 적용하여 정상 동작 보장.
 - **최근 최적화**:
   - `LogProcessor.worker.ts` 내 메시지 전달 루프를 `async/await` 구조로 개편하여 레이스 컨디션 해결 및 안정성 확보.
   - **SharedArrayBuffer 기반 Zero-copy Binary Read** 구현. 워커에 데이터를 요청하는 대신 UI(HyperLogRenderer)에서 직접 공유 메모리를 읽어 렌더링 속도 비약적 향상 및 RAM 다이어트 성공!
