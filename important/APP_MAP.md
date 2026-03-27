@@ -125,18 +125,23 @@
 
 ### [[NetTraffic Analyzer (네트워크 트래픽 분석기)]] 🐧⚡ [CORE]
 - **ID**: `NET_TRAFFIC_ANALYZER`
-- **Keywords**: [`네트워크`, `트래픽`, `URI 정규화`, `User Agent`, `UA 분석`, `Markdown Copy`, `Raw Log Jump`]
+- **Keywords**: [`네트워크`, `트래픽`, `URI 정규화`, `User Agent`, `UA 분석`, `Markdown Copy`, `Raw Log Jump`, `파일 리팩토링`]
 - **Location**:
-  - `View`: [NetTrafficAnalyzerView.tsx](./components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx)
+  - `Main View`: [NetTrafficAnalyzerView.tsx](./components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx)
+  - `Sub-Components`:
+    - [RawLogNavigator.tsx](./components/NetTrafficAnalyzer/RawLogNavigator.tsx) (Raw 로그 점프 및 네비게이션)
+    - [EndpointTable.tsx](./components/NetTrafficAnalyzer/EndpointTable.tsx) (계층형 엔드포인트 목록)
+    - [UATable.tsx](./components/NetTrafficAnalyzer/UATable.tsx) (클라이언트 핑거프린트 클러스터링)
+    - [InsightsTab.tsx](./components/NetTrafficAnalyzer/InsightsTab.tsx) (트래픽 분포 및 통계 리포트)
   - `Worker`: [NetTraffic.worker.ts](./workers/NetTraffic.worker.ts)
   - `Logic`: [useNetTrafficLogic.ts](./hooks/useNetTrafficLogic.ts)
 - **Core Interface**:
-  - `Registry Priority`: `registry.ts`에서 `LogExtractor` 바로 다음 순위로 배치되어 기본 도구로 선점됨. 펭-고! 🐧🚀
-  - `Log Extractor Sync UI`: Log Extractor의 디자인 언어 전면 이식
-  - `URI Normalization`: UUID 자동 감지 및 `$(UUID)` 치환 통계
+  - `Registry Priority`: `registry.ts`에서 `LogExtractor` 바로 다음 순위로 배치됨. 펭-고! 🐧🚀
+  - `Refactoring (500 Lines Rule)`: 메인 UI를 작은 컴포넌트로 분리하여 유지보수성 극대화. 🐧🛠️✅
+  - `Raw View Highlighting`: 선택된 로그 라인에 강한 포커스 하이라이트 적용 및 주변 로그 선명도 개선.
+  - `URI Normalization`: UUID 자동 감지 및 `$(UUID)` 치환 통계, 일반 경로(Path) 감지 및 커스텀 정규식(`extractRegex`) 지원.
   - `3-Level Hierarchy`: User Agent > API Template > Raw URI 드릴다운
   - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드
-  - `Raw View Navigator`: 분석 결과 항목에서 실제 원본 로그 라인으로 즉송 이동(Jump) 및 네비게이션 모달 (1000라인 컨텍스트 지원) 🐧🔍🚀
   - `Persistence`: `useState` 이니셜라이저를 통한 로컬 저장소(`localStorage`) 설정 즉시 복원. 🐧💾✅
 - **Data Flow**: `Log File` -> `Worker` -> `UA Context Matching (Case-Insensitive & Persistent)` -> `UI Tree View` -> `RawView Jump`
 
@@ -165,22 +170,6 @@
 - **Data Flow**: `Raw Data` -> `Parser` -> `Timeline View`
 
 
-### [[NetTraffic Analyzer (네트워크 트래픽 분석기)]] 🐧⚡ [CORE]
-- **ID**: `NET_TRAFFIC_ANALYZER`
-- **Keywords**: [`네트워크`, `트래픽`, `URI 정규화`, `User Agent`, `UA 분석`, `Markdown Copy`, `Raw Log Jump`]
-- **Location**:
-  - `View`: [NetTrafficAnalyzerView.tsx](./components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx)
-  - `Worker`: [NetTraffic.worker.ts](./workers/NetTraffic.worker.ts)
-  - `Logic`: [useNetTrafficLogic.ts](./hooks/useNetTrafficLogic.ts)
-- **Core Interface**:
-  - `Registry Priority`: `registry.ts`에서 `LogExtractor` 바로 다음 순위로 배치되어 기본 도구로 선점됨. 펭-고! 🐧🚀
-  - `Log Extractor Sync UI`: Log Extractor의 디자인 언어 전면 이식
-  - `URI Normalization`: UUID 자동 감지 및 `$(UUID)` 치환 통계, 일반 경로(Path) 감지 및 커스텀 정규식(`extractRegex`) 지원 추가. 🐧🔍✅
-  - `3-Level Hierarchy`: User Agent > API Template > Raw URI 드릴다운
-  - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드
-  - `Raw View Navigator`: 분석 결과 항목에서 실제 원본 로그 라인으로 즉송 이동(Jump) 및 네비게이션 모달 (1000라인 컨텍스트 지원) 🐧🔍🚀
-  - `Persistence`: `useState` 이니셜라이저를 통한 로컬 저장소(`localStorage`) 설정 즉시 복원. 🐧💾✅
-- **Data Flow**: `Log File` -> `Worker` -> `UA Context Matching (Case-Insensitive & Persistent)` -> `UI Tree View` -> `RawView Jump`
 
 
 ### [[SpeedScope Plugin]]
