@@ -134,7 +134,24 @@ const NetTrafficAnalyzerView: React.FC = () => {
         </div>
 
         <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden relative shadow-[inset_10px_0_20px_rgba(0,0,0,0.5)]">
-          {hasAnalyzed && !analyzing && <div className="h-10 flex bg-[#0f172a] border-b border-indigo-500/20 shrink-0">{(['endpoints', 'ua', 'insights'] as const).map(t => (<button key={t} onClick={() => setResultTab(t)} className={`px-8 h-full text-[10px] font-black uppercase tracking-[0.2em] transition-all ${resultTab === t ? 'text-indigo-400 bg-slate-900/50 relative shadow-[inset_0_-2px_0_#6366f1]' : 'text-slate-500 hover:text-slate-400'}`}>{t}</button>))}</div>}
+          {/* Result Tabs with Icons */}
+          {hasAnalyzed && !analyzing && (
+            <div className="shrink-0">
+              <div className="h-10 flex bg-[#0f172a] border-b border-indigo-500/20">
+                {([{ key: 'endpoints' as const, icon: <Lucide.Globe size={12} />, label: 'Endpoints' }, { key: 'ua' as const, icon: <Lucide.Users size={12} />, label: 'User Agents' }, { key: 'insights' as const, icon: <Lucide.BarChart3 size={12} />, label: 'Insights' }]).map(t => (
+                  <button key={t.key} onClick={() => setResultTab(t.key)} className={`px-6 h-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center space-x-2 ${resultTab === t.key ? 'text-indigo-400 bg-slate-900/50 shadow-[inset_0_-2px_0_#6366f1]' : 'text-slate-500 hover:text-slate-400'}`}>
+                    {t.icon}<span>{t.label}</span>
+                  </button>
+                ))}
+              </div>
+              {/* Summary Ribbon */}
+              <div className="h-8 bg-[#0d1321] border-b border-slate-900 px-4 flex items-center space-x-6 text-[10px]">
+                <div className="flex items-center space-x-1.5"><Lucide.Globe size={10} className="text-indigo-400" /><span className="text-slate-500">Patterns:</span><span className="text-indigo-400 font-black tabular-nums">{singleResult.length}</span></div>
+                <div className="flex items-center space-x-1.5"><Lucide.Zap size={10} className="text-amber-400" /><span className="text-slate-500">Total Hits:</span><span className="text-amber-400 font-black tabular-nums">{singleResult.reduce((a,c)=>a+c.totalCount,0).toLocaleString()}</span></div>
+                <div className="flex items-center space-x-1.5"><Lucide.Users size={10} className="text-emerald-400" /><span className="text-slate-500">Clients:</span><span className="text-emerald-400 font-black tabular-nums">{singleUAResult.length}</span></div>
+              </div>
+            </div>
+          )}
 
           <div className="flex-1 overflow-hidden p-3 flex flex-col">
             {!hasAnalyzed ? <div className="flex-1 border-2 border-dashed border-slate-900/50 rounded-2xl flex flex-col items-center justify-center text-slate-700 space-y-4"><Lucide.Activity size={64} className="opacity-10" /><span className="text-[10px] font-black uppercase tracking-[0.3em]">Telemetry Engine Idle</span></div> 
@@ -146,9 +163,13 @@ const NetTrafficAnalyzerView: React.FC = () => {
               </div>}
           </div>
 
+          {/* Status Bar */}
           <div className="h-8 border-t border-slate-900 bg-[#0f172a] px-4 flex items-center justify-between text-[10px] text-slate-500 select-none">
-            <div className="flex items-center space-x-4"><div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" /><span className="font-black uppercase tracking-widest text-[#10b981] text-[9px]">Engine v2.2 ACTIVE</span></div>{hasAnalyzed && <><span className="opacity-20">|</span><span>Nodes Detected: <span className="text-indigo-400 font-black">{singleResult.length}</span></span><span className="opacity-20">|</span><span>Total Hits: <span className="text-indigo-400 font-black">{singleResult.reduce((a,c)=>a+c.totalCount,0)}</span></span></>}</div>
-            <div className="text-[9px] font-black opacity-30 tracking-[0.2em] uppercase">HappyTool Core Telemetry</div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" /><span className="font-black uppercase tracking-widest text-[9px]" style={{color:'#10b981'}}>Engine v2.2</span></div>
+              {hasAnalyzed && <><span className="opacity-20">|</span><span className="tabular-nums">Patterns: <span className="text-indigo-400 font-black">{singleResult.length}</span></span><span className="opacity-20">|</span><span className="tabular-nums">Hits: <span className="text-indigo-400 font-black">{singleResult.reduce((a,c)=>a+c.totalCount,0).toLocaleString()}</span></span><span className="opacity-20">|</span><span className="tabular-nums">Clients: <span className="text-emerald-400 font-black">{singleUAResult.length}</span></span></>}
+            </div>
+            <div className="text-[9px] font-black opacity-30 tracking-[0.2em] uppercase">HappyTool NetTraffic</div>
           </div>
         </div>
       </div>
