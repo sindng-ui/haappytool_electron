@@ -95,7 +95,8 @@ let leftInsights = createEmptyInsights();
 let rightInsights = createEmptyInsights();
 
 const UUID_REGEX = /[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}/g;
-const URI_REGEX = /https?:\/\/[^\s"'<>]+/g;
+// Improved URI_REGEX to catch http(s) URLs OR paths starting with / (preceded by space/quote)
+const URI_REGEX = /(?:https?:\/\/[^\s"'<>]+|(?<=[\s"'])\/[^\s"'<>]+)/g;
 const NO_UA_VARS = { AppName: 'No User Agent Detected' };
 const NO_UA_KEY = JSON.stringify(NO_UA_VARS);
 
@@ -173,7 +174,19 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
     const keywords = p.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
     const lineLower = cleanLine.toLowerCase();
     if (keywords.every(kw => lineLower.includes(kw))) {
-      const uriMatches = cleanLine.match(URI_REGEX);
+      // Use custom extractRegex if provided, otherwise fallback to URI_REGEX
+      let uriMatches: string[] | null = null;
+      if (p.extractRegex) {
+        try {
+          uriMatches = cleanLine.match(new RegExp(p.extractRegex, 'g'));
+        } catch (e) {
+          console.error('Invalid extractRegex:', p.extractRegex, e);
+          uriMatches = cleanLine.match(URI_REGEX);
+        }
+      } else {
+        uriMatches = cleanLine.match(URI_REGEX);
+      }
+
       if (uriMatches) {
         // Collect Insights for this hit
         const bucket = extractBucket(cleanLine);

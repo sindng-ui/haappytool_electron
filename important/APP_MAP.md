@@ -175,7 +175,7 @@
 - **Core Interface**:
   - `Registry Priority`: `registry.ts`에서 `LogExtractor` 바로 다음 순위로 배치되어 기본 도구로 선점됨. 펭-고! 🐧🚀
   - `Log Extractor Sync UI`: Log Extractor의 디자인 언어 전면 이식
-  - `URI Normalization`: UUID 자동 감지 및 `$(UUID)` 치환 통계
+  - `URI Normalization`: UUID 자동 감지 및 `$(UUID)` 치환 통계, 일반 경로(Path) 감지 및 커스텀 정규식(`extractRegex`) 지원 추가. 🐧🔍✅
   - `3-Level Hierarchy`: User Agent > API Template > Raw URI 드릴다운
   - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드
   - `Raw View Navigator`: 분석 결과 항목에서 실제 원본 로그 라인으로 즉송 이동(Jump) 및 네비게이션 모달 (1000라인 컨텍스트 지원) 🐧🔍🚀

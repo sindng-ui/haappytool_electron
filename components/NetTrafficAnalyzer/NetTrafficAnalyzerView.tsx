@@ -144,7 +144,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
         console.error('Failed to parse saved traffic patterns', e);
       }
     }
-    return [{ id: '1', alias: 'Keywords', keywords: 'ST_APP, https://', extractRegex: '', enabled: true }];
+    return [{ id: '1', alias: 'Keywords', keywords: 'ST_APP', extractRegex: '', enabled: true }];
   });
 
   const [uaPattern, setUAPattern] = useState<UAPattern>(() => {
