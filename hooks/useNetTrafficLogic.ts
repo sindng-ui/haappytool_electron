@@ -25,6 +25,12 @@ export const useNetTrafficLogic = () => {
       const { type, payload } = e.data;
       if (type === 'RESULT_UPDATE') {
         const { target, data, uaData, insights } = payload;
+        console.log(`[useNetTrafficLogic] Received RESULT_UPDATE for ${target}:`, {
+           nodes: data?.length,
+           total: insights?.totalRequests,
+           firstNode: data?.[0]?.templateUri
+        });
+
         if (target === 'single') {
             setSingleResult(data);
             setSingleUAResult(uaData || []);

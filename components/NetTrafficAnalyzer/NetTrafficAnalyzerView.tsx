@@ -883,7 +883,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
               </div>
             ) : (
               <div className="flex-1 overflow-hidden flex flex-col">
-                {resultTab === 'endpoints' && renderTable(singleResult.filter(g => g.templateUri.includes('$(UUID)')), 'Master API Index', singleFile)}
+                {resultTab === 'endpoints' && renderTable(singleResult, 'Master API Index', singleFile)}
                 {resultTab === 'ua' && renderUATable(singleUAResult, 'Client Fingerprint Clusters', singleFile)}
                 {resultTab === 'insights' && (activeTab === 'single' ? renderInsightsTab(singleInsights, 'Primary', singleFile) : (
                   <div className="flex-1 flex space-x-2 overflow-hidden">

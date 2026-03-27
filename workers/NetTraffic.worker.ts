@@ -103,7 +103,7 @@ const NO_UA_KEY = JSON.stringify(NO_UA_VARS);
 const stripAnsi = (str: string) => str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
 
 const normalizeUri = (uri: string): string => {
-  return uri.replace(UUID_REGEX, '$(UUID)');
+  return uri.trim().replace(UUID_REGEX, '$(UUID)');
 };
 
 const extractHost = (uri: string): string => {
@@ -169,42 +169,54 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
   }
 
   // 2. Traffic Analysis
+  const lineLower = cleanLine.toLowerCase();
+  let matched = false;
+
   for (const p of patterns) {
     if (!p.enabled) continue;
     const keywords = p.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
-    const lineLower = cleanLine.toLowerCase();
     
-    if (keywords.every(kw => lineLower.includes(kw))) {
-      let uriMatches: string[] | null = null;
+    // Match everything if no keywords specified, otherwise check every keyword
+    if (keywords.length === 0 || keywords.every(kw => lineLower.includes(kw))) {
+      matched = true;
+      let urisFound: string[] = [];
+      
+      // URI Extraction
       if (p.extractRegex) {
         try {
-          uriMatches = cleanLine.match(new RegExp(p.extractRegex, 'g'));
+          urisFound = cleanLine.match(new RegExp(p.extractRegex, 'g')) || [];
         } catch (e) {
           console.error('Invalid extractRegex:', p.extractRegex, e);
-          uriMatches = cleanLine.match(URI_REGEX);
+          urisFound = cleanLine.match(URI_REGEX) || [];
         }
       } else {
-        uriMatches = cleanLine.match(URI_REGEX);
+        urisFound = cleanLine.match(URI_REGEX) || [];
       }
 
-      if (uriMatches) {
+      console.log(`[NetTraffic] Line: "${cleanLine.substring(0, 100)}..." -> Found: ${urisFound.length} URIs`);
+
+      if (urisFound.length > 0) {
         const bucket = extractBucket(cleanLine);
         if (bucket) {
-          targetInsights.timeline.set(bucket, (targetInsights.timeline.get(bucket) || 0) + uriMatches.length);
+          targetInsights.timeline.set(bucket, (targetInsights.timeline.get(bucket) || 0) + urisFound.length);
         }
 
-        for (const rawUri of uriMatches) {
+        for (const rawUri of urisFound) {
           const templateUri = normalizeUri(rawUri);
           const host = extractHost(rawUri);
           const method = detectMethod(cleanLine);
 
+          console.log(`[NetTraffic] Hit: [${method || '?'}] ${templateUri} (Raw: ${rawUri})`);
+
           if (host) targetInsights.hosts.set(host, (targetInsights.hosts.get(host) || 0) + 1);
           if (method) targetInsights.methods.set(method, (targetInsights.methods.get(method) || 0) + 1);
+          targetInsights.totalRequests++; 
 
-          const recordHit = (stats: StatsMap) => {
+          const recordAnyHit = (stats: StatsMap) => {
             if (!stats.has(templateUri)) stats.set(templateUri, { totalCount: 0, rawMap: new Map() });
             const tData = stats.get(templateUri)!;
             tData.totalCount++;
+            
             if (!tData.rawMap.has(rawUri)) tData.rawMap.set(rawUri, { count: 0, examples: [], lineIndices: [] });
             const rData = tData.rawMap.get(rawUri)!;
             rData.count++;
@@ -212,8 +224,7 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
             if (rData.lineIndices.length < 100) rData.lineIndices.push(lineIdx);
           };
 
-          targetInsights.totalRequests++; 
-          recordHit(targetStats);
+          recordAnyHit(targetStats);
 
           if (uaPattern?.enabled) {
             let uaKey = currentUAVars ? JSON.stringify(currentUAVars) : NO_UA_KEY;
@@ -228,18 +239,22 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
             const uaData = targetUAMap.get(uaKey)!;
             uaData.count++; 
             if (uaData.examples.length < 1) uaData.examples.push(cleanLine.trim());
-            recordHit(uaData.endpointStats);
+            recordAnyHit(uaData.endpointStats);
           }
         }
       } else {
-        // [LOG] Fallback hit
+        // [LOG] hit (No specific URI found, but keywords matched)
         const templateUri = `[LOG] ${p.alias || 'General'}`;
         const rawUri = cleanLine.length > 100 ? cleanLine.substring(0, 100) + '...' : cleanLine;
+        console.log(`[NetTraffic] LOG Hit: ${templateUri}`);
+
+        targetInsights.totalRequests++; 
 
         const recordLogHit = (stats: StatsMap) => {
           if (!stats.has(templateUri)) stats.set(templateUri, { totalCount: 0, rawMap: new Map() });
           const tData = stats.get(templateUri)!;
           tData.totalCount++;
+          
           if (!tData.rawMap.has(rawUri)) tData.rawMap.set(rawUri, { count: 0, examples: [], lineIndices: [] });
           const rData = tData.rawMap.get(rawUri)!;
           rData.count++;
@@ -247,7 +262,6 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
           if (rData.lineIndices.length < 100) rData.lineIndices.push(lineIdx);
         };
 
-        targetInsights.totalRequests++; 
         recordLogHit(targetStats);
 
         if (uaPattern?.enabled) {
@@ -266,6 +280,9 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
           recordLogHit(uaData.endpointStats);
         }
       }
+      
+      // Stop checking other patterns for this line once one has matched
+      break; 
     }
   }
 };
@@ -314,14 +331,17 @@ self.onmessage = (e: MessageEvent) => {
       buffers[target] = '';
       
       const formatStats = (stats: StatsMap): TemplateGroup[] => {
-        return Array.from(stats.entries()).map(([templateUri, data]) => ({
+        const results = Array.from(stats.entries()).map(([templateUri, data]) => ({
           alias: 'Auto',
-          templateUri,
+          templateUri: templateUri.trim(),
           totalCount: data.totalCount,
           rawCalls: Array.from(data.rawMap.entries()).map(([rawUri, rd]) => ({
-            rawUri, count: rd.count, examples: rd.examples, lineIndices: rd.lineIndices
+            rawUri: rawUri.trim(), count: rd.count, examples: rd.examples, lineIndices: rd.lineIndices
           })).sort((a, b) => b.count - a.count)
         })).sort((a, b) => b.totalCount - a.totalCount);
+
+        console.log(`[NetTraffic] Final Stats Built. Nodes: ${results.length}, Total Hits: ${results.reduce((acc, curr) => acc + curr.totalCount, 0)}`);
+        return results;
       };
 
       const mapToRecord = (map: Map<string, number>) => Object.fromEntries(map);
@@ -345,6 +365,7 @@ self.onmessage = (e: MessageEvent) => {
         totalRequests: fInsights.totalRequests
       };
       
+      console.log('[NetTraffic] Sending RESULT_UPDATE', { nodes: trafficResult.length, total: insightsPayload.totalRequests });
       self.postMessage({ type: 'RESULT_UPDATE', payload: { target, data: trafficResult, uaData: uaResult, insights: insightsPayload } });
       break;
     }
