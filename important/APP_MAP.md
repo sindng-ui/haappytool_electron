@@ -138,7 +138,7 @@
   - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드
   - `Raw View Navigator`: 분석 결과 항목에서 실제 원본 로그 라인으로 즉송 이동(Jump) 및 네비게이션 모달 (1000라인 컨텍스트 지원) 🐧🔍🚀
   - `Persistence`: `useState` 이니셜라이저를 통한 로컬 저장소(`localStorage`) 설정 즉시 복원. 🐧💾✅
-- **Data Flow**: `Log File` -> `Worker` -> `UA Context Matching` -> `UI Tree View` -> `RawView Jump`
+- **Data Flow**: `Log File` -> `Worker` -> `UA Context Matching (Case-Insensitive & Persistent)` -> `UI Tree View` -> `RawView Jump`
 
 ---
 
@@ -180,7 +180,7 @@
   - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드
   - `Raw View Navigator`: 분석 결과 항목에서 실제 원본 로그 라인으로 즉송 이동(Jump) 및 네비게이션 모달 (1000라인 컨텍스트 지원) 🐧🔍🚀
   - `Persistence`: `useState` 이니셜라이저를 통한 로컬 저장소(`localStorage`) 설정 즉시 복원. 🐧💾✅
-- **Data Flow**: `Log File` -> `Worker` -> `UA Context Matching` -> `UI Tree View` -> `RawView Jump`
+- **Data Flow**: `Log File` -> `Worker` -> `UA Context Matching (Case-Insensitive & Persistent)` -> `UI Tree View` -> `RawView Jump`
 
 
 ### [[SpeedScope Plugin]]

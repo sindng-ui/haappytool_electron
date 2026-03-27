@@ -139,7 +139,7 @@ const templateToRegex = (template: string): RegExp | null => {
       return '\\' + match;
     });
     const regexStr = escaped.replace(/\$\((.*?)\)/g, '(?<$1>[^/ ]+)');
-    return new RegExp(regexStr);
+    return new RegExp(regexStr, 'i');
   } catch (e) {
     return null;
   }
@@ -150,8 +150,9 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
   
   // 1. Check for User Agent line
   if (uaPattern?.enabled && uaRegex) {
-    const uaKeywords = uaPattern.keywords.split(',').map(k => k.trim()).filter(Boolean);
-    if (uaKeywords.every(kw => cleanLine.includes(kw))) {
+    const uaKeywords = uaPattern.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+    const lineLower = cleanLine.toLowerCase();
+    if (uaKeywords.every(kw => lineLower.includes(kw))) {
       const match = cleanLine.match(uaRegex);
       if (match && match.groups) {
         currentUAVars = match.groups;
@@ -169,8 +170,9 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
   // 2. Traffic Analysis
   for (const p of patterns) {
     if (!p.enabled) continue;
-    const keywords = p.keywords.split(',').map(k => k.trim()).filter(Boolean);
-    if (keywords.every(kw => cleanLine.includes(kw))) {
+    const keywords = p.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+    const lineLower = cleanLine.toLowerCase();
+    if (keywords.every(kw => lineLower.includes(kw))) {
       const uriMatches = cleanLine.match(URI_REGEX);
       if (uriMatches) {
         // Collect Insights for this hit
@@ -214,7 +216,7 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
              recordHit(uaData.endpointStats);
           }
         }
-        currentUAVars = null;
+        // currentUAVars = null; // PERSIST UA until next UA line found
       } else {
         const templateUri = `[LOG] ${p.alias || 'General'}`;
         const rawUri = cleanLine.length > 100 ? cleanLine.substring(0, 100) + '...' : cleanLine;
@@ -246,7 +248,7 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
           uaData.count++; // Increment parent UA's hit count on each log match
           recordLogHit(uaData.endpointStats);
         }
-        currentUAVars = null;
+        // currentUAVars = null; // PERSIST UA until next UA line found
       }
     }
   }

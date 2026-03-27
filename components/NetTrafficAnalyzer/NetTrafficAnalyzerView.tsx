@@ -157,8 +157,8 @@ const NetTrafficAnalyzerView: React.FC = () => {
       }
     }
     return {
-      keywords: 'ST_APP, User Agent',
-      template: 'User Agent> $(ClientName)/$(ClientVersion)/$(AppName)/$(AppVersion)/asdf',
+      keywords: 'SC_SERVICE, User agent',
+      template: 'User agent: $(ClientName)/$(ClientVersion)/$(AppName)/$(AppVersion)/$(AppDetail)',
       enabled: true
     };
   });
