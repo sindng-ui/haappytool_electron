@@ -49,32 +49,38 @@ export interface InsightStats {
   totalRequests: number;
 }
 
-let patterns: TrafficPattern[] = [];
-let uaPattern: UAPattern | null = null;
-let uaRegex: RegExp | null = null;
+export let patterns: TrafficPattern[] = [];
+export let uaPattern: UAPattern | null = null;
+export let uaRegex: RegExp | null = null;
+
+export const setPatterns = (p: TrafficPattern[]) => { patterns = p; };
+export const setUAPattern = (ua: UAPattern | null) => { 
+  uaPattern = ua; 
+  uaRegex = templateToRegex(ua?.template || '');
+};
 
 // Stateful parsing
 let currentUAVars: Record<string, string> | null = null;
 
 // Hierarchical Stats
-type StatsMap = Map<string, { totalCount: number, rawMap: Map<string, { count: number, examples: string[] }> }>;
-let singleStats: StatsMap = new Map();
-let leftStats: StatsMap = new Map();
-let rightStats: StatsMap = new Map();
+export type StatsMap = Map<string, { totalCount: number, rawMap: Map<string, { count: number, examples: string[] }> }>;
+export let singleStats: StatsMap = new Map();
+export let leftStats: StatsMap = new Map();
+export let rightStats: StatsMap = new Map();
 
 // Line counters
 let lineCounts = { single: 0, left: 0, right: 0 };
 
 // UA Stats
-type UAMap = Map<string, { 
+export type UAMap = Map<string, { 
   count: number, 
   examples: string[], 
   variables: Record<string, string>,
   endpointStats: StatsMap 
 }>;
-let singleUAMap: UAMap = new Map();
-let leftUAMap: UAMap = new Map();
-let rightUAMap: UAMap = new Map();
+export let singleUAMap: UAMap = new Map();
+export let leftUAMap: UAMap = new Map();
+export let rightUAMap: UAMap = new Map();
 
 // Insights Stats
 interface InternalInsights {
@@ -102,24 +108,24 @@ const NO_UA_KEY = JSON.stringify(NO_UA_VARS);
 
 const stripAnsi = (str: string) => str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
 
-const normalizeUri = (uri: string): string => {
+export const normalizeUri = (uri: string): string => {
   return uri.trim().replace(UUID_REGEX, '$(UUID)');
 };
 
-const extractHost = (uri: string): string => {
+export const extractHost = (uri: string): string => {
   const match = uri.match(/https?:\/\/([^\/\s]+)/);
   return match ? match[1] : 'unknown';
 };
 
 const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
-const detectMethod = (line: string): string | null => {
+export const detectMethod = (line: string): string | null => {
   for (const m of METHODS) {
     if (line.includes(` ${m} `) || line.includes(`${m}>`) || line.startsWith(m + ' ')) return m;
   }
   return null;
 };
 
-const extractBucket = (line: string): string | null => {
+export const extractBucket = (line: string): string | null => {
   // Matches 055.010 or HH:mm:ss
   const match = line.match(/(\d{2}:\d{2}:\d{2})|(\d{2,})\./);
   if (!match) return null;
@@ -132,21 +138,34 @@ const extractBucket = (line: string): string | null => {
   return null;
 };
 
-const templateToRegex = (template: string): RegExp | null => {
+export const templateToRegex = (template: string): RegExp | null => {
   if (!template) return null;
   try {
-    let escaped = template.replace(/[.*+?^${}()|[\]\\]/g, (match) => {
-      if (match === '$' || match === '(' || match === ')') return match;
-      return '\\' + match;
-    });
-    const regexStr = escaped.replace(/\$\((.*?)\)/g, '(?<$1>[^/ ]+)');
+    // 🐧 팁: 플레이스홀더를 기준으로 분할하여 리터럴 부분만 안전하게 이스케이프합니다.
+    const parts = template.split(/\$\((.*?)\)/);
+    let regexStr = '';
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2 === 0) {
+        // 리터럴 영역: 모든 정규식 특수 문자를 이스케이프
+        regexStr += parts[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      } else {
+        // 플레이스홀더 영역: 명명된 캡처 그룹으로 변환
+        // 변수명에 올바르지 않은 문자가 섞이는 것을 방지하기 위해 알파벳/숫자만 남김
+        const groupName = parts[i].replace(/[^a-zA-Z0-9]/g, '');
+        if (groupName) {
+          // URIs나 UAs에서 구분자로 쓰이는 공백/슬래시/따옴표 등을 제외하고 매칭.
+          // 🐧 팁: 문자 클래스 내부에 [ ] ( ) 등이 포함될 경우 반드시 이스케이프가 필요합니다.
+          regexStr += `(?<${groupName}>[^/\\s"'<>\\(\\)\\[\\]{},;]+)`;
+        }
+      }
+    }
     return new RegExp(regexStr, 'i');
   } catch (e) {
     return null;
   }
 };
 
-const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, targetInsights: InternalInsights, lineIdx: number) => {
+export const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, targetInsights: InternalInsights, lineIdx: number) => {
   const cleanLine = stripAnsi(line);
   
   // 1. Check for User Agent line
@@ -289,22 +308,29 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
 
 let buffers: Record<'single' | 'left' | 'right', string> = { single: '', left: '', right: '' };
 
+export const resetInternalState = () => {
+  patterns = [];
+  uaPattern = null;
+  uaRegex = null;
+  currentUAVars = null;
+  singleStats.clear(); leftStats.clear(); rightStats.clear();
+  singleUAMap.clear(); leftUAMap.clear(); rightUAMap.clear();
+  singleInsights = createEmptyInsights();
+  leftInsights = createEmptyInsights();
+  rightInsights = createEmptyInsights();
+  buffers.single = ''; buffers.left = ''; buffers.right = '';
+  lineCounts.single = 0; lineCounts.left = 0; lineCounts.right = 0;
+};
+
 self.onmessage = (e: MessageEvent) => {
   const { type, payload } = e.data;
   
   switch (type) {
     case 'INIT':
+      resetInternalState();
       patterns = payload.patterns || [];
       uaPattern = payload.uaPattern || null;
       uaRegex = templateToRegex(uaPattern?.template || '');
-      currentUAVars = null;
-      singleStats.clear(); leftStats.clear(); rightStats.clear();
-      singleUAMap.clear(); leftUAMap.clear(); rightUAMap.clear();
-      singleInsights = createEmptyInsights();
-      leftInsights = createEmptyInsights();
-      rightInsights = createEmptyInsights();
-      buffers.single = ''; buffers.left = ''; buffers.right = '';
-      lineCounts.single = 0; lineCounts.left = 0; lineCounts.right = 0;
       break;
       
     case 'PROCESS_CHUNK': {
