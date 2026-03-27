@@ -54,15 +54,17 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
   useEffect(() => {
     if (!loading && lines.length > 0 && lineIndices.length > 0) {
       const targetLine = lineIndices[currentIndex];
+      // 🐧 팁: 'smooth' 대신 'auto'를 사용하여 즉각적인 이동을 보장합니다.
+      // setTimeout을 거의 0에 가깝게 줄여 지연을 최소화합니다.
       const timer = setTimeout(() => {
         const el = lineRefs.current[targetLine];
         if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.scrollIntoView({ behavior: 'auto', block: 'center' });
         }
-      }, 30);
+      }, 0);
       return () => clearTimeout(timer);
     }
-  }, [currentIndex, lines, loading, lineIndices]);
+  }, [currentIndex, lines.length, loading, lineIndices]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -90,6 +92,16 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
     return { curr, prev, next, gapToPrev: prev !== null ? curr - prev : null, gapToNext: next !== null ? next - curr : null };
   }, [lineIndices, currentIndex]);
 
+  const currentTargetLine = lineIndices[currentIndex];
+
+  // 🐧 팁: 렌더링할 범위를 현재 선택된 줄 기준 전후 100줄로 대폭 축소하여 렌더링 성능을 극대화합니다.
+  const renderedRange = useMemo(() => {
+    if (loading || lines.length === 0) return { start: 0, end: 0, lines: [] };
+    const start = Math.max(0, currentTargetLine - 100);
+    const end = Math.min(lines.length, currentTargetLine + 100);
+    return { start, end, lines: lines.slice(start, end) };
+  }, [loading, lines, currentTargetLine]);
+
   // Copy current line
   const copyCurrentLine = useCallback(() => {
     const lineIdx = lineIndices[currentIndex];
@@ -100,104 +112,74 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
 
   if (!file) return null;
 
-  const currentTargetLine = lineIndices[currentIndex];
-
   return (
-    <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-6">
-      <div className="bg-[#0a0e1a] border border-indigo-500/25 rounded-2xl shadow-2xl w-[92vw] h-[88vh] flex flex-col overflow-hidden max-w-7xl">
+    <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-2">
+      <style>{`
+        #raw-log-container::-webkit-scrollbar { display: none; }
+        #raw-log-container { scrollbar-width: none; -ms-overflow-style: none; }
+      `}</style>
+      <div className="bg-[#0a0e1a] border border-indigo-500/30 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] w-[98vw] h-[94vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="h-14 border-b border-indigo-500/15 bg-[#0f172a] px-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center space-x-4">
+        <div className="h-14 border-b border-indigo-500/20 bg-[#0f172a] px-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center space-x-6">
             {/* Title Badge */}
-            <div className="flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 rounded-lg max-w-[400px]">
-              <Lucide.Eye size={12} className="text-indigo-400 shrink-0" />
-              <span className="text-[9px] font-black uppercase text-indigo-400 tracking-wider truncate">{title}</span>
+            <div className="flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/30 px-4 py-2 rounded-lg">
+              <Lucide.Activity size={14} className="text-indigo-400 shrink-0" />
+              <span className="text-[10px] font-black uppercase text-indigo-400 tracking-[0.2em] truncate">{title}</span>
             </div>
             
-            <div className="h-5 w-px bg-slate-800" />
+            <div className="h-6 w-px bg-slate-800" />
             
             {/* Navigation Controls */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <button 
-                className="w-9 h-9 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 hover:border-slate-700 transition-all disabled:opacity-20 active:scale-95"
+                className="w-10 h-10 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 hover:border-slate-600 transition-all disabled:opacity-10 active:scale-95 shadow-lg"
                 onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
                 disabled={currentIndex === 0}
                 title="Previous match (←)"
-              ><Lucide.ChevronLeft size={18} /></button>
+              ><Lucide.ChevronLeft size={20} /></button>
               
-              <div className="flex flex-col items-center min-w-[120px] bg-slate-900/60 border border-slate-800 rounded-lg px-3 py-1">
-                <div className="text-[14px] font-black text-white tabular-nums leading-none">
+              <div className="flex flex-col items-center min-w-[140px] bg-slate-900 border border-indigo-500/20 rounded-xl px-4 py-1.5 shadow-inner">
+                <div className="text-[16px] font-black text-white tabular-nums leading-none mb-0.5">
                   L{lineIndices[currentIndex] + 1}
                 </div>
-                <div className="text-[9px] font-bold text-indigo-400/70 uppercase tracking-tight">
+                <div className="text-[9px] font-bold text-indigo-400/80 uppercase tracking-widest">
                   {currentIndex + 1} / {lineIndices.length}
                 </div>
               </div>
 
               <button 
-                className="w-9 h-9 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 hover:border-slate-700 transition-all disabled:opacity-20 active:scale-95"
+                className="w-10 h-10 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 hover:border-slate-600 transition-all disabled:opacity-10 active:scale-95 shadow-lg"
                 onClick={() => setCurrentIndex(prev => Math.min(lineIndices.length - 1, prev + 1))}
                 disabled={currentIndex === lineIndices.length - 1}
                 title="Next match (→)"
-              ><Lucide.ChevronRight size={18} /></button>
+              ><Lucide.ChevronRight size={20} /></button>
             </div>
-
-            <div className="h-5 w-px bg-slate-800" />
-
-            {/* Context Gap Info */}
-            {contextInfo && (
-              <div className="flex items-center space-x-3 text-[9px] text-slate-500">
-                {contextInfo.gapToPrev !== null && (
-                  <span className="tabular-nums">↑ <span className="text-slate-400 font-bold">{contextInfo.gapToPrev}</span> lines</span>
-                )}
-                {contextInfo.gapToNext !== null && (
-                  <span className="tabular-nums">↓ <span className="text-slate-400 font-bold">{contextInfo.gapToNext}</span> lines</span>
-                )}
-              </div>
-            )}
           </div>
 
-          <div className="flex items-center space-x-2">
-            {/* Copy button */}
+          <div className="flex items-center space-x-3">
             <button 
               onClick={copyCurrentLine}
-              className="w-9 h-9 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-lg text-slate-500 hover:text-emerald-400 hover:border-emerald-500/30 transition-all active:scale-90"
+              className="w-10 h-10 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-xl text-slate-500 hover:text-emerald-400 hover:border-emerald-500/40 transition-all active:scale-90"
               title="Copy current line"
-            ><Lucide.Copy size={14} /></button>
-            {/* Close button */}
-            <button onClick={onClose} className="w-9 h-9 flex items-center justify-center bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white rounded-lg transition-all active:scale-90" title="Close (Esc)"><Lucide.X size={18} /></button>
+            ><Lucide.Copy size={16} /></button>
+            <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white rounded-xl transition-all active:scale-90" title="Close (Esc)"><Lucide.X size={20} /></button>
           </div>
         </div>
 
-        {/* Match indicator minimap */}
-        {lines.length > 0 && lineIndices.length > 1 && (
-          <div className="h-1.5 bg-slate-950 shrink-0 relative">
-            {lineIndices.map((li, i) => (
-              <div 
-                key={i}
-                className={`absolute top-0 h-full transition-all ${i === currentIndex ? 'bg-indigo-400 w-1.5' : 'bg-indigo-500/30 w-0.5'}`}
-                style={{ left: `${(li / lines.length) * 100}%` }}
-                onClick={() => setCurrentIndex(i)}
-              />
-            ))}
-          </div>
-        )}
-
         {/* Content Area */}
-        <div className="flex-1 overflow-auto bg-[#0a0e1a] custom-scrollbar p-0 font-mono text-[12px] relative" ref={containerRef}>
+        <div id="raw-log-container" className="flex-1 overflow-auto bg-[#0a0e1a] p-0 font-mono text-[13px] relative select-text" ref={containerRef}>
           {loading ? (
              <div className="h-full flex flex-col items-center justify-center space-y-4">
                <Lucide.Loader size={32} className="animate-spin text-indigo-500" />
-               <span className="text-[10px] uppercase font-black tracking-[0.2em] text-slate-400">Loading Log Data...</span>
+               <span className="text-[10px] uppercase font-black tracking-[0.2em] text-slate-400">Synchronizing Log Data...</span>
              </div>
           ) : (
-             <div className="min-w-max pb-[40vh] pt-1">
-               {lines.map((line, idx) => {
+             <div className="min-w-max pb-[60vh] pt-2">
+               {renderedRange.lines.map((line, i) => {
+                 const idx = renderedRange.start + i;
                  const isSelected = currentTargetLine === idx;
                  const isMatch = lineIndices.includes(idx);
-                 // Render only ±500 lines around current target
-                 if (!isSelected && Math.abs(currentTargetLine - idx) > 500) return null;
-                 
                  const lineType = getLineType(line);
                  const typeStyle = LINE_TYPE_STYLES[lineType];
                  
@@ -205,40 +187,38 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
                    <div 
                      key={idx} 
                      ref={el => { lineRefs.current[idx] = el; }}
-                     className={`flex items-stretch group transition-colors duration-100 ${
+                     className={`flex items-stretch transition-colors duration-0 ${ // duration-0 for instant feedback
                        isSelected 
-                         ? 'bg-indigo-600/25 relative z-10' 
+                         ? 'bg-indigo-600/30 relative z-10' 
                          : isMatch 
-                           ? 'bg-indigo-500/8 hover:bg-indigo-500/12' 
-                           : 'hover:bg-slate-900/30'
+                           ? 'bg-indigo-500/10 hover:bg-indigo-500/15' 
+                           : 'hover:bg-slate-900/40'
                      }`}
                    >
                      {/* Selected line accent */}
-                     {isSelected && <div className="w-1 bg-indigo-400 shrink-0" />}
-                     {!isSelected && isMatch && <div className="w-1 bg-indigo-500/40 shrink-0" />}
-                     {!isSelected && !isMatch && <div className="w-1 shrink-0" />}
+                     <div className={`w-1.5 shrink-0 ${isSelected ? 'bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.5)]' : isMatch ? 'bg-indigo-500/40' : 'bg-transparent'}`} />
                      
                      {/* Line type indicator dot */}
-                     <div className="w-4 shrink-0 flex items-center justify-center">
-                       {typeStyle.dot && <div className={`w-1 h-1 rounded-full ${typeStyle.dot} opacity-60`} />}
+                     <div className="w-5 shrink-0 flex items-center justify-center">
+                       {typeStyle.dot && <div className={`w-1.5 h-1.5 rounded-full ${typeStyle.dot} shadow-sm`} />}
                      </div>
                      
                      {/* Line number */}
-                     <span className={`w-12 shrink-0 text-right font-mono text-[10px] select-none pr-2 py-[3px] ${
-                       isSelected ? 'text-indigo-300 font-bold' : isMatch ? 'text-indigo-400/60' : typeStyle.gutter
+                     <span className={`w-16 shrink-0 text-right font-mono text-[11px] select-none pr-4 py-1 ${
+                       isSelected ? 'text-indigo-300 font-black' : isMatch ? 'text-indigo-400/60' : typeStyle.gutter
                      }`}>{idx + 1}</span>
                      
                      {/* Gutter separator */}
-                     <div className={`w-px shrink-0 ${isSelected ? 'bg-indigo-500/40' : 'bg-slate-800/60'}`} />
+                     <div className={`w-px shrink-0 ${isSelected ? 'bg-indigo-500/50' : 'bg-slate-800/80'}`} />
                      
                      {/* Content */}
-                     <span className={`whitespace-pre pl-3 pr-8 flex-1 py-[3px] ${
+                     <span className={`whitespace-pre pl-4 pr-12 flex-1 py-1 ${
                        isSelected 
-                         ? 'text-white font-semibold' 
+                         ? 'text-white font-bold' 
                          : isMatch 
-                           ? 'text-indigo-200/80' 
+                           ? 'text-indigo-100/90' 
                            : typeStyle.text
-                     } ${!isSelected ? 'group-hover:text-slate-200' : ''}`}>{line || ' '}</span>
+                     }`}>{line || ' '}</span>
                    </div>
                  );
                })}
@@ -247,21 +227,19 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
         </div>
 
         {/* Footer Status */}
-        <div className="h-7 border-t border-slate-900 bg-[#0f172a] px-4 flex items-center justify-between text-[9px] text-slate-500 shrink-0 select-none">
-          <div className="flex items-center space-x-4">
-            <span className="tabular-nums">{lines.length.toLocaleString()} lines</span>
-            <span className="opacity-20">|</span>
-            <span><span className="text-indigo-400 font-bold">{lineIndices.length}</span> matches</span>
-            <span className="opacity-20">|</span>
-            <div className="flex items-center space-x-3">
-              <span className="flex items-center space-x-1"><span className="w-1.5 h-1.5 rounded-full bg-cyan-500 inline-block" /> <span>Traffic</span></span>
-              <span className="flex items-center space-x-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" /> <span>Error</span></span>
-              <span className="flex items-center space-x-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" /> <span>Warning</span></span>
-            </div>
+        <div className="h-9 border-t border-slate-900 bg-[#0f172a] px-6 flex items-center justify-between text-[11px] text-slate-500 shrink-0 select-none">
+          <div className="flex items-center space-x-6">
+            <span className="tabular-nums font-bold text-slate-400">{lines.length.toLocaleString()} <span className="text-[9px] font-normal text-slate-600 uppercase">Lines</span></span>
+            <span className="opacity-20 text-slate-800">|</span>
+            <span className="flex items-center space-x-2">
+              <span className="w-1 h-1 rounded-full bg-indigo-500" />
+              <span className="text-indigo-400 font-black">{lineIndices.length}</span> <span className="text-[9px] font-normal text-slate-600 uppercase">Matches</span>
+            </span>
           </div>
-          <div className="flex items-center space-x-3 text-slate-600">
-            <span>← → Navigate</span>
-            <span>Esc Close</span>
+          <div className="flex items-center space-x-4 text-[9px] font-black uppercase tracking-widest text-slate-600">
+             <div className="flex items-center space-x-1.5"><Lucide.Keyboard size={12} className="opacity-40" /><span>Nav keys enabled</span></div>
+             <span className="opacity-20">|</span>
+             <span>Performance Mode active</span>
           </div>
         </div>
       </div>
