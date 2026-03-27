@@ -312,10 +312,6 @@ const NetTrafficAnalyzerView: React.FC = () => {
           <div className="flex items-center space-x-3">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</span>
             <span className="text-[10px] text-slate-500">{data.length} Nodes</span>
-            <div className="h-3 w-[1px] bg-slate-800" />
-            <span className="text-[10px] font-black text-indigo-400 tabular-nums">
-              Total Hits: {data.reduce((acc, curr) => acc + curr.totalCount, 0).toLocaleString()}
-            </span>
           </div>
           <div className="flex-1 max-w-xs mx-4 relative group">
             <Lucide.Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400" />
@@ -357,7 +353,12 @@ const NetTrafficAnalyzerView: React.FC = () => {
             <thead className="sticky top-0 bg-[#0f172a] shadow-sm text-slate-500 font-bold uppercase tracking-tighter z-10">
               <tr>
                 <th className="px-3 py-1.5 border-b border-indigo-500/10">Hierarchy / Endpoint Structure</th>
-                <th className="px-3 py-1.5 border-b border-indigo-500/10 text-right w-20">Hits</th>
+                <th className="px-3 py-1.5 border-b border-indigo-500/10 text-right w-32 relative">
+                  <div className="text-[8px] text-slate-600 absolute -top-0.5 right-3">Grand Total</div>
+                  <div className="text-indigo-400 font-black tabular-nums">
+                    {data.reduce((acc, curr) => acc + curr.totalCount, 0).toLocaleString()}
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>

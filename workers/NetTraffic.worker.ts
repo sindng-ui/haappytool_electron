@@ -173,8 +173,8 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
     if (!p.enabled) continue;
     const keywords = p.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
     const lineLower = cleanLine.toLowerCase();
+    
     if (keywords.every(kw => lineLower.includes(kw))) {
-      // Use custom extractRegex if provided, otherwise fallback to URI_REGEX
       let uriMatches: string[] | null = null;
       if (p.extractRegex) {
         try {
@@ -188,19 +188,19 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
       }
 
       if (uriMatches) {
-        // Collect Insights for this hit
         const bucket = extractBucket(cleanLine);
-        const method = detectMethod(cleanLine);
-        if (bucket) targetInsights.timeline.set(bucket, (targetInsights.timeline.get(bucket) || 0) + 1);
-        if (method) targetInsights.methods.set(method, (targetInsights.methods.get(method) || 0) + 1);
-        targetInsights.totalRequests += uriMatches.length;
+        if (bucket) {
+          targetInsights.timeline.set(bucket, (targetInsights.timeline.get(bucket) || 0) + uriMatches.length);
+        }
 
         for (const rawUri of uriMatches) {
           const templateUri = normalizeUri(rawUri);
           const host = extractHost(rawUri);
-          targetInsights.hosts.set(host, (targetInsights.hosts.get(host) || 0) + 1);
-          
-          // Helper to record hit in a StatsMap
+          const method = detectMethod(cleanLine);
+
+          if (host) targetInsights.hosts.set(host, (targetInsights.hosts.get(host) || 0) + 1);
+          if (method) targetInsights.methods.set(method, (targetInsights.methods.get(method) || 0) + 1);
+
           const recordHit = (stats: StatsMap) => {
             if (!stats.has(templateUri)) stats.set(templateUri, { totalCount: 0, rawMap: new Map() });
             const tData = stats.get(templateUri)!;
@@ -212,28 +212,30 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
             if (rData.lineIndices.length < 100) rData.lineIndices.push(lineIdx);
           };
 
+          targetInsights.totalRequests++; 
           recordHit(targetStats);
 
           if (uaPattern?.enabled) {
-             const uaKey = currentUAVars ? JSON.stringify(currentUAVars) : NO_UA_KEY;
-             if (!targetUAMap.has(uaKey)) {
-                targetUAMap.set(uaKey, { 
-                  count: 0, 
-                  examples: [], 
-                  variables: currentUAVars || NO_UA_VARS, 
-                  endpointStats: new Map() 
-                });
-             }
-             const uaData = targetUAMap.get(uaKey)!;
-             uaData.count++; // Increment parent UA's hit count on each traffic match
-             recordHit(uaData.endpointStats);
+            let uaKey = currentUAVars ? JSON.stringify(currentUAVars) : NO_UA_KEY;
+            if (!targetUAMap.has(uaKey)) {
+              targetUAMap.set(uaKey, {
+                count: 0,
+                examples: [],
+                variables: currentUAVars || NO_UA_VARS,
+                endpointStats: new Map()
+              });
+            }
+            const uaData = targetUAMap.get(uaKey)!;
+            uaData.count++; 
+            if (uaData.examples.length < 1) uaData.examples.push(cleanLine.trim());
+            recordHit(uaData.endpointStats);
           }
         }
-        // currentUAVars = null; // PERSIST UA until next UA line found
       } else {
+        // [LOG] Fallback hit
         const templateUri = `[LOG] ${p.alias || 'General'}`;
         const rawUri = cleanLine.length > 100 ? cleanLine.substring(0, 100) + '...' : cleanLine;
-        
+
         const recordLogHit = (stats: StatsMap) => {
           if (!stats.has(templateUri)) stats.set(templateUri, { totalCount: 0, rawMap: new Map() });
           const tData = stats.get(templateUri)!;
@@ -245,24 +247,24 @@ const processLine = (line: string, targetStats: StatsMap, targetUAMap: UAMap, ta
           if (rData.lineIndices.length < 100) rData.lineIndices.push(lineIdx);
         };
 
-        targetInsights.totalRequests++;
+        targetInsights.totalRequests++; 
         recordLogHit(targetStats);
 
         if (uaPattern?.enabled) {
           let uaKey = currentUAVars ? JSON.stringify(currentUAVars) : NO_UA_KEY;
           if (!targetUAMap.has(uaKey)) {
-            targetUAMap.set(uaKey, { 
-              count: 0, 
-              examples: [], 
-              variables: currentUAVars || NO_UA_VARS, 
-              endpointStats: new Map() 
+            targetUAMap.set(uaKey, {
+              count: 0,
+              examples: [],
+              variables: currentUAVars || NO_UA_VARS,
+              endpointStats: new Map()
             });
           }
           const uaData = targetUAMap.get(uaKey)!;
-          uaData.count++; // Increment parent UA's hit count on each log match
+          uaData.count++; 
+          if (uaData.examples.length < 1) uaData.examples.push(cleanLine.trim());
           recordLogHit(uaData.endpointStats);
         }
-        // currentUAVars = null; // PERSIST UA until next UA line found
       }
     }
   }
