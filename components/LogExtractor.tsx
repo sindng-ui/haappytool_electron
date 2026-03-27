@@ -615,6 +615,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                             setIsPanelOpen={setIsPanelOpen}
                             isSearchFocused={isSearchFocused} // ✅ Pass Down
                             setIsSearchFocused={setIsSearchFocused} // ✅ Pass Down
+                            onAddTab={handleArchiveToTab} // ✅ New Tab Callback
                         >
                             <SessionWrapper
                                 isActive={isActive && tab.id === activeTabId}

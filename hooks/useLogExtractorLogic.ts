@@ -39,6 +39,7 @@ export interface LogExtractorLogicProps {
     setIsPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
     isSearchFocused?: boolean; // ✅ Lifted State
     setIsSearchFocused?: (focused: boolean) => void; // ✅ Lifted State Setter
+    onAddTab?: (title: string, content: string) => void; // ✅ New Tab Callback
 }
 
 // Segmentation for Large Files (Browser Limit workaround)
@@ -70,7 +71,8 @@ export const useLogExtractorLogic = ({
     tabId, initialFilePath, initialFile, onFileChange,
     isActive = true,
     isPanelOpen, setIsPanelOpen,
-    isSearchFocused: propIsSearchFocused, setIsSearchFocused: propSetIsSearchFocused // ✅ Destructure new props
+    isSearchFocused: propIsSearchFocused, setIsSearchFocused: propSetIsSearchFocused, // ✅ Destructure new props
+    onAddTab // ✅ New Tab Callback
 }: LogExtractorLogicProps) => {
 
     // ✅ Search Focus State (Lifted or Local Fallback)
@@ -1063,5 +1065,6 @@ export const useLogExtractorLogic = ({
         clearCacheTick,
         handleViewRawRangeLeft, handleViewRawRangeRight,
         handleCopyRawRangeLeft, handleCopyRawRangeRight,
+        onAddTab,
     };
 };

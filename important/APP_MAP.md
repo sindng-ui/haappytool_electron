@@ -119,7 +119,8 @@
   - `Utils`: [confluenceUtils.ts](./utils/confluenceUtils.ts)
 - **Interactions & Shortcuts**:
   - `Mouse Drag`: 로그 라인 선택
-  - `Right Click`: 컨텍스트 메뉴 표시 (복사, 구글 검색, 아카이브 저장 등)
+  - `Right Click`: 컨텍스트 메뉴 표시 (복사, 구글 검색, 아카이브 저장, 새로운 탭에서 보기 등)
+  - `Open in New Tab`: 선택 영역을 새로운 추출 로그 탭으로 즉시 열기
   - `Shift + Click`: 범위 선택
   - `Copy as Confluence`: 선택 영역 또는 북마크를 Confluence 테이블 형식으로 변환 및 복사
 

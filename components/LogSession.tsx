@@ -117,7 +117,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         leftSharedBuffers, rightSharedBuffers,
         leftWorkerRef, rightWorkerRef,
         splitRatio, setSplitRatio, // ✅ Expose split states
-        splitAnalyzerHeight, setSplitAnalyzerHeight // ✅ 펭귄! 분석창 높이 조절 상태 추가
+        splitAnalyzerHeight, setSplitAnalyzerHeight, // ✅ 펭귄! 분석창 높이 조절 상태 추가
+        onAddTab // ✅ New Tab Callback
     } = useLogContext();
 
     const [isAnimatingSplit, setIsAnimatingSplit] = React.useState(false);
@@ -296,31 +297,78 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             }
         }
     };
-
+ 
+    const handleOpenInNewTab = async () => {
+        // 텍스트 선택 또는 라인 선택 추출
+        const currentSel = window.getSelection();
+        const browserText = currentSel && !currentSel.isCollapsed ? currentSel.toString().trim() : null;
+ 
+        let content = '';
+        let title = 'Selection';
+ 
+        if (browserText || nativeSelection) {
+            content = browserText || nativeSelection?.text || '';
+        } else {
+            const targetIsLeft = (selectedIndicesLeft && selectedIndicesLeft.size > 0);
+            const indices = targetIsLeft ? selectedIndicesLeft : selectedIndicesRight;
+            const requestFn = targetIsLeft ? requestLeftLines : requestRightLines;
+ 
+            if (!indices || indices.size === 0) return;
+ 
+            const sorted = Array.from(indices).sort((a, b) => a - b);
+            const min = sorted[0];
+            const max = sorted[sorted.length - 1];
+            const count = max - min + 1;
+ 
+            try {
+                const lines = await requestFn(min, count);
+                content = lines
+                    .filter((_, idx) => indices.has(min + idx))
+                    .map(l => l.content)
+                    .join('\n');
+                title = `Lines ${min + 1}-${max + 1}`;
+            } catch (e) {
+                console.error('[LogSession] Failed to retrieve selected lines for new tab', e);
+                return;
+            }
+        }
+ 
+        if (content && onAddTab) {
+            onAddTab(title, content);
+            addToast('Opened in new tab', 'success');
+        }
+    };
+ 
     const handleContextMenu = React.useCallback(async (e: React.MouseEvent) => {
         // ✅ Prevent default immediately to ensure custom menu works correctly even with async logic
         e.preventDefault();
-
+ 
         // 브라우저의 실시간 선택 영역을 확인합니다.
         const currentSelection = window.getSelection();
         const hasTextSelection = currentSelection && !currentSelection.isCollapsed && currentSelection.toString().trim().length > 0;
-
+ 
         const hasNative = !!nativeSelection || hasTextSelection;
         const hasLeftLine = selectedIndicesLeft && selectedIndicesLeft.size > 0;
         const hasRightLine = isDualView && selectedIndicesRight && selectedIndicesRight.size > 0;
-
+ 
         const menuItems = [];
-
+ 
         // Determine which pane we are clicking on (best effort)
         const targetPane: 'left' | 'right' = (e.currentTarget as HTMLElement).closest('[data-pane-id="right"]') ? 'right' : 'left';
-
+ 
         const hasSelectionInTarget = targetPane === 'left' ? hasLeftLine : hasRightLine;
-
+ 
         if (hasNative || hasLeftLine || hasRightLine) {
             menuItems.push({
                 label: 'Save Selection to Archive',
                 icon: <Lucide.Archive size={16} />,
                 action: handleUnifiedSave
+            });
+ 
+            menuItems.push({
+                label: 'Open in New Tab',
+                icon: <Lucide.ExternalLink size={16} />,
+                action: handleOpenInNewTab
             });
         }
 

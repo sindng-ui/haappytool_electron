@@ -1,30 +1,43 @@
-# NetTraffic 분석기 완전 승격 및 빌드 오류 수정 🐧💎🎯
+# 로그 익스트랙터 '새로운 탭에서 보기' 기능 구현 계획
 
-`NetTraffic Analyzer`를 실험실(Lab) 단계에서 정식 핵심(Core) 플러그인으로 승격시키고, 메인 사이드바에 기본 노출되도록 설정 및 마이그레이션 로직을 업데이트합니다. 또한 `vite` 빌드 오류를 해결하여 안정적인 개발 환경을 복구합니다.
+형님! 선택한 로그를 바로 새 탭에서 볼 수 있게 만들어 드릴게요. 🐧⚡
+기존의 아카이브 저장 로직을 활용해서 깔끔하게 구현하겠습니다.
 
 ## Proposed Changes
 
-### Global Layout & System Hierarchy
+### [Log Extractor Core & UI]
 
-#### [MODIFY] [App.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/App.tsx)
-- `defaultEnabledPlugins` 배열에 `ToolId.NET_TRAFFIC_ANALYZER`를 추가하여 신규 사용자의 사이드바에 기본 노출되도록 합니다.
-- 설정 로드 `useEffect` 내에 마이그레이션 로직을 추가합니다. 기존 사용자의 `enabledPlugins` 목록에 `NET_TRAFFIC_ANALYZER`가 없을 경우 자동으로 추가하여, '실험실' 탭으로 숨겨지지 않도록 보장합니다.
+#### [MODIFY] [useLogExtractorLogic.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/hooks/useLogExtractorLogic.ts)
+- `LogExtractorLogicProps` 인터페이스에 `onAddTab` 콜백 추가.
+- `useLogExtractorLogic` 훅의 반환값에 `onAddTab` 포함.
 
-### Plugin Component
+#### [MODIFY] [LogExtractor.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogExtractor.tsx)
+- `LogProvider`에 `handleArchiveToTab` 함수를 `onAddTab` 프롭으로 전달.
 
-#### [MODIFY] [NetTrafficAnalyzerView.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx)
-- `vite` 빌드 실패의 원인이 될 수 있는 JSX 렌더링 블록 내의 삼항 연산자 체인 및 괄호 구조를 정밀하게 재점검하고 교정합니다. (Step 1834: `832: ) : analyzing ? (` 구간 집중 확인)
-- 불필요하거나 중복된 `import` 및 타입을 정리하여 빌드 안정성을 높입니다.
+#### [MODIFY] [LogSession.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogSession.tsx)
+- `useLogContext`에서 `onAddTab`을 가져옴.
+- `handleOpenInNewTab` 비동기 함수 구현:
+  - 현재 선택된 텍스트(브라우저 네이티브 선택 또는 라인 단위 선택)를 추출.
+  - 선택 영역이 있으면 `onAddTab(title, content)` 호출.
+- `handleContextMenu` 함수 내 `menuItems` 배열에 'Open in New Tab' 항목 추가.
+  - 아이콘은 `Lucide.PlusSquare` 또는 `Lucide.ExternalLink` 사용 예정.
+
+---
 
 ## Verification Plan
 
 ### Automated Tests
-- `npm run electron:dev` 명령을 실행하여 `vite` 빌드가 성공하고 앱이 정상 기동되는지 확인합니다.
+- 현재 UI 인터랙션에 대한 단위 테스트는 제한적이므로, 로직 위주의 검증을 수행합니다.
+- `LogProcessor.worker.ts` 등에 영향이 없는 UI/Hook 레벨의 변경이므로 별도의 워커 테스트는 불필요할 것으로 판단됩니다.
 
 ### Manual Verification
-1. 앱 기동 후 좌측 사이드바 메인 섹션(실험실 밖)에 `NetTraffic` 아이콘이 즉시 노출되는지 확인합니다.
-2. `Settings` 모달의 플러그인 관리 탭에서 `NetTraffic`이 목록에 표시되며, 체크 해제 시 사이드바에서 사라지고 체크 시 다시 나타나는지 확인합니다.
-3. `localStorage`를 강제로 초기화한 후에도 기본적으로 `NetTraffic`이 활성화 상태인지 확인합니다.
+1. 로그 파일 하나를 엽니다.
+2. 특정 영역을 드래그하여 선택합니다.
+3. 우클릭을 하여 'Open in New Tab' 메뉴가 나타나는지 확인합니다.
+4. 해당 메뉴를 클릭했을 때:
+   - 새로운 탭이 생성되는지 확인.
+   - 새 탭의 제목이 선택된 영역 정보를 포함하는지 확인 (예: `Lines 10-20`).
+   - 새 탭의 내용이 선택한 로그와 일치하는지 확인.
+5. 탭을 닫았을 때 정상적으로 제거되는지 확인.
 
----
-형님, 이 계획대로 진행해도 될까요? 승인해주시면 바로 코딩 들어가서 정식 론칭하겠습니다! 🐧🚀
+형님, 이 계획대로 진행해도 될까요? 승인해 주시면 바로 코딩 시작하겠습니다! 🐧🚀
