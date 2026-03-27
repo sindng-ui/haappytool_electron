@@ -66,7 +66,13 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
 
     useEffect(() => {
         isComponentStale.current = false;
-        return () => { isComponentStale.current = true; };
+        return () => {
+            isComponentStale.current = true;
+            // 💡 We keep the path cache now because workers are persistent via Registry. 🐧🛡️
+            // Removing the reset ensures we skip redundant loadFile on remount.
+            // lastLoadingPathRefLeft.current = null;
+            // lastLoadingPathRefRight.current = null;
+        };
     }, []);
 
     // ✅ Register listeners ONCE to prevent duplication

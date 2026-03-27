@@ -1,5 +1,6 @@
 /* eslint-disable no-restricted-globals */
-console.log('[LogProcessorWorker] Script loaded');
+const workerId = Math.random().toString(36).substring(7);
+console.log(`[LogProcessorWorker-${workerId}] Script loaded`);
 import { LogRule, LogWorkerMessage, LogWorkerResponse } from '../types';
 import { BookmarkManager } from './workerBookmarkHandlers';
 import * as DataReader from './workerDataReader';
@@ -872,10 +873,22 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             }
             break;
         case 'INIT_FILE':
+            if (currentFile && currentFile.name === payload.name && currentFile.size === payload.size && filteredIndices) {
+                console.log(`[LogProcessorWorker-${workerId}] Ignoring redundant INIT_FILE for: ${payload.name} ♻️`);
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+                respond({ type: 'INDEX_COMPLETE', payload: { totalLines: lineOffsets ? lineOffsets.length : 0 } });
+                return;
+            }
             // 핫픽스: payload 자체가 File 객체이므로 바로 전달합니다.
             await buildFileIndex(payload);
             break;
         case 'INIT_LOCAL_FILE_STREAM':
+            if (localFilePath === payload.path && filteredIndices) {
+                console.log(`[LogProcessorWorker-${workerId}] Ignoring redundant INIT_LOCAL_FILE_STREAM for: ${payload.path} ♻️`);
+                respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+                respond({ type: 'INDEX_COMPLETE', payload: { totalLines: lineOffsets ? lineOffsets.length : 0 } });
+                return;
+            }
             await buildLocalFileIndex(payload.path, payload.size);
             break;
         case 'INIT_STREAM':
@@ -940,7 +953,10 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             if (payload.startLine === undefined && payload.startFilterIndex !== undefined) {
                 payload.startLine = payload.startFilterIndex; // Fallback for transition
             }
-            console.log(`[Worker] GET_LINES: start=${payload.startLine}, count=${payload.count}, filteredLen=${filteredIndices?.length}`);
+            if (!filteredIndices) {
+                console.warn(`[LogProcessorWorker-${workerId}] GET_LINES called but filteredIndices is null! (File: ${currentFile?.name || localFilePath}, Mode: ${isLocalFileMode ? 'Local' : (isStreamMode ? 'Stream' : 'File')})`);
+            }
+            console.log(`[LogProcessorWorker-${workerId}] GET_LINES: start=${payload.startLine}, count=${payload.count}, filteredLen=${filteredIndices?.length}`);
             await DataReader.getLines(getDataReaderContext(), payload.startLine, payload.count, requestId || '');
             break;
         case 'GET_SURROUNDING_LINES':

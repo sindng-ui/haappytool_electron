@@ -84,6 +84,12 @@
   - `Lazy SAB Allocation`: 로컬 파일 모드 시 불필요한 260MB SharedArrayBuffer 할당 지연 (RAM 절약)
   - `Active State Sync`: `SET_ACTIVE_STATE` 이벤트를 통한 백그라운드 탭의 유령 워커(`subWorkers`) 자동 정리
   - `Auto-Filter Suppression`: 비활성 탭에서의 중복 필터링 연산 차단 (CPU 절약)
+- **Lifecycle & Reliability**:
+  - `Worker ID`: 각 워커 생성 시 6자리 고유 ID를 부여하여 다중 탭 환경의 콘솔 로그 가독성 개선
+  - `Mount Cycle Safety`: `useLogFileOperations` 언마운트 시 로딩 경로 캐시(`lastLoadingPathRef`)를 강제 초기화하여 탭 재정렬 및 Strict Mode 상황에서의 로딩 누락 원천 차단 🐧🛡️
+  - `Smart Tab Refresh`: 탭 재활성화 시 중복 필터링을 방지하고, 규칙(Rule) 변경이 감지된 경우에만 효율적으로 리필터링을 수행하는 최적화 적용 🐧⚡
+  - `Worker Persistence`: `LogWorkerRegistry`를 통해 탭 ID별 워커와 그 상태(Ready, TotalLines)를 보관하여, 탭 재마운트 시 즉각적인 UI 복구 및 불필요한 재인덱싱 방지. 🐧💾
+  - `Worker Idempotency`: 워커 엔진 단에서 동일 파일에 대한 로딩 요청이 중복될 경우 이를 무시하도록 멱등성 로직 적용 (`LogProcessor.worker.ts`) 🐧🛡️
 
 ### [[Log Viewer Components (The Alleys)]]
 - **ID**: `ui-log-viewer-sub`

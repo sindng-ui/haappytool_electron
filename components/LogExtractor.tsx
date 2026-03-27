@@ -6,6 +6,7 @@ import { Plus, X, FileText, Copy, XCircle, Trash2, Archive } from 'lucide-react'
 import { useContextMenu } from './ContextMenu';
 import { useLogArchiveContext } from './LogArchive';
 import { deleteStoredValue } from '../utils/db';
+import { workerRegistry } from '../hooks/LogWorkerRegistry';
 
 
 
@@ -190,12 +191,13 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     const handleCloseTab = useCallback((e: React.MouseEvent, tabId: string) => {
         e.stopPropagation();
 
-        // Cleanup storage
+        // Cleanup storage & workers
         deleteStoredValue(`tabState_${tabId}`);
 
         if (tabs.length === 1) {
             const nextId = `tab-${tabCounter}`;
             deleteStoredValue(`tabState_${nextId}`);
+            workerRegistry.terminateWorkers(tabId); // Terminate old tab's workers
 
             setTabs([{ id: nextId, title: `New Log ${tabCounter}`, initialFile: null }]);
             setActiveTabId(nextId);
@@ -207,6 +209,9 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         const newTabs = tabs.filter(t => t.id !== tabId);
 
         setTabs(newTabs);
+
+        // ✅ Terminate workers for the closed tab 💥
+        workerRegistry.terminateWorkers(tabId);
 
         if (tabId === activeTabId) {
             const newActiveIndex = Math.max(0, tabIndex - 1);
@@ -248,10 +253,11 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         const tab = tabs.find(t => t.id === tabId);
         if (!tab) return;
 
-        // Cleanup storage for other tabs
+        // Cleanup storage & workers for other tabs
         tabs.forEach(t => {
             if (t.id !== tabId) {
                 deleteStoredValue(`tabState_${t.id}`);
+                workerRegistry.terminateWorkers(t.id);
             }
         });
 
@@ -260,9 +266,10 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     }, [tabs]);
 
     const handleCloseAllTabs = useCallback(() => {
-        // Cleanup all storage
+        // Cleanup all storage & workers
         tabs.forEach(t => {
             deleteStoredValue(`tabState_${t.id}`);
+            workerRegistry.terminateWorkers(t.id);
         });
 
         const newTabId = `tab-${tabCounter}`;

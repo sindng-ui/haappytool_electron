@@ -15,7 +15,8 @@ import { useLogAnalysisActions } from './useLogAnalysisActions';
 import { useLogExportActions } from './useLogExportActions';
 import { useLogSelection } from './useLogSelection';
 import { useLogWorkerEvents } from './useLogWorkerEvents';
-import LogProcessorWorker from '../workers/LogProcessor.worker.ts?worker';
+import { workerRegistry } from './LogWorkerRegistry';
+// import LogProcessorWorker from '../workers/LogProcessor.worker.ts?worker'; // Registry에서 관리
 
 
 
@@ -402,7 +403,7 @@ export const useLogExtractorLogic = ({
 
     const lastFilterHashLeft = useRef<string>('');
     const lastFilterHashRight = useRef<string>('');
-
+ 
     // === Phase 2: File Operations & Persistence (Extracted) ===
     const { loadState, handleLeftFileChange, handleRightFileChange } = useLogFileOperations({
         tabId, initialFilePath, initialFile, onFileChange,
@@ -416,28 +417,41 @@ export const useLogExtractorLogic = ({
         leftFilePath, rightFilePath, activeLineIndexLeft,
         isDualView, setIsDualView // ✅ Pass Dual View state for aggregate persistence
     });
-
-    // Initialize Left Worker & Load State
-
+ 
+    // Initialize Left/Right Workers & Load State
     useEffect(() => {
         let isStale = false;
-        try {
-            leftWorkerRef.current = new LogProcessorWorker();
-        } catch (err) {
-            console.error('[useLog-left] FATAL: Worker instantiation failed', err);
-            addToast('Worker Load Error', 'error');
-            return;
+        let cleanupListeners: (() => void)[] = [];
+ 
+        // 1. Get/Initialize Workers from Registry 🚀
+        // This ensures the worker persists even if the component remounts during reordering
+        const workers = workerRegistry.getWorkers(tabId);
+        leftWorkerRef.current = workers.left.worker;
+        rightWorkerRef.current = workers.right.worker;
+
+        // Sync initial state from registry if it was already ready 🐧🛡️
+        if (workers.left.ready) {
+            setLeftWorkerReady(true);
+            setLeftTotalLines(workers.left.totalLines);
+        }
+        if (workers.right.ready) {
+            setRightWorkerReady(true);
+            setRightTotalLines(workers.right.totalLines);
         }
 
-        let cleanupListeners: (() => void)[] = [];
-        loadState();
-
-        leftWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
+        // 2. Set Message Handlers
+        leftWorkerRef.current.onmessage = (e: MessageEvent<any>) => {
             if (isStale) return;
             handleWorkerMessage(e, {
                 setIndexingProgress: setLeftIndexingProgress,
-                setWorkerReady: setLeftWorkerReady,
-                setTotalLines: setLeftTotalLines,
+                setWorkerReady: (ready: boolean) => {
+                    setLeftWorkerReady(ready);
+                    workerRegistry.updateState(tabId, 'left', { ready });
+                },
+                setTotalLines: (totalLines: number) => {
+                    setLeftTotalLines(totalLines);
+                    workerRegistry.updateState(tabId, 'left', { totalLines });
+                },
                 setFilteredCount: setLeftFilteredCount,
                 setBookmarks: setLeftBookmarks,
                 setPerformanceHeatmap: setLeftPerformanceHeatmap,
@@ -448,45 +462,23 @@ export const useLogExtractorLogic = ({
                 pane: 'left'
             });
         };
-
         leftWorkerRef.current.onerror = (e: any) => {
-            console.error('[useLog-left] --- WORKER ERROR START ---');
-            console.error('[useLog-left] Event:', e);
-            const detail = {
-                message: e.message,
-                filename: e.filename,
-                lineno: e.lineno,
-                colno: e.colno,
-                error: String(e.error || 'N/A')
-            };
-            console.warn('[useLog-left] Detailed Info:', detail);
-            console.error('[useLog-left] --- WORKER ERROR END ---');
+            console.error('[useLog-left] Worker Error:', e);
             addToast(`Left Worker error: ${e.message || 'Check console'}`, 'error');
         };
 
-        return () => {
-            isStale = true;
-            leftWorkerRef.current?.terminate();
-            cleanupListeners.forEach(cleanup => cleanup());
-        };
-    }, []); // Run once on mount
-
-    // Initialize Right Worker
-    useEffect(() => {
-        let isStale = false;
-        try {
-            rightWorkerRef.current = new LogProcessorWorker();
-        } catch (err) {
-            console.error('[useLog-right] FATAL: Worker instantiation failed', err);
-            return;
-        }
-
-        rightWorkerRef.current.onmessage = (e: MessageEvent<LogWorkerResponse>) => {
+        rightWorkerRef.current.onmessage = (e: MessageEvent<any>) => {
             if (isStale) return;
             handleWorkerMessage(e, {
                 setIndexingProgress: setRightIndexingProgress,
-                setWorkerReady: setRightWorkerReady,
-                setTotalLines: setRightTotalLines,
+                setWorkerReady: (ready: boolean) => {
+                    setRightWorkerReady(ready);
+                    workerRegistry.updateState(tabId, 'right', { ready });
+                },
+                setTotalLines: (totalLines: number) => {
+                    setRightTotalLines(totalLines);
+                    workerRegistry.updateState(tabId, 'right', { totalLines });
+                },
                 setFilteredCount: setRightFilteredCount,
                 setBookmarks: setRightBookmarks,
                 setPerformanceHeatmap: setRightPerformanceHeatmap,
@@ -499,24 +491,23 @@ export const useLogExtractorLogic = ({
                 pane: 'right'
             });
         };
-
         rightWorkerRef.current.onerror = (e: any) => {
             console.error('[useLog-right] Worker Error:', e);
-            const detail = {
-                message: e.message,
-                filename: e.filename,
-                lineno: e.lineno,
-                colno: e.colno,
-                error: String(e.error || 'N/A')
-            };
-            console.warn('[useLog-right] Detailed Info:', detail);
         };
-
+ 
+        // 3. Load Saved State (Triggers file loading via workers)
+        // Set handlers FIRST, then trigger work to avoid race conditions 🚀
+        loadState();
+ 
         return () => {
             isStale = true;
-            rightWorkerRef.current?.terminate();
+            // 💡 Important: DO NOT terminate workers here! 
+            // The LogWorkerRegistry manages their lifecycle based on actual tab closing. 🐧🛡️
+            // leftWorkerRef.current?.terminate();
+            // rightWorkerRef.current?.terminate();
+            cleanupListeners.forEach(cleanup => cleanup());
         };
-    }, []);
+    }, []); // Run once on mount
 
 
     // Auto-Apply Filter (Left)
@@ -561,12 +552,6 @@ export const useLogExtractorLogic = ({
         }
     }, [currentConfig, tizenSocket, quickFilter, leftWorkerReady, isActive]);
 
-    // 💡 탭 활성화 시 hash 초기화 -> 다시 필터링하도록 보장
-    useEffect(() => {
-        if (isActive) {
-            lastFilterHashLeft.current = '';
-        }
-    }, [isActive]);
 
 
 
@@ -609,12 +594,6 @@ export const useLogExtractorLogic = ({
         }
     }, [currentConfig, rightTotalLines, isDualView, quickFilter, rightWorkerReady, isActive]);
 
-    // 💡 탭 활성화 시 Right hash도 초기화
-    useEffect(() => {
-        if (isActive) {
-            lastFilterHashRight.current = '';
-        }
-    }, [isActive]);
 
 
     useEffect(() => {
