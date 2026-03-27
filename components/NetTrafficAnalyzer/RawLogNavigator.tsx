@@ -31,10 +31,14 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
   useEffect(() => {
     if (!loading && lines.length > 0 && lineIndices.length > 0) {
       const targetLine = lineIndices[currentIndex];
-      const el = lineRefs.current[targetLine];
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      // DOM 렌더링 후 스크롤이 확실히 동작하도록 지연 추가
+      const timer = setTimeout(() => {
+        const el = lineRefs.current[targetLine];
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 30);
+      return () => clearTimeout(timer);
     }
   }, [currentIndex, lines, loading, lineIndices]);
 
@@ -92,7 +96,7 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
                    <div 
                      key={idx} 
                      ref={el => { lineRefs.current[idx] = el; }}
-                     className={`flex space-x-4 px-3 py-1 group transition-all ${isSelected ? 'bg-indigo-600/30 border-l-4 border-indigo-400 shadow-[inset_0_0_20px_rgba(79,70,229,0.1)] z-10 sticky top-0 bottom-0' : 'hover:bg-slate-900/40 opacity-90'}`}
+                     className={`flex space-x-4 px-3 py-1 group transition-all ${isSelected ? 'bg-indigo-600/30 border-l-4 border-indigo-400 shadow-[inset_0_0_20px_rgba(79,70,229,0.1)] z-10' : 'hover:bg-slate-900/40 opacity-90'}`}
                    >
                      <span className={`w-14 shrink-0 text-right font-mono text-[10px] select-none border-r border-slate-800 pr-3 ${isSelected ? 'text-indigo-300 font-bold' : 'text-slate-600'}`}>{idx + 1}</span>
                      <span className={`whitespace-pre pr-8 flex-1 ${isSelected ? 'text-white font-bold opacity-100' : 'text-slate-400 group-hover:text-slate-200 opacity-90'}`}>{line || ' '}</span>
