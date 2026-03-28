@@ -365,7 +365,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
     const selectionColor = 'rgba(79, 70, 229, 0.55)'; // 👈 0.4 -> 0.55 상향
     const activeColor = 'rgba(79, 70, 229, 0.35)';    // 👈 0.2 -> 0.35 상향
-    const bookmarkColor = 'rgba(234, 179, 8, 0.3)'; // 👈 0.2 -> 0.3 상향 (즐겨찾기 강조용)
+    const bookmarkColor = 'rgba(234, 179, 8, 0.08)'; // 👈 0.3 -> 0.08로 대폭 하향 (가독성 & 눈의 편안함)
     const gutterColor = '#64748b';
     const defaultTextColor = '#ccc';
 
@@ -501,7 +501,6 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             if (selectedIndices?.has(globalIdx)) bgColor = selectionColor;
             else if (activeLineIndex === globalIdx) bgColor = activeColor;
             else if (hoveredIndex === i) bgColor = 'rgba(255, 255, 255, 0.04)'; // ✅ NEW: Subtle Hover Effect
-            else if (bookmarks.has(globalIdx)) bgColor = bookmarkColor; // ✅ 즐겨찾기 라인 배경 활성화
             else {
                 const rangeMatch = compiledLineHighlightRanges.find(r => globalIdx >= r.start && globalIdx <= r.end);
                 if (rangeMatch) bgColor = rangeMatch.canvasColor;
@@ -527,6 +526,13 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 bgCtx.fillStyle = bgColor;
                 bgCtx.fillRect(0, y, width, rowHeight);
             }
+
+            /* ✅ 즐겨찾기(Bookmark) 액센트 바: (주석 처리됨 - 필요 시 해제) 🐧💎
+            if (bookmarks.has(globalIdx)) {
+                bgCtx.fillStyle = 'rgba(234, 179, 8, 0.85)';
+                bgCtx.fillRect(GUTTER_TOTAL_WIDTH, y, 4, rowHeight);
+            }
+            */
         }
 
         // --- 1.1 RENDER PERFORMANCE HEATMAP ---
@@ -694,6 +700,14 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
                 if (lastIndex < displayContent.length) {
                     drawSegment(displayContent.substring(lastIndex), false, null);
+                }
+
+                // ✅ 즐겨찾기(Bookmark)의 경우, 텍스트 하단에 옅은 언더라인을 추가합니다. (Premium Design) 🐧✨
+                const globalIdx = i + (absoluteOffset || 0);
+                if (bookmarks.has(globalIdx)) {
+                    const textWidth = currentX - (CONTENT_X_OFFSET - currentScrollLeft);
+                    ctx.fillStyle = 'rgba(234, 179, 8, 0.7)'; // 옅은 황금색 언더라인
+                    ctx.fillRect(CONTENT_X_OFFSET - currentScrollLeft, y + rowHeight - 3, textWidth, 1);
                 }
 
                 // Calculate cumulative line width for dynamic scroll
