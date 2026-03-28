@@ -365,7 +365,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
     const selectionColor = 'rgba(79, 70, 229, 0.55)'; // 👈 0.4 -> 0.55 상향
     const activeColor = 'rgba(79, 70, 229, 0.35)';    // 👈 0.2 -> 0.35 상향
-    const bookmarkColor = 'rgba(234, 179, 8, 0.2)';
+    const bookmarkColor = 'rgba(234, 179, 8, 0.3)'; // 👈 0.2 -> 0.3 상향 (즐겨찾기 강조용)
     const gutterColor = '#64748b';
     const defaultTextColor = '#ccc';
 
@@ -501,7 +501,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             if (selectedIndices?.has(globalIdx)) bgColor = selectionColor;
             else if (activeLineIndex === globalIdx) bgColor = activeColor;
             else if (hoveredIndex === i) bgColor = 'rgba(255, 255, 255, 0.04)'; // ✅ NEW: Subtle Hover Effect
-            // else if (bookmarks.has(globalIdx)) bgColor = bookmarkColor; // 👈 Removed: No more full-line bookmark background
+            else if (bookmarks.has(globalIdx)) bgColor = bookmarkColor; // ✅ 즐겨찾기 라인 배경 활성화
             else {
                 const rangeMatch = compiledLineHighlightRanges.find(r => globalIdx >= r.start && globalIdx <= r.end);
                 if (rangeMatch) bgColor = rangeMatch.canvasColor;
@@ -511,7 +511,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             if (!bgColor && compiledLineHighlights.length > 0) {
                 const lineData = cachedLinesRef.current.get(i);
                 if (lineData) {
-                    const lineContent = lineData.content;
+                    const lineContent = lineData.decodedContent;
                     const lowerContent = highlightCaseSensitive ? '' : lineContent.toLowerCase();
                     for (const h of compiledLineHighlights) {
                         const match = highlightCaseSensitive ? lineContent.includes(h.keyword) : lowerContent.includes(h.keyword.toLowerCase());
