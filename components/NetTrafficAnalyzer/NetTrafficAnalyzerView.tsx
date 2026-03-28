@@ -10,6 +10,7 @@ import RawLogNavigator from './RawLogNavigator';
 import EndpointTable from './EndpointTable';
 import UATable from './UATable';
 import InsightsTab from './InsightsTab';
+import NetTrafficCompareView from './NetTrafficCompareView';
 
 const LOCAL_STORAGE_KEY_UA = 'happytool_nettraffic_ua_pattern';
 const LOCAL_STORAGE_KEY_PATTERNS = 'happytool_nettraffic_traffic_patterns';
@@ -189,7 +190,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
 
         <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden relative shadow-[inset_10px_0_20px_rgba(0,0,0,0.5)]">
           {/* Result Tabs with Icons */}
-          {hasAnalyzed && !analyzing && (
+          {hasAnalyzed && !analyzing && activeTab === 'single' && (
             <div className="shrink-0">
               <div className="h-10 flex bg-[#0f172a] border-b border-indigo-500/20">
                 {([{ key: 'endpoints' as const, icon: <Lucide.Globe size={12} />, label: 'Endpoints' }, { key: 'ua' as const, icon: <Lucide.Users size={12} />, label: 'User Agents' }, { key: 'insights' as const, icon: <Lucide.BarChart3 size={12} />, label: 'Insights' }]).map(t => (
@@ -207,24 +208,33 @@ const NetTrafficAnalyzerView: React.FC = () => {
             </div>
           )}
 
-          <div className="flex-1 overflow-hidden p-3 flex flex-col">
+      <div className="flex-1 overflow-hidden p-3 flex flex-col">
             {!hasAnalyzed ? <div className="flex-1 border-2 border-dashed border-slate-900/50 rounded-2xl flex flex-col items-center justify-center text-slate-700 space-y-4"><Lucide.Activity size={64} className="opacity-10" /><span className="text-[10px] font-black uppercase tracking-[0.3em]">Telemetry Engine Idle</span></div> 
             : analyzing ? <div className="flex-1 flex flex-col items-center justify-center space-y-6"><div className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.3em] animate-pulse">Synchronizing Data Streams...</div><div className="w-64 bg-slate-900 h-1.5 rounded-full overflow-hidden shadow-inner"><div className="bg-indigo-500 h-full transition-all duration-300" style={{ width: `${progress}%` }} /></div><div className="text-[32px] font-black text-white font-mono drop-shadow-lg">{progress}%</div></div> 
-            : <div className="flex-1 overflow-hidden flex flex-col">
+            : activeTab === 'compare' ? (
+                <NetTrafficCompareView 
+                  leftResult={leftResult} rightResult={rightResult} 
+                  leftUAResult={leftUAResult} rightUAResult={rightUAResult} 
+                  leftInsights={leftInsights} rightInsights={rightInsights} 
+                  onCopy={copyToClipboard}
+                />
+            ) : <div className="flex-1 overflow-hidden flex flex-col">
                 {resultTab === 'endpoints' && <EndpointTable data={singleResult} title="Master API Index" sourceFile={singleFile} searchQuery={searchQuery} setSearchQuery={setSearchQuery} expandedKeys={expandedKeys} toggleExpand={(k)=>setExpandedKeys(p=>{const n=new Set(p); if(n.has(k)) n.delete(k); else n.add(k); return n;})} onJumpToRaw={(f,l,t)=>setNavSource({file:f,lineIndices:l,title:t})} onCopy={copyToClipboard} />}
                 {resultTab === 'ua' && <UATable data={singleUAResult} title="Fingerprint Clusters" sourceFile={singleFile} searchQuery={searchQuery} setSearchQuery={setSearchQuery} expandedKeys={expandedKeys} setExpandedKeys={setExpandedKeys} onJumpToRaw={(f,l,t)=>setNavSource({file:f,lineIndices:l,title:t})} onCopy={copyToClipboard} />}
-                {resultTab === 'insights' && (activeTab === 'single' ? <InsightsTab insights={singleInsights} sourceName="Primary" onCopy={copyToClipboard} /> : <div className="flex-1 flex space-x-3 overflow-hidden"><div className="flex-1 flex flex-col bg-slate-900/20 rounded-xl overflow-hidden border border-slate-900"><div className="bg-indigo-900/20 px-4 py-2 text-[9px] font-black uppercase text-indigo-400 border-b border-indigo-900/30">Primary source</div><InsightsTab insights={leftInsights} sourceName="Primary" onCopy={copyToClipboard} /></div><div className="flex-1 flex flex-col bg-slate-900/20 rounded-xl overflow-hidden border border-slate-900"><div className="bg-rose-900/20 px-4 py-2 text-[9px] font-black uppercase text-rose-400 border-b border-rose-900/30">Reference source</div><InsightsTab insights={rightInsights} sourceName="Reference" onCopy={copyToClipboard} /></div></div>)}
+                {resultTab === 'insights' && <InsightsTab insights={singleInsights} sourceName="Primary" onCopy={copyToClipboard} />}
               </div>}
           </div>
 
           {/* Status Bar */}
-          <div className="h-8 border-t border-slate-900 bg-[#0f172a] px-4 flex items-center justify-between text-[10px] text-slate-500 select-none">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" /><span className="font-black uppercase tracking-widest text-[9px]" style={{color:'#10b981'}}>Engine v2.2</span></div>
-              {hasAnalyzed && <><span className="opacity-20">|</span><span className="tabular-nums">Patterns: <span className="text-indigo-400 font-black">{singleResult.length}</span></span><span className="opacity-20">|</span><span className="tabular-nums">Hits: <span className="text-indigo-400 font-black">{singleResult.reduce((a,c)=>a+c.totalCount,0).toLocaleString()}</span></span><span className="opacity-20">|</span><span className="tabular-nums">Clients: <span className="text-emerald-400 font-black">{singleUAResult.length}</span></span></>}
+          {activeTab === 'single' && (
+            <div className="h-8 border-t border-slate-900 bg-[#0f172a] px-4 flex items-center justify-between text-[10px] text-slate-500 select-none">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" /><span className="font-black uppercase tracking-widest text-[9px]" style={{color:'#10b981'}}>Engine v2.2</span></div>
+                {hasAnalyzed && <><span className="opacity-20">|</span><span className="tabular-nums">Patterns: <span className="text-indigo-400 font-black">{singleResult.length}</span></span><span className="opacity-20">|</span><span className="tabular-nums">Hits: <span className="text-indigo-400 font-black">{singleResult.reduce((a,c)=>a+c.totalCount,0).toLocaleString()}</span></span><span className="opacity-20">|</span><span className="tabular-nums">Clients: <span className="text-emerald-400 font-black">{singleUAResult.length}</span></span></>}
+              </div>
+              <div className="text-[9px] font-black opacity-30 tracking-[0.2em] uppercase">HappyTool NetTraffic</div>
             </div>
-            <div className="text-[9px] font-black opacity-30 tracking-[0.2em] uppercase">HappyTool NetTraffic</div>
-          </div>
+          )}
         </div>
       </div>
       {navSource && <RawLogNavigator file={navSource.file} lineIndices={navSource.lineIndices} onClose={() => setNavSource(null)} title={navSource.title} />}

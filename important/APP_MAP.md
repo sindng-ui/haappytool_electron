@@ -136,13 +136,17 @@
 - **Keywords**: [`네트워크`, `트래픽`, `URI 정규화`, `User Agent`, `UA 분석`, `Markdown Copy`, `Raw Log Jump`, `파일 리팩토링`]
 - **Location**:
   - `Main View`: [NetTrafficAnalyzerView.tsx](./components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx)
+  - `Compare View (New)`: [NetTrafficCompareView.tsx](./components/NetTrafficAnalyzer/NetTrafficCompareView.tsx) (좌우 트래픽 정밀 비교 뷰어)
   - `Sub-Components`:
     - [RawLogNavigator.tsx](./components/NetTrafficAnalyzer/RawLogNavigator.tsx) (Raw 로그 점프 및 네비게이션)
     - [EndpointTable.tsx](./components/NetTrafficAnalyzer/EndpointTable.tsx) (계층형 엔드포인트 목록)
     - [UATable.tsx](./components/NetTrafficAnalyzer/UATable.tsx) (클라이언트 핑거프린트 클러스터링)
     - [InsightsTab.tsx](./components/NetTrafficAnalyzer/InsightsTab.tsx) (트래픽 분포 및 통계 리포트)
+    - [CompareEndpointTable.tsx](./components/NetTrafficAnalyzer/CompareEndpointTable.tsx) (Diff 분석 기반 엔드포인트 테이블)
+    - [CompareUATable.tsx](./components/NetTrafficAnalyzer/CompareUATable.tsx) (Diff 분석 기반 User Agent 테이블)
+    - [CompareSummary.tsx](./components/NetTrafficAnalyzer/CompareSummary.tsx) (트래픽 증감 및 스파이크 요약 카드)
   - `Worker`: [NetTraffic.worker.ts](./workers/NetTraffic.worker.ts)
-  - `Logic`: [useNetTrafficLogic.ts](./hooks/useNetTrafficLogic.ts)
+  - `Logic`: [useNetTrafficLogic.ts](./hooks/useNetTrafficLogic.ts), [netTrafficDiffUtils.ts](./utils/netTrafficDiffUtils.ts) (증감/Diff 순수 연산 유틸)
 - **Core Interface**:
   - `Registry Priority`: `registry.ts`에서 `LogExtractor` 바로 다음 순위로 배치됨. 펭-고! 🐧🚀
   - `Refactoring (500 Lines Rule)`: 메인 UI를 작은 컴포넌트로 분리하여 유지보수성 극대화. 🐧🛠️✅

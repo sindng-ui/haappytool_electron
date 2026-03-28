@@ -83,7 +83,7 @@ export let leftUAMap: UAMap = new Map();
 export let rightUAMap: UAMap = new Map();
 
 // Insights Stats
-interface InternalInsights {
+export interface InternalInsights {
   timeline: Map<string, number>;
   hosts: Map<string, number>;
   methods: Map<string, number>;
