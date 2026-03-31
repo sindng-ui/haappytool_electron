@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import * as Lucide from 'lucide-react';
+// @ts-ignore: Vite worker import
+import LogIndexerWorker from '../../workers/LogIndexer.worker.ts?worker';
 
 interface RawLogNavigatorProps {
   file: File | null;
@@ -30,8 +32,7 @@ const LINE_TYPE_STYLES = {
   normal:  { gutter: 'text-slate-600', text: 'text-slate-400',    dot: '' },
 };
 
-// 🐧 팁: 개별 로그 라인을 별도의 컴포넌트로 분리하고 React.memo를 적용하여,
-// 선택된 줄이 바뀔 때 주변의 다른 수백 줄이 불필요하게 리렌더링되는 것을 원천 차단합니다. ⚡
+// 🐧 팁: React.memo와 windowed data를 결합하여, 바뀐 부분만 렌더링하도록 극도로 제한합니다.
 const LogLineItem = React.memo(({ 
   idx, 
   line, 
@@ -80,41 +81,79 @@ const LogLineItem = React.memo(({
 });
 
 const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, onClose, title }) => {
-  const [lines, setLines] = useState<string[]>([]);
+  const [lineOffsets, setLineOffsets] = useState<Uint32Array | null>(null);
+  const [visibleLines, setVisibleLines] = useState<{idx: number, line: string, type: any}[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [reading, setReading] = useState(false);
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
-  // 🐧 팁: includes(O(N)) 대신 Set.has(O(1))를 사용하여 매칭 여부 확인 성능을 비약적으로 끌어올립니다.
   const lineIndicesSet = useMemo(() => new Set(lineIndices), [lineIndices]);
 
+  // 1. 인덱싱 워커 실행: 파일 전체를 읽지 않고 각 줄의 위치(Offset)만 파악합니다.
   useEffect(() => {
-    if (file) {
-      setLoading(true);
-      file.text().then(text => {
-        // CRLF와 LF를 통합 처리하여 줄바꿈 오차 방지 및 성능 확보
-        setLines(text.split(/\r?\n/));
+    if (!file) return;
+    setLoading(true);
+    const worker = new LogIndexerWorker();
+    worker.onmessage = (e: any) => {
+      if (e.data.type === 'INDEX_COMPLETE') {
+        setLineOffsets(e.data.payload.offsets);
         setLoading(false);
-      }).catch(err => {
-        console.error('Failed to read log file', err);
-        setLoading(false);
-      });
-    }
+      }
+    };
+    worker.postMessage({ file });
+    return () => worker.terminate();
   }, [file]);
 
+  // 2. 윈도우 기반 부분 선택적 읽기: 현재 줄 기준 ±100줄만 파일에서 실시간으로 떼어옵니다.
   useEffect(() => {
-    if (!loading && lines.length > 0 && lineIndices.length > 0) {
-      const targetLine = lineIndices[currentIndex];
-      const timer = setTimeout(() => {
-        const el = lineRefs.current[targetLine];
-        if (el) {
-          el.scrollIntoView({ behavior: 'auto', block: 'center' });
+    if (!file || !lineOffsets || lineIndices.length === 0) return;
+    
+    const targetLine = lineIndices[currentIndex];
+    const start = Math.max(0, targetLine - 100);
+    const end = Math.min(lineOffsets.length - 1, targetLine + 100);
+    
+    setReading(true);
+    const startOffset = lineOffsets[start];
+    const endOffset = end + 1 < lineOffsets.length ? lineOffsets[end + 1] : file.size;
+    
+    // 🐧 팁: file.slice는 즉각적이며(O(1)), 필요한 영역의 ArrayBuffer만 읽어들입니다.
+    file.slice(startOffset, endOffset).arrayBuffer().then(buf => {
+      const text = new TextDecoder().decode(buf);
+      const splitLines = text.split(/\r?\n/);
+      
+      // 파일 끝부분이나 줄바꿈 처리 오차 방지
+      const items = [];
+      for (let i = 0; i < (end - start + 1); i++) {
+        if (i < splitLines.length) {
+          items.push({
+            idx: start + i,
+            line: splitLines[i],
+            type: getLineType(splitLines[i])
+          });
         }
-      }, 0);
-      return () => clearTimeout(timer);
+      }
+      
+      setVisibleLines(items);
+      setReading(false);
+    }).catch(err => {
+      console.error('Windowed read failed', err);
+      setReading(false);
+    });
+  }, [file, lineOffsets, currentIndex, lineIndices]);
+
+  // 3. 동기화된 스크롤 점프: 데이터가 준비된 시점에 즉각적으로 점프합니다.
+  useEffect(() => {
+    if (!reading && visibleLines.length > 0) {
+      const targetLine = lineIndices[currentIndex];
+      const el = lineRefs.current[targetLine];
+      if (el) {
+        el.scrollIntoView({ behavior: 'auto', block: 'center' });
+      }
     }
-  }, [currentIndex, lines.length, loading, lineIndices]);
+  }, [currentIndex, visibleLines, reading, lineIndices]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -135,30 +174,12 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
 
   const currentTargetLine = lineIndices[currentIndex];
 
-  // 🐧 팁: 렌더링 범위를 현재 줄 기준 전후 100줄로 유지하되, 슬라이스된 라인들의 '타입'을 메모계산하여 
-  // 렌더링 루프 내부의 정규식 연산을 제거합니다.
-  const renderedRange = useMemo(() => {
-    if (loading || lines.length === 0) return { start: 0, end: 0, items: [] };
-    const start = Math.max(0, currentTargetLine - 100);
-    const end = Math.min(lines.length, currentTargetLine + 100);
-    
-    // 윈도우 내의 라인들만 정규식 타입 검사를 수행합니다.
-    const items = lines.slice(start, end).map((line, i) => ({
-      idx: start + i,
-      line,
-      type: getLineType(line)
-    }));
-    
-    return { start, end, items };
-  }, [loading, lines, currentTargetLine]);
-
-  // Copy current line
   const copyCurrentLine = useCallback(() => {
-    const lineIdx = lineIndices[currentIndex];
-    if (lines[lineIdx]) {
-      navigator.clipboard.writeText(lines[lineIdx]);
+    const currentLineItem = visibleLines.find(l => l.idx === currentTargetLine);
+    if (currentLineItem) {
+      navigator.clipboard.writeText(currentLineItem.line);
     }
-  }, [lines, lineIndices, currentIndex]);
+  }, [visibleLines, currentTargetLine]);
 
   if (!file) return null;
 
@@ -169,7 +190,6 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
         #raw-log-container { scrollbar-width: none; -ms-overflow-style: none; }
       `}</style>
       <div className="bg-[#0a0e1a] border border-indigo-500/30 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] w-[98vw] h-[94vh] flex flex-col overflow-hidden">
-        {/* Header (생략...) */}
         <div className="h-14 border-b border-indigo-500/20 bg-[#0f172a] px-4 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-6">
             <div className="flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/30 px-4 py-2 rounded-lg">
@@ -184,7 +204,7 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
                 disabled={currentIndex === 0}
               ><Lucide.ChevronLeft size={20} /></button>
               <div className="flex flex-col items-center min-w-[140px] bg-slate-900 border border-indigo-500/20 rounded-xl px-4 py-1.5 shadow-inner">
-                <div className="text-[16px] font-black text-white tabular-nums leading-none mb-0.5">L{lineIndices[currentIndex] + 1}</div>
+                <div className="text-[16px] font-black text-white tabular-nums leading-none mb-0.5">L{currentTargetLine + 1}</div>
                 <div className="text-[9px] font-bold text-indigo-400/80 uppercase tracking-widest">{currentIndex + 1} / {lineIndices.length}</div>
               </div>
               <button 
@@ -195,21 +215,21 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
             </div>
           </div>
           <div className="flex items-center space-x-3">
+            {reading && <Lucide.Loader size={16} className="animate-spin text-indigo-400 mr-2" />}
             <button onClick={copyCurrentLine} className="w-10 h-10 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-xl text-slate-500 hover:text-emerald-400 hover:border-emerald-500/40 transition-all"><Lucide.Copy size={16} /></button>
             <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white rounded-xl transition-all"><Lucide.X size={20} /></button>
           </div>
         </div>
 
-        {/* Content Area */}
         <div id="raw-log-container" className="flex-1 overflow-auto bg-[#0a0e1a] p-0 font-mono text-[13px] relative select-text" ref={containerRef}>
           {loading ? (
              <div className="h-full flex flex-col items-center justify-center space-y-4">
                <Lucide.Loader size={32} className="animate-spin text-indigo-500" />
-               <span className="text-[10px] uppercase font-black tracking-[0.2em] text-slate-400">Optimizing Viewport Data...</span>
+               <span className="text-[10px] uppercase font-black tracking-[0.2em] text-slate-400">Synchronizing Large File Index...</span>
              </div>
           ) : (
              <div className="min-w-max pb-[60vh] pt-2">
-               {renderedRange.items.map((item) => (
+               {visibleLines.map((item) => (
                  <LogLineItem 
                    key={item.idx}
                    idx={item.idx}
@@ -224,10 +244,9 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
           )}
         </div>
 
-        {/* Footer Status */}
         <div className="h-9 border-t border-slate-900 bg-[#0f172a] px-6 flex items-center justify-between text-[11px] text-slate-500 shrink-0 select-none">
           <div className="flex items-center space-x-6">
-            <span className="tabular-nums font-bold text-slate-400">{lines.length.toLocaleString()} <span className="text-[9px] font-normal text-slate-600 uppercase">Lines</span></span>
+            <span className="tabular-nums font-bold text-slate-400">{(lineOffsets?.length || 0).toLocaleString()} <span className="text-[9px] font-normal text-slate-600 uppercase">Lines</span></span>
             <span className="opacity-20 text-slate-800">|</span>
             <span className="flex items-center space-x-2">
               <span className="w-1 h-1 rounded-full bg-indigo-500" />
@@ -235,9 +254,9 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
             </span>
           </div>
           <div className="flex items-center space-x-4 text-[9px] font-black uppercase tracking-widest text-slate-600">
-             <div className="flex items-center space-x-1.5"><Lucide.Keyboard size={12} className="opacity-40" /><span>Performance Tuned</span></div>
+             <div className="flex items-center space-x-1.5"><Lucide.Zap size={12} className="text-amber-500" /><span>Zero-Copy Indexing</span></div>
              <span className="opacity-20">|</span>
-             <span>Hyper Virtual Rendering</span>
+             <span>Windowed Partial Read</span>
           </div>
         </div>
       </div>

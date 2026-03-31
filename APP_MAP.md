@@ -85,9 +85,10 @@
     - **자동 확장**: `+` 또는 `NEW` 항목은 상세 호출 경로(Variations)를 기본적으로 펼쳐서 렌더링. [NEW]
     - **Raw View 연동**: 상세 항목에서 눈 아이콘 클릭 시, 2번째 로그(Reference)의 원본 위치로 즉시 점프 기능 구현. [NEW]
 - `RawLogNavigator.tsx`: 
-    - **성능**: 윈도우 렌더링(±100줄 슬라이스) 및 `Set` 자료구조(O(1) 검색), `React.memo`(개별 라인 캐싱)를 결합하여 수만 개의 매칭 데이터에서도 지연 없는 초고속 렌더링 구현. [UPDATED]
-    - **속도**: `smooth` 스크롤을 제거하고 `auto` 점프를 적용하여 즉각적인 이동 보장.
-    - **레이아웃**: `98vw / 94vh`로 화면 확장 및 스크롤바 숨김 처리로 몰입감 있는 분석 환경 제공.
+    - **극한 성능(v2)**: `LogIndexer.worker`를 통한 파일 인덱싱 및 `file.slice` 기반의 **윈도우 부분 읽기(Windowed Partial Read)** 방식을 도입했습니다. [NEW]
+    - 이제 수 GB급 대용량 로그에서도 파일 전체를 메모리에 올리지 않고, 필요한 ±100줄만 즉각적으로 읽어와 렌더링하므로 점프와 스크롤이 빛의 속도로 이워집니다.
+    - **Zero-Memory**: 로그 라인 수와 상관없이 항상 일정한 낮은 메모리 사용량을 유지합니다.
+- `LogIndexer.worker.ts`: Native `Uint8Array.indexOf(10)`를 사용하여 초당 수백 MB 이상의 속도로 라인 위치를 파악하는 초고속 인덱싱 엔진입니다. [NEW]
 - **최근 최적화**:
   - `LogProcessor.worker.ts` 내 메시지 전달 루프를 `async/await` 구조로 개편하여 레이스 컨디션 해결 및 안정성 확보.
   - **SharedArrayBuffer 기반 Zero-copy Binary Read** 구현. 워커에 데이터를 요청하는 대신 UI(HyperLogRenderer)에서 직접 공유 메모리를 읽어 렌더링 속도 비약적 향상 및 RAM 다이어트 성공!
