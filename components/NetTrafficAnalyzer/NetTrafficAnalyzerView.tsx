@@ -216,6 +216,8 @@ const NetTrafficAnalyzerView: React.FC = () => {
                   leftResult={leftResult} rightResult={rightResult} 
                   leftUAResult={leftUAResult} rightUAResult={rightUAResult} 
                   leftInsights={leftInsights} rightInsights={rightInsights} 
+                  leftFile={leftFile} rightFile={rightFile}
+                  onJumpToRaw={(f,l,t)=>setNavSource({file:f,lineIndices:l,title:t})}
                   onCopy={copyToClipboard}
                 />
             ) : <div className="flex-1 overflow-hidden flex flex-col">

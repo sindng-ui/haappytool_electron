@@ -14,11 +14,15 @@ interface NetTrafficCompareViewProps {
   rightUAResult: UAResult[];
   leftInsights: InsightStats | null;
   rightInsights: InsightStats | null;
+  leftFile: File | null;
+  rightFile: File | null;
+  onJumpToRaw: (file: File, lineIndices: number[], title: string) => void;
   onCopy: (text: string, summary: string) => void;
 }
 
 const NetTrafficCompareView: React.FC<NetTrafficCompareViewProps> = ({
-  leftResult, rightResult, leftUAResult, rightUAResult, leftInsights, rightInsights, onCopy
+  leftResult, rightResult, leftUAResult, rightUAResult, leftInsights, rightInsights, 
+  leftFile, rightFile, onJumpToRaw, onCopy
 }) => {
   const [resultTab, setResultTab] = useState<'endpoints' | 'ua' | 'insights'>('endpoints');
 
@@ -47,7 +51,12 @@ const NetTrafficCompareView: React.FC<NetTrafficCompareViewProps> = ({
           <>
             <CompareSummary endpointDiffs={endpointDiffs} leftInsights={leftInsights} rightInsights={rightInsights} />
             <div className="flex-1 p-3 overflow-hidden">
-               <CompareEndpointTable diffs={endpointDiffs} onCopy={onCopy} />
+               <CompareEndpointTable 
+                 diffs={endpointDiffs} 
+                 onCopy={onCopy} 
+                 rightFile={rightFile}
+                 onJumpToRaw={onJumpToRaw}
+               />
             </div>
           </>
         )}

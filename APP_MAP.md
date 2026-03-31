@@ -80,6 +80,10 @@
 
 ### UI / UX Enhancements 🐧✨
 - `NetTrafficAnalyzerView.tsx`: 상단 헤더 영역에 `-webkit-app-region: drag`를 적용하여 창 이동이 가능하도록 개선함. 탭 버튼 등 상호작용 요소에는 `no-drag`를 적용하여 정상 동작 보장.
+- `NetTrafficCompareView.tsx` & `CompareEndpointTable.tsx`:
+    - **정렬**: 증가량(+)이 큰 항목을 최상단으로 자동 정렬하여 신규/급증 트래픽 부각. [NEW]
+    - **자동 확장**: `+` 또는 `NEW` 항목은 상세 호출 경로(Variations)를 기본적으로 펼쳐서 렌더링. [NEW]
+    - **Raw View 연동**: 상세 항목에서 눈 아이콘 클릭 시, 2번째 로그(Reference)의 원본 위치로 즉시 점프 기능 구현. [NEW]
 - `RawLogNavigator.tsx`: 
     - **성능**: 윈도우 렌더링(±100줄 슬라이스) 및 `Set` 자료구조(O(1) 검색), `React.memo`(개별 라인 캐싱)를 결합하여 수만 개의 매칭 데이터에서도 지연 없는 초고속 렌더링 구현. [UPDATED]
     - **속도**: `smooth` 스크롤을 제거하고 `auto` 점프를 적용하여 즉각적인 이동 보장.

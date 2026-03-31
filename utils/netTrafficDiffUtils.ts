@@ -11,6 +11,7 @@ export interface EndpointDiff {
   status: DiffStatus;
   leftVariations: number;
   rightVariations: number;
+  rightGroup?: TemplateGroup; // 🐧 팁: 상세 호출 내역(rawCalls) 접근을 위해 2번째 로그의 그룹 정보를 추가합니다.
 }
 
 export interface UADiff {
@@ -47,6 +48,7 @@ export function compareEndpoints(left: TemplateGroup[], right: TemplateGroup[]):
       existing.rightCount = r.totalCount;
       existing.diff = r.totalCount - existing.leftCount;
       existing.rightVariations = r.rawCalls.length;
+      existing.rightGroup = r; // ✅ 상세 조회를 위해 그룹 정보 저장
       if (existing.diff > 0) existing.status = 'INCREASED';
       else if (existing.diff < 0) existing.status = 'DECREASED';
       else existing.status = 'UNCHANGED';
@@ -64,12 +66,13 @@ export function compareEndpoints(left: TemplateGroup[], right: TemplateGroup[]):
         status: 'NEW',
         leftVariations: 0,
         rightVariations: r.rawCalls.length,
+        rightGroup: r, // ✅ 상세 조회를 위해 그룹 정보 저장
       });
     }
   });
 
-  // Sort by largest absolute diff first, to highlight spikes and drops
-  return Array.from(map.values()).sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+  // 🐧 팁: 사용자의 요청에 따라 단순 절대값이 아닌 '증가(+) 수치'가 큰 순서대로 정렬합니다. [HOT]
+  return Array.from(map.values()).sort((a, b) => b.diff - a.diff);
 }
 
 export function compareUAs(left: UAResult[], right: UAResult[]): UADiff[] {
@@ -112,5 +115,6 @@ export function compareUAs(left: UAResult[], right: UAResult[]): UADiff[] {
     }
   });
 
-  return Array.from(map.values()).sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+  // 🐧 팁: UA 비교에서도 증가(+) 수치가 큰 항목을 상위로 올립니다.
+  return Array.from(map.values()).sort((a, b) => b.diff - a.diff);
 }
