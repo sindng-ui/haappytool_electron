@@ -331,6 +331,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* Command Card: NetTraffic */}
+                                        <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-white/5 overflow-hidden group/card hover:border-indigo-500/20 transition-all">
+                                            <div className="px-4 py-3 bg-slate-100/50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm">🌐</span>
+                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">NetTraffic</span>
+                                                </div>
+                                                <div className="flex gap-1.5">
+                                                    <button
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText('.\\HappyTool.exe cli nettraffic -i "traffic.log" -o "analysis.json"');
+                                                            addToast('NetTraffic Single-mode command copied', 'info');
+                                                        }}
+                                                        className="flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-500 hover:text-indigo-400 hover:border-indigo-500/30 transition-all text-[10px] font-bold"
+                                                    >
+                                                        Single <Copy size={12} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText('.\\HappyTool.exe cli nettraffic -f "Step" -l "old.log" -r "new.log" -o "diff.json"');
+                                                            addToast('NetTraffic Compare-mode command copied', 'info');
+                                                        }}
+                                                        className="flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-500 hover:text-indigo-400 hover:border-indigo-500/30 transition-all text-[10px] font-bold"
+                                                    >
+                                                        Compare <Copy size={12} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="p-4 space-y-2">
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">네트워크 트래픽(Endpoint/UA) 분석 및 비교 결과 추출</p>
+                                                <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
+                                                    .\HappyTool.exe cli nettraffic -l "left" -r "right" -o "res.json"
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Advanced Tip Block */}
