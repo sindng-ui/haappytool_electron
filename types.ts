@@ -19,6 +19,7 @@ export enum ToolId {
   PERF_TOOL = 'PERF_TOOL',
   SPEED_SCOPE = 'SPEED_SCOPE',
   NET_TRAFFIC_ANALYZER = 'NET_TRAFFIC_ANALYZER',
+  LOG_ANALYSIS_AGENT = 'LOG_ANALYSIS_AGENT',
 }
 
 export interface LogHighlight {

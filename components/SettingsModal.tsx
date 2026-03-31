@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Moon, Sun, Keyboard, Info, Type, RotateCcw, BookOpen, Puzzle, Terminal, ExternalLink, Copy, Folder } from 'lucide-react';
+import { X, Moon, Sun, Keyboard, Info, Type, RotateCcw, BookOpen, Puzzle, Terminal, ExternalLink, Copy, Folder, Bot, Eye, EyeOff, Save, RefreshCw } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useToast } from '../contexts/ToastContext';
 import { ALL_PLUGINS } from '../plugins/registry';
@@ -16,11 +16,47 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, enabledPlugins, setEnabledPlugins }) => {
     const { addToast } = useToast();
     const { defaultOutputFolder, setDefaultOutputFolder } = useHappyTool();
-    const [activeTab, setActiveTab] = useState<'general' | 'plugins' | 'shortcuts' | 'cli' | 'guide' | 'about'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'plugins' | 'shortcuts' | 'cli' | 'guide' | 'ai_agent' | 'about'>('general');
     const [theme, setTheme] = useState<'dark' | 'light'>(() => {
         return localStorage.getItem('theme') as 'dark' | 'light' || 'dark';
     });
     const [zoom, setZoom] = useState(1);
+
+    // AI Agent Settings
+    const [agentConfig, setAgentConfig] = useState({
+        endpoint: 'https://api.openai.com/v1/chat/completions',
+        apiKey: '',
+        model: 'gpt-4',
+        maxIterations: 10,
+        timeoutMs: 60000,
+    });
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [isTestingAgent, setIsTestingAgent] = useState(false);
+
+    useEffect(() => {
+        const raw = localStorage.getItem('happytool_agent_config');
+        if (raw) {
+            try { setAgentConfig(prev => ({ ...prev, ...JSON.parse(raw) })); } catch (e) {}
+        }
+    }, []);
+
+    const handleSaveAgentConfig = () => {
+        localStorage.setItem('happytool_agent_config', JSON.stringify(agentConfig));
+        addToast('AI Agent 설정이 저장되었습니다.', 'success');
+    };
+
+    const handleTestAgentConnection = async () => {
+        setIsTestingAgent(true);
+        try {
+            const { testAgentConnection } = require('../plugins/LogAnalysisAgent/services/agentApiService');
+            const success = await testAgentConnection(agentConfig);
+            if (success) addToast('API 연결 성공!', 'success');
+        } catch (err: any) {
+            addToast(`연결 실패: ${err.message}`, 'error');
+        } finally {
+            setIsTestingAgent(false);
+        }
+    };
 
     // Apply theme (Force Dark Mode always as per request)
     useEffect(() => {
@@ -102,6 +138,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all outline-none ${activeTab === 'guide' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
                         >
                             <BookOpen size={16} /> User Guide
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('ai_agent')}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all outline-none ${activeTab === 'ai_agent' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'}`}
+                        >
+                            <Bot size={16} /> AI Agent
                         </button>
                         <button
                             onClick={() => setActiveTab('about')}
@@ -452,6 +494,105 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                 ))}
 
                                 <p className="text-xs text-slate-500 mt-2 text-center">Shortcuts for other plugins may be added in the future.</p>
+                            </div>
+                        )}
+
+                        {/* AI Agent Tab */}
+                        {activeTab === 'ai_agent' && (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                                        <Bot size={18} className="text-indigo-500" /> Log Analysis Agent Settings
+                                    </h3>
+                                    <button
+                                        onClick={handleSaveAgentConfig}
+                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold shadow-md shadow-indigo-500/20 transition-all"
+                                    >
+                                        <Save size={16} /> Save Config
+                                    </button>
+                                </div>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    원격 LLM(예: GPT-4, Claude)과 통신하기 위한 API 설정을 구성합니다. 설정은 암호화되지 않은 형태로 localStorage에 저장됩니다. (공용 PC 주의)
+                                </p>
+
+                                <div className="bg-white dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-white/5 p-6 space-y-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 gap-1 flex items-center">
+                                            LLM API Endpoint URL
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={agentConfig.endpoint}
+                                            onChange={e => setAgentConfig({ ...agentConfig, endpoint: e.target.value })}
+                                            placeholder="https://api.openai.com/v1/chat/completions"
+                                            className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 gap-1 flex items-center">
+                                            API Key
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type={showApiKey ? "text" : "password"}
+                                                value={agentConfig.apiKey}
+                                                onChange={e => setAgentConfig({ ...agentConfig, apiKey: e.target.value })}
+                                                placeholder="sk-..."
+                                                className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg pl-4 pr-10 py-2.5 text-sm font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowApiKey(!showApiKey)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                                            >
+                                                {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                                                Model Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={agentConfig.model}
+                                                onChange={e => setAgentConfig({ ...agentConfig, model: e.target.value })}
+                                                placeholder="gpt-4"
+                                                className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                                                Max Iterations (Loops)
+                                            </label>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="range"
+                                                    min="3" max="20" step="1"
+                                                    value={agentConfig.maxIterations}
+                                                    onChange={e => setAgentConfig({ ...agentConfig, maxIterations: parseInt(e.target.value, 10) })}
+                                                    className="flex-1 accent-indigo-500 cursor-pointer"
+                                                />
+                                                <span className="font-mono text-sm w-8 text-center bg-slate-800 rounded px-1 py-0.5">{agentConfig.maxIterations}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-4 border-t border-slate-700/50 flex items-center justify-between">
+                                        <p className="text-xs text-slate-500">* API 연동 후 설정은 브라우저 스토리지에 유지됩니다.</p>
+                                        <button
+                                            onClick={handleTestAgentConnection}
+                                            disabled={isTestingAgent || !agentConfig.apiKey || !agentConfig.endpoint}
+                                            className="flex items-center gap-2 px-3 py-1.5 border border-slate-600 hover:border-indigo-400 rounded-lg text-xs font-bold text-slate-300 hover:text-indigo-400 transition-colors disabled:opacity-50"
+                                        >
+                                            <RefreshCw size={14} className={isTestingAgent ? "animate-spin" : ""} />
+                                            {isTestingAgent ? "Testing..." : "Connection Test"}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         )}
 

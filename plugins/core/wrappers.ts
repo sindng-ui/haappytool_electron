@@ -189,6 +189,17 @@ export const NetTrafficAnalyzerPluginWrapper: HappyPlugin = {
     order: 19,
 };
 
+const LogAnalysisAgent = React.lazy(() => import('../LogAnalysisAgent/index'));
+const { BrainCircuit } = Lucide;
+
+export const LogAnalysisAgentPlugin: HappyPlugin = {
+    id: ToolId.LOG_ANALYSIS_AGENT,
+    name: 'Log Agent',
+    icon: BrainCircuit,
+    component: LogAnalysisAgent,
+    order: 20,
+};
+
 export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
     [ToolId.LOG_EXTRACTOR]: LogExtractorPlugin,
     [ToolId.POST_TOOL]: PostToolPlugin,
@@ -208,4 +219,5 @@ export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
     [ToolId.PERF_TOOL]: PerfToolPlugin,
     [ToolId.SPEED_SCOPE]: SpeedScopePlugin,
     [ToolId.NET_TRAFFIC_ANALYZER]: NetTrafficAnalyzerPluginWrapper,
+    [ToolId.LOG_ANALYSIS_AGENT]: LogAnalysisAgentPlugin,
 };

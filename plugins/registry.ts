@@ -17,7 +17,8 @@ import {
     EasyPostPlugin,
     PerfToolPlugin,
     SpeedScopePlugin,
-    NetTrafficAnalyzerPluginWrapper
+    NetTrafficAnalyzerPluginWrapper,
+    LogAnalysisAgentPlugin
 } from './core/wrappers';
 
 // Registry array to hold all registered plugins
@@ -41,6 +42,7 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     EasyPostPlugin,
     PerfToolPlugin,
     SpeedScopePlugin,
+    LogAnalysisAgentPlugin,
 ];
 
 export const getPluginById = (id: string): HappyPlugin | undefined => {

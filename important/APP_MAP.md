@@ -162,6 +162,29 @@
 ## 3. Major Plugins (주요 플러그인)
 기본적으로 활성화되어 있으며 높은 사용 빈도를 가진 핵심 도구들입니다.
 
+### [[Log Analysis Agent (자동 로그 분석 에이전트)]] 🤖💎 [CORE]
+- **ID**: `LOG_ANALYSIS_AGENT`
+- **Keywords**: [`LLM`, `Agent`, `Crash 분석`, `Deadlock`, `자동 검토`, `HAPPY-MCP`, `보고서 자동생성`, `드래그바`]
+- **Location**:
+  - `Main View`: [index.tsx](./plugins/LogAnalysisAgent/index.tsx) (전역 드래그 영역 포함)
+  - `Sub-Components`:
+    - [AgentConfigPanel.tsx](./plugins/LogAnalysisAgent/components/AgentConfigPanel.tsx) (분석 설정 및 로그 Drag&Drop)
+    - [AgentThoughtStream.tsx](./plugins/LogAnalysisAgent/components/AgentThoughtStream.tsx) (LLM 에이전트의 사고과정 및 액션 스트림)
+    - [FinalReportViewer.tsx](./plugins/LogAnalysisAgent/components/FinalReportViewer.tsx) (Markdown 보고서 뷰어)
+  - `Services`:
+    - [agentApiService.ts](./plugins/LogAnalysisAgent/services/agentApiService.ts) (OpenAI 호환 API 연결, 프록시)
+    - [actionExecutor.ts](./plugins/LogAnalysisAgent/services/actionExecutor.ts) (FETCH_LOG_RANGE, 등 액션 실행 모듈)
+    - [hintExtractor.ts](./plugins/LogAnalysisAgent/services/hintExtractor.ts) (Happy Combo + 정규식 기반 1차 힌트 추출기)
+  - `Hook`: [useAnalysisAgent.ts](./plugins/LogAnalysisAgent/hooks/useAnalysisAgent.ts)
+  - `Protocol`: [protocol.ts](./plugins/LogAnalysisAgent/protocol.ts) (HAPPY-MCP Protocol v1.1)
+- **Core Interface**:
+    - **Integrated Dragbar**: 플러그인 최상단에 `h-9` 크기의 전역 드래그 영역(`title-drag`)을 배치하여 프레임리스 환경에서도 창 이동 지원.
+  - `HAPPY-MCP Protocol`: `PROCESSING`, `thought`, `action`, `COMPLETED`, `final_report` 기반의 루프 구조.
+  - `Action Engine`: `FETCH_LOG_RANGE`, `SEARCH_KEYWORD`, `SEARCH_PATTERN`, `EXTRACT_STACKTRACE`, `CHECK_METRIC`, `USER_QUERY`.
+  - `Settings Sync`: API Key 및 Endpoint 정보는 Settings Modal의 **AI Agent 탭**에서 설정하며 `localStorage`를 통해 유지.
+  - `Chunk Processing`: 메모리 점유 및 UI 블록을 방지하기 위해 `setTimeout(0)`을 활용한 1만 줄 단위 비동기 청크 처리 적용.
+- **Data Flow**: `Settings/File Drop` -> `hintExtractor(Chunked)` -> `LLM API(ProxyRequest) Loop` -> `ActionExecutor` -> `Markdown Report`
+
 ### [[EasyPost Plugin]]
 - **ID**: `plugin-easy-post`
 - **Keywords**: [`API Test`, `Postman`, `Request`, `Response`, `Environment`]
