@@ -72,6 +72,7 @@ export const CliApp: React.FC = () => {
         handleJsonTool,
         handlePostTool,
         handleTpkExtractor,
+        handleNetTraffic,
         handleAnalyzeDiff
     } = useCliHandlers();
 
@@ -104,6 +105,9 @@ export const CliApp: React.FC = () => {
                     exit(0);
                 } else if (command === 'tpk-extractor') {
                     await handleTpkExtractor(payload, logOut, logErr);
+                    exit(0);
+                } else if (command === 'nettraffic') {
+                    await handleNetTraffic(payload, logOut, logErr);
                     exit(0);
                 } else if (command === 'analyze-diff') {
                     await handleAnalyzeDiff(payload, logOut, logErr);

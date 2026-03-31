@@ -112,6 +112,19 @@
   - `Connection Fallback`: 개발 가상화(WSL) 환경에서 Vite 서버 연결 지연 시 빌드 파일로 즉시 전환 [HOT]
 - **Data Flow**: `Terminal Argv` -> `commander (cli.cjs)` -> `BrowserWindow (Hidden)` -> `index.tsx` -> `CliApp.tsx` -> `useCliHandlers.ts` -> `Task Execution` -> `Terminal Output`
 
+### [[NetTraffic CLI Analyzer]] [NEW] 📡
+- **ID**: `logic-nettraffic-cli`
+- **Keywords**: [`NetTraffic CLI`, `Network Traffic Analysis`, `Endpoints`, `User Agent Cluster`, `Insights JSON`]
+- **Location**:
+  - `Command`: `npm run cli -- nettraffic`
+  - `Logic`: [useCliHandlers.ts](./hooks/useCliHandlers.ts)
+- **Features**:
+  - **Mode Support**: `-i` (Single), `-l / -r` (Compare) 모드를 통해 유연한 분석 환경 제공.
+  - **Comprehensive JSON**: Endpoints, User Agents, Temporal Insights를 모두 포함하는 원스톱 리포트 생성.
+  - **Diff Analytics**: 비교 모드 시 `netTrafficDiffUtils`를 사용하여 트래픽 증감 수치를 자동 산출.
+- **Data Flow**: `Terminal` -> `cli.cjs` -> `CliApp` -> `useCliHandlers (NetTraffic Worker)` -> `Result JSON`
+
+
 ### [[Log Viewer UI Architecture]]
 - **ID**: `ui-log-viewer-hierarchy`
 - **Keywords**: [`로그 뷰어`, `렌더러`, `virtual scroll`, `pane`, `HyperLogRenderer`]

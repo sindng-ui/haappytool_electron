@@ -192,6 +192,42 @@ async function runCli(args) {
             });
         });
 
+    program.command('nettraffic')
+        .description('Analyze network traffic from log files')
+        .option('-i, --input <path>', 'Path to the input log file (Single Mode)')
+        .option('-l, --left <path>', 'Path to the primary log file (Compare Mode)')
+        .option('-r, --right <path>', 'Path to the reference log file (Compare Mode)')
+        .option('-o, --output <path>', 'Path to save the output JSON result')
+        .action(async (options) => {
+            if (!options.input && (!options.left || !options.right)) {
+                logError('[Error] You must specify either --input (Single Mode) or both --left and --right (Compare Mode)');
+                app.exit(1);
+            }
+
+            logInfo(`Starting NetTraffic CLI...`);
+            if (options.input) {
+                logInfo(`Mode: Single`);
+                logInfo(`Input: ${options.input}`);
+            } else {
+                logInfo(`Mode: Compare`);
+                logInfo(`Left: ${options.left}`);
+                logInfo(`Right: ${options.right}`);
+            }
+            if (options.output) logInfo(`Output: ${options.output}`);
+
+            await createHiddenWindow();
+            hiddenWindow.webContents.send('cli-run-command', {
+                command: 'nettraffic',
+                payload: {
+                    inputPath: options.input ? path.resolve(options.input) : null,
+                    leftPath: options.left ? path.resolve(options.left) : null,
+                    rightPath: options.right ? path.resolve(options.right) : null,
+                    outputPath: options.output ? path.resolve(options.output) : null,
+                    cwd: process.cwd()
+                }
+            });
+        });
+
     program.command('analyze-diff')
         .description('Analyze difference between two log files')
         .requiredOption('-f, --filter <name>', 'Name of the saved filter/mission')

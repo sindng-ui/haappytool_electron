@@ -504,6 +504,120 @@ export const useCliHandlers = () => {
         }
     };
 
+    const handleNetTraffic = async (payload: any, stdout: (msg: string) => void, stderr: (msg: string) => void) => {
+        const { inputPath, leftPath, rightPath, outputPath, cwd } = payload;
+        const mode = inputPath ? 'single' : 'compare';
+
+        stdout(`[NetTraffic] Starting ${mode} analysis...`);
+
+        // 1. Load Settings (UA & Patterns)
+        const uaPattern = JSON.parse(localStorage.getItem('happytool_nettraffic_ua_pattern') || '{"keywords":"SC_SERVICE, User agent","template":"User agent: $(ClientName)/$(ClientVersion)/$(AppName)/$(AppVersion)/$(AppDetail)","enabled":true}');
+        const trafficPatterns = JSON.parse(localStorage.getItem('happytool_nettraffic_traffic_patterns') || '[{"id":"1","alias":"Keywords","keywords":"","extractRegex":"","enabled":true}]');
+
+        const { compareEndpoints, compareUAs } = await import('../utils/netTrafficDiffUtils');
+        const NetTrafficWorker = (await import('../workers/NetTraffic.worker.ts?worker')).default;
+
+        const processFile = async (filePath: string, target: 'single' | 'left' | 'right') => {
+            const worker = new NetTrafficWorker();
+            return new Promise<any>(async (resolve, reject) => {
+                worker.onmessage = (e) => {
+                    const { type, payload } = e.data;
+                    if (type === 'RESULT_UPDATE') {
+                        worker.terminate();
+                        resolve(payload);
+                    } else if (type === 'ERROR') {
+                        stderr(`[NetTraffic][${target}] Worker Error: ${payload}`);
+                        worker.terminate();
+                        reject(new Error(payload));
+                    }
+                };
+
+                const size = await window.electronAPI!.getFileSize(filePath);
+                stdout(`[NetTraffic][${target}] File Size: ${(size / 1024 / 1024).toFixed(2)} MB`);
+
+                worker.postMessage({ type: 'INIT', payload: { patterns: trafficPatterns, uaPattern } });
+
+                const chunkSize = 1024 * 1024 * 10; // 10MB chunks
+                let offset = 0;
+                const decoder = new TextDecoder('utf-8');
+
+                while (offset < size) {
+                    const length = Math.min(chunkSize, size - offset);
+                    const buffer = await window.electronAPI!.readFileSegment({ path: filePath, start: offset, end: offset + length });
+                    const text = decoder.decode(buffer, { stream: true });
+
+                    worker.postMessage({ type: 'PROCESS_CHUNK', payload: { target, chunk: text } });
+                    offset += length;
+
+                    const progress = Math.round((offset / size) * 100);
+                    if (progress % 25 === 0 || progress === 100) {
+                        stdout(`[NetTraffic][${target}] Processing... ${progress}%`);
+                    }
+                }
+                decoder.decode();
+                worker.postMessage({ type: 'STREAM_DONE', payload: { target } });
+            });
+        };
+
+        try {
+            let finalResult: any = {};
+
+            if (mode === 'single') {
+                const res = await processFile(inputPath, 'single');
+                finalResult = {
+                    mode: 'single',
+                    timestamp: new Date().toISOString(),
+                    input: inputPath,
+                    endpoints: res.data,
+                    userAgents: res.uaData,
+                    insights: res.insights
+                };
+            } else {
+                stdout(`[NetTraffic] Parallel analysis of both files started...`);
+                const [leftRes, rightRes] = await Promise.all([
+                    processFile(leftPath, 'left'),
+                    processFile(rightPath, 'right')
+                ]);
+
+                stdout(`[NetTraffic] Generating comparison/diff data...`);
+                const endpointDiffs = compareEndpoints(leftRes.data, rightRes.data);
+                const uaDiffs = compareUAs(leftRes.uaData, rightRes.uaData);
+
+                finalResult = {
+                    mode: 'compare',
+                    timestamp: new Date().toISOString(),
+                    sources: { left: leftPath, right: rightPath },
+                    comparison: {
+                        endpointDiffs,
+                        uaDiffs,
+                        leftInsights: leftRes.insights,
+                        rightInsights: rightRes.insights
+                    },
+                    rawResults: {
+                        left: { endpoints: leftRes.data, userAgents: leftRes.uaData, insights: leftRes.insights },
+                        right: { endpoints: rightRes.data, userAgents: rightRes.uaData, insights: rightRes.insights }
+                    }
+                };
+            }
+
+            const finalOutputPath = outputPath || `${cwd}\\nettraffic_result_${Date.now()}.json`;
+            stdout(`[NetTraffic] Saving result to ${finalOutputPath}...`);
+
+            const content = JSON.stringify(finalResult, null, 2);
+            const encoder = new TextEncoder();
+            const uint8 = encoder.encode(content);
+            const saveResult = await window.electronAPI!.saveFileDirect(uint8, finalOutputPath);
+            if (saveResult && saveResult.status === 'success') {
+                stdout(`[Success] NetTraffic analysis complete. Result saved to: ${saveResult.filePath}`);
+            } else {
+                throw new Error(saveResult?.error || 'Failed to save JSON result');
+            }
+        } catch (e: any) {
+            stderr(`[Error] NetTraffic analysis failed: ${e.message}`);
+            throw e;
+        }
+    };
+
     return {
         logOut,
         logErr,
@@ -511,6 +625,7 @@ export const useCliHandlers = () => {
         handleJsonTool,
         handlePostTool,
         handleTpkExtractor,
+        handleNetTraffic,
         handleAnalyzeDiff
     };
 };
