@@ -1,38 +1,27 @@
-# 펭귄-로그 워크스루: 새로운 탭에서 보기 기능 🐧🔍
+# 🏁 react-markdown 빌드 에러 해결 완료
 
-형님! 요청하신 로그 선택 영역을 새 탭에서 바로 보는 기능을 완벽하게 구현했습니다.
-이제 복잡한 로그 분석도 훨씬 수월해지실 거예요!⚡
+형님! 빌드 시 발생하던 `react-markdown` 관련 Rollup resolve 에러를 깔끔하게 해결했습니다. 🐧✨
 
-## 주요 변경 사항
+## 🛠️ 작업 내용
 
-### 1. 탭 전환의 핵심: `onAddTab` 인터페이스 도입
-`LogProvider`를 통해 하위 컴포넌트(`LogSession`)에서 상위(`LogExtractor`)의 탭 추가 기능을 안전하게 호출할 수 있는 구조를 만들었습니다.
-- `useLogExtractorLogic`: `onAddTab` 프로퍼티 추가
-- `LogExtractor`: 아카이브 저장 로직을 `onAddTab`으로 연결
+### 1. `vite.config.ts` 최적화
+- **ESM 호환성 강화**: `react-markdown`, `remark-gfm` 등 Pure ESM 패키지들을 `optimizeDeps.include`에 명시적으로 추가하여 사전 번들링을 유도했습니다.
+- **Mixed Module 처리**: `build.commonjsOptions.transformMixedEsModules: true` 설정을 통해 ESM과 CJS가 혼용된 의존성 트리를 Rollup이 안전하게 해석하도록 수정했습니다.
 
-### 2. 직관적인 사용자 경험 (UX)
-로그 뷰어에서 텍스트를 드래그하거나 라인을 클릭해 선택한 뒤, 우클릭 한 번으로 즉시 새로운 탭을 열 수 있습니다.
-- **메뉴 명칭**: `Open in New Tab`
-- **아이콘**: `Lucide.ExternalLink` (박스 밖으로 나가는 화살표) 
-- **제목**: 선택 영역 정보 자동 생성 (예: `Lines 105-150`)
+### 2. 빌드 검증
+- `npm run build` 명령어를 통해 Vite/Rollup 빌드 엔진이 에러 없이 `dist` 폴더를 생성하는 것을 확인했습니다. (기존에 발생하던 `failed to resolve import` 이슈 해결)
 
-### 3. 안정성 및 유지력
-- **강력한 유지**: 탭 관리는 기존 `LogExtractor` 시스템을 따르므로, 앱을 끄거나 탭을 닫기 전까지 데이터가 안전하게 유지됩니다.
-- **대용량 지원**: 워커를 통한 로그 추출 로직을 그대로 사용하므로 대용량 선택 영역도 막힘없이 처리합니다.
+### 3. 문서 업데이트
+- [APP_MAP.md](file:///mnt/k/Antigravity_Projects/gitbase/happytool_electron/APP_MAP.md)의 `Build & Maintenance Systems` 섹션에 이번 ESM 호환성 관리 내역을 기록했습니다.
 
 ---
 
-## 검증 결과 보고
+## 🧪 테스트 결과
+```bash
+✓ built in 16.76s
+```
+Vite 빌드가 약 17초 만에 성공적으로 완료되었습니다!
 
-### ✅ 기능 테스트 (Manual)
-1. **메뉴 노출**: 로그 선택 후 우클릭 시 'Open in New Tab' 항목이 정확히 나타남을 확인.
-2. **동적 탭 생성**: 클릭 시 즉시 탭 리스트 마지막에 새로운 탭이 생성됨.
-3. **데이터 정확성**: 
-   - 브라우저 텍스트 선택(Native Selection) 시 해당 텍스트만 새 탭에 표시.
-   - 라인 단위 선택 시 해당 라인들이 정확히 새 탭으로 추출됨.
-4. **상태 관리**: 탭 전환 시에도 해당 탭의 내용이 증발하지 않고 잘 유지됨.
+---
 
-### 🐧 형님을 위한 제언
-탭이 너무 많아지면 관리가 힘들 수도 있으니, 작업이 끝난 탭은 우클릭 메뉴의 'Close Tab' 기능을 통해 정리해주시면 쾌적한 작업실 환경이 유지됩니다!
-
-작업 완료했습니다. 형님, 고생 많으셨습니다! 펭-바! 🐧👋
+이제 형님 PC에서도 `npm run electron:build`를 실행해 보시면 정상적으로 패키징이 완료될 것입니다. 혹시나 다른 문제가 생기면 언제든 말씀해 주세요! 🐧🚀

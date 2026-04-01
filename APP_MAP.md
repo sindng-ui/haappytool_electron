@@ -467,6 +467,16 @@
 ## 10. Build & Maintenance Systems 🛠️
 패키징 안정성 및 개발 환경 정리를 위한 도구 모음입니다.
 
+### [[ESM Compatibility Management]] [NEW] 📦
+- **ID**: `system-esm-compatibility`
+- **Keywords**: [`react-markdown`, `remark-gfm`, `ESM`, `Rollup`, `Vite build`]
+- **Description**: Vite 6 환경에서 `react-markdown`과 같은 Pure ESM 패키지들의 빌드 에러를 방지하기 위한 설정입니다.
+- **Location**:
+  - `Config`: [vite.config.ts](./vite.config.ts)
+- **Features**:
+  - `optimizeDeps.include`: ESM 패키지 강제 사전 번들링
+  - `commonjsOptions.transformMixedEsModules`: ESM/CJS 혼용 의존성 처리 활성화
+
 ### [[Build Cleanup Utility]]
 - **ID**: `tool-build-cleanup`
 - **Keywords**: [`빌드 정리`, `cleanup`, `taskkill`, `debug.log cleanup`, `build preprocess`]
