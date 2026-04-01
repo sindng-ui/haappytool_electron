@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
     worker: {
       format: 'iife',
     },
-    // ✅ Vite dev 서버 첫 접근 시 핵심 deps를 미리 번들링하여 로딩 속도 향상 🐧⚡
+    // ✅ Vite dev 서버 및 빌드 시 핵심 deps를 미리 번들링하여 로딩 속도 및 호환성 향상 🐧⚡
     optimizeDeps: {
       include: [
         'react',
@@ -36,7 +36,16 @@ export default defineConfig(({ mode }) => {
         'react-markdown',
         'remark-gfm',
         'unified',
-        'vfile'
+        'vfile',
+        'vfile-message',
+        'remark-parse',
+        'remark-stringify',
+        'mdast-util-from-markdown',
+        'mdast-util-to-string',
+        'micromark',
+        'unist-util-stringify-position',
+        'mdast-util-gfm',
+        'micromark-extension-gfm'
       ],
     },
     build: {
@@ -62,30 +71,43 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-        // ESM 패키지 경로 명시적 해결을 위한 별칭 (필요시)
-        'react-markdown': path.resolve(__dirname, 'node_modules/react-markdown/index.js'),
-      }
+        // ✅ ESM 패키지 경로 명시적 해결을 위한 별칭 대폭 보강 🐧⚡
+        // Windows/Linux 경로 호환성을 위해 path.join 사용
+        'react-markdown': path.join(__dirname, 'node_modules/react-markdown/index.js'),
+        'remark-gfm': path.join(__dirname, 'node_modules/remark-gfm/index.js'),
+        'unified': path.join(__dirname, 'node_modules/unified/index.js'),
+        'vfile': path.join(__dirname, 'node_modules/vfile/index.js'),
+        'vfile-message': path.join(__dirname, 'node_modules/vfile-message/index.js'),
+        'remark-parse': path.join(__dirname, 'node_modules/remark-parse/index.js'),
+        'remark-stringify': path.join(__dirname, 'node_modules/remark-stringify/index.js'),
+        'mdast-util-from-markdown': path.join(__dirname, 'node_modules/mdast-util-from-markdown/index.js'),
+        'mdast-util-to-string': path.join(__dirname, 'node_modules/mdast-util-to-string/index.js'),
+        'micromark': path.join(__dirname, 'node_modules/micromark/index.js'),
+        'unist-util-stringify-position': path.join(__dirname, 'node_modules/unist-util-stringify-position/index.js'),
+        'mdast-util-gfm': path.join(__dirname, 'node_modules/mdast-util-gfm/index.js'),
+        'micromark-extension-gfm': path.join(__dirname, 'node_modules/micromark-extension-gfm/index.js'),
+      },
+      mainFields: ['module', 'jsnext:main', 'jsnext', 'main'],
+      extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json'],
+      preserveSymlinks: true
     },
     // ✅ ESM 패키지를 외부 라이브러리로 취급하지 않고 반드시 번들에 포함하도록 강제 🐧📦
     ssr: {
       noExternal: [
-        'react-markdown',
-        'remark-gfm',
-        'unified',
-        'vfile',
-        'vfile-message',
-        'unist-util-stringify-position',
-        'unist-util-visit',
-        'unist-util-is',
-        'mdast-util-from-markdown',
-        'mdast-util-to-string',
-        'micromark',
-        'decode-named-character-reference',
-        'character-entities',
-        'property-information',
-        'hast-util-whitespace',
-        'space-separated-tokens',
-        'comma-separated-tokens'
+        /^react-markdown/,
+        /^remark-/,
+        /^unified/,
+        /^vfile/,
+        /^mdast-util-/,
+        /^micromark/,
+        /^unist-util-/,
+        /^hast-util-/,
+        /^decode-named-character-reference/,
+        /^character-entities/,
+        /^property-information/,
+        /^hast-util-whitespace/,
+        /^space-separated-tokens/,
+        /^comma-separated-tokens/
       ]
     },
     test: {
