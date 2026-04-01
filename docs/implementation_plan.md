@@ -1,43 +1,31 @@
-# 로그 익스트랙터 '새로운 탭에서 보기' 기능 구현 계획
+# 회사 PC 빌드 에러 해결을 위한 추가 보안 계획
 
-형님! 선택한 로그를 바로 새 탭에서 볼 수 있게 만들어 드릴게요. 🐧⚡
-기존의 아카이브 저장 로직을 활용해서 깔끔하게 구현하겠습니다.
+형님, 현재 PC에서는 빌드가 되지만 회사 PC에서 실패하는 현상을 해결하기 위해, Vite/Rollup의 모듈 해석 방식을 더 명시적이고 견고하게 수정하겠습니다.
+
+## User Review Required
+> [!IMPORTANT]
+> 이 작업은 `vite.config.ts`를 다시 한 번 수정합니다. 수정 후 다시 한 번 회사 PC에서 빌드를 시도해 주셔야 합니다.
 
 ## Proposed Changes
 
-### [Log Extractor Core & UI]
+### Build Configuration
 
-#### [MODIFY] [useLogExtractorLogic.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/hooks/useLogExtractorLogic.ts)
-- `LogExtractorLogicProps` 인터페이스에 `onAddTab` 콜백 추가.
-- `useLogExtractorLogic` 훅의 반환값에 `onAddTab` 포함.
-
-#### [MODIFY] [LogExtractor.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogExtractor.tsx)
-- `LogProvider`에 `handleArchiveToTab` 함수를 `onAddTab` 프롭으로 전달.
-
-#### [MODIFY] [LogSession.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogSession.tsx)
-- `useLogContext`에서 `onAddTab`을 가져옴.
-- `handleOpenInNewTab` 비동기 함수 구현:
-  - 현재 선택된 텍스트(브라우저 네이티브 선택 또는 라인 단위 선택)를 추출.
-  - 선택 영역이 있으면 `onAddTab(title, content)` 호출.
-- `handleContextMenu` 함수 내 `menuItems` 배열에 'Open in New Tab' 항목 추가.
-  - 아이콘은 `Lucide.PlusSquare` 또는 `Lucide.ExternalLink` 사용 예정.
+#### [MODIFY] [vite.config.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/vite.config.ts)
+- `build.rollupOptions.external`에서 `react-markdown` 부류가 제외되어 있는지 재확인 (이미 제외되어 있다면 명시적 포함 방지).
+- `resolve.alias`를 추가하여 `react-markdown`과 그 핵심 의존성들을 직접 `node_modules` 내부의 ESM 엔트리 포인트로 연결.
+- `ssr.noExternal` 설정을 추가하여 빌드 시 해당 패키지들을 반드시 번들링에 포함시키도록 강제.
 
 ---
+
+## Open Questions
+- 형님, 회사 PC의 Node.js 버전과 현재 PC의 Node.js 버전이 혹시 다른지 알 수 있을까요? (예: 20 vs 22)
+- 회사 PC에서 `npm run build`만 실행했을 때도 동일한 에러가 발생하는지 궁금합니다.
 
 ## Verification Plan
 
 ### Automated Tests
-- 현재 UI 인터랙션에 대한 단위 테스트는 제한적이므로, 로직 위주의 검증을 수행합니다.
-- `LogProcessor.worker.ts` 등에 영향이 없는 UI/Hook 레벨의 변경이므로 별도의 워커 테스트는 불필요할 것으로 판단됩니다.
+- `npm run build` (Vite 프로덕션 빌드) 실행 후 에러 여부 확인.
+- `npm run electron:build` 실행 (형님께서 직접 확인 필요).
 
 ### Manual Verification
-1. 로그 파일 하나를 엽니다.
-2. 특정 영역을 드래그하여 선택합니다.
-3. 우클릭을 하여 'Open in New Tab' 메뉴가 나타나는지 확인합니다.
-4. 해당 메뉴를 클릭했을 때:
-   - 새로운 탭이 생성되는지 확인.
-   - 새 탭의 제목이 선택된 영역 정보를 포함하는지 확인 (예: `Lines 10-20`).
-   - 새 탭의 내용이 선택한 로그와 일치하는지 확인.
-5. 탭을 닫았을 때 정상적으로 제거되는지 확인.
-
-형님, 이 계획대로 진행해도 될까요? 승인해 주시면 바로 코딩 시작하겠습니다! 🐧🚀
+- 빌드된 바이너리에서 마크다운 보고서가 정상적으로 렌더링되는지 확인.

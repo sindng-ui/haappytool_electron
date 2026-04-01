@@ -62,7 +62,31 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        // ESM 패키지 경로 명시적 해결을 위한 별칭 (필요시)
+        'react-markdown': path.resolve(__dirname, 'node_modules/react-markdown/index.js'),
       }
+    },
+    // ✅ ESM 패키지를 외부 라이브러리로 취급하지 않고 반드시 번들에 포함하도록 강제 🐧📦
+    ssr: {
+      noExternal: [
+        'react-markdown',
+        'remark-gfm',
+        'unified',
+        'vfile',
+        'vfile-message',
+        'unist-util-stringify-position',
+        'unist-util-visit',
+        'unist-util-is',
+        'mdast-util-from-markdown',
+        'mdast-util-to-string',
+        'micromark',
+        'decode-named-character-reference',
+        'character-entities',
+        'property-information',
+        'hast-util-whitespace',
+        'space-separated-tokens',
+        'comma-separated-tokens'
+      ]
     },
     test: {
       globals: true,

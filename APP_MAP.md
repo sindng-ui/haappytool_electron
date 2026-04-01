@@ -474,8 +474,10 @@
 - **Location**:
   - `Config`: [vite.config.ts](./vite.config.ts)
 - **Features**:
-  - `optimizeDeps.include`: ESM 패키지 강제 사전 번들링
+  - `optimizeDeps.include`: ESM 패키지 강제 사전 번들링 (Dev/Build 지원)
   - `commonjsOptions.transformMixedEsModules`: ESM/CJS 혼용 의존성 처리 활성화
+  - `ssr.noExternal`: 빌드 시 외부 라이브러리 제외 방지 및 전체 번들링 강제
+  - `resolve.alias`: ESM 엔트리 포인트(`node_modules/react-markdown/index.js`) 명시적 지정
 
 ### [[Build Cleanup Utility]]
 - **ID**: `tool-build-cleanup`
