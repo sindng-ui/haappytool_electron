@@ -87,7 +87,7 @@ export default defineConfig(({ mode }) => {
         'mdast-util-gfm': path.join(__dirname, 'node_modules/mdast-util-gfm'),
         'micromark-extension-gfm': path.join(__dirname, 'node_modules/micromark-extension-gfm'),
       },
-      mainFields: ['module', 'jsnext:main', 'jsnext', 'main'],
+      mainFields: ['browser', 'module', 'jsnext:main', 'jsnext', 'main'],
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json'],
       preserveSymlinks: true
     },

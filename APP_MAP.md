@@ -345,6 +345,20 @@
   - `TizenPerfMonitor`: 실시간 리소스(CPU, Memory) 모니터링
 - **Data Flow**: `SDB Shell` -> `Backend(Electron)` -> `TizenLab UI`
 
+### [[LogAnalysisAgent Plugin]] [NEW] 🤖
+- **ID**: `plugin-log-analysis-agent`
+- **Keywords**: [`AI Agent`, `Log Analysis`, `LLM`, `Gemini`, `Structured Output`, `MCP`, `HAPPY-MCP`]
+- **Location**:
+  - `View`: [index.tsx](./plugins/LogAnalysisAgent/index.tsx)
+  - `Protocol`: [protocol.ts](./plugins/LogAnalysisAgent/protocol.ts)
+  - `Service`: [agentApiService.ts](./plugins/LogAnalysisAgent/services/agentApiService.ts)
+  - `Hook`: [useAnalysisAgent.ts](./plugins/LogAnalysisAgent/hooks/useAnalysisAgent.ts)
+- **Core Interface**:
+  - **HAPPY-MCP Protocol v1.1**: 에이전트와 도구 간의 구조화된 통신 규격.
+  - **Gemini Structured Output**: 구글 Gemini API의 `response_schema`를 활용하여 100% 신뢰할 수 있는 JSON 응답 보장. [UPDATED]
+  - **Multi-step Analysis**: `FETCH_LOG_RANGE`, `SEARCH_KEYWORD` 등의 액션을 통해 LLM이 직접 로그를 탐색하며 분석 수행.
+- **Data Flow**: `Initial Hints (from Log Extractor)` -> `AgentRequest` -> `Gemini/OpenAI API` -> `AgentAction` -> `ActionExecutor` -> `AgentResponse (Final Report)`
+
 ---
 
 ## 5. Shared Services & Contexts

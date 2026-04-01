@@ -156,7 +156,37 @@ export function useAnalysisAgent() {
 
         let response;
         try {
-          response = await sendToAgent(request, config, abortControllerRef.current.signal);
+          // ── 1️⃣ 실시간 Thought 업데이트를 위한 콜백 🐧⚡ ──────
+          response = await sendToAgent(
+            request,
+            config,
+            abortControllerRef.current.signal,
+            (partialThought) => {
+              setState(prev => {
+                const newIterations = [...prev.iterations];
+                const existingIdx = newIterations.findIndex(it => it.iteration === iter);
+
+                if (existingIdx >= 0) {
+                  newIterations[existingIdx] = {
+                    ...newIterations[existingIdx],
+                    thought: partialThought,
+                  };
+                } else {
+                  newIterations.push({
+                    iteration: iter,
+                    thought: partialThought,
+                    timestamp: Date.now(),
+                  });
+                }
+
+                return {
+                  ...prev,
+                  iterations: newIterations,
+                  currentIteration: iter,
+                };
+              });
+            }
+          );
         } catch (apiErr: any) {
           // 타임아웃 또는 API 에러 → 현재까지의 결과 표시
           updateState({
@@ -171,35 +201,48 @@ export function useAnalysisAgent() {
         const thought = response.thought ?? '(thought 없음)';
         previousThought = thought;
 
-        // ── COMPLETED ────────────────────────────────────────────────────────
+        // ── 2️⃣ 최종 결과로 Iteration 업데이트 🐧🚀 ──────
+        // COMPLETED
         if (response.status === 'COMPLETED') {
-          addIteration({
-            iteration: iter,
-            thought,
-            timestamp: Date.now(),
-          });
-          updateState({
-            status: 'completed',
-            finalReport: response.final_report ?? '최종 보고서가 제공되지 않았습니다.',
+          setState(prev => {
+            const newIterations = [...prev.iterations];
+            const idx = newIterations.findIndex(it => it.iteration === iter);
+            const record = { iteration: iter, thought, timestamp: Date.now() };
+
+            if (idx >= 0) newIterations[idx] = record;
+            else newIterations.push(record);
+
+            return {
+              ...prev,
+              iterations: newIterations,
+              status: 'completed',
+              finalReport: response.final_report ?? '최종 보고서가 제공되지 않았습니다.',
+            };
           });
           return;
         }
 
-        // ── ERROR ─────────────────────────────────────────────────────────────
+        // ERROR
         if (response.status === 'ERROR') {
-          addIteration({
-            iteration: iter,
-            thought,
-            timestamp: Date.now(),
-          });
-          updateState({
-            status: 'error',
-            errorMessage: response.error_msg ?? '알 수 없는 LLM 오류',
+          setState(prev => {
+            const newIterations = [...prev.iterations];
+            const idx = newIterations.findIndex(it => it.iteration === iter);
+            const record = { iteration: iter, thought, timestamp: Date.now() };
+
+            if (idx >= 0) newIterations[idx] = record;
+            else newIterations.push(record);
+
+            return {
+              ...prev,
+              iterations: newIterations,
+              status: 'error',
+              errorMessage: response.error_msg ?? '알 수 없는 LLM 오류',
+            };
           });
           return;
         }
 
-        // ── PROCESSING + ACTION ───────────────────────────────────────────────
+        // PROCESSING + ACTION
         const action = response.action;
         let actionResult = '(액션 없음)';
 
@@ -207,28 +250,40 @@ export function useAnalysisAgent() {
           // USER_QUERY: 사용자 입력 대기
           if (action.type === 'USER_QUERY') {
             const question = (action.params as any).question_text ?? '추가 정보를 입력해주세요.';
-
             updateState({ status: 'waiting_user', userQuery: question });
-
             actionResult = await new Promise<string>(resolve => {
               userQueryResolverRef.current = resolve;
             });
-
             updateState({ status: 'running', userQuery: null });
           } else {
             actionResult = await executeAction(action, logLines);
           }
-
           lastActionResult = actionResult;
         }
 
-        addIteration({
-          iteration: iter,
-          thought,
-          action,
-          actionResult,
-          timestamp: Date.now(),
+        setState(prev => {
+          const newIterations = [...prev.iterations];
+          const idx = newIterations.findIndex(it => it.iteration === iter);
+          const record = {
+            iteration: iter,
+            thought,
+            action,
+            actionResult,
+            timestamp: Date.now(),
+          };
+
+          if (idx >= 0) newIterations[idx] = record;
+          else newIterations.push(record);
+
+          return {
+            ...prev,
+            iterations: newIterations,
+            currentIteration: iter,
+          };
         });
+
+        // ✅ 형님, Gemini 무료 티어(RPM 15)를 위해 2초만 쉬었다 가겠습니다! 🐧☕
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
 
       // 최대 반복 초과 → 현재까지의 분석 내용으로 마무리
@@ -297,9 +352,8 @@ function buildTimeoutReport(
   analysisType: AnalysisType
 ): string {
   const summary = iterations
-    .map(it => `### Iteration ${it.iteration}\n**Thought:** ${it.thought}${
-      it.actionResult ? `\n\n**Action Result Summary:** ${it.actionResult.slice(0, 200)}...` : ''
-    }`)
+    .map(it => `### Iteration ${it.iteration}\n**Thought:** ${it.thought}${it.actionResult ? `\n\n**Action Result Summary:** ${it.actionResult.slice(0, 200)}...` : ''
+      }`)
     .join('\n\n');
 
   return `## ⏳ 최대 반복 횟수 초과 - 현재까지의 분석 내용

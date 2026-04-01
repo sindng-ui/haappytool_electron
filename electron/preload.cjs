@@ -30,6 +30,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openExternal: (url) => ipcRenderer.invoke('openExternal', url),
     fetchUrl: (url, type) => ipcRenderer.invoke('fetchUrl', { url, type }),
     proxyRequest: (request) => ipcRenderer.invoke('proxyRequest', request),
+    streamProxyRequest: (request) => ipcRenderer.invoke('streamProxyRequest', request),
+    onProxyDataChunk: (callback) => {
+        const subscription = (_event, data) => callback(data);
+        ipcRenderer.on('proxy-data-chunk', subscription);
+        return () => ipcRenderer.removeListener('proxy-data-chunk', subscription);
+    },
+    onProxyStreamComplete: (callback) => {
+        const subscription = (_event, data) => callback(data);
+        ipcRenderer.on('proxy-stream-complete', subscription);
+        return () => ipcRenderer.removeListener('proxy-stream-complete', subscription);
+    },
+    onProxyStreamError: (callback) => {
+        const subscription = (_event, data) => callback(data);
+        ipcRenderer.on('proxy-stream-error', subscription);
+        return () => ipcRenderer.removeListener('proxy-stream-error', subscription);
+    },
+
     getAppPath: () => ipcRenderer.invoke('getAppPath'),
     validateRoslyn: (code) => ipcRenderer.invoke('validateRoslyn', code),
     validateRoslyn: (code) => ipcRenderer.invoke('validateRoslyn', code),

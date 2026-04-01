@@ -59,21 +59,68 @@ You MUST respond with a single valid JSON object in this exact format:
 
 ## Available Actions (when status=PROCESSING)
 
-| Action Type | Description | Key Params |
+| Action Type | Description | REQUIRED params (MUST NOT BE EMPTY) |
 |---|---|---|
-| FETCH_LOG_RANGE | Get log lines by range | start_line, end_line, context_size |
-| SEARCH_KEYWORD | Search by keyword | keyword, ignore_case |
-| SEARCH_PATTERN | Search by regex | pattern, ignore_case |
-| EXTRACT_STACKTRACE | Extract thread stack | tid, depth |
-| CHECK_METRIC | Get metric-related logs | metric_type (CPU/MEM/NET/DISK) |
-| USER_QUERY | Ask user a question | question_text |
+| FETCH_LOG_RANGE | Get log lines by range | "start_line" (number), "end_line" (number) |
+| SEARCH_KEYWORD | Search by keyword | "keyword" (string), "ignore_case" (boolean) |
+| SEARCH_PATTERN | Search by regex | "pattern" (string), "ignore_case" (boolean) |
+| EXTRACT_STACKTRACE | Extract thread stack | "tid" (string), "depth" (number) |
+| CHECK_METRIC | Get metric-related logs | "metric_type" (CPU/MEM/NET/DISK) |
+| USER_QUERY | Ask user a question | "question_text" (string) |
 
 ## Important Rules
-1. ALWAYS include "thought" field explaining your reasoning
-2. Request ONE action at a time - analyze results before next action
-3. Be aware of remaining iterations - use them wisely
-4. When you have enough information, set status=COMPLETED and write final_report in Markdown
-5. final_report MUST be comprehensive with root cause, evidence, and recommendations`;
+1. ALWAYS include "thought" field explaining your reasoning.
+2. When status=PROCESSING, you MUST provide "action" object with BOTH "type" AND "params".
+3. **NEVER leave "params" empty.** For example, SEARCH_KEYWORD MUST have "keyword".
+
+## JSON Examples for Action
+- SEARCH_KEYWORD: {"status":"PROCESSING","thought":"...","action":{"type":"SEARCH_KEYWORD","params":{"keyword":"error","ignore_case":true}}}
+- SEARCH_PATTERN: {"status":"PROCESSING","thought":"...","action":{"type":"SEARCH_PATTERN","params":{"pattern":"\\[[0-9]+\\]","ignore_case":true}}}
+`;
+
+/** 공통 JSON 스키마 (Gemini & OpenAI 공유) */
+const HAPPY_MCP_SCHEMA = {
+  type: 'object',
+  properties: {
+    status: { type: 'string', enum: ['PROCESSING', 'COMPLETED', 'ERROR'] },
+    thought: { type: 'string', description: '분석 과정 및 추론 내용' },
+    action: {
+      type: 'object',
+      properties: {
+        type: {
+          type: 'string',
+          enum: [
+            'FETCH_LOG_RANGE',
+            'SEARCH_KEYWORD',
+            'SEARCH_PATTERN',
+            'EXTRACT_STACKTRACE',
+            'CHECK_METRIC',
+            'USER_QUERY',
+          ],
+          description: '수행할 액션 종류'
+        },
+        params: {
+          type: 'object',
+          properties: {
+            pattern: { type: 'string', description: '정규식 패턴' },
+            keyword: { type: 'string', description: '검색 키워드' },
+            ignore_case: { type: 'boolean', description: '대소문자 무시 여부' },
+            start_line: { type: 'number', description: '시작 라인 번호' },
+            end_line: { type: 'number', description: '종료 라인 번호' },
+            tid: { type: 'string', description: '스레드 ID' },
+            depth: { type: 'number', description: '스택 깊이' },
+            metric_type: { type: 'string', enum: ['CPU', 'MEM', 'NET', 'DISK'] },
+            question_text: { type: 'string', description: '사용자에게 할 질문' }
+          },
+          description: '액션에 필요한 상세 파라미터'
+        },
+      },
+    },
+    final_report: { type: 'string', description: '최종 분석 보고서 (Markdown)' },
+    error_msg: { type: 'string', description: '에러 발생 시 메시지' },
+  },
+  required: ['status', 'thought'],
+};
 
 function buildSystemPrompt(analysisType: AnalysisType): string {
   return `${SYSTEM_PROMPT_BASE}\n\n## Analysis Specialization\n${ANALYSIS_PROMPTS[analysisType]}`;
@@ -113,16 +160,13 @@ ${context.initial_hints || '(No hints extracted - analyze from raw patterns)'}
 // ─── JSON 추출 ────────────────────────────────────────────────────────────────
 
 function extractJsonFromText(text: string): string {
-  // ```json ... ``` 패턴 먼저 시도
+  if (!text) return '{}';
   const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (codeBlockMatch) return codeBlockMatch[1].trim();
-
-  // 첫 번째 { ... } JSON 객체 추출
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start >= 0 && end > start) return text.substring(start, end + 1);
-
-  throw new Error('No valid JSON found in LLM response');
+  return text.trim();
 }
 
 // ─── API 호출 ─────────────────────────────────────────────────────────────────
@@ -130,107 +174,208 @@ function extractJsonFromText(text: string): string {
 export async function sendToAgent(
   request: AgentRequest,
   config: AgentConfig,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onPartialUpdate?: (thought: string) => void
 ): Promise<AgentResponse> {
-  if (!config.apiKey) {
-    throw new Error('API Key가 설정되지 않았습니다. Settings > AI Agent 탭에서 설정해주세요.');
-  }
-  if (!config.endpoint) {
-    throw new Error('API Endpoint가 설정되지 않았습니다.');
-  }
+  if (!config.apiKey) throw new Error('API Key가 설정되지 않았습니다.');
+  if (!config.endpoint) throw new Error('API Endpoint가 설정되지 않았습니다.');
 
   const systemPrompt = buildSystemPrompt(request.analysis_type);
   const userMessage = buildUserMessage(request);
+  const isGemini = config.endpoint.includes('generativelanguage.googleapis.com');
+  const requestId = `agent-stream-${Date.now()}`;
+  const electronAPI = (window as any).electronAPI;
 
-  const body = {
-    model: config.model,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userMessage },
-    ],
-    temperature: 0.3,
-    max_tokens: 2048,
-    response_format: { type: 'text' },
-  };
+  let body: any;
+  let headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
-  // Electron proxyRequest를 통해 CORS-safe 요청
-  const proxyRequest = (window as any).electronAPI?.proxyRequest;
-  if (!proxyRequest) {
-    throw new Error('Electron API를 찾을 수 없습니다.');
+  if (isGemini) {
+    body = {
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 2048,
+        responseMimeType: 'application/json',
+        thinkingConfig: { thinkingBudget: -1 },
+        responseSchema: HAPPY_MCP_SCHEMA,
+      },
+    };
+  } else {
+    // OpenAI 규격 (범용)
+    body = {
+      model: config.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+      temperature: 0.3,
+      max_tokens: 2048,
+      stream: !!onPartialUpdate,
+      // Structured Outputs (OpenAI 규격)
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'happy_mcp_response',
+          strict: true,
+          schema: HAPPY_MCP_SCHEMA
+        }
+      }
+    };
+    headers['Authorization'] = `Bearer ${config.apiKey}`;
   }
 
-  const timeoutId = setTimeout(() => {
-    // AbortController signal은 외부에서 관리
-  }, config.timeoutMs);
+  let finalUrl = config.endpoint;
+  if (isGemini && !finalUrl.includes('key=')) {
+    finalUrl += (finalUrl.includes('?') ? '&' : '?') + `key=${config.apiKey}`;
+  }
 
-  try {
-    const response = await proxyRequest({
-      method: 'POST',
-      url: config.endpoint,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify(body),
+  // 1️⃣ 스트리밍 모드
+  if (onPartialUpdate) {
+    const streamUrl = isGemini ? finalUrl.replace(':generateContent', ':streamGenerateContent') : finalUrl;
+
+    return new Promise((resolve, reject) => {
+      let fullThought = '';
+      let finalJsonResponse = '';
+      let streamBuffer = '';
+
+      const cleanup = () => {
+        offChunk(); offComplete(); offError();
+      };
+
+      const offChunk = electronAPI.onProxyDataChunk(({ requestId: id, chunk }: any) => {
+        if (id !== requestId) return;
+        streamBuffer += chunk;
+        
+        if (isGemini) {
+          // Gemini 전용 중괄호 추적 파서
+          parseGeminiStream(streamBuffer, (thought, text) => {
+            if (thought) { fullThought += thought; onPartialUpdate(fullThought); }
+            if (text) finalJsonResponse += text;
+          });
+        } else {
+          // OpenAI 전용 SSE 파서
+          streamBuffer = parseOpenAIStream(streamBuffer, (content) => {
+            if (content) {
+              // OpenAI는 보통 thought와 text를 따로 주지 않으므로, 
+              // JSON 조립 전까지는 raw text를 모읍니다. 
+              // (일부 모델은 thought 필드를 JSON 내부에 포함하여 스트리밍함)
+              finalJsonResponse += content;
+              
+              // 스트리밍 중인 JSON에서 thought 필드만 추출하여 UI 업데이트 시도
+              try {
+                const partial = JSON.parse(extractJsonFromText(finalJsonResponse));
+                if (partial.thought && partial.thought !== fullThought) {
+                  fullThought = partial.thought;
+                  onPartialUpdate(fullThought);
+                }
+              } catch(e) {}
+            }
+          });
+        }
+      });
+
+      const offComplete = electronAPI.onProxyStreamComplete(({ requestId: id }: any) => {
+        if (id !== requestId) return;
+        cleanup();
+        try {
+          const cleanedJson = extractJsonFromText(finalJsonResponse || '{}');
+          const parsed: AgentResponse = JSON.parse(cleanedJson);
+          if (!parsed.thought && fullThought) parsed.thought = fullThought;
+          resolve(parsed);
+        } catch (e) {
+          reject(new Error(`JSON 조립 실패: ${e.message}`));
+        }
+      });
+
+      const offError = electronAPI.onProxyStreamError(({ requestId: id, message }: any) => {
+        if (id !== requestId) return;
+        cleanup(); reject(new Error(`스트리밍 오류: ${message}`));
+      });
+
+      electronAPI.streamProxyRequest({
+        method: 'POST', url: streamUrl, headers, body: JSON.stringify(body), requestId
+      }).catch(reject);
     });
+  }
 
-    clearTimeout(timeoutId);
+  // 2️⃣ 일반 요청 모드
+  const response = await electronAPI.proxyRequest({
+    method: 'POST', url: finalUrl, headers, body: JSON.stringify(body)
+  });
 
-    if (response.error) {
-      throw new Error(`API 오류: ${response.message}`);
+  if (response.error) throw new Error(`API 오류: ${response.message}`);
+  
+  const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+  let rawContent = '';
+
+  if (isGemini) {
+    rawContent = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  } else {
+    rawContent = data?.choices?.[0]?.message?.content || '';
+  }
+
+  const parsed: AgentResponse = JSON.parse(extractJsonFromText(rawContent));
+  if (!parsed.status) throw new Error('LLM 응답 형식이 올바르지 않습니다.');
+  return parsed;
+}
+
+/** Gemini 스트림 파서 */
+function parseGeminiStream(buffer: string, callback: (thought: string, text: string) => void) {
+  let startIndex = -1;
+  let braceCount = 0;
+  let inString = false;
+
+  for (let i = 0; i < buffer.length; i++) {
+    const char = buffer[i];
+    if (char === '"' && buffer[i-1] !== '\\') inString = !inString;
+    if (!inString) {
+      if (char === '{') { if (braceCount === 0) startIndex = i; braceCount++; }
+      else if (char === '}') {
+        braceCount--;
+        if (braceCount === 0 && startIndex !== -1) {
+          const jsonStr = buffer.substring(startIndex, i + 1);
+          try {
+            const data = JSON.parse(jsonStr);
+            const parts = data?.candidates?.[0]?.content?.parts || [];
+            for (const p of parts) callback(p.thought || '', p.text || '');
+          } catch(e) {}
+        }
+      }
     }
-
-    if (response.status !== 200) {
-      const errMsg = typeof response.data === 'object'
-        ? JSON.stringify(response.data)
-        : response.data;
-      throw new Error(`HTTP ${response.status}: ${errMsg}`);
-    }
-
-    // OpenAI-compatible 응답 파싱
-    const data = typeof response.data === 'string'
-      ? JSON.parse(response.data)
-      : response.data;
-
-    const content: string = data?.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('LLM 응답에서 content를 찾을 수 없습니다.');
-    }
-
-    const jsonText = extractJsonFromText(content);
-    const parsed: AgentResponse = JSON.parse(jsonText);
-
-    // 필수 필드 검증
-    if (!parsed.status) {
-      throw new Error('LLM 응답에 status 필드가 없습니다.');
-    }
-
-    return parsed;
-  } catch (err) {
-    clearTimeout(timeoutId);
-    throw err;
   }
 }
 
-/** API 연결 테스트 */
-export async function testAgentConnection(config: AgentConfig): Promise<boolean> {
-  const proxyRequest = (window as any).electronAPI?.proxyRequest;
-  if (!proxyRequest) throw new Error('Electron API 없음');
+/** OpenAI SSE 스트림 파서 */
+function parseOpenAIStream(buffer: string, callback: (content: string) => void): string {
+  const lines = buffer.split('\n');
+  // 마지막 라인은 아직 전송 중일 수 있으므로(개행 없음) 남겨둡니다.
+  const remaining = lines.pop() || '';
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || !trimmed.startsWith('data: ')) continue;
+    
+    const dataStr = trimmed.replace('data: ', '').trim();
+    if (dataStr === '[DONE]') continue;
+    try {
+      const data = JSON.parse(dataStr);
+      const content = data?.choices?.[0]?.delta?.content || '';
+      if (content) callback(content);
+    } catch(e) {}
+  }
+  return remaining;
+}
 
-  const response = await proxyRequest({
-    method: 'POST',
-    url: config.endpoint,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
-    },
+export async function testAgentConnection(config: AgentConfig): Promise<boolean> {
+  const response = await (window as any).electronAPI.proxyRequest({
+    method: 'POST', url: config.endpoint,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
     body: JSON.stringify({
       model: config.model,
       messages: [{ role: 'user', content: 'ping' }],
       max_tokens: 5,
     }),
   });
-
-  if (response.error) throw new Error(response.message);
   return response.status === 200;
 }

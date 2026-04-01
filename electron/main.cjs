@@ -322,6 +322,52 @@ app.whenReady().then(async () => {
         } catch (error) { console.error('Proxy Request failed:', error); return { error: true, message: error.message }; }
     });
 
+    // ✅ 스트리밍 프록시 요청 핸들러 (실시간 데이터 청크 전송용) 🐧🚀
+    ipcMain.handle('streamProxyRequest', async (event, { method, url, headers, body, requestId }) => {
+        try {
+            const fetchOptions = {
+                method, headers,
+                body: ['GET', 'HEAD'].includes(method) ? undefined : body
+            };
+            const response = await fetch(url, fetchOptions);
+            if (!response.ok) {
+                const errorText = await response.text();
+                return { error: true, status: response.status, message: errorText };
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            // 백그라운드에서 스트림 읽기 시작
+            (async () => {
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        const chunk = decoder.decode(value, { stream: true });
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send('proxy-data-chunk', { requestId, chunk });
+                        }
+                    }
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('proxy-stream-complete', { requestId });
+                    }
+                } catch (err) {
+                    console.error('[Main] Stream processing error:', err);
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('proxy-stream-error', { requestId, message: err.message });
+                    }
+                }
+            })();
+
+            return { status: response.status, statusText: response.statusText };
+        } catch (error) {
+            console.error('[Main] Stream Proxy Request failed:', error);
+            return { error: true, message: error.message };
+        }
+    });
+
+
     ipcMain.handle('getAppPath', () => {
         const isDev = process.env.NODE_ENV === 'development';
         return isDev ? path.join(__dirname, '..') : process.resourcesPath;

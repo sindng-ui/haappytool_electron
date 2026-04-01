@@ -175,20 +175,27 @@ export async function executeAction(
   logLines: string[],
   onUserQuery?: (question: string) => Promise<string>
 ): Promise<string> {
+  if (!action) return '🚫 수행할 액션 정보가 없습니다.';
+  
   const { type, params } = action;
-  const p = params as Record<string, any>;
+  // ✅ 형님, params가 아예 없거나 null이어도 죽지 않게 빈 객체로 꽉 잡아둡니다! 🐧🧤
+  const p = (params as Record<string, any>) || {};
 
   switch (type as ActionType) {
     case 'FETCH_LOG_RANGE':
+      if (p.start_line === undefined) return '❌ FETCH_LOG_RANGE: start_line 파라미터가 없습니다.';
       return handleFetchLogRange(logLines, p);
 
     case 'SEARCH_KEYWORD':
+      if (!p.keyword) return '❌ SEARCH_KEYWORD: keyword 파라미터가 없습니다.';
       return handleSearchKeyword(logLines, p);
 
     case 'SEARCH_PATTERN':
+      if (!p.pattern) return '❌ SEARCH_PATTERN: pattern 파라미터가 없습니다.';
       return handleSearchPattern(logLines, p);
 
     case 'EXTRACT_STACKTRACE':
+      if (!p.tid) return '❌ EXTRACT_STACKTRACE: tid 파라미터가 없습니다.';
       return handleExtractStacktrace(logLines, p);
 
     case 'CHECK_METRIC':
@@ -196,13 +203,13 @@ export async function executeAction(
 
     case 'USER_QUERY': {
       if (!onUserQuery) {
-        return '(사용자 질문 기능이 비활성화되어 있습니다)';
+        return '⚠️ 사용자 질문 기능이 비활성화되어 있습니다.';
       }
-      const question = p.question_text ?? '추가 정보가 필요합니다.';
+      const question = p.question_text ?? '⚠️ 추가 정보가 필요합니다. 질문 내용을 확인해주세요.';
       return await onUserQuery(question);
     }
 
     default:
-      return `알 수 없는 액션 타입: ${type}`;
+      return `❌ 알 수 없는 액션 타입입니다: ${type}`;
   }
 }

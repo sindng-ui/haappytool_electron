@@ -1,0 +1,59 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["PROCESSING", "COMPLETED", "ERROR"],
+      "description": "현재 분석 상태"
+    },
+    "thought": {
+      "type": "string",
+      "description": "분석 추론 과정 (항상 포함)"
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "FETCH_LOG_RANGE",
+            "SEARCH_KEYWORD",
+            "SEARCH_PATTERN",
+            "EXTRACT_STACKTRACE",
+            "CHECK_METRIC",
+            "USER_QUERY"
+          ],
+          "description": "수행할 액션 타입"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "start_line": { "type": "integer" },
+            "end_line": { "type": "integer" },
+            "context_size": { "type": "integer" },
+            "keyword": { "type": "string" },
+            "pattern": { "type": "string" },
+            "ignore_case": { "type": "boolean" },
+            "tid": { "type": "string" },
+            "depth": { "type": "integer" },
+            "metric_type": { "type": "string", "enum": ["CPU", "MEM", "NET", "DISK"] },
+            "timestamp": { "type": "string" },
+            "question_text": { "type": "string" }
+          },
+          "description": "액션별 파라미터 (타입에 맞는 필드만 사용)"
+        }
+      },
+      "description": "status가 PROCESSING일 때 필수"
+    },
+    "final_report": {
+      "type": "string",
+      "description": "최종 분석 리포트 (Markdown, status가 COMPLETED일 때 필수)"
+    },
+    "error_msg": {
+      "type": "string",
+      "description": "에러 메시지 (status가 ERROR일 때 필수)"
+    }
+  },
+  "required": ["status", "thought"],
+  "description": "HAPPY-MCP Protocol v1.1 Response Schema"
+}
