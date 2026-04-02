@@ -208,13 +208,16 @@ const GaussChatAgentPlugin: React.FC = () => {
 
       {/* ── Debug Panel (Right Side) ── */}
       {showDebug && (
-        <div className="w-[450px] min-w-[450px] max-w-[450px] flex-shrink-0 bg-slate-900 border-l border-white/5 flex flex-col animate-in slide-in-from-right duration-300 shadow-2xl z-30">
+        <aside 
+          className="h-full bg-slate-900 border-l border-white/10 flex flex-col animate-in slide-in-from-right duration-300 shadow-2xl z-30 shrink-0"
+          style={{ width: '450px', maxWidth: '30vw' }}
+        >
           <div className="h-12 flex items-center justify-between px-4 border-b border-white/5 bg-slate-800/30">
-            <div className="flex items-center gap-2 text-amber-500">
-              <Terminal size={14} />
-              <span className="text-xs font-bold uppercase tracking-widest">Raw Response Debug</span>
+            <div className="flex items-center gap-2 text-amber-500 overflow-hidden">
+              <Terminal size={14} className="shrink-0" />
+              <span className="text-xs font-bold uppercase tracking-widest truncate">Raw Response Debug</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button 
                 onClick={clearDebugLogs}
                 className="p-1.5 hover:bg-slate-700 rounded-md text-slate-500 hover:text-slate-300 transition-colors"
@@ -232,7 +235,7 @@ const GaussChatAgentPlugin: React.FC = () => {
           </div>
           <div 
             ref={debugScrollRef}
-            className="flex-1 overflow-y-auto p-4 font-mono text-[11px] leading-relaxed select-text"
+            className="flex-1 overflow-x-hidden overflow-y-auto p-4 font-mono text-[10px] leading-tight select-text scrollbar-thin scrollbar-thumb-slate-800"
           >
             {debugLogs.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-600 italic">
@@ -240,11 +243,11 @@ const GaussChatAgentPlugin: React.FC = () => {
                 <p>메시지를 전송하여 통신을 시작하세요.</p>
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {debugLogs.map((log, i) => (
-                  <div key={i} className="border-b border-white/5 pb-1 mb-1 break-all">
-                    <span className="text-slate-600 mr-2 shrink-0">[{i+1}]</span>
-                    <span className={log.startsWith('[ERROR]') ? 'text-red-400' : 'text-emerald-400'}>
+                  <div key={i} className="border-b border-white/5 pb-0.5 mb-0.5 break-all whitespace-pre-wrap">
+                    <span className="text-slate-600 mr-1 shrink-0 font-bold">[{i+1}]</span>
+                    <span className={log.startsWith('[ERROR]') ? 'text-red-400' : 'text-emerald-500'}>
                       {log}
                     </span>
                   </div>
@@ -257,7 +260,7 @@ const GaussChatAgentPlugin: React.FC = () => {
               Total Chunks Received: {debugLogs.length}
             </p>
           </div>
-        </div>
+        </aside>
       )}
     </div>
   );
