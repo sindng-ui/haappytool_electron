@@ -69,7 +69,11 @@ const GaussChatAgentPlugin: React.FC = () => {
           fullResponse = partial;
           setMessages(prev => {
             const updated = [...prev];
-            updated[assistantMsgIndex] = { role: 'assistant', content: fullResponse, isStreaming: true };
+            // 마지막 메시지가 assistant이고 streaming 중인 경우에만 업데이트
+            const lastIdx = updated.length - 1;
+            if (lastIdx >= 0 && updated[lastIdx].role === 'assistant') {
+              updated[lastIdx] = { ...updated[lastIdx], content: fullResponse };
+            }
             return updated;
           });
         },
@@ -204,7 +208,7 @@ const GaussChatAgentPlugin: React.FC = () => {
 
       {/* ── Debug Panel (Right Side) ── */}
       {showDebug && (
-        <div className="w-[450px] bg-slate-900 border-l border-white/5 flex flex-col animate-in slide-in-from-right duration-300 shadow-2xl z-30">
+        <div className="w-[450px] min-w-[450px] max-w-[450px] flex-shrink-0 bg-slate-900 border-l border-white/5 flex flex-col animate-in slide-in-from-right duration-300 shadow-2xl z-30">
           <div className="h-12 flex items-center justify-between px-4 border-b border-white/5 bg-slate-800/30">
             <div className="flex items-center gap-2 text-amber-500">
               <Terminal size={14} />
@@ -238,8 +242,8 @@ const GaussChatAgentPlugin: React.FC = () => {
             ) : (
               <div className="space-y-1">
                 {debugLogs.map((log, i) => (
-                  <div key={i} className="border-b border-white/5 pb-1 mb-1">
-                    <span className="text-slate-600 mr-2">[{i+1}]</span>
+                  <div key={i} className="border-b border-white/5 pb-1 mb-1 break-all">
+                    <span className="text-slate-600 mr-2 shrink-0">[{i+1}]</span>
                     <span className={log.startsWith('[ERROR]') ? 'text-red-400' : 'text-emerald-400'}>
                       {log}
                     </span>

@@ -432,8 +432,19 @@ function parseGaussStream(buffer: string, callback: (content: string) => void): 
     
     try {
       const data = JSON.parse(dataStr);
-      // 가우스 에이전트 스트리밍 필드는 보통 output_value, message, delta, answer 등임
-      const content = data?.output_value || data?.message || data?.delta || data?.answer || data?.text || data?.result || '';
+      // 가우스 에이전트 스트리밍 필드들 (output_value, message, delta, answer, chunk 등)
+      // 🐧 형님이 알려주신 {"data": {"chunk": "..."}} 규격도 추가!
+      const content = 
+        data?.output_value || 
+        data?.message || 
+        data?.delta || 
+        data?.answer || 
+        data?.text || 
+        data?.result || 
+        data?.data?.chunk || // <--- New format
+        data?.chunk || 
+        '';
+      
       if (content) {
         callback(content);
       } else if (typeof data === 'string') {
