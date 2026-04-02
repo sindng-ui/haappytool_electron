@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import { getStoredValue, setStoredValue } from '../utils/db';
-import { LogRule, AppSettings, LogWorkerResponse, LogViewPreferences, SpamLogResult } from '../types';
+import { LogRule, AppSettings, LogWorkerResponse, LogViewPreferences, SpamLogResult, LogHighlight } from '../types';
 import { LogViewerHandle } from '../components/LogViewer/LogViewerPane';
 import { AnalysisResult } from '../utils/perfAnalysis';
 import { Socket } from 'socket.io-client';
@@ -1045,5 +1045,40 @@ export const useLogExtractorLogic = ({
         handleViewRawRangeLeft, handleViewRawRangeRight,
         handleCopyRawRangeLeft, handleCopyRawRangeRight,
         onAddTab,
+        addQuickHighlight: (keyword: string) => {
+            if (!currentConfig || !keyword.trim()) return;
+            const targetKeyword = keyword.trim();
+            const existingIdx = currentConfig.highlights.findIndex(h => 
+                h.keyword.toLowerCase() === targetKeyword.toLowerCase()
+            );
+
+            if (existingIdx > -1) {
+                // Toggle Off: Remove highlight
+                const newHighlights = [...currentConfig.highlights];
+                newHighlights.splice(existingIdx, 1);
+                updateCurrentRule({ highlights: newHighlights });
+                showToast(`Removed Highlight: ${targetKeyword}`, 'info');
+            } else {
+                // Toggle On: Add highlight
+                const newHighlight: LogHighlight = {
+                    id: `quick-${Math.random().toString(36).substring(7)}`,
+                    keyword: targetKeyword,
+                    color: 'indigo-500',
+                    lineEffect: false
+                };
+                updateCurrentRule({ highlights: [...currentConfig.highlights, newHighlight] });
+                showToast(`Highlighted: ${targetKeyword}`, 'success');
+            }
+        },
+        clearQuickHighlights: () => {
+            if (!currentConfig) return;
+            const remainingHighlights = currentConfig.highlights.filter(h => !h.id.startsWith('quick-'));
+            const removedCount = currentConfig.highlights.length - remainingHighlights.length;
+            
+            if (removedCount > 0) {
+                updateCurrentRule({ highlights: remainingHighlights });
+                showToast(`Cleared ${removedCount} quick highlights`, 'info');
+            }
+        }
     };
 };

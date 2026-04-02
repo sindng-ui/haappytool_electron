@@ -23,6 +23,8 @@ interface HyperLogRendererProps {
     isRawMode?: boolean;
     performanceHeatmap?: number[];
     onKeyDown?: (e: React.KeyboardEvent) => void;
+    onQuickHighlight?: (keyword: string) => void;
+    onClearQuickHighlights?: () => void;
     isActive: boolean;
     clearCacheTick?: number;
     sharedBuffers?: {
@@ -97,7 +99,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         totalCount, rowHeight, onScrollRequest, preferences,
         selectedIndices, bookmarks, onLineClick, onLineDoubleClick,
         onAtBottomChange, onScroll, absoluteOffset, isRawMode,
-        onKeyDown, isActive, clearCacheTick, sharedBuffers
+        onKeyDown, isActive, clearCacheTick, sharedBuffers, onQuickHighlight, onClearQuickHighlights
     } = props;
 
     // Apply default values for optional props
@@ -882,6 +884,21 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     }, [stableScrollTop, viewportHeight, rowHeight, totalCount, cachedLines, isActive]);
     const handleLineAction = (e: React.MouseEvent, index: number, type: 'click' | 'dbclick' | 'enter') => {
         if (e.altKey) {
+            if (type === 'dbclick' && onQuickHighlight) {
+                const selection = window.getSelection()?.toString().trim();
+                if (selection) {
+                    onQuickHighlight(selection);
+                }
+                return;
+            }
+
+            if (type === 'click' && e.button === 2 && onClearQuickHighlights) {
+                // ✅ Alt + 우클릭 시 모든 퀵 하이라이트 해제
+                e.preventDefault();
+                onClearQuickHighlights();
+                return;
+            }
+
             // ✅ Alt 클릭으로 텍스트 선택을 시작하면 기존 라인 선택(파란 줄)을 지워줍니다.
             if (type === 'click' && onLineClick) {
                 onLineClick(-1, false, false);
@@ -1038,6 +1055,11 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
                 onKeyDown={onKeyDown}
+                onContextMenu={(e) => {
+                    if (e.altKey) {
+                        e.preventDefault();
+                    }
+                }}
             >
                 <div style={{
                     height: totalCount * rowHeight,

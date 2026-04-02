@@ -320,5 +320,98 @@ describe('useLogExtractorLogic (Frontend Logic)', () => {
             expect(result.current.logViewPreferences.fontSize).toBe(14);
         });
     }, 10000);
+    
+    describe('Quick Highlighting', () => {
+        const mockPropsWithRule = {
+            ...defaultProps,
+            rules: [{
+                id: 'rule-1',
+                name: 'Rule 1',
+                highlights: [],
+                includeGroups: [],
+                excludes: []
+            }]
+        };
+
+        it('should add a quick highlight if it does not exist', () => {
+            const onUpdateRules = vi.fn();
+            const { result } = renderHook(() => useLogExtractorLogic({ ...mockPropsWithRule, onUpdateRules }));
+
+            // Initially empty
+            expect(result.current.currentConfig?.highlights.length).toBe(0);
+
+            act(() => {
+                result.current.addQuickHighlight('ERROR_TAG');
+            });
+
+            // Should call onUpdateRules with the new highlight
+            expect(onUpdateRules).toHaveBeenCalledWith(expect.arrayContaining([
+                expect.objectContaining({
+                    highlights: [expect.objectContaining({
+                        keyword: 'ERROR_TAG',
+                        color: 'indigo-500'
+                    })]
+                })
+            ]));
+            expect(mockedAddToast).toHaveBeenCalledWith('Highlighted: ERROR_TAG', 'success');
+        });
+
+        it('should remove a quick highlight if it already exists (toggle)', () => {
+            const onUpdateRules = vi.fn();
+            const existingHighlight = { id: 'quick-123', keyword: 'DUPLICATE', color: 'indigo-500' };
+            const propsWithHighlight = {
+                ...mockPropsWithRule,
+                rules: [{
+                    ...mockPropsWithRule.rules[0],
+                    highlights: [existingHighlight],
+                    includeGroups: [],
+                    excludes: []
+                }],
+                onUpdateRules
+            };
+            const { result } = renderHook(() => useLogExtractorLogic(propsWithHighlight));
+
+            act(() => {
+                result.current.addQuickHighlight('DUPLICATE');
+            });
+
+            // Should call onUpdateRules with empty highlights array
+            expect(onUpdateRules).toHaveBeenCalledWith(expect.arrayContaining([
+                expect.objectContaining({
+                    highlights: []
+                })
+            ]));
+            expect(mockedAddToast).toHaveBeenCalledWith('Removed Highlight: DUPLICATE', 'info');
+        });
+
+        it('should clear all quick highlights but keep permanent ones', () => {
+            const onUpdateRules = vi.fn();
+            const quickH = { id: 'quick-1', keyword: 'QUICK', color: 'indigo-500' };
+            const permanentH = { id: 'perm-1', keyword: 'PERM', color: 'red-500' };
+            const propsWithMixed = {
+                ...mockPropsWithRule,
+                rules: [{
+                    ...mockPropsWithRule.rules[0],
+                    highlights: [quickH, permanentH],
+                    includeGroups: [],
+                    excludes: []
+                }],
+                onUpdateRules
+            };
+            const { result } = renderHook(() => useLogExtractorLogic(propsWithMixed));
+
+            act(() => {
+                result.current.clearQuickHighlights();
+            });
+
+            // Should remove quickH but keep permanentH
+            expect(onUpdateRules).toHaveBeenCalledWith(expect.arrayContaining([
+                expect.objectContaining({
+                    highlights: [permanentH]
+                })
+            ]));
+            expect(mockedAddToast).toHaveBeenCalledWith('Cleared 1 quick highlights', 'info');
+        });
+    });
 });
 

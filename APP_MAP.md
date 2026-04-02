@@ -18,6 +18,7 @@
 ### [Log Extractor](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogExtractor.tsx)
 로그 추출 및 실시간 스트리밍 기능을 제공합니다.
 - **Log Settings**: 'Start Logging' 버튼 (인디고 테마의 솔리드 버튼의 기준 디자인).
+- **Interactions**: `Alt + Mouse Double Click` 시 하이라이트 토글, `Alt + Mouse Right Click` 시 모든 퀵 하이라이트 일괄 해제 기능 구현.
 
 ---
-*Last Updated: 2026-04-03*
+*Last Updated: 2026-04-03 (Added Alt+DBClick Highlight)*

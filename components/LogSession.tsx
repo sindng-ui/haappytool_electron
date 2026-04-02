@@ -118,7 +118,9 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         leftWorkerRef, rightWorkerRef,
         splitRatio, setSplitRatio, // ✅ Expose split states
         splitAnalyzerHeight, setSplitAnalyzerHeight, // ✅ 펭귄! 분석창 높이 조절 상태 추가
-        onAddTab // ✅ New Tab Callback
+        onAddTab, // ✅ New Tab Callback
+        addQuickHighlight,
+        clearQuickHighlights
     } = useLogContext();
 
     const [isAnimatingSplit, setIsAnimatingSplit] = React.useState(false);
@@ -340,6 +342,10 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     };
  
     const handleContextMenu = React.useCallback(async (e: React.MouseEvent) => {
+        if (e.altKey) {
+            e.preventDefault();
+            return;
+        }
         // ✅ Prevent default immediately to ensure custom menu works correctly even with async logic
         e.preventDefault();
  
@@ -1189,6 +1195,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 <LogViewerPane
                                     key={`left-pane-${leftFileName || 'empty'}-${leftSegmentIndex}`}
                                     ref={leftViewerRef}
+                                    onQuickHighlight={addQuickHighlight}
+                                    onClearQuickHighlights={clearQuickHighlights}
                                     workerReady={leftWorkerReady}
                                     totalMatches={leftCurrentSegmentLines}
                                     onScrollRequest={requestLeftLines}
@@ -1293,6 +1301,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     <LogViewerPane
                                         key={`right-pane-${rightFileName || 'empty'}-${rightSegmentIndex}`}
                                         ref={rightViewerRef}
+                                        onQuickHighlight={addQuickHighlight}
+                                        onClearQuickHighlights={clearQuickHighlights}
                                         workerReady={rightWorkerReady}
                                         totalMatches={rightCurrentSegmentLines}
                                         onScrollRequest={requestRightLines}
