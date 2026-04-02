@@ -1,22 +1,9 @@
-# 분석 리포트 고도화 및 요약 기능 🐧📊
+# 로그 분석 에이전트 다중 파일 분석 기능 구현
 
-- [x] **Analyze Diff 버튼 UI 및 성능 최적화** 
-- [x] **분석 리포트 탭 시스템 도입**
-- [x] **구간 표시 및 로그 점프 기능 고도화**
-    - [x] SplitAnalysisUtils.ts 라인 번호 추적 필드 추가
-    - [x] SplitAnalysis.worker.ts 결과 데이터에 라인 번호 포함
-    - [x] SplitAnalyzerPanel.tsx 'Top Regressions' 구간 표시 및 로그 점프 기능
-    - [x] 표시 개수 펭-맥스(100개)로 확장
-    - [x] Log Extractor 탭 안정화 및 데이터 영속성 확보 🐧🏗️
-    - [x] `LogWorkerRegistry` 구현 및 멱등성 로직 적용 ✅
-    - [x] 테스트 환경 간섭 문제 해결 (`clearAll` 호출) ✅
-- [x] **로그 렌더링 및 내부 라인 번호 개선** 🐧🔍⚡
-    - [x] 로그 본문 내 `(라인번호)` 추출 로직 구현
-    - [x] 분석 데이터 파이프라인에 `codeLineNum` 전파
-    - [x] 왼쪽 스플릿 로그 렌더링 누락 이슈 해결 🐧🕵️‍♂️
-- [x] NetTraffic 분석 엔진 유닛 테스트 구현 🐧🛡️🧪
-    - [x] 워커 핵심 로직 익스포트 및 `NetTraffic.worker.test.ts` 작성 ✅
-    - [x] 정규식 생성 버그 (`templateToRegex`) 수정 및 검증 ✅
-    - [x] 매 테스트마다 워커 상태 초기화 로직 (`resetInternalState`) 적용 ✅
-- [x] 전체 시스템 안정성 및 리그레션 테스트 (343개 테스트 통과) ✅ 🐧🏁
-- [x] **최종 보고**
+## 작업 목록
+- [x] `AgentConfigPanel.tsx` UI/State 수정 (다중 파일 지원)
+- [x] `useAnalysisAgent.ts` 분석 로직 수정 (다중 파일 처리)
+- [x] `AgentConfigPanel.tsx` 사용자 힌트 필드(PID, TID, 주관식) 추가
+- [x] `useAnalysisAgent.ts` 사용자 힌트 반영 로직 수정
+- [x] `APP_MAP.md` 업데이트 및 확인
+- [x] 워크스루 작성

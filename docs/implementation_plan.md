@@ -1,35 +1,39 @@
-# APP_MAP 통합 및 최적화 계획
+# 로그 분석 에이전트 사용자 힌트 필드 추가 계획
 
-형님! 흩어져 있던 두 개의 `APP_MAP.md` 파일을 하나로 합쳐서 `important` 폴더에 가장 완벽한 상태로 정렬해 두겠습니다. 🐧🛡️🛠️✨
+형님! 에이전트에게 분석의 결정적인 실마리(PID, TID, 주관식 힌트)를 제공할 수 있는 기능을 추가하겠습니다. 🐧🛡️🛠️🚀
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **통합 위치**: 모든 정보는 `important/APP_MAP.md`로 통합됩니다.
-> **기존 파일 처리**: 통합이 완료된 후, 루트 경로(`APP_MAP.md`)에 있는 중복 파일은 삭제하여 형님이 혼란스럽지 않게 관리해 드려도 될까요? (계획 승인 시 삭제도 함께 진행하겠습니다.)
+> **힌트 반영 방식**: 사용자가 입력한 PID, TID, 주관식 힌트는 에이전트에게 전달되는 `initial_hints` 최상단에 명확하게 구분되어 포함됩니다. 이를 통해 에이전트가 분석 시작 전부터 목표 프로세스나 스레드를 인지하고 집중할 수 있게 됩니다.
 
 ## Proposed Changes
 
-### 1. 내용 병합 전략 (Merge Strategy)
-- **최신성 우선**: 최근에 작업한 `Gauss Chat`, `Log Analysis Agent UI 개선`, `ESM 빌드 최적화` 등의 내용은 루트 버전에서 가져옵니다.
-- **상세 데이터 보강**: `important` 버전의 구형 파일에만 남아 있는 `Worker IIFE 기술 규격`, `Startup Progress 최적화(Fake/Creep)`, `ANSI 데이터 사전 제거` 등의 딥다이브한 기술 설명을 유실 없이 복원하여 합칩니다.
-- **구조 정사**: 섹션 번호와 계층 구조를 최신 버전 기준으로 재정렬하고, 중복된 키워드를 정리합니다.
+### 1. UI 개선 (Agent Config Panel)
 
-### 2. 파일 관리
+#### [MODIFY] [AgentConfigPanel.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/LogAnalysisAgent/components/AgentConfigPanel.tsx)
+- **추가 필드**:
+  1. `Process ID (PID)`: 텍스트 입력창.
+  2. `Thread ID (TID)`: 텍스트 입력창.
+  3. `User Hint (주관식)`: 멀티라인 텍스트 영역(TextArea).
+- **레이아웃**: 로그 파일 리스트 바로 아래에 정갈하게 배치합니다.
+- **데이터 전달**: `onStart` 콜백의 매개변수에 위 3가지 값을 추가합니다.
 
-#### [MODIFY] [important/APP_MAP.md](file:///k:/Antigravity_Projects/gitbase/happytool_electron/important/APP_MAP.md)
-- 루트의 최신 내용 + 기존의 상세 설명을 하나로 합친 **최종 결정판**으로 덮어씁니다.
+### 2. 분석 로직 개선 (Analysis Agent Hook)
 
-#### [DELETE] [APP_MAP.md](file:///k:/Antigravity_Projects/gitbase/happytool_electron/APP_MAP.md)
-- 통합 완료 후 루트의 중복 파일을 제거합니다.
+#### [MODIFY] [useAnalysisAgent.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/LogAnalysisAgent/hooks/useAnalysisAgent.ts)
+- **인터페이스 확장**: `startAnalysis`가 `userHints: { pid: string, tid: string, custom: string }` 정보를 추가로 받도록 수정합니다.
+- **힌트 빌드**: `allHints` 문자열을 생성할 때 사용자가 입력한 힌트들을 최상단에 `[USER HINT]` 태그와 함께 추가합니다.
 
 ---
 
 ## Verification Plan
 
 ### Manual Verification
-- 통합된 파일에서 `Gauss Chat`, `Split Analysis`, `Worker Persistence` 등 모든 핵심 키워드가 정상적으로 검색되는지 확인합니다.
-- 파일 경로와 링크가 깨지지 않았는지 최종 점검합니다.
+1. 2개 이상의 로그 파일을 업로드합니다.
+2. 분석 유형과 미션을 선택합니다.
+3. PID(예: 1234), TID(예: 5678), 주관식 힌트(예: "앱 실행 후 3초 뒤에 프리징 발생")를 입력합니다.
+4. '분석 시작'을 누르고 에이전트의 첫 번째 `thought`에서 입력한 힌트들을 언급하는지 확인합니다. (디버그 패널에서 `initial_hints` 원본도 확인 가능)
 
 ---
-형님, 이 계획대로 "완전 통합" 가도 될까요? **Proceed** 혹은 **"고고"** 해주시면 바로 합쳐버리겠습니다! 🐧🔥🛠️
+형님, 이 계획대로 "정밀 힌트" 장착 가도 될까요? **Proceed** 혹은 **"고고"** 해주시면 바로 작업 들어갑니다! 🐧🔥🛠️🚀

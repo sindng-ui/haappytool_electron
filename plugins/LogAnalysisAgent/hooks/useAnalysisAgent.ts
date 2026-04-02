@@ -82,10 +82,10 @@ export function useAnalysisAgent() {
   // ─── 분석 시작 ──────────────────────────────────────────────────────────────
 
   const startAnalysis = useCallback(async (
-    logText: string,
-    logFileName: string,
+    files: { text: string; name: string }[],
     rule: LogRule | null,
     analysisType: AnalysisType,
+    userHints?: { pid: string; tid: string; custom: string }
   ) => {
     const config = loadAgentConfig();
 
@@ -112,27 +112,67 @@ export function useAnalysisAgent() {
     });
 
     try {
-      // ── Step 1: 로그 파싱 ───────────────────────────────────────────────────
-      const logLines = await parseLogText(logText);
+      // ── Step 1: 모든 로그 파싱 및 힌트 추출 ───────────────────────────────────
+      let allHints = "";
+
+      // 사용자가 입력한 추가 힌트 최상단 배치
+      if (userHints) {
+        const { pid, tid, custom } = userHints;
+        if (pid || tid || custom) {
+          allHints += "### [USER HINTS]\n";
+          if (pid) allHints += `- Target Process ID (PID): ${pid}\n`;
+          if (tid) allHints += `- Target Thread ID (TID): ${tid}\n`;
+          if (custom) allHints += `- Custom Context: ${custom}\n`;
+          allHints += "\n";
+        }
+      }
+
+      let totalLinesCount = 0;
+      let totalFilteredCount = 0;
+      const fileNames = files.map(f => f.name).join(", ");
+
+      // 각 파일별로 처리를 진행합니다.
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (cancelledRef.current) { updateState({ status: 'cancelled' }); return; }
+
+        const logLines = await parseLogText(file.text);
+        totalLinesCount += logLines.length;
+
+        const { hints, filteredLines } = await extractHints(
+          logLines,
+          rule,
+          analysisType,
+          (progress) => {
+            // 전체 진행률 계산: (현재 파일 인덱스 + 현재 파일 진행률) / 전체 파일 수
+            const overallProgress = Math.round(((i + (progress / 100)) / files.length) * 100);
+            updateState({ extractionProgress: overallProgress });
+          }
+        );
+
+        if (hints && !hints.includes("(No relevant log entries found")) {
+          allHints += `\n--- SOURCE FILE: ${file.name} ---\n${hints}\n`;
+        }
+        totalFilteredCount += filteredLines;
+      }
 
       if (cancelledRef.current) { updateState({ status: 'cancelled' }); return; }
 
-      // ── Step 2: 1차 힌트 추출 ───────────────────────────────────────────────
-      const { hints, filteredLines } = await extractHints(
-        logLines,
-        rule,
-        analysisType,
-        (progress) => updateState({ extractionProgress: progress })
-      );
-
-      if (cancelledRef.current) { updateState({ status: 'cancelled' }); return; }
+      if (!allHints) {
+        allHints = `(No relevant log entries found for ${analysisType} analysis across ${files.length} files with the selected mission filter)`;
+      }
 
       updateState({ status: 'running', extractionProgress: 100 });
 
-      // ── Step 3: LLM 루프 ────────────────────────────────────────────────────
+      // ── Step 2: LLM 루프 ────────────────────────────────────────────────────
       let previousThought: string | undefined;
       let lastActionResult: string | undefined;
       const missionName = rule?.name ?? 'ALL';
+
+      // (참고) 도구 실행(Log Range 등)은 일단 첫 번째 파일을 기준으로 수행하도록 단순화하거나,
+      // 나중에 파일명을 인자로 받는 로직으로 고도화가 필요할 수 있습니다.
+      // 여기서는 우선 첫 번째 파일의 logLines를 도구 실행용으로 보관합니다.
+      const primaryLogLines = await parseLogText(files[0].text);
 
       for (let iter = 1; iter <= config.maxIterations; iter++) {
         if (cancelledRef.current) { updateState({ status: 'cancelled' }); return; }
@@ -143,13 +183,13 @@ export function useAnalysisAgent() {
           iteration: iter,
           max_iterations: config.maxIterations,
           context: {
-            initial_hints: hints,
+            initial_hints: allHints,
             action_result: lastActionResult,
             previous_thought: previousThought,
             log_stats: {
-              total_lines: logLines.length,
-              filtered_lines: filteredLines,
-              file_name: logFileName,
+              total_lines: totalLinesCount,
+              filtered_lines: totalFilteredCount,
+              file_name: fileNames,
             },
           },
         };
@@ -256,7 +296,7 @@ export function useAnalysisAgent() {
             });
             updateState({ status: 'running', userQuery: null });
           } else {
-            actionResult = await executeAction(action, logLines);
+            actionResult = await executeAction(action, primaryLogLines);
           }
           lastActionResult = actionResult;
         }
