@@ -364,8 +364,9 @@
   - **API Implementation**: [agentApiService.ts](./plugins/LogAnalysisAgent/services/agentApiService.ts) - `agent.sec.samsung.net` 엔드포인트 감지 시 `x-api-key` 헤더 및 `input_value` 필드로 자동 전환되는 로직 탑재. [NEW]
 - **Gauss Chat Plugin** [NEW] 💬:
   - **Purpose**: 삼성 가우스 에이전트와 직접 대화할 수 있는 실시간 스트리밍 채팅 인터페이스.
-  - **Component**: [GaussChatAgent/index.tsx](./plugins/GaussChatAgent/index.tsx) - 프리미엄 다크 모드 채팅 UI.
-  - **Service**: [GaussChatService.ts](./plugins/GaussChatAgent/GaussChatService.ts) - 가우스 에이전트 전용 경량 서비스 레이어.
+  - **Features**: 실시간 스트리밍 응답, **Raw Response 디버그 패널 (실시간 로우 데이터 모니터링)**.
+  - **Component**: [GaussChatAgent/index.tsx](./plugins/GaussChatAgent/index.tsx) - 프리미엄 다크 모드 채팅 UI + 디버그 사이드 패널.
+  - **Service**: [GaussChatService.ts](./plugins/GaussChatAgent/GaussChatService.ts) - 가우스 에이전트 전용 경량 서비스 레이어 (Raw 데이터 콜백 지원).
 
 ---
 

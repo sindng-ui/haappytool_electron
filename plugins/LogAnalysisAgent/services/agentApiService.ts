@@ -182,7 +182,8 @@ export async function sendToAgent(
   request: AgentRequest,
   config: AgentConfig,
   signal?: AbortSignal,
-  onPartialUpdate?: (thought: string) => void
+  onPartialUpdate?: (thought: string) => void,
+  onRawUpdate?: (raw: string) => void
 ): Promise<AgentResponse> {
   if (!config.apiKey) throw new Error('API Key가 설정되지 않았습니다.');
   if (!config.endpoint) throw new Error('API Endpoint가 설정되지 않았습니다.');
@@ -272,6 +273,7 @@ export async function sendToAgent(
       const offChunk = electronAPI.onProxyDataChunk(({ requestId: id, chunk }: any) => {
         if (id !== requestId) return;
         streamBuffer += chunk;
+        if (onRawUpdate) onRawUpdate(chunk); // 원본 청크 전달
         
         if (isGemini) {
           // Gemini 전용 중괄호 추적 파서
@@ -283,6 +285,7 @@ export async function sendToAgent(
           // 가우스 전용 SSE 파서
           streamBuffer = parseGaussStream(streamBuffer, (content) => {
             if (content) {
+              // console.debug('[Gauss] Received chunk:', content); // 디버깅용
               fullThought += content; // 가우스 에이전트(Chat)는 thought 대신 직접 텍스트를 스트리밍함
               onPartialUpdate(fullThought);
               finalJsonResponse += content; // 나중에 한꺼번에 파싱할 수 있도록 누적 (JSON일 경우 대비)
@@ -418,16 +421,32 @@ function parseGaussStream(buffer: string, callback: (content: string) => void): 
   
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || !trimmed.startsWith('data: ')) continue;
+    if (!trimmed) continue;
     
-    const dataStr = trimmed.replace('data: ', '').trim();
-    if (dataStr === '[DONE]') continue;
+    let dataStr = trimmed;
+    if (trimmed.startsWith('data: ')) {
+      dataStr = trimmed.replace('data: ', '').trim();
+    }
+    
+    if (!dataStr || dataStr === '[DONE]') continue;
+    
     try {
       const data = JSON.parse(dataStr);
-      // 가우스 에이전트 스트리밍 필드는 보통 output_value, message, delta 등임
-      const content = data?.output_value || data?.message || data?.delta || '';
-      if (content) callback(content);
-    } catch(e) {}
+      // 가우스 에이전트 스트리밍 필드는 보통 output_value, message, delta, answer 등임
+      const content = data?.output_value || data?.message || data?.delta || data?.answer || data?.text || data?.result || '';
+      if (content) {
+        callback(content);
+      } else if (typeof data === 'string') {
+        // 데이터 자체가 문자열인 경우 (드문 케이스)
+        callback(data);
+      }
+    } catch(e) {
+      // JSON 파싱 실패 시, 혹시 순수 텍스트 스트림인지 확인
+      // (단, 'data: '로 시작하지 않는 일반 텍스트일 경우에만)
+      if (!trimmed.startsWith('data: ') && trimmed.length > 0) {
+        callback(trimmed);
+      }
+    }
   }
   return remaining;
 }
