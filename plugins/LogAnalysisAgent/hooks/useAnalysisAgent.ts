@@ -247,7 +247,13 @@ export function useAnalysisAgent() {
           setState(prev => {
             const newIterations = [...prev.iterations];
             const idx = newIterations.findIndex(it => it.iteration === iter);
-            const record = { iteration: iter, thought, timestamp: Date.now() };
+            const record: IterationRecord = {
+              iteration: iter,
+              thought,
+              rawRequest: request,
+              rawResponse: response,
+              timestamp: Date.now()
+            };
 
             if (idx >= 0) newIterations[idx] = record;
             else newIterations.push(record);
@@ -267,7 +273,13 @@ export function useAnalysisAgent() {
           setState(prev => {
             const newIterations = [...prev.iterations];
             const idx = newIterations.findIndex(it => it.iteration === iter);
-            const record = { iteration: iter, thought, timestamp: Date.now() };
+            const record: IterationRecord = {
+              iteration: iter,
+              thought,
+              rawRequest: request,
+              rawResponse: response,
+              timestamp: Date.now()
+            };
 
             if (idx >= 0) newIterations[idx] = record;
             else newIterations.push(record);
@@ -304,11 +316,13 @@ export function useAnalysisAgent() {
         setState(prev => {
           const newIterations = [...prev.iterations];
           const idx = newIterations.findIndex(it => it.iteration === iter);
-          const record = {
+          const record: IterationRecord = {
             iteration: iter,
             thought,
             action,
             actionResult,
+            rawRequest: request,
+            rawResponse: response,
             timestamp: Date.now(),
           };
 

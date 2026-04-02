@@ -114,5 +114,7 @@ export interface IterationRecord {
   thought: string;
   action?: AgentAction;
   actionResult?: string;
+  rawRequest?: any;   // LLM에 보낸 전체 JSON 요청 데이터
+  rawResponse?: any;  // LLM에서 받은 전체 JSON 응답 데이터
   timestamp: number;
 }
