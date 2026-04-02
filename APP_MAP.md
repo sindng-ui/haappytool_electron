@@ -357,7 +357,11 @@
   - **HAPPY-MCP Protocol v1.1**: 에이전트와 도구 간의 구조화된 통신 규격.
   - **Gemini Structured Output**: 구글 Gemini API의 `response_schema`를 활용하여 100% 신뢰할 수 있는 JSON 응답 보장. [UPDATED]
   - **Multi-step Analysis**: `FETCH_LOG_RANGE`, `SEARCH_KEYWORD` 등의 액션을 통해 LLM이 직접 로그를 탐색하며 분석 수행.
-- **Data Flow**: `Initial Hints (from Log Extractor)` -> `AgentRequest` -> `Gemini/OpenAI API` -> `AgentAction` -> `ActionExecutor` -> `AgentResponse (Final Report)`
+- **Data Flow**: `Initial Hints (from Log Extractor)` -> `AgentRequest` -> `Gemini/OpenAI/Gauss API` -> `AgentAction` -> `ActionExecutor` -> `AgentResponse (Final Report)`
+- **Gauss 2.3 Think Integration** [NEW] 🚀:
+  - **Instructions**: [gauss_system_instructions.md](./docs/gauss_system_instructions.md) - 가우스의 내부 추론(Thinking) 능력을 극대화하는 전용 프롬프트.
+  - **Schema**: [gauss_schema.json](./docs/gauss_schema.json) - 에이전트 빌더용 엄격한 JSON 응답 규격.
+  - **API Reference**: `https://agent.sec.samsung.net/api/v1/run/...` (input_value 기반 Chat 에이전트 방식)
 
 ---
 

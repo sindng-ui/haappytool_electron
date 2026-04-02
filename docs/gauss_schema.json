@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HAPPY-MCP Response Schema for Gauss",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["PROCESSING", "COMPLETED", "ERROR"],
+      "description": "현재 분석 상태 (진행 중, 완료, 에러)"
+    },
+    "thought": {
+      "type": "string",
+      "description": "모델의 내부 추론 과정 요약 (항상 포함 필수)"
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "FETCH_LOG_RANGE",
+            "SEARCH_KEYWORD",
+            "SEARCH_PATTERN",
+            "EXTRACT_STACKTRACE",
+            "CHECK_METRIC",
+            "USER_QUERY"
+          ],
+          "description": "수행할 액션 타입"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "start_line": { "type": "integer" },
+            "end_line": { "type": "integer" },
+            "context_size": { "type": "integer" },
+            "keyword": { "type": "string" },
+            "pattern": { "type": "string" },
+            "ignore_case": { "type": "boolean" },
+            "tid": { "type": "string" },
+            "depth": { "type": "integer" },
+            "metric_type": { "type": "string", "enum": ["CPU", "MEM", "NET", "DISK"] },
+            "question_text": { "type": "string" }
+          },
+          "description": "액션별 파라미터"
+        }
+      },
+      "description": "status가 PROCESSING일 때 필수입니다."
+    },
+    "final_report": {
+      "type": "string",
+      "description": "최종 분석 결과 (Markdown 형식, status가 COMPLETED일 때 필수)"
+    },
+    "error_msg": {
+      "type": "string",
+      "description": "에러 메시지 (status가 ERROR일 때 필수)"
+    }
+  },
+  "required": ["status", "thought"],
+  "additionalProperties": false
+}
