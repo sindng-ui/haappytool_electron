@@ -1,7 +1,7 @@
 // HAPPY-MCP Protocol v1.1
 // Tool(Client) <-> LLM Agent(Server) 통신 규격
 
-export type AnalysisType = 'crash' | 'deadlock' | 'perf' | 'traffic';
+export type AnalysisType = 'crash' | 'deadlock' | 'perf' | 'traffic' | 'chat';
 
 export type AgentStatus = 'PROCESSING' | 'COMPLETED' | 'ERROR';
 

@@ -35,6 +35,7 @@ const ANALYSIS_PROMPTS: Record<AnalysisType, string> = {
 - Slow response times and timeouts
 - Repeated failed requests (retry loops)
 - Suspicious User-Agent patterns or IP sources`,
+  chat: `You are a helpful assistant.`,
 };
 
 const SYSTEM_PROMPT_BASE = `You are an intelligent log analysis agent integrated with HappyTool.
@@ -128,6 +129,12 @@ function buildSystemPrompt(analysisType: AnalysisType): string {
 
 function buildUserMessage(request: AgentRequest): string {
   const { analysis_type, mission_name, iteration, max_iterations, context } = request;
+  
+  // 🐧 채팅 모드일 경우 메타데이터 없이 순수 텍스트만 반환
+  if (analysis_type === 'chat') {
+    return context.initial_hints || '';
+  }
+
   const remaining = max_iterations - iteration;
 
   let message = `## Log Analysis Request
