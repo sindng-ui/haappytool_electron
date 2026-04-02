@@ -183,6 +183,7 @@ export async function sendToAgent(
   const systemPrompt = buildSystemPrompt(request.analysis_type);
   const userMessage = buildUserMessage(request);
   const isGemini = config.endpoint.includes('generativelanguage.googleapis.com');
+  const isGaussAgent = config.endpoint.includes('agent.sec.samsung.net');
   const requestId = `agent-stream-${Date.now()}`;
   const electronAPI = (window as any).electronAPI;
 
@@ -200,6 +201,14 @@ export async function sendToAgent(
         thinkingConfig: { thinkingBudget: -1 },
         responseSchema: HAPPY_MCP_SCHEMA,
       },
+    };
+  } else if (isGaussAgent) {
+    // 삼성 가우스 에지전트 규격 (Agent Run API)
+    headers['x-api-key'] = config.apiKey;
+    body = {
+      input_type: 'chat',
+      output_type: 'chat',
+      input_value: userMessage, // 가우스 에이전트는 이미 Rule/Role을 빌더에 설정함
     };
   } else {
     // OpenAI 규격 (범용)
@@ -228,6 +237,12 @@ export async function sendToAgent(
   let finalUrl = config.endpoint;
   if (isGemini && !finalUrl.includes('key=')) {
     finalUrl += (finalUrl.includes('?') ? '&' : '?') + `key=${config.apiKey}`;
+  }
+  
+  // 가우스 에이전트는 stream 파라미터를 URL 쿼리나 바디에서 조절 가능하지만 
+  // 현재 CURL 예시에서는 ?stream=false를 명시함.
+  if (isGaussAgent && onPartialUpdate) {
+    console.warn('가우스 에이전트는 현재 스트리밍을 지원하지 않아 일반 요청으로 처리합니다.');
   }
 
   // 1️⃣ 스트리밍 모드
@@ -311,6 +326,9 @@ export async function sendToAgent(
 
   if (isGemini) {
     rawContent = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  } else if (isGaussAgent) {
+    // 가우스 에이전트의 일반적인 응답 필드 (output_value, answer, text 중 하나)
+    rawContent = data?.output_value || data?.answer || data?.text || data?.result || '';
   } else {
     rawContent = data?.choices?.[0]?.message?.content || '';
   }
@@ -368,14 +386,27 @@ function parseOpenAIStream(buffer: string, callback: (content: string) => void):
 }
 
 export async function testAgentConnection(config: AgentConfig): Promise<boolean> {
-  const response = await (window as any).electronAPI.proxyRequest({
-    method: 'POST', url: config.endpoint,
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
-    body: JSON.stringify({
+  const isGaussAgent = config.endpoint.includes('agent.sec.samsung.net');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  let body: any;
+
+  if (isGaussAgent) {
+    headers['x-api-key'] = config.apiKey;
+    body = { input_type: 'chat', output_type: 'chat', input_value: 'ping' };
+  } else {
+    headers['Authorization'] = `Bearer ${config.apiKey}`;
+    body = {
       model: config.model,
       messages: [{ role: 'user', content: 'ping' }],
       max_tokens: 5,
-    }),
+    };
+  }
+
+  const response = await (window as any).electronAPI.proxyRequest({
+    method: 'POST', 
+    url: config.endpoint,
+    headers,
+    body: JSON.stringify(body),
   });
   return response.status === 200;
 }

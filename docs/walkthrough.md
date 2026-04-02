@@ -1,33 +1,31 @@
-# 삼성 가우스 2.3 Think 에이전트 최적화 완료
+# 삼성 가우스 에이전트 API 연동 완료
 
-형님! 제공해주신 **Gauss 2.3 Think** 모델의 특성에 맞춰 로그 분석 에이전트가 사용할 **System Instructions**와 **JSON Schema** 작업을 마무리했습니다. 이제 가우스 에이전트 빌더에 이 내용을 복사해서 사용하시면 됩니다! 🐧🚀
+형님! 제공해주신 CURL 규격에 맞춰 **HappyTool과 삼성 가우스 에이전트 간의 통신 채널을 완벽하게 구축**했습니다. 이제 설정만 하시면 바로 분석을 시작하실 수 있습니다! 🐧🚀
 
 ## 작업 내용 요약
 
-### 1. 가우스 전용 시스템 인스트럭션 생성
-- [gauss_system_instructions.md](./gauss_system_instructions.md)
-- **THINKING 특화**: 가우스 2.3 Think 모델의 내부 추론 과정을 명령 체계(THINKING MANDATE)로 공식화하여, 단순히 결과만 내놓는 것이 아니라 깊이 있는 분석을 수행하도록 유도했습니다.
-- **Few-shot 보강**: 가우스가 JSON 구조를 헷갈리지 않도록 `PROCESSING`과 `COMPLETED` 상태에 대한 명확한 응답 예시를 포함했습니다.
+### 1. 가우스 전용 API 핸들러 구현
+- [agentApiService.ts](../plugins/LogAnalysisAgent/services/agentApiService.ts)
+- **자동 엔드포인트 감지**: URL에 `agent.sec.samsung.net`이 포함되면 자동으로 가우스 전용 모드로 전환됩니다.
+- **맞춤형 헤더**: `Authorization` 대신 가우스 전용 `x-api-key` 헤더를 사용하여 인증을 수행합니다.
+- **데이터 바디 최적화**: OpenAI의 `messages` 규격을 가우스 에이전트가 사용하는 `input_value` 규격으로 자동 변환하여 전송합니다.
+- **응답 파싱 보강**: 가우스 응답의 `output_value`, `answer`, `text`, `result` 필드를 모두 확인하여 지능적으로 분석 결과를 추출합니다.
 
-### 2. 가우스 최적화 JSON 스키마 생성
-- [gauss_schema.json](./gauss_schema.json)
-- **엄격한 구조 정의**: `additionalProperties: false`와 필수 필드 구성을 통해 가우스 모델이 OpenAI 호환 API 환경에서 가장 안정적으로 JSON을 뿜어내도록 설계했습니다.
-- **HAPPY-MCP 프로토콜 준수**: 기존 앱 로직과 완벽하게 호환되는 `action` 및 `status` 구조를 유지합니다.
-
-### 3. 프로젝트 지도(APP_MAP.md) 업데이트
+### 2. 프로젝트 지도 업데이트
 - [APP_MAP.md](../APP_MAP.md)
-- `LogAnalysisAgent Plugin` 섹션에 가우스 관련 문서 경로와 API 참조 정보를 추가하여, 나중에 다시 봐도 한눈에 알 수 있게 정리했습니다.
+- 가우스 에이전트 연동 구현 내용을 `HAPPY-MCP` 데이터 흐름도에 명시하여 추후 유지보수가 용이하도록 정리했습니다.
 
 ---
 
-## 형님을 위한 다음 단계 가이드
+## 형님을 위한 연동 가이드
 
-1. **에이전트 빌더 접속**: 삼성 내부 에이전트 빌더 포털에 접속합니다.
-2. **System Instruction 복사**: [gauss_system_instructions.md](./gauss_system_instructions.md)의 내용을 복사해서 붙여넣습니다.
-3. **JSON Schema 설정**: [gauss_schema.json](./gauss_schema.json)의 내용을 스키마 설정 영역에 붙서넣습니다.
-4. **API Key 및 URL 확인**: 제공해주신 CURL 예시의 URL(`https://agent.sec.samsung.net/api/v1/run/...`)을 앱 설정에 적용하시면 끝입니다!
+1. **에이전트 빌더 설정**: 아까 다듬어드린 [gauss_system_instructions.md](./gauss_system_instructions.md) 의 내용을 빌더의 **Rule/Role** 에 넣고 저장해 주세요.
+2. **HappyTool 설정**:
+   - **Endpoint**: `https://agent.sec.samsung.net/api/v1/run/1bd8be4f-d679-dbd2-a9be-9ef9b887801b?stream=false` (CURL에 있던 풀 경로)
+   - **API Key**: 형님의 개인 API Key
+3. **분석 시작**: 로그 익스트랙터에서 '분석 시작'을 누르면 가우스 2.3 Think 모델이 열심히 로그를 파헤치기 시작할 겁니다! 🐧🔥
 
-> [!TIP]
-> Gauss 2.3 Think는 모델 특성상 답변 생성에 시간이 조금 더 걸릴 수 있습니다. 요청 타임아웃을 90초 정도로 넉넉하게 설정하시면 안정적으로 분석 결과를 받아보실 수 있습니다.
+> [!NOTE]
+> 가우스 에이전트 API는 현재 스트리밍을 지원하지 않는 것으로 파악되어, 한 번에 모든 답변을 받아온 뒤 화면에 표시하는 방식으로 동작합니다. 분석이 진행되는 동안 잠시만 기다려 주세요!
 
-형님, 가우스 에이전트가 찰떡같이 로그를 잡아내길 응원하겠습니다! 추가로 손볼 곳이 있으면 언제든 말씀해주세요! 🐧🔥
+형님, 이제 삼성의 가우스 모델과 해피툴이 완벽한 콤비를 이루게 되었습니다. 분석하시다가 또 가려운 부분 생기면 언제든 불러주십쇼! 🐧💪🚀

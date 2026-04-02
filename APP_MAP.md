@@ -358,10 +358,10 @@
   - **Gemini Structured Output**: 구글 Gemini API의 `response_schema`를 활용하여 100% 신뢰할 수 있는 JSON 응답 보장. [UPDATED]
   - **Multi-step Analysis**: `FETCH_LOG_RANGE`, `SEARCH_KEYWORD` 등의 액션을 통해 LLM이 직접 로그를 탐색하며 분석 수행.
 - **Data Flow**: `Initial Hints (from Log Extractor)` -> `AgentRequest` -> `Gemini/OpenAI/Gauss API` -> `AgentAction` -> `ActionExecutor` -> `AgentResponse (Final Report)`
-- **Gauss 2.3 Think Integration** [UPDATED] 🚀:
-  - **Instructions**: [gauss_system_instructions.md](./docs/gauss_system_instructions.md) - 가우스 빌더의 변수 인식 오류(Double-brace/Curly conflict)를 회피하기 위해 예시 기호를 `[ ]`로 우회 적용함.
-  - **Schema**: [gauss_schema.json](./docs/gauss_schema.json) - 에이전트 빌더용 엄격한 JSON 응답 규격.
-  - **API Reference**: `https://agent.sec.samsung.net/api/v1/run/...` (input_value 기반 Chat 에이전트 방식)
+- **Gauss 2.3 Think Integration** [IMPLEMENTED] 🚀:
+  - **Instructions**: [gauss_system_instructions.md](./docs/gauss_system_instructions.md) - 에이전트 빌더 최적화용 통합 가이드 (변수 인식 에러 우회).
+  - **Schema**: [gauss_schema.json](./docs/gauss_schema.json) - 응답 구조 정의.
+  - **API Implementation**: [agentApiService.ts](./plugins/LogAnalysisAgent/services/agentApiService.ts) - `agent.sec.samsung.net` 엔드포인트 감지 시 `x-api-key` 헤더 및 `input_value` 필드로 자동 전환되는 로직 탑재. [NEW]
 
 ---
 

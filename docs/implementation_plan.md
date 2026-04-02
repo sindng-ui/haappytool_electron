@@ -1,30 +1,36 @@
-# 가우스 에이전트 빌더 변수 인식 오류 수정 계획
+# 삼성 가우스 에이전트 API 연동 계획
 
-형님! 가우스 에이전트 빌더가 시스템 인스트럭션 내의 JSON 예제(`{ "status": ... }`)를 템플릿 변수로 오해해서 발생하는 "invalid variables" 에러를 해결하겠습니다.
+형님! 제공해주신 `curl` 명령어를 분석해 보니, 가우스 에이전트 API는 표준 OpenAI 방식과는 다른 독자적인 필드(`input_value`, `x-api-key` 등)를 사용하고 있습니다. HappyTool 설정에서 엔드포인트를 입력했을 때 가우스 엔진이 찰떡같이 돌아가도록 코드를 수정하겠습니다.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> 가우스 빌더는 `{변수명}` 형태를 보면 무조건 입력 변수로 처리하려 합니다. 특히 `"status"` 처럼 큰따옴표가 포함된 키값을 변수명으로 인식하면서 에러가 발생한 것으로 보입니다.
+> 가우스 에이전트 API는 빌더에서 이미 "Rule & Role"을 설정하셨으므로, 앱에서는 분석 대상 로그와 현재 상황(User Message)만 전달하면 됩니다. 
 
 ## Proposed Changes
 
-### 1. [docs/gauss_system_instructions.md](file:///mnt/k/Antigravity_Projects/gitbase/happytool_electron/docs/gauss_system_instructions.md) [MODIFY]
-- **JSON 예시 형식 변경**: 중괄호 `{ }` 대신 다른 기호(예: `[ ]` 또는 `< >`)를 사용하여 빌더의 변수 인식 엔진을 우회합니다.
-- **모델 가이드 추가**: "응답 시에는 반드시 표준 JSON 형식인 중괄호`{}`와 큰따옴표`"`를 사용해야 한다"는 명시적 지침을 추가하여 모델이 혼동하지 않게 합니다.
-- **특수 기호 회피**: 에러 메시지에 언급된 `"status"`가 변수로 인식되지 않도록 예시 텍스트를 다듬습니다.
+### 1. [plugins/LogAnalysisAgent/services/agentApiService.ts](file:///mnt/k/Antigravity_Projects/gitbase/happytool_electron/plugins/LogAnalysisAgent/services/agentApiService.ts) [MODIFY]
+- **가우스 엔드포인트 감지 로직 추가**: `endpoint` URL에 `agent.sec.samsung.net`이 포함되어 있는지 확인합니다.
+- **가우스 전용 요청 규격 구현**:
+    - 헤더: `x-api-key` 사용.
+    - 바디: `{ "input_type": "chat", "output_type": "chat", "input_value": [User Message] }` 형식으로 구성.
+- **응답 파싱 로직 추가**: 가우스 에이전트가 돌려주는 응답(예: `output_value` 등)에서 JSON을 추출하는 로직을 추가합니다. (가우스 에이전트의 정확한 응답 필드명을 확인해야 하지만, 통상적인 에이전트 규격을 우선 적용하겠습니다.)
 
 ---
 
 ## Open Questions
 
-- 빌더 설정 중에 **"변수(Variable)"** 탭에 별도로 정의하신 변수가 있나요? (예: `rules`, `history` 등) 만약 있다면 해당 변수들만 프롬프트에서 `{rules}` 형태로 사용할 수 있습니다.
+- **엔드포인트 입력값**: 형님, 설정창의 **Endpoint** 칸에는 CURL에 보였던 URL 전체를 넣으시면 됩니다:
+  `https://agent.sec.samsung.net/api/v1/run/1bd8be4f-d679-dbd2-a9be-9ef9b887801b?stream=false`
+- **응답 필드 확인**: 가우스 에이전트가 결과를 돌려줄 때 어떤 필드에 담아 주나요? (예: `output_value`, `text`, `answer` 등) 혹시 아신다면 알려주시고, 모르시면 제가 가장 일반적인 `output_value`로 우선 작업해 보겠습니다.
 
 ## Verification Plan
 
+### Automated Tests
+- 가우스 엔드포인트 판별 및 바디 구성 로직에 대한 유닛 테스트(MOCK)를 수행합니다.
+
 ### Manual Verification
-- 수정된 텍스트를 가우스 에이전트 빌더의 'Rule' 또는 'System Instruction' 칸에 다시 붙여넣어 에러가 사라지는지 확인합니다.
-- 가우스 모델과 대화하여, 예시가 바뀌었음에도 불구하고 실제 응답은 올바른 JSON(`{ "status": ... }`)으로 나오는지 테스트합니다.
+- 형님이 실제 엔드포인트와 API Key를 넣고 '분석 시작'을 눌러 가우스 에이전트와 통신이 성공하는지 확인합니다.
 
 ---
-형님, 빌더가 너무 똑똑한 척 하다가 바보가 됐네요! 제가 기호를 살짝 바꿔서 빌더 눈을 속여보겠습니다. [Proceed] 버튼 눌러주세요!
+형님, 이 계획대로 진행해서 가우스와 해피툴을 형제처럼 연결해 볼까요? [Proceed] 버튼 눌러주시면 바로 코드 짜러 갑니다!
