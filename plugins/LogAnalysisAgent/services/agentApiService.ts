@@ -238,11 +238,15 @@ export async function sendToAgent(
   if (isGemini && !finalUrl.includes('key=')) {
     finalUrl += (finalUrl.includes('?') ? '&' : '?') + `key=${config.apiKey}`;
   }
-  
-  // 가우스 에이전트는 stream 파라미터를 URL 쿼리나 바디에서 조절 가능하지만 
-  // 현재 CURL 예시에서는 ?stream=false를 명시함.
-  if (isGaussAgent && onPartialUpdate) {
-    console.warn('가우스 에이전트는 현재 스트리밍을 지원하지 않아 일반 요청으로 처리합니다.');
+
+  // 가우스 에이전트는 stream 파라미터를 URL 쿼리나 바디에서 조절 가능
+  if (isGaussAgent && onPartialUpdate && !finalUrl.includes('stream=true')) {
+    const updatedUrl = finalUrl.replace('stream=false', 'stream=true');
+    if (updatedUrl === finalUrl && !finalUrl.includes('stream=true')) {
+      finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'stream=true';
+    } else {
+      finalUrl = updatedUrl;
+    }
   }
 
   // 1️⃣ 스트리밍 모드
@@ -268,16 +272,20 @@ export async function sendToAgent(
             if (thought) { fullThought += thought; onPartialUpdate(fullThought); }
             if (text) finalJsonResponse += text;
           });
+        } else if (isGaussAgent) {
+          // 가우스 전용 SSE 파서
+          streamBuffer = parseGaussStream(streamBuffer, (content) => {
+            if (content) {
+              fullThought += content; // 가우스 에이전트(Chat)는 thought 대신 직접 텍스트를 스트리밍함
+              onPartialUpdate(fullThought);
+              finalJsonResponse += content; // 나중에 한꺼번에 파싱할 수 있도록 누적 (JSON일 경우 대비)
+            }
+          });
         } else {
           // OpenAI 전용 SSE 파서
           streamBuffer = parseOpenAIStream(streamBuffer, (content) => {
             if (content) {
-              // OpenAI는 보통 thought와 text를 따로 주지 않으므로, 
-              // JSON 조립 전까지는 raw text를 모읍니다. 
-              // (일부 모델은 thought 필드를 JSON 내부에 포함하여 스트리밍함)
               finalJsonResponse += content;
-              
-              // 스트리밍 중인 JSON에서 thought 필드만 추출하여 UI 업데이트 시도
               try {
                 const partial = JSON.parse(extractJsonFromText(finalJsonResponse));
                 if (partial.thought && partial.thought !== fullThought) {
@@ -295,7 +303,18 @@ export async function sendToAgent(
         cleanup();
         try {
           const cleanedJson = extractJsonFromText(finalJsonResponse || '{}');
-          const parsed: AgentResponse = JSON.parse(cleanedJson);
+          // 가우스 에이전트 결과가 순수 텍스트라면 JSON 파싱 대신 수동 조립
+          let parsed: AgentResponse;
+          try {
+            parsed = JSON.parse(cleanedJson);
+          } catch(e) {
+            // JSON이 아니라면(채팅 모드) 수동으로 세팅
+            parsed = { 
+              status: 'COMPLETED' as any, 
+              thought: fullThought,
+              final_report: fullThought.includes('##') ? fullThought : undefined 
+            } as AgentResponse;
+          }
           if (!parsed.thought && fullThought) parsed.thought = fullThought;
           resolve(parsed);
         } catch (e) {
@@ -379,6 +398,27 @@ function parseOpenAIStream(buffer: string, callback: (content: string) => void):
     try {
       const data = JSON.parse(dataStr);
       const content = data?.choices?.[0]?.delta?.content || '';
+      if (content) callback(content);
+    } catch(e) {}
+  }
+  return remaining;
+}
+
+/** 가우스 에이전트 SSE 스트림 파서 */
+function parseGaussStream(buffer: string, callback: (content: string) => void): string {
+  const lines = buffer.split('\n');
+  const remaining = lines.pop() || '';
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || !trimmed.startsWith('data: ')) continue;
+    
+    const dataStr = trimmed.replace('data: ', '').trim();
+    if (dataStr === '[DONE]') continue;
+    try {
+      const data = JSON.parse(dataStr);
+      // 가우스 에이전트 스트리밍 필드는 보통 output_value, message, delta 등임
+      const content = data?.output_value || data?.message || data?.delta || '';
       if (content) callback(content);
     } catch(e) {}
   }

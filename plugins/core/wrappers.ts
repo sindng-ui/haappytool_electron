@@ -200,6 +200,17 @@ export const LogAnalysisAgentPlugin: HappyPlugin = {
     order: 20,
 };
 
+const GaussChatAgent = React.lazy(() => import('../GaussChatAgent/index'));
+const { MessageSquare } = Lucide;
+
+export const GaussChatAgentPlugin: HappyPlugin = {
+    id: ToolId.GAUSS_CHAT_AGENT,
+    name: 'Gauss Chat',
+    icon: MessageSquare,
+    component: GaussChatAgent,
+    order: 21,
+};
+
 export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
     [ToolId.LOG_EXTRACTOR]: LogExtractorPlugin,
     [ToolId.POST_TOOL]: PostToolPlugin,
@@ -220,4 +231,5 @@ export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
     [ToolId.SPEED_SCOPE]: SpeedScopePlugin,
     [ToolId.NET_TRAFFIC_ANALYZER]: NetTrafficAnalyzerPluginWrapper,
     [ToolId.LOG_ANALYSIS_AGENT]: LogAnalysisAgentPlugin,
+    [ToolId.GAUSS_CHAT_AGENT]: GaussChatAgentPlugin,
 };

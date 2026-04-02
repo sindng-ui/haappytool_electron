@@ -1,36 +1,37 @@
-# 삼성 가우스 에이전트 API 연동 계획
+# Gauss Chat 플러그인 신규 개발 계획
 
-형님! 제공해주신 `curl` 명령어를 분석해 보니, 가우스 에이전트 API는 표준 OpenAI 방식과는 다른 독자적인 필드(`input_value`, `x-api-key` 등)를 사용하고 있습니다. HappyTool 설정에서 엔드포인트를 입력했을 때 가우스 엔진이 찰떡같이 돌아가도록 코드를 수정하겠습니다.
-
-## User Review Required
-
-> [!IMPORTANT]
-> 가우스 에이전트 API는 빌더에서 이미 "Rule & Role"을 설정하셨으므로, 앱에서는 분석 대상 로그와 현재 상황(User Message)만 전달하면 됩니다. 
+형님! 가우스 에이전트 빌더 설정이 꼬였을 때 가볍게 테스트도 해보고, 평소에 가우스와 편하게 대화할 수 있는 **'Gauss Chat'**전 전용 플러그인을 만들어보겠습니다. 🐧💬
 
 ## Proposed Changes
 
-### 1. [plugins/LogAnalysisAgent/services/agentApiService.ts](file:///mnt/k/Antigravity_Projects/gitbase/happytool_electron/plugins/LogAnalysisAgent/services/agentApiService.ts) [MODIFY]
-- **가우스 엔드포인트 감지 로직 추가**: `endpoint` URL에 `agent.sec.samsung.net`이 포함되어 있는지 확인합니다.
-- **가우스 전용 요청 규격 구현**:
-    - 헤더: `x-api-key` 사용.
-    - 바디: `{ "input_type": "chat", "output_type": "chat", "input_value": [User Message] }` 형식으로 구성.
-- **응답 파싱 로직 추가**: 가우스 에이전트가 돌려주는 응답(예: `output_value` 등)에서 JSON을 추출하는 로직을 추가합니다. (가우스 에이전트의 정확한 응답 필드명을 확인해야 하지만, 통상적인 에이전트 규격을 우선 적용하겠습니다.)
+### 1. [plugins/GaussAgentChat/index.tsx](file:///mnt/k/Antigravity_Projects/gitbase/happytool_electron/plugins/GaussAgentChat/index.tsx) [NEW]
+- **채팅 UI 구현**: 메시지 리스트(말풍선 형태)와 하단 입력창을 포함한 모던한 다크 모드 UI를 구축합니다.
+- **상태 관리**: 대화 내역(history)과 로딩 상태를 관리합니다.
+- **Lucide 아이콘**: `MessageSquare`, `Send`, `Bot` 등의 아이콘을 활용하여 디자인 완성도를 높입니다.
+
+### 2. [plugins/GaussAgentChat/services/gaussChatService.ts](file:///mnt/k/Antigravity_Projects/gitbase/happytool_electron/plugins/GaussAgentChat/services/gaussChatService.ts) [NEW]
+- **API 연동**: 기존 `agentApiService`의 가우스 로직을 활용하거나, 더 단순화된 가우스 전용 호출 함수를 구현합니다.
+- **CURL 규격 준수**: 형님이 말씀하신 `{ "input_type": "chat", "output_type": "chat", "input_value": "..." }` 규격을 엄격히 따릅니다.
+
+### 3. [plugins/core/wrappers.ts](file:///mnt/k/Antigravity_Projects/gitbase/happytool_electron/plugins/core/wrappers.ts) & [plugins/registry.ts](file:///mnt/k/Antigravity_Projects/gitbase/happytool_electron/plugins/registry.ts) [MODIFY]
+- **플러그인 등록**: 새로운 `GaussChatPlugin`을 시스템에 등록하여 사이드바에서 바로 접근할 수 있게 합니다.
 
 ---
+
+## Design Aesthetics (Premium UI)
+- **Glassmorphism**: 입력창과 메시지 카드에 반투명 효과 적용.
+- **Micro-animations**: 메시지 전송 시 부드러운 애니메이션 효과.
+- **Harmonious Palette**: 가우스의 정체성을 담은 딥 블루 및 일렉트릭 블루 색상 조합.
 
 ## Open Questions
 
-- **엔드포인트 입력값**: 형님, 설정창의 **Endpoint** 칸에는 CURL에 보였던 URL 전체를 넣으시면 됩니다:
-  `https://agent.sec.samsung.net/api/v1/run/1bd8be4f-d679-dbd2-a9be-9ef9b887801b?stream=false`
-- **응답 필드 확인**: 가우스 에이전트가 결과를 돌려줄 때 어떤 필드에 담아 주나요? (예: `output_value`, `text`, `answer` 등) 혹시 아신다면 알려주시고, 모르시면 제가 가장 일반적인 `output_value`로 우선 작업해 보겠습니다.
+- **시스템 프롬프트 필요 여부**: 빌더에 이미 프롬프트를 넣으셨으므로, 앱에서는 별도의 시스템 프롬프트 없이 순수하게 `input_value`만 보낼까요? 아니면 앱에서도 기본 대화 가이드를 살짝 얹어줄까요?
 
 ## Verification Plan
 
-### Automated Tests
-- 가우스 엔드포인트 판별 및 바디 구성 로직에 대한 유닛 테스트(MOCK)를 수행합니다.
-
 ### Manual Verification
-- 형님이 실제 엔드포인트와 API Key를 넣고 '분석 시작'을 눌러 가우스 에이전트와 통신이 성공하는지 확인합니다.
+- 가우스 에이전트 엔드포인트와 키를 설정한 후, 실제 대화를 시도하여 응답이 정상적으로 출력되는지 확인합니다.
+- 긴 문장 입력 및 응답 지연 시의 로딩 스피너 작동 여부를 확인합니다.
 
 ---
-형님, 이 계획대로 진행해서 가우스와 해피툴을 형제처럼 연결해 볼까요? [Proceed] 버튼 눌러주시면 바로 코드 짜러 갑니다!
+형님, "로그 분석" 말고 그냥 "가우스랑 노는" 기능 하나 제대로 뽑아보겠습니다. [Proceed] 눌러주시면 바로 망치질 시작합니다! 🐧🔥💬

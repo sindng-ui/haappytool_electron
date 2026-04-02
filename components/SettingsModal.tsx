@@ -36,7 +36,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
     useEffect(() => {
         const raw = localStorage.getItem('happytool_agent_config');
         if (raw) {
-            try { setAgentConfig(prev => ({ ...prev, ...JSON.parse(raw) })); } catch (e) {}
+            try { setAgentConfig(prev => ({ ...prev, ...JSON.parse(raw) })); } catch (e) { }
         }
     }, []);
 
@@ -512,7 +512,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                     </button>
                                 </div>
                                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    원격 LLM(예: GPT-4, Claude)과 통신하기 위한 API 설정을 구성합니다. 설정은 암호화되지 않은 형태로 localStorage에 저장됩니다. (공용 PC 주의)
+                                    SR Agent Builder(Gauss)와 통신하기 위한 API 설정을 구성합니다. 설정은 암호화되지 않은 형태로 localStorage에 저장됩니다. (공용 PC 주의)
                                 </p>
 
                                 <div className="bg-white dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-white/5 p-6 space-y-5">
@@ -528,7 +528,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         />
                                     </div>
-                                    
+
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 gap-1 flex items-center">
                                             API Key
