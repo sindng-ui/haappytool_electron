@@ -114,147 +114,162 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = ({
   }, [onReset]);
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto custom-scrollbar px-3 pt-3 pb-6 space-y-6 bg-[#020617]/50">
+    <div className="flex flex-col h-full overflow-y-auto custom-scrollbar px-3 pt-3 pb-6 space-y-6 bg-[#020617]/40 backdrop-blur-xl">
       {/* 1단계: 분석 모드 및 미션 */}
-      <section className="space-y-1">
+      <section className="space-y-1.5">
         <div className="flex items-center gap-2 px-1 text-indigo-400">
-          <Settings size={14} className="opacity-80" />
-          <h3 className="text-[11px] font-black uppercase tracking-[0.2em]">Analysis Mode</h3>
+          <Settings size={14} className="opacity-80 icon-glow" />
+          <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-glow">Analysis Mode</h3>
         </div>
 
-        <div className="bg-[#0f172a]/40 border border-slate-800/60 rounded-2xl p-4 space-y-5 shadow-inner">
-          {/* 분석 유형 */}
-          <div>
-            <div className="grid grid-cols-4 gap-2">
-              {ANALYSIS_TYPES.map(at => (
-                <button
-                  key={at.value}
-                  onClick={() => setAnalysisType(at.value)}
-                  disabled={isRunning}
-                  className={`flex flex-col items-center justify-center gap-1.5 p-2.5 rounded-xl border transition-all text-center group min-h-[72px] relative overflow-hidden ${analysisType === at.value
-                    ? 'border-indigo-500 bg-indigo-500/10 text-white shadow-lg shadow-indigo-500/10'
-                    : 'border-slate-800 bg-[#020617]/40 text-slate-500 hover:border-slate-700 hover:bg-[#020617]/80'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  <span className={`text-xl transition-transform duration-500 group-hover:scale-110 ${analysisType === at.value ? 'scale-110' : ''}`}>
-                    {at.emoji}
-                  </span>
-                  <span className={`font-black text-[9px] tracking-tighter uppercase leading-none ${analysisType === at.value ? 'text-indigo-200' : 'text-slate-400'}`}>{at.label.split(' ')[0]}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className={`card-gradient p-[1px] group/section transition-all duration-300 relative ${isDropdownOpen ? 'z-50' : 'z-10'}`}>
+          <div className="bg-[#0f172a]/70 backdrop-blur-sm rounded-2xl p-5 space-y-5 relative">
+            {/* 좌우 하이라이트 그라데이션 오버레이 */}
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-white/5 via-transparent to-white/5 opacity-40 group-hover/section:opacity-60 transition-opacity duration-500" />
+            <div className="absolute inset-0 rounded-2xl pointer-events-none border border-white/5 bg-gradient-to-br from-white/10 to-transparent" />
 
-          {/* Mission 선택 */}
-          <div className="space-y-1">
-            <label className="block text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1">
-              Mission Filter
-            </label>
-            <div className="relative" ref={dropdownRef}>
-              <button
-                type="button"
-                onClick={() => !isRunning && setIsDropdownOpen(!isDropdownOpen)}
-                disabled={isRunning}
-                className="w-full bg-[#020617]/80 border border-slate-800/80 rounded-xl px-4 py-3 text-[12px] text-white flex items-center justify-between hover:border-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-50 font-bold group"
-              >
-                <span className="truncate">
-                  {selectedRuleId
-                    ? logRules.find(r => r.id === selectedRuleId)?.name || '전체 로그 분석 (필터 없음)'
-                    : '전체 로그 분석 (필터 없음)'}
-                </span>
-                <ChevronDown size={14} className={`text-slate-500 group-hover:text-white transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {isDropdownOpen && (
-                <div className="absolute top-full left-0 w-full mt-1.5 bg-[#0f172a] border border-slate-700/50 rounded-xl shadow-2xl z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div
-                    onClick={() => { setSelectedRuleId(''); setIsDropdownOpen(false); }}
-                    className={`px-4 py-2.5 text-[12px] cursor-pointer transition-colors ${!selectedRuleId ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
-                  >
-                    전체 로그 분석 (필터 없음)
-                  </div>
-                  {logRules.map(rule => (
-                    <div
-                      key={rule.id}
-                      onClick={() => { setSelectedRuleId(rule.id); setIsDropdownOpen(false); }}
-                      className={`px-4 py-2.5 text-[12px] cursor-pointer transition-colors ${selectedRuleId === rule.id ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
+            <div className="relative z-10 space-y-5">
+              {/* 분석 유형 */}
+              <div>
+                <div className="grid grid-cols-4 gap-2">
+                  {ANALYSIS_TYPES.map(at => (
+                    <button
+                      key={at.value}
+                      onClick={() => setAnalysisType(at.value)}
+                      disabled={isRunning}
+                      className={`flex flex-col items-center justify-center gap-1.5 p-2.5 rounded-xl border transition-all duration-300 text-center group min-h-[72px] relative overflow-hidden ${analysisType === at.value
+                        ? 'border-indigo-500/50 bg-indigo-500/20 text-white shadow-lg shadow-indigo-500/20'
+                        : 'border-slate-800 bg-[#020617]/60 text-slate-500 hover:border-slate-600 hover:bg-[#020617]/90'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
-                      {rule.name}
-                    </div>
+                      {analysisType === at.value && (
+                        <div className="absolute inset-0 bg-indigo-500/5 animate-pulse" />
+                      )}
+                      <span className={`text-xl transition-transform duration-500 group-hover:scale-110 ${analysisType === at.value ? 'scale-110 rotate-3' : 'grayscale group-hover:grayscale-0 opacity-70'}`}>
+                        {at.emoji}
+                      </span>
+                      <span className={`font-black text-[9px] tracking-tighter uppercase leading-none transition-colors ${analysisType === at.value ? 'text-indigo-200' : 'text-slate-500 group-hover:text-slate-300'}`}>{at.label.split(' ')[0]}</span>
+                    </button>
                   ))}
                 </div>
-              )}
+              </div>
+
+              {/* Mission 선택 */}
+              <div className="space-y-1.5">
+                <label className="block text-[9px] font-black text-slate-500 uppercase tracking-[0.15em] ml-1 opacity-80">
+                  Mission Filter
+                </label>
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => !isRunning && setIsDropdownOpen(!isDropdownOpen)}
+                    disabled={isRunning}
+                    className="w-full bg-[#020617]/90 border border-white/5 rounded-xl px-4 py-3.5 text-[12px] text-white flex items-center justify-between hover:border-indigo-500/30 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-50 font-bold group shadow-inner"
+                  >
+                    <span className="truncate group-hover:text-indigo-200 transition-colors">
+                      {selectedRuleId
+                        ? logRules.find(r => r.id === selectedRuleId)?.name || '전체 로그 분석 (필터 없음)'
+                        : '전체 로그 분석 (필터 없음)'}
+                    </span>
+                    <ChevronDown size={14} className={`text-slate-500 group-hover:text-indigo-400 transition-all duration-300 ${isDropdownOpen ? 'rotate-180 text-indigo-400' : ''}`} />
+                  </button>
+
+                  {isDropdownOpen && (
+                    <div className="absolute top-full left-0 w-full mt-2 bg-[#0f172a] border border-white/20 rounded-xl shadow-[0_20px_80px_rgba(0,0,0,0.8)] z-50 overflow-y-auto max-h-[300px] custom-scrollbar py-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div
+                        onClick={() => { setSelectedRuleId(''); setIsDropdownOpen(false); }}
+                        className={`px-4 py-2.5 text-[12px] cursor-pointer transition-colors ${!selectedRuleId ? 'bg-indigo-600/80 text-white font-black' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                      >
+                        전체 로그 분석 (필터 없음)
+                      </div>
+                      {logRules.map(rule => (
+                        <div
+                          key={rule.id}
+                          onClick={() => { setSelectedRuleId(rule.id); setIsDropdownOpen(false); }}
+                          className={`px-4 py-3 text-[12px] cursor-pointer transition-colors border-t border-white/5 ${selectedRuleId === rule.id ? 'bg-indigo-600/80 text-white font-black' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                        >
+                          {rule.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* 2단계: 로그 소스 */}
-      <section className="space-y-1">
+      <section className="space-y-1.5">
         <div className="flex items-center justify-between px-1 text-emerald-400">
           <div className="flex items-center gap-2">
-            <Layers size={14} className="opacity-80" />
-            <h3 className="text-[11px] font-black uppercase tracking-[0.2em]">Log Sources ({files.length})</h3>
+            <Layers size={14} className="opacity-80 icon-glow" />
+            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-glow">Log Sources ({files.length})</h3>
           </div>
           {files.length > 0 && !isRunning && (
             <button
               onClick={handleClearAll}
-              className="text-[9px] text-red-500/40 hover:text-red-400 transition-all uppercase tracking-[0.1em] font-black"
+              className="text-[9px] text-red-500/60 hover:text-red-400 transition-all uppercase tracking-[0.1em] font-black"
             >
               Clear All
             </button>
           )}
         </div>
 
-        <div className="bg-[#0f172a]/40 border border-slate-800/60 rounded-2xl p-4 space-y-4 shadow-inner">
-          <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto custom-scrollbar-sm pr-1">
-            {files.map(file => (
-              <div key={file.id} className="bg-[#020617]/60 border border-slate-800/50 rounded-xl p-3 flex items-center gap-4 group hover:border-emerald-500/30 transition-all">
-                <div className="w-9 h-9 bg-emerald-500/5 rounded-lg flex items-center justify-center flex-shrink-0 border border-emerald-500/10">
-                  <FileText size={18} className="text-emerald-400/60" />
+        <div className="card-gradient p-[1px] group/section z-10 relative">
+          <div className="bg-[#0f172a]/70 backdrop-blur-sm rounded-2xl p-4 space-y-4 relative">
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-white/5 via-transparent to-white/5 opacity-40 group-hover/section:opacity-60 transition-opacity duration-500" />
+            
+            <div className="relative z-10 flex flex-col gap-2 max-h-[220px] overflow-y-auto custom-scrollbar-sm pr-1">
+              {files.map(file => (
+                <div key={file.id} className="bg-[#020617]/80 border border-white/5 rounded-xl p-3.5 flex items-center gap-4 group/item hover:border-emerald-500/30 transition-all shadow-lg hover:bg-emerald-500/5">
+                  <div className="w-9 h-9 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0 border border-emerald-500/20 group-hover/item:scale-110 transition-transform">
+                    <FileText size={18} className="text-emerald-400/80" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-black text-slate-100 truncate mb-0.5">{file.name}</p>
+                    <p className="text-[9px] text-emerald-400/50 font-black uppercase tracking-wider">
+                      {file.lineCount.toLocaleString()} Lines
+                    </p>
+                  </div>
+                  {!isRunning && (
+                    <button
+                      onClick={() => handleRemoveFile(file.id)}
+                      className="p-1.5 hover:bg-red-500/20 rounded-lg text-slate-600 hover:text-red-400 transition-all flex-shrink-0 group-hover/item:opacity-100"
+                      title="제거"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-bold text-slate-100 truncate mb-0.5">{file.name}</p>
-                  <p className="text-[9px] text-emerald-400/40 font-black uppercase tracking-wider">
-                    {file.lineCount.toLocaleString()} Lines
-                  </p>
-                </div>
-                {!isRunning && (
-                  <button
-                    onClick={() => handleRemoveFile(file.id)}
-                    className="p-1.5 hover:bg-red-500/10 rounded-lg text-slate-600 hover:text-red-400 transition-all flex-shrink-0"
-                    title="제거"
-                  >
-                    <X size={14} />
-                  </button>
+              ))}
+
+              {/* 파일 추가 영역 */}
+              <div
+                onClick={() => !isRunning && fileInputRef.current?.click()}
+                onDragOver={e => { if (!isRunning) { e.preventDefault(); setIsDragOver(true); } }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={e => { if (!isRunning) handleDrop(e); }}
+                className={`border-2 border-dashed rounded-xl p-5 text-center flex items-center justify-center gap-3 transition-all ${isRunning
+                  ? 'border-slate-800/10 bg-transparent cursor-not-allowed pointer-events-none opacity-10'
+                  : `group/add border-white/5 bg-[#020617]/60 hover:border-emerald-500/30 hover:bg-emerald-500/5 cursor-pointer ${isDragOver ? 'border-emerald-400/50 bg-emerald-500/10 scale-[0.98]' : ''}`
+                  }`}
+              >
+                {isLoadingFile ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">Loading...</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload size={16} className={`transition-all duration-300 ${isRunning ? 'text-slate-800' : 'text-slate-600 group-hover/add:text-emerald-400 group-hover/add:scale-110'}`} />
+                    <p className={`text-[9px] uppercase tracking-[0.25em] transition-colors ${isRunning ? 'text-slate-800 font-medium' : 'text-slate-600 group-hover/add:text-slate-200 font-black'}`}>
+                      Drop or Click to Add Log
+                    </p>
+                  </>
                 )}
               </div>
-            ))}
-
-            {/* 파일 추가 영역 */}
-            <div
-              onClick={() => !isRunning && fileInputRef.current?.click()}
-              onDragOver={e => { if (!isRunning) { e.preventDefault(); setIsDragOver(true); } }}
-              onDragLeave={() => setIsDragOver(false)}
-              onDrop={e => { if (!isRunning) handleDrop(e); }}
-              className={`border-2 border-dashed rounded-xl p-4 text-center flex items-center justify-center gap-3 transition-all ${isRunning
-                ? 'border-slate-800/10 bg-transparent cursor-not-allowed pointer-events-none opacity-10'
-                : `group border-slate-800/60 bg-[#020617]/40 hover:border-emerald-500/20 hover:bg-[#020617]/60 cursor-pointer ${isDragOver ? 'border-emerald-500/40 bg-emerald-500/5' : ''}`
-                }`}
-            >
-              {isLoadingFile ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">Loading...</p>
-                </>
-              ) : (
-                <>
-                  <Upload size={14} className={`transition-colors ${isRunning ? 'text-slate-800' : 'text-slate-600 group-hover:text-emerald-400'}`} />
-                  <p className={`text-[9px] uppercase tracking-[0.2em] transition-colors ${isRunning ? 'text-slate-800 font-medium' : 'text-slate-600 group-hover:text-slate-300 font-black'}`}>
-                    Add Log File
-                  </p>
-                </>
-              )}
             </div>
           </div>
         </div>
@@ -270,54 +285,69 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = ({
       </section>
 
       {/* 3단계: 분석 컨텍스트 */}
-      <section className="space-y-1">
+      <section className="space-y-1.5">
         <div className="flex items-center gap-2 px-1 text-rose-400">
-          <Target size={14} className="opacity-80" />
-          <h3 className="text-[11px] font-black uppercase tracking-[0.2em]">Target Context</h3>
+          <Target size={14} className="opacity-80 icon-glow" />
+          <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-glow">Target Context</h3>
         </div>
 
-        <div className="bg-[#0f172a]/40 border border-slate-800/60 rounded-2xl p-4 space-y-5 shadow-inner">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="block text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1">
-                Process ID (PID)
-              </label>
-              <input
-                type="text"
-                value={pid}
-                onChange={e => setPid(e.target.value)}
-                disabled={isRunning}
-                placeholder="e.g. 1234"
-                className="w-full bg-[#020617] border border-slate-800/80 rounded-xl px-4 py-3 text-[12px] text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500/60 transition-all placeholder:text-slate-700 font-bold"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="block text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1">
-                Thread ID (TID)
-              </label>
-              <input
-                type="text"
-                value={tid}
-                onChange={e => setTid(e.target.value)}
-                disabled={isRunning}
-                placeholder="e.g. 5678"
-                className="w-full bg-[#020617] border border-slate-800/80 rounded-xl px-4 py-3 text-[12px] text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500/60 transition-all placeholder:text-slate-700 font-bold"
-              />
-            </div>
-          </div>
+        <div className="card-gradient p-[1px] group/section z-10 relative">
+          <div className="bg-[#0f172a]/70 backdrop-blur-sm rounded-2xl p-5 space-y-5 relative">
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-white/5 via-transparent to-white/5 opacity-40 group-hover/section:opacity-60 transition-opacity duration-500" />
+            
+            <div className="relative z-10 space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1 opacity-80">
+                    Process ID (PID)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={pid}
+                      onChange={e => setPid(e.target.value)}
+                      disabled={isRunning}
+                      placeholder="e.g. 1234"
+                      className="w-full bg-[#020617] border border-white/10 rounded-xl px-4 py-3 text-[12px] text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500/50 transition-all placeholder:text-slate-600 font-bold"
+                    />
+                    <div className="absolute inset-0 rounded-xl pointer-events-none border border-white/5 bg-gradient-to-br from-white/5 to-transparent opacity-10" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1 opacity-80">
+                    Thread ID (TID)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={tid}
+                      onChange={e => setTid(e.target.value)}
+                      disabled={isRunning}
+                      placeholder="e.g. 5678"
+                      className="w-full bg-[#020617] border border-white/10 rounded-xl px-4 py-3 text-[12px] text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500/50 transition-all placeholder:text-slate-600 font-bold"
+                    />
+                    <div className="absolute inset-0 rounded-xl pointer-events-none border border-white/5 bg-gradient-to-br from-white/5 to-transparent opacity-10" />
+                  </div>
+                </div>
+              </div>
 
-          <div className="space-y-1">
-            <label className="block text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1">
-              User Hints
-            </label>
-            <textarea
-              value={userHint}
-              onChange={e => setUserHint(e.target.value)}
-              disabled={isRunning}
-              placeholder="분석 정밀도를 위해 힌트를 추가해주세요..."
-              rows={3}
-              className="w-full bg-[#020617] border border-slate-800/80 rounded-xl px-4 py-3 text-[12px] text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500/60 transition-all placeholder:text-slate-700 resize-none custom-scrollbar-sm font-bold"
-            />
+              <div className="space-y-1.5">
+                <label className="block text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1 opacity-80">
+                  User Hints
+                </label>
+                <div className="relative">
+                  <textarea
+                    value={userHint}
+                    onChange={e => setUserHint(e.target.value)}
+                    disabled={isRunning}
+                    placeholder="분석 정밀도를 위해 힌트를 추가해주세요..."
+                    rows={3}
+                    className="w-full bg-[#020617] border border-white/10 rounded-xl px-4 py-3.5 text-[12px] text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500/50 transition-all placeholder:text-slate-600 resize-none custom-scrollbar-sm font-bold"
+                  />
+                  <div className="absolute inset-0 rounded-xl pointer-events-none border border-white/5 bg-gradient-to-br from-white/5 to-transparent opacity-10" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
