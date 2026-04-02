@@ -116,7 +116,7 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = ({
   return (
     <div className="flex flex-col h-full overflow-y-auto custom-scrollbar px-3 pt-3 pb-6 space-y-6 bg-[#020617]/50">
       {/* 1단계: 분석 모드 및 미션 */}
-      <section className="space-y-3">
+      <section className="space-y-1">
         <div className="flex items-center gap-2 px-1 text-indigo-400">
           <Settings size={14} className="opacity-80" />
           <h3 className="text-[11px] font-black uppercase tracking-[0.2em]">Analysis Mode</h3>
@@ -146,7 +146,7 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = ({
           </div>
 
           {/* Mission 선택 */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <label className="block text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1">
               Mission Filter
             </label>
@@ -190,7 +190,7 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = ({
       </section>
 
       {/* 2단계: 로그 소스 */}
-      <section className="space-y-3">
+      <section className="space-y-1">
         <div className="flex items-center justify-between px-1 text-emerald-400">
           <div className="flex items-center gap-2">
             <Layers size={14} className="opacity-80" />
@@ -270,7 +270,7 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = ({
       </section>
 
       {/* 3단계: 분석 컨텍스트 */}
-      <section className="space-y-3">
+      <section className="space-y-1">
         <div className="flex items-center gap-2 px-1 text-rose-400">
           <Target size={14} className="opacity-80" />
           <h3 className="text-[11px] font-black uppercase tracking-[0.2em]">Target Context</h3>
@@ -278,7 +278,7 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = ({
 
         <div className="bg-[#0f172a]/40 border border-slate-800/60 rounded-2xl p-4 space-y-5 shadow-inner">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-1">
               <label className="block text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1">
                 Process ID (PID)
               </label>
@@ -291,7 +291,7 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = ({
                 className="w-full bg-[#020617] border border-slate-800/80 rounded-xl px-4 py-3 text-[12px] text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500/60 transition-all placeholder:text-slate-700 font-bold"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1">
               <label className="block text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1">
                 Thread ID (TID)
               </label>
@@ -306,7 +306,7 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = ({
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <label className="block text-[9px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1">
               User Hints
             </label>
