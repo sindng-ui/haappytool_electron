@@ -1,39 +1,38 @@
-# 로그 분석 에이전트 사용자 힌트 필드 추가 계획
+# 로그 분석 에이전트: "Execute Analysis" 버튼 (Log Extractor 스타일) 리뉴얼 계획
 
-형님! 에이전트에게 분석의 결정적인 실마리(PID, TID, 주관식 힌트)를 제공할 수 있는 기능을 추가하겠습니다. 🐧🛡️🛠️🚀
+형님! 캡처1에서 테두리가 없어서 밋밋해 보였군요. 죄송합니다! 🐧🛡️ 
+캡처2의 **"선명한 하이라이트 테두리"**와 **"클린한 인디고 베이스"**를 그대로 이식해서, Log Extractor와 완벽하게 일체화된 버튼을 완성하겠습니다!
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **힌트 반영 방식**: 사용자가 입력한 PID, TID, 주관식 힌트는 에이전트에게 전달되는 `initial_hints` 최상단에 명확하게 구분되어 포함됩니다. 이를 통해 에이전트가 분석 시작 전부터 목표 프로세스나 스레드를 인지하고 집중할 수 있게 됩니다.
+> **핵심 개선 방향**:
+> 1. **선명한 포인트 테두리 (Outer Border)**: 캡처2처럼 버튼 전체에 **`Indigo-400/50`** 수준의 선명한 테두리를 둘러 주변 배경과 확실히 구분되게 합니다. ✨
+> 2. **3D 립 제거 & 슬림화**: 묵직했던 하단 3D 립(`border-b-4`)을 제거하고, 캡처2의 세련되고 클린한 현대적 레이아웃으로 변경합니다.
+> 3. **인디고 글래스 배경**: 단순 솔리드가 아닌, 약간의 투명도가 느껴지는 **인디고 글래스(`bg-indigo-600/20`)** 배경을 사용하여 고급스러움을 더합니다.
+> 4. **아이콘 복귀 (Optional)**: 캡처2는 `Play` 아이콘을 사용합니다. 형님이 캡처1의 `Zap`을 선호하셨지만, 전체적인 동기화를 위해 **`Play` 아이콘**으로 복귀하거나 더 세련된 형태로 다듬겠습니다. (일단 캡처2의 `Play`로 제안드립니다.)
 
 ## Proposed Changes
 
-### 1. UI 개선 (Agent Config Panel)
+### 1. `AgentConfigPanel.tsx` 버튼 디자인 최종 동기화
 
 #### [MODIFY] [AgentConfigPanel.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/LogAnalysisAgent/components/AgentConfigPanel.tsx)
-- **추가 필드**:
-  1. `Process ID (PID)`: 텍스트 입력창.
-  2. `Thread ID (TID)`: 텍스트 입력창.
-  3. `User Hint (주관식)`: 멀티라인 텍스트 영역(TextArea).
-- **레이아웃**: 로그 파일 리스트 바로 아래에 정갈하게 배치합니다.
-- **데이터 전달**: `onStart` 콜백의 매개변수에 위 3가지 값을 추가합니다.
-
-### 2. 분석 로직 개선 (Analysis Agent Hook)
-
-#### [MODIFY] [useAnalysisAgent.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/LogAnalysisAgent/hooks/useAnalysisAgent.ts)
-- **인터페이스 확장**: `startAnalysis`가 `userHints: { pid: string, tid: string, custom: string }` 정보를 추가로 받도록 수정합니다.
-- **힌트 빌드**: `allHints` 문자열을 생성할 때 사용자가 입력한 힌트들을 최상단에 `[USER HINT]` 태그와 함께 추가합니다.
+- **비주얼 개편**:
+    - `border border-indigo-400/50` (선명한 외곽선 추가)
+    - `bg-indigo-600/10` -> `hover:bg-indigo-500/20` (인디고 글래스 효과)
+    - `shadow-none` (그림자 대신 테두리 강조)
+- **아이콘 & 레이블**:
+    - `Zap` -> `Play` (Log Extractor와 동일 아이콘 적용)
+    - `EXECUTE ANALYSIS` 레이블 유지 (자간 최적화)
 
 ---
 
 ## Verification Plan
 
 ### Manual Verification
-1. 2개 이상의 로그 파일을 업로드합니다.
-2. 분석 유형과 미션을 선택합니다.
-3. PID(예: 1234), TID(예: 5678), 주관식 힌트(예: "앱 실행 후 3초 뒤에 프리징 발생")를 입력합니다.
-4. '분석 시작'을 누르고 에이전트의 첫 번째 `thought`에서 입력한 힌트들을 언급하는지 확인합니다. (디버그 패널에서 `initial_hints` 원본도 확인 가능)
+1. 버튼 외곽에 선명한 테두리가 생겨서 캡처2와 동일한 느낌이 나는지 확인합니다.
+2. Log Extractor의 'Start Logging' 버튼과 디자인적으로 완벽하게 어울리는지 확인합니다.
+3. 시인성이 대폭 개선되었는지 최종 점검합니다. 🐧💎👔✨
 
 ---
-형님, 이 계획대로 "정밀 힌트" 장착 가도 될까요? **Proceed** 혹은 **"고고"** 해주시면 바로 작업 들어갑니다! 🐧🔥🛠️🚀
+형님, 이번엔 진짜 캡처2의 그 "착 달라붙는" 테두리 느낌 제대로 살려보겠습니다. **Proceed** 혹은 **"거거"** 부탁드립니다! 🐧🔥👔🚀✨
