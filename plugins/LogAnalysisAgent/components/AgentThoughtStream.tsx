@@ -56,7 +56,11 @@ const IterationCard: React.FC<{ record: IterationRecord; isLatest: boolean }> = 
           {iteration}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">{thought}</p>
+          <p className="text-xs font-bold text-slate-300">
+            {action 
+              ? `Step ${iteration}: ${action.type} 수행` 
+              : `Step ${iteration}: 가우스 분석 중...`}
+          </p>
         </div>
         {expanded ? (
           <ChevronDown size={14} className="text-slate-500 flex-shrink-0" />
