@@ -12,21 +12,21 @@
 - **ID**: `global-entry-app`
 - **Keywords**: [`진입점`, `entry`, `main`, `app root`, `초기화`, `iife worker`, `sandbox false`]
 - **Tech Spec**:
-  - **빌드 시스템**: Vite 6 (Worker format: IIFE로 번들링하여 생산 빌드 호환성 확보)
-  - **데스크톱 프레임워크**: Electron 39 (Sandbox: false, SharedArrayBuffer 활성화)
+  - **빌드 시스템**: Vite 6 (Worker format: IIFE로 번들링하여 생산 빌드 호환성 확보) [UPDATED]
+  - **데스크톱 프레임워크**: Electron 39 (Sandbox: false, SharedArrayBuffer 활성화) [UPDATED]
 - **Location**:
-- [ ] Location:
   - `Html`: [index.html](./index.html) (Vite Entry Point)
   - `View`: [App.tsx](./App.tsx)
   - `Config`: [index.tsx](./index.tsx)
 - **Core Interface**:
   - `AppContent`: 전역 상태(Settings, Plugin 등) 관리의 핵심 컴포넌트
   - `HappyToolProvider`: 전역 Context 공급
-- **Data Flow**: `localStorage` -> `Settings Load` -> `Context State` -> `Plugin Injection`
+  - `LoadingSplash`: **터미널 스타일(Terminal Style)**의 실시간 시스템 로그 배경이 적용된 프리미엄 로딩 화면. 폰트 크기 최적화(`text-2xl`)를 통해 시작 로그의 가독성과 노출량을 극대화함. [UPDATED]
 - **Startup UX Optimization**:
   - `Fake Progress`: 서버 기동 시 0->95%까지 서서히 증가하여 대기 시간 시각화 (`main.cjs`)
   - `Progress Creep`: 플러그인 로드 대기 시 98->99.9%까지 점진적으로 증가하여 활동성 확보 (`LoadingSplash.tsx`)
   - `Log Streaming`: 부팅 로그 필터 완화로 실시간 초기화 과정 노출 (`main.cjs` console override)
+- **Data Flow**: `localStorage` -> `Settings Load` -> `Context State` -> `Plugin Injection`
 
 ### [[Plugin Registry & Injection]]
 - **ID**: `system-plugin-registry`
@@ -49,6 +49,21 @@
   - `Click`: 플러그인 전환 (`setActiveTool`)
   - `Drag & Drop`: 플러그인 아이콘 순서 변경 (Reorder)
 
+### [[Headless CLI Infrastructure]] 🐧💻
+- **ID**: `system-headless-cli`
+- **Keywords**: [`CLI`, `Headless`, `Automated Test`, `Background Execution`, `commander`, `hidden window`, `fallback`]
+- **Location**:
+  - `Main Entry`: [cli.cjs](./electron/cli.cjs)
+  - `Main Process`: [main.cjs](./electron/main.cjs)
+  - `Renderer UI`: [CliApp.tsx](./CliApp.tsx)
+  - `Renderer Logic Hook`: [useCliHandlers.ts](./hooks/useCliHandlers.ts)
+- **Core Interface**:
+  - `runCli(args)`: 커맨드라인 매개변수 파싱 및 Headless(Hidden) BrowserWindow 생성
+  - **연결 안정화**: Vite 서버 대기 시 5초 타임아웃 및 `app://` 프로토콜(빌드 파일) 자동 Fallback 로직 탑재 [NEW]
+  - `CliApp`: CLI 렌더러 진입점. 500줄 초과 방지를 위해 핵심 커맨드 핸들러를 별도 훅으로 위임.
+  - `useCliHandlers`: `analyze-diff`, `log-extractor` 등 실제 커맨드 처리 오케스트레이션 훅 [REFACTORED]
+- **Data Flow**: `Terminal Argv` -> `commander (cli.cjs)` -> `BrowserWindow (Hidden)` -> `CliApp.tsx` -> `useCliHandlers.ts` -> `Task Execution` -> `Terminal Output`
+
 ---
 
 ## 2. Core Feature: Log Extractor
@@ -56,399 +71,127 @@
 
 ### [[Log Extractor Engine]]
 - **ID**: `logic-log-extractor-core`
-- **Keywords**: [`필터링`, `인덱싱`, `filtering`, `indexing`, `applyFilter`, `file load`]
+- **Keywords**: [`필터링`, `인덱싱`, `바이너리 저장소`, `SharedArrayBuffer`, `filtering`, `indexing`, `applyFilter`, `logBuffer`, `WASM`]
 - **Location**:
   - `Main Logic`: [useLogExtractorLogic.ts](./hooks/useLogExtractorLogic.ts)
-  - `Worker`: [LogProcessor.worker.ts](./workers/LogProcessor.worker.ts)
+  - `Worker`: [LogProcessor.worker.ts](./workers/LogProcessor.worker.ts) (중앙 제어)
+  - `Filter Sub`: [LogFilterSub.worker.ts](./workers/LogFilterSub.worker.ts) (병렬 필터링)
   - `WASM Engine`: [src-wasm/](./src-wasm/)
+  - `Data Reader`: [workerDataReader.ts](./workers/workerDataReader.ts)
 - **Core Interface**:
   - `applyFilter(rule, quickFilter)`: 필터링 요청 트리거
   - `buildFileIndex(file)`: 파일 초기 인덱싱 스캔
   - `filteredIndices`: 필터링된 결과 라인 번호 배열 (Int32Array)
-- **Data Flow**: `File/Stream` -> `Worker(Indexing)` -> `WASM/SubWorker(Filtering)` -> `filteredIndices` -> `UI Rendering`
 - **Optimizations**:
-  - `ANSI Stripping`: 로딩 및 디코딩 시점에서 ANSI 이스케이프 코드를 사전에 제거하여 필터링 및 렌더링 부하 최소화 (`LogProcessor.worker.ts`, `LogFilterSub.worker.ts`, `workerDataReader.ts`)
-- **Interactions**:
-  - `Delete Mission`: `handleDeleteRule` 호출 시 `window.confirm`을 통한 안전 삭제 절차 수행 (실수 방지용 안내 메시지 적용)
-- **Sub-Modules (Worker Engine)**:
-  - `Main Processor`: [LogProcessor.worker.ts](./workers/LogProcessor.worker.ts) (중앙 제어)
-  - `Stream Reader`: [LogStream.worker.ts](./workers/LogStream.worker.ts) + [workerDataReader.ts](./workers/workerDataReader.ts)
-  - `Filter Sub`: [LogFilterSub.worker.ts](./workers/LogFilterSub.worker.ts) (병렬 필터링)
-  - `Search Engine`: [Search.worker.ts](./workers/Search.worker.ts) (고속 텍스트 검색)
-  - `Perf Engine`: [PerfTool.worker.ts](./workers/PerfTool.worker.ts) (성능 샘플 가공)
-- **Sub-Modules**:
-  - `Worker Events`: [useLogWorkerEvents.ts](./hooks/useLogWorkerEvents.ts) (워커 메시지 디스패처)
-  - `Bookmark Handler`: [workerBookmarkHandlers.ts](./workers/workerBookmarkHandlers.ts)
-  - `Analysis Handler`: [workerAnalysisHandlers.ts](./workers/workerAnalysisHandlers.ts)
-- **Resource Optimizations**:
-  - `Lazy SAB Allocation`: 로컬 파일 모드 시 불필요한 260MB SharedArrayBuffer 할당 지연 (RAM 절약)
-  - `Active State Sync`: `SET_ACTIVE_STATE` 이벤트를 통한 백그라운드 탭의 유령 워커(`subWorkers`) 자동 정리
-  - `Auto-Filter Suppression`: 비활성 탭에서의 중복 필터링 연산 차단 (CPU 절약)
-- **Lifecycle & Reliability**:
-  - `Worker ID`: 각 워커 생성 시 6자리 고유 ID를 부여하여 다중 탭 환경의 콘솔 로그 가독성 개선
-  - `Mount Cycle Safety`: `useLogFileOperations` 언마운트 시 로딩 경로 캐시(`lastLoadingPathRef`)를 강제 초기화하여 탭 재정렬 및 Strict Mode 상황에서의 로딩 누락 원천 차단 🐧🛡️
-  - `Smart Tab Refresh`: 탭 재활성화 시 중복 필터링을 방지하고, 규칙(Rule) 변경이 감지된 경우에만 효율적으로 리필터링을 수행하는 최적화 적용 🐧⚡
-  - `Worker Persistence`: `LogWorkerRegistry`를 통해 탭 ID별 워커와 그 상태(Ready, TotalLines)를 보관하여, 탭 재마운트 시 즉각적인 UI 복구 및 불필요한 재인덱싱 방지. 🐧💾
-  - `Worker Idempotency`: 워커 엔진 단에서 동일 파일에 대한 로딩 요청이 중복될 경우 이를 무시하도록 멱등성 로직 적용 (`LogProcessor.worker.ts`) 🐧🛡️
-  - `Test Compatibility`: 테스트 환경에서의 싱글톤 간섭을 방지하기 위해 `workerRegistry.clearAll()`을 통한 테스트 간 격리 보장 🐧🧪
-
-### [[Log Viewer Components (The Alleys)]]
-- **ID**: `ui-log-viewer-sub`
-- **Keywords**: [`북마크 모달`, `단축키`, `줄 이동`, `BookmarksModal`, `GoToLine`, `Shortcuts`, `누적 시간`, `Shift+Click 범위 선택`, `북마크 상시 표시 (필터 무시)`]
-- **Location**:
-  - `Modal`: [BookmarksModal.tsx](./components/BookmarksModal.tsx), [GoToLineModal.tsx](./components/GoToLineModal.tsx)
-  - `Panel`: [KeyboardShortcutsPanel.tsx](./components/KeyboardShortcutsPanel.tsx)
-- **Interactions**:
-  - `Ctrl + G`: 줄 이동 모달 활성화
-  - `Ctrl + /`: 단축키 도움말 패널 토글
-  - `Bookmark Loop`: `BookmarksModal` -> `onJump` -> `HyperLogRenderer` (스크롤 이동)
+  - `SharedArrayBuffer Zero-copy Binary Read`: UI(HyperLogRenderer)에서 직접 공유 메모리를 읽어 렌더링 성능 극대화.
+  - `ANSI Stripping`: 로딩 시점에서 ANSI 코드를 제거하여 부하 최소화.
+  - `Lazy SAB Allocation`: 로컬 파일 모드 시 메모리 할당 지연 (RAM 절약).
+  - `Active State Sync`: 백그라운드 탭의 유령 워커 자동 정리. [NEW]
+- **Lifecycle & Reliability** 🐧🛡️:
+  - `Worker ID`: 각 워커 생성 시 고유 ID 부여하여 로그 가독성 개선.
+  - `Mount Cycle Safety`: 언마운트 시 로딩 경로 캐시 강제 초기화로 로딩 누락 원천 차단.
+  - `Worker Persistence`: `LogWorkerRegistry`를 통해 탭 재마운트 시 즉각적인 UI 복구 및 재인덱싱 방지.
+  - `Worker Idempotency`: 동일 파일에 대한 중복 로딩 요청 무시.
+- **Data Flow**: Log Worker(Main) ↔ Log Worker(Sub/WASM) ↔ UI (Binary Read)
 
 ### [[Log Viewer UI Architecture]]
 - **ID**: `ui-log-viewer-hierarchy`
-- **Keywords**: [`로그 뷰어`, `렌더러`, `virtual scroll`, `pane`, `HyperLogRenderer`]
+- **Keywords**: [`로그 뷰어`, `렌더러`, virtual scroll`, virtual virtual`, `Pane`, `HyperLogRenderer`, `Raw Context`]
 - **Location**:
   - `Container`: [LogSession.tsx](./components/LogSession.tsx)
   - `Pane`: [LogViewerPane.tsx](./components/LogViewer/LogViewerPane.tsx)
   - `Renderer`: [HyperLogRenderer.tsx](./components/LogViewer/HyperLogRenderer.tsx)
+  - `RawContextViewer`: 로그 라인 더블 클릭 시 원본 로그 문맥 오버레이. [NEW]
 - **Interactions**:
-  - `Scroll`: 가상 스크롤을 통한 세그먼트 단위 로딩 (`onScrollRequest`)
-  - `Ctrl+F`: 검색 바 활성화
-  - `Double Click`: 북마크 토글
-  - `Individual Close`: `LogViewerToolbar`의 `X` 버튼을 통해 양쪽 패널의 로그를 각각 독립적으로 초기화 (`onReset`)
+  - `Space`: 북마크 토글 (황금색 언더라인 강조) [MOD]
+  - `Double Click`: 원본 로그 문맥(Raw Context) 보기 [MOD]
+  - **라인 넘버 토글**: # 인덱스와 원본 라인 번호 선택적 숨김 기능. [NEW]
+  - **스플릿 뷰 스마트 스텝**: `Ctrl + Shift + Arrow`를 통한 0.1/0.5/0.9 비율 조절. [NEW]
 
-### [[Text Selection & Context Menu]]
-- **ID**: `interaction-log-selection`
-- **Keywords**: [`텍스트 선택`, `복사`, `우클릭 메뉴`, `selection`, `context menu`]
-- **Location**:
-  - `Logic`: [useLogSelection.ts](./hooks/useLogSelection.ts)
-  - `View`: [ContextMenu.tsx](./components/ContextMenu.tsx)
-  - `Export Actions`: [useLogExportActions.ts](./hooks/useLogExportActions.ts)
-  - `Utils`: [confluenceUtils.ts](./utils/confluenceUtils.ts)
-- **Interactions & Shortcuts**:
-  - `Mouse Drag`: 로그 라인 선택
-  - `Right Click`: 컨텍스트 메뉴 표시 (복사, 구글 검색, 아카이브 저장, 새로운 탭에서 보기 등)
-  - `Open in New Tab`: 선택 영역을 새로운 추출 로그 탭으로 즉시 열기
-  - `Shift + Click`: 범위 선택
-  - `Copy as Confluence`: 선택 영역 또는 북마크를 Confluence 테이블 형식으로 변환 및 복사
-
-### [[NetTraffic Analyzer (네트워크 트래픽 분석기)]] 🐧⚡ [CORE]
+### [[NetTraffic Analyzer]] 🐧⚡ [CORE]
 - **ID**: `NET_TRAFFIC_ANALYZER`
-- **Keywords**: [`네트워크`, `트래픽`, `URI 정규화`, `User Agent`, `UA 분석`, `Markdown Copy`, `Raw Log Jump`, `파일 리팩토링`]
+- **Keywords**: [`네트워크`, `트래픽`, `URI 정규화`, `UA 분석`, `Compare View`, `Markdown Copy`, `Raw Log Jump`]
 - **Location**:
-  - `Main View`: [NetTrafficAnalyzerView.tsx](./components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx)
-  - `Compare View (New)`: [NetTrafficCompareView.tsx](./components/NetTrafficAnalyzer/NetTrafficCompareView.tsx) (좌우 트래픽 정밀 비교 뷰어)
-  - `Sub-Components`:
-    - [RawLogNavigator.tsx](./components/NetTrafficAnalyzer/RawLogNavigator.tsx) (Raw 로그 점프 및 네비게이션)
-    - [EndpointTable.tsx](./components/NetTrafficAnalyzer/EndpointTable.tsx) (계층형 엔드포인트 목록)
-    - [UATable.tsx](./components/NetTrafficAnalyzer/UATable.tsx) (클라이언트 핑거프린트 클러스터링)
-    - [InsightsTab.tsx](./components/NetTrafficAnalyzer/InsightsTab.tsx) (트래픽 분포 및 통계 리포트)
-    - [CompareEndpointTable.tsx](./components/NetTrafficAnalyzer/CompareEndpointTable.tsx) (Diff 분석 기반 엔드포인트 테이블)
-    - [CompareUATable.tsx](./components/NetTrafficAnalyzer/CompareUATable.tsx) (Diff 분석 기반 User Agent 테이블)
-    - [CompareSummary.tsx](./components/NetTrafficAnalyzer/CompareSummary.tsx) (트래픽 증감 및 스파이크 요약 카드)
+  - `View`: [NetTrafficAnalyzerView.tsx](./components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx)
+  - `Compare View`: [NetTrafficCompareView.tsx](./components/NetTrafficAnalyzer/NetTrafficCompareView.tsx)
   - `Worker`: [NetTraffic.worker.ts](./workers/NetTraffic.worker.ts)
-  - `Logic`: [useNetTrafficLogic.ts](./hooks/useNetTrafficLogic.ts), [netTrafficDiffUtils.ts](./utils/netTrafficDiffUtils.ts) (증감/Diff 순수 연산 유틸)
-- **Core Interface**:
-  - `Registry Priority`: `registry.ts`에서 `LogExtractor` 바로 다음 순위로 배치됨. 펭-고! 🐧🚀
-  - `Refactoring (500 Lines Rule)`: 메인 UI를 작은 컴포넌트로 분리하여 유지보수성 극대화. 🐧🛠️✅
-  - `Raw View Highlighting`: 선택된 로그 라인에 강한 포커스 하이라이트 적용 및 주변 로그 선명도 개선.
-  - `URI Normalization`: UUID 자동 감지 및 `$(UUID)` 치환 통계, 일반 경로(Path) 감지 및 커스텀 정규식(`extractRegex`) 지원.
-  - `3-Level Hierarchy`: User Agent > API Template > Raw URI 드릴다운
-  - `Traffic Insights`: 타임라인, 도메인 분포, 메서드 통계 대시보드
-  - `Persistence`: `useState` 이니셜라이저를 통한 로컬 저장소(`localStorage`) 설정 즉시 복원. 🐧💾✅
-- **Data Flow**: `Log File` -> `Worker` -> `UA Context Matching (Case-Insensitive & Persistent)` -> `UI Tree View` -> `RawView Jump`
+  - `Compare UI`: [CompareEndpointTable.tsx](./components/NetTrafficAnalyzer/CompareEndpointTable.tsx)
+- **Features**:
+  - **Diff Analytics**: 트래픽 증감(+/-), 신규 엔드포인트(NEW) 자동 정렬 및 시각화.
+  - **Raw View 연동**: 상세 항목 클릭 시 참조 로그의 원본 위치로 즉시 점프.
+  - **CLI 지원**: `npm run cli -- nettraffic`을 통한 JSON 리포트 생성. [NEW]
 
 ---
 
 ## 3. Major Plugins (주요 플러그인)
-기본적으로 활성화되어 있으며 높은 사용 빈도를 가진 핵심 도구들입니다.
+검증된 안정성과 높은 사용 빈도를 가진 핵심 도구들입니다.
 
-### [[Log Analysis Agent (자동 로그 분석 에이전트)]] 🤖💎 [CORE]
+### [[Log Analysis Agent]] 🧠💎 [NEW]
 - **ID**: `LOG_ANALYSIS_AGENT`
-- **Keywords**: [`LLM`, `Agent`, `Crash 분석`, `Deadlock`, `자동 검토`, `HAPPY-MCP`, `보고서 자동생성`, `드래그바`]
+- **Keywords**: [`AI Agent`, `Crash 분석`, `HAPPY-MCP`, `Gemini`, `Gauss 2.3 Think`, `드래그바`, `Action 요약`]
 - **Location**:
-  - `Main View`: [index.tsx](./plugins/LogAnalysisAgent/index.tsx) (전역 드래그 영역 포함)
-  - `Sub-Components`:
-    - [AgentConfigPanel.tsx](./plugins/LogAnalysisAgent/components/AgentConfigPanel.tsx) (분석 설정 및 로그 Drag&Drop)
-    - [AgentThoughtStream.tsx](./plugins/LogAnalysisAgent/components/AgentThoughtStream.tsx) (LLM 에이전트의 사고과정 및 액션 스트림)
-    - [FinalReportViewer.tsx](./plugins/LogAnalysisAgent/components/FinalReportViewer.tsx) (Markdown 보고서 뷰어)
-  - `Services`:
-    - [agentApiService.ts](./plugins/LogAnalysisAgent/services/agentApiService.ts) (OpenAI 호환 API 연결, 프록시)
-    - [actionExecutor.ts](./plugins/LogAnalysisAgent/services/actionExecutor.ts) (FETCH_LOG_RANGE, 등 액션 실행 모듈)
-    - [hintExtractor.ts](./plugins/LogAnalysisAgent/services/hintExtractor.ts) (Happy Combo + 정규식 기반 1차 힌트 추출기)
+  - `View`: [index.tsx](./plugins/LogAnalysisAgent/index.tsx)
   - `Hook`: [useAnalysisAgent.ts](./plugins/LogAnalysisAgent/hooks/useAnalysisAgent.ts)
-  - `Protocol`: [protocol.ts](./plugins/LogAnalysisAgent/protocol.ts) (HAPPY-MCP Protocol v1.1)
-- **Core Interface**:
-    - **Integrated Dragbar**: 플러그인 최상단에 `h-9` 크기의 전역 드래그 영역(`title-drag`)을 배치하여 프레임리스 환경에서도 창 이동 지원.
-  - `HAPPY-MCP Protocol`: `PROCESSING`, `thought`, `action`, `COMPLETED`, `final_report` 기반의 루프 구조.
-  - `Action Engine`: `FETCH_LOG_RANGE`, `SEARCH_KEYWORD`, `SEARCH_PATTERN`, `EXTRACT_STACKTRACE`, `CHECK_METRIC`, `USER_QUERY`.
-  - `Settings Sync`: API Key 및 Endpoint 정보는 Settings Modal의 **AI Agent 탭**에서 설정하며 `localStorage`를 통해 유지.
-  - `Chunk Processing`: 메모리 점유 및 UI 블록을 방지하기 위해 `setTimeout(0)`을 활용한 1만 줄 단위 비동기 청크 처리 적용.
-- **Data Flow**: `Settings/File Drop` -> `hintExtractor(Chunked)` -> `LLM API(ProxyRequest) Loop` -> `ActionExecutor` -> `Markdown Report`
+  - `Service`: [agentApiService.ts](./plugins/LogAnalysisAgent/services/agentApiService.ts)
+- **Features**:
+  - **Action 요약 표시**: 분석 단계별 `thought`와 `action`을 분리하여 가독성 개선. [UPDATED]
+  - **Gauss 2.3 Think 통합**: `agent.sec.samsung.net` 엔드포인트 최적화. [NEW]
+  - **드래그 가능한 타이틀 바**: 프레임리스 환경에서도 상단 `h-9` 영역을 통한 창 이동 지원.
 
-### [[EasyPost Plugin]]
-- **ID**: `plugin-easy-post`
-- **Keywords**: [`API Test`, `Postman`, `Request`, `Response`, `Environment`]
+### [[Gauss Chat Plugin]] 💬 [NEW]
+- **ID**: `GAUSS_CHAT_AGENT`
+- **Keywords**: [`Gauss Chat`, `Streaming`, `Debug Panel`, `Raw Response`]
 - **Location**:
-  - `Main`: [EasyPostPlugin.tsx](./plugins/EasyPost/EasyPostPlugin.tsx)
-- **Core Interface**:
-  - `handleSendRequest()`: HTTP 요청 실행 및 결과 처리
-  - `Variable Injection`: `{{variable}}` 형식의 동적 치환 로직
-- **Data Flow**: `Request Setup` -> `Context Variables` -> `Axios/Fetch` -> `Response View`
-
-### [[Perf Tool Plugin]]
-- **ID**: `plugin-perf-tool`
-- **Keywords**: [`성능 측정`, `CPU 분석`, `Performance Tool`, `Sampling`, `flame map`, `플레임 맵`]
-- **Location**:
-  - `Main Logic`: [PerfToolPlugin.tsx](./plugins/core/PerfToolPlugin.tsx)
-- **Core Interface**:
-  - `analyzePerformance()`: 캡처된 데이터 분석 및 시각화
-- **Data Flow**: `Raw Data` -> `Parser` -> `Timeline View`
-
-
-
+  - `View`: [GaussChatAgent/index.tsx](./plugins/GaussChatAgent/index.tsx)
+  - `Service`: [GaussChatService.ts](./plugins/GaussChatAgent/GaussChatService.ts)
+- **Features**:
+  - **실시간 스트리밍**: 가우스 2.3 Think 모델의 실시간 응답 표시.
+  - **디버그 패널**: 우측 상단 `SHOW DEBUG` 버튼을 통해 raw JSON/SSE 정밀 모니터링 가능. (너비 450px 고정) [NEW]
 
 ### [[SpeedScope Plugin]]
 - **ID**: `plugin-speedscope`
-- **Keywords**: [`SpeedScope`, `JSON`, `Performance`, `Main Thread`, `Sampling`, `Profile`]
+- **Keywords**: [`SpeedScope`, `Flame Graph`, `Performance`, `Main Thread Detection`]
 - **Location**:
-  - `Main View`: [SpeedScopePlugin.tsx](./components/SpeedScope/SpeedScopePlugin.tsx)
-  - `Parser Worker`: [SpeedScopeParser.worker.ts](./workers/SpeedScopeParser.worker.ts)
-- **Core Interface**:
-  - `PARSE_SPEED_SCOPE`: Speedscope JSON 파싱 및 프로파일 추출
-  - `Main Thread Detection`: 하이브리드 감지 로직 적용
-- **Data Flow**: `SpeedScope JSON` -> `Worker(Parser)` -> `Heuristic Detection` -> `PerfDashboard Rendering`
+  - `View`: [SpeedScopePlugin.tsx](./components/SpeedScope/SpeedScopePlugin.tsx)
+  - `Worker`: [SpeedScopeParser.worker.ts](./workers/SpeedScopeParser.worker.ts)
+- **Features**:
+  - **메인 스레드 자동 탐지**: PID 및 메타데이터 정보를 분석하여 최적의 프로파일 자동 식별. [UPDATED]
+  - **Analyze Diff**: 두 JSON 프로파일 간 성능 차이 분석 및 시각화.
 
-### [[PostTool Plugin]]
-- **ID**: `plugin-post-tool`
-- **Keywords**: [`HTTP`, `REST`, `Postman`, `API Test`]
-- **Location**:
-  - `Main Logic`: [PostToolPlugin.tsx](./plugins/core/PostToolPlugin.tsx)
-
-### [[JsonTools Plugin]]
-- **ID**: `plugin-json-tools`
-- **Keywords**: [`JSON`, `Formatter`, `Beautify`, `Validator`]
-- **Location**:
-  - `Main Logic`: [JsonToolsPlugin.tsx](./plugins/core/JsonToolsPlugin.tsx)
-
-### [[TpkExtractor Plugin]]
-- **ID**: `plugin-tpk-extractor`
-- **Keywords**: [`TPK`, `Tizen Package`, `Extractor`, `Decompile`]
-- **Location**:
-  - `Main Logic`: [TpkExtractorPlugin.tsx](./plugins/core/TpkExtractorPlugin.tsx)
+### [[BlockTest Plugin]]
+- **ID**: `plugin-block-test`
+- **Keywords**: [`BlockTest`, `Scenario`, `Pipeline`, `Automation`, `Graph View`]
+- **Features**:
+  - **그래프 뷰 기본화**: 시각적 흐름 파악을 위한 Graph View 레이아웃 기본 적용. [HOT]
+  - **CLI 연동**: Headless 모드에서도 시나리오/파이프라인 실행 지원.
 
 ---
 
-## 4. Lab Plugins (실험실 플러그인)
-새로운 시도나 실험적인 기능이 포함된 플러그인 모음입니다.
+## 4. Shared Services & Infrastructure
 
-### [[SmartThingsLab Plugin]]
-- **ID**: `plugin-st-lab`
-- **Keywords**: [`SmartThings`, `ST Lab`, `Capability`, `SSE`, `Device Control`, `Virtual Device`]
-- **Location**:
-  - `Main`: [SmartThingsLabPlugin.tsx](./plugins/SmartThingsLab/SmartThingsLabPlugin.tsx)
-  - `Service`: [smartThingsService.ts](./plugins/SmartThingsLab/services/smartThingsService.ts)
-  - `SSE`: [sseService.ts](./plugins/SmartThingsLab/services/sseService.ts)
-- **Core Interface**:
-  - `refreshData()`: 위치, 방, 디바이스 정보 일괄 갱신
-  - `executeCommand(deviceId, commands)`: 디바이스 제어 명령 전송
-  - `sse.connect(url, token)`: 실시간 이벤트 스트림 연결
-- **Data Flow**: `ST API` -> `Service` -> `State(locations/devices)` -> `Hierarchy/Card UI`
+### [[ESM Compatibility Management]] 📦 [NEW]
+- **ID**: `system-esm-compatibility`
+- **Keywords**: [`react-markdown`, `Vite build`, `Rollup`, `resolve alias`]
+- **Location**: [vite.config.ts](./vite.config.ts)
+- **Fix**: Pure ESM 패키지(`react-markdown` 등)의 빌드 오류 해결을 위한 `node_modules` 경로 강제 매핑 및 사전 번들링 설정.
 
-### [[TizenLab Plugin]]
-- **ID**: `plugin-tizen-lab`
-- **Keywords**: [`Tizen`, `SDB`, `File Explorer`, `App Manager`, `Perf Monitor`]
-- **Location**:
-  - `Main`: [TizenLabPlugin.tsx](./plugins/TizenLab/TizenLabPlugin.tsx)
-  - `File`: [TizenFileExplorer.tsx](./plugins/TizenLab/TizenFileExplorer.tsx)
-- **Core Interface**:
-  - `TizenConnectionModal`: SDB 연결 설정 및 관리
-  - `TizenPerfMonitor`: 실시간 리소스(CPU, Memory) 모니터링
-- **Data Flow**: `SDB Shell` -> `Backend(Electron)` -> `TizenLab UI`
-
-### [[Other Lab Tools]]
-- **ID**: `plugin-lab-others`
-- **Keywords**: [`TPK`, `JSON`, `Postman`, `Extractor`]
-- **Location**:
-  - `TPK`: [TpkExtractor.tsx](./components/TpkExtractor.tsx) + [useTpkExtractorLogic.ts](./hooks/useTpkExtractorLogic.ts)
-  - `JSON`: [JsonTools.tsx](./components/JsonTools.tsx)
-  - `Post`: [PostTool.tsx](./components/PostTool.tsx)
+### [[Build Cleanup Utility]] 🛠️
+- **ID**: `tool-build-cleanup`
+- **Keywords**: [`build cleanup`, `taskkill`, `process lock`]
+- **Location**: [scripts/cleanup_build.cjs](./scripts/cleanup_build.cjs)
+- **Fix**: 빌드 전 프로세스 강제 종료 및 잔여 파일 정리로 빌드 안정성 확보.
 
 ---
 
-## 5. Shared Services & Contexts
-플러그인 간에 공유되는 공통 인프라입니다.
+## 5. Maintenance & Policy
 
-### [[Toast Notification]]
-- **ID**: `service-toast`
-- **Keywords**: [`알림`, `토스트`, `notification`, `message`]
-- **Location**:
-  - `Context`: [ToastContext.tsx](./contexts/ToastContext.tsx)
-- **Core Interface**:
-  - `addToast(message, type)`: 알림 생성
+### [[500 Lines Rule]] 👮
+- 한 파일이 500줄을 초과할 경우 즉시 리팩토링 및 컴포넌트 분리를 계획하여 제출합니다.
 
-### [[Command Palette]]
-- **ID**: `service-command-palette`
-- **Keywords**: [`명령 팔레트`, `command palette`, `quick action`, `Ctrl+K`]
-- **Location**:
-  - `Context`: [CommandContext.tsx](./contexts/CommandContext.tsx)
-
-### [[Global State & Settings]]
-- **ID**: `service-global-state`
-- **Keywords**: [`설정`, `전역 상태`, `settings`, `localStorage`]
-- **Location**:
-  - `View`: [SettingsModal.tsx](./components/SettingsModal.tsx)
-  - `Context`: [HappyToolContext.tsx](./contexts/HappyToolContext.tsx)
-  - `Helper`: [settingsHelper.ts](./utils/settingsHelper.ts)
-- **Core Interface**:
-  - `useSettings()`: 테마, 폰트, 로그 자동 로드 등 사용자 환경 설정 관리
-
----
-
-## 6. Advanced Features & Persistence
-고도화된 기능 및 데이터 저장소 매핑입니다.
-
-### [[Log Archive System]]
-- **ID**: `feature-log-archive`
-- **Keywords**: [`아카이브`, `저장된 로그`, `IndexedDB`, `archive`, `history`]
-- **Location**:
-  - `Entry`: [index.tsx](./components/LogArchive/index.tsx)
-  - `Provider`: [LogArchiveProvider.tsx](./components/LogArchive/LogArchiveProvider.tsx)
-  - `DB`: [LogArchiveDB.ts](./components/LogArchive/db/LogArchiveDB.ts)
-- **Core Interface**:
-  - `SaveArchiveDialog`: 선택한 로그를 아카이브에 저장하는 인터페이스 (너비 800px 확장 및 프리뷰 영역 확대 적용됨)
-  - `ArchiveSidebar`: 저장된 목록 표시 및 검색
-- **Data Flow**: `Log Selection` -> `index.tsx(Save)` -> `IndexedDB` -> `Sidebar/Viewer`
-
-### [[Performance Analysis Engine]]
-- **ID**: `logic-perf-analysis`
-- **Keywords**: [`성능 분석`, `performance`, `heat map`, `bottleneck`, `time gap`, `flame map`, `플레임 맵`]
-- **Location**:
-  - `Logic`: [perfAnalysis.ts](./utils/perfAnalysis.ts), [usePerfFlameInteraction.ts](./components/LogViewer/PerfDashboard/hooks/usePerfFlameInteraction.ts)
-  - `View`: [PerfDashboard.tsx](./components/LogViewer/PerfDashboard.tsx), [PerfFlameGraph.tsx](./components/LogViewer/PerfDashboard/PerfFlameGraph.tsx)
-  - `Renderer`: [PerfFlameGraphRenderer.ts](./components/LogViewer/PerfDashboard/utils/PerfFlameGraphRenderer.ts)
-- **Core Interface**:
-  - `analyzePerfSegments()`: 로그 간 시간 차이를 계산하여 병목 지점 추출
-  - `PerfHeavyHitters`: Self-Time(순수 실행시간) 기준 상위 10개 함수를 추출하여 시각화 및 자동 검색 연결
-  - `extractTimestamp()`: 다양한 로그 포맷에서 타임스탬프 파싱
-- **Data Flow**: `Filtered Logs` -> `perfAnalysis.ts` -> `Segments/Heatmap` -> `Canvas Layer`
-
-### [[Utility Belt (Infrastructure)]]
-- **ID**: `infra-utils`
-- **Keywords**: [`시간 분석`, `색상`, `정규식`, `logTime`, `colorUtils`, `filterGroupUtils`, `build config`, `electron main`]
-- **Location**:
-  - `Time`: [logTime.ts](./utils/logTime.ts)
-  - `Color`: [colorUtils.ts](./utils/colorUtils.ts)
-  - `Filter Logic`: [filterGroupUtils.ts](./utils/filterGroupUtils.ts) (Happy Combo 트리 연산)
-  - `Build Config`: [vite.config.ts](./vite.config.ts) (Worker IIFE 및 플러그인 설정)
-  - `Main Process`: [electron/main.js](./electron/main.js) (보안 정책 및 SharedArrayBuffer 설정)
-- **Core Interface**:
-  - `extractTimestamp(text)`: 로그 라인에서 시간 정보 추출 (성능 분석의 기초)
-  - `getLighterColor(color)`: UI 테마에 맞는 색상 변환
-
----
-
-## 7. Log Extractor Deep Dive (Advanced Specs)
-
-### [Feature] Log Analysis & Profiling
-- **ID**: `feature-log-analysis`
-- **Keywords**: [`New Logs`, `Added`, `Repetitive`, `Transaction`, `Bottleneck`, `Delta`, `PID/TID Tracking`, `신규 로그 분석기`, `중복 로그`, `트랜잭션 추적`]
-- **Location**:
-    - View: [SpamAnalyzerPanel.tsx](./components/LogViewer/SpamAnalyzerPanel.tsx), [TransactionDrawer.tsx](./components/LogViewer/TransactionDrawer.tsx)
-    - Logic: [transactionAnalysis.ts](./utils/transactionAnalysis.ts), [logTime.ts](./utils/logTime.ts)
-- **Core Interface**:
-    - `extractTransactionIds(line)`: 복잡한 정규식을 사용하여 PID, TID, Tag 추출
-    - `formatTransactionFlow(logs)`: 순차 로그 간 `delta` 시간(+ms) 계산
-    - `requestNewLogAnalysisLeft()`: 워커 측 패턴 그룹화 트리거 (Top 100)
-- **Interactions**:
-    - `Jump to Absolute Line`: 필터 변경 후에도 일관성을 유지하기 위해 Spam Analyzer에서 사용
-    - `Bottleneck Highlight`: Transaction Drawer에서 1000ms 이상의 지연을 자동으로 플래그 지정
-    - `UI Persistence`: 분석 중에도 로그를 가리지 않도록 `status: analyzing` 상태를 도입하여 메인 로그 뷰어의 깜빡임 제거 (`workerAnalysisHandlers.ts`)
-
-- [x] **[Feature] Split Analysis (Analyze Diff)**
-    - **ID**: `feature-split-analysis`
-    - **Keywords**: [`Split 비교`, `Analyze Diff`, `속도 비교`, `패턴 비교`, `비교 분석`, `Deduplication`, `Alias Batch`, `LCS`, `Patience Diff`, `Sequence Alignment`]
-    - **Location**:
-        - `View`: [SplitAnalyzerPanel.tsx](./components/LogViewer/SplitAnalyzerPanel.tsx)
-        - `Logic`: [useSplitAnalysis.ts](./hooks/useSplitAnalysis.ts), [SplitAnalysis.worker.ts](./workers/SplitAnalysis.worker.ts)
-        - `Persistence`: [useLogFileOperations.ts](./hooks/useLogFileOperations.ts) (Split 모드 및 파일 경로 복원)
-    - **Core Interface**:
-        - `workerAnalysisHandlers.extractAllMetadata()`: 필터링된 스트림에서 `[시간, 파일명, 함수명, 본문]` 시그니처 일괄 추출 (매칭 유연성을 위해 라인 번호 제외)
-        - `SplitAnalysis.worker`: Left/Right 양측의 메트릭을 비교 분석. `파일명::함수명::[메시지패턴]` 기반의 서명(Signature)을 사용하여 동일 구간을 매칭함. 
-            - **[New] LCS & Patience Diff 전역 정렬**: 기존 N-gram 윈도우 방식의 동기화 이탈(Desync) 문제를 완전히 해결. 부분적으로 교차하지 않는 고유 시그니처 매칭(LIS)을 앵커로 삼고, 그 갭(Gap) 사이를 동적 계획법(Needleman-Wunsch)으로 전역 정렬하여 100% 매칭 정확도 보장. 중간에 로그가 삽입/삭제 되더라도 어긋나지 않음.
-            - **New Error 정밀 검출**: LCS 수행 시 매칭되지 않은(Gap) 구간 중 우측에만 존재하는 에러/경고성 로그를 정밀하게 추출하여 `NEW_ERROR`로 자동 시각화.
-            - **라인 번호 자유도**: 우측 리비전에서 라인 수가 변경되어도 정확한 분석 가능.
-            - **메시지 패턴 기반 중복 해결**: 동일 함수 내에 여러 로그가 있을 경우, 숫자/HEX 등을 제외한 고유 텍스트 패턴을 추출하여 시그니처 충돌 방지 및 정밀 매칭 수행.
-        - **[New] Global Alias Batch**: 동일한 Alias의 최초~최후 발생을 하나의 거대한 세그먼트로 자동 분석하여 시간 흐름 파악 용이성 증대
-        - **[New] Deduplication**: 시각적으로 중복되는 구간 분석 결과를 워커 레벨에서 사전에 제거하여 UI 가독성 및 렌더링 부하 최적화
-        - `Non-blocking Analysis`: 분석 수행 시 `workerReady` 상태를 유지하여 메인 UI의 'Processing log..' 메시지 노출 방지
-        - `Immediate Cancellation`: 유저가 패널을 닫을 시 `analyzerWorker.terminate()`를 즉각 호출하여 CPU/메모리 자원을 즉시 반납하고 분석 결과의 고스트 팝업 방지 (`useSplitAnalysis.ts`)
-        - **[New] 3-Column Timeline Layout**: Timeline 탭의 세그먼트 카드를 `Context - Visual Bridge - Metrics` 3컬럼 구조로 개편하여 공간 활용 최적화 및 성능 차이 시각화 강화 🐧🎨
-    - **Interactions**:
-        - `TopBar.tsx`: Dual View(Split) 상태에서만 나타나는 ⚡ Analyze Diff 버튼을 통해 분석 진입. 버튼은 토글(`Start` ↔ `Close/Cancel`) 방식으로 동작하며, 분석 중 클릭 시 즉시 중단됨.
-        - `LogSession.tsx`: 계산이 끝나면 상단 통합 패널(`SplitAnalyzerPanel`) 형태로 리포트 표시 (이전 하단 Drawer 방식에서 최적화)
-        - GAP TIME의 구간 정보(`FROM: ... ➔ CURR: ...`)를 명확히 표시하여 지연 원인 추적 용이성 확보
-        - 신규 추가 에러, 느려진 구간(`isSlower`), 빈번해진 로그(`isMore`) 등을 아이콘(🚨, ⚠️, ⚡)과 함께 시각적으로 브리핑
-
-### [Feature] High-Performance Rendering (HyperLog)
-- **ID**: `feature-hyper-rendering`
-- **Keywords**: [`Canvas`, `Virtual Scroll`, `60fps`, `Ligatures`, `Measure Cache`]
-- **Location**:
-    - Core: [HyperLogRenderer.tsx](./components/LogViewer/HyperLogRenderer.tsx)
-- **Core Interface**:
-    - `loadVisibleLines(start, end)`: 5000줄 단위의 배치 데이터 페칭
-    - `decodeHTMLEntities(text)`: 캔버스에서의 정확한 폰트 너비 측정을 위한 필수 전처리
-    - `performanceHeatmap`: 로그 밀도 및 성능 핫존을 보여주는 우측 세로 스트립
-- **Optimizations**:
-    - `indexOf` vs `Regex`: 단순 키워드 하이라이트를 위한 고속 문자열 검색 사용
-    - `Dual Canvas`: 배경 하이라이트와 텍스트 렌더링을 분리하여 무효화 최소화
-
-### [Feature] Configuration & Persistence
-- **ID**: `feature-config-mgmt`
-- **Keywords**: [`Happy Combo`, `Sync`, `Paging`, `Stream`, `IndexedDB`, `Persistence`]
-- **Location**:
-    - View: [ConfigurationPanel.tsx](./components/LogViewer/ConfigurationPanel.tsx), [HappyComboSection.tsx](./components/LogViewer/ConfigSections/HappyComboSection.tsx)
-    - Logic: [useLogFileOperations.ts](./hooks/useLogFileOperations.ts), [db.ts](./utils/db.ts)
-- **Interactions**:
-    - `Master Toggle (Improved)`: 마스터 체크박스는 "상태 차단기"가 아닌 "전체 토글(Toggle All)" 도우미로 동작합니다.
-        - 하위 항목 중 하나라도 켜져 있으면 마스터도 '체크' 상태로 표시됩니다.
-        - 마스터 클릭 시: (켜기 -> 전체 활성화 / 끄기 -> 전체 비활성화) 연동을 수행합니다.
-    - `Filter Engine`: 필터링 여부는 오직 개별 콤보의 `enabled` 상태에만 의존하며, 마스터 스위치 설정에 구애받지 않고 개별 활성화가 항상 우선됩니다. (형님의 '다 끄고 하나만 보기' 요구사항 충족)
-    - `state_persistence`: 5초마다 `tabState_${tabId}` (경로, 스크롤, 선택) 저장. 저장 전 `isLoaded` 플래그를 체크하여 부팅 시 초기화 레이스 컨디션 방지 logic 적용됨.
-    - **[New] Stream Isolation**: `activeStreamRequestIdLeft/Right`를 독립 참조하여 좌/우 동시 로딩 시 데이터 정합성 보장
-    - `streamReadFile(path, requestId)`: 대용량 파일 세그먼트 전송을 위한 Electron IPC
-- **Data Flow**:
-    - `File Open` -> `INIT_STREAM` -> `PROCESS_CHUNK` (Worker) -> `STREAM_DONE` -> `Indexing`
-    - `Rule Update` -> `applyFilter` (Worker) -> `LRU Cache Check` -> `Render`
-
-### [[CLI Mode (Headless) Architecture]] 🐧💻
-- **ID**: `system-cli-headless`
-- **Keywords**: [`CLI`, `headless`, `hidden renderer`, `commander`, `automation`]
-- **Location**:
-    - `Main Control`: [electron/main.cjs](./electron/main.cjs) (Argument parsing via `commander`)
-    - `Logic Entry`: [CliApp.tsx](./CliApp.tsx) (Hidden renderer's UI wrapper)
-- **Core Interface**:
-    - `HappyTool.exe cli log-extractor`: 로그 필터링 및 추출 명령
-    - `HappyTool.exe cli analyze-diff`: 두 로그 파일 간의 성능 및 차이 분석 명령 (JSON 추출)
-- **Data Flow**:
-    - `CLI Args` -> `main.cjs` -> `Hidden BrowserWindow` -> `CliApp.tsx` -> `LogProcessorWorker` (2개 병렬) -> `SplitAnalysisWorker` -> `Result Export` -> `Process Exit`
-- **Optimizations**:
-    - `cli-session`: CLI 전용 userData 경로를 사용하여 GUI와 데이터 잠금 충돌 방지
-    - `saveSettingsToFile`: 설정 변경 시 `settings.json`으로 동기화하여 CLI와 GUI 간 필터 규칙 공유
-
----
-
-## 8. Sequence: How Things Work
-주요 시퀀스의 데이터 흐름 요약입니다.
-
-### [[File Loading to Rendering]]
-- **Flow**:
-  1. `useLogFileOperations.ts` -> `streamReadFile` 호출
-  2. `LogProcessor.worker.ts` -> `PROCESS_CHUNK` 수신 및 인덱싱
-  3. `LogProcessor.worker.ts` -> `applyFilter()` 호출 (인덱싱 및 필터링)
-  4. `LogViewerPane.tsx` -> `HyperLogRenderer`에 `totalCount` 전달
-  5. `HyperLogRenderer.tsx` -> `onScrollRequest` 트리거 -> `Canvas` 렌더링
+### [[Performance First]] 🚀
+- 대용량 데이터 처리 시 무조건 워커(Worker)를 동원하고, 메모이제이션을 통해 UI 부하를 최소화합니다.
 
 ---
 
 > [!TIP]
-> **모든 지도가 그려졌습니다!** 형님, 이제 "어느 파일의 어느 함수"를 찾을 때 이 지도를 먼저 보여주시면 제가 0.1초 만에 튀어나가겠습니다! 🐧🚀
+> **형님, 지도가 하나로 완벽하게 합쳐졌습니다!** 이제 `important/APP_MAP.md` 하나만 믿고 따라오시면 됩니다! 🐧🚀🛡️
