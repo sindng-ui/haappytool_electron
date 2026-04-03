@@ -5,6 +5,31 @@ import {
   AnalysisType,
 } from '../protocol';
 
+/** 🚨 디버깅 전용: 통신 원본 데이터 로깅 🐧📝 */
+async function logTraffic(type: 'REQ' | 'RES' | 'ERR', data: any) {
+  try {
+    const electronAPI = (window as any).electronAPI;
+    if (!electronAPI?.appendFileDirect || !electronAPI?.getAppPath) return;
+
+    const appPath = await electronAPI.getAppPath();
+    const logPath = `${appPath}/agent_traffic_debug.log`;
+    
+    // 처음 실행 시 경로 안내 (콘솔)
+    if ((window as any)._debugLogPathPrinted !== logPath) {
+      console.log(`%c[DEBUG] AI Traffic Log Path: ${logPath}`, "color: #818cf8; font-weight: bold; font-size: 12px;");
+      (window as any)._debugLogPathPrinted = logPath;
+    }
+
+    const timestamp = new Date().toISOString();
+    const separator = "─".repeat(80);
+    const content = `\n${separator}\n[${timestamp}] [${type}]\n${typeof data === 'string' ? data : JSON.stringify(data, null, 2)}\n${separator}\n`;
+    
+    await electronAPI.appendFileDirect(content, logPath);
+  } catch (err) {
+    console.error('[logTraffic] Failed:', err);
+  }
+}
+
 // ─── System Prompt 빌더 ───────────────────────────────────────────────────────
 
 const ANALYSIS_PROMPTS: Record<AnalysisType, string> = {
@@ -257,6 +282,15 @@ export async function sendToAgent(
     }
   }
 
+  // 🚨 [DEBUG] 요청 전문 로깅 🐧📝
+  const fullReqLog = {
+    url: finalUrl,
+    method: 'POST',
+    headers,
+    body: body
+  };
+  logTraffic('REQ', fullReqLog);
+
   // 1️⃣ 스트리밍 모드
   if (onPartialUpdate) {
     const streamUrl = isGemini ? finalUrl.replace(':generateContent', ':streamGenerateContent') : finalUrl;
@@ -311,6 +345,10 @@ export async function sendToAgent(
       const offComplete = electronAPI.onProxyStreamComplete(({ requestId: id }: any) => {
         if (id !== requestId) return;
         cleanup();
+        
+        // 🚨 [DEBUG] 스트리밍 응답 합본 로깅 🐧📝 
+        logTraffic('RES', (finalJsonResponse || fullThought));
+
         try {
           const cleanedJson = extractJsonFromText(finalJsonResponse || '{}');
           // 가우스 에이전트 결과가 순수 텍스트라면 JSON 파싱 대신 수동 조립
@@ -334,12 +372,16 @@ export async function sendToAgent(
 
       const offError = electronAPI.onProxyStreamError(({ requestId: id, message }: any) => {
         if (id !== requestId) return;
+        logTraffic('ERR', message);
         cleanup(); reject(new Error(`스트리밍 오류: ${message}`));
       });
 
       electronAPI.streamProxyRequest({
         method: 'POST', url: streamUrl, headers, body: JSON.stringify(body), requestId
-      }).catch(reject);
+      }).catch(err => {
+        logTraffic('ERR', err.message);
+        reject(err);
+      });
     });
   }
 
@@ -348,9 +390,16 @@ export async function sendToAgent(
     method: 'POST', url: finalUrl, headers, body: JSON.stringify(body)
   });
 
-  if (response.error) throw new Error(`API 오류: ${response.message}`);
+  if (response.error) {
+    logTraffic('ERR', response.message);
+    throw new Error(`API 오류: ${response.message}`);
+  }
   
   const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+  
+  // 🚨 [DEBUG] 응답 전문 로깅 🐧📝 
+  logTraffic('RES', data);
+
   let rawContent = '';
 
   if (isGemini) {

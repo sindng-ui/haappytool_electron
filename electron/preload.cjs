@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveFile: (content) => ipcRenderer.invoke('saveFile', content),
     saveBinaryFile: (data, fileName) => ipcRenderer.invoke('saveBinaryFile', { data, fileName }),
     saveFileDirect: (data, filePath) => ipcRenderer.invoke('saveFileDirect', { data, filePath }),
+    appendFileDirect: (data, filePath) => ipcRenderer.invoke('appendFileDirect', { data, filePath }),
     openExternal: (url) => ipcRenderer.invoke('openExternal', url),
     fetchUrl: (url, type) => ipcRenderer.invoke('fetchUrl', { url, type }),
     proxyRequest: (request) => ipcRenderer.invoke('proxyRequest', request),

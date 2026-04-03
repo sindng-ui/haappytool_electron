@@ -275,6 +275,20 @@ app.whenReady().then(async () => {
         }
     });
 
+    // 🚨 디버깅 전용: 파일 끝에 내용 추가 (로그용) 🐧📝
+    ipcMain.handle('appendFileDirect', async (event, { data, filePath, isBase64 }) => {
+        try {
+            const buffer = isBase64
+                ? Buffer.from(data, 'base64')
+                : Buffer.from(data);
+            await originalFs.promises.appendFile(filePath, buffer);
+            return { status: 'success', filePath };
+        } catch (error) {
+            console.error('[appendFileDirect] Error:', error);
+            return { status: 'error', error: error.message };
+        }
+    });
+
     ipcMain.handle('saveBinaryFile', async (event, { data, fileName }) => {
         const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
             defaultPath: fileName,

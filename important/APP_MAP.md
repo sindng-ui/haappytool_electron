@@ -105,6 +105,7 @@
 - **Interactions**:
   - `Space`: 북마크 토글 (황금색 언더라인 강조) [MOD]
   - `Double Click`: 원본 로그 문맥(Raw Context) 보기 [MOD]
+  - **AI 통신 디버그 로깅**: AI와 주고받는 모든 Raw 통신 데이터를 `agent_traffic_debug.log` 파일에 기록. [NEW]
   - **AI 분석 루프 최적화**: 중복 실행 방지 가드 및 정체(Stall) 감지 로직 추가. 정체 및 API 오류 발생 시에도 통신 로그를 남기도록 개선. [UPDATED]
   - **Gauss 에이전트 호환성 강화**: `outputs.message` 등 다양한 응답 규격 추가 대응. [NEW]
   - **AI 요청 데이터 시각화**: 분석 중 어떤 힌트와 로그 데이터가 LLM으로 전송되었는지 실시간 요약 표시. [NEW]
