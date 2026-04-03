@@ -1,13 +1,13 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { LogRule } from '../../../types';
 import { AnalysisType } from '../protocol';
-import { useHappyTool } from '../../../contexts/HappyToolContext';
-import { ChevronDown, FileText, Upload, X, Play, Square, AlertCircle, Settings, Layers, Target, Zap } from 'lucide-react';
+import { ChevronDown, FileText, Upload, X, Play, Square, Settings, Target, Layers } from 'lucide-react';
 import { AgentRunStatus } from '../hooks/useAnalysisAgent';
 import { parseLogText } from '../services/hintExtractor';
 
 interface AgentConfigPanelProps {
   status: AgentRunStatus;
+  logRules: LogRule[];
   onStart: (
     files: { text: string; name: string }[],
     rule: LogRule | null,
@@ -25,13 +25,13 @@ const ANALYSIS_TYPES: { value: AnalysisType; label: string; emoji: string; desc:
   { value: 'traffic', label: 'Traffic Analyze', emoji: '🌐', desc: 'HTTP 오류 / 트래픽 이상 분석' },
 ];
 
-const AgentConfigPanel: React.FC<AgentConfigPanelProps> = ({
+const AgentConfigPanel: React.FC<AgentConfigPanelProps> = React.memo(({
   status,
+  logRules,
   onStart,
   onCancel,
   onReset,
 }) => {
-  const { logRules } = useHappyTool();
   const [analysisType, setAnalysisType] = useState<AnalysisType>('crash');
   const [selectedRuleId, setSelectedRuleId] = useState<string>('');
   const [files, setFiles] = useState<{ id: string; name: string; text: string; lineCount: number }[]>([]);
@@ -394,6 +394,6 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default AgentConfigPanel;

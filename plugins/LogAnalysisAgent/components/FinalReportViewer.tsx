@@ -12,12 +12,37 @@ const FinalReportViewer: React.FC<FinalReportViewerProps> = ({ report }) => {
   const { addToast } = useToast();
   const [copied, setCopied] = useState(false);
 
+  // ─── AI 응답 가공 헬퍼 (JSON 속에 갇힌 마크다운 구출) ───────────────────────
+  const formattedReport = React.useMemo(() => {
+    if (!report) return '';
+    const trimmed = report.trim();
+    if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return report;
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed === 'object' && parsed !== null) {
+        // 우선순위 필드 순서대로 확인
+        return String(
+          parsed.final_report || 
+          parsed.report || 
+          parsed.content || 
+          parsed.message || 
+          parsed.thought || 
+          JSON.stringify(parsed, null, 2)
+        );
+      }
+      return report;
+    } catch (e) {
+      return report;
+    }
+  }, [report]);
+
   const handleCopy = async () => {
     try {
       if ((window as any).electronAPI?.copyToClipboard) {
-        await (window as any).electronAPI.copyToClipboard(report);
+        await (window as any).electronAPI.copyToClipboard(formattedReport);
       } else {
-        await navigator.clipboard.writeText(report);
+        await navigator.clipboard.writeText(formattedReport);
       }
       setCopied(true);
       addToast('보고서가 클립보드에 복사되었습니다!', 'success');
@@ -32,7 +57,7 @@ const FinalReportViewer: React.FC<FinalReportViewerProps> = ({ report }) => {
     const fileName = `analysis-report-${timestamp}.md`;
 
     if ((window as any).electronAPI?.saveFile) {
-      const result = await (window as any).electronAPI.saveFile(report);
+      const result = await (window as any).electronAPI.saveFile(formattedReport);
       if (result?.status === 'success') {
         addToast(`보고서 저장 완료: ${result.filePath}`, 'success');
       }
@@ -93,7 +118,7 @@ const FinalReportViewer: React.FC<FinalReportViewerProps> = ({ report }) => {
           prose-hr:border-slate-700
         ">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {report}
+            {formattedReport}
           </ReactMarkdown>
         </div>
       </div>

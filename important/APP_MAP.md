@@ -139,8 +139,10 @@
   - **통합 분석 뷰 (Unified Analysis)**: 실시간 과정(Thought)과 최종 리포트(Final Report)를 하나의 스크롤 뷰에 통합. [UPDATED]
   - **상시 디버그 모니터 (Live Communication)**: 별도 토글 없이 LLM과의 Raw Traffic을 상시 확인 가능. [UPDATED]
   - **사용자 맞춤형 힌트 (Detailed Context)**: 분석 시작 전 PID, TID, 주관식 힌트 입력 기능.
+  - **AI 응답 자동 포맷팅**: Thought 및 최종 보고서가 JSON으로 응답될 경우 자동으로 핵심 텍스트를 추출하고 보기 좋게 포맷팅하여 표시. [NEW]
   - **Gauss 2.3 Think 통합**: `agent.sec.samsung.net` 엔드포인트 최적화.
   - **드래그 가능한 타이틀 바**: 프레임리스 환경에서도 상단 `h-9` 영역을 통한 창 이동 지원.
+  - **성능 최적화 (UI Stability)**: `React.memo`, `useCallback`, `useMemo`를 통한 리렌더링 최소화 및 컨텍스트 상위 이동(Context Uplift)을 통해 사이드바 애니메이션 시 버벅임 방지. [UPDATED][HOT]
 
 ### [[Gauss Chat Plugin]] 💬 [NEW]
 - **ID**: `GAUSS_CHAT_AGENT`

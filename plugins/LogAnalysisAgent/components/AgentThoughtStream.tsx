@@ -35,13 +35,40 @@ const ACTION_COLORS: Record<ActionType, string> = {
   USER_QUERY: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
 };
 
+// ─── AI 응답 가공 헬퍼 ────────────────────────────────────────────────────────
+const formatAiContent = (content: string): string => {
+  if (!content) return '';
+  const trimmed = content.trim();
+  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return content;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    // 특정 필드가 있으면 해당 필드만 추출
+    if (typeof parsed === 'object' && parsed !== null) {
+      if (parsed.thought) return String(parsed.thought);
+      if (parsed.final_report) return String(parsed.final_report);
+      if (parsed.message) return String(parsed.message);
+      if (parsed.content) return String(parsed.content);
+      if (parsed.text) return String(parsed.text);
+      if (parsed.chunk) return String(parsed.chunk);
+      
+      // 필드가 없으면 예쁘게 포맷팅
+      return JSON.stringify(parsed, null, 2);
+    }
+    return content;
+  } catch (e) {
+    return content;
+  }
+};
+
 // ─── 개별 Iteration 카드 ─────────────────────────────────────────────────────
 
-const IterationCard: React.FC<{ record: IterationRecord; isLatest: boolean }> = ({
+const IterationCard: React.FC<{ record: IterationRecord; isLatest: boolean }> = React.memo(({
   record, isLatest
 }) => {
   const [expanded, setExpanded] = useState(isLatest);
   const { thought, action, actionResult, iteration } = record;
+  const formattedThought = formatAiContent(thought);
 
   return (
     <div className={`border rounded-xl overflow-hidden transition-all ${
@@ -79,9 +106,9 @@ const IterationCard: React.FC<{ record: IterationRecord; isLatest: boolean }> = 
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
               <Brain size={10} /> Thought
             </p>
-            <p className="text-xs text-slate-300 leading-relaxed bg-slate-800/50 rounded-lg p-2.5">
-              {thought}
-            </p>
+            <div className={`text-xs text-slate-300 leading-relaxed bg-slate-800/50 rounded-lg p-2.5 ${formattedThought.includes('\n') || formattedThought.startsWith('  ') ? 'font-mono whitespace-pre' : ''}`}>
+              {formattedThought}
+            </div>
           </div>
 
           {/* Action */}
@@ -117,11 +144,11 @@ const IterationCard: React.FC<{ record: IterationRecord; isLatest: boolean }> = 
       )}
     </div>
   );
-};
+});
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 
-const AgentThoughtStream: React.FC<AgentThoughtStreamProps> = ({
+const AgentThoughtStream: React.FC<AgentThoughtStreamProps> = React.memo(({
   status,
   iterations,
   currentIteration,
@@ -292,6 +319,6 @@ const AgentThoughtStream: React.FC<AgentThoughtStreamProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default AgentThoughtStream;

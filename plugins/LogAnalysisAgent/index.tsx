@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { LogRule } from '../../types';
 import { AnalysisType, IterationRecord } from './protocol';
 import { useAnalysisAgent } from './hooks/useAnalysisAgent';
 import AgentConfigPanel from './components/AgentConfigPanel';
 import AgentThoughtStream from './components/AgentThoughtStream';
-import FinalReportViewer from './components/FinalReportViewer';
-import { BrainCircuit, Bug, Terminal, ChevronRight, ChevronDown, FileText } from 'lucide-react';
+import { BrainCircuit, Terminal, ChevronRight, ChevronDown, FileText } from 'lucide-react';
+import { useHappyTool } from '../../contexts/HappyToolContext';
 
-const DebugItem: React.FC<{ record: IterationRecord }> = ({ record }) => {
+const DebugItem: React.FC<{ record: IterationRecord }> = React.memo(({ record }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -56,18 +56,32 @@ const DebugItem: React.FC<{ record: IterationRecord }> = ({ record }) => {
       )}
     </div>
   );
-};
+});
 
 const LogAnalysisAgentPlugin: React.FC = () => {
   const { state, startAnalysis, cancelAnalysis, answerUserQuery, reset } = useAnalysisAgent();
   const [activeTab, setActiveTab] = useState<'analysis' | 'communication'>('analysis');
+  const { logRules } = useHappyTool();
   
   const { status, iterations, currentIteration, maxIterations, extractionProgress,
           finalReport, userQuery, errorMessage } = state;
 
+  const handleStartAnalysis = useCallback((files: { text: string; name: string }[], rule: LogRule | null, type: AnalysisType, hints?: any) => {
+    startAnalysis(files, rule, type, hints);
+  }, [startAnalysis]);
+
+  const handleReset = useCallback(() => {
+    reset();
+    setActiveTab('analysis');
+  }, [reset]);
+
+  const handleTabAnalysis = useCallback(() => setActiveTab('analysis'), []);
+  const handleTabCommunication = useCallback(() => setActiveTab('communication'), []);
+
+  const reversedIterations = useMemo(() => [...iterations].reverse(), [iterations]);
+
   return (
     <div className="flex flex-col h-full w-full bg-slate-950 text-slate-200 overflow-hidden font-sans">
-      {/* ── 상단 드래그 가능한 타이틀 바 ── */}
       <div 
         className="h-10 flex items-center bg-slate-900 border-b border-slate-800 px-4 shrink-0 z-20 title-drag" 
         style={{ WebkitAppRegion: 'drag' } as any}
@@ -85,24 +99,22 @@ const LogAnalysisAgentPlugin: React.FC = () => {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* ── 좌측: 설정 패널 ── */}
         <div className="w-[280px] flex-shrink-0 flex flex-col border-r border-slate-800 bg-slate-900/60 shadow-2xl z-10">
           <div className="flex-1 overflow-hidden">
             <AgentConfigPanel
               status={status}
-              onStart={(files, rule, at, hints) => startAnalysis(files, rule, at, hints)}
+              logRules={logRules}
+              onStart={handleStartAnalysis}
               onCancel={cancelAnalysis}
-              onReset={() => { reset(); setActiveTab('analysis'); }}
+              onReset={handleReset}
             />
           </div>
         </div>
 
-        {/* ── 우측: 분석 결과 패널 ── */}
         <div className="flex-1 flex flex-col overflow-hidden bg-[#020617]/30">
-          {/* 탭 헤더 (항상 노출) */}
           <div className="flex-shrink-0 flex items-center bg-slate-900/60 border-b border-slate-800 h-11 px-2">
             <button
-              onClick={() => setActiveTab('analysis')}
+              onClick={handleTabAnalysis}
               className={`px-5 h-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 relative group ${activeTab === 'analysis' ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
             >
               <FileText size={14} className={activeTab === 'analysis' ? 'text-indigo-400' : 'text-slate-600'} />
@@ -112,7 +124,7 @@ const LogAnalysisAgentPlugin: React.FC = () => {
               )}
             </button>
             <button
-              onClick={() => setActiveTab('communication')}
+              onClick={handleTabCommunication}
               className={`px-5 h-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 relative group ${activeTab === 'communication' ? 'text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}
             >
               <Terminal size={14} className={activeTab === 'communication' ? 'text-amber-400' : 'text-slate-600'} />
@@ -133,7 +145,6 @@ const LogAnalysisAgentPlugin: React.FC = () => {
             </div>
           </div>
 
-          {/* 탭 콘텐츠 */}
           <div className="flex-1 overflow-hidden relative">
             {activeTab === 'analysis' ? (
               <AgentThoughtStream
@@ -158,7 +169,7 @@ const LogAnalysisAgentPlugin: React.FC = () => {
                     <span className="text-[9px] font-black text-slate-600 uppercase">Raw JSON Traffic</span>
                   </div>
                   <div className="space-y-3">
-                    {[...iterations].reverse().map(it => (
+                    {reversedIterations.map(it => (
                       <DebugItem key={it.iteration} record={it} />
                     ))}
                     {iterations.length === 0 && (
