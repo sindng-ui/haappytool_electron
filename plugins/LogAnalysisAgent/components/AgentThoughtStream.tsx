@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { IterationRecord } from '../protocol';
 import { AgentRunStatus } from '../hooks/useAnalysisAgent';
 import { ActionType } from '../protocol';
-import { Brain, Search, FileSearch, Layers, BarChart2, HelpCircle, ChevronDown, ChevronRight, Loader } from 'lucide-react';
+import { Brain, Search, FileSearch, Layers, BarChart2, HelpCircle, ChevronDown, ChevronRight, Loader, FileText } from 'lucide-react';
+import FinalReportViewer from './FinalReportViewer';
 
 interface AgentThoughtStreamProps {
   status: AgentRunStatus;
@@ -12,6 +13,7 @@ interface AgentThoughtStreamProps {
   extractionProgress: number;
   userQuery: string | null;
   errorMessage: string | null;
+  finalReport: string | null; // 추가
   onAnswerUserQuery: (answer: string) => void;
 }
 
@@ -127,6 +129,7 @@ const AgentThoughtStream: React.FC<AgentThoughtStreamProps> = ({
   extractionProgress,
   userQuery,
   errorMessage,
+  finalReport,
   onAnswerUserQuery,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -270,7 +273,22 @@ const AgentThoughtStream: React.FC<AgentThoughtStreamProps> = ({
           </div>
         )}
 
-        <div ref={bottomRef} />
+        {/* 최종 리포트 통합 표시 🧠🚀 */}
+        {finalReport && (status === 'completed' || status === 'cancelled') && (
+          <div className="mt-6 pt-6 border-t border-slate-700/50">
+            <div className="flex items-center gap-2 mb-4 px-1">
+              <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                <FileText size={16} className="text-emerald-400" />
+              </div>
+              <h3 className="text-xs font-black text-emerald-100 uppercase tracking-widest">Final Analysis Report</h3>
+            </div>
+            <div className="bg-slate-900/40 rounded-2xl border border-white/5 overflow-hidden">
+              <FinalReportViewer report={finalReport} />
+            </div>
+          </div>
+        )}
+
+        <div ref={bottomRef} className="h-4" />
       </div>
     </div>
   );

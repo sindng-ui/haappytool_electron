@@ -135,10 +135,11 @@
   - `Service`: [agentApiService.ts](./plugins/LogAnalysisAgent/services/agentApiService.ts)
 - **Features**:
   - **다중 로그 파일 분석 (합산 힌트)**: 여러 로그 파일을 동시 드롭하여 통합 분석. [NEW]
-  - **Log Extractor UI 싱크 (Final)**: 선명한 인디고 테두리(border-400/50), 인디고 글래스 배경, 슬림한 현대적 폼팩터가 적용된 완전 동기화 버튼. [UPDATED][HOT]
-  - **사용자 맞춤형 힌트 (Detailed Context)**: 분석 시작 전 PID, TID, 주관식 힌트 입력 기능. [NEW]
-  - **Action 요약 표시**: 분석 단계별 `thought`와 `action`을 분리하여 가독성 개선. [UPDATED]
-  - **Gauss 2.3 Think 통합**: `agent.sec.samsung.net` 엔드포인트 최적화. [NEW]
+  - **Premium 2-Tab Layout**: 'Analysis'와 'LLM Communication' 2개 상시 탭 구조 도입. [UPDATED][HOT]
+  - **통합 분석 뷰 (Unified Analysis)**: 실시간 과정(Thought)과 최종 리포트(Final Report)를 하나의 스크롤 뷰에 통합. [UPDATED]
+  - **상시 디버그 모니터 (Live Communication)**: 별도 토글 없이 LLM과의 Raw Traffic을 상시 확인 가능. [UPDATED]
+  - **사용자 맞춤형 힌트 (Detailed Context)**: 분석 시작 전 PID, TID, 주관식 힌트 입력 기능.
+  - **Gauss 2.3 Think 통합**: `agent.sec.samsung.net` 엔드포인트 최적화.
   - **드래그 가능한 타이틀 바**: 프레임리스 환경에서도 상단 `h-9` 영역을 통한 창 이동 지원.
 
 ### [[Gauss Chat Plugin]] 💬 [NEW]

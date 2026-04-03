@@ -60,22 +60,10 @@ const DebugItem: React.FC<{ record: IterationRecord }> = ({ record }) => {
 
 const LogAnalysisAgentPlugin: React.FC = () => {
   const { state, startAnalysis, cancelAnalysis, answerUserQuery, reset } = useAnalysisAgent();
-  const [debugMode, setDebugMode] = useState(false);
-  const [activeTab, setActiveTab] = useState<'report' | 'debug'>('report');
+  const [activeTab, setActiveTab] = useState<'analysis' | 'communication'>('analysis');
   
   const { status, iterations, currentIteration, maxIterations, extractionProgress,
           finalReport, userQuery, errorMessage } = state;
-
-  const handleStart = (
-    logText: string,
-    fileName: string,
-    rule: LogRule | null,
-    analysisType: AnalysisType
-  ) => {
-    startAnalysis([{ text: logText, name: fileName }], rule, analysisType);
-  };
-
-  const showReport = finalReport && (status === 'completed' || status === 'cancelled');
 
   return (
     <div className="flex flex-col h-full w-full bg-slate-950 text-slate-200 overflow-hidden font-sans">
@@ -90,21 +78,6 @@ const LogAnalysisAgentPlugin: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3 no-drag">
-           <button 
-             onClick={() => setDebugMode(!debugMode)}
-             className={`flex items-center gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 no-drag w-[105px] h-[26px] shrink-0 ${
-               debugMode 
-                 ? "bg-amber-500/10 border-amber-500/50 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.15)]" 
-                 : "bg-slate-800/40 border-slate-700/30 text-slate-500 hover:border-slate-600 hover:text-slate-400"
-             }`}
-           >
-             <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 shrink-0 ${debugMode ? "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" : "bg-slate-700"}`} />
-             <div className="flex items-center gap-1.5 flex-1">
-               <Bug size={11} className={debugMode ? "text-amber-400" : "text-slate-600"} />
-               <span className="text-[9px] font-black uppercase tracking-[0.05em] whitespace-nowrap">Debug</span>
-             </div>
-             {debugMode && <span className="text-[8px] font-black bg-amber-500 text-[#020617] px-1 rounded-sm animate-pulse shrink-0">ON</span>}
-           </button>
            <p className="text-[9px] font-bold text-slate-700 uppercase tracking-widest ml-1">v1.1</p>
         </div>
 
@@ -119,76 +92,86 @@ const LogAnalysisAgentPlugin: React.FC = () => {
               status={status}
               onStart={(files, rule, at, hints) => startAnalysis(files, rule, at, hints)}
               onCancel={cancelAnalysis}
-              onReset={() => { reset(); setActiveTab('report'); }}
+              onReset={() => { reset(); setActiveTab('analysis'); }}
             />
           </div>
         </div>
 
         {/* ── 우측: 분석 결과 패널 ── */}
         <div className="flex-1 flex flex-col overflow-hidden bg-[#020617]/30">
-          {showReport ? (
-            <div className="flex flex-col h-full">
-              {/* 탭 헤더 */}
-              <div className="flex-shrink-0 flex items-center bg-slate-900/60 border-b border-slate-800 h-10 px-2">
-                <button
-                  onClick={() => setActiveTab('report')}
-                  className={`px-4 h-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'report' ? 'text-emerald-400 bg-emerald-500/5 border-b-2 border-emerald-500' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                  <FileText size={12} />
-                  Final Report
-                </button>
-                {debugMode && (
-                  <button
-                    onClick={() => setActiveTab('debug')}
-                    className={`px-4 h-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'debug' ? 'text-amber-400 bg-amber-500/5 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
-                  >
-                    <Terminal size={12} />
-                    LLM Communication ({iterations.length})
-                  </button>
-                )}
-                <div className="ml-auto px-3">
-                  <span className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">
-                    Analysis Completed in {iterations.length} iterations
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-hidden">
-                {activeTab === 'report' ? (
-                  <FinalReportViewer report={finalReport!} />
-                ) : (
-                  <div className="h-full flex flex-col bg-[#020617]">
-                    <div className="p-4 overflow-y-auto custom-scrollbar space-y-1">
-                      <div className="flex items-center gap-2 mb-4 px-2">
-                        <Terminal size={14} className="text-amber-500" />
-                        <h4 className="text-[11px] font-black text-amber-200/80 uppercase tracking-[0.2em]">Debug Console</h4>
-                      </div>
-                      {iterations.map(it => (
-                        <DebugItem key={it.iteration} record={it} />
-                      ))}
-                      {iterations.length === 0 && (
-                        <div className="h-[200px] flex flex-col items-center justify-center text-slate-800">
-                          <Terminal size={40} className="mb-2 opacity-10" />
-                          <p className="text-[10px] font-bold uppercase tracking-widest">No LLM transactions recorded</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+          {/* 탭 헤더 (항상 노출) */}
+          <div className="flex-shrink-0 flex items-center bg-slate-900/60 border-b border-slate-800 h-11 px-2">
+            <button
+              onClick={() => setActiveTab('analysis')}
+              className={`px-5 h-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 relative group ${activeTab === 'analysis' ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              <FileText size={14} className={activeTab === 'analysis' ? 'text-indigo-400' : 'text-slate-600'} />
+              1. Analysis
+              {activeTab === 'analysis' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('communication')}
+              className={`px-5 h-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 relative group ${activeTab === 'communication' ? 'text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              <Terminal size={14} className={activeTab === 'communication' ? 'text-amber-400' : 'text-slate-600'} />
+              2. LLM Communication
+              <span className={`ml-1 text-[9px] px-1.5 py-0.5 rounded-md font-black ${activeTab === 'communication' ? 'bg-amber-500/20 text-amber-500' : 'bg-slate-800 text-slate-600'}`}>
+                {iterations.length}
+              </span>
+              {activeTab === 'communication' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+              )}
+            </button>
+            
+            <div className="ml-auto flex items-center gap-3 px-4">
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter leading-none mb-0.5">Iteration Status</span>
+                <span className="text-[10px] text-slate-400 font-mono font-black">{currentIteration} / {maxIterations}</span>
               </div>
             </div>
-          ) : (
-            <AgentThoughtStream
-              status={status}
-              iterations={iterations}
-              currentIteration={currentIteration}
-              maxIterations={maxIterations}
-              extractionProgress={extractionProgress}
-              userQuery={userQuery}
-              errorMessage={errorMessage}
-              onAnswerUserQuery={answerUserQuery}
-            />
-          )}
+          </div>
+
+          {/* 탭 콘텐츠 */}
+          <div className="flex-1 overflow-hidden relative">
+            {activeTab === 'analysis' ? (
+              <AgentThoughtStream
+                status={status}
+                iterations={iterations}
+                currentIteration={currentIteration}
+                maxIterations={maxIterations}
+                extractionProgress={extractionProgress}
+                userQuery={userQuery}
+                errorMessage={errorMessage}
+                finalReport={finalReport}
+                onAnswerUserQuery={answerUserQuery}
+              />
+            ) : (
+              <div className="h-full flex flex-col bg-[#020617]">
+                <div className="p-5 overflow-y-auto custom-scrollbar space-y-4">
+                  <div className="flex items-center justify-between mb-4 px-2">
+                    <div className="flex items-center gap-2">
+                      <Terminal size={16} className="text-amber-500" />
+                      <h4 className="text-[11px] font-black text-amber-200/80 uppercase tracking-[0.2em]">Communication Logs</h4>
+                    </div>
+                    <span className="text-[9px] font-black text-slate-600 uppercase">Raw JSON Traffic</span>
+                  </div>
+                  <div className="space-y-3">
+                    {[...iterations].reverse().map(it => (
+                      <DebugItem key={it.iteration} record={it} />
+                    ))}
+                    {iterations.length === 0 && (
+                      <div className="h-[300px] flex flex-col items-center justify-center text-slate-800 opacity-30">
+                        <Terminal size={48} strokeWidth={1} className="mb-4" />
+                        <p className="text-[11px] font-black uppercase tracking-[0.3em]">No Communication recorded yet</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
