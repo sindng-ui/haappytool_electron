@@ -7,11 +7,34 @@ import AgentThoughtStream from './components/AgentThoughtStream';
 import { BrainCircuit, Terminal, ChevronRight, ChevronDown, FileText } from 'lucide-react';
 import { useHappyTool } from '../../contexts/HappyToolContext';
 
+// ─── 디버그 항목 렌더러 (상세 통신 기록) 🐧🔍 ──────────────────────────────────
+const truncateLongStrings = (obj: any): any => {
+  if (typeof obj === 'string') {
+    return obj.length > 1000 ? obj.slice(0, 1000) + `\n... (TRUNCATED ${obj.length} chars)` : obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(truncateLongStrings);
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    const newObj: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      newObj[key] = truncateLongStrings(value);
+    }
+    return newObj;
+  }
+  return obj;
+};
+
 const DebugItem: React.FC<{ record: IterationRecord }> = React.memo(({ record }) => {
   const [isOpen, setIsOpen] = useState(false);
+  
+  // URL/Headers가 포함된 새 구조인지 체크
+  const isDetailedReq = record.rawRequest && record.rawRequest.url;
+  const displayRequest = truncateLongStrings(record.rawRequest);
+  const displayResponse = truncateLongStrings(record.rawResponse);
 
   return (
-    <div className="border border-slate-800 rounded-lg overflow-hidden bg-[#020617]/40 mb-2">
+    <div className="border border-slate-800 rounded-lg overflow-hidden bg-[#020617]/40 mb-2 shadow-lg">
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between px-3 py-2 text-[10px] bg-slate-900/60 hover:bg-slate-800 transition-colors"
@@ -23,6 +46,11 @@ const DebugItem: React.FC<{ record: IterationRecord }> = React.memo(({ record })
           <span className="text-slate-400 font-bold uppercase tracking-wider">
             {record.action?.type || (record.rawResponse?.final_report ? 'COMPLETED' : 'THOUGHT')}
           </span>
+          {isDetailedReq && (
+             <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 font-mono">
+               {record.rawRequest.method} {new URL(record.rawRequest.url).pathname}
+             </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <span className="text-[9px] text-slate-600 font-medium">
@@ -34,22 +62,45 @@ const DebugItem: React.FC<{ record: IterationRecord }> = React.memo(({ record })
       
       {isOpen && (
         <div className="p-3 bg-[#020617]/80 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-[9px] text-indigo-400/60 font-black uppercase tracking-widest pl-1">
-              <Terminal size={10} />
-              Request Payload
+          {/* Request Section */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2 text-[9px] text-indigo-400 font-black uppercase tracking-widest">
+                <Terminal size={10} /> Request Payload
+              </div>
+              {isDetailedReq && (
+                <div className="text-[8px] text-indigo-500/50 font-mono italic">
+                  Full Traffic Captured
+                </div>
+              )}
             </div>
-            <pre className="p-2.5 rounded bg-black/40 text-[10px] text-slate-300 font-mono overflow-x-auto border border-slate-800/30">
-              {JSON.stringify(record.rawRequest, null, 2)}
-            </pre>
+            
+            {isDetailedReq ? (
+              <div className="space-y-1">
+                <div className="p-2 rounded bg-black/40 border border-indigo-500/10 font-mono text-[10px] space-y-1">
+                  <div className="flex gap-2"><span className="text-indigo-500 font-bold w-12">URL:</span> <span className="text-slate-300 break-all">{record.rawRequest.url}</span></div>
+                  <div className="flex gap-2"><span className="text-indigo-500 font-bold w-12">Method:</span> <span className="text-slate-300 font-bold">{record.rawRequest.method}</span></div>
+                  <div className="mt-2 text-indigo-500/40 text-[9px] font-black uppercase">Headers</div>
+                  <pre className="text-slate-400 opacity-80">{JSON.stringify(record.rawRequest.headers, null, 2)}</pre>
+                  <div className="mt-2 text-indigo-500/40 text-[9px] font-black uppercase">JSON Body</div>
+                  <pre className="text-slate-300">{JSON.stringify(displayRequest.body, null, 2)}</pre>
+                </div>
+              </div>
+            ) : (
+              <pre className="p-2.5 rounded bg-black/40 text-[10px] text-slate-300 font-mono overflow-x-auto border border-slate-800/30">
+                {JSON.stringify(displayRequest, null, 2)}
+              </pre>
+            )}
           </div>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-[9px] text-emerald-400/60 font-black uppercase tracking-widest pl-1">
+
+          {/* Response Section */}
+          <div className="space-y-1.5 pt-2 border-t border-white/5">
+            <div className="flex items-center gap-2 text-[9px] text-emerald-400 font-black uppercase tracking-widest pl-1">
               <Terminal size={10} />
               Response Payload
             </div>
-            <pre className="p-2.5 rounded bg-black/40 text-[10px] text-emerald-100/90 font-mono overflow-x-auto border border-slate-800/30">
-              {JSON.stringify(record.rawResponse, null, 2)}
+            <pre className="p-2.5 rounded bg-black/40 text-[10px] text-emerald-100/90 font-mono overflow-x-auto border border-white/5">
+              {JSON.stringify(displayResponse, null, 2)}
             </pre>
           </div>
         </div>

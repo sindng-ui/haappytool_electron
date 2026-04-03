@@ -6,6 +6,8 @@ import {
 } from '../protocol';
 
 /** 🚨 디버깅 전용: 통신 원본 데이터 로깅 🐧📝 */
+const ENABLE_FILE_LOG = false; // <--- 형님, 여기서 언제든 끄고 켤 수 있습니다! 🐧🔓
+
 async function logTraffic(type: 'REQ' | 'RES' | 'ERR', data: any) {
   try {
     const electronAPI = (window as any).electronAPI;
@@ -14,11 +16,13 @@ async function logTraffic(type: 'REQ' | 'RES' | 'ERR', data: any) {
     const appPath = await electronAPI.getAppPath();
     const logPath = `${appPath}/agent_traffic_debug.log`;
     
-    // 처음 실행 시 경로 안내 (콘솔)
+    // 처음 실행 시 경로 안내 (콘솔) - 로깅이 꺼져 있어도 경로는 알려줌 (언제든 켤 수 있으니까!)
     if ((window as any)._debugLogPathPrinted !== logPath) {
-      console.log(`%c[DEBUG] AI Traffic Log Path: ${logPath}`, "color: #818cf8; font-weight: bold; font-size: 12px;");
+      console.log(`%c[DEBUG] AI Traffic Log Path: ${logPath} (Enabled: ${ENABLE_FILE_LOG})`, "color: #818cf8; font-weight: bold; font-size: 12px;");
       (window as any)._debugLogPathPrinted = logPath;
     }
+
+    if (!ENABLE_FILE_LOG) return; // 로깅이 꺼져 있으면 여기서 중단!
 
     const timestamp = new Date().toISOString();
     const separator = "─".repeat(80);
@@ -203,13 +207,24 @@ function extractJsonFromText(text: string): string {
 
 // ─── API 호출 ─────────────────────────────────────────────────────────────────
 
+export interface AgentResponseWithMeta {
+  response: AgentResponse;
+  requestMeta: {
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    body: any;
+  };
+}
+
 export async function sendToAgent(
   request: AgentRequest,
   config: AgentConfig,
   signal?: AbortSignal,
   onPartialUpdate?: (thought: string) => void,
-  onRawUpdate?: (raw: string) => void
-): Promise<AgentResponse> {
+  onRawUpdate?: (raw: string) => void,
+  onMeta?: (meta: any) => void
+): Promise<AgentResponseWithMeta> {
   if (!config.apiKey) throw new Error('API Key가 설정되지 않았습니다.');
   if (!config.endpoint) throw new Error('API Endpoint가 설정되지 않았습니다.');
 
@@ -282,14 +297,15 @@ export async function sendToAgent(
     }
   }
 
-  // 🚨 [DEBUG] 요청 전문 로깅 🐧📝
-  const fullReqLog = {
+  // 🚨 [DEBUG] 요청 전문 메타데이터 생성 🐧📝
+  const requestMeta = {
     url: finalUrl,
     method: 'POST',
     headers,
     body: body
   };
-  logTraffic('REQ', fullReqLog);
+  logTraffic('REQ', requestMeta);
+  if (onMeta) onMeta(requestMeta);
 
   // 1️⃣ 스트리밍 모드
   if (onPartialUpdate) {
@@ -364,7 +380,7 @@ export async function sendToAgent(
             } as AgentResponse;
           }
           if (!parsed.thought && fullThought) parsed.thought = fullThought;
-          resolve(parsed);
+          resolve({ response: parsed, requestMeta });
         } catch (e) {
           reject(new Error(`JSON 조립 실패: ${e.message}`));
         }
@@ -413,7 +429,7 @@ export async function sendToAgent(
 
   const parsed: AgentResponse = JSON.parse(extractJsonFromText(rawContent));
   if (!parsed.status) throw new Error('LLM 응답 형식이 올바르지 않습니다.');
-  return parsed;
+  return { response: parsed, requestMeta };
 }
 
 /** Gemini 스트림 파서 */

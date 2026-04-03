@@ -199,10 +199,11 @@ export function useAnalysisAgent() {
           },
         };
 
-        let response;
+        let currentMeta: any = null;
+        let agentRes;
         try {
-          // ── 1️⃣ 실시간 Thought 업데이트를 위한 콜백 🐧⚡ ──────
-          response = await sendToAgent(
+          // ── 1️⃣ 실시간 업데이트를 위한 콜백 🐧⚡ ──────
+          const result = await sendToAgent(
             request,
             config,
             abortControllerRef.current.signal,
@@ -211,17 +212,21 @@ export function useAnalysisAgent() {
                 const newIterations = [...prev.iterations];
                 const existingIdx = newIterations.findIndex(it => it.iteration === iter);
 
+                const baseRecord = {
+                  iteration: iter,
+                  thought: partialThought,
+                  rawRequest: currentMeta || request, // 메타가 아직 없으면 기본 request라도
+                  timestamp: Date.now(),
+                };
+
                 if (existingIdx >= 0) {
                   newIterations[existingIdx] = {
                     ...newIterations[existingIdx],
                     thought: partialThought,
+                    rawRequest: currentMeta || newIterations[existingIdx].rawRequest,
                   };
                 } else {
-                  newIterations.push({
-                    iteration: iter,
-                    thought: partialThought,
-                    timestamp: Date.now(),
-                  });
+                  newIterations.push(baseRecord);
                 }
 
                 return {
@@ -230,8 +235,21 @@ export function useAnalysisAgent() {
                   currentIteration: iter,
                 };
               });
+            },
+            undefined, // onRawUpdate
+            (meta) => {
+              currentMeta = meta; // 메타데이터 수신
+              setState(prev => {
+                const newIterations = [...prev.iterations];
+                const idx = newIterations.findIndex(it => it.iteration === iter);
+                if (idx >= 0) {
+                  newIterations[idx] = { ...newIterations[idx], rawRequest: meta };
+                }
+                return { ...prev, iterations: newIterations };
+              });
             }
           );
+          agentRes = result.response;
         } catch (apiErr: any) {
           // ── API 오류 발생 시에도 현재까지의 기록 저장 🐧📝 ──────
           setState(prev => {
@@ -240,7 +258,7 @@ export function useAnalysisAgent() {
             const record: IterationRecord = {
               iteration: iter,
               thought: (apiErr.message || 'API 호출 중 오류 발생'),
-              rawRequest: request,
+              rawRequest: currentMeta || request, // 상세 메타가 있으면 사용
               rawResponse: apiErr.responseData || { error: apiErr.message },
               timestamp: Date.now()
             };
@@ -259,6 +277,7 @@ export function useAnalysisAgent() {
 
         if (cancelledRef.current) { updateState({ status: 'cancelled' }); return; }
 
+        const response = agentRes;
         const thought = response.thought ?? '(thought 없음)';
         previousThought = thought;
 
