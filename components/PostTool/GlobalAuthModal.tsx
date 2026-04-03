@@ -143,28 +143,38 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
                 return;
             }
 
-            // The output might have some trailing/leading text, try to find JSON block
+            // The output might not be JSON. It could be multiple lines.
+            // Example: "VALUE", ( "accessToken" )
             const stdout = result.stdout.trim();
-            const jsonMatch = stdout.match(/\{[\s\S]*\}/);
-            const jsonStr = jsonMatch ? jsonMatch[0] : stdout;
+            const lines = stdout.split(/\r?\n/);
+            const tokenLine = lines.find(line => line.includes('"accessToken"'));
 
+            if (tokenLine) {
+                // Find all quoted strings on this line
+                const matches = [...tokenLine.matchAll(/"([^"]+)"/g)];
+                // Filter out "accessToken" itself to find the actual value
+                const tokenValue = matches.find(m => m[1] !== 'accessToken');
+
+                if (tokenValue) {
+                    updateField('bearerToken', tokenValue[1]);
+                    return;
+                }
+            }
+
+            // Fallback: try parsing as JSON just in case (legacy or different environment)
             try {
+                const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+                const jsonStr = jsonMatch ? jsonMatch[0] : stdout;
                 const data = JSON.parse(jsonStr);
                 const token = findAccessToken(data);
                 
                 if (token) {
                     updateField('bearerToken', token);
                 } else {
-                    setFetchError('accessToken not found in JSON');
+                    setFetchError('accessToken not found in output');
                 }
             } catch (e) {
-                // If parsing fails, try regex fallback
-                const tokenMatch = stdout.match(/"accessToken"\s*:\s*"([^"]+)"/);
-                if (tokenMatch) {
-                    updateField('bearerToken', tokenMatch[1]);
-                } else {
-                    setFetchError('Failed to parse JSON and no regex match found');
-                }
+                setFetchError('Failed to parse token from output. Format: ' + stdout.substring(0, 50));
             }
         } catch (err: any) {
             setFetchError(err.message);
