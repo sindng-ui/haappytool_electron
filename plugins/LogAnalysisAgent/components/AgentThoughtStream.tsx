@@ -163,8 +163,8 @@ const IterationCard: React.FC<{ record: IterationRecord; isLatest: boolean }> = 
         <div className="flex-1 min-w-0">
           <p className="text-xs font-bold text-slate-300">
             {action 
-              ? `Step ${iteration}: ${action.type} 수행` 
-              : `Step ${iteration}: 가우스 분석 중...`}
+              ? `Step ${iteration}: ${action.type}` 
+              : `Step ${iteration}: 분석 중...`}
           </p>
         </div>
         {expanded ? (
@@ -363,21 +363,19 @@ const AgentThoughtStream: React.FC<AgentThoughtStreamProps> = React.memo(({
           </div>
         )}
 
-        {/* 실행 중 표시 */}
+        {/* 실행 중 표시 (깔끔하게 도트만 남김) 🐧✨ */}
         {(status === 'running' || status === 'extracting') && (
-          <div className="flex items-center gap-2 py-2">
-            <div className="flex gap-1">
+          <div className="flex items-center gap-3 py-4 pl-1">
+            <div className="flex gap-1.5">
               {[0, 1, 2].map(i => (
                 <div
                   key={i}
-                  className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce"
+                  className="w-2 h-2 bg-indigo-500/60 rounded-full animate-bounce"
                   style={{ animationDelay: `${i * 150}ms` }}
                 />
               ))}
             </div>
-            <span className="text-[11px] text-slate-500">
-              {status === 'extracting' ? '로그에서 핵심 힌트 추출 중...' : 'LLM 에이전트 분석 중...'}
-            </span>
+            {status === 'extracting' && <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Parsing Log Data...</span>}
           </div>
         )}
 
