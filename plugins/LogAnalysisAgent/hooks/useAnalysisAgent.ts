@@ -233,10 +233,26 @@ export function useAnalysisAgent() {
             }
           );
         } catch (apiErr: any) {
-          // 타임아웃 또는 API 에러 → 현재까지의 결과 표시
-          updateState({
-            status: 'error',
-            errorMessage: `[Iteration ${iter}] API 오류: ${apiErr.message}`,
+          // ── API 오류 발생 시에도 현재까지의 기록 저장 🐧📝 ──────
+          setState(prev => {
+            const newIterations = [...prev.iterations];
+            const idx = newIterations.findIndex(it => it.iteration === iter);
+            const record: IterationRecord = {
+              iteration: iter,
+              thought: (apiErr.message || 'API 호출 중 오류 발생'),
+              rawRequest: request,
+              rawResponse: apiErr.responseData || { error: apiErr.message },
+              timestamp: Date.now()
+            };
+            if (idx >= 0) newIterations[idx] = record;
+            else newIterations.push(record);
+
+            return {
+              ...prev,
+              iterations: newIterations,
+              status: 'error',
+              errorMessage: `[Iteration ${iter}] API 오류: ${apiErr.message}`,
+            };
           });
           return;
         }

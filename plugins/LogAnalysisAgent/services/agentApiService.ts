@@ -357,7 +357,7 @@ export async function sendToAgent(
     rawContent = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   } else if (isGaussAgent) {
     // 가우스 에이전트의 일반적인 응답 필드 (output_value, answer, text 중 하나)
-    rawContent = data?.output_value || data?.answer || data?.text || data?.result || '';
+    rawContent = data?.output_value || data?.answer || data?.text || data?.result || data?.outputs?.message || data?.message || '';
   } else {
     rawContent = data?.choices?.[0]?.message?.content || '';
   }
@@ -441,6 +441,8 @@ function parseGaussStream(buffer: string, callback: (content: string) => void): 
         data?.answer || 
         data?.text || 
         data?.result || 
+        data?.outputs?.message ||
+        data?.data?.message ||
         data?.data?.chunk || // <--- New format
         data?.chunk || 
         '';
