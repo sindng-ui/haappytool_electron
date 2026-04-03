@@ -249,9 +249,25 @@ export function useAnalysisAgent() {
         // ── 2️⃣ 최종 결과로 Iteration 업데이트 🐧🚀 ──────
         // 🚨 분석 정체(Analysis Stalled) 체크: Action도 없고 완료도 아닌 경우
         if (response.status !== 'COMPLETED' && response.status !== 'ERROR' && !response.action) {
-          updateState({
-            status: 'error',
-            errorMessage: `[Iteration ${iter}] 분석이 정체되었습니다. AI가 유효한 액션을 반환하지 않았습니다. 다시 시도하거나 Mission을 더 구체화해 보세요.`,
+          setState(prev => {
+            const newIterations = [...prev.iterations];
+            const idx = newIterations.findIndex(it => it.iteration === iter);
+            const record: IterationRecord = {
+              iteration: iter,
+              thought,
+              rawRequest: request,
+              rawResponse: response,
+              timestamp: Date.now()
+            };
+            if (idx >= 0) newIterations[idx] = record;
+            else newIterations.push(record);
+
+            return {
+              ...prev,
+              iterations: newIterations,
+              status: 'error',
+              errorMessage: `[Iteration ${iter}] 분석이 정체되었습니다. AI가 유효한 액션을 반환하지 않았습니다. 다시 시도하거나 Mission을 더 구체화해 보세요.`,
+            };
           });
           return;
         }
