@@ -90,7 +90,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // ✅ Settings Sync
     saveSettingsToFile: (settings) => ipcRenderer.invoke('save-settings-file', settings),
-    getCliSettings: () => ipcRenderer.invoke('get-cli-settings')
+    getCliSettings: () => ipcRenderer.invoke('get-cli-settings'),
+
+    // ✅ SDB Helper
+    runSdbCommand: (cmd) => ipcRenderer.invoke('run-sdb-command', cmd)
 });
 
 // ✅ Enforce Strict Zoom Limits globally to prevent native browser zoom from interfering with custom UI scaling

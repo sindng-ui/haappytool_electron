@@ -436,6 +436,24 @@ app.whenReady().then(async () => {
         });
     });
 
+    ipcMain.handle('run-sdb-command', async (event, cmd) => {
+        const { exec } = require('child_process');
+        return new Promise((resolve) => {
+            // ✅ Only allow sdb commands for safety
+            if (!cmd.startsWith('sdb ')) {
+                resolve({ error: true, message: 'Only sdb commands are allowed' });
+                return;
+            }
+            exec(cmd, (error, stdout, stderr) => {
+                if (error) {
+                    resolve({ error: true, message: stderr || error.message });
+                } else {
+                    resolve({ stdout });
+                }
+            });
+        });
+    });
+
     if (isCliMode) {
         require('./cli.cjs').runCli(args.slice(1));
         return;

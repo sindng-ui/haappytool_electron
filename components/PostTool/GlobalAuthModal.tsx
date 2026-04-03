@@ -113,6 +113,66 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
         setLocalAuth(prev => ({ ...prev, [field]: value }));
     };
 
+    // Deep search for accessToken in nested JSON
+    const findAccessToken = (obj: any): string | null => {
+        if (!obj || typeof obj !== 'object') return null;
+        if (obj.accessToken) return obj.accessToken;
+        
+        for (const key in obj) {
+            const found = findAccessToken(obj[key]);
+            if (found) return found;
+        }
+        return null;
+    };
+
+    const [isFetchingToken, setIsFetchingToken] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
+
+    const handleAutoFetchToken = async () => {
+        if (!window.electronAPI?.runSdbCommand) return;
+        
+        setIsFetchingToken(true);
+        setFetchError(null);
+        
+        try {
+            const cmd = 'sdb shell vconftool get memory/iot/client/signup_info';
+            const result = await window.electronAPI.runSdbCommand(cmd);
+            
+            if (result.error || !result.stdout) {
+                setFetchError(result.message || 'SDB command failed');
+                return;
+            }
+
+            // The output might have some trailing/leading text, try to find JSON block
+            const stdout = result.stdout.trim();
+            const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+            const jsonStr = jsonMatch ? jsonMatch[0] : stdout;
+
+            try {
+                const data = JSON.parse(jsonStr);
+                const token = findAccessToken(data);
+                
+                if (token) {
+                    updateField('bearerToken', token);
+                } else {
+                    setFetchError('accessToken not found in JSON');
+                }
+            } catch (e) {
+                // If parsing fails, try regex fallback
+                const tokenMatch = stdout.match(/"accessToken"\s*:\s*"([^"]+)"/);
+                if (tokenMatch) {
+                    updateField('bearerToken', tokenMatch[1]);
+                } else {
+                    setFetchError('Failed to parse JSON and no regex match found');
+                }
+            }
+        } catch (err: any) {
+            setFetchError(err.message);
+        } finally {
+            setIsFetchingToken(false);
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 " onClick={onClose}>
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
@@ -179,7 +239,21 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
 
                             {localAuth.type === 'bearer' && (
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Token</label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Token</label>
+                                        <button
+                                            onClick={handleAutoFetchToken}
+                                            disabled={isFetchingToken}
+                                            className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-all ${
+                                                isFetchingToken 
+                                                ? 'bg-slate-100 text-slate-400' 
+                                                : 'bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20'
+                                            }`}
+                                        >
+                                            {isFetchingToken ? <Lucide.RefreshCw size={10} className="animate-spin" /> : <Lucide.Zap size={10} />}
+                                            {isFetchingToken ? 'FETCHING...' : 'AUTO FETCH (SDB)'}
+                                        </button>
+                                    </div>
                                     <HighlightedInput
                                         value={localAuth.bearerToken || ''}
                                         onChange={(e) => checkAutocomplete(e, (v) => updateField('bearerToken', v))}
@@ -190,6 +264,12 @@ const GlobalAuthModal: React.FC<GlobalAuthModalProps> = ({ isOpen, onClose, auth
                                         containerClassName="w-full"
                                         textClassName="text-slate-800 dark:text-slate-200"
                                     />
+                                    {fetchError && (
+                                        <div className="flex items-center gap-1.5 text-[10px] text-red-500 font-bold mt-1">
+                                            <Lucide.AlertCircle size={12} />
+                                            {fetchError}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

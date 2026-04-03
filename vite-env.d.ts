@@ -41,6 +41,9 @@ interface ElectronAPI {
     // --- Settings Sync ---
     saveSettingsToFile: (settings: any) => Promise<{ status: string }>;
     getCliSettings: () => Promise<any>;
+
+    // --- SDB Helper ---
+    runSdbCommand: (cmd: string) => Promise<{ stdout?: string; error?: boolean; message?: string }>;
 }
 
 interface Window {

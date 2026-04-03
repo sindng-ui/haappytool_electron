@@ -139,6 +139,7 @@
   - `Hook`: [useAnalysisAgent.ts](./plugins/LogAnalysisAgent/hooks/useAnalysisAgent.ts)
   - `Service`: [agentApiService.ts](./plugins/LogAnalysisAgent/services/agentApiService.ts)
 - **Features**:
+  - **Global Auth SDB Helper**: `vconftool` 명령어를 통해 단말의 `accessToken`을 자동으로 파싱하여 Bearer Token 필드에 입력하는 기능. [NEW]
   - **다중 로그 파일 분석 (합산 힌트)**: 여러 로그 파일을 동시 드롭하여 통합 분석. [NEW]
   - **Premium 2-Tab Layout**: 'Analysis'와 'LLM Communication' 2개 상시 탭 구조 도입. [UPDATED][HOT]
   - **통합 분석 뷰 (Unified Analysis)**: 실시간 과정(Thought)과 최종 리포트(Final Report)를 하나의 스크롤 뷰에 통합. [UPDATED]
