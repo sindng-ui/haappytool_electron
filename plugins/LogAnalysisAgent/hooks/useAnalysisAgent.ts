@@ -215,6 +215,7 @@ export function useAnalysisAgent() {
                   newIterations.push({
                     iteration: iter,
                     thought: partialThought,
+                    rawRequest: request, // <--- 실시간 요청 정보 표시를 위해 추가 🐧📡
                     timestamp: Date.now(),
                   });
                 }

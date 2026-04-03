@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { IterationRecord } from '../protocol';
 import { AgentRunStatus } from '../hooks/useAnalysisAgent';
 import { ActionType } from '../protocol';
-import { Brain, Search, FileSearch, Layers, BarChart2, HelpCircle, ChevronDown, ChevronRight, Loader, FileText } from 'lucide-react';
+import { Brain, Search, FileSearch, Layers, BarChart2, HelpCircle, ChevronDown, ChevronRight, Loader, FileText, Send, Activity, Info } from 'lucide-react';
 import FinalReportViewer from './FinalReportViewer';
 
 interface AgentThoughtStreamProps {
@@ -61,14 +61,90 @@ const formatAiContent = (content: string): string => {
   }
 };
 
+// ─── 요청 요약 컴포넌트 🐧📡 ────────────────────────────────────────────────
+const RequestSummary: React.FC<{ request: any; isCollapsed: boolean }> = ({ request, isCollapsed }) => {
+  const [internalExpanded, setInternalExpanded] = useState(!isCollapsed);
+  if (!request) return null;
+
+  const { context, analysis_type, mission_name } = request;
+  const { log_stats, initial_hints, action_result } = context;
+
+  return (
+    <div className="mb-2 bg-slate-900/40 rounded-lg border border-slate-700/30 overflow-hidden">
+      <button 
+        onClick={() => setInternalExpanded(!internalExpanded)}
+        className="w-full h-7 px-2.5 flex items-center justify-between bg-slate-800/40 hover:bg-slate-800/60 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Send size={10} className="text-indigo-400" />
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Sent Request Data</span>
+        </div>
+        {internalExpanded ? <ChevronDown size={12} className="text-slate-600" /> : <ChevronRight size={12} className="text-slate-600" />}
+      </button>
+      
+      {internalExpanded && (
+        <div className="p-2.5 space-y-2.5">
+          {/* Metadata Badges */}
+          <div className="flex flex-wrap gap-1.5">
+            <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-bold text-indigo-300">
+              {analysis_type.toUpperCase()}
+            </span>
+            <span className="px-1.5 py-0.5 rounded bg-slate-700/30 border border-slate-600/30 text-[9px] font-bold text-slate-400">
+              MISSION: {mission_name}
+            </span>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-slate-900/60 p-1.5 rounded border border-white/5">
+              <div className="flex items-center gap-1.5 text-[8px] text-slate-500 font-bold uppercase mb-0.5">
+                <FileText size={10} /> Log File Info
+              </div>
+              <div className="text-[10px] text-slate-300 truncate font-medium">{log_stats.file_name}</div>
+              <div className="text-[9px] text-slate-500 font-mono mt-0.5">
+                {log_stats.total_lines?.toLocaleString()} lines ({log_stats.filtered_lines?.toLocaleString()} filtered)
+              </div>
+            </div>
+            
+            <div className="bg-slate-900/60 p-1.5 rounded border border-white/5">
+              <div className="flex items-center gap-1.5 text-[8px] text-emerald-500/60 font-bold uppercase mb-0.5">
+                <Activity size={10} /> Content Sent
+              </div>
+              <div className="text-[10px] text-emerald-400/80 font-bold">
+                {initial_hints ? `${initial_hints.split('\n').length} lines of hints` : '0 lines'}
+              </div>
+              <div className="text-[9px] text-slate-500 mt-0.5">
+                {action_result ? `+ Action Result (${action_result.length} chars)` : 'Initial Request'}
+              </div>
+            </div>
+          </div>
+
+          {/* Initial Hints Snippet (옵션) */}
+          {initial_hints && !action_result && (
+            <div className="space-y-1">
+              <div className="text-[8px] text-slate-600 font-bold uppercase tracking-tighter pl-0.5">Hint Snippet</div>
+              <pre className="p-1.5 rounded bg-black/30 text-[9px] text-slate-500 font-mono overflow-hidden max-h-12 border border-white/5">
+                {initial_hints.slice(0, 150)}...
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── 개별 Iteration 카드 ─────────────────────────────────────────────────────
 
 const IterationCard: React.FC<{ record: IterationRecord; isLatest: boolean }> = React.memo(({
   record, isLatest
 }) => {
   const [expanded, setExpanded] = useState(isLatest);
-  const { thought, action, actionResult, iteration } = record;
+  const { thought, action, actionResult, iteration, rawRequest } = record;
   const formattedThought = formatAiContent(thought);
+
+  // AI 응답(Thought)이 어느 정도 오면 요청 요약은 자동으로 접히도록 설정 🐧📦
+  const shouldCollapseRequest = (formattedThought && formattedThought.length > 30) || !isLatest;
 
   return (
     <div className={`border rounded-xl overflow-hidden transition-all ${
@@ -100,16 +176,21 @@ const IterationCard: React.FC<{ record: IterationRecord; isLatest: boolean }> = 
 
       {/* 확장 내용 */}
       {expanded && (
-        <div className="border-t border-slate-700/50 px-3 pb-3 pt-2 space-y-2">
+        <div className="border-t border-slate-700/50 px-3 pb-3 pt-3 space-y-3">
+          {/* 요청 요약 (신규) 🐧📡 */}
+          <RequestSummary request={rawRequest} isCollapsed={shouldCollapseRequest} />
+
           {/* Thought */}
-          <div>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Brain size={10} /> Thought
-            </p>
-            <div className={`text-xs text-slate-300 leading-relaxed bg-slate-800/50 rounded-lg p-2.5 ${formattedThought.includes('\n') || formattedThought.startsWith('  ') ? 'font-mono whitespace-pre' : ''}`}>
-              {formattedThought}
+          {formattedThought && (
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <Brain size={10} /> Thought
+              </p>
+              <div className={`text-xs text-slate-300 leading-relaxed bg-slate-800/50 rounded-lg p-2.5 ${formattedThought.includes('\n') || formattedThought.startsWith('  ') ? 'font-mono whitespace-pre' : ''}`}>
+                {formattedThought}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Action */}
           {action && (
