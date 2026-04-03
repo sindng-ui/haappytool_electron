@@ -383,11 +383,15 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = React.memo(({
           <div className="space-y-4">
             <button
               onClick={handleStart}
-              disabled={files.length === 0 || isLoadingFile}
+              disabled={files.length === 0 || isLoadingFile || isRunning}
               className="relative w-full flex items-center justify-center gap-4 py-8 px-10 rounded-xl bg-indigo-600 text-white border border-indigo-400/30 font-black text-xs transition-all duration-300 hover:bg-indigo-500 shadow-lg shadow-indigo-900/50 hover:shadow-indigo-500/30 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-20 disabled:cursor-not-allowed uppercase tracking-[0.3em] group overflow-hidden"
             >
-              <Play size={20} className="transition-transform group-hover:scale-110 duration-500" />
-              Execute Analysis
+              {isRunning || isLoadingFile ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Play size={20} className="transition-transform group-hover:scale-110 duration-500" />
+              )}
+              {isRunning ? 'Analyzing...' : 'Execute Analysis'}
             </button>
           </div>
         )}

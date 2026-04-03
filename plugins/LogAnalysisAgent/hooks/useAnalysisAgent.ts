@@ -87,8 +87,13 @@ export function useAnalysisAgent() {
     analysisType: AnalysisType,
     userHints?: { pid: string; tid: string; custom: string }
   ) => {
-    const config = loadAgentConfig();
+    // ─── 이미 실행 중이면 중복 실행 방지 🐧🛡️ ─────────────────────────────────
+    if (state.status === 'running' || state.status === 'extracting' || state.status === 'waiting_user') {
+      console.warn('분석이 이미 진행 중입니다.');
+      return;
+    }
 
+    const config = loadAgentConfig();
     if (!config.apiKey) {
       updateState({
         status: 'error',
@@ -242,6 +247,15 @@ export function useAnalysisAgent() {
         previousThought = thought;
 
         // ── 2️⃣ 최종 결과로 Iteration 업데이트 🐧🚀 ──────
+        // 🚨 분석 정체(Analysis Stalled) 체크: Action도 없고 완료도 아닌 경우
+        if (response.status !== 'COMPLETED' && response.status !== 'ERROR' && !response.action) {
+          updateState({
+            status: 'error',
+            errorMessage: `[Iteration ${iter}] 분석이 정체되었습니다. AI가 유효한 액션을 반환하지 않았습니다. 다시 시도하거나 Mission을 더 구체화해 보세요.`,
+          });
+          return;
+        }
+
         // COMPLETED
         if (response.status === 'COMPLETED') {
           setState(prev => {
