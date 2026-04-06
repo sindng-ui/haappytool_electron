@@ -40,7 +40,7 @@ function runBenchmark(lines, label, rule) {
 const rule = {
     includeGroups: [[KEYWORD]],
     excludes: [],
-    happyCombosCaseSensitive: false,
+    bigBrainCombosCaseSensitive: false,
     showRawLogLines: true
 };
 

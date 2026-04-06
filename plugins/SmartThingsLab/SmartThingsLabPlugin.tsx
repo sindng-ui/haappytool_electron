@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useHappyTool } from '../../contexts/HappyToolContext';
+import { useBigBrain } from '../../contexts/BigBrainContext';
 import { SmartThingsService } from './services/smartThingsService';
 import { SSEService } from './services/sseService';
 import { HierarchyPane } from './HierarchyPane';
@@ -23,7 +23,7 @@ interface SmartThingsLabPluginProps {
 }
 
 const SmartThingsLabPlugin: React.FC<SmartThingsLabPluginProps> = ({ isActive = false }) => {
-    const { postGlobalAuth } = useHappyTool();
+    const { postGlobalAuth } = useBigBrain();
     const [token, setToken] = useState<string>('');
 
     // Services

@@ -1,7 +1,7 @@
 {
-  "name": "happytool",
+  "name": "bigbrain",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.2.1",
   "type": "module",
   "homepage": "./",
   "main": "electron/main.cjs",
@@ -84,8 +84,8 @@
     "wait-on": "^9.0.3"
   },
   "build": {
-    "appId": "com.sindng.happytool",
-    "productName": "HappyTool",
+    "appId": "com.sindng.bigbrain",
+    "productName": "BigBrain",
     "directories": {
       "output": "dist_electron"
     },

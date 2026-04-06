@@ -106,7 +106,7 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
 
     useEffect(() => {
         // Load keywords from localStorage
-        const saved = localStorage.getItem('happytool_speedscope_keywords');
+        const saved = localStorage.getItem('bigbrain_speedscope_keywords');
         if (saved) {
             try {
                 setSearchKeywords(JSON.parse(saved));
@@ -128,7 +128,7 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
     }, []);
 
     useEffect(() => {
-        localStorage.setItem('happytool_speedscope_keywords', JSON.stringify(searchKeywords));
+        localStorage.setItem('bigbrain_speedscope_keywords', JSON.stringify(searchKeywords));
     }, [searchKeywords]);
 
     const handleFileLoad = useCallback(async (file: File, side: 'left' | 'right') => {

@@ -11,7 +11,7 @@ describe('checkIsMatch (Log Filtering Logic)', () => {
         includeGroups: [],
         excludes: [],
         highlights: [],
-        happyCombosCaseSensitive: false,
+        bigBrainCombosCaseSensitive: false,
         blockListCaseSensitive: false
     };
 
@@ -83,7 +83,7 @@ describe('checkIsMatch (Log Filtering Logic)', () => {
         });
 
         it('should respect case sensitivity setting', () => {
-            const rule: LogRule = { ...baseRule, includeGroups: [['Apple']], happyCombosCaseSensitive: true };
+            const rule: LogRule = { ...baseRule, includeGroups: [['Apple']], bigBrainCombosCaseSensitive: true };
             expect(checkIsMatch('i have an apple', rule, false)).toBe(false);
             expect(checkIsMatch('i have an Apple', rule, false)).toBe(true);
         });
@@ -123,13 +123,13 @@ describe('checkIsMatch (Log Filtering Logic)', () => {
         });
 
         it('should handle special characters in keywords correctly', () => {
-            const rule: LogRule = { ...baseRule, includeGroups: [['(error)'], ['[critical]']], happyCombosCaseSensitive: false };
+            const rule: LogRule = { ...baseRule, includeGroups: [['(error)'], ['[critical]']], bigBrainCombosCaseSensitive: false };
             expect(checkIsMatch('System (ERROR) happened', rule, false)).toBe(true);
             expect(checkIsMatch('Status: [CRITICAL]', rule, false)).toBe(true);
         });
 
         it('should maintain consistency between different check paths', () => {
-            const rule: LogRule = { ...baseRule, includeGroups: [['error']], happyCombosCaseSensitive: false };
+            const rule: LogRule = { ...baseRule, includeGroups: [['error']], bigBrainCombosCaseSensitive: false };
             const line = '[ERROR] System failure';
             expect(checkIsMatch(line, rule, false)).toBe(true);
             expect(checkIsMatch(line, rule, true)).toBe(true);
@@ -149,7 +149,7 @@ describe('checkIsMatch (Log Filtering Logic)', () => {
             includeGroups: [['test', 'start'], ['test', 'end'], ['error'], ['exception']],
             excludes: ['ping', 'heartbeat', 'keepalive'],
             highlights: [],
-            happyCombosCaseSensitive: false,
+            bigBrainCombosCaseSensitive: false,
             blockListCaseSensitive: false
         };
 

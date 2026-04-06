@@ -105,7 +105,7 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   timeoutMs: 60000,
 };
 
-export const AGENT_CONFIG_STORAGE_KEY = 'happytool_agent_config';
+export const AGENT_CONFIG_STORAGE_KEY = 'bigbrain_agent_config';
 
 // ─── UI 상태 ─────────────────────────────────────────────────────────────────
 

@@ -101,7 +101,7 @@ const PerfDashboardBase: React.FC<PerfDashboardProps> = ({
             // Create a temporary link
             const link = document.createElement('a');
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-            link.download = `happytool_perf_${timestamp}.png`;
+            link.download = `bigbrain_perf_${timestamp}.png`;
             link.href = canvas.toDataURL('image/png');
             document.body.appendChild(link);
             link.click();

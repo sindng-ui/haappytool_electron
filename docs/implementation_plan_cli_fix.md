@@ -43,6 +43,6 @@
 
 ### Manual Verification
 1. GUI 앱을 실행한 상태로 유지.
-2. 터미널에서 `.\HappyTool.exe cli log-extractor ...` 실행.
-3. "No HappyTool settings found" 에러 없이 정상적으로 필터링이 시작되는지 확인.
+2. 터미널에서 `.\BigBrain.exe cli log-extractor ...` 실행.
+3. "No BigBrain settings found" 에러 없이 정상적으로 필터링이 시작되는지 확인.
 4. GUI에서 수정한 필터가 CLI에 즉시 반영되는지 확인.

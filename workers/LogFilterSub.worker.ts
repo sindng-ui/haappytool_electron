@@ -5,9 +5,9 @@ import { checkIsMatch } from '../utils/logFiltering';
 const ctx: Worker = self as any;
 
 // --- WASM Filter Engine ---
-import initWasmModule, { FilterEngine } from '../public/wasm/happy_filter.js';
+import initWasmModule, { FilterEngine } from '../public/wasm/bigbrain_filter.js';
 // @ts-ignore: Vite public url resolving
-import wasmUrl from '/wasm/happy_filter_bg.wasm?url';
+import wasmUrl from '/wasm/bigbrain_filter_bg.wasm?url';
 
 let wasmEngine: any = null;
 let wasmMemory: WebAssembly.Memory | null = null;
@@ -24,7 +24,7 @@ const initWasm = async () => {
         // --- WASM & JIT Warmup (Cold Start Optimization) ---
         // V8 엔진(TurboFan)과 WASM 브릿지를 초기 필터링 전에 최적화 상태로 예열합니다.
         try {
-            const dummyRule = { excludes: [], includeGroups: [['___warmup___']], happyCombosCaseSensitive: false, showRawLogLines: true };
+            const dummyRule = { excludes: [], includeGroups: [['___warmup___']], bigBrainCombosCaseSensitive: false, showRawLogLines: true };
             wasmEngine.update_keywords(['___warmup___']);
             const dummyLine = "01-01 12:00:00.000  1000  1000 I WARMUP  : Warmup V8 JIT and WASM Bridge for fast first filter";
             // ✅ 효율적 예열: 무조건 5만 번 도는 대신, 최대 10ms 이내에서만 JIT 최적화를 유도하여 불필요한 CPU 낭비 방지
@@ -61,7 +61,7 @@ ctx.onmessage = async (e) => {
 
         // WASM 엔진 키워드 동기화
         if (wasmEngine && wasmModule) {
-            const isCaseSensitive = !!rule.happyCombosCaseSensitive;
+            const isCaseSensitive = !!rule.bigBrainCombosCaseSensitive;
             wasmEngine = new wasmModule.FilterEngine(isCaseSensitive);
 
             // ✅ Optimization: Use already normalized keywords from main worker
@@ -147,7 +147,7 @@ ctx.onmessage = async (e) => {
 
         // WASM 엔진 키워드 동기화
         if (wasmEngine && wasmModule) {
-            const isCaseSensitive = !!rule.happyCombosCaseSensitive;
+            const isCaseSensitive = !!rule.bigBrainCombosCaseSensitive;
             wasmEngine = new wasmModule.FilterEngine(isCaseSensitive);
             const allKeywords = (rule.includeGroups as string[][]).flat();
             wasmEngine.update_keywords(allKeywords);

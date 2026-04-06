@@ -68,7 +68,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     useEffect(() => {
         const loadAllSettings = async () => {
             // 1. Permanent Settings (LocalStorage -> localStorage 그대로 유지해도 됨, 작으니까)
-            const localSaved = localStorage.getItem('happytool_perf_tool_settings_v2');
+            const localSaved = localStorage.getItem('bigbrain_perf_tool_settings_v2');
             if (localSaved) {
                 try {
                     const parsed = JSON.parse(localSaved);
@@ -84,16 +84,16 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
 
             // 2. Session Data Management (IndexedDB + sessionStorage Flag)
             // 💡 형님, sessionStorage 플래그를 통해 '앱 재시작'인지 '탭/플러그인 전환'인지 구분합니다.
-            const sessionActive = sessionStorage.getItem('happytool_perf_tool_session_active');
+            const sessionActive = sessionStorage.getItem('bigbrain_perf_tool_session_active');
 
             if (!sessionActive) {
                 // 앱 신규 실행 (또는 세션 만료): 기존 IndexedDB 데이터 정리
                 // console.log("[PerfTool] New session detected. Clearing previous IndexedDB session data.");
-                await deleteStoredValue('happytool_perf_tool_session_v1');
-                sessionStorage.setItem('happytool_perf_tool_session_active', 'true');
+                await deleteStoredValue('bigbrain_perf_tool_session_v1');
+                sessionStorage.setItem('bigbrain_perf_tool_session_active', 'true');
             } else {
                 // 기존 세션 유지: 데이터 로드 (시중의 대용량 로그 대응)
-                const sessionSaved = await getStoredValue('happytool_perf_tool_session_v1');
+                const sessionSaved = await getStoredValue('bigbrain_perf_tool_session_v1');
                 if (sessionSaved) {
                     try {
                         const parsed = typeof sessionSaved === 'string' ? JSON.parse(sessionSaved) : sessionSaved;
@@ -120,7 +120,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     useEffect(() => {
         if (!isInitialLoadDone) return;
         const settings = { perfThreshold, dangerLevels, logTags };
-        localStorage.setItem('happytool_perf_tool_settings_v2', JSON.stringify(settings));
+        localStorage.setItem('bigbrain_perf_tool_settings_v2', JSON.stringify(settings));
     }, [perfThreshold, dangerLevels, logTags, isInitialLoadDone]);
 
     // Save Session Data
@@ -128,7 +128,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
         if (!isInitialLoadDone) return;
         const session = { fileHandle, targetKeyword, result, pidList, logTags };
         // 💡 용량이 클 수 있으므로 IndexedDB에 저장합니다.
-        setStoredValue('happytool_perf_tool_session_v1', session);
+        setStoredValue('bigbrain_perf_tool_session_v1', session);
     }, [fileHandle, targetKeyword, result, pidList, logTags, isInitialLoadDone]);
 
     const addDangerLevel = () => {
@@ -381,7 +381,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                                         setFileHandle(null);
                                         setResult(null);
                                         setPidList(null);
-                                        deleteStoredValue('happytool_perf_tool_session_v1');
+                                        deleteStoredValue('bigbrain_perf_tool_session_v1');
                                     }}
                                     className="absolute top-3 right-3 p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl transition-all z-10 hover:scale-110 active:scale-90"
                                     title="Unload File & Reset Result"

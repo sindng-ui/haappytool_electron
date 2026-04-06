@@ -174,7 +174,7 @@ onContextMenu={(e) => handleTabContextMenu(e, tab.id)}
 
 ## 🎉 최종 결과
 
-**HappyTool은 이제**:
+**BigBrain은 이제**:
 - ⚡ **빠르고** (성능 최적화)
 - 🎨 **아름답고** (UI 개선)
 - 🛡️ **안정적이며** (에러 처리)

@@ -20,7 +20,7 @@ const GaussChatAgentPlugin: React.FC = () => {
 
   // localStorage에서 에이전트 설정 가져오기
   const getAgentConfig = (): AgentConfig => {
-    const raw = localStorage.getItem('happytool_agent_config');
+    const raw = localStorage.getItem('bigbrain_agent_config');
     return raw ? JSON.parse(raw) : { 
       endpoint: '', 
       apiKey: '', 

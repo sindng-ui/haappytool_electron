@@ -5,7 +5,7 @@ import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVar
 import { mergeById } from './utils/settingsHelper';
 import { SettingsModal } from './components/SettingsModal';
 import { ALL_PLUGINS } from './plugins/registry';
-import { HappyToolProvider, HappyToolContextType } from './contexts/HappyToolContext';
+import { BigBrainProvider, BigBrainContextType } from './contexts/BigBrainContext';
 import { ToastProvider, useToast, ToastItem } from './contexts/ToastContext';
 import { CommandProvider, useCommand } from './contexts/CommandContext';
 import { LogArchiveProvider, LogArchive, useLogArchiveContext } from './components/LogArchive';
@@ -306,14 +306,14 @@ const AppContent: React.FC = () => {
       lastMethod,
       enabledPlugins,
       defaultOutputFolder,
-      blocks: JSON.parse(localStorage.getItem('happytool_blocks') || '[]'),
-      pipelines: JSON.parse(localStorage.getItem('happytool_pipelines') || '[]')
+      blocks: JSON.parse(localStorage.getItem('bigbrain_blocks') || localStorage.getItem('happytool_blocks') || '[]'),
+      pipelines: JSON.parse(localStorage.getItem('bigbrain_pipelines') || localStorage.getItem('happytool_pipelines') || '[]')
     };
     const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'happytool_settings.json';
+    a.download = 'bigbrain_settings.json';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -438,7 +438,7 @@ const AppContent: React.FC = () => {
     });
   }, [activeEnvId]); // ✅ Only depend on activeEnvId, not envProfiles
 
-  const contextValue: HappyToolContextType = React.useMemo(() => ({
+  const contextValue: BigBrainContextType = React.useMemo(() => ({
     logRules,
     setLogRules,
     savedRequests,
@@ -580,7 +580,7 @@ const AppContent: React.FC = () => {
   }, [isFocusMode]);
 
   return (
-    <HappyToolProvider value={contextValue}>
+    <BigBrainProvider value={contextValue}>
       <CommandRegistrar
         setActiveTool={handleSetActiveTool}
         setIsSettingsOpen={setIsSettingsOpen}
@@ -655,7 +655,7 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       </div>
-    </HappyToolProvider>
+    </BigBrainProvider>
   );
 };
 

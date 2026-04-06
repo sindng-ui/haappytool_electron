@@ -1,4 +1,4 @@
-# HappyTool Electron - 성능 전체 감사 보고서
+# BigBrain Electron - 성능 전체 감사 보고서
 **작성일**: 2026-01-30  
 **버전**: Pre-1.0 Release  
 **목적**: 실시간 로깅 시 성능 저하 문제 진단 및 개선안 제시
@@ -357,7 +357,7 @@ useEffect(() => {
 **문제점**:
 ```typescript
 // Line 356-401
-const contextValue: HappyToolContextType = React.useMemo(() => ({
+const contextValue: BigBrainContextType = React.useMemo(() => ({
     logRules,
     setLogRules,
     savedRequests,
@@ -853,7 +853,7 @@ const setPostGlobalVariables = useCallback((action) => {
     });
 }, [activeEnvId]);  // ⚠️ envProfiles 제거
 
-const contextValue: HappyToolContextType = useMemo(() => ({
+const contextValue: BigBrainContextType = useMemo(() => ({
     logRules,
     setLogRules,
     savedRequests,

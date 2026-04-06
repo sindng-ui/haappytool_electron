@@ -57,7 +57,7 @@ describe('Performance Utils', () => {
             includeGroups: [],
             excludes: [],
             highlights: [],
-            happyGroups: [
+            bigBrainGroups: [
                 { id: 'g1', tags: ['StepA'], enabled: true, alias: 'Step A' },
                 { id: 'g2', tags: ['StepB'], enabled: true, alias: 'Step B' }
             ],

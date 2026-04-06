@@ -28,7 +28,7 @@ describe('Logging Performance Benchmarks', () => {
         includeGroups: [['ERROR']],
         excludes: [],
         highlights: [],
-        happyCombosCaseSensitive: false,
+        bigBrainCombosCaseSensitive: false,
         blockListCaseSensitive: false
     };
 
@@ -38,7 +38,7 @@ describe('Logging Performance Benchmarks', () => {
         includeGroups: [['ERROR', 'FATAL'], ['WARNING', 'database'], ['network', 'timeout']],
         excludes: ['ignore', 'debug', 'trace'],
         highlights: [],
-        happyCombosCaseSensitive: false,
+        bigBrainCombosCaseSensitive: false,
         blockListCaseSensitive: false
     };
 
@@ -78,13 +78,13 @@ describe('Logging Performance Benchmarks', () => {
     it('should show caching efficiency for Case-Insensitive vs Case-Sensitive', () => {
         const startCS = performance.now();
         for (const line of lines100k) {
-            checkIsMatch(line, { ...complexRule, happyCombosCaseSensitive: true }, false);
+            checkIsMatch(line, { ...complexRule, bigBrainCombosCaseSensitive: true }, false);
         }
         const durationCS = performance.now() - startCS;
 
         const startCI = performance.now();
         for (const line of lines100k) {
-            checkIsMatch(line, { ...complexRule, happyCombosCaseSensitive: false }, false);
+            checkIsMatch(line, { ...complexRule, bigBrainCombosCaseSensitive: false }, false);
         }
         const durationCI = performance.now() - startCI;
 

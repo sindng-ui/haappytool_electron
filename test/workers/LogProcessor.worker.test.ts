@@ -14,7 +14,7 @@ describe('Worker Filtering Logic', () => {
 
     // Helper to normalize rule (simulates worker behavior)
     const normalizeRule = (rule: LogRule): LogRule => {
-        const isHappyCase = !!rule.happyCombosCaseSensitive;
+        const isHappyCase = !!rule.bigBrainCombosCaseSensitive;
         const isBlockCase = !!rule.blockListCaseSensitive;
         return {
             ...rule,
@@ -26,7 +26,7 @@ describe('Worker Filtering Logic', () => {
     it('[CRITICAL] Include filter (single term)', () => {
         const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['ERROR']], excludes: [],
-            happyCombosCaseSensitive: false, blockListCaseSensitive: false,
+            bigBrainCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
         const rule = normalizeRule(rawRule);
@@ -38,7 +38,7 @@ describe('Worker Filtering Logic', () => {
     it('[CRITICAL] AND logic in Happy Combos', () => {
         const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['ERROR', 'Connection']],
-            excludes: [], happyCombosCaseSensitive: false, blockListCaseSensitive: false,
+            excludes: [], bigBrainCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
         const rule = normalizeRule(rawRule);
@@ -49,7 +49,7 @@ describe('Worker Filtering Logic', () => {
     it('[CRITICAL] OR logic between groups', () => {
         const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['ERROR'], ['WARNING']],
-            excludes: [], happyCombosCaseSensitive: false, blockListCaseSensitive: false,
+            excludes: [], bigBrainCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
         const rule = normalizeRule(rawRule);
@@ -61,7 +61,7 @@ describe('Worker Filtering Logic', () => {
     it('[CRITICAL] Block list excludes', () => {
         const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [],
-            excludes: ['DEBUG', 'VERBOSE'], happyCombosCaseSensitive: false,
+            excludes: ['DEBUG', 'VERBOSE'], bigBrainCombosCaseSensitive: false,
             blockListCaseSensitive: false, highlights: [], showRawLogLines: false
         };
         const rule = normalizeRule(rawRule);
@@ -73,7 +73,7 @@ describe('Worker Filtering Logic', () => {
     it('[CRITICAL] Excludes override includes', () => {
         const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['ERROR']],
-            excludes: ['DEBUG'], happyCombosCaseSensitive: false,
+            excludes: ['DEBUG'], bigBrainCombosCaseSensitive: false,
             blockListCaseSensitive: false, highlights: [], showRawLogLines: false
         };
         const rule = normalizeRule(rawRule);
@@ -84,7 +84,7 @@ describe('Worker Filtering Logic', () => {
     it('[HIGH] Case sensitivity for includes', () => {
         const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['ERROR']], excludes: [],
-            happyCombosCaseSensitive: true, blockListCaseSensitive: false,
+            bigBrainCombosCaseSensitive: true, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
         const rule = normalizeRule(rawRule);
@@ -95,7 +95,7 @@ describe('Worker Filtering Logic', () => {
     it('[HIGH] Case sensitivity for excludes', () => {
         const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [], excludes: ['DEBUG'],
-            happyCombosCaseSensitive: false, blockListCaseSensitive: true,
+            bigBrainCombosCaseSensitive: false, blockListCaseSensitive: true,
             highlights: [], showRawLogLines: false
         };
         const rule = normalizeRule(rawRule);
@@ -106,7 +106,7 @@ describe('Worker Filtering Logic', () => {
     it('[CRITICAL] Empty groups = show all', () => {
         const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [], excludes: [],
-            happyCombosCaseSensitive: false, blockListCaseSensitive: false,
+            bigBrainCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
         const rule = normalizeRule(rawRule);
@@ -116,7 +116,7 @@ describe('Worker Filtering Logic', () => {
     it('[MEDIUM] Shell output bypass', () => {
         const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['SPECIFIC']],
-            excludes: [], happyCombosCaseSensitive: false, blockListCaseSensitive: false,
+            excludes: [], bigBrainCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: true // Enable bypass
         };
         const rule = normalizeRule(rawRule);
@@ -131,7 +131,7 @@ describe('Worker Filtering Logic', () => {
     it('[MEDIUM] Test log bypass', () => {
         const rawRule: LogRule = {
             id: '1', name: 'Test', includeGroups: [['IMPOSSIBLE']],
-            excludes: [], happyCombosCaseSensitive: false, blockListCaseSensitive: false,
+            excludes: [], bigBrainCombosCaseSensitive: false, blockListCaseSensitive: false,
             highlights: [], showRawLogLines: false
         };
         const rule = normalizeRule(rawRule);

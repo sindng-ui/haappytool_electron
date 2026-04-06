@@ -7,17 +7,17 @@
 > [!IMPORTANT]
 > **성능 저하의 핵심 원인**:
 > 1. **인라인 함수 (Inline Callbacks)**: `index.tsx`에서 `AgentConfigPanel`과 `AgentThoughtStream`에 함수를 전달할 때 `() => ...` 형태의 인라인 함수를 사용하여, 매번 새로운 참조가 생성되었습니다. 이로 인해 `React.memo`가 무용지물이 되고 있었습니다.
-> 2. **Context 과다 구독 (Context Over-subscription)**: `AgentConfigPanel` 내부에서 `useHappyTool()`을 직접 호출하고 있습니다. 전역 컨텍스트(HappyToolContext)의 다른 값(예: `ambientMood`)만 바뀌어도 설정 패널 전체가 리렌더링되는 비효율이 있었습니다.
+> 2. **Context 과다 구독 (Context Over-subscription)**: `AgentConfigPanel` 내부에서 `useBigBrain()`을 직접 호출하고 있습니다. 전역 컨텍스트(BigBrainContext)의 다른 값(예: `ambientMood`)만 바뀌어도 설정 패널 전체가 리렌더링되는 비효율이 있었습니다.
 
 ## Proposed Changes
 
 ### 1. Log Analysis Agent Entry Point (`LogAnalysisAgent/index.tsx`)
 - 모든 이벤트 핸들러(`onStart`, `onCancel`, `onReset`, `onAnswerUserQuery`)를 `useCallback`으로 감싸서 메모이제이션합니다.
-- `useHappyTool()`에서 `logRules`를 직접 추출하여 자식 컴포넌트에 prop으로 전달합니다.
+- `useBigBrain()`에서 `logRules`를 직접 추출하여 자식 컴포넌트에 prop으로 전달합니다.
 - 인라인 함수를 제거하여 `React.memo` 효과를 극대화합니다.
 
 ### 2. Agent Configuration Panel (`AgentConfigPanel.tsx`)
-- 내부의 `useHappyTool()` 구독을 제거하고, 부모로부터 `logRules`를 주입받는 방식으로 변경합니다.
+- 내부의 `useBigBrain()` 구독을 제거하고, 부모로부터 `logRules`를 주입받는 방식으로 변경합니다.
 - 이를 통해 전역 상태 변화로부터 독립적인 렌더링 성능을 확보합니다.
 
 ### 3. Thought Stream & Debug Item (`index.tsx` 및 `AgentThoughtStream.tsx`)
@@ -32,7 +32,7 @@
 - `logRules` prop 전달 로직 추가
 
 #### [MODIFY] [AgentConfigPanel.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/LogAnalysisAgent/components/AgentConfigPanel.tsx)
-- `useHappyTool` 제거 및 `logRules` interface/props 추가
+- `useBigBrain` 제거 및 `logRules` interface/props 추가
 
 #### [MODIFY] [useAnalysisAgent.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/LogAnalysisAgent/hooks/useAnalysisAgent.ts)
 - `startAnalysis` 등의 함수가 완벽하게 메모이제이션되어 있는지 재검토 (이미 되어 있으나 의존성 체크)

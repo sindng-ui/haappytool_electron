@@ -27,7 +27,7 @@ export const useCliHandlers = () => {
         }
 
         if (!settings) {
-            throw new Error('No HappyTool settings found. Please run the GUI first to save your filters.');
+            throw new Error('No BigBrain settings found. Please run the GUI first to save your filters.');
         }
 
         const logRules = settings.logRules || [];
@@ -189,7 +189,7 @@ export const useCliHandlers = () => {
                 if (settingsStr) settings = JSON.parse(settingsStr);
             }
             if (!settings || !settings.savedRequests) {
-                throw new Error('No HappyTool settings/requests found. Please run GUI first.');
+                throw new Error('No BigBrain settings/requests found. Please run GUI first.');
             }
 
             const req = settings.savedRequests.find((r: any) => r.name === requestName);
@@ -511,8 +511,8 @@ export const useCliHandlers = () => {
         stdout(`[NetTraffic] Starting ${mode} analysis...`);
 
         // 1. Load Settings (UA & Patterns)
-        const uaPattern = JSON.parse(localStorage.getItem('happytool_nettraffic_ua_pattern') || '{"keywords":"SC_SERVICE, User agent","template":"User agent: $(ClientName)/$(ClientVersion)/$(AppName)/$(AppVersion)/$(AppDetail)","enabled":true}');
-        const trafficPatterns = JSON.parse(localStorage.getItem('happytool_nettraffic_traffic_patterns') || '[{"id":"1","alias":"Keywords","keywords":"","extractRegex":"","enabled":true}]');
+        const uaPattern = JSON.parse(localStorage.getItem('bigbrain_nettraffic_ua_pattern') || '{"keywords":"SC_SERVICE, User agent","template":"User agent: $(ClientName)/$(ClientVersion)/$(AppName)/$(AppVersion)/$(AppDetail)","enabled":true}');
+        const trafficPatterns = JSON.parse(localStorage.getItem('bigbrain_nettraffic_traffic_patterns') || '[{"id":"1","alias":"Keywords","keywords":"","extractRegex":"","enabled":true}]');
 
         const { compareEndpoints, compareUAs } = await import('../utils/netTrafficDiffUtils');
         const NetTrafficWorker = (await import('../workers/NetTraffic.worker.ts?worker')).default;

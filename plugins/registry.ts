@@ -1,4 +1,4 @@
-import { HappyPlugin } from './types';
+import { BigBrainPlugin } from './types';
 import {
     LogExtractorPlugin,
     PostToolPlugin,
@@ -23,7 +23,7 @@ import {
 } from './core/wrappers';
 
 // Registry array to hold all registered plugins
-export const ALL_PLUGINS: HappyPlugin[] = [
+export const ALL_PLUGINS: BigBrainPlugin[] = [
 
     LogExtractorPlugin,
     NetTrafficAnalyzerPluginWrapper,
@@ -47,6 +47,6 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     GaussChatAgentPlugin,
 ];
 
-export const getPluginById = (id: string): HappyPlugin | undefined => {
+export const getPluginById = (id: string): BigBrainPlugin | undefined => {
     return ALL_PLUGINS.find(p => p.id === id);
 };

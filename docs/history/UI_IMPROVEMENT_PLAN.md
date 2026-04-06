@@ -1,4 +1,4 @@
-# 🎨 HappyTool UI 개선 계획
+# 🎨 BigBrain UI 개선 계획
 
 ## 📋 현재 상태 분석
 

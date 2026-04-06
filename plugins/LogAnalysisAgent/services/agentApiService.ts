@@ -67,7 +67,7 @@ const ANALYSIS_PROMPTS: Record<AnalysisType, string> = {
   chat: `You are a helpful assistant.`,
 };
 
-const SYSTEM_PROMPT_BASE = `You are an intelligent log analysis agent integrated with HappyTool.
+const SYSTEM_PROMPT_BASE = `You are an intelligent log analysis agent integrated with BigBrain.
 You communicate EXCLUSIVELY via HAPPY-MCP Protocol JSON.
 
 ## HAPPY-MCP Protocol v1.1 - Response Format

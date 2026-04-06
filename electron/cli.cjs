@@ -87,13 +87,13 @@ async function runCli(args) {
     });
 
     program
-        .name('HappyTool CLI')
-        .description('Headless Command Line Interface for HappyTool')
+        .name('BigBrain CLI')
+        .description('Headless Command Line Interface for BigBrain')
         .version(app.getVersion());
 
     // 1. Log Extractor
     program.command('log-extractor')
-        .description('Extract logs using a saved HappyTool mission/filter')
+        .description('Extract logs using a saved BigBrain mission/filter')
         .requiredOption('-f, --filter <name>', 'Name of the saved filter/mission')
         .requiredOption('-i, --input <path>', 'Path to the input log file')
         .option('-o, --output <path>', 'Path to save the output text file')

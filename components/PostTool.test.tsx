@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import PostTool from './PostTool';
 import { SavedRequest, PostGlobalVariable } from '../types';
-import * as HappyToolContext from '../contexts/HappyToolContext';
+import * as BigBrainContext from '../contexts/BigBrainContext';
 
 // Mock dependencies
 vi.mock('./PostTool/RequestSidebar', () => ({
@@ -47,9 +47,9 @@ vi.mock('./PostTool/ResponseViewer', () => ({
 }));
 
 // Mock Context
-const useHappyToolMock = vi.fn();
-vi.mock('../contexts/HappyToolContext', () => ({
-    useHappyTool: () => useHappyToolMock()
+const useBigBrainMock = vi.fn();
+vi.mock('../contexts/BigBrainContext', () => ({
+    useBigBrain: () => useBigBrainMock()
 }));
 
 // Mock fetch explicitly
@@ -74,7 +74,7 @@ describe('PostTool Integration', () => {
             groupId: 'g1'
         }];
 
-        useHappyToolMock.mockReturnValue({
+        useBigBrainMock.mockReturnValue({
             savedRequests: requests,
             setSavedRequests: onUpdateRequests,
             savedRequestGroups: [],
@@ -116,7 +116,7 @@ describe('PostTool Integration', () => {
             groupId: 'g1'
         }];
 
-        useHappyToolMock.mockReturnValue({
+        useBigBrainMock.mockReturnValue({
             savedRequests: requests,
             setSavedRequests: onUpdateRequests,
             savedRequestGroups: [],
@@ -145,7 +145,7 @@ describe('PostTool Integration', () => {
         const onUpdateRequests = vi.fn();
         const requests: SavedRequest[] = [];
 
-        useHappyToolMock.mockReturnValue({
+        useBigBrainMock.mockReturnValue({
             savedRequests: requests,
             setSavedRequests: onUpdateRequests,
             savedRequestGroups: [],
@@ -179,7 +179,7 @@ describe('PostTool Integration', () => {
             groupId: 'g1'
         }];
 
-        useHappyToolMock.mockReturnValue({
+        useBigBrainMock.mockReturnValue({
             savedRequests: requests,
             setSavedRequests: onUpdateRequests,
             savedRequestGroups: [],

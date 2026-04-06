@@ -19,7 +19,7 @@ const generateUUID = () => {
     });
 };
 
-import { useHappyTool } from '../contexts/HappyToolContext';
+import { useBigBrain } from '../contexts/BigBrainContext';
 // ... imports
 
 // ... generateUUID
@@ -40,7 +40,7 @@ const PostTool: React.FC = () => {
         setPostGlobalAuth: onUpdateGlobalAuth,
         requestHistory,
         setRequestHistory
-    } = useHappyTool();
+    } = useBigBrain();
     const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [responseCache, setResponseCache] = useState<Map<string, PerfResponse>>(new Map());

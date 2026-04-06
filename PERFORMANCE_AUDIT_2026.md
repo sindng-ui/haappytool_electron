@@ -357,7 +357,7 @@ useEffect(() => {
 **문제점**:
 ```typescript
 // Line 356-401
-const contextValue: HappyToolContextType = React.useMemo(() => ({
+const contextValue: BigBrainContextType = React.useMemo(() => ({
     logRules,
     setLogRules,
     savedRequests,
@@ -853,7 +853,7 @@ const setPostGlobalVariables = useCallback((action) => {
     });
 }, [activeEnvId]);  // ⚠️ envProfiles 제거
 
-const contextValue: HappyToolContextType = useMemo(() => ({
+const contextValue: BigBrainContextType = useMemo(() => ({
     logRules,
     setLogRules,
     savedRequests,

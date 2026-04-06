@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useHappyTool } from '../../contexts/HappyToolContext';
+import { useBigBrain } from '../../contexts/BigBrainContext';
 import * as Lucide from 'lucide-react';
 import { db, ChatSession } from './db'; // Import DB
 import { useTextSelectionMenu } from '../LogArchive/hooks/useTextSelectionMenu';

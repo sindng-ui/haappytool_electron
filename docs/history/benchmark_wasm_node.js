@@ -1,10 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { initSync, FilterEngine } from './src/wasm/happy_filter.js';
+import { initSync, FilterEngine } from './src/wasm/bigbrain_filter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const wasmPath = path.join(__dirname, 'src/wasm/happy_filter_bg.wasm');
+const wasmPath = path.join(__dirname, 'src/wasm/bigbrain_filter_bg.wasm');
 
 async function runBenchmark() {
     console.log('🚀 [Node Benchmark] Starting WASM Filter Benchmark (1,000,000 lines)...');

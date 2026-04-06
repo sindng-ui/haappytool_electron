@@ -227,7 +227,18 @@ app.whenReady().then(async () => {
             const realUserData = isCliMode
                 ? path.join(app.getPath('userData'), '..')
                 : app.getPath('userData');
-            const settingsPath = path.join(realUserData, 'settings.json');
+            const settingsPath = path.join(realUserData, 'bigbrain_settings.json');
+            // Legacy Migration: 만약 신규 파일이 없고 구 파일이 있다면 복사 시도
+            const legacyPath = path.join(realUserData, 'settings.json');
+            try {
+                await fs.access(settingsPath);
+            } catch (e) {
+                try {
+                    await fs.access(legacyPath);
+                    await fs.copyFile(legacyPath, settingsPath);
+                    console.log('[Main] Migrated legacy settings.json to bigbrain_settings.json');
+                } catch (migrateErr) {}
+            }
             await fs.writeFile(settingsPath, settingsJson, 'utf-8');
             return { status: 'success' };
         } catch (error) {
@@ -243,8 +254,19 @@ app.whenReady().then(async () => {
             const realUserData = isCliMode
                 ? path.join(app.getPath('userData'), '..')
                 : app.getPath('userData');
-            const settingsPath = path.join(realUserData, 'settings.json');
-            const content = await originalFs.promises.readFile(settingsPath, 'utf-8');
+            const settingsPath = path.join(realUserData, 'bigbrain_settings.json');
+            const legacyPath = path.join(realUserData, 'settings.json');
+            let content;
+            try {
+                content = await originalFs.promises.readFile(settingsPath, 'utf-8');
+            } catch (e) {
+                // Fallback to legacy
+                try {
+                    content = await originalFs.promises.readFile(legacyPath, 'utf-8');
+                } catch (ee) {
+                    return null;
+                }
+            }
             return JSON.parse(content);
         } catch (error) {
             // 파일이 없으면 에러 내지 않고 null 반환

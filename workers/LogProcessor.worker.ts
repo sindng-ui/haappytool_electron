@@ -17,9 +17,9 @@ ctx.onerror = (e) => {
 };
 
 // --- WASM Filter Engine ---
-import initWasmModule, { FilterEngine } from '../public/wasm/happy_filter.js';
+import initWasmModule, { FilterEngine } from '../public/wasm/bigbrain_filter.js';
 // @ts-ignore: Vite public url resolving
-import wasmUrl from '/wasm/happy_filter_bg.wasm?url';
+import wasmUrl from '/wasm/bigbrain_filter_bg.wasm?url';
 
 let wasmEngine: any = null;
 let wasmMemory: WebAssembly.Memory | null = null;
@@ -560,7 +560,7 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     respond({ type: 'STATUS_UPDATE', payload: { status: 'filtering', progress: 0 } });
 
     // --- Optimization: Pre-normalize Rule Keywords ---
-    const isHappyCase = !!payload.happyCombosCaseSensitive;
+    const isHappyCase = !!payload.bigBrainCombosCaseSensitive;
     const isBlockCase = !!payload.blockListCaseSensitive;
 
     const normalizedRule: LogRule = {

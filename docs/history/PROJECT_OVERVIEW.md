@@ -1,4 +1,4 @@
-# HappyTool Project Overview
+# BigBrain Project Overview
 
 ## 1. Core Design Decisions (핵심 디자인 결정)
 

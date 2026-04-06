@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useHappyTool } from '../../contexts/HappyToolContext';
+import { useBigBrain } from '../../contexts/BigBrainContext';
 import { useToast } from '../../contexts/ToastContext';
 import * as Lucide from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
@@ -79,8 +79,8 @@ const EasyUML: React.FC = () => {
     // --- Initialization & Persistence ---
     useEffect(() => {
         // 1. Load from LocalStorage on mount
-        const savedData = localStorage.getItem('happytool_easyuml_diagrams');
-        const savedActiveId = localStorage.getItem('happytool_easyuml_active_id');
+        const savedData = localStorage.getItem('bigbrain_easyuml_diagrams');
+        const savedActiveId = localStorage.getItem('bigbrain_easyuml_active_id');
 
         let initialDiagrams: SavedDiagram[] = [];
 
@@ -102,7 +102,7 @@ const EasyUML: React.FC = () => {
                 messages: [],
                 lastModified: Date.now()
             }];
-            localStorage.setItem('happytool_easyuml_active_id', defaultId);
+            localStorage.setItem('bigbrain_easyuml_active_id', defaultId);
         }
 
         setDiagrams(initialDiagrams);
@@ -151,7 +151,7 @@ const EasyUML: React.FC = () => {
             };
 
             // Persist to LocalStorage
-            localStorage.setItem('happytool_easyuml_diagrams', JSON.stringify(updated));
+            localStorage.setItem('bigbrain_easyuml_diagrams', JSON.stringify(updated));
             return updated;
         });
     }, [lifelines, messages, activeDiagramId]); // Sync whenever content changes
@@ -159,7 +159,7 @@ const EasyUML: React.FC = () => {
     // 3. Persist Active ID
     useEffect(() => {
         if (activeDiagramId) {
-            localStorage.setItem('happytool_easyuml_active_id', activeDiagramId);
+            localStorage.setItem('bigbrain_easyuml_active_id', activeDiagramId);
         }
     }, [activeDiagramId]);
 
@@ -194,7 +194,7 @@ const EasyUML: React.FC = () => {
 
         const newDiagrams = diagrams.filter(d => d.id !== id);
         setDiagrams(newDiagrams);
-        localStorage.setItem('happytool_easyuml_diagrams', JSON.stringify(newDiagrams)); // Immediate sync
+        localStorage.setItem('bigbrain_easyuml_diagrams', JSON.stringify(newDiagrams)); // Immediate sync
 
         // If we deleted the active one, switch to the first available
         if (activeDiagramId === id) {
@@ -228,7 +228,7 @@ const EasyUML: React.FC = () => {
     const renameDiagram = (id: string, newName: string) => {
         setDiagrams(prev => {
             const updated = prev.map(d => d.id === id ? { ...d, name: newName } : d);
-            localStorage.setItem('happytool_easyuml_diagrams', JSON.stringify(updated));
+            localStorage.setItem('bigbrain_easyuml_diagrams', JSON.stringify(updated));
             return updated;
         });
     };

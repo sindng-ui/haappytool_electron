@@ -1,11 +1,11 @@
 # Gauss 2.3 Think x HAPPY-MCP Protocol 전문 가이드 🐧🛰️
 
-형님! 삼성 가우스 에이전트와 우리 HappyTool이 어떤 신호를 주고받는지, **단 한 글자의 생략도 없이** 실제 전문 예제를 기반으로 정리해 드립니다! 
+형님! 삼성 가우스 에이전트와 우리 BigBrain이 어떤 신호를 주고받는지, **단 한 글자의 생략도 없이** 실제 전문 예제를 기반으로 정리해 드립니다! 
 
 ---
 
 ## 1. 개요 (Overview)
-HappyTool은 가우스 에이전트와 통신할 때 **HAPPY-MCP(Modern Chat Protocol) v1.1** 규격을 사용합니다. 통신은 기본적으로 **HTTP POST 요청**과 **SSE(Server-Sent Events) 스트리밍 응답**으로 이루어집니다.
+BigBrain은 가우스 에이전트와 통신할 때 **HAPPY-MCP(Modern Chat Protocol) v1.1** 규격을 사용합니다. 통신은 기본적으로 **HTTP POST 요청**과 **SSE(Server-Sent Events) 스트리밍 응답**으로 이루어집니다.
 
 - **엔드포인트**: `https://{gauss-agent-endpoint}/v1/agent/run` (설정된 주소)
 - **헤더**: `x-api-key: {API_KEY}`, `Content-Type: application/json`

@@ -134,7 +134,7 @@ cursor-move
 
 ## 🏆 최종 결과
 
-**HappyTool의 탭 관리**가 이제:
+**BigBrain의 탭 관리**가 이제:
 - ⌨️ Keyboard (Ctrl+Tab)
 - 🖱️ Context Menu (우클릭)
 - 🎯 **Drag & Drop** (드래그) ✨ **NEW!**

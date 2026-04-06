@@ -7,7 +7,7 @@
 ### 빌드 시스템
 
 #### [NEW] [cleanup_build.cjs](file:///K:/Antigravity_Projects/gitbase/happytool_electron/scripts/cleanup_build.cjs)
-빌드 시작 전에 실행 중인 `HappyTool.exe` 프로세스를 정리하고, 잠긴 파일을 해제하려고 시도하는 스크립트입니다.
+빌드 시작 전에 실행 중인 `BigBrain.exe` 프로세스를 정리하고, 잠긴 파일을 해제하려고 시도하는 스크립트입니다.
 
 #### [MODIFY] [package.json](file:///K:/Antigravity_Projects/gitbase/happytool_electron/package.json)
 `electron:build` 관련 스크립트 앞에 `cleanup_build.cjs`를 실행하도록 수정합니다.

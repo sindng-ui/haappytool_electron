@@ -168,4 +168,4 @@ animations.normal = '200ms cubic-bezier(...)'
 **새 파일**: 1개 (designTokens.ts)  
 **상태**: ✅ **완료!** 🎉
 
-이제 HappyTool은 성능도 좋고, UI도 아름답습니다! ✨
+이제 BigBrain은 성능도 좋고, UI도 아름답습니다! ✨

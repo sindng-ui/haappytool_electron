@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useHappyTool } from '../../contexts/HappyToolContext';
+import { useBigBrain } from '../../contexts/BigBrainContext';
 import { useRequestRunner } from '../../hooks/useRequestRunner';
 import { Folder, MapPin, Smartphone, Server, Play, ChevronRight, ChevronDown, Activity, Info } from 'lucide-react';
 import { SavedRequest } from '../../types';
@@ -58,7 +58,7 @@ const EasyPostPlugin: React.FC = () => {
         activeEnvId,
         postGlobalAuth,
         postGlobalVariables
-    } = useHappyTool();
+    } = useBigBrain();
 
     const { executeRequest } = useRequestRunner();
     const [isLoading, setIsLoading] = useState(false);

@@ -27,16 +27,16 @@ export function refineGroups(rawGroups: string[][]): string[][] {
 }
 
 /**
- * 현재 설정(config)의 happyGroups 혹은 includeGroups를 조합하여
+ * 현재 설정(config)의 bigBrainGroups 혹은 includeGroups를 조합하여
  * 실제 필터에 사용될 include groups 배열을 생성합니다.
  */
 export function assembleIncludeGroups(config: LogRule): string[][] {
     // ✅ Master Toggle check removed as per 2nd refinement:
-    // Now, filtering depends only on individual happyGroups' enabled states.
+    // Now, filtering depends only on individual bigBrainGroups' enabled states.
     // If all are disabled, it will naturally return an empty array and show all logs.
 
-    const sourceGroups = config.happyGroups
-        ? config.happyGroups.filter(h => h.enabled).map(h => h.tags)
+    const sourceGroups = config.bigBrainGroups
+        ? config.bigBrainGroups.filter(h => h.enabled).map(h => h.tags)
         : config.includeGroups;
 
     return refineGroups(sourceGroups);

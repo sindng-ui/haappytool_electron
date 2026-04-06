@@ -30,7 +30,7 @@ export interface LogHighlight {
   lineEffect?: boolean;
 }
 
-export interface HappyGroup {
+export interface BigBrainGroup {
   id: string;
   tags: string[];
   enabled: boolean;
@@ -41,8 +41,8 @@ export interface LogRule {
   id: string;
   name: string;
   includeGroups: string[][]; // Outer array = OR, Inner array = AND
-  happyGroups?: HappyGroup[]; // New unified structure for Happy Combos
-  happyCombosEnabled?: boolean; // ✅ Master toggle for all Happy Combos
+  bigBrainGroups?: BigBrainGroup[]; // New unified structure for BigBrain Combos
+  bigBrainCombosEnabled?: boolean; // ✅ Master toggle for all BigBrain Combos
 
 
   disabledGroups?: string[][]; // Inactive filters
@@ -50,7 +50,7 @@ export interface LogRule {
   highlights: LogHighlight[];
   logCommand?: string;
   logTags?: string[];
-  happyCombosCaseSensitive?: boolean;
+  bigBrainCombosCaseSensitive?: boolean;
   blockListCaseSensitive?: boolean;
   colorHighlightsCaseSensitive?: boolean;
   showRawLogLines?: boolean;
@@ -244,5 +244,5 @@ export interface LogMetadata {
   preview: string;
   codeLineNum?: string | null; // 🐧⚡ 로그 본문 내의 라인 번호 (예: OnResume(350) -> 350)
   signature?: string;         // 🐧⚡ 분석 최적화를 위한 사전 계산된 시그니처
-  alias?: string | null;      // 🐧⚡ Happy Combo Alias 매칭 정보
+  alias?: string | null;      // 🐧⚡ BigBrain Combo Alias 매칭 정보
 }

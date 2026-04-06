@@ -61,7 +61,7 @@ describe('Log Filtering Flow Integration Test', () => {
             name: 'Error Only',
             includeGroups: [['ERROR']],
             excludes: [],
-            happyCombosCaseSensitive: false,
+            bigBrainCombosCaseSensitive: false,
             blockListCaseSensitive: false,
             highlights: [],
             showRawLogLines: false

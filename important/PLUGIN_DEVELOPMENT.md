@@ -1,14 +1,14 @@
 # Plugin Development Guide
 
-This guide is designed for developers (and their AI Agents) to create new plugins for HappyTool.
+This guide is designed for developers (and their AI Agents) to create new plugins for BigBrain.
 
 ## Architecture Overview
 
-HappyTool uses a dynamic plugin system. Plugins are React components that are:
+BigBrain uses a dynamic plugin system. Plugins are React components that are:
 1.  **Registered** in `plugins/registry.ts`.
 2.  **Wrapped** by `PluginContainer` for standardized rendering.
 3.  **Encapsulated** to avoid hard dependencies on `App.tsx`.
-4.  **Context-Aware** using `useHappyTool()` to access global state (Log Rules, Saved Requests, etc.).
+4.  **Context-Aware** using `useBigBrain()` to access global state (Log Rules, Saved Requests, etc.).
 
 > [!NOTE]
 > All paths in this guide are relative to the **project root**. There is no `src` directory.
@@ -21,16 +21,16 @@ Create a new directory in `components/[PluginName]`.
 Create your main component file `components/[PluginName]/index.tsx`.
 
 > [!IMPORTANT]
-> Do NOT accept props for global state. Use the `useHappyTool` hook.
+> Do NOT accept props for global state. Use the `useBigBrain` hook.
 
 **Template:**
 ```tsx
 import React from 'react';
-import { useHappyTool } from '@/contexts/HappyToolContext';
+import { useBigBrain } from '@/contexts/BigBrainContext';
 
 const MyPlugin: React.FC = () => {
     // Access global state if needed
-    const { logRules, setLogRules } = useHappyTool();
+    const { logRules, setLogRules } = useBigBrain();
 
     return (
         <div className="flex flex-col h-full p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200">
@@ -77,14 +77,14 @@ export const ALL_PLUGINS: HappyPlugin[] = [
 If your plugin needs a new ID, update `ToolId` enum in `types.ts`.
 
 ## Global State Access
-The `HappyToolContext` provides:
+The `BigBrainContext` provides:
 - **`logRules`**: Array of analysis rules.
 - **`savedRequests`**: Saved API requests (PostTool).
 - **`postGlobalVariables`**: Environment variables.
 
 **Usage:**
 ```typescript
-const { savedRequests } = useHappyTool();
+const { savedRequests } = useBigBrain();
 ```
 
 ## Toast Notifications

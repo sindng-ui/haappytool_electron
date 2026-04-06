@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Plus, Trash2, Edit2, Check, Copy } from 'lucide-react';
 import { PostGlobalVariable, EnvironmentProfile } from '../../types';
-import { useHappyTool } from '../../contexts/HappyToolContext';
+import { useBigBrain } from '../../contexts/BigBrainContext';
 import { EnvironmentVariableRow } from './EnvironmentVariableRow';
 import { EnvironmentProfileRow } from './EnvironmentProfileRow';
 
@@ -14,7 +14,7 @@ interface EnvironmentModalProps {
 }
 
 const EnvironmentModal: React.FC<EnvironmentModalProps> = ({ isOpen, onClose }) => {
-    const { envProfiles, setEnvProfiles, activeEnvId, setActiveEnvId } = useHappyTool();
+    const { envProfiles, setEnvProfiles, activeEnvId, setActiveEnvId } = useBigBrain();
 
     // Local state for editing to avoid constant context updates (performance/UX)
     // Actually, updating context directly is fine for this scale, but let's try to keep it local until save?

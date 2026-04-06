@@ -89,7 +89,7 @@ const NetTrafficCompareView: React.FC<NetTrafficCompareViewProps> = ({
           <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" /><span className="font-black uppercase tracking-widest text-[9px]" style={{color:'#10b981'}}>Engine v2.2 (Diff/Compare)</span></div>
           <span className="opacity-20">|</span><span className="tabular-nums">Compared Patterns: <span className="text-indigo-400 font-black">{endpointDiffs.length}</span></span>
         </div>
-        <div className="text-[9px] font-black opacity-30 tracking-[0.2em] uppercase">HappyTool NetTraffic Diff</div>
+        <div className="text-[9px] font-black opacity-30 tracking-[0.2em] uppercase">BigBrain NetTraffic Diff</div>
       </div>
     </div>
   );

@@ -89,7 +89,7 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
     }
 
     // JS Fallback: OR of ANDs
-    const lineForHappy = rule.happyCombosCaseSensitive ? line : (lowerLine || line.toLowerCase());
+    const lineForHappy = rule.bigBrainCombosCaseSensitive ? line : (lowerLine || line.toLowerCase());
 
     for (let i = 0; i < groups.length; i++) {
         const group = groups[i];

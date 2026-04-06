@@ -150,8 +150,8 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete, waitFo
                             <Activity size={80} className="relative text-blue-400 animate-float" strokeWidth={1.5} />
                         </div>
                         <div className="text-center">
-                            <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                                HappyTool
+                            <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent pb-4">
+                                BigBrain
                             </h1>
                             <p className="text-slate-500 text-sm mt-3 font-mono">v{packageJson.version}</p>
                         </div>

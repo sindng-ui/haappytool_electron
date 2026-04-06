@@ -12,8 +12,8 @@ import UATable from './UATable';
 import InsightsTab from './InsightsTab';
 import NetTrafficCompareView from './NetTrafficCompareView';
 
-const LOCAL_STORAGE_KEY_UA = 'happytool_nettraffic_ua_pattern';
-const LOCAL_STORAGE_KEY_PATTERNS = 'happytool_nettraffic_traffic_patterns';
+const LOCAL_STORAGE_KEY_UA = 'bigbrain_nettraffic_ua_pattern';
+const LOCAL_STORAGE_KEY_PATTERNS = 'bigbrain_nettraffic_traffic_patterns';
 
 const NetTrafficAnalyzerView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'single' | 'compare'>('single');
@@ -234,7 +234,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
                 <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" /><span className="font-black uppercase tracking-widest text-[9px]" style={{color:'#10b981'}}>Engine v2.2</span></div>
                 {hasAnalyzed && <><span className="opacity-20">|</span><span className="tabular-nums">Patterns: <span className="text-indigo-400 font-black">{singleResult.length}</span></span><span className="opacity-20">|</span><span className="tabular-nums">Hits: <span className="text-indigo-400 font-black">{singleResult.reduce((a,c)=>a+c.totalCount,0).toLocaleString()}</span></span><span className="opacity-20">|</span><span className="tabular-nums">Clients: <span className="text-emerald-400 font-black">{singleUAResult.length}</span></span></>}
               </div>
-              <div className="text-[9px] font-black opacity-30 tracking-[0.2em] uppercase">HappyTool NetTraffic</div>
+              <div className="text-[9px] font-black opacity-30 tracking-[0.2em] uppercase">BigBrain NetTraffic</div>
             </div>
           )}
         </div>

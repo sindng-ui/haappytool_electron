@@ -1,4 +1,4 @@
-import { HappyPlugin } from '../types';
+import { BigBrainPlugin } from '../types';
 import * as Lucide from 'lucide-react';
 import React from 'react';
 
@@ -17,7 +17,7 @@ import { Network } from 'lucide-react';
 
 const { FileText, Send, Braces, Archive, Smartphone, Pickaxe, Workflow, Activity } = Lucide;
 
-export const LogExtractorPlugin: HappyPlugin = {
+export const LogExtractorPlugin: BigBrainPlugin = {
     id: ToolId.LOG_EXTRACTOR,
     name: 'Log Extractor',
     icon: FileText,
@@ -25,7 +25,7 @@ export const LogExtractorPlugin: HappyPlugin = {
     order: 1,
 };
 
-export const PostToolPlugin: HappyPlugin = {
+export const PostToolPlugin: BigBrainPlugin = {
     id: ToolId.POST_TOOL,
     name: 'Post Tool',
     icon: Send,
@@ -33,7 +33,7 @@ export const PostToolPlugin: HappyPlugin = {
     order: 5,
 };
 
-export const JsonToolsPlugin: HappyPlugin = {
+export const JsonToolsPlugin: BigBrainPlugin = {
     id: ToolId.JSON_TOOLS,
     name: 'JSON Tools',
     icon: Braces,
@@ -41,7 +41,7 @@ export const JsonToolsPlugin: HappyPlugin = {
     order: 4,
 };
 
-export const TpkExtractorPlugin: HappyPlugin = {
+export const TpkExtractorPlugin: BigBrainPlugin = {
     id: ToolId.TPK_EXTRACTOR,
     name: 'Tpk Extractor',
     icon: Archive,
@@ -49,7 +49,7 @@ export const TpkExtractorPlugin: HappyPlugin = {
     order: 6,
 };
 
-export const SmartThingsDevicesPlugin: HappyPlugin = {
+export const SmartThingsDevicesPlugin: BigBrainPlugin = {
     id: ToolId.SMARTTHINGS_DEVICES,
     name: 'SmartThings Devices',
     icon: Smartphone,
@@ -57,7 +57,7 @@ export const SmartThingsDevicesPlugin: HappyPlugin = {
     order: 7,
 };
 
-export const SmartThingsLabPluginWrapper: HappyPlugin = {
+export const SmartThingsLabPluginWrapper: BigBrainPlugin = {
     id: ToolId.SMARTTHINGS_LAB,
     name: 'ST Lab',
     icon: Smartphone,
@@ -66,7 +66,7 @@ export const SmartThingsLabPluginWrapper: HappyPlugin = {
 };
 
 
-export const ReverseEngineerPlugin: HappyPlugin = {
+export const ReverseEngineerPlugin: BigBrainPlugin = {
     id: ToolId.REVERSE_ENGINEER,
     name: 'Reverse Engineer',
     icon: Pickaxe,
@@ -77,7 +77,7 @@ export const ReverseEngineerPlugin: HappyPlugin = {
 const BlockTest = React.lazy(() => import('../../components/BlockTest'));
 const { Blocks } = Lucide;
 
-export const BlockTestPlugin: HappyPlugin = {
+export const BlockTestPlugin: BigBrainPlugin = {
     id: ToolId.BLOCK_TEST,
     name: 'Block Test',
     icon: Blocks,
@@ -87,7 +87,7 @@ export const BlockTestPlugin: HappyPlugin = {
 const EasyUML = React.lazy(() => import('../../components/EasyUML'));
 // Activity already destructured at top
 
-export const EasyUMLPlugin: HappyPlugin = {
+export const EasyUMLPlugin: BigBrainPlugin = {
     id: ToolId.EASY_UML,
     name: 'Easy UML',
     icon: Activity,
@@ -98,7 +98,7 @@ export const EasyUMLPlugin: HappyPlugin = {
 const CpuAnalyzer = React.lazy(() => import('../../components/CpuAnalyzer/CpuAnalyzer'));
 const { Cpu } = Lucide;
 
-export const CpuAnalyzerPlugin: HappyPlugin = {
+export const CpuAnalyzerPlugin: BigBrainPlugin = {
     id: ToolId.CPU_ANALYZER,
     name: 'CPU Analyzer',
     icon: Cpu,
@@ -109,7 +109,7 @@ export const CpuAnalyzerPlugin: HappyPlugin = {
 const SmartHomeDashboard = React.lazy(() => import('../../components/SmartHomeDashboard/SmartHomeDashboard'));
 const { LayoutDashboard } = Lucide;
 
-export const SmartHomeDashboardPlugin: HappyPlugin = {
+export const SmartHomeDashboardPlugin: BigBrainPlugin = {
     id: ToolId.SMART_HOME_DASHBOARD,
     name: 'Smart Home',
     icon: LayoutDashboard,
@@ -120,7 +120,7 @@ export const SmartHomeDashboardPlugin: HappyPlugin = {
 const ScreenMatcher = React.lazy(() => import('../../components/ScreenMatcher/ScreenMatcher'));
 const { Scan } = Lucide;
 
-export const ScreenMatcherPlugin: HappyPlugin = {
+export const ScreenMatcherPlugin: BigBrainPlugin = {
     id: ToolId.SCREEN_MATCHER,
     name: 'Screen Matcher',
     icon: Scan,
@@ -131,7 +131,7 @@ export const ScreenMatcherPlugin: HappyPlugin = {
 const AiAssistant = React.lazy(() => import('../../components/AiAssistant'));
 const { Bot } = Lucide;
 
-export const AiAssistantPlugin: HappyPlugin = {
+export const AiAssistantPlugin: BigBrainPlugin = {
     id: ToolId.AI_ASSISTANT,
     name: 'AI Assistant',
     icon: Bot,
@@ -141,7 +141,7 @@ export const AiAssistantPlugin: HappyPlugin = {
 
 
 
-export const TizenLabPluginWrapper: HappyPlugin = {
+export const TizenLabPluginWrapper: BigBrainPlugin = {
     id: ToolId.TIZEN_LAB,
     name: 'Tizen Lab',
     icon: Network,
@@ -152,7 +152,7 @@ export const TizenLabPluginWrapper: HappyPlugin = {
 const EasyPost = React.lazy(() => import('../../plugins/EasyPost/EasyPostPlugin'));
 const { Zap } = Lucide;
 
-export const EasyPostPlugin: HappyPlugin = {
+export const EasyPostPlugin: BigBrainPlugin = {
     id: ToolId.EASY_POST,
     name: 'Easy Post',
     icon: Zap,
@@ -161,7 +161,7 @@ export const EasyPostPlugin: HappyPlugin = {
 };
 
 const { Gauge } = Lucide;
-export const PerfToolPlugin: HappyPlugin = {
+export const PerfToolPlugin: BigBrainPlugin = {
     id: ToolId.PERF_TOOL,
     name: 'Perf Tool',
     icon: Gauge,
@@ -171,7 +171,7 @@ export const PerfToolPlugin: HappyPlugin = {
 
 const SpeedScope = React.lazy(() => import('../../components/SpeedScope/SpeedScopePlugin'));
 
-export const SpeedScopePlugin: HappyPlugin = {
+export const SpeedScopePlugin: BigBrainPlugin = {
     id: ToolId.SPEED_SCOPE,
     name: 'Speed Scope',
     icon: Activity,
@@ -181,7 +181,7 @@ export const SpeedScopePlugin: HappyPlugin = {
 
 const NetTrafficAnalyzer = React.lazy(() => import('../../components/NetTrafficAnalyzer/NetTrafficAnalyzerPlugin'));
 
-export const NetTrafficAnalyzerPluginWrapper: HappyPlugin = {
+export const NetTrafficAnalyzerPluginWrapper: BigBrainPlugin = {
     id: ToolId.NET_TRAFFIC_ANALYZER,
     name: 'NetTraffic',
     icon: Network,
@@ -192,7 +192,7 @@ export const NetTrafficAnalyzerPluginWrapper: HappyPlugin = {
 const LogAnalysisAgent = React.lazy(() => import('../LogAnalysisAgent/index'));
 const { BrainCircuit } = Lucide;
 
-export const LogAnalysisAgentPlugin: HappyPlugin = {
+export const LogAnalysisAgentPlugin: BigBrainPlugin = {
     id: ToolId.LOG_ANALYSIS_AGENT,
     name: 'Log Agent',
     icon: BrainCircuit,
@@ -203,7 +203,7 @@ export const LogAnalysisAgentPlugin: HappyPlugin = {
 const GaussChatAgent = React.lazy(() => import('../GaussChatAgent/index'));
 const { MessageSquare } = Lucide;
 
-export const GaussChatAgentPlugin: HappyPlugin = {
+export const GaussChatAgentPlugin: BigBrainPlugin = {
     id: ToolId.GAUSS_CHAT_AGENT,
     name: 'Gauss Chat',
     icon: MessageSquare,
@@ -211,7 +211,7 @@ export const GaussChatAgentPlugin: HappyPlugin = {
     order: 21,
 };
 
-export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
+export const ALL_PLUGINS_MAP: Record<ToolId, BigBrainPlugin> = {
     [ToolId.LOG_EXTRACTOR]: LogExtractorPlugin,
     [ToolId.POST_TOOL]: PostToolPlugin,
     [ToolId.JSON_TOOLS]: JsonToolsPlugin,

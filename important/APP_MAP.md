@@ -1,4 +1,4 @@
-# HappyTool APP_MAP (AI 작업 지도) 🗺️
+# BigBrain APP_MAP (AI 작업 지도) 🗺️
 
 형님! 이 지도는 AI Agent가 프로젝트의 기능을 즉시 찾고 분석할 수 있도록 돕는 **인터페이스 규격 기반의 지도**입니다. 🐧⚡
 모든 경로는 **프로젝트 베이스 기준 상대 경로**를 사용하며, 한글/영어 키워드 매핑을 통해 검색 효율을 극대화했습니다.
@@ -20,8 +20,8 @@
   - `Config`: [index.tsx](./index.tsx)
 - **Core Interface**:
   - `AppContent`: 전역 상태(Settings, Plugin 등) 관리의 핵심 컴포넌트
-  - `HappyToolProvider`: 전역 Context 공급
-  - `LoadingSplash`: **터미널 스타일(Terminal Style)**의 실시간 시스템 로그 배경이 적용된 프리미엄 로딩 화면. 폰트 크기 최적화(`text-2xl`)를 통해 시작 로그의 가독성과 노출량을 극대화함. [UPDATED]
+  - `BigBrainProvider`: 전역 Context 공급
+  - `LoadingSplash`: **터미널 스타일(Terminal Style)**의 실시간 시스템 로그 배경이 적용된 프리미엄 로딩 화면. 폰트 크기 최적화 및 하단 여백(pb-2) 조정을 통해 로고('g') 잘림 현상 방지와 시작 로그의 가독성을 극대화함. [UPDATED]
 - **Startup UX Optimization**:
   - `Fake Progress`: 서버 기동 시 0->95%까지 서서히 증가하여 대기 시간 시각화 (`main.cjs`)
   - `Progress Creep`: 플러그인 로드 대기 시 98->99.9%까지 점진적으로 증가하여 활동성 확보 (`LoadingSplash.tsx`)
@@ -37,7 +37,7 @@
   - `Container`: [PluginContainer.tsx](./components/PluginContainer.tsx)
 - **Core Interface**:
   - `ALL_PLUGINS`: 등록된 모든 플러그인 배열 (순서 조정 가능)
-  - `HappyPlugin`: 플러그인 규격 인터페이스
+  - `BigBrainPlugin`: 플러그인 규격 인터페이스
 - **Data Flow**: `registry.ts` -> `App.tsx` -> `Sidebar` & `PluginContainer`
 
 ### [[Sidebar Navigation]]
@@ -133,7 +133,7 @@
 
 ### [[Log Analysis Agent]] 🧠💎 [NEW]
 - **ID**: `LOG_ANALYSIS_AGENT`
-- **Keywords**: [`AI Agent`, `Crash 분석`, `HAPPY-MCP`, `Gemini`, `Gauss 2.3 Think`, `드래그바`, `Action 요약`]
+- **Keywords**: [`AI Agent`, `Crash 분석`, `BIGBRAIN-MCP`, `Gemini`, `Gauss 2.3 Think`, `드래그바`, `Action 요약`]
 - **Location**:
   - `View`: [index.tsx](./plugins/LogAnalysisAgent/index.tsx)
   - `Hook`: [useAnalysisAgent.ts](./plugins/LogAnalysisAgent/hooks/useAnalysisAgent.ts)

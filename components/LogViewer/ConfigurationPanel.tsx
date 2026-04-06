@@ -3,7 +3,7 @@ import * as Lucide from 'lucide-react';
 import { useLogContext } from './LogContext';
 import { Button } from '../ui/Button';
 import { ConfigHeader } from './ConfigSections/ConfigHeader';
-import { HappyComboSection } from './ConfigSections/HappyComboSection';
+import { BigBrainComboSection } from './ConfigSections/BigBrainComboSection';
 
 import { BlockListSection } from './ConfigSections/BlockListSection';
 import { HighlightSection } from './ConfigSections/HighlightSection';
@@ -137,14 +137,14 @@ const ConfigurationPanel = React.memo(() => {
                     />
 
                     <div className="card-gradient p-1">
-                        <HappyComboSection
+                        <BigBrainComboSection
                             currentConfig={currentConfig}
                             updateCurrentRule={updateCurrentRule}
                             groupedRoots={groupedRoots}
                             collapsedRoots={collapsedRoots}
                             onToggleRootCollapse={onToggleRootCollapse}
                             handleToggleRoot={handleToggleRoot}
-                            happyCombosCaseSensitive={currentConfig.happyCombosCaseSensitive || false}
+                            bigBrainCombosCaseSensitive={currentConfig.bigBrainCombosCaseSensitive || false}
                             tabId={tabId}
                         />
                     </div>

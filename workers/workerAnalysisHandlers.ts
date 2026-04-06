@@ -43,7 +43,7 @@ export const analyzePerformance = async (
     const lineIndices: number[] = [];
     const isFile = !!currentFile && !!lineOffsets;
     const isLocal = !!ctx.isLocalFileMode && !!lineOffsets;
-    const isHappyCS = !!currentRule.happyCombosCaseSensitive;
+    const isHappyCS = !!currentRule.bigBrainCombosCaseSensitive;
     const decoder = new TextDecoder();
 
     const MAX_ANALYSIS_LINES = 100000;
@@ -652,8 +652,8 @@ export const extractAnalysisMetrics = async (
     respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0, message: `[Worker][${side}] Starting metrics extraction for ${totalLines} lines` } });
 
     // 🐧⚡ Happy Combo 태그 사전 소문자화 (Performance Optimization)
-    if (currentRule?.happyGroups) {
-        for (const group of currentRule.happyGroups) {
+    if (currentRule?.bigBrainGroups) {
+        for (const group of currentRule.bigBrainGroups) {
             if (group.tags && !(group as any)._lowercasedTags) {
                 (group as any)._lowercasedTags = group.tags.map((t: string) => t.toLowerCase());
             }
@@ -809,8 +809,8 @@ export const extractAliasEvents = async (
     respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0, message: 'Extracting Alias Events...' } });
 
     // 🐧⚡ Happy Combo 태그 사전 소문자화 (Performance Optimization)
-    if (currentRule.happyGroups) {
-        for (const group of currentRule.happyGroups) {
+    if (currentRule.bigBrainGroups) {
+        for (const group of currentRule.bigBrainGroups) {
             if (group.tags && !(group as any)._lowercasedTags) {
                 (group as any)._lowercasedTags = group.tags.map((t: string) => t.toLowerCase());
             }

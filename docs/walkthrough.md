@@ -1,6 +1,6 @@
 # 삼성 가우스 에이전트 API 연동 완료
 
-형님! 제공해주신 CURL 규격에 맞춰 **HappyTool과 삼성 가우스 에이전트 간의 통신 채널을 완벽하게 구축**했습니다. 이제 설정만 하시면 바로 분석을 시작하실 수 있습니다! 🐧🚀
+형님! 제공해주신 CURL 규격에 맞춰 **BigBrain과 삼성 가우스 에이전트 간의 통신 채널을 완벽하게 구축**했습니다. 이제 설정만 하시면 바로 분석을 시작하실 수 있습니다! 🐧🚀
 
 ## 작업 내용 요약
 
@@ -20,7 +20,7 @@
 ## 형님을 위한 연동 가이드
 
 1. **에이전트 빌더 설정**: 아까 다듬어드린 [gauss_system_instructions.md](./gauss_system_instructions.md) 의 내용을 빌더의 **Rule/Role** 에 넣고 저장해 주세요.
-2. **HappyTool 설정**:
+2. **BigBrain 설정**:
    - **Endpoint**: `https://agent.sec.samsung.net/api/v1/run/1bd8be4f-d679-dbd2-a9be-9ef9b887801b?stream=false` (CURL에 있던 풀 경로)
    - **API Key**: 형님의 개인 API Key
 3. **분석 시작**: 로그 익스트랙터에서 '분석 시작'을 누르면 가우스 2.3 Think 모델이 열심히 로그를 파헤치기 시작할 겁니다! 🐧🔥

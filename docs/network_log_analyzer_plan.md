@@ -20,7 +20,7 @@
 
 ### [Plugin UI & Foundation]
 #### [NEW] `components/NetTrafficAnalyzer/NetTrafficAnalyzerPlugin.tsx`
-- 메인 플러그인 컨테이너 컴포넌트입니다. `HappyToolContext`에서 전역 상태를 구독하고, 탭(Single / Compare) 라우팅을 담당합니다.
+- 메인 플러그인 컨테이너 컴포넌트입니다. `BigBrainContext`에서 전역 상태를 구독하고, 탭(Single / Compare) 라우팅을 담당합니다.
 #### [NEW] `components/NetTrafficAnalyzer/NetTrafficAnalyzerView.tsx`
 - 실제 분석 UI (로그 파일 Drag & Drop, 검색 패턴/그룹 지정 폼 및 데이터 그리드 렌더링). 가상 스크롤 혹은 페이징을 적용해 분석 결과가 수만 건이라도 60fps를 방어합니다.
 

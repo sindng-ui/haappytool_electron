@@ -1,4 +1,4 @@
-import { LogRule, HappyGroup } from '../types';
+import { LogRule, BigBrainGroup } from '../types';
 import { extractTimestamp } from './logTime';
 import { extractTransactionIds } from './transactionAnalysis';
 
@@ -230,7 +230,7 @@ export const analyzePerfSegments = (
     const segments: AnalysisSegment[] = [];
 
     // 1. Filter Aliased Groups
-    const validGroups = rule.happyGroups?.filter(g => g.enabled && g.alias && g.tags.length > 0) || [];
+    const validGroups = rule.bigBrainGroups?.filter(g => g.enabled && g.alias && g.tags.length > 0) || [];
 
     if (validGroups.length === 0) return [];
 
@@ -250,7 +250,7 @@ export const analyzePerfSegments = (
         const line = lines[idx];
         const lineLower = isHappyCS ? '' : line.toLowerCase();
 
-        let foundGroup: HappyGroup | null = null;
+        let foundGroup: BigBrainGroup | null = null;
         for (const g of validGroups) {
             const matched = g.tags.every(tag => isHappyCS ? line.includes(tag) : lineLower.includes(tag.toLowerCase()));
             if (matched) {

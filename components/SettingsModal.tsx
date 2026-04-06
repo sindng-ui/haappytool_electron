@@ -3,7 +3,7 @@ import { X, Moon, Sun, Keyboard, Info, Type, RotateCcw, BookOpen, Puzzle, Termin
 import { Button } from './ui/Button';
 import { useToast } from '../contexts/ToastContext';
 import { ALL_PLUGINS } from '../plugins/registry';
-import { useHappyTool } from '../contexts/HappyToolContext';
+import { useBigBrain } from '../contexts/BigBrainContext';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -15,7 +15,7 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, enabledPlugins, setEnabledPlugins }) => {
     const { addToast } = useToast();
-    const { defaultOutputFolder, setDefaultOutputFolder } = useHappyTool();
+    const { defaultOutputFolder, setDefaultOutputFolder } = useBigBrain();
     const [activeTab, setActiveTab] = useState<'general' | 'plugins' | 'shortcuts' | 'cli' | 'guide' | 'ai_agent' | 'about'>('general');
     const [theme, setTheme] = useState<'dark' | 'light'>(() => {
         return localStorage.getItem('theme') as 'dark' | 'light' || 'dark';
@@ -34,14 +34,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
     const [isTestingAgent, setIsTestingAgent] = useState(false);
 
     useEffect(() => {
-        const raw = localStorage.getItem('happytool_agent_config');
+        const raw = localStorage.getItem('bigbrain_agent_config');
         if (raw) {
             try { setAgentConfig(prev => ({ ...prev, ...JSON.parse(raw) })); } catch (e) { }
         }
     }, []);
 
     const handleSaveAgentConfig = () => {
-        localStorage.setItem('happytool_agent_config', JSON.stringify(agentConfig));
+        localStorage.setItem('bigbrain_agent_config', JSON.stringify(agentConfig));
         addToast('AI Agent 설정이 저장되었습니다.', 'success');
     };
 
@@ -286,7 +286,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             type="text"
                                             value={defaultOutputFolder || ''}
                                             onChange={(e) => setDefaultOutputFolder(e.target.value)}
-                                            placeholder="e.g. C:\HappyTool_Outputs (Leave blank for current dir)"
+                                            placeholder="e.g. C:\BigBrain_Outputs (Leave blank for current dir)"
                                             className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono"
                                         />
                                     </div>
@@ -308,7 +308,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                                 </div>
                                                 <button
                                                     onClick={() => {
-                                                        navigator.clipboard.writeText('.\\HappyTool.exe cli log-extractor -f "FilterName" -i "test.log"');
+                                                        navigator.clipboard.writeText('.\\BigBrain.exe cli log-extractor -f "FilterName" -i "test.log"');
                                                         addToast('Command copied to clipboard', 'info');
                                                     }}
                                                     className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-400 hover:text-indigo-400 transition-all"
@@ -319,7 +319,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             <div className="p-4 space-y-2">
                                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">거대 로그 파일을 백그라운드 필터링 및 내보내기</p>
                                                 <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
-                                                    .\HappyTool.exe cli log-extractor -f "Filter" -i "path"
+                                                    .\BigBrain.exe cli log-extractor -f "Filter" -i "path"
                                                 </div>
                                             </div>
                                         </div>
@@ -333,7 +333,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                                 </div>
                                                 <button
                                                     onClick={() => {
-                                                        navigator.clipboard.writeText('.\\HappyTool.exe cli block-test --scenario "Sanity Check"');
+                                                        navigator.clipboard.writeText('.\\BigBrain.exe cli block-test --scenario "Sanity Check"');
                                                         addToast('Command copied to clipboard', 'info');
                                                     }}
                                                     className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-400 hover:text-indigo-400 transition-all"
@@ -344,7 +344,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             <div className="p-4 space-y-2">
                                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">시나리오/파이프라인 자동화 봇 실행</p>
                                                 <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
-                                                    .\HappyTool.exe cli block-test --scenario "Name"
+                                                    .\BigBrain.exe cli block-test --scenario "Name"
                                                 </div>
                                             </div>
                                         </div>
@@ -358,7 +358,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                                 </div>
                                                 <button
                                                     onClick={() => {
-                                                        navigator.clipboard.writeText('.\\HappyTool.exe cli analyze-diff -f "Step" -l "old.log" -r "new.log" -o "diff.json"');
+                                                        navigator.clipboard.writeText('.\\BigBrain.exe cli analyze-diff -f "Step" -l "old.log" -r "new.log" -o "diff.json"');
                                                         addToast('Command copied to clipboard', 'info');
                                                     }}
                                                     className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-400 hover:text-indigo-400 transition-all"
@@ -369,7 +369,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             <div className="p-4 space-y-2">
                                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">두 로그 파일의 성능 차이 및 신규 로그 분석 (JSON 추출)</p>
                                                 <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
-                                                    .\HappyTool.exe cli analyze-diff -f "Mission" -l "left.log" -r "right.log" -o "diff.json"
+                                                    .\BigBrain.exe cli analyze-diff -f "Mission" -l "left.log" -r "right.log" -o "diff.json"
                                                 </div>
                                             </div>
                                         </div>
@@ -384,7 +384,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                                 <div className="flex gap-1.5">
                                                     <button
                                                         onClick={() => {
-                                                            navigator.clipboard.writeText('.\\HappyTool.exe cli nettraffic -i "traffic.log" -o "analysis.json"');
+                                                            navigator.clipboard.writeText('.\\BigBrain.exe cli nettraffic -i "traffic.log" -o "analysis.json"');
                                                             addToast('NetTraffic Single-mode command copied', 'info');
                                                         }}
                                                         className="flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-500 hover:text-indigo-400 hover:border-indigo-500/30 transition-all text-[10px] font-bold"
@@ -393,7 +393,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                                     </button>
                                                     <button
                                                         onClick={() => {
-                                                            navigator.clipboard.writeText('.\\HappyTool.exe cli nettraffic -f "Step" -l "old.log" -r "new.log" -o "diff.json"');
+                                                            navigator.clipboard.writeText('.\\BigBrain.exe cli nettraffic -f "Step" -l "old.log" -r "new.log" -o "diff.json"');
                                                             addToast('NetTraffic Compare-mode command copied', 'info');
                                                         }}
                                                         className="flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-500 hover:text-indigo-400 hover:border-indigo-500/30 transition-all text-[10px] font-bold"
@@ -405,7 +405,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             <div className="p-4 space-y-2">
                                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">네트워크 트래픽(Endpoint/UA) 분석 및 비교 결과 추출</p>
                                                 <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
-                                                    .\HappyTool.exe cli nettraffic -l "left" -r "right" -o "res.json"
+                                                    .\BigBrain.exe cli nettraffic -l "left" -r "right" -o "res.json"
                                                 </div>
                                             </div>
                                         </div>
@@ -417,7 +417,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             <Info size={12} /> Advanced Technical Tip
                                         </div>
                                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                            HappyTool CLI는 내부적으로 **Hidden BrowserWindow**를 호출하여 구동됩니다.
+                                            BigBrain CLI는 내부적으로 **Hidden BrowserWindow**를 호출하여 구동됩니다.
                                             덕분에 터미널 환경에서도 **WASM(WebAssembly)** 엔진과 **SharedArrayBuffer**의 고성능 멀티스레딩 필터링을 완벽하게 지원합니다.
                                             IndexedDB에 저장된 GUI 필터 목록을 그대로 공유하여 쓰기 때문에 별도의 동기화가 필요 없습니다! 🐧💎
                                         </p>
@@ -600,10 +600,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                         {activeTab === 'about' && (
                             <div className="text-center space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform py-10">
                                 <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2rem] mx-auto shadow-2xl shadow-indigo-500/20 flex items-center justify-center transform rotate-3 hover:rotate-0 transition-transform duration-500">
-                                    <span className="text-5xl font-black text-white">H</span>
+                                    <span className="text-5xl font-black text-white">B</span>
                                 </div>
                                 <div>
-                                    <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 animate-gradient-x">HappyTool</h1>
+                                    <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 animate-gradient-x pb-2">BigBrain</h1>
                                     <p className="text-slate-500 dark:text-slate-400 font-mono mt-2 text-sm bg-slate-100 dark:bg-slate-800/50 inline-block px-3 py-1 rounded-full border border-slate-200 dark:border-white/5">v{__APP_VERSION__} (Beta)</p>
                                 </div>
                                 <div className="p-8 bg-white dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-white/5 text-sm leading-relaxed max-w-sm mx-auto shadow-xl">
@@ -625,7 +625,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                     <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl mx-auto shadow-xl shadow-indigo-500/20 flex items-center justify-center mb-4 icon-glow">
                                         <BookOpen size={32} className="text-white" />
                                     </div>
-                                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">HappyTool 사용 가이드</h3>
+                                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">BigBrain 사용 가이드</h3>
                                     <p className="text-slate-600 dark:text-slate-400">모든 기능을 자세히 알아보세요</p>
                                 </div>
 

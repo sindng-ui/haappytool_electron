@@ -1,6 +1,6 @@
-# HappyTool Supported Log Formats
+# BigBrain Supported Log Formats
 
-이 문서는 HappyTool이 인식하고 파싱할 수 있는 로그 형식의 예시를 정의합니다.
+이 문서는 BigBrain이 인식하고 파싱할 수 있는 로그 형식의 예시를 정의합니다.
 새로운 로그 형식이 추가되거나 수정될 때 이 문서를 참조하여 AI 에이전트가 로직을 일관되게 유지할 수 있도록 합니다.
 
 ---
@@ -84,7 +84,7 @@
 
 ## 🤖 AI 코딩 에이전트 개발 가이드 (Development Guide)
 
-이 섹션은 HappyTool의 로그 파싱 기능을 확장하거나 수정할 때 AI 에이전트가 지켜야 할 가이드를 제공합니다.
+이 섹션은 BigBrain의 로그 파싱 기능을 확장하거나 수정할 때 AI 에이전트가 지켜야 할 가이드를 제공합니다.
 
 ### 1. 로직 공통화 및 일관성 (Centralization)
 - **공통 유틸리티 우선**: 새로운 파싱 로직을 만들기 전에 `utils/logTime.ts` (시간), `utils/transactionAnalysis.ts` (트랜잭션), `components/PerfTool/index.tsx` (PID/TID)의 기존 로직을 최대한 재사용하십시오. 

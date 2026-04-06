@@ -107,7 +107,7 @@ export async function extractHints(
     })
     .filter(Boolean) as RegExp[];
 
-  const caseSensitive = rule?.happyCombosCaseSensitive ?? false;
+  const caseSensitive = rule?.bigBrainCombosCaseSensitive ?? false;
 
   await processInChunks(
     logLines,

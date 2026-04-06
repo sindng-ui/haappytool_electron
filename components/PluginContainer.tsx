@@ -1,8 +1,8 @@
 import React from 'react';
-import { HappyPlugin } from '../plugins/types';
+import { BigBrainPlugin } from '../plugins/types';
 
 interface PluginContainerProps {
-    plugin: HappyPlugin;
+    plugin: BigBrainPlugin;
     isActive: boolean;
     onLoaded?: () => void;
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import * as Lucide from 'lucide-react';
-import { HappyPlugin } from '../plugins/types';
+import { BigBrainPlugin } from '../plugins/types';
 
 const { GripVertical, Settings, Activity, FlaskConical, ChevronRight, ChevronDown } = Lucide;
 
@@ -10,7 +10,7 @@ interface SidebarProps {
   pluginOrder: string[];
   onReorderPlugins: (order: string[]) => void;
   onOpenSettings: () => void;
-  plugins: HappyPlugin[];
+  plugins: BigBrainPlugin[];
   enabledPlugins: string[];
 }
 
@@ -23,14 +23,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
   let activePlugins = pluginOrder
     .filter(id => enabledPlugins.includes(id))
     .map(id => plugins.find(p => p.id === id))
-    .filter((p): p is HappyPlugin => !!p);
+    .filter((p): p is BigBrainPlugin => !!p);
 
   // Append any enabled plugins that were NOT in the pluginOrder (fail-safe)
   const activeIds = new Set(activePlugins.map(p => p.id));
   const missingPlugins = enabledPlugins
     .filter(id => !activeIds.has(id))
     .map(id => plugins.find(p => p.id === id))
-    .filter((p): p is HappyPlugin => !!p);
+    .filter((p): p is BigBrainPlugin => !!p);
 
   activePlugins = [...activePlugins, ...missingPlugins];
 
@@ -93,10 +93,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activePluginId, onSelectPlugin, plugi
               {isExpanded ? (
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 relative z-10 group-hover:scale-105 transition-transform duration-300">
-                    <span className="text-white font-black text-base">H</span>
+                    <span className="text-white font-black text-base">B</span>
                   </div>
                   <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-indigo-200 via-indigo-100 to-white bg-clip-text text-transparent drop-shadow-sm">
-                    HappyTool
+                    BigBrain
                   </span>
                 </div>
               ) : (

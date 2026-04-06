@@ -6,8 +6,8 @@ import { generateHtmlReport } from '../../../utils/reportGenerator';
 import { io, Socket } from 'socket.io-client';
 
 // We need a way to access the socket. usually passed via context or imported.
-// In this project, it seems `useHappyTool` provides data, but does it provide socket?
-// Checking `HappyToolContext.tsx` would be ideal, but based on `server/index.js` edits, the socket is global or we might need to connect.
+// In this project, it seems `useBigBrain` provides data, but does it provide socket?
+// Checking `BigBrainContext.tsx` would be ideal, but based on `server/index.js` edits, the socket is global or we might need to connect.
 // The `LogViewerPane` edits in previous tasks suggest `tizenSocket`.
 // I'll assume I can get a socket or create one.
 // EXISTING PATTERN: `const socket = io('http://localhost:3002');` in components.
@@ -15,7 +15,7 @@ import { io, Socket } from 'socket.io-client';
 export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => void) => {
     const [blocks, setBlocks] = useState<CommandBlock[]>(() => {
         try {
-            const saved = localStorage.getItem('happytool_blocks');
+            const saved = localStorage.getItem('bigbrain_blocks');
             if (saved) {
                 return JSON.parse(saved);
             }
@@ -27,7 +27,7 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
 
     const [pipelines, setPipelines] = useState<Pipeline[]>(() => {
         try {
-            const saved = localStorage.getItem('happytool_pipelines');
+            const saved = localStorage.getItem('bigbrain_pipelines');
             if (saved) {
                 return JSON.parse(saved);
             }
@@ -39,7 +39,7 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
 
     const [scenarios, setScenarios] = useState<Scenario[]>(() => {
         try {
-            const saved = localStorage.getItem('happytool_scenarios');
+            const saved = localStorage.getItem('bigbrain_scenarios');
             if (saved) {
                 return JSON.parse(saved);
             }
@@ -156,8 +156,8 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
 
     useEffect(() => {
         const handleImport = () => {
-            const b = localStorage.getItem('happytool_blocks');
-            const p = localStorage.getItem('happytool_pipelines');
+            const b = localStorage.getItem('bigbrain_blocks');
+            const p = localStorage.getItem('bigbrain_pipelines');
             if (b) {
                 try {
                     const parsedBlocks = JSON.parse(b);
@@ -179,7 +179,7 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
                     console.error("Failed to import pipelines", e);
                 }
             }
-            const s = localStorage.getItem('happytool_scenarios');
+            const s = localStorage.getItem('bigbrain_scenarios');
             if (s) {
                 try {
                     const parsed = JSON.parse(s);
@@ -190,13 +190,13 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
                 }
             }
         };
-        window.addEventListener('happytool:settings-imported', handleImport);
-        return () => window.removeEventListener('happytool:settings-imported', handleImport);
+        window.addEventListener('bigbrain:settings-imported', handleImport);
+        return () => window.removeEventListener('bigbrain:settings-imported', handleImport);
     }, []);
 
     const saveBlocks = useCallback((newBlocks: CommandBlock[]) => {
         setBlocks(newBlocks);
-        localStorage.setItem('happytool_blocks', JSON.stringify(newBlocks));
+        localStorage.setItem('bigbrain_blocks', JSON.stringify(newBlocks));
         if (socketRef.current) {
             socketRef.current.emit('save_file', {
                 filename: 'blocks.json',
@@ -209,7 +209,7 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
         // Double check for validity
         const validPipelines = newPipelines.filter(p => p && p.id);
         setPipelines(validPipelines);
-        localStorage.setItem('happytool_pipelines', JSON.stringify(validPipelines));
+        localStorage.setItem('bigbrain_pipelines', JSON.stringify(validPipelines));
         if (socketRef.current) {
             socketRef.current.emit('save_file', {
                 filename: 'pipelines.json',
@@ -220,7 +220,7 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
 
     const saveScenarios = useCallback((newScenarios: Scenario[]) => {
         setScenarios(newScenarios);
-        localStorage.setItem('happytool_scenarios', JSON.stringify(newScenarios));
+        localStorage.setItem('bigbrain_scenarios', JSON.stringify(newScenarios));
         if (socketRef.current) {
             socketRef.current.emit('save_file', {
                 filename: 'scenarios.json',

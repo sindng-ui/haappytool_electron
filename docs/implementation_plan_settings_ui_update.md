@@ -10,7 +10,7 @@
 
 - **Headless CLI 탭 (Quick Commands)**:
     - 기존 `JSON Tools` 카드를 제거하고 `Analyze Diff` 카드를 추가합니다.
-    - 예제 명령어: `.\HappyTool.exe cli analyze-diff -f "Mission" -l "left.log" -r "right.log" -o "diff.json"`
+    - 예제 명령어: `.\BigBrain.exe cli analyze-diff -f "Mission" -l "left.log" -r "right.log" -o "diff.json"`
 - **User Guide 탭 (기능 목록)**:
     - `JSON Tools` 항목을 `Analyze Diff`로 변경하여 일관성을 유지합니다.
 

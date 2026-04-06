@@ -9,12 +9,12 @@ Overall, the application structure is sound, but there are two **Critical Improv
 
 ### 1. Rendering Efficiency (Critical)
 **Location:** `src/App.tsx`
-**Issue:** The `HappyToolContext` value object is recreated on *every render*.
+**Issue:** The `BigBrainContext` value object is recreated on *every render*.
 **Impact:** Whenever `App.tsx` re-renders (e.g., when switching tabs or resizing), **ALL** child plugins that consume the context will force re-render, even if the data they need hasn't changed.
 **Recommendation:** Wrap the `contextValue` object in `useMemo`.
 
 ```typescript
-const contextValue = useMemo<HappyToolContextType>(() => ({
+const contextValue = useMemo<BigBrainContextType>(() => ({
     logRules, setLogRules,
     // ... other values
 }), [logRules, savedRequests, /* ...dependencies */]);

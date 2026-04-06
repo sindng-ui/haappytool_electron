@@ -14,7 +14,7 @@ describe('SplitAnalysisUtils', () => {
         includeGroups: [],
         excludes: [],
         highlights: [],
-        happyGroups: [
+        bigBrainGroups: [
             { id: 'g1', tags: ['MatchingTag'], enabled: true, alias: 'Match' },
             { id: 'g2', tags: ['TagA', 'TagB'], enabled: true, alias: 'MultiMatch' }
         ]

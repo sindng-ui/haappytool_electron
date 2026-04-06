@@ -71,7 +71,7 @@ describe('useCliHandlers', () => {
             const { result } = renderHook(() => useCliHandlers());
             
             mockElectronAPI.getCliSettings.mockResolvedValue({
-                logRules: [{ name: 'test-filter', happyGroups: [] }]
+                logRules: [{ name: 'test-filter', bigBrainGroups: [] }]
             });
 
             const payload = {

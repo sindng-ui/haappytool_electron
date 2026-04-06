@@ -203,7 +203,7 @@ const TizenPerfMonitor: React.FC<TizenPerfMonitorProps> = ({ deviceId, sdbPath, 
                     </div>
                 </div>
                 <div className="text-[10px] text-slate-500 italic">
-                    Powered by HappyTool Performance Engine
+                    Powered by BigBrain Performance Engine
                 </div>
             </div>
         </div>

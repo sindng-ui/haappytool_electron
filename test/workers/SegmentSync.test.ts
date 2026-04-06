@@ -20,7 +20,7 @@ const mockRule: LogRule = {
     includeGroups: [],
     excludes: [],
     highlights: [],
-    happyGroups: [
+    bigBrainGroups: [
         { id: '1', enabled: true, alias: 'OnCreate', tags: ['OnCreate'] },
         { id: '2', enabled: true, alias: 'OnStart', tags: ['OnStart'] },
         { id: '3', enabled: true, alias: 'OnResume', tags: ['OnResume'] },

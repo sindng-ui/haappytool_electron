@@ -5,7 +5,7 @@ import { useAnalysisAgent } from './hooks/useAnalysisAgent';
 import AgentConfigPanel from './components/AgentConfigPanel';
 import AgentThoughtStream from './components/AgentThoughtStream';
 import { BrainCircuit, Terminal, ChevronRight, ChevronDown, FileText } from 'lucide-react';
-import { useHappyTool } from '../../contexts/HappyToolContext';
+import { useBigBrain } from '../../contexts/BigBrainContext';
 
 // ─── 디버그 항목 렌더러 (상세 통신 기록) 🐧🔍 ──────────────────────────────────
 const truncateLongStrings = (obj: any): any => {
@@ -112,7 +112,7 @@ const DebugItem: React.FC<{ record: IterationRecord }> = React.memo(({ record })
 const LogAnalysisAgentPlugin: React.FC = () => {
   const { state, startAnalysis, cancelAnalysis, answerUserQuery, reset } = useAnalysisAgent();
   const [activeTab, setActiveTab] = useState<'analysis' | 'communication'>('analysis');
-  const { logRules } = useHappyTool();
+  const { logRules } = useBigBrain();
   
   const { status, iterations, currentIteration, maxIterations, extractionProgress,
           finalReport, userQuery, errorMessage } = state;

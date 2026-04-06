@@ -1,6 +1,6 @@
 # Log Extractor 상세 명세 (Antigravity 용)
 
-이 문서는 미래의 구글 Antigravity AI가 HappyTool의 핵심 기능인 **Log Extractor**를 정확하게 이해하고 유지보수/확장할 수 있도록 돕기 위해 작성되었습니다.
+이 문서는 미래의 구글 Antigravity AI가 BigBrain의 핵심 기능인 **Log Extractor**를 정확하게 이해하고 유지보수/확장할 수 있도록 돕기 위해 작성되었습니다.
 
 ---
 

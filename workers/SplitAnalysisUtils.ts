@@ -153,11 +153,11 @@ export const extractSingleMetadata = (
 
     // Happy Combo Alias 매칭
     let matchedAlias: string | null = null;
-    if (currentRule?.happyGroups) {
-        const caseSensitive = currentRule.happyCombosCaseSensitive ?? false;
+    if (currentRule?.bigBrainGroups) {
+        const caseSensitive = currentRule.bigBrainCombosCaseSensitive ?? false;
         const lowerText = caseSensitive ? text : text.toLowerCase();
 
-        for (const group of currentRule.happyGroups) {
+        for (const group of currentRule.bigBrainGroups) {
             if (!group.enabled || !group.alias || !group.tags.length) continue;
 
             // 모든 태그가 포함되어 있는지 확인 (AND 조건)
@@ -193,11 +193,11 @@ export const extractSingleMetadata = (
  * 🐧⚡ 특정 라인에서 Happy Combo Alias만 쏙 뽑아냅니다.
  */
 export const extractAliasFromLine = (text: string, currentRule: LogRule | null): string | null => {
-    if (!currentRule?.happyGroups) return null;
-    const caseSensitive = currentRule.happyCombosCaseSensitive ?? false;
+    if (!currentRule?.bigBrainGroups) return null;
+    const caseSensitive = currentRule.bigBrainCombosCaseSensitive ?? false;
     const lowerText = caseSensitive ? text : text.toLowerCase();
 
-    for (const group of currentRule.happyGroups) {
+    for (const group of currentRule.bigBrainGroups) {
         if (!group.enabled || !group.alias || !group.tags.length) continue;
 
         const allMatched = group.tags.every(tag => {

@@ -329,9 +329,9 @@ export const useLogExtractorLogic = ({
     useEffect(() => {
         if (!currentConfig) return;
 
-        // If happyGroups is missing but we have legacy groups, migrate them
-        if (!currentConfig.happyGroups && (currentConfig.includeGroups.length > 0 || (currentConfig.disabledGroups && currentConfig.disabledGroups.length > 0))) {
-            const newHappyGroups: any[] = []; // Use 'any' temporarily to match HappyGroup interface
+        // If bigBrainGroups is missing but we have legacy groups, migrate them
+        if (!currentConfig.bigBrainGroups && (currentConfig.includeGroups.length > 0 || (currentConfig.disabledGroups && currentConfig.disabledGroups.length > 0))) {
+            const newBigBrainGroups: any[] = []; // Use 'any' temporarily to match BigBrainGroup interface
 
             // Note: We can't easily preserve the EXACT original interleaved order if they were split.
             // But going forward, the order will be preserved.
@@ -339,7 +339,7 @@ export const useLogExtractorLogic = ({
 
             currentConfig.includeGroups.forEach(g => {
                 if (g.length > 0 && g[0].trim()) {
-                    newHappyGroups.push({
+                    newBigBrainGroups.push({
                         id: Math.random().toString(36).substring(7),
                         tags: g,
                         enabled: true
@@ -350,7 +350,7 @@ export const useLogExtractorLogic = ({
             if (currentConfig.disabledGroups) {
                 currentConfig.disabledGroups.forEach(g => {
                     if (g.length > 0 && g[0].trim()) {
-                        newHappyGroups.push({
+                        newBigBrainGroups.push({
                             id: Math.random().toString(36).substring(7),
                             tags: g,
                             enabled: false
@@ -360,10 +360,10 @@ export const useLogExtractorLogic = ({
             }
 
             // Perform the update
-            updateCurrentRule({ happyGroups: newHappyGroups });
-        } else if (!currentConfig.happyGroups) {
+            updateCurrentRule({ bigBrainGroups: newBigBrainGroups });
+        } else if (!currentConfig.bigBrainGroups) {
             // If totally empty, initialize empty array
-            updateCurrentRule({ happyGroups: [] });
+            updateCurrentRule({ bigBrainGroups: [] });
         }
     }, [currentConfig]);
 
@@ -516,7 +516,7 @@ export const useLogExtractorLogic = ({
         if (isActive && leftWorkerRef.current && currentConfig && leftWorkerReady) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
             const effectiveIncludes = refinedGroups.map(g =>
-                g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
+                g.map(t => (!currentConfig.bigBrainCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
             ).filter(g => g.length > 0);
             const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
 
@@ -525,7 +525,7 @@ export const useLogExtractorLogic = ({
             const payloadHash = JSON.stringify({
                 inc: effectiveIncludes,
                 exc: effectiveExcludes,
-                happyCase: !!currentConfig.happyCombosCaseSensitive,
+                happyCase: !!currentConfig.bigBrainCombosCaseSensitive,
                 blockCase: !!currentConfig.blockListCaseSensitive,
                 quickFilter,
             });
@@ -561,7 +561,7 @@ export const useLogExtractorLogic = ({
             const refinedGroups = assembleIncludeGroups(currentConfig);
 
             const effectiveIncludes = refinedGroups.map(g =>
-                g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
+                g.map(t => (!currentConfig.bigBrainCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
             ).filter(g => g.length > 0);
             const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
 
@@ -569,7 +569,7 @@ export const useLogExtractorLogic = ({
             const payloadHash = JSON.stringify({
                 inc: effectiveIncludes,
                 exc: effectiveExcludes,
-                happyCase: !!currentConfig.happyCombosCaseSensitive,
+                happyCase: !!currentConfig.bigBrainCombosCaseSensitive,
                 blockCase: !!currentConfig.blockListCaseSensitive,
                 quickFilter,
             });
@@ -734,10 +734,10 @@ export const useLogExtractorLogic = ({
             id: newId,
             name: 'New Analysis',
             includeGroups: [['']],
-            happyGroups: [], // Initialize empty
+            bigBrainGroups: [], // Initialize empty
             excludes: [],
             highlights: [],
-            happyCombosCaseSensitive: false,
+            bigBrainCombosCaseSensitive: false,
             blockListCaseSensitive: false,
             colorHighlightsCaseSensitive: false
         };
@@ -779,9 +779,9 @@ export const useLogExtractorLogic = ({
     const handleToggleRoot = useCallback((root: string, enabled: boolean) => {
         if (!currentConfig) return;
 
-        if (currentConfig.happyGroups) {
+        if (currentConfig.bigBrainGroups) {
             // New Logic: Toggle enabled state but keep order
-            const newHappyGroups = currentConfig.happyGroups.map(group => {
+            const newBigBrainGroups = currentConfig.bigBrainGroups.map(group => {
                 const groupRoot = (group.tags[0] || '').trim();
                 if (groupRoot === root) {
                     return { ...group, enabled };
@@ -789,7 +789,7 @@ export const useLogExtractorLogic = ({
                 return group;
             });
             updateCurrentRule({
-                happyGroups: newHappyGroups,
+                bigBrainGroups: newBigBrainGroups,
                 includeGroups: [],
 
             });
@@ -818,8 +818,8 @@ export const useLogExtractorLogic = ({
         if (!currentConfig) return [];
         const groups = new Map<string, { group: string[], active: boolean, originalIdx: number, id?: string, alias?: string }[]>();
 
-        if (currentConfig.happyGroups) {
-            currentConfig.happyGroups.forEach((hGroup, idx) => {
+        if (currentConfig.bigBrainGroups) {
+            currentConfig.bigBrainGroups.forEach((hGroup, idx) => {
                 const root = (hGroup.tags[0] || '').trim();
                 if (!root) return;
                 if (!groups.has(root)) groups.set(root, []);
@@ -853,7 +853,7 @@ export const useLogExtractorLogic = ({
             const isRootEnabled = items.some(i => i.active);
             return { root, isRootEnabled, items };
         });
-    }, [currentConfig?.includeGroups, currentConfig?.disabledGroups, currentConfig?.happyGroups]);
+    }, [currentConfig?.includeGroups, currentConfig?.disabledGroups, currentConfig?.bigBrainGroups]);
 
     const [collapsedRoots, setCollapsedRoots] = useState<Set<string>>(new Set());
 

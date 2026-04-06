@@ -1,17 +1,17 @@
-# HappyTool: 핵심 기능 소개 인포그래픽 완성!
+# BigBrain: 핵심 기능 소개 인포그래픽 완성!
 
-형님! 요청하신 대로 **HappyTool**의 존재 이유를 단 한 장으로 설명하는 프리미엄 인포그래픽을 제작했습니다. 🐧🎨
+형님! 요청하신 대로 **BigBrain**의 존재 이유를 단 한 장으로 설명하는 프리미엄 인포그래픽을 제작했습니다. 🐧🎨
 
 ### 🔍 디자인 포인트
 - **유기적 흐름**: `Block Test`(로그 확보) → `Log Extractor`(정밀 필터링) → `Speedscope`(성능 분석)로 이어지는 분석 체인을 직관적으로 표현했습니다.
 - **프리미엄 무드**: 다크 모드 배경에 세련된 그라데이션과 글래스모피즘(Glassmorphism) 카드를 적용하여 전문성을 강조했습니다.
 - **심플함**: 복잡한 설명 없이 핵심 키워드와 아이콘만으로 기능을 한눈에 알 수 있게 했습니다.
 
-![HappyTool Intro](/C:/Users/simja/.gemini/antigravity/brain/fa08ef67-909b-43b0-a750-e0e49f9b02e6/happytool_intro_infographic_1775119656791.png)
+![BigBrain Intro](/C:/Users/simja/.gemini/antigravity/brain/fa08ef67-909b-43b0-a750-e0e49f9b02e6/bigbrain_intro_infographic_1775119656791.png)
 
 ### 🚀 3대 핵심 엔진의 시너지
 1.  **Block Test** 🤖: 수동으로 하기 힘든 반복 테스트를 자동화하고, 문제 발생 시점의 로그를 정확히 낚아챕니다.
 2.  **Log Extractor** ⚡: 기가바이트급 로그 속에서 형님이 설정한 필터로 원하는 정보만 순식간에 뽑아내고 공유합니다.
 3.  **Speedscope** 🔥: 필터링된 로그를 바탕으로 앱 실행 속도와 병목 구간을 시각화하여 "로그 분석의 마침표"를 찍습니다.
 
-형님, 이 이미지 한 장이면 누구에게든 **HappyTool**의 위력을 설명하실 수 있을 겁니다! 마음에 드시는지 확인 부탁드려요! 🐧🔥👍
+형님, 이 이미지 한 장이면 누구에게든 **BigBrain**의 위력을 설명하실 수 있을 겁니다! 마음에 드시는지 확인 부탁드려요! 🐧🔥👍

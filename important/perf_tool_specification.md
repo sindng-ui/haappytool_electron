@@ -1,12 +1,12 @@
 # Perf Tool 상세 명세 (Antigravity 용)
 
-이 문서는 HappyTool의 성능 분석 핵심 도구인 **Perf Tool**과 **Log Extractor의 성능 분석 기능**에 대한 기술적 로직, 명세 및 주의사항을 담고 있습니다.
+이 문서는 BigBrain의 성능 분석 핵심 도구인 **Perf Tool**과 **Log Extractor의 성능 분석 기능**에 대한 기술적 로직, 명세 및 주의사항을 담고 있습니다.
 
 ---
 
 ## 🚀 1. Overview
 
-HappyTool은 로그 데이터를 기반으로 시스템의 동작 시간과 병목 구간을 시각화하기 위해 두 가지 형태의 성능 분석 도구를 제공합니다.
+BigBrain은 로그 데이터를 기반으로 시스템의 동작 시간과 병목 구간을 시각화하기 위해 두 가지 형태의 성능 분석 도구를 제공합니다.
 
 1.  **Log Extractor - Analyze Performance**: 현재 열려있는 로그 뷰어의 필터링된 데이터를 실시간으로 차트화합니다.
 2.  **Perf Tool**: 별도의 독립된 파일이나 대용량 로그 전체를 대상으로 PIDDiscovery(자동 PID 찾기) 및 심층 성능 분석을 수행합니다.

@@ -17,7 +17,7 @@ interface Tab {
     filePath?: string;
 }
 
-import { useHappyTool } from '../contexts/HappyToolContext';
+import { useBigBrain } from '../contexts/BigBrainContext';
 
 interface Tab {
     id: string;
@@ -33,7 +33,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         handleExportSettings: onExportSettings,
         handleImportSettings: onImportSettings,
         isFocusMode // ✅ Focus Mode
-    } = useHappyTool();
+    } = useBigBrain();
 
     // Log Archive
     const { toggleSidebar, setLoadArchiveToTab } = useLogArchiveContext();

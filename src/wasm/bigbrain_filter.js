@@ -1,4 +1,4 @@
-/* @ts-self-types="./happy_filter.d.ts" */
+/* @ts-self-types="./bigbrain_filter.d.ts" */
 
 export class FilterEngine {
     __destroy_into_raw() {
@@ -201,7 +201,7 @@ function __wbg_get_imports() {
     };
     return {
         __proto__: null,
-        "./happy_filter_bg.js": import0,
+        "./bigbrain_filter_bg.js": import0,
     };
 }
 
@@ -469,7 +469,7 @@ async function __wbg_init(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        module_or_path = new URL('happy_filter_bg.wasm', import.meta.url);
+        module_or_path = new URL('bigbrain_filter_bg.wasm', import.meta.url);
     }
     const imports = __wbg_get_imports();
 
