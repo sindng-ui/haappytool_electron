@@ -23,12 +23,13 @@
 ### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
 - **Unified Diff Mode v2 (2026-04-06)**: 두 프로파일의 성능 차이를 직관적으로 분석하는 고도화된 비교 모드.
   - **Matching Engine v2**: `utils/performanceDiff.ts` — Greedy best-match + position-ratio 기반 정밀 매칭. Removed 세그먼트 추적.
-  - **FunctionDiffStat**: 함수별 totalTime/selfTime/callCount 집계 및 regressed/improved/added/removed 분류.
-  - **PerfFlameDiff v2**: `components/SpeedScope/PerfFlameDiff.tsx` — rAF 렌더 루프, 마우스 휠 줌, 드래그 팬, 호버 툴팁, ResizeObserver.
-  - **PerfFlameDiffRenderer v2**: `components/SpeedScope/utils/PerfFlameDiffRenderer.ts` — 타임라인 축 라벨, removed ghost 렌더링, delta 포함 텍스트.
-  - **DiffStatsPanel**: `components/SpeedScope/DiffStatsPanel.tsx` [NEW] — 함수별 종합 비교 테이블 (정렬/필터/검색, 글로벌 요약, 하이라이트 연동).
-  - **Layout**: FlameGraph(상 55%) + DiffStatsPanel(하 45%) 분할, 드래그 리사이즈 가능. 양방향 하이라이트 연동.
-  - **기존 싱글 뷰**: 전혀 변경 없음.
+  - **Function Diff Statistics**: 함수별 성능 변화 집계 및 시각화 연동.
+  - **Layout Reconstruction (2026-04-06)**: 
+    - **Flex-Col Backbone**: 상위부터 하단 패널까지 이어지는 엄격한 Flex 위계 수립.
+    - **Min-Height Zero (min-h-0)**: 자식 요소가 부모 영역을 침범하지 않도록 강제 축소 로직 적용.
+    - **Responsive Scaling**: 화면 비율에 따라 FlameGraph와 통계 패널이 유연하게 리사이징되는 구조.
+  - **기존 싱글 뷰**: 레이아웃 안정화 작업의 혜택을 동일하게 받으며, 화면 잘림 현상 원천 해결.
 
 ---
-*Last Updated: 2026-04-06 (SpeedScope Unified Diff v2 고도화)*
+*Last Updated: 2026-04-06 (SpeedScope Layout & Unified Diff v2)*
+

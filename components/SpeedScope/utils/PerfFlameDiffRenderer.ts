@@ -14,6 +14,10 @@ export interface DiffDrawOptions {
     highlightName?: string | null;
     /** Base-only removed segments to ghost-render */
     removedSegments?: DiffSegment[];
+    /** Vertical scroll offset in pixels */
+    vScroll?: number;
+    /** Max possible scroll offset */
+    maxScroll?: number;
 }
 
 const LANE_H = 22;
@@ -122,6 +126,30 @@ export class PerfFlameDiffRenderer {
         ctx.setLineDash([]);
     }
 
+    // ── Scrollbar ────────────────────────────────────────────────────────────
+    static drawScrollbar(
+        ctx: CanvasRenderingContext2D,
+        vScroll: number,
+        maxScroll: number,
+        width: number,
+        height: number
+    ) {
+        if (maxScroll <= 0) return;
+
+        const viewHeight = height - HEADER_H;
+        const totalHeight = maxScroll + viewHeight;
+        
+        const barW = 5;
+        const barH = Math.max(20, (viewHeight / totalHeight) * viewHeight);
+        const barX = width - barW - 2;
+        const barY = HEADER_H + (vScroll / maxScroll) * (viewHeight - barH);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW, barH, 3);
+        ctx.fill();
+    }
+
     // ── Main draw ───────────────────────────────────────────────────────────
     static drawFlameChart(
         ctx: CanvasRenderingContext2D,
@@ -135,6 +163,8 @@ export class PerfFlameDiffRenderer {
             hoveredSegmentId, mousePos,
             highlightName = null,
             removedSegments = [],
+            vScroll = 0,
+            maxScroll = 0,
         } = options;
 
         // Background
@@ -155,7 +185,10 @@ export class PerfFlameDiffRenderer {
             const x = ((s.startTime - viewStart) / viewDuration) * width;
             const rawW = (s.duration / viewDuration) * width;
             const w = Math.max(s.duration === 0 ? 2 : 0.5, rawW);
-            const y = (s.lane ?? 0) * LANE_STRIDE + HEADER_H;
+            const y = (s.lane ?? 0) * LANE_STRIDE + HEADER_H - vScroll;
+
+            // Skip if above header or below canvas
+            if (y < HEADER_H - LANE_H || y > height) return;
 
             const isSelected = s.id === selectedSegmentId || multiSelectedIds.includes(s.id);
             const isHovered = s.id === hoveredSegmentId;
@@ -166,33 +199,40 @@ export class PerfFlameDiffRenderer {
 
             ctx.globalAlpha = alpha;
             ctx.fillStyle = baseColor;
-            ctx.fillRect(x, y, w, LANE_H);
+            
+            // Clip to header
+            const drawY = Math.max(HEADER_H, y);
+            const drawH = Math.min(LANE_H, y + LANE_H - HEADER_H);
 
-            if (isSelected || isHovered) {
-                ctx.strokeStyle = isSelected ? '#a5b4fc' : 'rgba(255,255,255,0.6)';
-                ctx.lineWidth = isSelected ? 1.5 : 1;
-                ctx.strokeRect(x, y, w, LANE_H);
-            }
+            if (drawH > 0) {
+                ctx.fillRect(x, drawY, w, drawH);
 
-            // Text label (only if wide enough)
-            if (w >= 30 && alpha > 0.2) {
-                ctx.save();
-                ctx.beginPath();
-                ctx.rect(x + 1, y, w - 2, LANE_H);
-                ctx.clip();
+                if (isSelected || isHovered) {
+                    ctx.strokeStyle = isSelected ? '#a5b4fc' : 'rgba(255,255,255,0.6)';
+                    ctx.lineWidth = isSelected ? 1.5 : 1;
+                    ctx.strokeRect(x, drawY, w, drawH);
+                }
 
-                ctx.globalAlpha = Math.min(1, alpha * 1.5);
-                ctx.fillStyle = '#ffffff';
-                ctx.font = `600 10px 'Inter', system-ui, sans-serif`;
-                ctx.textBaseline = 'middle';
+                // Text label (only if wide enough and mostly visible)
+                if (w >= 30 && alpha > 0.2 && y > HEADER_H - 10) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(x + 1, drawY, w - 2, drawH);
+                    ctx.clip();
 
-                const displayName = s.functionName || s.name;
-                let label = w > 120 && s.delta !== undefined && Math.abs(s.delta) > 0.5
-                    ? `${displayName} (${fmtDelta(s.delta)})`
-                    : displayName;
+                    ctx.globalAlpha = Math.min(1, alpha * 1.5);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = `600 10px 'Inter', system-ui, sans-serif`;
+                    ctx.textBaseline = 'middle';
 
-                ctx.fillText(label, x + 4, y + LANE_H / 2);
-                ctx.restore();
+                    const displayName = s.functionName || s.name;
+                    let label = w > 120 && s.delta !== undefined && Math.abs(s.delta) > 0.5
+                        ? `${displayName} (${fmtDelta(s.delta)})`
+                        : displayName;
+
+                    ctx.fillText(label, x + 4, y + LANE_H / 2);
+                    ctx.restore();
+                }
             }
         });
 
@@ -203,20 +243,27 @@ export class PerfFlameDiffRenderer {
         visibleRemoved.forEach(s => {
             const x = ((s.startTime - viewStart) / viewDuration) * width;
             const w = Math.max(2, (s.duration / viewDuration) * width);
-            const y = (s.lane ?? 0) * LANE_STRIDE + HEADER_H;
+            const y = (s.lane ?? 0) * LANE_STRIDE + HEADER_H - vScroll;
 
-            ctx.globalAlpha = 0.25;
-            ctx.strokeStyle = '#6b7280';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([3, 3]);
-            ctx.strokeRect(x, y, w, LANE_H);
-            ctx.setLineDash([]);
+            if (y < HEADER_H - LANE_H || y > height) return;
 
-            if (w > 30) {
-                ctx.fillStyle = '#9ca3af';
-                ctx.font = `italic 9px 'Inter', sans-serif`;
-                ctx.textBaseline = 'middle';
-                ctx.fillText(`[removed] ${s.functionName || s.name}`, x + 4, y + LANE_H / 2);
+            const drawY = Math.max(HEADER_H, y);
+            const drawH = Math.min(LANE_H, y + LANE_H - HEADER_H);
+
+            if (drawH > 0) {
+                ctx.globalAlpha = 0.25;
+                ctx.strokeStyle = '#6b7280';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                ctx.strokeRect(x, drawY, w, drawH);
+                ctx.setLineDash([]);
+
+                if (w > 30 && y > HEADER_H - 10) {
+                    ctx.fillStyle = '#9ca3af';
+                    ctx.font = `italic 9px 'Inter', sans-serif`;
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(`[removed] ${s.functionName || s.name}`, x + 4, y + LANE_H / 2);
+                }
             }
         });
 
@@ -224,5 +271,6 @@ export class PerfFlameDiffRenderer {
 
         this.drawTimeline(ctx, ticks, viewStart, viewDuration, width);
         this.drawCrosshair(ctx, mousePos, viewStart, viewDuration, width, height);
+        this.drawScrollbar(ctx, vScroll, maxScroll, width, height);
     }
 }

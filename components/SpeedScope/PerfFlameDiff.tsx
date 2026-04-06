@@ -37,13 +37,15 @@ const SIGN = (v: number) => (v > 0 ? '+' : '');
 function hitTest(
     mx: number, my: number,
     segments: DiffSegment[],
-    viewStart: number, viewDuration: number, width: number
+    viewStart: number, viewDuration: number, width: number,
+    vScroll: number = 0
 ): DiffSegment | null {
     for (let i = segments.length - 1; i >= 0; i--) {
         const s = segments[i];
         const x = ((s.startTime - viewStart) / viewDuration) * width;
         const w = Math.max(2, (s.duration / viewDuration) * width);
-        const y = (s.lane ?? 0) * LANE_STRIDE + HEADER_H;
+        const y = (s.lane ?? 0) * LANE_STRIDE + HEADER_H - vScroll;
+        if (my < HEADER_H) continue; // Skip header area
         if (mx >= x && mx <= x + w && my >= y && my <= y + 22) return s;
     }
     return null;
@@ -150,6 +152,7 @@ export const PerfFlameDiff: React.FC<PerfFlameDiffProps> = ({
 
     // State
     const [zoom, setZoom] = useState<ZoomRange | null>(null);
+    const [scrollY, setScrollY] = useState(0);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [hoveredId, setHoveredId] = useState<string | null>(null);
     const [mousePos, setMousePos] = useState<MousePos | null>(null);
@@ -160,15 +163,17 @@ export const PerfFlameDiff: React.FC<PerfFlameDiffProps> = ({
     const isDirtyRef = useRef(true);
     const isActiveRef = useRef(isActive);
     const zoomRef = useRef(zoom);
-    const stateRef = useRef({ selectedId, hoveredId, mousePos, highlightName, zoom });
+    const scrollYRef = useRef(scrollY);
+    const stateRef = useRef({ selectedId, hoveredId, mousePos, highlightName, zoom, scrollY });
     const panStartRef = useRef<{ clientX: number; viewStart: number; viewEnd: number } | null>(null);
 
     useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
     useEffect(() => {
         zoomRef.current = zoom;
-        stateRef.current = { selectedId, hoveredId, mousePos, highlightName, zoom };
+        scrollYRef.current = scrollY;
+        stateRef.current = { selectedId, hoveredId, mousePos, highlightName, zoom, scrollY };
         isDirtyRef.current = true;
-    }, [zoom, selectedId, hoveredId, mousePos, highlightName]);
+    }, [zoom, scrollY, selectedId, hoveredId, mousePos, highlightName]);
 
     useEffect(() => { isDirtyRef.current = true; }, [diffSegments, removedSegments]);
 
@@ -178,6 +183,16 @@ export const PerfFlameDiff: React.FC<PerfFlameDiffProps> = ({
     const viewDuration = Math.max(MIN_ZOOM_DURATION, viewEnd - viewStart);
 
     const ticks = useMemo(() => generateTicks(viewStart, viewEnd), [viewStart, viewEnd]);
+
+    const maxLane = useMemo(() => {
+        const all = [...diffSegments, ...removedSegments];
+        if (all.length === 0) return 0;
+        return Math.max(...all.map(s => s.lane ?? 0));
+    }, [diffSegments, removedSegments]);
+
+    const maxScroll = useMemo(() => {
+        return Math.max(0, (maxLane + 2) * LANE_STRIDE + HEADER_H + 40 - canvasSize.h);
+    }, [maxLane, canvasSize.h]);
 
     // ── ResizeObserver ────────────────────────────────────────────────────────
     useEffect(() => {
@@ -191,6 +206,21 @@ export const PerfFlameDiff: React.FC<PerfFlameDiffProps> = ({
         ro.observe(canvas);
         return () => ro.disconnect();
     }, []);
+
+    // ── Keyboard Handlers ─────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!isActive) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setSelectedId(null);
+                stateRef.current.selectedId = null;
+                onSegmentSelect?.(null);
+                isDirtyRef.current = true;
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isActive, onSegmentSelect]);
 
     // ── rAF render loop ───────────────────────────────────────────────────────
     useEffect(() => {
@@ -229,6 +259,8 @@ export const PerfFlameDiff: React.FC<PerfFlameDiffProps> = ({
                             ticks: generateTicks(vStart, vStart + vDur),
                             highlightName: s.highlightName,
                             removedSegments,
+                            vScroll: s.scrollY,
+                            maxScroll: maxScroll,
                         });
                         isDirtyRef.current = false;
                     }
@@ -274,7 +306,7 @@ export const PerfFlameDiff: React.FC<PerfFlameDiffProps> = ({
         isDirtyRef.current = true;
 
         // Hit test
-        const hit = hitTest(mx, my, diffSegments, vStart, vDur, rect.width);
+        const hit = hitTest(mx, my, diffSegments, vStart, vDur, rect.width, scrollYRef.current);
         setHoveredId(hit?.id ?? null);
         stateRef.current.hoveredId = hit?.id ?? null;
 
@@ -305,7 +337,7 @@ export const PerfFlameDiff: React.FC<PerfFlameDiffProps> = ({
         const vStart = zoomRef.current?.startTime ?? targetResult.startTime;
         const vDur = Math.max(MIN_ZOOM_DURATION,
             (zoomRef.current?.endTime ?? targetResult.endTime) - vStart);
-        const hit = hitTest(mx, my, diffSegments, vStart, vDur, rect.width);
+        const hit = hitTest(mx, my, diffSegments, vStart, vDur, rect.width, scrollYRef.current);
         if (!hit) {
             panStartRef.current = {
                 clientX: e.clientX,
@@ -328,7 +360,7 @@ export const PerfFlameDiff: React.FC<PerfFlameDiffProps> = ({
         const vStart = zoomRef.current?.startTime ?? targetResult.startTime;
         const vDur = Math.max(MIN_ZOOM_DURATION,
             (zoomRef.current?.endTime ?? targetResult.endTime) - vStart);
-        const hit = hitTest(mx, my, diffSegments, vStart, vDur, rect.width);
+        const hit = hitTest(mx, my, diffSegments, vStart, vDur, rect.width, scrollYRef.current);
         setSelectedId(hit?.id ?? null);
         stateRef.current.selectedId = hit?.id ?? null;
         isDirtyRef.current = true;
@@ -340,28 +372,38 @@ export const PerfFlameDiff: React.FC<PerfFlameDiffProps> = ({
         const canvas = canvasRef.current;
         if (!canvas) return;
         const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
 
-        const vStart = zoomRef.current?.startTime ?? targetResult.startTime;
-        const vEnd   = zoomRef.current?.endTime   ?? targetResult.endTime;
-        const vDur = Math.max(MIN_ZOOM_DURATION, vEnd - vStart);
+        if (e.ctrlKey) {
+            // Zoom logic
+            const mx = e.clientX - rect.left;
+            const vStart = zoomRef.current?.startTime ?? targetResult.startTime;
+            const vEnd   = zoomRef.current?.endTime   ?? targetResult.endTime;
+            const vDur = Math.max(MIN_ZOOM_DURATION, vEnd - vStart);
 
-        const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15;
-        const pivotTime = vStart + (mx / rect.width) * vDur;
+            const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15;
+            const pivotTime = vStart + (mx / rect.width) * vDur;
 
-        let ns = pivotTime - (pivotTime - vStart) * factor;
-        let ne = pivotTime + (vEnd - pivotTime) * factor;
+            let ns = pivotTime - (pivotTime - vStart) * factor;
+            let ne = pivotTime + (vEnd - pivotTime) * factor;
 
-        const totalStart = targetResult.startTime;
-        const totalEnd   = targetResult.endTime;
-        if (ne - ns < MIN_ZOOM_DURATION) { ne = ns + MIN_ZOOM_DURATION; }
-        if (ns < totalStart) ns = totalStart;
-        if (ne > totalEnd)   ne = totalEnd;
+            const totalStart = targetResult.startTime;
+            const totalEnd   = targetResult.endTime;
+            if (ne - ns < MIN_ZOOM_DURATION) { ne = ns + MIN_ZOOM_DURATION; }
+            if (ns < totalStart) ns = totalStart;
+            if (ne > totalEnd)   ne = totalEnd;
 
-        setZoom({ startTime: ns, endTime: ne });
-        zoomRef.current = { startTime: ns, endTime: ne };
+            setZoom({ startTime: ns, endTime: ne });
+            zoomRef.current = { startTime: ns, endTime: ne };
+        } else {
+            // Scroll logic
+            setScrollY(prev => {
+                const next = Math.max(0, Math.min(maxScroll, prev + e.deltaY));
+                scrollYRef.current = next;
+                return next;
+            });
+        }
         isDirtyRef.current = true;
-    }, [targetResult]);
+    }, [targetResult, maxScroll]);
 
     const resetZoom = useCallback(() => {
         setZoom(null);
