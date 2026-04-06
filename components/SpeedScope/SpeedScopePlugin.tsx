@@ -9,6 +9,8 @@ import SpeedScopeWorker from '../../workers/SpeedScopeParser.worker.ts?worker';
 import SplitAnalysisWorker from '../../workers/SplitAnalysis.worker.ts?worker';
 import { SplitAnalysisResult } from '../../workers/SplitAnalysisUtils';
 import { SplitAnalyzerPanel } from '../LogViewer/SplitAnalyzerPanel';
+import { comparePerformanceResults, DiffAnalysisResult } from '../../utils/performanceDiff';
+import { PerfFlameDiff } from './PerfFlameDiff';
 
 const {
     UploadCloud, Activity, Clock, Search, ChevronLeft, ChevronRight,
@@ -82,6 +84,8 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
     const [analysisProgress, setAnalysisProgress] = useState(0);
     const [analysisResults, setAnalysisResults] = useState<SplitAnalysisResult[]>([]);
     const [pointResults, setPointResults] = useState<any[]>([]);
+    const [isUnifiedDiff, setIsUnifiedDiff] = useState(false);
+    const [diffResult, setDiffResult] = useState<DiffAnalysisResult | null>(null);
 
     // Drag & Drop States
     const [isDraggingLeft, setIsDraggingLeft] = useState(false);
@@ -276,6 +280,21 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
 
     }, [resultLeft, resultRight, addToast]);
 
+    const toggleUnifiedDiff = useCallback(() => {
+        if (!resultLeft || !resultRight) {
+            addToast("Please load both files first.", "warning");
+            return;
+        }
+        
+        if (!isUnifiedDiff) {
+            const diff = comparePerformanceResults(resultLeft, resultRight);
+            setDiffResult(diff);
+            setIsUnifiedDiff(true);
+        } else {
+            setIsUnifiedDiff(false);
+        }
+    }, [resultLeft, resultRight, isUnifiedDiff, addToast]);
+
     const handleDrag = useCallback((e: React.DragEvent, side: 'left' | 'right', isEntering: boolean) => {
         e.preventDefault();
         e.stopPropagation();
@@ -334,8 +353,25 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                     )}
 
                     <button
-                        onClick={() => setCompareMode(!compareMode)}
-                        className={`p-1.5 rounded-lg transition-all ${compareMode ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+                        onClick={toggleUnifiedDiff}
+                        disabled={!resultLeft || !resultRight}
+                        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase transition-all shadow-lg ${
+                            isUnifiedDiff 
+                            ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white' 
+                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                        } disabled:opacity-30`}
+                        title="Unified Diff Mode"
+                    >
+                        <Lucide.Diff size={14} />
+                        <span>Unified Diff</span>
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            setCompareMode(!compareMode);
+                            if (isUnifiedDiff) setIsUnifiedDiff(false);
+                        }}
+                        className={`p-1.5 rounded-lg transition-all ${compareMode && !isUnifiedDiff ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}
                         title="Compare Mode"
                     >
                         <Columns size={14} />
@@ -380,96 +416,131 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                     </div>
                 </div>
 
-                <div className={`flex-1 flex ${compareMode ? 'flex-row' : 'flex-col'} overflow-hidden w-full min-h-0`}>
-                    {/* Left Pane / Single Pane */}
-                    <div className={`${compareMode ? 'w-1/2 border-r border-white/10' : 'flex-1'} flex flex-col relative min-h-0`}>
-                        {resultLeft && (
-                            <ThreadSelector 
-                                profiles={profilesLeft} 
-                                selectedIndex={selIdxLeft} 
-                                onSelect={(idx) => switchProfile('left', idx)} 
-                                side="left"
-                            />
-                        )}
-                        {!resultLeft ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center p-10">
-                                <label 
-                                    className={`flex flex-col items-center cursor-pointer group transition-all duration-300 ${isDraggingLeft ? 'scale-105' : ''}`}
-                                    onDragOver={(e) => handleDrag(e, 'left', true)}
-                                    onDragEnter={(e) => handleDrag(e, 'left', true)}
-                                    onDragLeave={(e) => handleDrag(e, 'left', false)}
-                                    onDrop={(e) => handleDrop(e, 'left')}
-                                >
-                                    <div className={`p-10 bg-slate-900/50 border-2 border-dashed rounded-3xl transition-all flex flex-col items-center ${isDraggingLeft ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'border-white/10 group-hover:border-indigo-500/50 group-hover:bg-indigo-500/5'}`}>
-                                        <UploadCloud size={48} className={`transition-colors mb-4 ${isDraggingLeft ? 'text-indigo-400' : 'text-slate-600 group-hover:text-indigo-400'}`} />
-                                        <p className={`text-sm font-bold transition-colors ${isDraggingLeft ? 'text-indigo-200' : 'text-slate-400'}`}>
-                                            {isDraggingLeft ? 'Release to Start Analysis' : 'Drop SpeedScope JSON or Click'}
-                                        </p>
-                                        <p className="text-[10px] text-slate-600 mt-2 uppercase font-black tracking-widest text-center">Full Profile Support & Auto-Conversion</p>
-                                    </div>
-                                    <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleFileLoad(e.target.files[0], 'left')} />
-                                </label>
+                <div className={`flex-1 flex ${compareMode || isUnifiedDiff ? 'flex-row' : 'flex-col'} overflow-hidden w-full min-h-0`}>
+                    {/* Unified Diff View */}
+                    {isUnifiedDiff && diffResult ? (
+                        <div className="flex-1 flex flex-col bg-[#0b0f19] relative">
+                            <div className="p-3 bg-teal-500/10 border-b border-teal-500/20 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Lucide.GitCompare size={14} className="text-teal-400" />
+                                    <span className="text-[10px] font-black uppercase text-teal-300 tracking-tighter">Unified Diff View (Target: {fileRight?.name})</span>
+                                </div>
+                                <div className="flex gap-4">
+                                    <span className="text-[9px] text-rose-400 font-bold uppercase">Red: Slower</span>
+                                    <span className="text-[9px] text-blue-400 font-bold uppercase">Blue: Faster</span>
+                                    <span className="text-[9px] text-teal-400 font-bold uppercase">Green: Added</span>
+                                </div>
                             </div>
-                        ) : (
-                            <div className="flex-1 overflow-hidden relative min-h-0" data-pane-id="left">
-                                <PerfDashboard
-                                    isOpen={true} isActive={isActive}
-                                    result={resultLeft}
-                                    isAnalyzing={isAnalyzing}
-                                    targetTime={failThreshold}
-                                    isFullScreen={true}
-                                    onClose={() => setResultLeft(null)}
-                                    activeTags={searchKeywords}
-                                    paneId="left"
+                            <div className="flex-1 relative overflow-hidden">
+                                <PerfFlameDiff
+                                    targetResult={diffResult.targetResult}
+                                    diffSegments={diffResult.diffSegments}
+                                    maxLane={Math.max(...diffResult.diffSegments.map(s => s.lane || 0))}
+                                    flameZoom={null}
+                                    applyZoom={() => {}}
+                                    searchTerms={[]}
+                                    checkSegmentMatch={() => true}
+                                    selectedSegmentId={null}
+                                    setSelectedSegmentId={() => {}}
+                                    multiSelectedIds={[]}
+                                    setMultiSelectedIds={() => {}}
+                                    isActive={isActive}
                                 />
                             </div>
-                        )}
-                    </div>
-
-                    {/* Right Pane (Compare) */}
-                    {compareMode && (
-                        <div className="w-1/2 flex flex-col relative min-h-0">
-                            {resultRight && (
-                                <ThreadSelector 
-                                    profiles={profilesRight} 
-                                    selectedIndex={selIdxRight} 
-                                    onSelect={(idx) => switchProfile('right', idx)} 
-                                    side="right"
-                                />
-                            )}
-                            {!resultRight ? (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center p-10">
-                                    <label 
-                                        className={`flex flex-col items-center cursor-pointer group transition-all duration-300 ${isDraggingRight ? 'scale-105' : ''}`}
-                                        onDragOver={(e) => handleDrag(e, 'right', true)}
-                                        onDragEnter={(e) => handleDrag(e, 'right', true)}
-                                        onDragLeave={(e) => handleDrag(e, 'right', false)}
-                                        onDrop={(e) => handleDrop(e, 'right')}
-                                    >
-                                        <div className={`p-10 bg-slate-900/50 border-2 border-dashed rounded-3xl transition-all flex flex-col items-center ${isDraggingRight ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'border-white/10 group-hover:border-indigo-500/50 group-hover:bg-indigo-500/5'}`}>
-                                            <UploadCloud size={48} className={`transition-colors mb-4 ${isDraggingRight ? 'text-indigo-400' : 'text-slate-600 group-hover:text-indigo-400'}`} />
-                                            <p className={`text-sm font-bold transition-colors ${isDraggingRight ? 'text-indigo-200' : 'text-slate-400'}`}>
-                                                {isDraggingRight ? 'Release to Load' : 'Load Second File to Compare'}
-                                            </p>
-                                        </div>
-                                        <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleFileLoad(e.target.files[0], 'right')} />
-                                    </label>
-                                </div>
-                            ) : (
-                                <div className="flex-1 overflow-hidden relative min-h-0" data-pane-id="right">
-                                    <PerfDashboard
-                                        isOpen={true} isActive={isActive}
-                                        result={resultRight}
-                                        isAnalyzing={isAnalyzing}
-                                        targetTime={failThreshold}
-                                        isFullScreen={true}
-                                        onClose={() => setResultRight(null)}
-                                        activeTags={searchKeywords}
-                                        paneId="right"
-                                    />
-                                </div>
-                            )}
                         </div>
+                    ) : (
+                        <>
+                            {/* Left Pane / Single Pane */}
+                            <div className={`${compareMode ? 'w-1/2 border-r border-white/10' : 'flex-1'} flex flex-col relative min-h-0`}>
+                                {resultLeft && (
+                                    <ThreadSelector 
+                                        profiles={profilesLeft} 
+                                        selectedIndex={selIdxLeft} 
+                                        onSelect={(idx) => switchProfile('left', idx)} 
+                                        side="left"
+                                    />
+                                )}
+                                {!resultLeft ? (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center p-10">
+                                        <label 
+                                            className={`flex flex-col items-center cursor-pointer group transition-all duration-300 ${isDraggingLeft ? 'scale-105' : ''}`}
+                                            onDragOver={(e) => handleDrag(e, 'left', true)}
+                                            onDragEnter={(e) => handleDrag(e, 'left', true)}
+                                            onDragLeave={(e) => handleDrag(e, 'left', false)}
+                                            onDrop={(e) => handleDrop(e, 'left')}
+                                        >
+                                            <div className={`p-10 bg-slate-900/50 border-2 border-dashed rounded-3xl transition-all flex flex-col items-center ${isDraggingLeft ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'border-white/10 group-hover:border-indigo-500/50 group-hover:bg-indigo-500/5'}`}>
+                                                <UploadCloud size={48} className={`transition-colors mb-4 ${isDraggingLeft ? 'text-indigo-400' : 'text-slate-600 group-hover:text-indigo-400'}`} />
+                                                <p className={`text-sm font-bold transition-colors ${isDraggingLeft ? 'text-indigo-200' : 'text-slate-400'}`}>
+                                                    {isDraggingLeft ? 'Release to Start Analysis' : 'Drop SpeedScope JSON or Click'}
+                                                </p>
+                                                <p className="text-[10px] text-slate-600 mt-2 uppercase font-black tracking-widest text-center">Full Profile Support & Auto-Conversion</p>
+                                            </div>
+                                            <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleFileLoad(e.target.files[0], 'left')} />
+                                        </label>
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 overflow-hidden relative min-h-0" data-pane-id="left">
+                                        <PerfDashboard
+                                            isOpen={true} isActive={isActive && (!isUnifiedDiff)}
+                                            result={resultLeft}
+                                            isAnalyzing={isAnalyzing}
+                                            targetTime={failThreshold}
+                                            isFullScreen={true}
+                                            onClose={() => setResultLeft(null)}
+                                            activeTags={searchKeywords}
+                                            paneId="left"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Right Pane (Compare) */}
+                            {compareMode && (
+                                <div className="w-1/2 flex flex-col relative min-h-0">
+                                    {resultRight && (
+                                        <ThreadSelector 
+                                            profiles={profilesRight} 
+                                            selectedIndex={selIdxRight} 
+                                            onSelect={(idx) => switchProfile('right', idx)} 
+                                            side="right"
+                                        />
+                                    )}
+                                    {!resultRight ? (
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center p-10">
+                                            <label 
+                                                className={`flex flex-col items-center cursor-pointer group transition-all duration-300 ${isDraggingRight ? 'scale-105' : ''}`}
+                                                onDragOver={(e) => handleDrag(e, 'right', true)}
+                                                onDragEnter={(e) => handleDrag(e, 'right', true)}
+                                                onDragLeave={(e) => handleDrag(e, 'right', false)}
+                                                onDrop={(e) => handleDrop(e, 'right')}
+                                            >
+                                                <div className={`p-10 bg-slate-900/50 border-2 border-dashed rounded-3xl transition-all flex flex-col items-center ${isDraggingRight ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'border-white/10 group-hover:border-indigo-500/50 group-hover:bg-indigo-500/5'}`}>
+                                                    <UploadCloud size={48} className={`transition-colors mb-4 ${isDraggingRight ? 'text-indigo-400' : 'text-slate-600 group-hover:text-indigo-400'}`} />
+                                                    <p className={`text-sm font-bold transition-colors ${isDraggingRight ? 'text-indigo-200' : 'text-slate-400'}`}>
+                                                        {isDraggingRight ? 'Release to Load' : 'Load Second File to Compare'}
+                                                    </p>
+                                                </div>
+                                                <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleFileLoad(e.target.files[0], 'right')} />
+                                            </label>
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1 overflow-hidden relative min-h-0" data-pane-id="right">
+                                            <PerfDashboard
+                                                isOpen={true} isActive={isActive && (!isUnifiedDiff)}
+                                                result={resultRight}
+                                                isAnalyzing={isAnalyzing}
+                                                targetTime={failThreshold}
+                                                isFullScreen={true}
+                                                onClose={() => setResultRight(null)}
+                                                activeTags={searchKeywords}
+                                                paneId="right"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </main>

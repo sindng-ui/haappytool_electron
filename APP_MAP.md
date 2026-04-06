@@ -20,5 +20,11 @@
 - **Log Settings**: 'Start Logging' 버튼 (인디고 테마의 솔리드 버튼의 기준 디자인).
 - **Interactions**: `Alt + Mouse Double Click` 시 하이라이트 토글, `Alt + Mouse Right Click` 시 모든 퀵 하이라이트 일괄 해제 기능 구현.
 
+### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
+- **Unified Diff Mode (2026-04-06)**: 두 프로파일의 성능 차이를 하나의 뷰에서 색상(빨강/파랑)으로 시각화하는 통합 비교 모드 구현.
+  - **Performance Diff Logic**: `utils/performanceDiff.ts`에서 각 세그먼트별 델타(Delta) 계산.
+  - **FlameDiff Visualization**: `components/SpeedScope/PerfFlameDiff.tsx`를 통한 차이 시각화.
+  - **UI Integration**: 기존 싱글 뷰 및 사이드-바이-사이드 비교 모드와 공존하며, 복수 파일 로드 시 전용 버튼으로 진입 가능.
+
 ---
-*Last Updated: 2026-04-03 (Added Alt+DBClick Highlight)*
+*Last Updated: 2026-04-06 (Added SpeedScope Unified Diff)*
