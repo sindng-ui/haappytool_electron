@@ -21,10 +21,14 @@
 - **Interactions**: `Alt + Mouse Double Click` 시 하이라이트 토글, `Alt + Mouse Right Click` 시 모든 퀵 하이라이트 일괄 해제 기능 구현.
 
 ### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
-- **Unified Diff Mode (2026-04-06)**: 두 프로파일의 성능 차이를 하나의 뷰에서 색상(빨강/파랑)으로 시각화하는 통합 비교 모드 구현.
-  - **Performance Diff Logic**: `utils/performanceDiff.ts`에서 각 세그먼트별 델타(Delta) 계산.
-  - **FlameDiff Visualization**: `components/SpeedScope/PerfFlameDiff.tsx`를 통한 차이 시각화.
-  - **UI Integration**: 기존 싱글 뷰 및 사이드-바이-사이드 비교 모드와 공존하며, 복수 파일 로드 시 전용 버튼으로 진입 가능.
+- **Unified Diff Mode v2 (2026-04-06)**: 두 프로파일의 성능 차이를 직관적으로 분석하는 고도화된 비교 모드.
+  - **Matching Engine v2**: `utils/performanceDiff.ts` — Greedy best-match + position-ratio 기반 정밀 매칭. Removed 세그먼트 추적.
+  - **FunctionDiffStat**: 함수별 totalTime/selfTime/callCount 집계 및 regressed/improved/added/removed 분류.
+  - **PerfFlameDiff v2**: `components/SpeedScope/PerfFlameDiff.tsx` — rAF 렌더 루프, 마우스 휠 줌, 드래그 팬, 호버 툴팁, ResizeObserver.
+  - **PerfFlameDiffRenderer v2**: `components/SpeedScope/utils/PerfFlameDiffRenderer.ts` — 타임라인 축 라벨, removed ghost 렌더링, delta 포함 텍스트.
+  - **DiffStatsPanel**: `components/SpeedScope/DiffStatsPanel.tsx` [NEW] — 함수별 종합 비교 테이블 (정렬/필터/검색, 글로벌 요약, 하이라이트 연동).
+  - **Layout**: FlameGraph(상 55%) + DiffStatsPanel(하 45%) 분할, 드래그 리사이즈 가능. 양방향 하이라이트 연동.
+  - **기존 싱글 뷰**: 전혀 변경 없음.
 
 ---
-*Last Updated: 2026-04-06 (Added SpeedScope Unified Diff)*
+*Last Updated: 2026-04-06 (SpeedScope Unified Diff v2 고도화)*

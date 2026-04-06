@@ -9,8 +9,9 @@ import SpeedScopeWorker from '../../workers/SpeedScopeParser.worker.ts?worker';
 import SplitAnalysisWorker from '../../workers/SplitAnalysis.worker.ts?worker';
 import { SplitAnalysisResult } from '../../workers/SplitAnalysisUtils';
 import { SplitAnalyzerPanel } from '../LogViewer/SplitAnalyzerPanel';
-import { comparePerformanceResults, DiffAnalysisResult } from '../../utils/performanceDiff';
+import { comparePerformanceResults, DiffAnalysisResult, DiffSegment } from '../../utils/performanceDiff';
 import { PerfFlameDiff } from './PerfFlameDiff';
+import { DiffStatsPanel } from './DiffStatsPanel';
 
 const {
     UploadCloud, Activity, Clock, Search, ChevronLeft, ChevronRight,
@@ -86,6 +87,8 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
     const [pointResults, setPointResults] = useState<any[]>([]);
     const [isUnifiedDiff, setIsUnifiedDiff] = useState(false);
     const [diffResult, setDiffResult] = useState<DiffAnalysisResult | null>(null);
+    const [diffHighlightName, setDiffHighlightName] = useState<string | null>(null);
+    const [diffPanelRatio, setDiffPanelRatio] = useState(0.55); // flame:stats height ratio
 
     // Drag & Drop States
     const [isDraggingLeft, setIsDraggingLeft] = useState(false);
@@ -419,32 +422,88 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
                 <div className={`flex-1 flex ${compareMode || isUnifiedDiff ? 'flex-row' : 'flex-col'} overflow-hidden w-full min-h-0`}>
                     {/* Unified Diff View */}
                     {isUnifiedDiff && diffResult ? (
-                        <div className="flex-1 flex flex-col bg-[#0b0f19] relative">
-                            <div className="p-3 bg-teal-500/10 border-b border-teal-500/20 flex items-center justify-between">
+                        <div className="flex-1 flex flex-col bg-[#0b0f19] relative overflow-hidden">
+                            {/* Unified Diff Header */}
+                            <div className="px-3 py-1.5 bg-teal-500/8 border-b border-teal-500/15 flex items-center justify-between shrink-0">
                                 <div className="flex items-center gap-2">
-                                    <Lucide.GitCompare size={14} className="text-teal-400" />
-                                    <span className="text-[10px] font-black uppercase text-teal-300 tracking-tighter">Unified Diff View (Target: {fileRight?.name})</span>
+                                    <Lucide.GitCompare size={12} className="text-teal-400" />
+                                    <span className="text-[10px] font-black uppercase text-teal-300 tracking-tighter">
+                                        Unified Diff
+                                    </span>
+                                    <span className="text-[9px] text-slate-500">
+                                        Base: <span className="text-slate-300">{fileLeft?.name}</span>
+                                        {' → '}
+                                        Target: <span className="text-slate-300">{fileRight?.name}</span>
+                                    </span>
                                 </div>
-                                <div className="flex gap-4">
-                                    <span className="text-[9px] text-rose-400 font-bold uppercase">Red: Slower</span>
-                                    <span className="text-[9px] text-blue-400 font-bold uppercase">Blue: Faster</span>
-                                    <span className="text-[9px] text-teal-400 font-bold uppercase">Green: Added</span>
+                                <div className="flex gap-3 items-center">
+                                    <div className="flex gap-2">
+                                        {[['text-rose-400','●','Slower'],['text-blue-400','●','Faster'],['text-emerald-400','●','Added'],['text-slate-400','○','Removed']].map(([cls, icon, label]) => (
+                                            <span key={label as string} className="flex items-center gap-1">
+                                                <span className={`text-[10px] ${cls}`}>{icon}</span>
+                                                <span className="text-[9px] text-slate-500 uppercase font-bold">{label as string}</span>
+                                            </span>
+                                        ))}
+                                    </div>
+                                    {diffHighlightName && (
+                                        <button
+                                            onClick={() => setDiffHighlightName(null)}
+                                            className="flex items-center gap-1 px-2 py-0.5 bg-indigo-600/20 border border-indigo-500/30 rounded text-[9px] text-indigo-300 hover:bg-indigo-600/40"
+                                        >
+                                            <Lucide.X size={9} />
+                                            <span>{diffHighlightName}</span>
+                                        </button>
+                                    )}
                                 </div>
                             </div>
-                            <div className="flex-1 relative overflow-hidden">
+
+                            {/* FlameGraph Area */}
+                            <div
+                                className="shrink-0 relative overflow-hidden border-b border-white/5"
+                                style={{ height: `${diffPanelRatio * 100}%` }}
+                            >
                                 <PerfFlameDiff
                                     targetResult={diffResult.targetResult}
                                     diffSegments={diffResult.diffSegments}
-                                    maxLane={Math.max(...diffResult.diffSegments.map(s => s.lane || 0))}
-                                    flameZoom={null}
-                                    applyZoom={() => {}}
-                                    searchTerms={[]}
-                                    checkSegmentMatch={() => true}
-                                    selectedSegmentId={null}
-                                    setSelectedSegmentId={() => {}}
-                                    multiSelectedIds={[]}
-                                    setMultiSelectedIds={() => {}}
+                                    removedSegments={diffResult.removedSegments}
+                                    highlightName={diffHighlightName}
                                     isActive={isActive}
+                                    onSegmentSelect={(seg: DiffSegment | null) => {
+                                        if (seg) setDiffHighlightName(seg.functionName || seg.name);
+                                        else setDiffHighlightName(null);
+                                    }}
+                                />
+                                {/* Resizer */}
+                                <div
+                                    className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize bg-white/5 hover:bg-indigo-500/30 transition-colors group flex justify-center items-center"
+                                    onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        const startY = e.clientY;
+                                        const startRatio = diffPanelRatio;
+                                        const containerH = e.currentTarget.closest('.flex-1')?.clientHeight ?? 600;
+                                        const onMove = (mv: MouseEvent) => {
+                                            const dy = mv.clientY - startY;
+                                            const newRatio = Math.max(0.2, Math.min(0.8, startRatio + dy / containerH));
+                                            setDiffPanelRatio(newRatio);
+                                        };
+                                        const onUp = () => {
+                                            window.removeEventListener('mousemove', onMove);
+                                            window.removeEventListener('mouseup', onUp);
+                                        };
+                                        window.addEventListener('mousemove', onMove);
+                                        window.addEventListener('mouseup', onUp);
+                                    }}
+                                >
+                                    <div className="w-8 h-0.5 bg-white/10 group-hover:bg-indigo-400 rounded-full transition-colors" />
+                                </div>
+                            </div>
+
+                            {/* Stats Table Area */}
+                            <div className="flex-1 overflow-hidden">
+                                <DiffStatsPanel
+                                    diffResult={diffResult}
+                                    highlightName={diffHighlightName}
+                                    onHighlight={setDiffHighlightName}
                                 />
                             </div>
                         </div>
