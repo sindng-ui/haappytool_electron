@@ -1,5 +1,24 @@
 import { CommandBlock, Pipeline } from './components/BlockTest/types';
 
+export interface TrafficPattern {
+  id: string;
+  alias: string;
+  keywords: string;
+  extractRegex: string;
+  enabled: boolean;
+}
+
+export interface UAPattern {
+  keywords: string;
+  template: string;
+  enabled: boolean;
+}
+
+export interface NetTrafficSettings {
+  uaPattern: UAPattern;
+  patterns: TrafficPattern[];
+}
+
 export enum ToolId {
   LOG_EXTRACTOR = 'LOG_EXTRACTOR',
   POST_TOOL = 'POST_TOOL',
@@ -122,6 +141,7 @@ export interface AppSettings {
   pipelines?: Pipeline[];
   mockEndpoints?: MockEndpoint[];
   defaultOutputFolder?: string; // ✅ NEW: CLI Default Output Folder
+  netTrafficSettings?: NetTrafficSettings; // ✅ NEW: NetTraffic Analyer Settings for CLI sync
 }
 
 export interface RequestGroup {

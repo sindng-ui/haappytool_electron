@@ -1,5 +1,6 @@
 // workers/NetTraffic.worker.ts
 // @ts-nocheck
+import { TrafficPattern, UAPattern } from '../types';
 
 export interface RawCall {
   rawUri: string;
@@ -28,20 +29,6 @@ export interface UAResult {
   endpoints: UAEndpoint[];
 }
 
-export interface TrafficPattern {
-  id: string;
-  alias: string;
-  keywords: string;
-  extractRegex: string;
-  enabled: boolean;
-}
-
-export interface UAPattern {
-  keywords: string;
-  template: string;
-  enabled: boolean;
-}
-
 export interface InsightStats {
   timeline: Record<string, number>; // Minute-bucket -> count
   hosts: Record<string, number>;    // Domain -> count
@@ -63,7 +50,7 @@ export const setUAPattern = (ua: UAPattern | null) => {
 let currentUAVars: Record<string, string> | null = null;
 
 // Hierarchical Stats
-export type StatsMap = Map<string, { totalCount: number, rawMap: Map<string, { count: number, examples: string[] }> }>;
+export type StatsMap = Map<string, { totalCount: number, rawMap: Map<string, { count: number, examples: string[], lineIndices: number[] }> }>;
 export let singleStats: StatsMap = new Map();
 export let leftStats: StatsMap = new Map();
 export let rightStats: StatsMap = new Map();

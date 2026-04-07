@@ -510,9 +510,20 @@ export const useCliHandlers = () => {
 
         stdout(`[NetTraffic] Starting ${mode} analysis...`);
 
-        // 1. Load Settings (UA & Patterns)
-        const uaPattern = JSON.parse(localStorage.getItem('happytool_nettraffic_ua_pattern') || '{"keywords":"SC_SERVICE, User agent","template":"User agent: $(ClientName)/$(ClientVersion)/$(AppName)/$(AppVersion)/$(AppDetail)","enabled":true}');
-        const trafficPatterns = JSON.parse(localStorage.getItem('happytool_nettraffic_traffic_patterns') || '[{"id":"1","alias":"Keywords","keywords":"","extractRegex":"","enabled":true}]');
+        // 1. Load Settings (Synced from GUI) 🐧⚙️
+        let settings: any = window.electronAPI?.getCliSettings ? await window.electronAPI.getCliSettings() : null;
+        if (!settings) {
+            const settingsStr = localStorage.getItem('devtool_suite_settings');
+            if (settingsStr) settings = JSON.parse(settingsStr);
+        }
+
+        const netTrafficSettings = settings?.netTrafficSettings || {
+            uaPattern: { keywords: 'SC_SERVICE, User agent', template: 'User agent: $(ClientName)/$(ClientVersion)/$(AppName)/$(AppVersion)/$(AppDetail)', enabled: true },
+            patterns: [{ id: '1', alias: 'Keywords', keywords: '', extractRegex: '', enabled: true }]
+        };
+
+        const { uaPattern, patterns } = netTrafficSettings;
+        stdout(`[NetTraffic] Configuration Loaded. Rules: ${patterns.length}, UA Parser: ${uaPattern.enabled ? 'Enabled' : 'Disabled'}`);
 
         const { compareEndpoints, compareUAs } = await import('../utils/netTrafficDiffUtils');
         const NetTrafficWorker = (await import('../workers/NetTraffic.worker.ts?worker')).default;
@@ -535,7 +546,8 @@ export const useCliHandlers = () => {
                 const size = await window.electronAPI!.getFileSize(filePath);
                 stdout(`[NetTraffic][${target}] File Size: ${(size / 1024 / 1024).toFixed(2)} MB`);
 
-                worker.postMessage({ type: 'INIT', payload: { patterns: trafficPatterns, uaPattern } });
+                // ✅ GUI와 동일한 패턴 전달
+                worker.postMessage({ type: 'INIT', payload: { patterns, uaPattern } });
 
                 const chunkSize = 1024 * 1024 * 10; // 10MB chunks
                 let offset = 0;
@@ -572,6 +584,17 @@ export const useCliHandlers = () => {
                     userAgents: res.uaData,
                     insights: res.insights
                 };
+
+                // ✅ Console Summary Output
+                stdout(`\n[NetTraffic] --- Analysis Summary ---`);
+                stdout(`[NetTraffic] Source: ${inputPath}`);
+                stdout(`[NetTraffic] Total Requests: ${res.insights.totalRequests.toLocaleString()}`);
+                stdout(`[NetTraffic] Unique Endpoints: ${res.data.length}`);
+                stdout(`[NetTraffic] Unique Clients (UA): ${res.uaData.length}`);
+                stdout(`[NetTraffic] Top Endpoints:`);
+                res.data.slice(0, 5).forEach((e: any) => stdout(`  - ${e.totalCount.toLocaleString().padStart(6)} hits : ${e.templateUri}`));
+                stdout(`-------------------------------------\n`);
+
             } else {
                 stdout(`[NetTraffic] Parallel analysis of both files started...`);
                 const [leftRes, rightRes] = await Promise.all([
@@ -598,10 +621,24 @@ export const useCliHandlers = () => {
                         right: { endpoints: rightRes.data, userAgents: rightRes.uaData, insights: rightRes.insights }
                     }
                 };
+
+                // ✅ Console Comparison Summary
+                stdout(`\n[NetTraffic] --- Comparison Summary ---`);
+                stdout(`[NetTraffic] Left Hits:  ${leftRes.insights.totalRequests.toLocaleString()}`);
+                stdout(`[NetTraffic] Right Hits: ${rightRes.insights.totalRequests.toLocaleString()}`);
+                const regressions = endpointDiffs.filter((d: any) => d.diff > 0);
+                stdout(`[NetTraffic] Regressions (Increased hits): ${regressions.length}`);
+                if (regressions.length > 0) {
+                    stdout(`[NetTraffic] Top Regressions:`);
+                    regressions.sort((a: any, b: any) => b.diff - a.diff).slice(0, 5).forEach((d: any) => 
+                        stdout(`  - +${d.diff.toLocaleString().padStart(5)} increase : ${d.templateUri}`)
+                    );
+                }
+                stdout(`---------------------------------------\n`);
             }
 
             const finalOutputPath = outputPath || `${cwd}\\nettraffic_result_${Date.now()}.json`;
-            stdout(`[NetTraffic] Saving result to ${finalOutputPath}...`);
+            stdout(`[NetTraffic] Saving full detail JSON to ${finalOutputPath}...`);
 
             const content = JSON.stringify(finalResult, null, 2);
             const encoder = new TextEncoder();

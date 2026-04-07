@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react';
-import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem, PostGlobalAuth, EnvironmentProfile } from '../types';
+import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem, PostGlobalAuth, EnvironmentProfile, NetTrafficSettings } from '../types';
 
 export interface HappyToolContextType {
     // Log Extractor State
@@ -23,6 +23,10 @@ export interface HappyToolContextType {
 
     postGlobalAuth: PostGlobalAuth;
     setPostGlobalAuth: React.Dispatch<React.SetStateAction<PostGlobalAuth>>;
+
+    // NetTraffic State
+    netTrafficSettings: NetTrafficSettings;
+    setNetTrafficSettings: React.Dispatch<React.SetStateAction<NetTrafficSettings>>;
 
     // Global Actions
     handleExportSettings: () => void;

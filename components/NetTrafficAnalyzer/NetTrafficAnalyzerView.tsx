@@ -3,7 +3,8 @@ import * as Lucide from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useNetTrafficLogic } from '../../hooks/useNetTrafficLogic';
 import { useToast } from '../../contexts/ToastContext';
-import { TrafficPattern, UAPattern } from '../../workers/NetTraffic.worker';
+import { useHappyTool } from '../../contexts/HappyToolContext';
+import { TrafficPattern, UAPattern } from '../../types';
 
 // Sub-components
 import RawLogNavigator from './RawLogNavigator';
@@ -19,6 +20,12 @@ const NetTrafficAnalyzerView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'single' | 'compare'>('single');
   const [resultTab, setResultTab] = useState<'endpoints' | 'ua' | 'insights'>('endpoints');
   const { addToast } = useToast();
+  const { netTrafficSettings, setNetTrafficSettings } = useHappyTool();
+  
+  // Destructure for easier use
+  const { patterns, uaPattern } = netTrafficSettings;
+  const setPatterns = (newPatterns: TrafficPattern[]) => setNetTrafficSettings({ ...netTrafficSettings, patterns: newPatterns });
+  const setUAPattern = (newUA: UAPattern) => setNetTrafficSettings({ ...netTrafficSettings, uaPattern: newUA });
 
   const [singleFile, setSingleFile] = useState<File | null>(null);
   const [leftFile, setLeftFile] = useState<File | null>(null);
@@ -28,32 +35,12 @@ const NetTrafficAnalyzerView: React.FC = () => {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [patterns, setPatterns] = useState<TrafficPattern[]>(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_PATTERNS);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
-    return [{ id: '1', alias: 'Keywords', keywords: '', extractRegex: '', enabled: true }];
-  });
-
-  const [uaPattern, setUAPattern] = useState<UAPattern>(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_UA);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return { keywords: 'SC_SERVICE, User agent', template: 'User agent: $(ClientName)/$(ClientVersion)/$(AppName)/$(AppVersion)/$(AppDetail)', enabled: true };
-  });
-
   const {
     analyzing, progress, singleResult, leftResult, rightResult, singleUAResult, leftUAResult, rightUAResult,
     singleInsights, leftInsights, rightInsights, startAnalysis
   } = useNetTrafficLogic();
 
-  useEffect(() => { localStorage.setItem(LOCAL_STORAGE_KEY_UA, JSON.stringify(uaPattern)); }, [uaPattern]);
-  useEffect(() => { localStorage.setItem(LOCAL_STORAGE_KEY_PATTERNS, JSON.stringify(patterns)); }, [patterns]);
+  // Removed manual localStorage effects - App context handles it now
 
   const handleStartAnalysis = async () => {
     setHasAnalyzed(true);

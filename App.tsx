@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
-import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem, PostGlobalAuth, EnvironmentProfile } from './types';
+import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem, PostGlobalAuth, EnvironmentProfile, NetTrafficSettings, TrafficPattern, UAPattern } from './types';
 
 import { mergeById } from './utils/settingsHelper';
 import { SettingsModal } from './components/SettingsModal';
@@ -130,6 +130,10 @@ const AppContent: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [defaultOutputFolder, setDefaultOutputFolder] = useState<string>('');
+  const [netTrafficSettings, setNetTrafficSettings] = useState<NetTrafficSettings>({
+    uaPattern: { keywords: 'SC_SERVICE, User agent', template: 'User agent: $(ClientName)/$(ClientVersion)/$(AppName)/$(AppVersion)/$(AppDetail)', enabled: true },
+    patterns: [{ id: '1', alias: 'Keywords', keywords: '', extractRegex: '', enabled: true }]
+  });
 
   // Tool Order State - now generic strings
   const [toolOrder, setToolOrder] = useState<string[]>(
@@ -243,6 +247,26 @@ const AppContent: React.FC = () => {
           setEnabledPlugins(defaultEnabledPlugins);
         }
 
+        // NetTraffic Settings Migration / Loading
+        if (parsed.netTrafficSettings) {
+          setNetTrafficSettings(parsed.netTrafficSettings);
+        } else {
+          // Migration from old localStorage keys if they exist
+          const oldUA = localStorage.getItem('happytool_nettraffic_ua_pattern');
+          const oldPatterns = localStorage.getItem('happytool_nettraffic_traffic_patterns');
+          if (oldUA || oldPatterns) {
+            console.log('[App] Migrating NetTraffic patterns to global settings');
+            const newSettings: NetTrafficSettings = { ...netTrafficSettings };
+            if (oldUA) {
+              try { newSettings.uaPattern = JSON.parse(oldUA); } catch (e) {}
+            }
+            if (oldPatterns) {
+              try { newSettings.patterns = JSON.parse(oldPatterns); } catch (e) {}
+            }
+            setNetTrafficSettings(newSettings);
+          }
+        }
+
       } catch (e) {
         console.error("Failed to load settings", e);
         // Fallback to default on error
@@ -272,7 +296,8 @@ const AppContent: React.FC = () => {
         lastEndpoint: lastApiUrl,
         lastMethod,
         enabledPlugins,
-        defaultOutputFolder
+        defaultOutputFolder,
+        netTrafficSettings
       };
 
       try {
@@ -291,7 +316,7 @@ const AppContent: React.FC = () => {
     }, 1000); // ✅ 1-second debounce
 
     return () => clearTimeout(timer);
-  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins, defaultOutputFolder]);
+  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins, defaultOutputFolder, netTrafficSettings]);
 
   // ✅ Performance: Memoize export/import handlers
   const handleExportSettings = React.useCallback(() => {
@@ -306,6 +331,7 @@ const AppContent: React.FC = () => {
       lastMethod,
       enabledPlugins,
       defaultOutputFolder,
+      netTrafficSettings,
       blocks: JSON.parse(localStorage.getItem('happytool_blocks') || '[]'),
       pipelines: JSON.parse(localStorage.getItem('happytool_pipelines') || '[]')
     };
@@ -379,6 +405,7 @@ const AppContent: React.FC = () => {
     if (settings.lastMethod) setLastMethod(settings.lastMethod);
     if (settings.enabledPlugins) setEnabledPlugins(settings.enabledPlugins);
     if (settings.defaultOutputFolder !== undefined) setDefaultOutputFolder(settings.defaultOutputFolder);
+    if (settings.netTrafficSettings) setNetTrafficSettings(settings.netTrafficSettings);
 
     // Import BlockTest Data
     if (settings.blocks) {
@@ -462,7 +489,9 @@ const AppContent: React.FC = () => {
     isFocusMode,
     toggleFocusMode,
     ambientMood,
-    setAmbientMood
+    setAmbientMood,
+    netTrafficSettings,
+    setNetTrafficSettings
   }), [
     logRules,
     savedRequests,
@@ -477,7 +506,8 @@ const AppContent: React.FC = () => {
     postGlobalAuth,
     defaultOutputFolder,
     isFocusMode,
-    toggleFocusMode
+    toggleFocusMode,
+    netTrafficSettings // ✅ Added
     // ✅ Removed duplicates: requestHistory, lastApiUrl, lastMethod
   ]);
 

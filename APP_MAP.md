@@ -30,6 +30,13 @@
     - **Responsive Scaling**: 화면 비율에 따라 FlameGraph와 통계 패널이 유연하게 리사이징되는 구조.
   - **기존 싱글 뷰**: 레이아웃 안정화 작업의 혜택을 동일하게 받으며, 화면 잘림 현상 원천 해결.
 
+### [NetTraffic Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/NetTrafficAnalyzer/NetTrafficAnalyzerPlugin.tsx)
+- **GUI & CLI Unified Core (2026-04-07)**:
+  - **AppSettings Integration**: 기존 `localStorage`에 개별 저장되던 트래픽 패턴과 UA 추출 템플릿을 전역 앱 설정(`AppSettings`)으로 통합.
+  - **CLI Sync Engine**: CLI 실행 시 GUI에서 마지막으로 설정된 'Detection keywords', 'Extraction Template', 'Traffic Rule'을 실시간으로 동기화하여 분석.
+  - **Console Summary Output**: CLI 실행 결과 분석 데이터를 터미널에 요약 출력 (Top Endpoints, Regression 히스토리 등).
+  - **Strict Pattern Matching**: `NetTraffic.worker.ts` — 사용자의 정밀 추출 Regex(`extractRegex`)를 최우선으로 적용하는 매칭 로직 탑재.
+
 ---
-*Last Updated: 2026-04-06 (SpeedScope Layout & Unified Diff v2)*
+*Last Updated: 2026-04-07 (NetTraffic CLI & GUI Sync v1)*
 
