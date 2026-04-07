@@ -48,6 +48,7 @@ async function createWindow() {
         height: savedState?.height || 800,
         x: savedState?.x,
         y: savedState?.y,
+        title: 'BigBrain',
         titleBarStyle: 'hidden',
         titleBarOverlay: {
             color: '#0f172a',

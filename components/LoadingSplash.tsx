@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Activity } from 'lucide-react';
+import { Brain } from 'lucide-react';
 import packageJson from '../package.json';
 
 interface LoadingSplashProps {
@@ -147,11 +147,11 @@ const LoadingSplash: React.FC<LoadingSplashProps> = ({ onLoadingComplete, waitFo
                 <div className="relative z-10 flex flex-col items-center space-y-8 px-8">
                     <div className="flex flex-col items-center space-y-4">
                         <div className="relative">
-                            <Activity size={80} className="relative text-blue-400 animate-float" strokeWidth={1.5} />
+                            <Brain size={80} className="relative text-blue-400 animate-float" strokeWidth={1.5} />
                         </div>
                         <div className="text-center">
                             <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                                HappyTool
+                                BigBrain
                             </h1>
                             <p className="text-slate-500 text-sm mt-3 font-mono">v{packageJson.version}</p>
                         </div>

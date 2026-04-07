@@ -24,6 +24,8 @@ const TizenPerfMonitor: React.FC<TizenPerfMonitorProps> = ({ deviceId, sdbPath, 
         startMemoryMonitoring, stopMemoryMonitoring
     } = useCpuData(deviceId, sdbPath, isActive);
 
+    const SYSTEM_PROMPT_BASE = `You are an intelligent log analysis agent integrated with BigBrain.`;
+
     const isMonitoring = status.includes('monitoring') || memoryStatus.includes('monitoring');
 
     const handleStart = () => {
@@ -203,7 +205,7 @@ const TizenPerfMonitor: React.FC<TizenPerfMonitorProps> = ({ deviceId, sdbPath, 
                     </div>
                 </div>
                 <div className="text-[10px] text-slate-500 italic">
-                    Powered by HappyTool Performance Engine
+                    Powered by BigBrain Performance Engine
                 </div>
             </div>
         </div>

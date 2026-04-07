@@ -1,4 +1,4 @@
-# HAPPY Tool - Application Map
+# BigBrain - Application Map
 
 ## 🧩 Plugins
 
@@ -31,5 +31,5 @@
   - **기존 싱글 뷰**: 레이아웃 안정화 작업의 혜택을 동일하게 받으며, 화면 잘림 현상 원천 해결.
 
 ---
-*Last Updated: 2026-04-06 (SpeedScope Layout & Unified Diff v2)*
+*Last Updated: 2026-04-07 (Rebranding: HappyTool -> BigBrain)*
 

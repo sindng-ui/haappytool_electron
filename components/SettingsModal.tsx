@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Moon, Sun, Keyboard, Info, Type, RotateCcw, BookOpen, Puzzle, Terminal, ExternalLink, Copy, Folder, Bot, Eye, EyeOff, Save, RefreshCw } from 'lucide-react';
+import { X, Moon, Sun, Keyboard, Info, Type, RotateCcw, BookOpen, Puzzle, Terminal, ExternalLink, Copy, Folder, Bot, Eye, EyeOff, Save, RefreshCw, Brain } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useToast } from '../contexts/ToastContext';
 import { ALL_PLUGINS } from '../plugins/registry';
@@ -417,7 +417,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             <Info size={12} /> Advanced Technical Tip
                                         </div>
                                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                            HappyTool CLI는 내부적으로 **Hidden BrowserWindow**를 호출하여 구동됩니다.
+                                            BigBrain CLI는 내부적으로 **Hidden BrowserWindow**를 호출하여 구동됩니다.
                                             덕분에 터미널 환경에서도 **WASM(WebAssembly)** 엔진과 **SharedArrayBuffer**의 고성능 멀티스레딩 필터링을 완벽하게 지원합니다.
                                             IndexedDB에 저장된 GUI 필터 목록을 그대로 공유하여 쓰기 때문에 별도의 동기화가 필요 없습니다! 🐧💎
                                         </p>
@@ -600,10 +600,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                         {activeTab === 'about' && (
                             <div className="text-center space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-200 will-change-transform py-10">
                                 <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2rem] mx-auto shadow-2xl shadow-indigo-500/20 flex items-center justify-center transform rotate-3 hover:rotate-0 transition-transform duration-500">
-                                    <span className="text-5xl font-black text-white">H</span>
+                                    <Brain size={48} className="text-white" />
                                 </div>
                                 <div>
-                                    <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 animate-gradient-x">HappyTool</h1>
+                                    <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 animate-gradient-x">BigBrain</h1>
                                     <p className="text-slate-500 dark:text-slate-400 font-mono mt-2 text-sm bg-slate-100 dark:bg-slate-800/50 inline-block px-3 py-1 rounded-full border border-slate-200 dark:border-white/5">v{__APP_VERSION__} (Beta)</p>
                                 </div>
                                 <div className="p-8 bg-white dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-white/5 text-sm leading-relaxed max-w-sm mx-auto shadow-xl">
@@ -625,7 +625,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                     <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl mx-auto shadow-xl shadow-indigo-500/20 flex items-center justify-center mb-4 icon-glow">
                                         <BookOpen size={32} className="text-white" />
                                     </div>
-                                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">HappyTool 사용 가이드</h3>
+                                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">BigBrain 사용 가이드</h3>
                                     <p className="text-slate-600 dark:text-slate-400">모든 기능을 자세히 알아보세요</p>
                                 </div>
 
