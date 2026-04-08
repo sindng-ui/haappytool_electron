@@ -302,8 +302,8 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
 
             const timeout = setTimeout(() => {
                 cleanup();
-                reject(new Error("Command timed out (10s)"));
-            }, 10000);
+                reject(new Error(`Command timed out (12s): ${cmd.substring(0, 50)}${cmd.length > 50 ? '...' : ''}`));
+            }, 12000);
 
             const handleResult = (res: any) => {
                 if (res.requestId === requestId) {

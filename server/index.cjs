@@ -1171,22 +1171,33 @@ const handleSocketConnection = (socket, deps = {}) => {
         console.log(`[DEBUG_RUN] Received command: ${cmdString}`);
         console.log(`[DEBUG_RUN] Executing via exec...`);
 
-        // Use exec for robust shell command execution
-        const execOpts = { maxBuffer: 1024 * 1024 * 5 }; // 5MB
+        // Use exec with a backend timeout (15s) to prevent runaway processes
+        const execOpts = { 
+            maxBuffer: 1024 * 1024 * 5, 
+            timeout: 15000,
+            killSignal: 'SIGKILL'
+        };
 
-        exec(cmdString, execOpts, (error, stdout, stderr) => {
-            console.log(`[DEBUG_RUN] Exec completed. Error: ${error ? error.message : 'None'}`);
+        const child = exec(cmdString, execOpts, (error, stdout, stderr) => {
+            const isTimeout = error && (error.killed || error.code === 'ETIMEDOUT');
+            
+            console.log(`[DEBUG_RUN] Exec completed. Error: ${error ? error.message : 'None'} (Timeout: ${isTimeout})`);
             console.log(`[DEBUG_RUN] stdout: ${stdout.length} bytes, stderr: ${stderr.length} bytes`);
 
             const finalOutput = (stdout + stderr).trim();
             const success = !error;
 
-            socket.emit('host_command_debug', { requestId, message: `Exec completed. Success: ${success}` });
+            if (isTimeout) {
+                socket.emit('host_command_debug', { requestId, message: `Exec timed out after 15s on backend.` });
+            } else {
+                socket.emit('host_command_debug', { requestId, message: `Exec completed. Success: ${success}` });
+            }
+
             socket.emit('host_command_result', {
                 command,
                 requestId,
                 success,
-                output: finalOutput || (success ? 'Success (No output)' : `Failed: ${error.message}`)
+                output: finalOutput || (isTimeout ? 'Error: Backend Timeout (15s)' : (success ? 'Success (No output)' : `Failed: ${error.message}`))
             });
         });
     });

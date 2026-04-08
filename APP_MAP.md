@@ -37,6 +37,13 @@
   - **Console Summary Output**: CLI 실행 결과 분석 데이터를 터미널에 요약 출력 (Top Endpoints, Regression 히스토리 등).
   - **Strict Pattern Matching**: `NetTraffic.worker.ts` — 사용자의 정밀 추출 Regex(`extractRegex`)를 최우선으로 적용하는 매칭 로직 탑재.
 
+### [BlockTest Plugin](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/BlockTest)
+Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
+- **Reliability Update (2026-04-08)**: 
+  - **Timeout Optimization**: `sdb shell` 명령의 지연 특성을 고려하여 프론트엔드 타임아웃을 10초에서 **12초**로 상향 조정.
+  - **Backend Process Guard**: `server/index.cjs` — 명령 실행 시 백엔드 자체 타임아웃(**15초**) 및 좀비 프로세스 방지를 위한 `SIGKILL` 로직 도입.
+  - **Enhanced Debugging**: 타임아웃 발생 시 대상 명령어를 로그에 명시하여 트러블슈팅 편의성 증대.
+
 ---
-*Last Updated: 2026-04-07 (NetTraffic CLI & GUI Sync v1)*
+*Last Updated: 2026-04-08 (BlockTest Reliability v1)*
 
