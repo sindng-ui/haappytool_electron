@@ -19,7 +19,8 @@ import {
     SpeedScopePlugin,
     NetTrafficAnalyzerPluginWrapper,
     LogAnalysisAgentPlugin,
-    GaussChatAgentPlugin
+    GaussChatAgentPlugin,
+    EverythingSearchPlugin
 } from './core/wrappers';
 
 // Registry array to hold all registered plugins
@@ -45,6 +46,7 @@ export const ALL_PLUGINS: HappyPlugin[] = [
     SpeedScopePlugin,
     LogAnalysisAgentPlugin,
     GaussChatAgentPlugin,
+    EverythingSearchPlugin,
 ];
 
 export const getPluginById = (id: string): HappyPlugin | undefined => {

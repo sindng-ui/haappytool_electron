@@ -8,6 +8,7 @@ const { spawn, exec } = require('child_process');
 
 const path = require('path');
 const jimp = require('jimp');
+const everythingService = require('./services/everythingService.cjs');
 
 // Global BlockTest Dir (Configurable via startServer)
 let globalBlockTestDir = path.join(process.cwd(), 'BlockTest');
@@ -253,6 +254,9 @@ const handleSocketConnection = (socket, deps = {}) => {
     const getSdbBin = (p) => p || 'sdb';
     // Helper to determine SDB command string (for exec/shell usage) with quoting if needed
     const getSdbCmd = (p) => p ? `"${p}"` : 'sdb';
+
+    // --- Everything Search Handler ---
+    everythingService.initSocket(socket);
 
     // --- SSH Handler ---
     socket.on('connect_ssh', ({ host, port, username, password, debug, saveToFile, command, tags }) => {

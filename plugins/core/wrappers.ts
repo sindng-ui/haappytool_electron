@@ -12,10 +12,11 @@ const SmartThingsLabPlugin = React.lazy(() => import('../SmartThingsLab/SmartThi
 const TizenLabPlugin = React.lazy(() => import('../TizenLab/TizenLabPlugin'));
 const ReverseEngineer = React.lazy(() => import('../../components/ReverseEngineer'));
 const PerfTool = React.lazy(() => import('../../components/PerfTool'));
+const EverythingSearch = React.lazy(() => import('../../components/EverythingSearch'));
 import { ToolId } from '../../types';
 import { Network } from 'lucide-react';
 
-const { FileText, Send, Braces, Archive, Smartphone, Pickaxe, Workflow, Activity } = Lucide;
+const { FileText, Send, Braces, Archive, Smartphone, Pickaxe, Workflow, Activity, Search } = Lucide;
 
 export const LogExtractorPlugin: HappyPlugin = {
     id: ToolId.LOG_EXTRACTOR,
@@ -211,6 +212,14 @@ export const GaussChatAgentPlugin: HappyPlugin = {
     order: 21,
 };
 
+export const EverythingSearchPlugin: HappyPlugin = {
+    id: ToolId.EVERYTHING_SEARCH,
+    name: 'Everything',
+    icon: Search,
+    component: EverythingSearch,
+    order: 22,
+};
+
 export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
     [ToolId.LOG_EXTRACTOR]: LogExtractorPlugin,
     [ToolId.POST_TOOL]: PostToolPlugin,
@@ -232,4 +241,5 @@ export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
     [ToolId.NET_TRAFFIC_ANALYZER]: NetTrafficAnalyzerPluginWrapper,
     [ToolId.LOG_ANALYSIS_AGENT]: LogAnalysisAgentPlugin,
     [ToolId.GAUSS_CHAT_AGENT]: GaussChatAgentPlugin,
+    [ToolId.EVERYTHING_SEARCH]: EverythingSearchPlugin,
 };

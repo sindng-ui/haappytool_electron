@@ -160,6 +160,19 @@
   - **실시간 스트리밍**: 가우스 2.3 Think 모델의 실시간 응답 표시.
   - **디버그 패널**: 우측 상단 `SHOW DEBUG` 버튼을 통해 raw JSON/SSE 정밀 모니터링 가능. (너비 450px 고정) [NEW]
 
+### [[Everything Search Plugin]] 📂✨ [NEW]
+- **ID**: `EVERYTHING_SEARCH`
+- **Keywords**: [`Everything`, `파일 검색`, `voidtools`, `es.exe`, `Fast Search`, `File Explorer`]
+- **Location**:
+  - `View`: [EverythingSearch/index.tsx](./components/EverythingSearch/index.tsx)
+  - `Hook`: [useEverythingSearch.ts](./components/EverythingSearch/hooks/useEverythingSearch.ts)
+  - `Backend`: [everythingService.cjs](./server/services/everythingService.cjs)
+- **Features**:
+  - **초고속 파일 검색**: Everything 엔진(HTTP Server 또는 CLI) 연동을 통한 실시간 검색.
+  - **대용량 처리**: `react-virtuoso` 가상 스크롤을 통한 수만 개의 결과 렌더링 최적화.
+  - **파일 시스템 연동**: 더블 클릭 시 윈도우 탐색기 연동 및 파일 열기 지원.
+  - **프리미엄 UI**: 글래스모피즘 디자인 및 파일 타입별 지능형 아이콘 적용. [NEW]
+
 ### [[SpeedScope Plugin]]
 - **ID**: `plugin-speedscope`
 - **Keywords**: [`SpeedScope`, `Flame Graph`, `Performance`, `Main Thread Detection`]
