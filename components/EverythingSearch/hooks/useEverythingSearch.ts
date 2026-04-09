@@ -26,8 +26,8 @@ export const useEverythingSearch = () => {
     const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
-        // Connect to the local server (assuming same port as current location for simplicity or fixed port 3000)
-        const socket = io('http://localhost:3000');
+        // Connect to the local server (Backend on 3003)
+        const socket = io('http://127.0.0.1:3003');
         socketRef.current = socket;
 
         socket.on('connect', () => {
