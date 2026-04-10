@@ -64,6 +64,7 @@ export const SmartThingsLabPluginWrapper: HappyPlugin = {
     icon: Smartphone,
     component: SmartThingsLabPlugin,
     order: 14,
+    isLab: true,
 };
 
 
@@ -148,6 +149,7 @@ export const TizenLabPluginWrapper: HappyPlugin = {
     icon: Network,
     component: TizenLabPlugin,
     order: 15,
+    isLab: true,
 };
 
 const EasyPost = React.lazy(() => import('../../plugins/EasyPost/EasyPostPlugin'));

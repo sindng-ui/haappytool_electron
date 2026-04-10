@@ -11,6 +11,7 @@ export interface HappyPlugin {
     icon: React.ComponentType<{ className?: string; size?: number }>; // Icon for Sidebar
     component: React.ComponentType<any>; // Main Content Component
     order?: number;         // Default sort order
+    isLab?: boolean;        // Whether this is an experimental/lab plugin [NEW]
 
     // Optional: Hooks for global level interactions
     onInit?: (context: PluginContext) => void;

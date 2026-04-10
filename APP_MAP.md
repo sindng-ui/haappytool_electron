@@ -44,6 +44,11 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - **Backend Process Guard**: `server/index.cjs` — 명령 실행 시 백엔드 자체 타임아웃(**15초**) 및 좀비 프로세스 방지를 위한 `SIGKILL` 로직 도입.
   - **Enhanced Debugging**: 타임아웃 발생 시 대상 명령어를 로그에 명시하여 트러블슈팅 편의성 증대.
 
+### [Plugin Visibility Management](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/config.ts) [NEW]
+- **Management Logic (2026-04-10)**:
+  - **Comprehensive Toggle**: `plugins/config.ts` — SmartThings, Tizen, AI Agent 등 14종의 실험실 플러그인 전체에 대해 개별 가시성 플래그 제공.
+  - **Registry Filtering**: `plugins/registry.ts` — `visibilityMap` 테이블을 통해 각 플러그인 ID와 설정값을 매핑하여 필터링 수행.
+
 ---
-*Last Updated: 2026-04-08 (BlockTest Reliability v1)*
+*Last Updated: 2026-04-10 (Plugin Visibility Management v1)*
 

@@ -30,15 +30,17 @@
 
 ### [[Plugin Registry & Injection]]
 - **ID**: `system-plugin-registry`
-- **Keywords**: [`플러그인 등록`, `plugin load`, `registry`, `wrapper`]
+- **Keywords**: [`플러그인 등록`, `plugin load`, `registry`, `wrapper`, `visibility toggle`, `isLab`]
 - **Location**:
   - `Registry`: [registry.ts](./plugins/registry.ts)
   - `Types`: [types.ts](./plugins/types.ts)
+  - `Config`: [config.ts](./plugins/config.ts) [NEW]
   - `Container`: [PluginContainer.tsx](./components/PluginContainer.tsx)
 - **Core Interface**:
   - `ALL_PLUGINS`: 등록된 모든 플러그인 배열 (순서 조정 가능)
   - `HappyPlugin`: 플러그인 규격 인터페이스
-- **Data Flow**: `registry.ts` -> `App.tsx` -> `Sidebar` & `PluginContainer`
+  - `PLUGIN_CONFIG`: 14종의 실험실 플러그인 각각에 대한 노출 여부 제어 플래그 [UPDATED]
+- **Data Flow**: `config.ts` -> `registry.ts` (Filtering via visibilityMap) -> `App.tsx` -> `Sidebar`
 
 ### [[Sidebar Navigation]]
 - **ID**: `ui-sidebar-nav`
