@@ -13,8 +13,8 @@ interface LogViewerToolbarProps {
     isArchiveSaveEnabled?: boolean;
     onShowBookmarks?: () => void;
     bookmarksSize: number;
-    onCopy?: () => void;
-    onSave?: () => void;
+    onCopy?: (ignoreSelection?: boolean) => void;
+    onSave?: (ignoreSelection?: boolean) => void;
     onCopyAsConfluenceTable?: () => void;
     onAnalyzePerformance?: () => void;
     perfAnalysisResult?: any;
@@ -131,7 +131,7 @@ export const LogViewerToolbar: React.FC<LogViewerToolbarProps> = ({
                 {workerReady && !isRawMode && onCopy && (
                     <ToolbarButton
                         icon={Copy}
-                        onClick={onCopy}
+                        onClick={() => onCopy()}
                         tooltip="Copy Filtered Logs"
                         className="hover:text-indigo-500"
                     />
@@ -140,7 +140,7 @@ export const LogViewerToolbar: React.FC<LogViewerToolbarProps> = ({
                 {workerReady && !isRawMode && onSave && (
                     <ToolbarButton
                         icon={Download}
-                        onClick={onSave}
+                        onClick={() => onSave()}
                         tooltip="Save Filtered Logs"
                         className="hover:text-emerald-500"
                     />

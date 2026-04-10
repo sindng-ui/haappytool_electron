@@ -202,7 +202,12 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = React.memo(({
                 addToast('Bookmarks copied to clipboard as JSON', 'success');
             }
         } else if (format === 'confluence') {
-            const confluenceTable = convertToConfluenceTable(lines.map(l => ({ lineNum: l.lineNum, content: l.content })));
+            const confluenceTable = convertToConfluenceTable(lines.map(l => ({ 
+                lineNum: l.originalLineNum || l.lineNum, 
+                content: l.content,
+                timeDiff: l.timeDiffStr,
+                accTime: l.accumulatedTimeStr
+            })));
             await navigator.clipboard.writeText(confluenceTable);
             addToast('Bookmarks copied as Confluence Table', 'success');
         }

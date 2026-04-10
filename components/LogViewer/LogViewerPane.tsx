@@ -37,9 +37,9 @@ export interface LogViewerPaneProps {
     fileName?: string;
     onViewBookmarks?: () => void;
     onReset?: () => void;
-    onCopy?: () => void;
+    onCopy?: (ignoreSelection?: boolean) => void;
     onCopyAsConfluenceTable?: () => void;
-    onSave?: () => void;
+    onSave?: (ignoreSelection?: boolean) => void;
     bookmarks?: Set<number>;
     onToggleBookmark?: (index: number) => void;
     onFocusPaneRequest?: (direction: 'left' | 'right', visualY?: number) => void;

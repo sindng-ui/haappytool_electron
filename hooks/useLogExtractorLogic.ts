@@ -683,7 +683,7 @@ export const useLogExtractorLogic = ({
         leftWorkerRef, rightWorkerRef,
         leftPendingRequests, rightPendingRequests,
         leftFilteredCount, rightFilteredCount,
-        selectedIndicesLeftRef, selectedIndicesRightRef,
+        selectedIndicesLeft, selectedIndicesRight,
         setRawContextTargetLine, setRawContextSourcePane,
         setRawViewHighlightRange, setRawContextOpen,
         showToast,

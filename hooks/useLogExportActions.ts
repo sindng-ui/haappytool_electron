@@ -9,8 +9,8 @@ export interface UseLogExportActionsProps {
     rightPendingRequests: React.MutableRefObject<Map<string, (data: any) => void>>;
     leftFilteredCount: number;
     rightFilteredCount: number;
-    selectedIndicesLeftRef: React.MutableRefObject<Set<number>>;
-    selectedIndicesRightRef: React.MutableRefObject<Set<number>>;
+    selectedIndicesLeft: Set<number>;
+    selectedIndicesRight: Set<number>;
     setRawContextTargetLine: (target: any) => void;
     setRawContextSourcePane: (pane: 'left' | 'right') => void;
     setRawViewHighlightRange: (range: { start: number; end: number } | null) => void;
@@ -25,7 +25,7 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
         leftWorkerRef, rightWorkerRef,
         leftPendingRequests, rightPendingRequests,
         leftFilteredCount, rightFilteredCount,
-        selectedIndicesLeftRef, selectedIndicesRightRef,
+        selectedIndicesLeft, selectedIndicesRight,
         setRawContextTargetLine, setRawContextSourcePane,
         setRawViewHighlightRange, setRawContextOpen,
         showToast,
@@ -164,10 +164,10 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
 
 
     // --- Main Export Actions ---
-    const handleCopyLogs = useCallback(async (paneId: 'left' | 'right') => {
-        const selectedIndicesRef = paneId === 'left' ? selectedIndicesLeftRef : selectedIndicesRightRef;
-        const hasSelection = selectedIndicesRef.current.size > 0;
-        const count = hasSelection ? selectedIndicesRef.current.size : (paneId === 'left' ? leftFilteredCount : rightFilteredCount);
+    const handleCopyLogs = useCallback(async (paneId: 'left' | 'right', ignoreSelection: boolean = true) => {
+        const selectedIndices = paneId === 'left' ? selectedIndicesLeft : selectedIndicesRight;
+        const hasSelection = !ignoreSelection && selectedIndices.size > 0;
+        const count = hasSelection ? selectedIndices.size : (paneId === 'left' ? leftFilteredCount : rightFilteredCount);
         const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
 
         if (count <= 0) {
@@ -181,12 +181,15 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
 
             if (hasSelection) {
                 // 선택된 라인만 가져오기 🐧🎯
-                const sortedIndices = Array.from(selectedIndicesRef.current).sort((a, b) => a - b);
+                const sortedIndices = Array.from(selectedIndices).sort((a, b) => a - b);
                 const lines = await requestBookmarkedLines(sortedIndices, paneId);
                 content = lines.map(l => l.content).join('\n');
-            } else {
-                // 선택 영역 없으면 전체 복사
+            } else if (ignoreSelection) {
+                // 버튼 클릭 등으로 인한 '무시 설정'인 경우에만 전체 복사
                 content = await requestFullText();
+            } else {
+                // 단축키인데 아무것도 선택 안된 경우 -> 아무 작업 안 함 (브라우저 기본 동작 등에 맡김)
+                return;
             }
             console.timeEnd('copy-fetch');
 
@@ -227,12 +230,12 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
             console.error('[Copy] Failed', e);
             showToast('Failed to copy logs.', 'error');
         }
-    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, requestBookmarkedLines, selectedIndicesLeftRef, selectedIndicesRightRef, showToast]);
+    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, requestBookmarkedLines, selectedIndicesLeft, selectedIndicesRight, showToast]);
 
-    const handleSaveLogs = useCallback(async (paneId: 'left' | 'right') => {
-        const selectedIndicesRef = paneId === 'left' ? selectedIndicesLeftRef : selectedIndicesRightRef;
-        const hasSelection = selectedIndicesRef.current.size > 0;
-        const count = hasSelection ? selectedIndicesRef.current.size : (paneId === 'left' ? leftFilteredCount : rightFilteredCount);
+    const handleSaveLogs = useCallback(async (paneId: 'left' | 'right', ignoreSelection: boolean = true) => {
+        const selectedIndices = paneId === 'left' ? selectedIndicesLeft : selectedIndicesRight;
+        const hasSelection = !ignoreSelection && selectedIndices.size > 0;
+        const count = hasSelection ? selectedIndices.size : (paneId === 'left' ? leftFilteredCount : rightFilteredCount);
         const requestFullText = paneId === 'left' ? requestLeftFullText : requestRightFullText;
 
         if (count <= 0) {
@@ -244,11 +247,13 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
             console.time('save-fetch');
             let content = '';
             if (hasSelection) {
-                const sortedIndices = Array.from(selectedIndicesRef.current).sort((a, b) => a - b);
+                const sortedIndices = Array.from(selectedIndices).sort((a, b) => a - b);
                 const lines = await requestBookmarkedLines(sortedIndices, paneId);
                 content = lines.map(l => l.content).join('\n');
-            } else {
+            } else if (ignoreSelection) {
                 content = await requestFullText();
+            } else {
+                return;
             }
             console.timeEnd('save-fetch');
 
@@ -280,12 +285,12 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
             console.error('[Save] Failed', e);
             showToast('Failed to save logs.', 'error');
         }
-    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, requestBookmarkedLines, selectedIndicesLeftRef, selectedIndicesRightRef, showToast]);
+    }, [leftFilteredCount, rightFilteredCount, requestLeftFullText, requestRightFullText, requestBookmarkedLines, selectedIndicesLeft, selectedIndicesRight, showToast]);
 
     const handleCopyAsConfluenceTable = useCallback(async (paneId: 'left' | 'right', forceIgnoreSelection: boolean = false) => {
-        const selectedIndicesRef = paneId === 'left' ? selectedIndicesLeftRef : selectedIndicesRightRef;
-        const hasSelection = !forceIgnoreSelection && selectedIndicesRef.current.size > 0;
-        const count = hasSelection ? selectedIndicesRef.current.size : (paneId === 'left' ? leftFilteredCount : rightFilteredCount);
+        const selectedIndices = paneId === 'left' ? selectedIndicesLeft : selectedIndicesRight;
+        const hasSelection = !forceIgnoreSelection && selectedIndices.size > 0;
+        const count = hasSelection ? selectedIndices.size : (paneId === 'left' ? leftFilteredCount : rightFilteredCount);
         const requestLines = paneId === 'left' ? requestLinesLeft : requestLinesRight;
 
         if (count <= 0) {
@@ -301,7 +306,7 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
             console.time('confluence-copy-fetch');
             let lines: any[] = [];
             if (hasSelection) {
-                const sortedIndices = Array.from(selectedIndicesRef.current).sort((a, b) => a - b);
+                const sortedIndices = Array.from(selectedIndices).sort((a, b) => a - b);
                 lines = await requestBookmarkedLines(sortedIndices, paneId);
             } else {
                 lines = await requestLines(0, count);
@@ -327,7 +332,7 @@ export const useLogExportActions = (props: UseLogExportActionsProps) => {
             console.error('[Confluence Copy] Failed', e);
             showToast('Failed to copy Confluence table.', 'error');
         }
-    }, [leftFilteredCount, rightFilteredCount, requestLinesLeft, requestLinesRight, requestBookmarkedLines, selectedIndicesLeftRef, selectedIndicesRightRef, showToast]);
+    }, [leftFilteredCount, rightFilteredCount, requestLinesLeft, requestLinesRight, requestBookmarkedLines, selectedIndicesLeft, selectedIndicesRight, showToast]);
 
     return {
         handleCopyLogs,

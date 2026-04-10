@@ -25,35 +25,60 @@ export const cleanConfluenceContent = (text: string): string => {
 
 /**
  * 로그 데이터 배열을 Confluence Markdown 테이블 형식으로 변환합니다.
- * 형식: | Line | Time Diff | Content |
- *       | :--- | :--- | :--- |
+ * 형식: | Line | Time Diff | Acc. Time | Content |
+ *       | :--- | :--- | :--- | :--- |
  */
-export const convertToConfluenceTable = (lines: { lineNum: number; content: string }[]): string => {
+export const convertToConfluenceTable = (lines: { 
+    lineNum: string | number; 
+    content: string;
+    timeDiff?: string;
+    accTime?: string;
+}[]): string => {
     if (lines.length === 0) return '';
 
-    let md = '| Line | Time Diff | Content |\n| :--- | :--- | :--- |\n';
+    let md = '| Line | Time Diff | Acc. Time | Content |\n| :--- | :--- | :--- | :--- |\n';
+    const firstTs = lines.length > 0 ? extractTimestamp(lines[0].content) : null;
 
     lines.forEach((line, idx) => {
-        let timeDiff = '';
-        if (idx > 0) {
-            const prevTs = extractTimestamp(lines[idx - 1].content);
+        let timeDiff = line.timeDiff || '';
+        let accTime = line.accTime || '';
+        
+        // 값이 없을 경우에만 재계산 시도
+        if (!timeDiff || !accTime) {
             const currTs = extractTimestamp(line.content);
 
-            if (prevTs !== null && currTs !== null) {
-                const diff = currTs - prevTs;
-                const absDiff = Math.abs(diff);
-                const sign = diff >= 0 ? '+' : '-';
+            if (!timeDiff && idx > 0) {
+                const prevTs = extractTimestamp(lines[idx - 1].content);
+                if (prevTs !== null && currTs !== null) {
+                    const diff = currTs - prevTs;
+                    const absDiff = Math.abs(diff);
+                    const sign = diff >= 0 ? '+' : '-';
+                    const timeStr = absDiff < 60000 
+                        ? (absDiff / 1000).toFixed(3) + 's' 
+                        : formatDuration(absDiff);
+                    timeDiff = `${sign}${timeStr}`;
+                }
+            } else if (!timeDiff && idx === 0) {
+                // 첫 라인의 timeDiff는 비워둠 (UI와 동일)
+            }
 
-                const timeStr = absDiff < 60000
-                    ? (absDiff / 1000).toFixed(3) + 's'
-                    : formatDuration(absDiff);
-
-                timeDiff = `${sign}${timeStr}`;
+            if (!accTime) {
+                if (idx === 0) {
+                    accTime = '0.000s';
+                } else if (firstTs !== null && currTs !== null) {
+                    const accDiff = currTs - firstTs;
+                    const absAccDiff = Math.abs(accDiff);
+                    const accSign = accDiff >= 0 ? '' : '-';
+                    let accText = absAccDiff < 60000 
+                        ? (absAccDiff / 1000).toFixed(3) + 's' 
+                        : formatDuration(absAccDiff);
+                    accTime = `${accSign}${accText}`;
+                }
             }
         }
 
         const safeContent = cleanConfluenceContent(line.content);
-        md += `| ${line.lineNum} | ${timeDiff || '-'} | ${safeContent} |\n`;
+        md += `| ${line.lineNum} | ${timeDiff || '-'} | ${accTime || '-'} | ${safeContent} |\n`;
     });
 
     return md;

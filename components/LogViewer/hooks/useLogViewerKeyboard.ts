@@ -9,7 +9,7 @@ interface UseLogViewerKeyboardProps {
     onLineClick?: (index: number) => void;
     onLineDoubleClick?: (index: number) => void;
     toggleBookmark: (index: number) => void;
-    onCopy?: () => void;
+    onCopy?: (ignoreSelection?: boolean) => void;
     onShowBookmarks?: () => void;
     onFocusPaneRequest?: (direction: 'left' | 'right', visualY?: number) => void;
     isRawMode: boolean;
@@ -54,9 +54,15 @@ export function useLogViewerKeyboard({
 
         // Ctrl+C => Copy
         if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+            const selection = window.getSelection();
+            if (selection && !selection.isCollapsed) {
+                // If there's a browser text selection, allow the default behavior
+                return;
+            }
+
             if (onCopy) {
                 e.preventDefault();
-                onCopy();
+                onCopy(false); // Keyboard copy should respect line selection if it exists
                 return;
             }
             if (activeLineIndex !== undefined && activeLineIndex >= 0 && cachedLines) {
