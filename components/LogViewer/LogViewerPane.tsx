@@ -70,6 +70,7 @@ export interface LogViewerPaneProps {
     onAnalyzeSpam?: () => void; // Added
     onQuickHighlight?: (keyword: string) => void;
     onClearQuickHighlights?: () => void;
+    onSelectAll?: () => void;
 }
 
 export interface LogViewerHandle {
@@ -97,7 +98,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         isArchiveSaveEnabled = false, lineHighlightRanges, performanceHeatmap, onAnalyzePerformance,
         perfAnalysisResult, isAnalyzingPerformance = false, isActive, onJumpToLine, onJumpToRange,
         onViewRawRange, onCopyRawRange, dashboardHeight: propDashboardHeight, onDashboardHeightChange,
-        clearCacheTick, sharedBuffers, onAnalyzeSpam, onHighlightJump, onReset, onQuickHighlight, onClearQuickHighlights
+        clearCacheTick, sharedBuffers, onAnalyzeSpam, onHighlightJump, onReset, onQuickHighlight, onClearQuickHighlights,
+        onSelectAll
     } = props;
 
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
@@ -138,7 +140,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         setIsAutoScrollPaused: scrollHook.setIsAutoScrollPaused,
         onLineClick, onLineDoubleClick,
         toggleBookmark: (idx) => onToggleBookmark && onToggleBookmark(idx),
-        onCopy, onShowBookmarks, onFocusPaneRequest, isRawMode,
+        onCopy, onShowBookmarks, onFocusPaneRequest, isRawMode, onSelectAll,
         cachedLines: undefined, callbacks,
         getPageHeight: () => containerRef.current?.clientHeight || 800
     });

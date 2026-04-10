@@ -12,6 +12,7 @@ interface UseLogViewerKeyboardProps {
     onCopy?: (ignoreSelection?: boolean) => void;
     onShowBookmarks?: () => void;
     onFocusPaneRequest?: (direction: 'left' | 'right', visualY?: number) => void;
+    onSelectAll?: () => void;
     isRawMode: boolean;
     cachedLines?: Map<number, { lineNum: number, content: string }>;
     callbacks: {
@@ -34,6 +35,7 @@ export function useLogViewerKeyboard({
     onCopy,
     onShowBookmarks,
     onFocusPaneRequest,
+    onSelectAll,
     isRawMode,
     cachedLines,
     callbacks,
@@ -72,6 +74,16 @@ export function useLogViewerKeyboard({
                 } else if (line && navigator.clipboard) {
                     navigator.clipboard.writeText(line.content).catch(console.error);
                 }
+            }
+        }
+
+        // Ctrl+A => Select All
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+            if (onSelectAll) {
+                e.preventDefault();
+                e.stopPropagation();
+                onSelectAll();
+                return;
             }
         }
 
@@ -165,7 +177,7 @@ export function useLogViewerKeyboard({
                 callbacks.scrollToIndex(targetRel, { align: 'center' });
             }
         }
-    }, [activeLineIndex, totalMatches, absoluteOffset, rowHeight, setIsAutoScrollPaused, onLineClick, onLineDoubleClick, toggleBookmark, onCopy, onShowBookmarks, onFocusPaneRequest, cachedLines, callbacks, getPageHeight]);
+    }, [activeLineIndex, totalMatches, absoluteOffset, rowHeight, setIsAutoScrollPaused, onLineClick, onLineDoubleClick, toggleBookmark, onCopy, onShowBookmarks, onFocusPaneRequest, onSelectAll, cachedLines, callbacks, getPageHeight]);
 
     return { handleKeyDown };
 }

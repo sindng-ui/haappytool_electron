@@ -719,6 +719,26 @@ export const useLogExtractorLogic = ({
         lastFilterHashRight.current = '';
     }, []);
 
+    const handleSelectAllLogs = useCallback((paneId: 'left' | 'right') => {
+        const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
+        if (count <= 0) return;
+
+        // 🐧🎯 형님, 대용량 로그라도 한 번에 싹 다 선택해버리겠습니다!
+        const indices = new Set<number>();
+        for (let i = 0; i < count; i++) {
+            indices.add(i);
+        }
+
+        if (paneId === 'left') {
+            setSelectedIndicesLeft(indices);
+            showToast(`Selected all ${count.toLocaleString()} logs (Left)`, 'info');
+        } else {
+            setSelectedIndicesRight(indices);
+            showToast(`Selected all ${count.toLocaleString()} logs (Right)`, 'info');
+        }
+    }, [leftFilteredCount, rightFilteredCount, showToast]);
+
+
 
 
 
@@ -1044,6 +1064,7 @@ export const useLogExtractorLogic = ({
         clearCacheTick,
         handleViewRawRangeLeft, handleViewRawRangeRight,
         handleCopyRawRangeLeft, handleCopyRawRangeRight,
+        handleSelectAllLogs,
         onAddTab,
         addQuickHighlight: (keyword: string) => {
             if (!currentConfig || !keyword.trim()) return;

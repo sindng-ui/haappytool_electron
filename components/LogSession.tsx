@@ -78,7 +78,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
         rightViewerRef, rightWorkerReady, rightFilteredCount, requestRightLines, setActiveLineIndexRight,
         activeLineIndexRight, selectedIndicesRight, setSelectedIndicesRight, handleRightFileChange, handleRightReset, rightIndexingProgress,
-        handleCopyLogs, handleSaveLogs, handleCopyAsConfluenceTable,
+        handleCopyLogs, handleSaveLogs, handleCopyAsConfluenceTable, handleSelectAllLogs,
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
         clearLeftBookmarks, clearRightBookmarks,
         jumpToHighlight, requestBookmarkedLines, jumpToGlobalLine,
@@ -1217,6 +1217,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     fileName={leftFileName || undefined}
                                     onReset={handleLeftReset}
                                     onCopy={onCopyLeft}
+                                    onSelectAll={() => handleSelectAllLogs('left')}
                                     onCopyAsConfluenceTable={onCopyAsConfluenceTableLeft}
                                     onSave={onSaveLeft}
                                     bookmarks={leftBookmarks}
@@ -1324,6 +1325,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                         fileName={rightFileName || undefined}
                                         onReset={handleRightReset}
                                         onCopy={onCopyRight}
+                                    onSelectAll={() => handleSelectAllLogs('right')}
                                         onCopyAsConfluenceTable={onCopyAsConfluenceTableRight}
                                         onSave={onSaveRight}
                                         bookmarks={rightBookmarks}
