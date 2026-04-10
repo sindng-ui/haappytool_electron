@@ -402,8 +402,11 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     if (extractedIds.length > 0) {
                         menuItems.push({ type: 'separator' });
                         extractedIds.forEach(id => {
+                            const label = id.type === 'tag' ? `Analyze TAG: ${id.value}` : 
+                                         id.type === 'pid' ? `Analyze PID: ${id.value}` :
+                                         `Analyze TID: ${id.value}`;
                             menuItems.push({
-                                label: `Analyze Transaction: ${id.type.toUpperCase()} (${id.value})`,
+                                label,
                                 icon: <Lucide.Activity size={16} />,
                                 action: () => analyzeTransactionAction(id, targetPane)
                             });

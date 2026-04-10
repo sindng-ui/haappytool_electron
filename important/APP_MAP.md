@@ -94,6 +94,9 @@
   - `Mount Cycle Safety`: 언마운트 시 로딩 경로 캐시 강제 초기화로 로딩 누락 원천 차단.
   - `Worker Persistence`: `LogWorkerRegistry`를 통해 탭 재마운트 시 즉각적인 UI 복구 및 재인덱싱 방지.
   - `Worker Idempotency`: 동일 파일에 대한 중복 로딩 요청 무시.
+- **Transaction Analysis Fix (2026-04-10)**:
+  - **Worker Regex Fix**: `workers/workerAnalysisHandlers.ts` — PID/TID extraction regex logic fixed to handle various log formats accurately. [NEW]
+  - **Context Menu UI**: `components/LogSession.tsx` — Concise labels "Analyze PID/TID: {val}" for better UX. [NEW]
 - **Data Flow**: Log Worker(Main) ↔ Log Worker(Sub/WASM) ↔ UI (Binary Read)
 
 ### [[Log Viewer UI Architecture]]

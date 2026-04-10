@@ -19,6 +19,9 @@
 로그 추출 및 실시간 스트리밍 기능을 제공합니다.
 - **Log Settings**: 'Start Logging' 버튼 (인디고 테마의 솔리드 버튼의 기준 디자인).
 - **Interactions**: `Alt + Mouse Double Click` 시 하이라이트 토글, `Alt + Mouse Right Click` 시 모든 퀵 하이라이트 일괄 해제 기능 구현.
+- **Transaction Analysis Fix (2026-04-10)**:
+  - **Worker Regex Fix**: `workers/workerAnalysisHandlers.ts` — PID/TID 추출용 정규표현식 오류(불필요한 공백/오타) 수정으로 분석 기능 정상화.
+  - **Context Menu UI**: `components/LogSession.tsx` — "Analyze PID: 1234", "Analyze TID: 5678" 등 직관적인 레이블 개선 및 Tag 분석 연동 안정화.
 
 ### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
 - **Unified Diff Mode v2 (2026-04-06)**: 두 프로파일의 성능 차이를 직관적으로 분석하는 고도화된 비교 모드.

@@ -417,7 +417,7 @@ export const analyzeTransaction = async (
 
     if (identity.type === 'pid' || identity.type === 'tid') {
         const regexVal = val.replace(/^(P|T)(\d+)$/i, '$1\\s*$2');
-        regex = new RegExp(`(?:^| [^ 0 - 9a - zA - Z])${regexVal} (?: $ | [^ 0 - 9a - zA - Z])`, 'i');
+        regex = new RegExp(`(?:^|[^0-9a-zA-Z])${regexVal}(?:$|[^0-9a-zA-Z])`, 'i');
     }
 
     const MAX_RESULTS = 100000;
