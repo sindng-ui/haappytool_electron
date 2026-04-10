@@ -32,7 +32,7 @@
     - **Context Menu UI**: `components/LogSession.tsx` — "Analyze PID: 1234", "Analyze TID: 5678" 등 직관적인 레이블 개선 및 Tag 분석 연동 안정화.
 
 ### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
-- **Unified Diff Mode v2 (2026-04-06)**: 두 프로파일의 성능 차이를 직관적으로 분석하는 고도화된 비교 모드.
+- **Unified Diff Mode v2 (2026-04-06)**: 두 프로파일의 성능 차이를 직관적으로 분석하는 고대화된 비교 모드.
   - **Matching Engine v2**: `utils/performanceDiff.ts` — Greedy best-match + position-ratio 기반 정밀 매칭. Removed 세그먼트 추적.
   - **Function Diff Statistics**: 함수별 성능 변화 집계 및 시각화 연동.
   - **Layout Reconstruction (2026-04-06)**: 
@@ -60,6 +60,18 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - **Comprehensive Toggle**: `plugins/config.ts` — SmartThings, Tizen, AI Agent 등 14종의 실험실 플러그인 전체에 대해 개별 가시성 플래그 제공.
   - **Registry Filtering**: `plugins/registry.ts` — `visibilityMap` 테이블을 통해 각 플러그인 ID와 설정값을 매핑하여 필터링 수행.
 
----
-*Last Updated: 2026-04-10 (Plugin Visibility Management v1)*
+## 🤖 Backend Services & RAG [NEW]
 
+### [SW Issue Analyst RAG](file:///k:/Antigravity_Projects/gitbase/happytool_electron/server/rag_analyzer)
+과거 S/W 문제점 사례를 기반으로 신규 이슈에 대한 1차 분석 힌트를 제공하는 RAG 서버입니다.
+- **RAG Engine (2026-04-11)**:
+  - **Vector DB**: `ChromaDB` (Persistent)를 통한 Semantic Search 구현.
+  - **Embedding**: `Sentence-Transformers` (all-MiniLM-L6-v2) 로컬 임베딩 적용 (무료/로컬 실행).
+  - **API Server**: `FastAPI` 기반 검색 및 분석 API (포트: 8888).
+  - **Mock Data Support**: `data/mock_issues.json`을 통한 가상 문제 사례 기반 시뮬레이션 지원.
+- **Tools**:
+  - `ingest.py`: 데이터 인덱싱 스크립트.
+  - `test_query.py`: 검색 테스트용 CLI 클라이언트.
+
+---
+*Last Updated: 2026-04-11 (SW Issue Analyst RAG Prototype v1)*

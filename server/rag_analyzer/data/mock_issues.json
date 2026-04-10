@@ -1,0 +1,50 @@
+[
+  {
+    "id": "ISSUE-101",
+    "title": "Application crash on screen rotation",
+    "symptom": "When rotating the device while a playback is active, the application closes unexpectedly with a NullPointerException.",
+    "root_cause": "The media controller reference was being released in onPause but accessed in the layout orientation change handler before being recreated.",
+    "resolution": "Check for nullity of the media controller before accessing it in the layout change listener, or defer layout adjustment until onResume.",
+    "component": "UI/Multimedia"
+  },
+  {
+    "id": "ISSUE-102",
+    "title": "Network timeout during large file upload",
+    "symptom": "Uploads of files larger than 100MB consistently fail with a 'Socket Timeout' error after exactly 30 seconds.",
+    "root_cause": "The default connection timeout in the OkHttp client was set to 30s, which is insufficient for large uploads on slower networks.",
+    "resolution": "Increase writeTimeout and connectTimeout to 120s for the upload service client.",
+    "component": "Connectivity/Network"
+  },
+  {
+    "id": "ISSUE-103",
+    "title": "Memory leak in transaction history list",
+    "symptom": "The app becomes sluggish and eventually crashes after browsing transaction history for several minutes.",
+    "root_cause": "Each list item was holding a strong reference to the parent Activity context through an image loading callback that never cleared.",
+    "resolution": "Use WeakReference for the context in the callback and explicitly clear the callback in the ViewHolder's recycled state.",
+    "component": "Performance/Finance"
+  },
+  {
+    "id": "ISSUE-104",
+    "title": "Duplicate database entries on quick retry",
+    "symptom": "If the user taps the 'Submit' button twice in rapid succession, two identical records are created in the database.",
+    "root_cause": "Missing debouncing logic on the UI button and lack of a unique constraint on the transaction_id column.",
+    "resolution": "Disable the button immediately after the first click and add a UNIQUE constraint to the transaction_id column in the SQL schema.",
+    "component": "Database/Security"
+  },
+  {
+    "id": "ISSUE-105",
+    "title": "Low frame rate in animation on low-end devices",
+    "symptom": "Transition animations between pages stutter noticeably on devices with less than 4GB RAM.",
+    "root_cause": "Unoptimized high-resolution PNG assets were being scaled in real-time on the main thread during the animation.",
+    "resolution": "Replace large PNGs with VectorDrawables or webp format, and use hardware acceleration for the transition layer.",
+    "component": "UI/Core"
+  },
+  {
+    "id": "ISSUE-106",
+    "title": "Crash .NET BGC SmartThingsApp",
+    "symptom": "app crash ",
+    "root_cause": "memory address was changed by memory compaction by .NET BGC. but native callback was called with old address",
+    "resolution": "fix the issued memory address with GCHandle",
+    "component": "APP/Native"
+  }
+]

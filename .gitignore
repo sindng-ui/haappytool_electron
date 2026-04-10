@@ -52,3 +52,17 @@ RxFlow.Validator.Tests/test_details.txt
 
 # Rust 빌드 결과물 (매우 큼)
 src-wasm/target/
+
+# --------------------
+# Python 관련 제외 [NEW]
+# --------------------
+**/venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.ipynb_checkpoints/
+
+# RAG Vector DB (로컬 캐시)
+**/chroma_db/
