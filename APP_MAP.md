@@ -13,6 +13,16 @@
   - `AgentThoughtStream`: 에이전트의 사고 과정 및 진행 상태를 시퀀셜하게 보여주는 뷰어.
   - `FinalReportViewer`: 최종 분석 보고서를 마크다운 형식으로 렌더링.
 
+### [RAG Analyzer Test](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/RagAnalyzerTest/index.tsx) [NEW]
+RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플러그인입니다.
+- **UI Components**:
+  - `RagAnalyzerTest`: 메인 검색 인터페이스.
+    - **Update (2026-04-11)**: 인디고/퍼플 그라데이션 기반의 프리미엄 카드 UI 적용.
+    - **Update (2026-04-11)**: 500ms Debounce 검색 로직 및 서버 상태(8888 포트) 실시간 모니터링 기능 탑재.
+- **Interactions**:
+  - 검색 결과 유사도(`distance`)를 별점(Star Rating)으로 시각화.
+  - Root Cause 및 Resolution 힌트 카드형 레이아웃 제공.
+
 ## 🏗️ UI Components
 
 ### [Log Extractor](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogExtractor.tsx)
@@ -68,10 +78,14 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - **Vector DB**: `ChromaDB` (Persistent)를 통한 Semantic Search 구현.
   - **Embedding**: `Sentence-Transformers` (all-MiniLM-L6-v2) 로컬 임베딩 적용 (무료/로컬 실행).
   - **API Server**: `FastAPI` 기반 검색 및 분석 API (포트: 8888).
-  - **Mock Data Support**: `data/mock_issues.json`을 통한 가상 문제 사례 기반 시뮬레이션 지원.
+  - **Data Integrity**: `ingest.py` — ID 기반 **Upsert 로직** 적용으로 인덱싱 중복 방지 및 정합성 강화.
+  - **Monitoring**: `main.py` — 실시간 검색 쿼리 및 성능 메트릭 **로깅 시스템** 구축 (`rag_server.log`).
+- **Process Management (2026-04-11)**:
+  - **Lifecycle Guard**: `electron/main.cjs` — Electron 메인 프로세스에서 파이썬 서버 기동/종료를 직접 관리 (`spawn` & `SIGTERM`).
+  - **UI Integration**: `components/RagAnalyzerTest/index.tsx` — 플러그인 상단에 **서버 시작(Start Server) 버튼**과 실시간 상태 인디케이터 연동.
 - **Tools**:
   - `ingest.py`: 데이터 인덱싱 스크립트.
   - `test_query.py`: 검색 테스트용 CLI 클라이언트.
 
 ---
-*Last Updated: 2026-04-11 (SW Issue Analyst RAG Prototype v1)*
+*Last Updated: 2026-04-11 (RagAnalyzerTest Plugin Added)*

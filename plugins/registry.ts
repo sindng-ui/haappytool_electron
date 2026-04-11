@@ -22,7 +22,8 @@ import {
     NetTrafficAnalyzerPluginWrapper,
     LogAnalysisAgentPlugin,
     GaussChatAgentPlugin,
-    EverythingSearchPlugin
+    EverythingSearchPlugin,
+    RagAnalyzerTestPlugin
 } from './core/wrappers';
 
 // Registry array to hold all registered plugins
@@ -48,6 +49,7 @@ const RAW_PLUGINS: HappyPlugin[] = [
     LogAnalysisAgentPlugin,
     GaussChatAgentPlugin,
     EverythingSearchPlugin,
+    RagAnalyzerTestPlugin,
 ];
 
 // 필터링된 플러그인 목록 (실험실 플러그인 개별 제어 로직 적용)
@@ -68,6 +70,7 @@ export const ALL_PLUGINS: HappyPlugin[] = RAW_PLUGINS.filter(plugin => {
         [ToolId.LOG_ANALYSIS_AGENT]: PLUGIN_CONFIG.SHOW_LOG_ANALYSIS_AGENT,
         [ToolId.GAUSS_CHAT_AGENT]: PLUGIN_CONFIG.SHOW_GAUSS_CHAT_AGENT,
         [ToolId.EVERYTHING_SEARCH]: PLUGIN_CONFIG.SHOW_EVERYTHING_SEARCH,
+        [ToolId.RAG_ANALYZER_TEST]: PLUGIN_CONFIG.SHOW_RAG_ANALYZER_TEST,
     };
 
     // 설정 테이블에 해당 플러그인의 ID가 있으면 설정값을 따름

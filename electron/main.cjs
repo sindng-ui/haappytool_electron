@@ -454,6 +454,110 @@ app.whenReady().then(async () => {
         });
     });
 
+    // ✅ RAG 서버 관리 변수
+    let ragChildProcess = null;
+
+    ipcMain.handle('start-rag-server', async () => {
+        const { spawn } = require('child_process');
+        
+        if (ragChildProcess && !ragChildProcess.killed) {
+            return { status: 'already_running', message: 'RAG Server is already running.' };
+        }
+
+        return new Promise((resolve) => {
+            // ✅ app.getAppPath()를 사용하여 프로젝트 루트를 정확히 특정합니다.
+            const baseDir = app.getAppPath();
+            const ragDir = path.join(baseDir, 'server', 'rag_analyzer');
+            
+            // ✅ 가상환경(venv) 내의 파이썬 경로 설정
+            const venvPath = process.platform === 'win32' 
+                ? path.join(ragDir, 'venv', 'Scripts', 'python.exe')
+                : path.join(ragDir, 'venv', 'bin', 'python3');
+
+            // ✅ 가상환경 우선, 없으면 환경변수 파이썬 시도
+            let finalPython = originalFs.existsSync(venvPath) ? venvPath : null;
+            
+            if (!finalPython) {
+                finalPython = process.platform === 'win32' ? 'python' : 'python3';
+                console.log(`[RAG] ⚠️ venv not found at: ${venvPath}`);
+                console.log(`[RAG] Falling back to system command: ${finalPython}`);
+            } else {
+                console.log(`[RAG] ✅ Using venv python: ${finalPython}`);
+            }
+
+            console.log(`[RAG] Executing from CWD: ${ragDir}`);
+
+            ragChildProcess = spawn(finalPython, ['main.py'], {
+                cwd: ragDir,
+                env: { ...process.env, PYTHONUNBUFFERED: '1' },
+                stdio: ['ignore', 'pipe', 'pipe']
+            });
+
+            let started = false;
+
+            ragChildProcess.stdout.on('data', (data) => {
+                const output = data.toString();
+                console.log(`[RAG STDOUT] ${output}`);
+                // 서버가 준비되었는지 확인 (유연하게 체크)
+                const successKeywords = [
+                    'Uvicorn running on', 
+                    'Application startup complete', 
+                    'Started server process', 
+                    'FastAPI server ready'
+                ];
+                
+                if (successKeywords.some(kw => output.includes(kw))) {
+                    if (!started) {
+                        started = true;
+                        resolve({ status: 'success', message: 'RAG Server started successfully! 🐧🚀' });
+                    }
+                }
+            });
+
+            ragChildProcess.stderr.on('data', (data) => {
+                const errorOutput = data.toString();
+                console.error(`[RAG STDERR] ${errorOutput}`);
+                // 에러 로그 중에서도 가끔 성공 메시지가 섞여 나올 수 있으므로 여기서도 체크
+                if (errorOutput.includes('Uvicorn running on')) {
+                    if (!started) {
+                        started = true;
+                        resolve({ status: 'success', message: 'RAG Server started (via stderr)! 🐧🚀' });
+                    }
+                }
+            });
+
+            ragChildProcess.on('error', (err) => {
+                console.error('[RAG] Failed to start process:', err);
+                if (!started) {
+                    started = true;
+                    resolve({ status: 'error', message: err.message });
+                }
+            });
+
+            ragChildProcess.on('close', (code) => {
+                console.log(`[RAG] Process exited with code ${code}`);
+                ragChildProcess = null;
+            });
+
+            // 🐧 모델 로딩 시간을 고려하여 타임아웃을 넉넉하게 25초로 잡습니다!
+            setTimeout(() => {
+                if (!started) {
+                    started = true;
+                    // 타임아웃되어도 서버는 돌고 있을 수 있으니 성공/실패 여부를 확언하지 않고 메시지 전달
+                    resolve({ status: 'timeout', message: 'Server is taking long to start (Embedding model loading?). Please wait a moment and check status.' });
+                }
+            }, 25000);
+        });
+    });
+
+    // 앱 종료 시 자식 프로세스 정리
+    app.on('will-quit', () => {
+        if (ragChildProcess) {
+            console.log('[RAG] Terminating server process before quit...');
+            ragChildProcess.kill('SIGTERM');
+        }
+    });
+
     if (isCliMode) {
         require('./cli.cjs').runCli(args.slice(1));
         return;
