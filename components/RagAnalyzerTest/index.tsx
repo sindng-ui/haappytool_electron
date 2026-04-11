@@ -65,7 +65,7 @@ const RagAnalyzerTest: React.FC = () => {
 
   useEffect(() => {
     checkServerStatus();
-    const timer = setInterval(checkServerStatus, 5000); // 5초마다 체크
+    const timer = setInterval(checkServerStatus, 15000); // 🐧 형님, 5초는 너무 잦아서 15초로 늦췄습니다!
     return () => clearInterval(timer);
   }, [checkServerStatus]);
 
@@ -149,6 +149,18 @@ const RagAnalyzerTest: React.FC = () => {
                 }`} />
                 {serverStatus === 'online' ? 'ONLINE' : serverStatus === 'offline' ? 'OFFLINE' : 'CHECKING'}
               </div>
+
+              {/* 🐧 START SERVER 버튼을 안전한 왼쪽으로 이동! */}
+              {serverStatus === 'offline' && (
+                <button
+                  onClick={handleStartServer}
+                  disabled={startingServer}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white rounded-lg text-xs font-bold shadow-md transition-all active:scale-95 ml-2"
+                >
+                  {startingServer ? <Lucide.Loader2 size={14} className="animate-spin" /> : <Lucide.Play size={14} fill="currentColor" />}
+                  {startingServer ? 'STARTING...' : 'START SERVER'}
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-3 mt-0.5">
               <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-widest">
@@ -165,17 +177,7 @@ const RagAnalyzerTest: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Start Server Button (Compact) */}
-          {serverStatus === 'offline' && (
-            <button
-              onClick={handleStartServer}
-              disabled={startingServer}
-              className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white rounded-lg text-xs font-bold shadow-md transition-all active:scale-95"
-            >
-              {startingServer ? <Lucide.Loader2 size={14} className="animate-spin" /> : <Lucide.Play size={14} fill="currentColor" />}
-              {startingServer ? 'STARTING...' : 'START SERVER'}
-            </button>
-          )}
+          {/* 🐧 우측 상단은 윈도우 컨트롤 영역이라 비워둡니다. */}
         </div>
       </div>
 

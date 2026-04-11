@@ -32,10 +32,28 @@ app.add_middleware(
 
 # Initialize ChromaDB Client
 current_dir = os.path.dirname(os.path.abspath(__file__))
-db_path = os.path.join(current_dir, 'chroma_db')
-client = chromadb.PersistentClient(path=db_path)
-emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
-collection = client.get_or_create_collection(name="sw_issues", embedding_function=emb_fn)
+db_path = os.environ.get("RAG_DB_PATH", os.path.join(current_dir, 'chroma_db'))
+
+# 🐧🎯 형님, DB 클라이언트를 초기화합니다.
+def get_collection():
+    # 🐧 형님, 테스트 환경이면 디스크를 안 쓰고 메모리만 쓰는 EphemeralClient를 사용합니다!
+    # 이렇게 하면 Windows에서 파일 잠금(WinError 32)으로 고생할 일이 없습니다.
+    if os.environ.get("RAG_ENV") == "test":
+        client = chromadb.EphemeralClient()
+    else:
+        client = chromadb.PersistentClient(path=db_path)
+        
+    # 🐧 형님, 모델 로딩이 조금 걸릴 수 있으니 여기서 미리 해둡니다.
+    emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+    return client.get_or_create_collection(name="sw_issues", embedding_function=emb_fn)
+
+# Lazy loading collection
+_collection = None
+def get_active_collection():
+    global _collection
+    if _collection is None:
+        _collection = get_collection()
+    return _collection
 
 @app.get("/")
 async def root():
@@ -51,6 +69,7 @@ async def search_issues(q: str = Query(..., description="The symptom of the soft
     # 🐧 검색 요청 로깅
     logger.info(f"🔍 Search Query: '{q}'")
     
+    collection = get_active_collection()
     results = collection.query(
         query_texts=[q],
         n_results=3
@@ -80,8 +99,8 @@ async def search_issues(q: str = Query(..., description="The symptom of the soft
 
 @app.get("/status")
 async def get_status():
+    collection = get_active_collection()
     count = collection.count()
-    logger.info(f"📊 Status check: {count} issues indexed.")
     return {
         "total_indexed_issues": count,
         "db_path": db_path

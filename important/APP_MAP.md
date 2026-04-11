@@ -165,6 +165,21 @@
   - **실시간 스트리밍**: 가우스 2.3 Think 모델의 실시간 응답 표시.
   - **디버그 패널**: 우측 상단 `SHOW DEBUG` 버튼을 통해 raw JSON/SSE 정밀 모니터링 가능. (너비 450px 고정) [NEW]
 
+### [[RAG Issue Analyst]] 🤖🔬 [NEW]
+- **ID**: `RAG_ISSUE_ANALYST`
+- **Keywords**: [`RAG`, `LangChain`, `ChromaDB`, `Past Cases`, `Status Check`, `Issue Search`]
+- **Location**:
+  - `View`: [index.tsx](./components/RagAnalyzerTest/index.tsx)
+  - `Server`: [main.py](./server/rag_analyzer/main.py)
+  - `Data`: [mock_issues.json](./server/rag_analyzer/data/mock_issues.json)
+  - `Tests`: [tests/](./server/rag_analyzer/tests/) (API 및 DB 단위 테스트) [NEW]
+  - `Test Runner`: [run_tests.sh](./server/rag_analyzer/run_tests.sh), [run_tests.ps1](./server/rag_analyzer/run_tests.ps1) [NEW]
+- **Features**:
+  - **유사 사례 검색**: ChromaDB 벡터 DB를 활용하여 증상별 유사 과거 사례 및 해결책 제안.
+  - **서버 생명주기 관리**: Electron Main Process에서 RAG Python 서버 자동 시작 및 종료 연동.
+  - **실시간 상태 모니터링**: 15초 주기의 Health Check를 통해 서버 가용성 표시. [UPDATED]
+  - **UI 최적화**: 윈도우 컨트롤과의 간섭을 방지하도록 설게된 프리미엄 레이아웃 적용. [UPDATED]
+
 ### [[Everything Search Plugin]] 📂✨ [NEW]
 - **ID**: `EVERYTHING_SEARCH`
 - **Keywords**: [`Everything`, `파일 검색`, `voidtools`, `es.exe`, `Fast Search`, `File Explorer`]
