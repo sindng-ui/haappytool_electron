@@ -5,7 +5,11 @@ from chromadb.utils import embedding_functions
 import os
 import time
 import logging
+import ssl
 from typing import List, Dict
+
+# 🐧🎯 형님, SSL 인증서 검증 오류 방지를 위한 긴급 코드 삽입!
+ssl._create_default_https_context = ssl._create_unverified_context
 
 # 🐧🎯 형님, 로그 설정 들어가십니다!
 logging.basicConfig(

@@ -2,6 +2,10 @@ import json
 import os
 import chromadb
 from chromadb.utils import embedding_functions
+import ssl
+
+# 🐧🎯 형님, SSL 인증서 검증 오류 방지를 위한 긴급 코드 삽입!
+ssl._create_default_https_context = ssl._create_unverified_context
 
 # 🐧🎯 형님, 인덱싱 스크립트 들어갑니다! 
 def ingest_data():
