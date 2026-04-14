@@ -10,6 +10,10 @@
     - **Update (2026-04-03)**: 상단 타이틀 바에 'Debug Mode' 토글 추가.
     - **Update (2026-04-03)**: 디버그 모드 시 LLM과의 원문 통신 내역(Request/Response JSON)을 확인할 수 있는 'LLM Communication' 탭 추가.
     - **Update (2026-04-03)**: 섹션별 `card-gradient` 및 좌우 그라데이션 유리 효과(Gradient Glass Effect) 적용으로 프리미엄 UI 구현.
+    - **Update (2026-04-11)**: **RAG 통합 및 서버 자동 관리** 기능 추가.
+      - 플러그인 진입 시 RAG 서버(`localhost:8888`) 자동 실행 로직 탑재.
+      - `AgentConfigPanel`: 인디고 스타일의 RAG 검색창 추가. 500ms 디바운스 검색 및 유사 사례 상위 3개 노출.
+      - 선택된 RAG 힌트를 AI 분석의 초기 컨텍스트(`initial_hints`)에 포함하여 분석 정밀도 대폭 향상.
   - `AgentThoughtStream`: 에이전트의 사고 과정 및 진행 상태를 시퀀셜하게 보여주는 뷰어.
   - `FinalReportViewer`: 최종 분석 보고서를 마크다운 형식으로 렌더링.
 
@@ -84,8 +88,9 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - **Lifecycle Guard**: `electron/main.cjs` — Electron 메인 프로세스에서 파이썬 서버 기동/종료를 직접 관리 (`spawn` & `SIGTERM`).
   - **UI Integration**: `components/RagAnalyzerTest/index.tsx` — 플러그인 상단에 **서버 시작(Start Server) 버튼**과 실시간 상태 인디케이터 연동.
 - **Tools**:
-  - `ingest.py`: 데이터 인덱싱 스크립트.
+  - `ingest.py`: 데이터 인덱싱 스크립트. (로컬 `models/` 폴더 우선 로직 및 SSL 우회 탑재)
   - `test_query.py`: 검색 테스트용 CLI 클라이언트.
+  - `.gitignore`: `chroma_db`를 Git에 포함하고 `models/`를 제외하도록 설정됨.
 
 ---
 *Last Updated: 2026-04-11 (RagAnalyzerTest Plugin Added)*

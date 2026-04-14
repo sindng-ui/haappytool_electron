@@ -131,7 +131,23 @@ const LogAnalysisAgentPlugin: React.FC = () => {
 
   const reversedIterations = useMemo(() => [...iterations].reverse(), [iterations]);
 
+  // 🐧 에이전트 실행 시 RAG 서버 자동 시작
+  React.useEffect(() => {
+    const startServer = async () => {
+      try {
+        if ((window as any).electronAPI?.startRagServer) {
+          await (window as any).electronAPI.startRagServer();
+          console.log('RAG Server start command sent automatically. 🐧🚀');
+        }
+      } catch (err) {
+        console.error('Failed to start RAG server automatically:', err);
+      }
+    };
+    startServer();
+  }, []);
+
   return (
+
     <div className="flex flex-col h-full w-full bg-slate-950 text-slate-200 overflow-hidden font-sans">
       <div 
         className="h-10 flex items-center bg-slate-900 border-b border-slate-800 px-4 shrink-0 z-20 title-drag" 

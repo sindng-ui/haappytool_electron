@@ -85,7 +85,7 @@ export function useAnalysisAgent() {
     files: { text: string; name: string }[],
     rule: LogRule | null,
     analysisType: AnalysisType,
-    userHints?: { pid: string; tid: string; custom: string }
+    userHints?: { pid: string; tid: string; custom: string; ragHint?: any }
   ) => {
     // ─── 이미 실행 중이면 중복 실행 방지 🐧🛡️ ─────────────────────────────────
     if (state.status === 'running' || state.status === 'extracting' || state.status === 'waiting_user') {
@@ -128,6 +128,17 @@ export function useAnalysisAgent() {
           if (pid) allHints += `- Target Process ID (PID): ${pid}\n`;
           if (tid) allHints += `- Target Thread ID (TID): ${tid}\n`;
           if (custom) allHints += `- Custom Context: ${custom}\n`;
+          allHints += "\n";
+        }
+        
+        // 🐧 RAG 검색 결과가 있으면 힌트에 추가
+        if (userHints.ragHint) {
+          const { title, root_cause_hint, resolution_hint, component } = userHints.ragHint;
+          allHints += "### [RAG REFERENCE HINT (Simliar Past Issue)]\n";
+          allHints += `- Title: ${title}\n`;
+          allHints += `- Component: ${component}\n`;
+          allHints += `- Past Root Cause: ${root_cause_hint}\n`;
+          allHints += `- Past Resolution: ${resolution_hint}\n`;
           allHints += "\n";
         }
       }

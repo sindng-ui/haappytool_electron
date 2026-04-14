@@ -28,8 +28,20 @@ def ingest_data():
 
     # Initialize ChromaDB
     client = chromadb.PersistentClient(path=db_path)
-    # 로컬 임베딩 모델 사용 (all-MiniLM-L6-v2)
-    emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+    
+    # 🐧🎯 형님, 로컬 모델 폴더 확인 로직 들어갑니다! 
+    # models/all-MiniLM-L6-v2 폴더가 있으면 거기서 로드하고, 없으면 온라인에서 받습니다.
+    model_name_or_path = "all-MiniLM-L6-v2"
+    local_model_path = os.path.join(current_dir, 'models', 'all-MiniLM-L6-v2')
+    
+    if os.path.exists(local_model_path):
+        print(f"📦 Found local model at {local_model_path}. Using it! 🐧✨")
+        model_name_or_path = local_model_path
+    else:
+        print(f"🌐 Local model not found at {local_model_path}. Attempting online download... 🐧")
+
+    # 임베딩 모델 로딩
+    emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model_name_or_path)
     
     collection = client.get_or_create_collection(
         name="sw_issues",

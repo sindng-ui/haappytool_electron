@@ -1,9 +1,19 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { LogRule } from '../../../types';
 import { AnalysisType } from '../protocol';
-import { ChevronDown, FileText, Upload, X, Play, Square, Settings, Target, Layers } from 'lucide-react';
+import { ChevronDown, FileText, Upload, X, Play, Square, Settings, Target, Layers, Search, Database, Sparkles, Loader2 } from 'lucide-react';
 import { AgentRunStatus } from '../hooks/useAnalysisAgent';
 import { parseLogText } from '../services/hintExtractor';
+import { useToast } from '../../../contexts/ToastContext';
+
+interface RagHint {
+  id: string;
+  distance: number;
+  title: string;
+  root_cause_hint: string;
+  resolution_hint: string;
+  component: string;
+}
 
 interface AgentConfigPanelProps {
   status: AgentRunStatus;
@@ -12,7 +22,7 @@ interface AgentConfigPanelProps {
     files: { text: string; name: string }[],
     rule: LogRule | null,
     analysisType: AnalysisType,
-    userHints?: { pid: string; tid: string; custom: string }
+    userHints?: { pid: string; tid: string; custom: string; ragHint?: RagHint | null }
   ) => void;
   onCancel: () => void;
   onReset: () => void;
@@ -38,11 +48,23 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = React.memo(({
   const [pid, setPid] = useState<string>('');
   const [tid, setTid] = useState<string>('');
   const [userHint, setUserHint] = useState<string>('');
+  
+  // 🐧 RAG 관련 상태
+  const [ragQuery, setRagQuery] = useState('');
+  const [ragResults, setRagResults] = useState<RagHint[]>([]);
+  const [selectedRagHint, setSelectedRagHint] = useState<RagHint | null>(null);
+  const [isRagLoading, setIsRagLoading] = useState(false);
+  const [isRagServerOnline, setIsRagServerOnline] = useState(false);
+
+  // 🐧 기존 필수 상태 복구
   const [isDragOver, setIsDragOver] = useState(false);
   const [isLoadingFile, setIsLoadingFile] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const { addToast } = useToast();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const RAG_SERVER_URL = 'http://localhost:8888';
 
   const isRunning = status === 'running' || status === 'extracting' || status === 'waiting_user';
   const isDone = status === 'completed' || status === 'cancelled' || status === 'error';
@@ -90,6 +112,48 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = React.memo(({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // 🐧 RAG 서버 상태 체크
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const resp = await fetch(`${RAG_SERVER_URL}/status`);
+        setIsRagServerOnline(resp.ok);
+      } catch (err) {
+        setIsRagServerOnline(false);
+      }
+    };
+    checkStatus();
+    const timer = setInterval(checkStatus, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // 🐧 RAG 검색 로직 (Debounce)
+  useEffect(() => {
+    if (!ragQuery.trim()) {
+      setRagResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      if (!isRagServerOnline) return;
+      setIsRagLoading(true);
+      try {
+        const resp = await fetch(`${RAG_SERVER_URL}/search?q=${encodeURIComponent(ragQuery)}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          // 형님, 상위 3개만 깔끔하게 보여드리겠습니다!
+          setRagResults(data.hints?.slice(0, 3) || []);
+        }
+      } catch (err) {
+        console.error('RAG search failed:', err);
+      } finally {
+        setIsRagLoading(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [ragQuery, isRagServerOnline]);
+
   const handleStart = useCallback(() => {
     if (files.length === 0) return;
     const rule = logRules.find(r => r.id === selectedRuleId) ?? null;
@@ -97,9 +161,9 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = React.memo(({
       files.map(f => ({ text: f.text, name: f.name })),
       rule,
       analysisType,
-      { pid, tid, custom: userHint }
+      { pid, tid, custom: userHint, ragHint: selectedRagHint }
     );
-  }, [files, selectedRuleId, analysisType, logRules, onStart, pid, tid, userHint]);
+  }, [files, selectedRuleId, analysisType, logRules, onStart, pid, tid, userHint, selectedRagHint]);
 
   const handleRemoveFile = useCallback((id: string) => {
     setFiles(prev => prev.filter(f => f.id !== id));
@@ -110,6 +174,9 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = React.memo(({
     setPid('');
     setTid('');
     setUserHint('');
+    setRagQuery('');
+    setRagResults([]);
+    setSelectedRagHint(null);
     onReset();
   }, [onReset]);
 
@@ -346,6 +413,88 @@ const AgentConfigPanel: React.FC<AgentConfigPanelProps> = React.memo(({
                   />
                   <div className="absolute inset-0 rounded-xl pointer-events-none border border-white/5 bg-gradient-to-br from-white/5 to-transparent opacity-10" />
                 </div>
+              </div>
+
+              {/* 🐧 RAG 검색 섹션 */}
+              <div className="space-y-2 pt-2 border-t border-white/5">
+                <div className="flex items-center justify-between ml-1">
+                  <label className="block text-[9px] font-black text-indigo-400 uppercase tracking-[0.1em] opacity-80">
+                    Rag Search (Similar Issues)
+                  </label>
+                  {isRagServerOnline ? (
+                    <span className="text-[8px] text-emerald-500 font-bold flex items-center gap-1">
+                      <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" /> ONLINE
+                    </span>
+                  ) : (
+                    <span className="text-[8px] text-rose-500 font-bold flex items-center gap-1">
+                      <div className="w-1 h-1 rounded-full bg-rose-500" /> OFFLINE
+                    </span>
+                  )}
+                </div>
+                
+                <div className="relative">
+                  <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent" />
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <Search size={12} className={isRagLoading ? "text-indigo-400 animate-spin" : "text-slate-500"} />
+                  </div>
+                  <input
+                    type="text"
+                    value={ragQuery}
+                    onChange={e => setRagQuery(e.target.value)}
+                    disabled={isRunning || !isRagServerOnline}
+                    placeholder={isRagServerOnline ? "유사 사례 검색..." : "서버 오프라인"}
+                    className="w-full bg-[#020617] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-[11px] text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 transition-all placeholder:text-slate-600 font-bold"
+                  />
+                </div>
+
+                {/* 검색 결과 */}
+                {ragResults.length > 0 && !selectedRagHint && (
+                  <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                    {ragResults.map(hint => (
+                      <div
+                        key={hint.id}
+                        onClick={() => setSelectedRagHint(hint)}
+                        className="bg-indigo-500/5 hover:bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-2 cursor-pointer transition-all group"
+                      >
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[8px] font-black text-indigo-400 uppercase tracking-tighter opacity-70 group-hover:opacity-100">{hint.component}</span>
+                          <span className="text-[8px] font-mono text-slate-500">{(1 - hint.distance).toFixed(2)} match</span>
+                        </div>
+                        <p className="text-[10px] text-slate-300 font-bold truncate group-hover:text-white transition-colors">{hint.title}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 선택된 힌트 */}
+                {selectedRagHint && (
+                  <div className="bg-indigo-600/20 border border-indigo-400/40 rounded-xl p-3 relative group animate-in zoom-in-95 duration-200">
+                    <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-indigo-900/50">
+                      <Sparkles size={10} fill="currentColor" />
+                    </div>
+                    <button
+                      onClick={() => setSelectedRagHint(null)}
+                      className="absolute top-2 right-2 p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"
+                    >
+                      <X size={10} />
+                    </button>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Database size={10} className="text-indigo-400" />
+                      <span className="text-[9px] font-black text-indigo-200 uppercase tracking-widest leading-none">Selected Context</span>
+                    </div>
+                    <p className="text-[10px] text-white font-bold leading-tight mb-2 pr-4">{selectedRagHint.title}</p>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                       <div className="bg-black/20 p-1.5 rounded border border-white/5">
+                          <span className="text-[7px] font-black text-rose-400 uppercase block mb-0.5">Root Cause</span>
+                          <p className="text-[8px] text-slate-400 line-clamp-2 leading-tight">{selectedRagHint.root_cause_hint}</p>
+                       </div>
+                       <div className="bg-black/20 p-1.5 rounded border border-white/5">
+                          <span className="text-[7px] font-black text-emerald-400 uppercase block mb-0.5">Resolution</span>
+                          <p className="text-[8px] text-slate-400 line-clamp-2 leading-tight">{selectedRagHint.resolution_hint}</p>
+                       </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

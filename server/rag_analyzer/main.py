@@ -57,7 +57,17 @@ def get_collection():
         client = chromadb.PersistentClient(path=db_path)
         
     # 🐧 형님, 모델 로딩이 조금 걸릴 수 있으니 여기서 미리 해둡니다.
-    emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+    # 🐧🎯 형님, 로컬 모델 폴더 확인 로직 들어갑니다! 
+    path_to_model = "all-MiniLM-L6-v2"
+    local_model_path = os.path.join(current_dir, 'models', 'all-MiniLM-L6-v2')
+    
+    if os.path.exists(local_model_path):
+        logger.info(f"📦 Found local model at {local_model_path}. Using it! 🐧✨")
+        path_to_model = local_model_path
+    else:
+        logger.info(f"🌐 Local model not found at {local_model_path}. Using online model. 🐧")
+        
+    emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=path_to_model)
     return client.get_or_create_collection(name="sw_issues", embedding_function=emb_fn)
 
 # Lazy loading collection
