@@ -1,10 +1,19 @@
-import json
 import os
+
+# 🐧🎯 형님, SSL 인증서 검증 오류를 산산조각낼 V2 패치 들어갑니다!
+# 모든 import 보다 먼저 실행되어 환경 변수를 선점해야 합니다.
+os.environ['CURL_CA_BUNDLE'] = ''
+os.environ['REQUESTS_CA_BUNDLE'] = ''
+os.environ['PYTHONHTTPSVERIFY'] = '0'
+
+import json
 import chromadb
 from chromadb.utils import embedding_functions
 import ssl
+import urllib3
 
-# 🐧🎯 형님, SSL 인증서 검증 오류 방지를 위한 긴급 코드 삽입!
+# 모든 경고 메시지 차단 (깔끔하게!)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ssl._create_default_https_context = ssl._create_unverified_context
 
 # 🐧🎯 형님, 인덱싱 스크립트 들어갑니다! 
