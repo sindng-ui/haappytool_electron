@@ -86,6 +86,7 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - **Monitoring**: `main.py` — 실시간 검색 쿼리 및 성능 메트릭 **로깅 시스템** 구축 (`rag_server.log`).
 - **Process Management (2026-04-11)**:
   - **Lifecycle Guard**: `electron/main.cjs` — Electron 메인 프로세스에서 파이썬 서버 기동/종료를 직접 관리 (`spawn` & `SIGTERM`).
+    - **Update (2026-04-16)**: 패키징 시 `.asar` 내부의 파이썬 실행 불가 문제 해결을 위해 `asarUnpack` 적용 및 `app.asar.unpacked` 경로 참조 로직 추가.
   - **UI Integration**: `components/RagAnalyzerTest/index.tsx` — 플러그인 상단에 **서버 시작(Start Server) 버튼**과 실시간 상태 인디케이터 연동.
 - **Tools**:
   - `ingest.py`: 데이터 인덱싱 스크립트. (로컬 `models/` 폴더 우선 로직 및 SSL 우회 탑재)

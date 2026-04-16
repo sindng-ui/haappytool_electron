@@ -466,7 +466,12 @@ app.whenReady().then(async () => {
 
         return new Promise((resolve) => {
             // ✅ app.getAppPath()를 사용하여 프로젝트 루트를 정확히 특정합니다.
-            const baseDir = app.getAppPath();
+            let baseDir = app.getAppPath();
+            
+            // ✅ 패키징된 경우 ASAR 내부가 아닌 unpacked 폴더를 바라봐야 spawn이 가능합니다! 🐧📦
+            if (app.isPackaged) {
+                baseDir = baseDir.replace('app.asar', 'app.asar.unpacked');
+            }
             const ragDir = path.join(baseDir, 'server', 'rag_analyzer');
             
             // ✅ 가상환경(venv) 내의 파이썬 경로 설정

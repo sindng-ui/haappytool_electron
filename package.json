@@ -92,7 +92,8 @@
     "asar": true,
     "asarUnpack": [
       "**/public/wasm/*.wasm",
-      "**/*.node"
+      "**/*.node",
+      "server/rag_analyzer/**/*"
     ],
     "icon": "build/icon.png",
     "files": [

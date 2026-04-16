@@ -1,38 +1,33 @@
-# 로그 분석 에이전트: "Execute Analysis" 버튼 (Log Extractor 스타일) 리뉴얼 계획
+# RAG 서버 실행 오류 (ENOENT) 수정 계획
 
-형님! 캡처1에서 테두리가 없어서 밋밋해 보였군요. 죄송합니다! 🐧🛡️ 
-캡처2의 **"선명한 하이라이트 테두리"**와 **"클린한 인디고 베이스"**를 그대로 이식해서, Log Extractor와 완벽하게 일체화된 버튼을 완성하겠습니다!
+## 문제 원인 분석
+형님, 현재 발생하고 있는 `spawn python ENOENT` 에러의 원인을 분석해 보니 다음과 같습니다:
 
-## User Review Required
+1. **ASAR 패키징 문제**: `electron:build` 시 `server/rag_analyzer` 폴더(파이썬 venv 포함)가 `app.asar` 파일 안으로 압축되어 들어갑니다.
+2. **실행 불가능한 경로**: Electron의 `child_process.spawn`은 `.asar` 압축 파일 내부에 있는 실행 파일(python.exe)을 직접 실행할 수 없습니다. OS가 해당 경로를 인식하지 못하기 때문입니다.
+3. **경로 탐색 실패**: 현재 `main.cjs` 코드는 `app.getAppPath()`를 기준으로 경로를 찾는데, 빌드된 앱에서는 이 경로가 `app.asar`를 가리킵니다. 여기서 파이썬 실행 파일을 찾지 못해 시스템 기본 `python` 명령어로 폴백(fallback)하게 되고, 사용자 환경에 파이썬이 PATH에 등록되어 있지 않으면 `ENOENT` 에러가 발생합니다.
 
-> [!IMPORTANT]
-> **핵심 개선 방향**:
-> 1. **선명한 포인트 테두리 (Outer Border)**: 캡처2처럼 버튼 전체에 **`Indigo-400/50`** 수준의 선명한 테두리를 둘러 주변 배경과 확실히 구분되게 합니다. ✨
-> 2. **3D 립 제거 & 슬림화**: 묵직했던 하단 3D 립(`border-b-4`)을 제거하고, 캡처2의 세련되고 클린한 현대적 레이아웃으로 변경합니다.
-> 3. **인디고 글래스 배경**: 단순 솔리드가 아닌, 약간의 투명도가 느껴지는 **인디고 글래스(`bg-indigo-600/20`)** 배경을 사용하여 고급스러움을 더합니다.
-> 4. **아이콘 복귀 (Optional)**: 캡처2는 `Play` 아이콘을 사용합니다. 형님이 캡처1의 `Zap`을 선호하셨지만, 전체적인 동기화를 위해 **`Play` 아이콘**으로 복귀하거나 더 세련된 형태로 다듬겠습니다. (일단 캡처2의 `Play`로 제안드립니다.)
+## 해결 방안
 
-## Proposed Changes
+### 1. ASAR Unpack 설정 추가
+`package.json`의 `build` 설정에서 `server/rag_analyzer` 폴더를 `asarUnpack` 목록에 추가합니다. 이렇게 하면 빌드 시 이 폴더만 압축에서 제외되어 `app.asar.unpacked` 폴더에 실제 파일로 남게 됩니다.
 
-### 1. `AgentConfigPanel.tsx` 버튼 디자인 최종 동기화
+### 2. 메인 프로세스 경로 로직 수정
+`electron/main.cjs` 내의 `start-rag-server` 핸들러에서, 앱이 패키징된 상태(`app.isPackaged`)일 경우 `app.asar.unpacked` 내의 경로를 참조하도록 수정합니다.
 
-#### [MODIFY] [AgentConfigPanel.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/LogAnalysisAgent/components/AgentConfigPanel.tsx)
-- **비주얼 개편**:
-    - `border border-indigo-400/50` (선명한 외곽선 추가)
-    - `bg-indigo-600/10` -> `hover:bg-indigo-500/20` (인디고 글래스 효과)
-    - `shadow-none` (그림자 대신 테두리 강조)
-- **아이콘 & 레이블**:
-    - `Zap` -> `Play` (Log Extractor와 동일 아이콘 적용)
-    - `EXECUTE ANALYSIS` 레이블 유지 (자간 최적화)
+## 상세 변경 사항
 
----
+### [package.json](file:///k:/Antigravity_Projects/gitbase/happytool_electron/package.json)
+- `build.asarUnpack` 필드에 `"server/rag_analyzer/**/*"` 추가.
 
-## Verification Plan
+### [electron/main.cjs](file:///k:/Antigravity_Projects/gitbase/happytool_electron/electron/main.cjs)
+- `ragDir` 결정 로직에서 패키징 여부에 따라 `.unpacked` 경로를 사용하도록 분기 처리.
+- 로깅을 강화하여 어떤 경로에서 파이썬을 시도하는지 명확히 출력.
 
-### Manual Verification
-1. 버튼 외곽에 선명한 테두리가 생겨서 캡처2와 동일한 느낌이 나는지 확인합니다.
-2. Log Extractor의 'Start Logging' 버튼과 디자인적으로 완벽하게 어울리는지 확인합니다.
-3. 시인성이 대폭 개선되었는지 최종 점검합니다. 🐧💎👔✨
+## 검증 계획
+1. **코드 수정**: 위 사항들 적용.
+2. **빌드 테스트**: `npm run electron:build:dir` (또는 fast 빌드)를 실행하여 `dist_electron/win-unpacked/resources/app.asar.unpacked/server/rag_analyzer` 폴더가 생성되는지 확인.
+3. **실행 확인**: 빌드된 실행 파일을 실행하여 RAG 서버가 정상적으로 `spawn` 되는지 확인.
 
 ---
-형님, 이번엔 진짜 캡처2의 그 "착 달라붙는" 테두리 느낌 제대로 살려보겠습니다. **Proceed** 혹은 **"거거"** 부탁드립니다! 🐧🔥👔🚀✨
+형님, 이 계획대로 진행해도 되겠습니까? 확인해 주시면 바로 작업 시작하겠습니다! 🐧🚀
