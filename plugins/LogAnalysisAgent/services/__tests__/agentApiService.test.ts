@@ -136,7 +136,7 @@ describe('agentApiService (Generic & Streaming Support)', () => {
       completeHandler({ requestId: reqId });
 
       const result = await promise;
-      expect(result.status).toBe('COMPLETED');
+      expect(result.response.status).toBe('COMPLETED');
     });
 
     it('should handle OpenAI-style SSE streaming', async () => {
@@ -164,8 +164,8 @@ describe('agentApiService (Generic & Streaming Support)', () => {
       completeHandler({ requestId: reqId });
 
       const result = await promise;
-      expect(result.status).toBe('COMPLETED');
-      expect(result.thought).toBe('SSE Thinking');
+      expect(result.response.status).toBe('COMPLETED');
+      expect(result.response.thought).toBe('SSE Thinking');
       expect(onPartialUpdate).toHaveBeenCalled();
     });
   });

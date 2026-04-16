@@ -6,13 +6,13 @@ import Step2_3_FileList from './Step2_3_FileList';
 import Step4_Repackage from './Step4_Repackage';
 import Step5_FinalDownload from './Step5_FinalDownload';
 import { useToast } from '../../contexts/ToastContext';
-import JSZip from 'jszip';
+import { repackageNupkg, extractSoFilesFromZip } from './utils/nupkgUtils';
+import NupkgWorker from './workers/nupkg.worker?worker';
 
 const NupkgSigner: React.FC = () => {
     const { addToast } = useToast();
     const [state, setState] = useState<SignState>({
         originalFile: null,
-        originalZip: null,
         soFiles: [],
         currentStep: 1,
         finalNupkgBlob: null,
@@ -24,7 +24,6 @@ const NupkgSigner: React.FC = () => {
     const resetState = () => {
         setState({
             originalFile: null,
-            originalZip: null,
             soFiles: [],
             currentStep: 1,
             finalNupkgBlob: null,
@@ -36,43 +35,39 @@ const NupkgSigner: React.FC = () => {
 
     const handleFileSelect = async (file: File) => {
         setState(prev => ({ ...prev, isProcessing: true, error: null }));
-        try {
-            const zip = new JSZip();
-            const contents = await zip.loadAsync(file);
-            
-            const soItems: SoFileItem[] = [];
-            
-            for (const [path, entry] of Object.entries(contents.files)) {
-                if (!entry.dir && path.includes('runtimes/') && path.endsWith('.so')) {
-                    const blob = await entry.async('blob');
-                    soItems.push({
-                        path,
-                        basename: path.split('/').pop() || path,
-                        originalBlob: blob,
-                        checked: true,
-                    });
+        addToast("Loading nupkg in background...", "info");
+        
+        const worker = new NupkgWorker();
+        const requestId = Date.now().toString();
+
+        worker.onmessage = (e) => {
+            const { type, payload, requestId: respId } = e.data;
+            if (respId !== requestId) return;
+
+            if (type === 'EXTRACT_SO_COMPLETE') {
+                const soItems = payload;
+                if (soItems.length === 0) {
+                    addToast("No .so files found in runtimes/ folder.", "warning");
                 }
-            }
 
-            if (soItems.length === 0) {
-                addToast("No .so files found in runtimes/ folder.", "warning");
+                setState(prev => ({
+                    ...prev,
+                    originalFile: file,
+                    soFiles: soItems,
+                    currentStep: 2,
+                    isProcessing: false,
+                }));
+                addToast("Nupkg loaded successfully!", "success");
+                worker.terminate();
+            } else if (type === 'ERROR') {
+                console.error(payload);
+                setState(prev => ({ ...prev, isProcessing: false, error: "Failed to load nupkg file." }));
+                addToast("Failed to load nupkg file: " + payload, "error");
+                worker.terminate();
             }
+        };
 
-            setState(prev => ({
-                ...prev,
-                originalFile: file,
-                originalZip: contents,
-                soFiles: soItems,
-                currentStep: 2,
-                isProcessing: false,
-            }));
-            
-            addToast("Nupkg loaded successfully!", "success");
-        } catch (err: any) {
-            console.error(err);
-            setState(prev => ({ ...prev, isProcessing: false, error: "Failed to load nupkg file." }));
-            addToast("Failed to load nupkg file.", "error");
-        }
+        worker.postMessage({ type: 'EXTRACT_SO', payload: { file }, requestId });
     };
 
     const toggleSoChecked = (path: string) => {
@@ -109,6 +104,7 @@ const NupkgSigner: React.FC = () => {
         addToast("Repackaging complete!", "success");
     };
 
+
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 overflow-hidden">
             {/* Header - Optimized for Dragging */}
@@ -124,7 +120,9 @@ const NupkgSigner: React.FC = () => {
                     </div>
                     <div className="cursor-default">
                         <h1 className="text-xl font-bold tracking-tight">Nupkg Signer</h1>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Step {state.currentStep === 4 ? 3 : (state.currentStep === 5 ? 4 : state.currentStep)} / 4</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium" data-testid="step-badge">
+                            Step {state.currentStep === 4 ? 3 : (state.currentStep === 5 ? 4 : state.currentStep)} / 4
+                        </p>
                     </div>
                 </div>
                 {/* Empty space here is draggable */}

@@ -80,17 +80,23 @@ describe('useAnalysisAgent (Phase 8: Hook UT)', () => {
     });
     
     vi.mocked(sendToAgent).mockResolvedValueOnce({
-      status: 'PROCESSING',
-      thought: '분석을 시작합니다.',
-      action: { type: 'SEARCH_KEYWORD', params: { keyword: 'error' } }
+      response: {
+        status: 'PROCESSING',
+        thought: '분석을 시작합니다.',
+        action: { type: 'SEARCH_KEYWORD', params: { keyword: 'error' } }
+      },
+      requestMeta: {} as any
     });
     
     vi.mocked(executeAction).mockResolvedValueOnce('Keyword "error" found at line 100');
     
     vi.mocked(sendToAgent).mockResolvedValueOnce({
-      status: 'COMPLETED',
-      thought: '분석이 완료되었습니다.',
-      final_report: '# 최종 보고서\n문제 없음.'
+      response: {
+        status: 'COMPLETED',
+        thought: '분석이 완료되었습니다.',
+        final_report: '# 최종 보고서\n문제 없음.'
+      },
+      requestMeta: {} as any
     });
 
     let analysisPromise: Promise<void>;
@@ -167,9 +173,12 @@ describe('useAnalysisAgent (Phase 8: Hook UT)', () => {
     });
     
     vi.mocked(sendToAgent).mockResolvedValue({
-      status: 'PROCESSING',
-      thought: '계속 분석중...',
-      action: { type: 'SEARCH_KEYWORD', params: { keyword: 'dot' } }
+      response: {
+        status: 'PROCESSING',
+        thought: '계속 분석중...',
+        action: { type: 'SEARCH_KEYWORD', params: { keyword: 'dot' } }
+      },
+      requestMeta: {} as any
     });
     vi.mocked(executeAction).mockResolvedValue('Result');
 

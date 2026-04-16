@@ -417,10 +417,11 @@ export function useAnalysisAgent() {
       }
 
       // 최대 반복 초과 → 현재까지의 분석 내용으로 마무리
-      updateState({
+      setState(prev => ({
+        ...prev,
         status: 'completed',
-        finalReport: buildTimeoutReport(state.iterations, analysisType),
-      });
+        finalReport: buildTimeoutReport(prev.iterations, analysisType),
+      }));
 
     } catch (err: any) {
       updateState({

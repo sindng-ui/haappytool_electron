@@ -588,7 +588,7 @@ export const useCliHandlers = () => {
                 // ✅ Console Summary Output
                 stdout(`\n[NetTraffic] --- Analysis Summary ---`);
                 stdout(`[NetTraffic] Source: ${inputPath}`);
-                stdout(`[NetTraffic] Total Requests: ${res.insights.totalRequests.toLocaleString()}`);
+                stdout(`[NetTraffic] Total Requests: ${res.insights?.totalRequests?.toLocaleString() ?? 0}`);
                 stdout(`[NetTraffic] Unique Endpoints: ${res.data.length}`);
                 stdout(`[NetTraffic] Unique Clients (UA): ${res.uaData.length}`);
                 stdout(`[NetTraffic] Top Endpoints:`);
@@ -624,8 +624,8 @@ export const useCliHandlers = () => {
 
                 // ✅ Console Comparison Summary
                 stdout(`\n[NetTraffic] --- Comparison Summary ---`);
-                stdout(`[NetTraffic] Left Hits:  ${leftRes.insights.totalRequests.toLocaleString()}`);
-                stdout(`[NetTraffic] Right Hits: ${rightRes.insights.totalRequests.toLocaleString()}`);
+                stdout(`[NetTraffic] Left Hits:  ${leftRes.insights?.totalRequests?.toLocaleString() ?? 0}`);
+                stdout(`[NetTraffic] Right Hits: ${rightRes.insights?.totalRequests?.toLocaleString() ?? 0}`);
                 const regressions = endpointDiffs.filter((d: any) => d.diff > 0);
                 stdout(`[NetTraffic] Regressions (Increased hits): ${regressions.length}`);
                 if (regressions.length > 0) {
