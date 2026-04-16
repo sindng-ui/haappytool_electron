@@ -193,6 +193,18 @@
   - **파일 시스템 연동**: 더블 클릭 시 윈도우 탐색기 연동 및 파일 열기 지원.
   - **프리미엄 UI**: 글래스모피즘 디자인 및 파일 타입별 지능형 아이콘 적용. [NEW]
 
+### [[Nupkg Signer Plugin]] 📦🛡️ [NEW]
+- **ID**: `NUPKG_SIGNER`
+- **Keywords**: [`.nupkg`, `NuGet`, `SO Signing`, `Repackage`, `JSZip`, `Architecture Exclusion`]
+- **Location**:
+  - `View`: [index.tsx](./components/NupkgSigner/index.tsx)
+  - `Logic`: [Step4_Repackage.tsx](./components/NupkgSigner/Step4_Repackage.tsx)
+- **Features**:
+  - **마법사형 UI**: 5단계 절차를 통한 쉬운 서명 관리.
+  - **스마트 추출/제외**: `runtimes/` 폴더 내 `.so` 탐색 및 특정 아키텍처 폴더 통째로 제외 지원.
+  - **안전한 재패키징**: 원본 구조를 유지하며 서명본만 교체하여 새로운 `.nupkg` 생성.
+  - **자동 파일명 제안**: 원본이 `aaa.nupkg`인 경우 `aaa_signed.nupkg`로 저장 유도. [NEW]
+
 ### [[SpeedScope Plugin]]
 - **ID**: `plugin-speedscope`
 - **Keywords**: [`SpeedScope`, `Flame Graph`, `Performance`, `Main Thread Detection`]

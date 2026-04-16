@@ -14,6 +14,7 @@ const ReverseEngineer = React.lazy(() => import('../../components/ReverseEnginee
 const PerfTool = React.lazy(() => import('../../components/PerfTool'));
 const EverythingSearch = React.lazy(() => import('../../components/EverythingSearch'));
 const RagAnalyzerTest = React.lazy(() => import('../../components/RagAnalyzerTest'));
+const NupkgSigner = React.lazy(() => import('../../components/NupkgSigner'));
 import { ToolId } from '../../types';
 import { Network } from 'lucide-react';
 
@@ -231,6 +232,14 @@ export const RagAnalyzerTestPlugin: HappyPlugin = {
     order: 23,
 };
 
+export const NupkgSignerPlugin: HappyPlugin = {
+    id: ToolId.NUPKG_SIGNER,
+    name: 'Nupkg Signer',
+    icon: Lucide.ShieldCheck,
+    component: NupkgSigner,
+    order: 24,
+};
+
 export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
     [ToolId.LOG_EXTRACTOR]: LogExtractorPlugin,
     [ToolId.POST_TOOL]: PostToolPlugin,
@@ -254,4 +263,5 @@ export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
     [ToolId.GAUSS_CHAT_AGENT]: GaussChatAgentPlugin,
     [ToolId.EVERYTHING_SEARCH]: EverythingSearchPlugin,
     [ToolId.RAG_ANALYZER_TEST]: RagAnalyzerTestPlugin,
+    [ToolId.NUPKG_SIGNER]: NupkgSignerPlugin,
 };

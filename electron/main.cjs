@@ -299,6 +299,23 @@ app.whenReady().then(async () => {
         catch (error) { console.error('Save failed:', error); return { status: 'error', error: error.message }; }
     });
 
+    ipcMain.handle('saveNupkgFile', async (event, { data, fileName }) => {
+        const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+            defaultPath: fileName,
+            filters: [{ name: 'NuGet Package', extensions: ['nupkg'] }]
+        });
+        if (canceled || !filePath) return { status: 'canceled' };
+        try { 
+            const buffer = Buffer.from(data);
+            await fs.writeFile(filePath, buffer); 
+            return { status: 'success', filePath }; 
+        }
+        catch (error) { 
+            console.error('Save failed:', error); 
+            return { status: 'error', error: error.message }; 
+        }
+    });
+
     ipcMain.handle('copyToClipboard', async (event, text) => {
         try { const { clipboard } = require('electron'); clipboard.writeText(text); return { status: 'success' }; }
         catch (error) { console.error('Clipboard error:', error); throw error; }

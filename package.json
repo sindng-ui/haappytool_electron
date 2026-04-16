@@ -1,7 +1,7 @@
 {
   "name": "happytool",
   "private": true,
-  "version": "1.2.1",
+  "version": "1.2.2",
   "type": "module",
   "homepage": "./",
   "main": "electron/main.cjs",
@@ -43,6 +43,7 @@
     "framer-motion": "^12.33.0",
     "html-to-image": "^1.11.13",
     "jimp": "^1.6.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.469.0",
     "opencv-wasm": "^4.3.0-10",
     "pako": "^2.1.0",
