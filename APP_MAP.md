@@ -37,8 +37,9 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
 - **Performance Optimization (2026-04-16)**:
   - **Web Worker Offloading**: `workers/nupkg.worker.ts` — 대용량 `.nupkg` 처리 시 UI 스레드 차단을 방지하기 위해 모든 ZIP 압축/해제 로직을 백그라운드로 격리.
   - **Memory Efficiency**: 메인 스레드에서 무거운 `JSZip` 인스턴스를 제거하고, 필요한 데이터만 워커와 주고받는 구조로 개선.
-- **Testing**:
+- **Testing & Build Compatibility (2026-04-17)**:
   - `nupkgUtils.test.ts`: 아키텍처 제외 로직 및 바이너리 교체 무결성 검증 완료.
+  - **Build Fix**: 특정 환경에서 `jszip` 경로를 찾지 못하는 이슈 해결을 위해 `vite.config.ts`에 명시적 Alias 및 `optimizeDeps` 설정 추가.
 
 ## 🏗️ UI Components
 
@@ -109,4 +110,4 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - `.gitignore`: `chroma_db`를 Git에 포함하고 `models/`를 제외하도록 설정됨.
 
 ---
-*Last Updated: 2026-04-16 (NupkgSigner Plugin & Performance Optimization Added)*
+*Last Updated: 2026-04-17 (NupkgSigner Build Fix & Vite Config Optimization)*
