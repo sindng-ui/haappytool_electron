@@ -7,9 +7,10 @@ interface Props {
     originalName: string;
     blob: Blob;
     onReset: () => void;
+    onSuccess: () => void;
 }
 
-const Step5_FinalDownload: React.FC<Props> = ({ originalName, blob, onReset }) => {
+const Step5_FinalDownload: React.FC<Props> = ({ originalName, blob, onReset, onSuccess }) => {
     const { addToast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
@@ -27,6 +28,7 @@ const Step5_FinalDownload: React.FC<Props> = ({ originalName, blob, onReset }) =
 
             if (result.status === 'success') {
                 setIsSaved(true);
+                onSuccess(); // 🐧 형님 가라사대: 성공했다고 상단바에 알려라!
                 addToast("File saved successfully!", "success");
             } else if (result.status === 'canceled') {
                 addToast("Save canceled", "warning");

@@ -19,6 +19,7 @@ const NupkgSigner: React.FC = () => {
         error: null,
         isProcessing: false,
         progress: 0,
+        isFinalized: false
     });
 
     const resetState = () => {
@@ -30,6 +31,7 @@ const NupkgSigner: React.FC = () => {
             error: null,
             isProcessing: false,
             progress: 0,
+            isFinalized: false
         });
     };
 
@@ -80,6 +82,34 @@ const NupkgSigner: React.FC = () => {
     };
 
     const handleSignedUpload = async (path: string, file: File) => {
+        if (!file) {
+            // Remove signed version
+            setState(prev => ({
+                ...prev,
+                soFiles: prev.soFiles.map(item => 
+                    item.path === path ? { ...item, signedBlob: undefined, isSigned: false } : item
+                )
+            }));
+            return;
+        }
+
+        // 🐧 형님 가라사대: 파일명에 꼬리표가 있으면 알아서 자리를 찾아가게 하거라!
+        const fileName = file.name;
+        let targets = [path];
+        
+        if (fileName.includes('_')) {
+            const prefix = fileName.split('_')[0];
+            // soFiles 중 path에 이 prefix가 포함된 녀석들을 모두 찾음 (아키텍처/버전 폴더명 매칭)
+            const matchedPaths = state.soFiles
+                .filter(item => item.path.includes(`/${prefix}/`) || item.path.includes(`/${prefix}_`))
+                .map(item => item.path);
+            
+            if (matchedPaths.length > 0) {
+                targets = matchedPaths;
+                console.log(`[Smart Matching] Identified ${targets.length} targets for prefix: ${prefix}`);
+            }
+        }
+
         let isSigned = false;
         try {
             // Check signature (-535 bytes from end for 'g==:UEP')
@@ -96,14 +126,15 @@ const NupkgSigner: React.FC = () => {
         setState(prev => ({
             ...prev,
             soFiles: prev.soFiles.map(item => 
-                item.path === path ? { ...item, signedBlob: file, isSigned } : item
+                targets.includes(item.path) ? { ...item, signedBlob: file, isSigned } : item
             )
         }));
         
+        const displayPath = targets.length > 1 ? `${targets.length} locations (Smart Match)` : fileName;
         if (isSigned) {
-            addToast(`Valid signed version uploaded for ${path.split('/').pop()}`, "success");
+            addToast(`Valid signed version assigned to ${displayPath}`, "success");
         } else {
-            addToast(`Warning: No signature found for ${path.split('/').pop()}`, "warning");
+            addToast(`Warning: No signature found in ${fileName}`, "warning");
         }
     };
 
@@ -151,9 +182,9 @@ const NupkgSigner: React.FC = () => {
                 <div className="max-w-4xl mx-auto flex items-center justify-center">
                     {[1, 2, 4, 5].map((step, idx) => {
                         const stepNum = step === 4 ? 3 : (step === 5 ? 4 : step);
-                        const label = ["Source Upload", "Sign SO Files", "Repackage Artifact", "Final Download"][stepNum - 1];
+                        const label = ["Source Upload", "Sign SO Files", "Repackaging", "Final Download"][stepNum - 1];
                         const isActive = state.currentStep === step || (step === 2 && state.currentStep === 3);
-                        const isCompleted = state.currentStep > step;
+                        const isCompleted = state.currentStep > step || (step === 5 && state.isFinalized);
 
                         return (
                             <React.Fragment key={step}>
@@ -277,6 +308,7 @@ const NupkgSigner: React.FC = () => {
                                 originalName={state.originalFile?.name || 'package.nupkg'}
                                 blob={state.finalNupkgBlob!}
                                 onReset={resetState}
+                                onSuccess={() => setState(prev => ({ ...prev, isFinalized: true }))}
                             />
                         </motion.div>
                     )}

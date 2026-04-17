@@ -17,4 +17,5 @@ export interface SignState {
     error: string | null;
     isProcessing: boolean;
     progress: number;
+    isFinalized?: boolean;
 }
