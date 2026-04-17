@@ -626,11 +626,11 @@ app.whenReady().then(async () => {
     // 🐧 백엔드 서버 기동에 10초 타임아웃을 걸어, 서버가 늦게 떠도 화면은 일단 나오게 합니다!
     const serverStartPromise = (async () => {
         try { 
-            console.log('[DEBUG] Starting internal server loading...');
             const startTime = Date.now();
+            console.log(`[TIME] Attempting to require server/index.cjs at ${startTime}ms`);
             
             const { startServer } = require('../server/index.cjs');
-            console.log(`[DEBUG] Backend Module Loaded in ${Date.now() - startTime}ms`);
+            console.log(`[TIME] Backend Module (index.cjs) Loaded in ${Date.now() - startTime}ms`);
             
             // 🐧 10초 타임아웃과 실제 서버 시작 경쟁
             const timeoutPromise = new Promise((_, reject) => 

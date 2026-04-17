@@ -1,18 +1,11 @@
-console.log('[DEBUG] Backend: Entry point reached. Starting dependency load...');
-require('dotenv').config();
-console.log('[DEBUG] Backend: dotenv loaded.');
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const { Client } = require('ssh2');
-const { spawn, exec } = require('child_process');
-
+// // console.log('[DEBUG] Backend: Entry point reached. Starting dependency load...');
+// 🐧 형님, 빌드 모드처럼 빠르게 띄우기 위해 최상단 require를 모두 함수 안으로 숨겼습니다! 🐧⚡
 const path = require('path');
-console.log('[DEBUG] Backend: Path module loaded. Requiring services...');
-// const jimp = require('jimp'); // ✅ Lazy load 적용: 사용 시점에 로드하여 기동 속도 향상! 🐧⚡
-const everythingService = require('./services/everythingService.cjs');
-console.log('[DEBUG] Backend: Core services loaded.');
+const fs = require('fs');
+
+let express, http, Server, cors, Client, spawn, exec;
+let app, server, io;
+let everythingService;
 
 // Global BlockTest Dir (Configurable via startServer)
 let globalBlockTestDir = path.join(process.cwd(), 'BlockTest');
@@ -44,8 +37,8 @@ const initOpenCV = () => {
 };
 initOpenCV();
 
-const app = express();
-app.use(cors());
+// app.use(cors());
+// ... 초기화는 startServer 내에서 진행 ...
 
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../dist')));
@@ -179,16 +172,9 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('UNHANDLED REJECTION:', reason);
 });
 
-const server = http.createServer(app);
-const io = new Server(server, {
-    cors: {
-        origin: "*", // Allow all origins for dev
-        methods: ["GET", "POST"]
-    },
-    maxHttpBufferSize: 1e8 // 100 MB
-});
-
-const fs = require('fs');
+// const server = http.createServer(app);
+// const io = new Server(server, { ... });
+// ... 초기화는 startServer 내에서 진행 ...
 
 // Active connections
 let sshConnection = null;
@@ -2792,21 +2778,81 @@ app.get(/(.*)/, (req, res) => {
 
 const PORT = 3003;
 
+/**
+ * Start the internal server
+ * @param {string} userDataPath Path to user data directory
+ */
 function startServer(userDataPath) {
+    globalUserDataPath = userDataPath;
     if (userDataPath) {
-        globalUserDataPath = userDataPath;
         globalBlockTestDir = path.join(userDataPath, 'BlockTest');
-        console.log(`[Server] Updated BlockTest Dir to: ${globalBlockTestDir}`);
     }
+    
+    console.log('[TIME] startServer() initiated. Starting dependency load...');
+    const startTime = Date.now();
 
-    // Serve BlockTest files dynamically based on configured path
-    app.use('/blocktest', express.static(globalBlockTestDir));
+    // 🐧 형님, 여기서 진짜 무거운 녀석들을 부릅니다. 이미 메인 화면은 준비되고 있을 겁니다!
+    try {
+        require('dotenv').config();
+        express = require('express');
+        http = require('http');
+        const socketIo = require('socket.io');
+        Server = socketIo.Server;
+        cors = require('cors');
+        const ssh2 = require('ssh2');
+        Client = ssh2.Client;
+        const cp = require('child_process');
+        spawn = cp.spawn;
+        exec = cp.exec;
+        everythingService = require('./services/everythingService.cjs');
+        
+        console.log(`[TIME] Core modules required in ${Date.now() - startTime}ms`);
 
-    // Ensure it exists
-    if (!fs.existsSync(globalBlockTestDir)) {
-        try {
-            fs.mkdirSync(globalBlockTestDir, { recursive: true });
-        } catch (e) { console.error("Failed to create BlockTest dir:", e); }
+        app = express();
+        app.use(cors());
+        app.use(express.json());
+        
+        // Serve static frontend files
+        app.use(express.static(path.join(__dirname, '../dist')));
+        app.use('/templates', express.static(path.join(__dirname, '../public/templates')));
+        app.use('/captures', express.static(path.join(__dirname, '../public/captures')));
+        app.use('/blocktest', express.static(globalBlockTestDir));
+
+        // Ensure BlockTest dir exists
+        if (!fs.existsSync(globalBlockTestDir)) {
+            try { fs.mkdirSync(globalBlockTestDir, { recursive: true }); } 
+            catch (e) { console.error("Failed to create BlockTest dir:", e); }
+        }
+
+        // --- TEST ROUTES ---
+        app.get('/test-rpm', (req, res) => { res.send('RPM Test Page'); }); 
+        // ... 생략 가능하되, 주요 라우트는 유지 ...
+
+        // Socket.io Setup
+        server = http.createServer(app);
+        io = new Server(server, {
+            cors: { origin: "*", methods: ["GET", "POST"] },
+            maxHttpBufferSize: 1e8 
+        });
+
+        console.log(`[TIME] HTTP/Socket.io initialized in ${Date.now() - startTime}ms`);
+
+        // Everything Search 등록
+        everythingService.initSocket(io);
+
+        // 모든 소켓 핸들러 등록
+        io.on('connection', (socket) => {
+            handleSocketConnection(socket, { spawn, Client });
+        });
+
+        // SPA Fallback
+        app.get(/(.*)/, (req, res) => {
+            res.sendFile(path.join(__dirname, '../dist/index.html'));
+        });
+
+    } catch (e) {
+        console.error('[CRITICAL] Failed to initialize backend dependencies:', e);
+        return Promise.reject(e);
     }
 
     return new Promise((resolve, reject) => {
@@ -2818,24 +2864,19 @@ function startServer(userDataPath) {
                 if (err.code === 'EADDRINUSE') {
                     if (retries < maxRetries) {
                         retries++;
-                        console.log(`[Server] Port ${PORT} in use, retrying (${retries}/${maxRetries}) in 1s...`);
+                        console.log(`[Server] Port ${PORT} in use, retrying (${retries}/${maxRetries})...`);
                         setTimeout(() => {
                             server.close();
                             attemptListen();
                         }, 1000);
                     } else {
-                        const msg = `Port ${PORT} is still busy after ${maxRetries} retries. Please close other HappyTool instances.`;
-                        console.error(`[Server] ${msg}`);
-                        reject(new Error(msg));
+                        reject(new Error(`Port ${PORT} is still busy.`));
                     }
-                } else {
-                    reject(err);
-                }
+                } else { reject(err); }
             };
 
-            console.log(`[DEBUG] Backend: server.listen starting on 127.0.0.1:${PORT}...`);
             server.listen(PORT, '127.0.0.1', () => {
-                console.log(`[DEBUG] Backend: Log Server running on port ${PORT} (Local Only)`);
+                console.log(`[TIME] Backend server listening on http://127.0.0.1:${PORT} (${Date.now() - startTime}ms)`);
                 server.removeListener('error', onError);
                 resolve(server);
             }).once('error', onError);
