@@ -1,6 +1,6 @@
-// Use standalone UMD bundle for Worker compatibility (avoids Rollup resolution issues)
-// @ts-ignore - UMD bundle has no type declarations but works identically
-import JSZip from 'jszip/dist/jszip.js';
+// Using vendorized JSZip for offline/proxy compatibility
+// @ts-ignore
+import JSZip from '../vendor/jszip.js';
 import { SoFileItem } from '../types';
 
 /**
