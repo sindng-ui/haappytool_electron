@@ -87,7 +87,7 @@ export default defineConfig(({ mode }) => {
         'unist-util-stringify-position': path.join(__dirname, 'node_modules/unist-util-stringify-position'),
         'mdast-util-gfm': path.join(__dirname, 'node_modules/mdast-util-gfm'),
         'micromark-extension-gfm': path.join(__dirname, 'node_modules/micromark-extension-gfm'),
-        'jszip': path.resolve(__dirname, 'node_modules/jszip/dist/jszip.min.js'),
+        'jszip': path.join(__dirname, 'node_modules/jszip'),
       },
       mainFields: ['browser', 'module', 'jsnext:main', 'jsnext', 'main'],
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json'],

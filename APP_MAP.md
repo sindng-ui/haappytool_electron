@@ -109,5 +109,12 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - `test_query.py`: 검색 테스트용 CLI 클라이언트.
   - `.gitignore`: `chroma_db`를 Git에 포함하고 `models/`를 제외하도록 설정됨.
 
+## 📜 Standard Guides [NEW]
+
+### [Code Review Guide](file:///k:/Antigravity_Projects/gitbase/happytool_electron/important/CODE_REVIEW_GUIDE.md)
+형님(USER)의 요청에 따른 통합 코드 리뷰 시스템의 지침서입니다.
+- **5대 핵심 지표**: App Perf, Change Perf, Regression, RAM & CPU, Big File.
+- **Workflow**: `/code-review` 명령어 입력 시 가동되는 자동 분석 시스템.
+
 ---
-*Last Updated: 2026-04-17 (NupkgSigner Build Fix & Vite Config Optimization)*
+*Last Updated: 2026-04-17 (NupkgSigner Build Fix & Code Review System Added)*
