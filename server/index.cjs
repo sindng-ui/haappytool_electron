@@ -37,132 +37,6 @@ const initOpenCV = () => {
 };
 initOpenCV();
 
-// app.use(cors());
-// ... 초기화는 startServer 내에서 진행 ...
-
-// Serve static frontend files
-app.use(express.static(path.join(__dirname, '../dist')));
-// Serve uploaded templates
-app.use('/templates', express.static(path.join(__dirname, '../public/templates')));
-// Serve BlockTest files (reports, etc.)
-// Serve BlockTest files (reports, etc.) -> Moved to startServer to allow dynamic path
-// app.use('/blocktest', ...);
-
-// --- TEST ROUTES ---
-app.get('/test-rpm', (req, res) => {
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <head><title>RPM Test Page</title></head>
-    <body>
-        <h1>RPM Download Test</h1>
-        <p>This is a simulated package directory.</p>
-        <ul>
-            <li><a href="test-package.rpm">test-package.rpm</a></li>
-        </ul>
-    </body>
-    </html>
-    `;
-    res.send(html);
-});
-
-app.get('/test-package.rpm', (req, res) => {
-    // Construct a minimal valid CPIO archive containing 'mock.tpk'
-    // Header format: 110 bytes fixed ASCII
-    // 0-6: Magic (070701)
-    // 54-62: Filesize (8 hex)
-    // 94-102: Namesize (8 hex)
-
-    // Content: "MOCK_TPK_DATA" (13 bytes)
-    // Filename: "mock.tpk" (8 bytes + 1 null = 9 bytes)
-
-    const header = Buffer.alloc(110, '0');
-    header.write('070701', 0); // Magic
-    header.write('0000000D', 54); // Filesize = 13 (D in hex)
-    header.write('00000009', 94); // Namesize = 9
-
-    const filename = Buffer.from('mock.tpk\0'); // 9 bytes
-    // Padding after filename to 4-byte align
-    // 110 + 9 = 119. Next multiple of 4 is 120. Pad = 1 byte.
-    const namePad = Buffer.alloc(1, 0);
-
-    const content = Buffer.from('MOCK_TPK_DATA'); // 13 bytes
-    // Padding after data to 4-byte align
-    // 13 is not div by 4. Next is 16. Pad = 3 bytes.
-    const contentPad = Buffer.alloc(3, 0);
-
-    const fullBody = Buffer.concat([header, filename, namePad, content, contentPad]);
-
-    res.setHeader('Content-Type', 'application/x-rpm');
-    res.setHeader('Content-Disposition', 'attachment; filename="test-package.rpm"');
-    res.send(fullBody);
-});
-
-// --- Mock Step 1: Initial Page with Artifact Table ---
-app.get('/test-step1', (req, res) => {
-    // Current host url for absolute linking
-    const host = `http://127.0.0.1:${PORT}`;
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <body>
-        <h1>Build Info</h1>
-        <p>Some random text...</p>
-        <div>Artifacts</div> <!-- Keyword found -->
-        <p>Below is the artifact table</p>
-        <table border="1">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>HQ URL</th> <!-- Target Column -->
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>1</td>
-                    // The logic should find this URL
-                    <td><a href="${host}/test-step2">http://internal.repo/view/123</a></td> 
-                    <td>Success</td>
-                </tr>
-            </tbody>
-        </table>
-    </body>
-    </html>
-    `;
-    res.send(html);
-});
-
-// --- Mock Step 2: The Repo Directory ---
-// The user logic appends: /repos/product/armv7l/packages/armv7l/
-app.get('/test-step2/repos/product/armv7l/packages/armv7l/', (req, res) => {
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <body>
-        <h1>Index of /packages/armv7l</h1>
-        <ul>
-            <li><a href="../">Parent Directory</a></li>
-            // The logic should find this .rpm file
-            <li><a href="test-package.rpm">mock-target-app.rpm</a></li> 
-            <li><a href="other.txt">other.txt</a></li>
-        </ul>
-    </body>
-    </html>
-    `;
-    res.send(html);
-});
-
-// --- Mock Step 3: The RPM File itself (Relative link handling) ---
-// Since the browser/logic resolves relative to Step 2 URL, it will request:
-// /test-step2/repos/product/armv7l/packages/armv7l/test-package.rpm
-app.get('/test-step2/repos/product/armv7l/packages/armv7l/test-package.rpm', (req, res) => {
-    // Reuse the existing RPM generator logic by redirecting or just calling the handler
-    // For simplicity, redirect to the existing /test-package.rpm handler
-    res.redirect('/test-package.rpm');
-});
-// -------------------
-
 // --- Global Error Handlers ---
 process.on('uncaughtException', (err) => {
     console.error('UNCAUGHT EXCEPTION:', err);
@@ -171,10 +45,6 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
     console.error('UNHANDLED REJECTION:', reason);
 });
-
-// const server = http.createServer(app);
-// const io = new Server(server, { ... });
-// ... 초기화는 startServer 내에서 진행 ...
 
 // Active connections
 let sshConnection = null;
@@ -528,8 +398,6 @@ const handleSocketConnection = (socket, deps = {}) => {
             console.log('[Simulator] Cleared interval on disconnect_sdb');
         }
     });
-
-    // ...
 
     socket.on('disconnect_ssh', () => {
         logDebug('User requested SSH disconnect');
@@ -890,16 +758,10 @@ const handleSocketConnection = (socket, deps = {}) => {
     });
 
     socket.on('disconnect_sdb', () => {
-        // ...
         if (sdbProcess) {
             sdbProcess.kill();
             sdbProcess = null;
         }
-        // We don't have sdbPath here easily unless we stored it in session/closure. 
-        // Assume default sdb for disconnect or try to track it. 
-        // For simplicity, we rely on 'sdb' here or ignore if it fails, as we killed the process.
-        // spawnProc('sdb', ['disconnect']); // Removed to prevent dropping device connection
-
         socket.emit('sdb_status', { status: 'disconnected', message: 'SDB Disconnected by user' });
 
         if (debugStream) {
@@ -964,9 +826,51 @@ const handleSocketConnection = (socket, deps = {}) => {
     });
 
     socket.on('disconnect', () => {
-        // ...
-        // ...
-        if (logFileStream) { logFileStream.end(); logFileStream = null; }
+        logDebug('User requested disconnect');
+        if (scrollStreamInterval) {
+            clearInterval(scrollStreamInterval);
+            scrollStreamInterval = null;
+        }
+        if (cpuMonitorInterval) {
+            clearInterval(cpuMonitorInterval);
+            cpuMonitorInterval = null;
+        }
+        if (cpuMonitorProcess) {
+            cpuMonitorProcess.kill();
+            cpuMonitorProcess = null;
+        }
+        if (threadMonitorInterval) {
+            clearInterval(threadMonitorInterval);
+            threadMonitorInterval = null;
+        }
+        if (threadMonitorProcess) {
+            threadMonitorProcess.kill();
+            threadMonitorProcess = null;
+        }
+        if (memoryMonitorInterval) {
+            clearInterval(memoryMonitorInterval);
+            memoryMonitorInterval = null;
+        }
+        if (memoryMonitorProcess) {
+            memoryMonitorProcess.kill();
+            memoryMonitorProcess = null;
+        }
+        if (sshConnection) {
+            sshConnection.end();
+            sshConnection = null;
+        }
+        if (sdbProcess) {
+            sdbProcess.kill();
+            sdbProcess = null;
+        }
+        if (debugStream) {
+            debugStream.end();
+            debugStream = null;
+        }
+        if (logFileStream) {
+            logFileStream.end();
+            logFileStream = null;
+        }
     });
 
     socket.on('connect_sdb_remote', async ({ ip, sdbPath }) => {
@@ -1003,97 +907,12 @@ const handleSocketConnection = (socket, deps = {}) => {
             let listData = '';
             listChild.stdout.on('data', d => listData += d.toString());
             listChild.on('close', () => {
-                // simple parse or just trigger existing list logic?
-                // Let's just emit list_sdb_devices_result if we want, or rely on client to refresh
-                // But client logic refreshes on success probably.   
             });
 
         } catch (e) {
             console.error(`[SDB Remote] Error: ${e.message}`);
             socket.emit('sdb_remote_result', { success: false, error: e.message });
         }
-    });
-
-
-    // --- SDB Remote Connection Handler (for Auto-Scan button) ---
-    socket.on('connect_sdb_remote', ({ ip, sdbPath }) => {
-        console.log(`[SDB Remote] Attempting to connect to ${ip}...`);
-
-        // Try system sdb first, fallback to custom path
-        const tryConnect = (sdbBin) => {
-            return new Promise((resolve, reject) => {
-                const disconnectCmd = process.platform === 'win32'
-                    ? `chcp 65001 > nul && "${sdbBin}" disconnect ${ip}`
-                    : `"${sdbBin}" disconnect ${ip}`;
-
-                exec(disconnectCmd, (dErr) => {
-                    // Ignore disconnect errors (device might not be connected)
-                    const connectCmd = process.platform === 'win32'
-                        ? `chcp 65001 > nul && "${sdbBin}" connect ${ip}`
-                        : `"${sdbBin}" connect ${ip}`;
-
-                    exec(connectCmd, { encoding: 'utf-8', timeout: 10000 }, (cErr, stdout, stderr) => {
-                        if (cErr) {
-                            reject(new Error(stderr || cErr.message));
-                        } else {
-                            resolve(stdout);
-                        }
-                    });
-                });
-            });
-        };
-
-        // Try system sdb first
-        tryConnect('sdb')
-            .then((result) => {
-                console.log(`[SDB Remote] Connected via system sdb: ${result}`);
-
-                // Check if connection succeeded or if we need root
-                const rootCmd = process.platform === 'win32'
-                    ? `chcp 65001 > nul && sdb root on`
-                    : `sdb root on`;
-
-                exec(rootCmd, (rErr, rOut) => {
-                    const message = rOut && rOut.includes('already')
-                        ? 'Connected and rooted'
-                        : 'Connected successfully';
-                    socket.emit('sdb_remote_result', { success: true, message });
-                });
-            })
-            .catch((systemErr) => {
-                // System sdb failed, try custom path if provided
-                if (sdbPath && sdbPath.trim().length > 0) {
-                    console.log(`[SDB Remote] System sdb failed, trying custom path: ${sdbPath}`);
-                    tryConnect(sdbPath)
-                        .then((result) => {
-                            console.log(`[SDB Remote] Connected via custom sdb: ${result}`);
-
-                            const rootCmd = process.platform === 'win32'
-                                ? `chcp 65001 > nul && "${sdbPath}" root on`
-                                : `"${sdbPath}" root on`;
-
-                            exec(rootCmd, (rErr, rOut) => {
-                                const message = rOut && rOut.includes('already')
-                                    ? 'Connected and rooted'
-                                    : 'Connected successfully';
-                                socket.emit('sdb_remote_result', { success: true, message });
-                            });
-                        })
-                        .catch((customErr) => {
-                            console.error(`[SDB Remote] Both attempts failed:`, customErr.message);
-                            socket.emit('sdb_remote_result', {
-                                success: false,
-                                message: `Failed: ${customErr.message}`
-                            });
-                        });
-                } else {
-                    console.error(`[SDB Remote] System sdb failed and no custom path:`, systemErr.message);
-                    socket.emit('sdb_remote_result', {
-                        success: false,
-                        message: `Failed: ${systemErr.message}`
-                    });
-                }
-            });
     });
 
     socket.on('list_sdb_devices', ({ sdbPath } = {}) => {
@@ -1203,12 +1022,9 @@ const handleSocketConnection = (socket, deps = {}) => {
         });
     });
 
-
-
     // 2. File Persistence (BlockTest Folder)
     const BLOCK_TEST_DIR = globalBlockTestDir;
     console.log("SERVER_STARTUP: BLOCK_TEST_DIR =", BLOCK_TEST_DIR);
-
 
     // Ensure BlockTest dir exists on startup
     if (!fs.existsSync(BLOCK_TEST_DIR)) {
@@ -1323,7 +1139,6 @@ const handleSocketConnection = (socket, deps = {}) => {
             socket.emit('save_uploaded_template_result', { success: false, message: e.message });
         }
     });
-
 
     socket.on('wait_for_image_match', async ({ templatePath, timeoutMs = 10000, deviceId, sdbPath }) => {
         console.log(`[ScreenMatcher] Waiting for image match... Timeout: ${timeoutMs}ms`);
@@ -2277,7 +2092,6 @@ const handleSocketConnection = (socket, deps = {}) => {
     });
 
     socket.on('complete_tizen_path', ({ deviceId, path: partialPath, sdbPath }) => {
-        // ... (lines 1810-1822 omitted for brevity as they are unchanged logic) ...
         console.log(`[TizenExplorer] Auto-complete request for: ${partialPath}`);
         const lastSlash = partialPath.lastIndexOf('/');
         let dir, fragment;
@@ -2718,63 +2532,7 @@ const handleSocketConnection = (socket, deps = {}) => {
             console.error('Failed to open path:', e);
         }
     });
-
-    socket.on('disconnect', () => {
-        logDebug('User requested disconnect');
-        if (scrollStreamInterval) {
-            clearInterval(scrollStreamInterval);
-            scrollStreamInterval = null;
-        }
-        if (cpuMonitorInterval) {
-            clearInterval(cpuMonitorInterval);
-            cpuMonitorInterval = null;
-        }
-        if (cpuMonitorProcess) {
-            cpuMonitorProcess.kill();
-            cpuMonitorProcess = null;
-        }
-        if (threadMonitorInterval) {
-            clearInterval(threadMonitorInterval);
-            threadMonitorInterval = null;
-        }
-        if (threadMonitorProcess) {
-            threadMonitorProcess.kill();
-            threadMonitorProcess = null;
-        }
-        if (memoryMonitorInterval) {
-            clearInterval(memoryMonitorInterval);
-            memoryMonitorInterval = null;
-        }
-        if (memoryMonitorProcess) {
-            memoryMonitorProcess.kill();
-            memoryMonitorProcess = null;
-        }
-        if (sshConnection) {
-            sshConnection.end();
-            sshConnection = null;
-        }
-        if (sdbProcess) {
-            sdbProcess.kill();
-            sdbProcess = null;
-        }
-        if (debugStream) {
-            debugStream.end();
-            debugStream = null;
-        }
-        if (logFileStream) {
-            logFileStream.end();
-            logFileStream = null;
-        }
-    });
-
 };
-
-io.on('connection', handleSocketConnection);
-
-// SPA Fallback for non-API routes
-app.get(/(.*)/, (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
 
 const PORT = 3003;
 
@@ -2824,9 +2582,41 @@ function startServer(userDataPath) {
             catch (e) { console.error("Failed to create BlockTest dir:", e); }
         }
 
-        // --- TEST ROUTES ---
-        app.get('/test-rpm', (req, res) => { res.send('RPM Test Page'); }); 
-        // ... 생략 가능하되, 주요 라우트는 유지 ...
+        // --- TEST ROUTES (Merged & Corrected) ---
+        app.get('/test-rpm', (req, res) => {
+            const html = `<!DOCTYPE html><html><body><h1>RPM Download Test</h1><ul><li><a href="test-package.rpm">test-package.rpm</a></li></ul></body></html>`;
+            res.send(html);
+        });
+
+        app.get('/test-package.rpm', (req, res) => {
+            const header = Buffer.alloc(110, '0');
+            header.write('070701', 0);
+            header.write('0000000D', 54);
+            header.write('00000009', 94);
+            const filename = Buffer.from('mock.tpk\0');
+            const namePad = Buffer.alloc(1, 0);
+            const content = Buffer.from('MOCK_TPK_DATA');
+            const contentPad = Buffer.alloc(3, 0);
+            const fullBody = Buffer.concat([header, filename, namePad, content, contentPad]);
+            res.setHeader('Content-Type', 'application/x-rpm');
+            res.setHeader('Content-Disposition', 'attachment; filename="test-package.rpm"');
+            res.send(fullBody);
+        });
+
+        app.get('/test-step1', (req, res) => {
+            const host = `http://127.0.0.1:${PORT}`;
+            const html = `<!DOCTYPE html><html><body><h1>Build Info</h1><div>Artifacts</div><table border="1"><tbody><tr><td>1</td><td><a href="${host}/test-step2">URL</a></td><td>Success</td></tr></tbody></table></body></html>`;
+            res.send(html);
+        });
+
+        app.get('/test-step2/repos/product/armv7l/packages/armv7l/', (req, res) => {
+            const html = `<!DOCTYPE html><html><body><h1>Package Index</h1><ul><li><a href="test-package.rpm">mock-target-app.rpm</a></li></ul></body></html>`;
+            res.send(html);
+        });
+
+        app.get('/test-step2/repos/product/armv7l/packages/armv7l/test-package.rpm', (req, res) => {
+            res.redirect('/test-package.rpm');
+        });
 
         // Socket.io Setup
         server = http.createServer(app);
