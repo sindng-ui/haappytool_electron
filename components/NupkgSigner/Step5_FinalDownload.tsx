@@ -22,11 +22,8 @@ const Step5_FinalDownload: React.FC<Props> = ({ originalName, blob, onReset }) =
             const arrayBuffer = await blob.arrayBuffer();
             const uint8Array = new Uint8Array(arrayBuffer);
             
-            // Using Electron IPC to save file via Dialog
-            const result = await (window as any).electron.ipcRenderer.invoke('saveNupkgFile', {
-                data: uint8Array,
-                fileName: targetName
-            });
+            // Using standard electronAPI exposed via preload.cjs
+            const result = await (window as any).electronAPI.saveBinaryFile(uint8Array, targetName);
 
             if (result.status === 'success') {
                 setIsSaved(true);

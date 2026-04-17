@@ -79,14 +79,32 @@ const NupkgSigner: React.FC = () => {
         }));
     };
 
-    const handleSignedUpload = (path: string, file: File) => {
+    const handleSignedUpload = async (path: string, file: File) => {
+        let isSigned = false;
+        try {
+            // Check signature (-535 bytes from end for 'g==:UEP')
+            const start = Math.max(0, file.size - 535);
+            const slice = file.slice(start);
+            const text = await slice.text();
+            if (text.includes('g==:UEP')) {
+                isSigned = true;
+            }
+        } catch (e) {
+            console.error("Signature check error", e);
+        }
+
         setState(prev => ({
             ...prev,
             soFiles: prev.soFiles.map(item => 
-                item.path === path ? { ...item, signedBlob: file } : item
+                item.path === path ? { ...item, signedBlob: file, isSigned } : item
             )
         }));
-        addToast(`Signed version uploaded for ${path.split('/').pop()}`, "success");
+        
+        if (isSigned) {
+            addToast(`Valid signed version uploaded for ${path.split('/').pop()}`, "success");
+        } else {
+            addToast(`Warning: No signature found for ${path.split('/').pop()}`, "warning");
+        }
     };
 
     const startRepackaging = async () => {

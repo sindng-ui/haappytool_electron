@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SoFileItem } from './types';
-import { Download, Upload, Trash2, ArrowLeft, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Download, Upload, Trash2, ArrowLeft, Zap, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
 }
 
 const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedUpload, onProcess, onBack }) => {
+    const [dragOverPath, setDragOverPath] = useState<string | null>(null);
     const checkedCount = soFiles.filter(f => f.checked).length;
     const signedCount = soFiles.filter(f => f.checked && f.signedBlob).length;
 
@@ -73,8 +74,22 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                     soFiles.map((file) => (
                         <div 
                             key={file.path}
-                            className={`grid grid-cols-[auto_1fr_auto_auto] gap-4 px-6 py-4 border-b border-slate-100 dark:border-slate-800 items-center transition-colors ${
-                                !file.checked ? 'bg-slate-50/50 dark:bg-slate-900/30 opacity-60' : 'hover:bg-indigo-50/30 dark:hover:bg-indigo-500/5'
+                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if(file.checked) setDragOverPath(file.path); }}
+                            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverPath(null); }}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDragOverPath(null);
+                                if (file.checked && e.dataTransfer.files?.[0]) {
+                                    onSignedUpload(file.path, e.dataTransfer.files[0]);
+                                }
+                            }}
+                            className={`grid grid-cols-[auto_1fr_auto_auto] gap-4 px-6 py-4 border-b border-slate-100 dark:border-slate-800 items-center transition-all ${
+                                !file.checked 
+                                    ? 'bg-slate-50/50 dark:bg-slate-900/30 opacity-60' 
+                                    : dragOverPath === file.path
+                                        ? 'bg-indigo-50/80 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/50 scale-[1.01] shadow-md z-10 relative'
+                                        : 'hover:bg-indigo-50/30 dark:hover:bg-indigo-500/5'
                             }`}
                         >
                             {/* Checkbox */}
@@ -90,7 +105,7 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                             </button>
 
                             {/* Path */}
-                            <div className="flex flex-col min-w-0">
+                            <div className="flex flex-col min-w-0 pointer-events-none">
                                 <span className={`text-sm font-medium truncate ${file.checked ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}>
                                     {file.basename}
                                 </span>
@@ -119,8 +134,12 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                             <div className="w-48 flex items-center justify-center">
                                 {file.checked ? (
                                     file.signedBlob ? (
-                                        <div className="flex items-center gap-2 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-500/20 w-full group overflow-hidden relative">
-                                            <CheckCircle2 size={14} className="flex-shrink-0" />
+                                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border w-full group overflow-hidden relative transition-colors ${
+                                            file.isSigned 
+                                                ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
+                                                : 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/20'
+                                        }`}>
+                                            {file.isSigned ? <CheckCircle2 size={14} className="flex-shrink-0" /> : <XCircle size={14} className="flex-shrink-0" />}
                                             <span className="text-xs font-bold truncate flex-1 leading-none">{file.signedBlob instanceof File ? (file.signedBlob as File).name : 'Signed SO'}</span>
                                             <button 
                                                 onClick={() => onSignedUpload(file.path, undefined as any)}
@@ -130,10 +149,14 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                                             </button>
                                         </div>
                                     ) : (
-                                        <label className="w-full cursor-pointer group">
-                                            <div className="flex items-center justify-center gap-2 bg-indigo-50 dark:bg-indigo-500/5 hover:bg-indigo-100 dark:hover:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg border border-dashed border-indigo-300 dark:border-indigo-500/30 transition-all text-xs font-bold uppercase tracking-tighter">
+                                        <label className={`w-full cursor-pointer group ${dragOverPath === file.path ? 'pointer-events-none' : ''}`}>
+                                            <div className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border border-dashed transition-all text-xs font-bold uppercase tracking-tighter ${
+                                                dragOverPath === file.path 
+                                                    ? 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-400 dark:border-indigo-500/50'
+                                                    : 'bg-indigo-50 dark:bg-indigo-500/5 hover:bg-indigo-100 dark:hover:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-500/30'
+                                            }`}>
                                                 <Upload size={12} />
-                                                <span>Upload Signed</span>
+                                                <span>{dragOverPath === file.path ? 'Drop Here' : 'Upload Signed'}</span>
                                             </div>
                                             <input 
                                                 type="file" 
