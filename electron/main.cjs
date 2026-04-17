@@ -18,6 +18,7 @@ if (app && app.commandLine) {
   app.commandLine.appendSwitch('disable-gpu');
   app.commandLine.appendSwitch('disable-software-rasterizer');
   app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('no-proxy-server', '127.0.0.1,localhost'); // ✅ 형님, 회사 프록시가 로컬 호스트를 가로채지 못하게 원천 차단합니다! 🐧🚫
   app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer');
   // ✅ GPU 캐시 오류 수정: 캐시 크기 0으로 설정하여 캐시 생성 시도를 막음 🐧🔧
   app.commandLine.appendSwitch('disk-cache-size', '0');
@@ -621,13 +622,33 @@ app.whenReady().then(async () => {
 
     let serverStarted = false;
     let serverError = null;
+    
+    // 🐧 백엔드 서버 기동에 10초 타임아웃을 걸어, 서버가 늦게 떠도 화면은 일단 나오게 합니다!
     const serverStartPromise = (async () => {
         try { 
+            console.log('[DEBUG] Starting internal server loading...');
+            const startTime = Date.now();
+            
             const { startServer } = require('../server/index.cjs');
-            await startServer(app.getPath('userData')); 
+            console.log(`[DEBUG] Backend Module Loaded in ${Date.now() - startTime}ms`);
+            
+            // 🐧 10초 타임아웃과 실제 서버 시작 경쟁
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Server Timeout after 10s')), 10000)
+            );
+
+            await Promise.race([
+                startServer(app.getPath('userData')),
+                timeoutPromise
+            ]);
+            
+            console.log(`[DEBUG] Internal server listen success in ${Date.now() - startTime}ms`);
             serverStarted = true; 
         }
-        catch (e) { serverError = e; console.error('Failed to start internal server:', e); }
+        catch (e) { 
+            serverError = e; 
+            console.error('[ERROR] Failed to start internal server or timeout:', e); 
+        }
     })();
 
     // ✅ 서버가 켜질 때까지 가짜 진행률

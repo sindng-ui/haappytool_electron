@@ -1,4 +1,6 @@
+console.log('[DEBUG] Backend: Entry point reached. Starting dependency load...');
 require('dotenv').config();
+console.log('[DEBUG] Backend: dotenv loaded.');
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -7,8 +9,10 @@ const { Client } = require('ssh2');
 const { spawn, exec } = require('child_process');
 
 const path = require('path');
+console.log('[DEBUG] Backend: Path module loaded. Requiring jimp and services...');
 const jimp = require('jimp');
 const everythingService = require('./services/everythingService.cjs');
+console.log('[DEBUG] Backend: Core services loaded.');
 
 // Global BlockTest Dir (Configurable via startServer)
 let globalBlockTestDir = path.join(process.cwd(), 'BlockTest');
@@ -18,14 +22,14 @@ let globalUserDataPath = null;
 let cv = null;
 try {
     if (process.env.NODE_ENV !== 'test') {
+        console.log('[DEBUG] Backend: Attempting to require opencv-wasm...');
         const cvModule = require('opencv-wasm');
         if (cvModule && typeof cvModule.then === 'function') {
             cvModule.then(c => {
                 cv = c;
-                console.log('OpenCV (WASM) Loaded');
+                console.log('[DEBUG] Backend: OpenCV (WASM) Loaded successfully.');
             });
         } else {
-            // Handling if it returns structure directly (unlikely for this package but safely handling)
             cv = cvModule;
         }
     }
@@ -2823,8 +2827,9 @@ function startServer(userDataPath) {
                 }
             };
 
+            console.log(`[DEBUG] Backend: server.listen starting on 127.0.0.1:${PORT}...`);
             server.listen(PORT, '127.0.0.1', () => {
-                console.log(`Log Server running on port ${PORT} (Local Only)`);
+                console.log(`[DEBUG] Backend: Log Server running on port ${PORT} (Local Only)`);
                 server.removeListener('error', onError);
                 resolve(server);
             }).once('error', onError);

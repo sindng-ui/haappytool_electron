@@ -26,6 +26,7 @@
   - `Fake Progress`: 서버 기동 시 0->95%까지 서서히 증가하여 대기 시간 시각화 (`main.cjs`)
   - `Progress Creep`: 플러그인 로드 대기 시 98->99.9%까지 점진적으로 증가하여 활동성 확보 (`LoadingSplash.tsx`)
   - `Log Streaming`: 부팅 로그 필터 완화로 실시간 초기화 과정 노출 (`main.cjs` console override)
+  - `Startup Safeguard`: 백엔드 기동 지연 시 무한 로딩을 방지하기 위한 10초 타임아웃 레이스 도입 및 상세 진단 로그 강화 [NEW]
 - **Data Flow**: `localStorage` -> `Settings Load` -> `Context State` -> `Plugin Injection`
 
 ### [[Plugin Registry & Injection]]

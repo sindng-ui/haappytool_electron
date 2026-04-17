@@ -10,7 +10,7 @@
     "clean": "rimraf dist dist_electron",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:dev": "concurrently -k \"set CHOKIDAR_USEPOLLING=true && vite\" \"wait-on tcp:3000 && electron .\"",
+    "electron:dev": "concurrently -k \"set CHOKIDAR_USEPOLLING=true && vite\" \"wait-on --no-proxy tcp:127.0.0.1:3000 && electron .\"",
     "cli": "electron . cli",
     "electron:build": "node scripts/cleanup_build.cjs && vite build && electron-builder",
     "electron:build:dir": "node scripts/cleanup_build.cjs && vite build && electron-builder --dir --win --x64",
