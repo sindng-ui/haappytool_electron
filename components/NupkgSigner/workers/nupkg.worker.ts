@@ -1,4 +1,6 @@
-import JSZip from 'jszip';
+// Worker uses standalone UMD bundle to avoid Rollup resolution issues in worker builds
+// @ts-ignore - UMD bundle has no type declarations but works identically
+import JSZip from 'jszip/dist/jszip.js';
 import { repackageNupkg, extractSoFilesFromZip } from '../utils/nupkgUtils';
 
 const ctx: Worker = self as any;

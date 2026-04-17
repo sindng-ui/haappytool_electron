@@ -45,8 +45,7 @@ export default defineConfig(({ mode }) => {
         'micromark',
         'unist-util-stringify-position',
         'mdast-util-gfm',
-        'micromark-extension-gfm',
-        'jszip'
+        'micromark-extension-gfm'
       ],
     },
     build: {
@@ -108,8 +107,7 @@ export default defineConfig(({ mode }) => {
         /^property-information/,
         /^hast-util-whitespace/,
         /^space-separated-tokens/,
-        /^comma-separated-tokens/,
-        /^jszip/
+        /^comma-separated-tokens/
       ]
     },
     test: {

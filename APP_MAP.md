@@ -39,7 +39,7 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
   - **Memory Efficiency**: 메인 스레드에서 무거운 `JSZip` 인스턴스를 제거하고, 필요한 데이터만 워커와 주고받는 구조로 개선.
 - **Testing & Build Compatibility (2026-04-17)**:
   - `nupkgUtils.test.ts`: 아키텍처 제외 로직 및 바이너리 교체 무결성 검증 완료.
-  - **Build Fix**: 특정 환경에서 `jszip` 경로를 찾지 못하는 이슈 해결을 위해 `vite.config.ts`에 명시적 Alias 및 `optimizeDeps` 설정 추가.
+  - **Build Fix**: Worker 빌드 시 `jszip` bare import 해석 실패 문제를 해결하기 위해, Worker 및 관련 유틸에서 standalone UMD 번들(`jszip/dist/jszip.js`)을 직접 import하도록 변경. 어떤 환경에서든 `npm install`만 하면 빌드 가능.
 
 ## 🏗️ UI Components
 
