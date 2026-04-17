@@ -1,6 +1,9 @@
-// Using vendorized JSZip for offline/proxy compatibility
+// Load JSZip from public vendor folder to avoid build resolution issues
 // @ts-ignore
-import JSZip from '../vendor/jszip.js';
+importScripts('/vendor/jszip.min.js');
+// Explicitly declare JSZip for the worker context
+declare const JSZip: any;
+
 import { repackageNupkg, extractSoFilesFromZip } from '../utils/nupkgUtils';
 
 const ctx: Worker = self as any;

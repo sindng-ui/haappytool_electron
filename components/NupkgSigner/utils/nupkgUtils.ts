@@ -1,6 +1,5 @@
-// Using vendorized JSZip for offline/proxy compatibility
-// @ts-ignore
-import JSZip from '../vendor/jszip.js';
+// Import type only to avoid bundling JSZip in the main build
+import type JSZip from 'jszip';
 import { SoFileItem } from '../types';
 
 /**
