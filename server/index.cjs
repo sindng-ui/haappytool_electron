@@ -9,8 +9,8 @@ const { Client } = require('ssh2');
 const { spawn, exec } = require('child_process');
 
 const path = require('path');
-console.log('[DEBUG] Backend: Path module loaded. Requiring jimp and services...');
-const jimp = require('jimp');
+console.log('[DEBUG] Backend: Path module loaded. Requiring services...');
+// const jimp = require('jimp'); // ✅ Lazy load 적용: 사용 시점에 로드하여 기동 속도 향상! 🐧⚡
 const everythingService = require('./services/everythingService.cjs');
 console.log('[DEBUG] Backend: Core services loaded.');
 
@@ -20,22 +20,29 @@ let globalUserDataPath = null;
 
 // Lazy load OpenCV
 let cv = null;
-try {
-    if (process.env.NODE_ENV !== 'test') {
-        console.log('[DEBUG] Backend: Attempting to require opencv-wasm...');
-        const cvModule = require('opencv-wasm');
-        if (cvModule && typeof cvModule.then === 'function') {
-            cvModule.then(c => {
-                cv = c;
-                console.log('[DEBUG] Backend: OpenCV (WASM) Loaded successfully.');
-            });
-        } else {
-            cv = cvModule;
+// 🐧 형님, opencv-wasm은 require만 해도 수십 초가 걸릴 수 있습니다. 
+// 그래서 서버가 기동된 후 5초 뒤에 백그라운드에서 조용히 로드되도록 변경합니다! 🐧🛡️
+const initOpenCV = () => {
+    setTimeout(() => {
+        try {
+            if (process.env.NODE_ENV !== 'test') {
+                console.log('[DEBUG] Backend: Lazy loading opencv-wasm in background...');
+                const cvModule = require('opencv-wasm');
+                if (cvModule && typeof cvModule.then === 'function') {
+                    cvModule.then(c => {
+                        cv = c;
+                        console.log('[DEBUG] Backend: OpenCV (WASM) Loaded successfully in background.');
+                    });
+                } else {
+                    cv = cvModule;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to lazy load opencv-wasm:', e);
         }
-    }
-} catch (e) {
-    console.error('Failed to load opencv-wasm:', e);
-}
+    }, 5000); // 5초 뒤에 여유롭게 시작!
+};
+initOpenCV();
 
 const app = express();
 app.use(cors());
@@ -1379,10 +1386,8 @@ const handleSocketConnection = (socket, deps = {}) => {
 
                 if (fs.existsSync(localPath)) {
                     // 2. Match
+                    const jimp = require('jimp'); // ✅ Lazy require
                     const screenImg = await jimp.read(localPath);
-                    // For template, we assume it's an absolute path on server.
-                    // If the user uploaded it, it should be in public/captures or similar.
-                    // If templatePath is invalid, this throws.
                     const templImg = await jimp.read(templatePath);
 
                     const src = cv.matFromImageData(screenImg.bitmap);
@@ -1606,6 +1611,7 @@ const handleSocketConnection = (socket, deps = {}) => {
 
             // Let's rely on standard jimp.read() which handles paths and buffers.
 
+            const jimp = require('jimp'); // ✅ Lazy require
             const screenImg = await jimp.read(realScreenPath);
             const templImg = await jimp.read(templatePath); // templatePath can be data:image/png;base64,...
 

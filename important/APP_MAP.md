@@ -27,6 +27,8 @@
   - `Progress Creep`: 플러그인 로드 대기 시 98->99.9%까지 점진적으로 증가하여 활동성 확보 (`LoadingSplash.tsx`)
   - `Log Streaming`: 부팅 로그 필터 완화로 실시간 초기화 과정 노출 (`main.cjs` console override)
   - `Startup Safeguard`: 백엔드 기동 지연 시 무한 로딩을 방지하기 위한 10초 타임아웃 레이스 도입 및 상세 진단 로그 강화 [NEW]
+  - `Module Lazy Loading`: `opencv-wasm`, `jimp` 등 무거운 백엔드 라이브러리를 기동 이후(5초)로 지연 로딩하여 30초 구동 지연 해결 [NEW]
+  - `Vite Pre-bundling`: `jszip`, `pako` 등을 사전 최적화 목록에 추가하여 초기 번들링 속도 개선 [NEW]
 - **Data Flow**: `localStorage` -> `Settings Load` -> `Context State` -> `Plugin Injection`
 
 ### [[Plugin Registry & Injection]]
