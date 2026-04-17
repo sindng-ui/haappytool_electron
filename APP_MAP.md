@@ -116,5 +116,10 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 - **5대 핵심 지표**: App Perf, Change Perf, Regression, RAM & CPU, Big File.
 - **Workflow**: `/code-review` 명령어 입력 시 가동되는 자동 분석 시스템.
 
+### [Dependency Issues Guide](file:///k:/Antigravity_Projects/gitbase/happytool_electron/docs/DEPENDENCY_ISSUES.md) [NEW]
+신규 node 모듈 추가 시 발생하는 환경 이슈(프록시, 빌드 에러)와 해결 사례를 모아놓은 지식 창고입니다.
+- **주요 사례**: JSZip (Vite Worker & Proxy Conflict)
+- **핵심 전략**: Public Vendor화, Runtime Loading, Type-Only Import.
+
 ---
-*Last Updated: 2026-04-17 (NupkgSigner Build Fix & Code Review System Added)*
+*Last Updated: 2026-04-17 (NupkgSigner Build Fix & Knowledge Base Added)*
