@@ -33,6 +33,7 @@ export default defineConfig(({ mode }) => {
         'react',
         'react-dom',
         'lucide-react',
+        'framer-motion',
         'react-markdown',
         'remark-gfm',
         'unified',

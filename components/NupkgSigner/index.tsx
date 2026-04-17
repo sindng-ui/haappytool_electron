@@ -6,7 +6,6 @@ import Step2_3_FileList from './Step2_3_FileList';
 import Step4_Repackage from './Step4_Repackage';
 import Step5_FinalDownload from './Step5_FinalDownload';
 import { useToast } from '../../contexts/ToastContext';
-import { repackageNupkg, extractSoFilesFromZip } from './utils/nupkgUtils';
 import NupkgWorker from './workers/nupkg.worker?worker';
 
 const NupkgSigner: React.FC = () => {

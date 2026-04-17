@@ -1,5 +1,10 @@
 import { HappyPlugin } from '../types';
-import * as Lucide from 'lucide-react';
+import { 
+    FileText, Send, Braces, Archive, Smartphone, Pickaxe, Workflow, 
+    Activity, Search, SearchCode, Blocks, Cpu, LayoutDashboard, 
+    Scan, Bot, Zap, Gauge, BrainCircuit, MessageSquare, ShieldCheck, 
+    Network 
+} from 'lucide-react';
 import React from 'react';
 
 // Lazy Load Components
@@ -16,9 +21,8 @@ const EverythingSearch = React.lazy(() => import('../../components/EverythingSea
 const RagAnalyzerTest = React.lazy(() => import('../../components/RagAnalyzerTest'));
 const NupkgSigner = React.lazy(() => import('../../components/NupkgSigner'));
 import { ToolId } from '../../types';
-import { Network } from 'lucide-react';
 
-const { FileText, Send, Braces, Archive, Smartphone, Pickaxe, Workflow, Activity, Search, SearchCode } = Lucide;
+// 🐧 아이콘들을 상단에서 미리 꺼내왔습니다!
 
 export const LogExtractorPlugin: HappyPlugin = {
     id: ToolId.LOG_EXTRACTOR,
@@ -79,7 +83,6 @@ export const ReverseEngineerPlugin: HappyPlugin = {
 };
 
 const BlockTest = React.lazy(() => import('../../components/BlockTest'));
-const { Blocks } = Lucide;
 
 export const BlockTestPlugin: HappyPlugin = {
     id: ToolId.BLOCK_TEST,
@@ -100,7 +103,6 @@ export const EasyUMLPlugin: HappyPlugin = {
 };
 
 const CpuAnalyzer = React.lazy(() => import('../../components/CpuAnalyzer/CpuAnalyzer'));
-const { Cpu } = Lucide;
 
 export const CpuAnalyzerPlugin: HappyPlugin = {
     id: ToolId.CPU_ANALYZER,
@@ -111,7 +113,6 @@ export const CpuAnalyzerPlugin: HappyPlugin = {
 };
 
 const SmartHomeDashboard = React.lazy(() => import('../../components/SmartHomeDashboard/SmartHomeDashboard'));
-const { LayoutDashboard } = Lucide;
 
 export const SmartHomeDashboardPlugin: HappyPlugin = {
     id: ToolId.SMART_HOME_DASHBOARD,
@@ -122,7 +123,6 @@ export const SmartHomeDashboardPlugin: HappyPlugin = {
 };
 
 const ScreenMatcher = React.lazy(() => import('../../components/ScreenMatcher/ScreenMatcher'));
-const { Scan } = Lucide;
 
 export const ScreenMatcherPlugin: HappyPlugin = {
     id: ToolId.SCREEN_MATCHER,
@@ -133,7 +133,6 @@ export const ScreenMatcherPlugin: HappyPlugin = {
 };
 
 const AiAssistant = React.lazy(() => import('../../components/AiAssistant'));
-const { Bot } = Lucide;
 
 export const AiAssistantPlugin: HappyPlugin = {
     id: ToolId.AI_ASSISTANT,
@@ -155,7 +154,6 @@ export const TizenLabPluginWrapper: HappyPlugin = {
 };
 
 const EasyPost = React.lazy(() => import('../../plugins/EasyPost/EasyPostPlugin'));
-const { Zap } = Lucide;
 
 export const EasyPostPlugin: HappyPlugin = {
     id: ToolId.EASY_POST,
@@ -165,7 +163,7 @@ export const EasyPostPlugin: HappyPlugin = {
     order: 16,
 };
 
-const { Gauge } = Lucide;
+// Gauge (from named import)
 export const PerfToolPlugin: HappyPlugin = {
     id: ToolId.PERF_TOOL,
     name: 'Perf Tool',
@@ -195,7 +193,6 @@ export const NetTrafficAnalyzerPluginWrapper: HappyPlugin = {
 };
 
 const LogAnalysisAgent = React.lazy(() => import('../LogAnalysisAgent/index'));
-const { BrainCircuit } = Lucide;
 
 export const LogAnalysisAgentPlugin: HappyPlugin = {
     id: ToolId.LOG_ANALYSIS_AGENT,
@@ -206,7 +203,6 @@ export const LogAnalysisAgentPlugin: HappyPlugin = {
 };
 
 const GaussChatAgent = React.lazy(() => import('../GaussChatAgent/index'));
-const { MessageSquare } = Lucide;
 
 export const GaussChatAgentPlugin: HappyPlugin = {
     id: ToolId.GAUSS_CHAT_AGENT,
@@ -235,7 +231,7 @@ export const RagAnalyzerTestPlugin: HappyPlugin = {
 export const NupkgSignerPlugin: HappyPlugin = {
     id: ToolId.NUPKG_SIGNER,
     name: 'Nupkg Signer',
-    icon: Lucide.ShieldCheck,
+    icon: ShieldCheck,
     component: NupkgSigner,
     order: 24,
 };
