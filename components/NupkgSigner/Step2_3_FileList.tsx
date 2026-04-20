@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SoFileItem } from './types';
-import { Download, Upload, Trash2, ArrowLeft, Zap, CheckCircle2, AlertCircle, XCircle, Globe, ExternalLink } from 'lucide-react';
+import { Download, Upload, Trash2, ArrowLeft, Zap, CheckCircle2, AlertCircle, XCircle, Globe, ExternalLink, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect } from 'react';
 
@@ -116,11 +116,21 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                 </div>
 
                 <button
+                    onClick={() => (window as any).electronAPI.openIsmsLogin()}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold text-sm transition-all group border border-indigo-500/20"
+                    title="앱 내부 브라우저로 ISMS에 로그인합니다. 자동 서명을 위해 최초 1회 필요합니다."
+                >
+                    <Key size={16} className="transition-transform group-hover:rotate-12" />
+                    <span>Login to ISMS</span>
+                </button>
+
+                <button
                     onClick={handleOpenIsms}
                     className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-slate-800 dark:bg-indigo-600 text-white font-bold text-sm shadow-lg shadow-slate-900/20 dark:shadow-indigo-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all group"
+                    title="시스템 기본 브라우저(Chrome 등)로 ISMS를 엽니다."
                 >
                     <ExternalLink size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                    <span>Open Browser</span>
+                    <span>External Browser</span>
                 </button>
             </div>
 

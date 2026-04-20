@@ -406,7 +406,10 @@ app.whenReady().then(async () => {
         
         const tempWin = new BrowserWindow({
             show: false,
-            webPreferences: { offscreen: true }
+            webPreferences: { 
+                offscreen: true,
+                partition: 'persist:isms' // ✅ 로그인 세션 공유 및 유지
+            }
         });
 
         return new Promise(async (resolve, reject) => {
@@ -414,33 +417,53 @@ app.whenReady().then(async () => {
             const timeout = setTimeout(() => {
                 if (!isResolved) {
                     tempWin.destroy();
-                    reject(new Error('AutoSign Timeout (60s)'));
+                    reject(new Error('AutoSign Timeout (60s) - 로그인 세션을 확인해 주세요.'));
                 }
             }, 60000);
 
             try {
-                // 1. 페이지 로드
-                await tempWin.loadURL(ismsUrl);
+                // 1. 페이지 로드 (리다이렉트 에러 무시 로직 추가)
+                await tempWin.loadURL(ismsUrl).catch(err => {
+                    if (err.code === 'ERR_ABORTED') {
+                        console.log('[AutoSign] loadURL aborted (possibly redirect), continuing...');
+                    } else {
+                        throw err;
+                    }
+                });
                 
+                // 리다이렉트나 로딩을 잠시 기다림
+                await new Promise(r => setTimeout(r, 2000));
+
                 // 2. 옵션 주입 (year: 2020, fileType: el)
-                await tempWin.webContents.executeJavaScript(`
+                // 🐧 형님, 만약 로그인이 안 되어 있으면 이 요소들이 없을 겁니다.
+                const injectResult = await tempWin.webContents.executeJavaScript(`
                     (function() {
                         const yr = document.getElementById('year');
-                        if (yr) { yr.value = '2020'; yr.dispatchEvent(new Event('change')); }
                         const ft = document.getElementById('fileType');
-                        if (ft) { ft.value = 'el'; ft.dispatchEvent(new Event('change')); }
+                        if (yr && ft) {
+                            yr.value = '2020'; yr.dispatchEvent(new Event('change'));
+                            ft.value = 'el'; ft.dispatchEvent(new Event('change'));
+                            return true;
+                        }
+                        return false;
                     })();
                 `);
 
+                if (!injectResult) {
+                    throw new Error('ISMS 페이지 요소를 찾을 수 없습니다. 로그인이 필요할 수 있습니다.');
+                }
+
                 // 3. CDP 연결 및 파일 업로드
-                tempWin.webContents.debugger.attach('1.3');
+                if (!tempWin.webContents.debugger.isAttached()) {
+                    tempWin.webContents.debugger.attach('1.3');
+                }
                 const { root } = await tempWin.webContents.debugger.sendCommand('DOM.getDocument');
                 const { nodeId } = await tempWin.webContents.debugger.sendCommand('DOM.querySelector', {
                     nodeId: root.nodeId,
                     selector: '#file_upload_1'
                 });
                 
-                if (!nodeId) throw new Error('Could not find upload input (#file_upload_1)');
+                if (!nodeId) throw new Error('업로드 필드(#file_upload_1)를 찾을 수 없습니다.');
                 
                 await tempWin.webContents.debugger.sendCommand('DOM.setFileInputFiles', {
                     files: [filePath],
@@ -464,6 +487,7 @@ app.whenReady().then(async () => {
 
                 // 5. 결과 링크 클릭 (폴링)
                 await tempWin.webContents.executeJavaScript(`
+                    if (window._signPoll) clearInterval(window._signPoll);
                     window._signPoll = setInterval(() => {
                         const link = document.querySelector('#download_link');
                         if (link) {
@@ -480,7 +504,6 @@ app.whenReady().then(async () => {
                         clearTimeout(timeout);
                         try {
                             const buffer = await originalFs.promises.readFile(downloadedFilePath);
-                            // 폴더 정리
                             await originalFs.promises.rm(tempDownloadDir, { recursive: true, force: true });
                             tempWin.destroy();
                             isResolved = true;
@@ -499,6 +522,23 @@ app.whenReady().then(async () => {
                 isResolved = true;
                 reject(err);
             }
+        });
+    });
+
+    // 🐧 로그인 세션 확보를 위한 전용 창 핸들러
+    ipcMain.handle('open-isms-login', async () => {
+        const ismsUrl = 'https://isms.sec.samsung.net/isms/securityInformation/kUEPSign/kUEPSign.do?_menuId=AUIVQbvqAADw6CMK&_menuF=true';
+        const loginWin = new BrowserWindow({
+            width: 1000,
+            height: 800,
+            title: 'ISMS Login - HappyTool',
+            webPreferences: {
+                partition: 'persist:isms' // ✅ 자동화 엔진과 세션 공유
+            }
+        });
+        loginWin.loadURL(ismsUrl);
+        return new Promise((resolve) => {
+            loginWin.on('closed', () => resolve({ status: 'closed' }));
         });
     });
 
