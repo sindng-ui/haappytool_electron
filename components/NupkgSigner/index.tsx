@@ -137,6 +137,85 @@ const NupkgSigner: React.FC = () => {
         }
     };
 
+    const handleAutoSign = async () => {
+        const targets = state.soFiles.filter(f => f.checked && !f.isSigned);
+        if (targets.length === 0) {
+            addToast("No unsigned files selected for auto-sign.", "warning");
+            return;
+        }
+
+        addToast(`Starting auto-sign for ${targets.length} files...`, "info");
+        
+        // 🐧 형님 가라사대: 한 번에 하나씩 차근차근 서명 서버를 조집니다!
+        for (const fileItem of targets) {
+            try {
+                // 1. 진행 상태 표시
+                setState(prev => ({
+                    ...prev,
+                    soFiles: prev.soFiles.map(f => 
+                        f.path === fileItem.path ? { ...f, isSigning: true } : f
+                    )
+                }));
+
+                // 2. Blob을 파일로 임시 저장 (Main process가 읽을 수 있도록)
+                const arrayBuffer = await fileItem.originalBlob.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                const tempPath = `temp_sign_${Date.now()}_${fileItem.basename}`;
+                
+                // 앱의 임시 폴더 경로 가져오기
+                const appPath = await (window as any).electronAPI.getAppPath();
+                const fullTempPath = `${appPath}/${tempPath}`;
+
+                // base64로 변환하여 전달 (saveFileDirect가 base64 지원함)
+                const base64Data = btoa(
+                    uint8Array.reduce((data, byte) => data + String.fromCharCode(byte), '')
+                );
+                
+                await (window as any).electronAPI.saveFileDirect({ 
+                    data: base64Data, 
+                    filePath: fullTempPath,
+                    isBase64: true 
+                });
+
+                // 3. 자동 서명 호출 (CDP 마법 가동)
+                const signedBuffer = await (window as any).electronAPI.autoSignSoFile(fullTempPath);
+
+                if (signedBuffer) {
+                    const signedBlob = new Blob([signedBuffer], { type: 'application/octet-stream' });
+                    
+                    // 서명 유효성 재검증 (g==:UEP 체크)
+                    const text = await signedBlob.slice(Math.max(0, signedBlob.size - 535)).text();
+                    const isSignedResult = text.includes('g==:UEP');
+
+                    setState(prev => ({
+                        ...prev,
+                        soFiles: prev.soFiles.map(f => 
+                            f.path === fileItem.path 
+                                ? { ...f, signedBlob, isSigned: isSignedResult, isSigning: false } 
+                                : f
+                        )
+                    }));
+                } else {
+                    throw new Error("Failed to receive signed buffer");
+                }
+
+                // 🐧 임시 파일은 굳이 안 지워도 main.cjs에서 프로세스 종료시 어느정도 정리되겠지만, 
+                // 여기서는 다음 파일로 넘어가기 전에 성공 알림!
+                addToast(`Successfully signed: ${fileItem.basename}`, "success");
+
+            } catch (err: any) {
+                console.error(`[AutoSign Error] ${fileItem.path}:`, err);
+                addToast(`Failed to sign ${fileItem.basename}: ${err.message}`, "error");
+                setState(prev => ({
+                    ...prev,
+                    soFiles: prev.soFiles.map(f => 
+                        f.path === fileItem.path ? { ...f, isSigning: false } : f
+                    )
+                }));
+            }
+        }
+    };
+
     const startRepackaging = async () => {
         setState(prev => ({ ...prev, currentStep: 4, isProcessing: true, progress: 0 }));
     };
@@ -275,6 +354,7 @@ const NupkgSigner: React.FC = () => {
                                 onToggleChecked={toggleSoChecked}
                                 onSignedUpload={handleSignedUpload}
                                 onProcess={startRepackaging}
+                                onAutoSign={handleAutoSign}
                                 onBack={resetState}
                             />
                         </motion.div>

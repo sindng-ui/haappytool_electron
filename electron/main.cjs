@@ -399,6 +399,109 @@ app.whenReady().then(async () => {
         }
     });
 
+    // 🐧 Nupkg Signer: ISMS 자동 서명 핸들러 (CDP 마법 사용)
+    ipcMain.handle('nupkg-auto-sign-so', async (event, { filePath }) => {
+        const ismsUrl = 'https://isms.sec.samsung.net/isms/securityInformation/kUEPSign/kUEPSign.do?_menuId=AUIVQbvqAADw6CMK&_menuF=true';
+        console.log(`[AutoSign] Starting for file: ${filePath}`);
+        
+        const tempWin = new BrowserWindow({
+            show: false,
+            webPreferences: { offscreen: true }
+        });
+
+        return new Promise(async (resolve, reject) => {
+            let isResolved = false;
+            const timeout = setTimeout(() => {
+                if (!isResolved) {
+                    tempWin.destroy();
+                    reject(new Error('AutoSign Timeout (60s)'));
+                }
+            }, 60000);
+
+            try {
+                // 1. 페이지 로드
+                await tempWin.loadURL(ismsUrl);
+                
+                // 2. 옵션 주입 (year: 2020, fileType: el)
+                await tempWin.webContents.executeJavaScript(`
+                    (function() {
+                        const yr = document.getElementById('year');
+                        if (yr) { yr.value = '2020'; yr.dispatchEvent(new Event('change')); }
+                        const ft = document.getElementById('fileType');
+                        if (ft) { ft.value = 'el'; ft.dispatchEvent(new Event('change')); }
+                    })();
+                `);
+
+                // 3. CDP 연결 및 파일 업로드
+                tempWin.webContents.debugger.attach('1.3');
+                const { root } = await tempWin.webContents.debugger.sendCommand('DOM.getDocument');
+                const { nodeId } = await tempWin.webContents.debugger.sendCommand('DOM.querySelector', {
+                    nodeId: root.nodeId,
+                    selector: '#file_upload_1'
+                });
+                
+                if (!nodeId) throw new Error('Could not find upload input (#file_upload_1)');
+                
+                await tempWin.webContents.debugger.sendCommand('DOM.setFileInputFiles', {
+                    files: [filePath],
+                    nodeId: nodeId
+                });
+
+                // 4. 다운로드 가로채기 설정
+                const tempDownloadDir = path.join(app.getPath('temp'), 'happytool_sign_' + Date.now());
+                await originalFs.promises.mkdir(tempDownloadDir, { recursive: true });
+                
+                let downloadedFilePath = null;
+                tempWin.webContents.session.once('will-download', (event, item, webContents) => {
+                    const savePath = path.join(tempDownloadDir, item.getFilename());
+                    item.setSavePath(savePath);
+                    item.once('done', (event, state) => {
+                        if (state === 'completed') {
+                            downloadedFilePath = savePath;
+                        }
+                    });
+                });
+
+                // 5. 결과 링크 클릭 (폴링)
+                await tempWin.webContents.executeJavaScript(`
+                    window._signPoll = setInterval(() => {
+                        const link = document.querySelector('#download_link');
+                        if (link) {
+                            clearInterval(window._signPoll);
+                            link.click();
+                        }
+                    }, 1000);
+                `);
+
+                // 6. 파일 다운로드 대기 및 버퍼 반환
+                const checkDownload = setInterval(async () => {
+                    if (downloadedFilePath) {
+                        clearInterval(checkDownload);
+                        clearTimeout(timeout);
+                        try {
+                            const buffer = await originalFs.promises.readFile(downloadedFilePath);
+                            // 폴더 정리
+                            await originalFs.promises.rm(tempDownloadDir, { recursive: true, force: true });
+                            tempWin.destroy();
+                            isResolved = true;
+                            resolve(buffer);
+                        } catch (err) {
+                            tempWin.destroy();
+                            isResolved = true;
+                            reject(err);
+                        }
+                    }
+                }, 1000);
+
+            } catch (err) {
+                clearTimeout(timeout);
+                tempWin.destroy();
+                isResolved = true;
+                reject(err);
+            }
+        });
+    });
+
 
     ipcMain.handle('getAppPath', () => {
         const isDev = process.env.NODE_ENV === 'development';

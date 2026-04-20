@@ -7,6 +7,7 @@ export interface SoFileItem {
     signedBlob?: File | Blob;
     checked: boolean;
     isSigned?: boolean;
+    isSigning?: boolean;
 }
 
 export interface SignState {

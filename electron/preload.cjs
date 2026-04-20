@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveFile: (content) => ipcRenderer.invoke('saveFile', content),
     saveBinaryFile: (data, fileName) => ipcRenderer.invoke('saveBinaryFile', { data, fileName }),
     saveNupkgFile: (data, fileName) => ipcRenderer.invoke('saveNupkgFile', { data, fileName }),
+    autoSignSoFile: (filePath) => ipcRenderer.invoke('nupkg-auto-sign-so', { filePath }),
     saveFileDirect: (data, filePath) => ipcRenderer.invoke('saveFileDirect', { data, filePath }),
     appendFileDirect: (data, filePath) => ipcRenderer.invoke('appendFileDirect', { data, filePath }),
     openExternal: (url) => ipcRenderer.invoke('openExternal', url),

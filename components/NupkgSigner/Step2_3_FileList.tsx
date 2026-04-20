@@ -9,10 +9,11 @@ interface Props {
     onToggleChecked: (path: string) => void;
     onSignedUpload: (path: string, file: File) => void;
     onProcess: () => void;
+    onAutoSign: () => void;
     onBack: () => void;
 }
 
-const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedUpload, onProcess, onBack }) => {
+const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedUpload, onProcess, onAutoSign, onBack }) => {
     const [dragOverPath, setDragOverPath] = useState<string | null>(null);
     const [ismsUrl, setIsmsUrl] = useState<string>(() => localStorage.getItem('nupkg_isms_url') || 'https://isms.sec.samsung.net/isms/securityInformation/kUEPSign/kUEPSign.do?_menuId=AUIVQbvqAADw6CMK&_menuF=true');
 
@@ -69,6 +70,19 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                             <span className="ml-1">Ready</span>
                         </div>
                     </div>
+                    <button 
+                        onClick={onAutoSign}
+                        disabled={checkedCount === 0 || soFiles.some(f => f.isSigning)}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl font-bold transition-all ${
+                            checkedCount > 0 && !soFiles.some(f => f.isSigning)
+                                ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-600/20 hover:scale-[1.02] active:scale-[0.98]' 
+                                : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-50'
+                        }`}
+                        title="ISMS 자동 서명을 시작합니다 (Phase 2)"
+                    >
+                        <Zap size={18} className={soFiles.some(f => f.isSigning) ? "animate-pulse" : ""} />
+                        <span>Auto Sign</span>
+                    </button>
                     <button
                         onClick={onProcess}
                         disabled={checkedCount === 0}
@@ -259,7 +273,17 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
 
                             {/* Status Indicator - 🐧 형님 가라사대: 우측에 확실하게 보여라! */}
                             <div className="w-12 flex justify-center">
-                                {file.checked && file.signedBlob && (
+                                {file.isSigning ? (
+                                    <div className="flex items-center justify-center">
+                                        <motion.div
+                                            animate={{ rotate: 360 }}
+                                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                            className="text-indigo-500"
+                                        >
+                                            <Zap size={24} />
+                                        </motion.div>
+                                    </div>
+                                ) : file.checked && file.signedBlob && (
                                     <motion.div
                                         initial={{ scale: 0 }}
                                         animate={{ scale: 1 }}
