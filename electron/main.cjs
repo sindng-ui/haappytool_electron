@@ -430,40 +430,112 @@ app.whenReady().then(async () => {
                         throw err;
                     }
                 });
-                
-                // 리다이렉트나 로딩을 잠시 기다림
-                await new Promise(r => setTimeout(r, 2000));
 
-                // 2. 옵션 주입 (year: 2020, fileType: el)
-                // 🐧 형님, 만약 로그인이 안 되어 있으면 이 요소들이 없을 겁니다.
-                const injectResult = await tempWin.webContents.executeJavaScript(`
-                    (function() {
-                        const yr = document.getElementById('year');
-                        const ft = document.getElementById('fileType');
-                        if (yr && ft) {
-                            yr.value = '2020'; yr.dispatchEvent(new Event('change'));
-                            ft.value = 'el'; ft.dispatchEvent(new Event('change'));
-                            return true;
-                        }
-                        return false;
-                    })();
-                `);
+                // 2. 중요 요소 탐색 및 대기 (모든 프레임 샅샅이 뒤지기) 🐧🔍
+                const findElementsInFrames = async () => {
+                    const jsCode = `
+                        (function() {
+                            function findInFrames(doc) {
+                                // 1. 현재 문서에서 찾기
+                                const yr = doc.getElementById('year');
+                                const ft = doc.getElementById('fileType');
+                                const up = doc.getElementById('file_upload_1');
+                                
+                                if (yr && ft && up) return { found: true, frameId: null };
+                                
+                                // 2. 프레임들 뒤지기
+                                const frames = doc.querySelectorAll('iframe, frame');
+                                for (let i = 0; i < frames.length; i++) {
+                                    try {
+                                        const frameDoc = frames[i].contentDocument || frames[i].contentWindow.document;
+                                        const result = findInFrames(frameDoc);
+                                        if (result.found) return { found: true, frameIndex: i };
+                                    } catch (e) { /* 크로스 도메인 이슈 등 무시 */ }
+                                }
+                                return { found: false };
+                            }
+                            
+                            // 자동 선택 및 성공 여부 반환
+                            function setupElements(doc) {
+                                const yr = doc.getElementById('year');
+                                const ft = doc.getElementById('fileType');
+                                if (yr && ft) {
+                                    yr.value = '2020'; yr.dispatchEvent(new Event('change'));
+                                    ft.value = 'el'; ft.dispatchEvent(new Event('change'));
+                                    return true;
+                                }
+                                const frames = doc.querySelectorAll('iframe, frame');
+                                for (let i = 0; i < frames.length; i++) {
+                                    try {
+                                        const frameDoc = frames[i].contentDocument || frames[i].contentWindow.document;
+                                        if (setupElements(frameDoc)) return true;
+                                    } catch (e) {}
+                                }
+                                return false;
+                            }
 
-                if (!injectResult) {
-                    throw new Error('ISMS 페이지 요소를 찾을 수 없습니다. 로그인이 필요할 수 있습니다.');
+                            const foundInfo = findInFrames(document);
+                            if (foundInfo.found) {
+                                setupElements(document);
+                                return foundInfo;
+                            }
+                            return null;
+                        })();
+                    `;
+
+                    // 최대 10초간 폴링 (페이지 로딩 대기)
+                    for (let i = 0; i < 20; i++) {
+                        const result = await tempWin.webContents.executeJavaScript(jsCode);
+                        if (result) return result;
+                        await new Promise(r => setTimeout(r, 500));
+                    }
+                    return null;
+                };
+
+                const elementsInfo = await findElementsInFrames();
+                if (!elementsInfo) {
+                    throw new Error('ISMS 페이지 요소를 찾을 수 없습니다 (10초 대기 초과). 로그인 상태나 서버 응답을 확인해 주세요.');
                 }
 
-                // 3. CDP 연결 및 파일 업로드
+                console.log('[AutoSign] Elements found, info:', elementsInfo);
+
+                // 3. CDP 연결 및 파일 업로드 🎯
                 if (!tempWin.webContents.debugger.isAttached()) {
                     tempWin.webContents.debugger.attach('1.3');
                 }
-                const { root } = await tempWin.webContents.debugger.sendCommand('DOM.getDocument');
-                const { nodeId } = await tempWin.webContents.debugger.sendCommand('DOM.querySelector', {
-                    nodeId: root.nodeId,
-                    selector: '#file_upload_1'
-                });
+
+                // 🐧 프레임 속에 요소가 있는 경우를 위해 모든 노드를 다 뒤져야 함다
+                const { root } = await tempWin.webContents.debugger.sendCommand('DOM.getDocument', { depth: -1, pierce: true });
                 
-                if (!nodeId) throw new Error('업로드 필드(#file_upload_1)를 찾을 수 없습니다.');
+                // 재귀적으로 모든 노드에서 selector 찾기
+                async function findNodeId(rootNode, selector) {
+                    try {
+                        const { nodeId } = await tempWin.webContents.debugger.sendCommand('DOM.querySelector', {
+                            nodeId: rootNode.nodeId,
+                            selector: selector
+                        });
+                        if (nodeId) return nodeId;
+                    } catch (e) {}
+
+                    if (rootNode.children) {
+                        for (const child of rootNode.children) {
+                            const res = await findNodeId(child, selector);
+                            if (res) return res;
+                        }
+                    }
+                    
+                    // iframe 내부는 contentDocument를 봐야 함다
+                    if (rootNode.contentDocument) {
+                        return await findNodeId(rootNode.contentDocument, selector);
+                    }
+                    return 0;
+                }
+
+                const nodeId = await findNodeId(root, '#file_upload_1');
+                
+                if (!nodeId || nodeId === 0) {
+                    throw new Error('업로드 필드(#file_upload_1)를 찾을 수 없습니다. (CDP 검색 실패)');
+                }
                 
                 await tempWin.webContents.debugger.sendCommand('DOM.setFileInputFiles', {
                     files: [filePath],
