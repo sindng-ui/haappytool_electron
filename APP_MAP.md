@@ -40,6 +40,11 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
 - **Testing & Build Compatibility (2026-04-17)**:
   - `nupkgUtils.test.ts`: 아키텍처 제외 로직 및 바이너리 교체 무결성 검증 완료.
   - **Build Fix**: Worker 빌드 시 `jszip` bare import 해석 실패 문제를 해결하기 위해, Worker 및 관련 유틸에서 standalone UMD 번들(`jszip/dist/jszip.js`)을 직접 import하도록 변경. 어떤 환경에서든 `npm install`만 하면 빌드 가능.
+- **Bug Fixes (2026-04-20)**:
+  - **Extension Fix**: `Step5_FinalDownload.tsx` — 다운로드 시 파일 확장자가 `.tpk`로 고정되던 문제를 `saveNupkgFile` API 도입으로 해결하여 정상적인 `.nupkg` 저장을 보장.
+  - **UI State Sync**: `index.tsx` — 마지막 다운로드 완료 시(`isFinalized`), 상단 스텝 바의 4번 인디케이터가 활성(Indigo) 상태에서 완료(Emerald) 상태로 즉시 전환되도록 로직 개선.
+- **New Features (2026-04-20)**:
+  - **ISMS URL Integration**: `Step2_3_FileList.tsx` — 서명 작업을 위한 ISMS URL 입력창 및 브라우저 열기(`openExternal`) 연동 기능 추가. `localStorage`를 통한 URL 영구 저장 지원.
 
 ## 🏗️ UI Components
 

@@ -24,7 +24,7 @@ const Step5_FinalDownload: React.FC<Props> = ({ originalName, blob, onReset, onS
             const uint8Array = new Uint8Array(arrayBuffer);
             
             // Using standard electronAPI exposed via preload.cjs
-            const result = await (window as any).electronAPI.saveBinaryFile(uint8Array, targetName);
+            const result = await (window as any).electronAPI.saveNupkgFile(uint8Array, targetName);
 
             if (result.status === 'success') {
                 setIsSaved(true);

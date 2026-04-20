@@ -182,7 +182,7 @@ const NupkgSigner: React.FC = () => {
                     {[1, 2, 4, 5].map((step, idx) => {
                         const stepNum = step === 4 ? 3 : (step === 5 ? 4 : step);
                         const label = ["Source Upload", "Sign SO Files", "Repackaging", "Final Download"][stepNum - 1];
-                        const isActive = state.currentStep === step || (step === 2 && state.currentStep === 3);
+                        const isActive = (state.currentStep === step || (step === 2 && state.currentStep === 3)) && !(step === 5 && state.isFinalized);
                         const isCompleted = state.currentStep > step || (step === 5 && state.isFinalized);
 
                         return (
