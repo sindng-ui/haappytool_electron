@@ -1,9 +1,4 @@
-// Load JSZip from public vendor folder
-// In Dev mode, we use relative-to-origin path to ensure Vite dev server serves it correctly
-// @ts-ignore
-importScripts(self.location.origin + '/vendor/jszip.min.js');
-// Explicitly declare JSZip for the worker context
-declare const JSZip: any;
+import JSZip from 'jszip';
 
 import { repackageNupkg, extractSoFilesFromZip } from '../utils/nupkgUtils';
 

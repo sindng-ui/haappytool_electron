@@ -1,5 +1,4 @@
-// Import type only to avoid bundling JSZip in the main build
-import type JSZip from 'jszip';
+import JSZip from 'jszip';
 import { SoFileItem } from '../types';
 
 /**

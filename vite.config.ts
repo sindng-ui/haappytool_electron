@@ -34,6 +34,7 @@ export default defineConfig(({ mode }) => {
         'react-dom',
         'lucide-react',
         'framer-motion',
+        'jszip',
         'react-markdown',
         'remark-gfm',
         'unified',

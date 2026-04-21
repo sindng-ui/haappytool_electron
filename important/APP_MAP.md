@@ -207,6 +207,7 @@
   - **스마트 추출/제외**: `runtimes/` 폴더 내 `.so` 탐색 및 특정 아키텍처 폴더 통째로 제외 지원.
   - **안전한 재패키징**: 원본 구조를 유지하며 서명본만 교체하여 새로운 `.nupkg` 생성.
   - **자동 파일명 제안**: 원본이 `aaa.nupkg`인 경우 `aaa_signed.nupkg`로 저장 유도. [NEW]
+  - **성능 최적화 (JSZip ESM 전환)**: `importScripts` 제거 및 ESM 임포트 방식으로 전환, Vite 사전 번들링 설정을 통해 회사 PC 등 저사양 환경에서의 로딩 속도 대폭 개선. [UPDATED][HOT]
 
 ### [[SpeedScope Plugin]]
 - **ID**: `plugin-speedscope`
