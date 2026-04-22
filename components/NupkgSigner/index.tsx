@@ -6,7 +6,10 @@ import Step2_3_FileList from './Step2_3_FileList';
 import Step4_Repackage from './Step4_Repackage';
 import Step5_FinalDownload from './Step5_FinalDownload';
 import { useToast } from '../../contexts/ToastContext';
-import NupkgWorker from './workers/nupkg.worker?worker';
+// 🐧 형님, ?worker 문법을 쓰면 Vite가 개발 모드에서도 Rollup을 돌려서 엄청 느려집니다. 
+// 그래서 Native ESM 방식을 써서 esbuild의 속도를 그대로 챙기겠습니다!
+const NupkgWorkerFactory = () => new Worker(new URL('./workers/nupkg.worker.ts', import.meta.url), { type: 'module' });
+
 
 const NupkgSigner: React.FC = () => {
     const { addToast } = useToast();
@@ -38,7 +41,7 @@ const NupkgSigner: React.FC = () => {
         setState(prev => ({ ...prev, isProcessing: true, error: null }));
         addToast("Loading nupkg in background...", "info");
         
-        const worker = new NupkgWorker();
+        const worker = NupkgWorkerFactory();
         const requestId = Date.now().toString();
 
         worker.onmessage = (e) => {

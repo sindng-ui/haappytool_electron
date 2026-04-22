@@ -894,13 +894,18 @@ app.whenReady().then(async () => {
         }
     }, 90);
 
-    // 둘 다 기다림
-    await Promise.all([windowLoadPromise, serverStartPromise]);
+    // ✅ 윈도우 로딩과 서버 시작을 병렬로 돌리되, 서버가 준비되면 윈도우 상태와 상관없이 즉시 진행함다!
+    // 윈도우 로딩(Vite 번들링)이 늦어지더라도 서버가 먼저 뜨면 대기를 최소화합니다.
+    await serverStartPromise;
     clearInterval(progressInterval);
 
     if (serverStarted) {
         sendProgress(100, 'Ready!');
-        if (mainWindow) mainWindow.webContents.send('loading-complete');
+        // 🐧 형님, 윈도우가 아직 안 떴을 수도 있으니 체크하고 보냅니다.
+        // 어차피 렌더러가 뜨면 get-startup-status로 현재 상태를 물어보러 올 거라 괜찮습니다!
+        if (mainWindow && mainWindow.webContents) {
+            mainWindow.webContents.send('loading-complete');
+        }
     } else {
         dialog.showErrorBox('Startup Error', `Server failed: ${serverError?.message}`);
         app.quit();

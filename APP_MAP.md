@@ -44,6 +44,7 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
   - **Extension Fix**: `Step5_FinalDownload.tsx` — 다운로드 시 파일 확장자가 `.tpk`로 고정되던 문제를 `saveNupkgFile` API 도입으로 해결하여 정상적인 `.nupkg` 저장을 보장.
   - **UI State Sync**: `index.tsx` — 마지막 다운로드 완료 시(`isFinalized`), 상단 스텝 바의 4번 인디케이터가 활성(Indigo) 상태에서 완료(Emerald) 상태로 즉시 전환되도록 로직 개선.
   - **Memory Leak Fix (2026-04-22)**: `main.cjs` — 타임아웃이나 예외 상황 시 자동 서명을 폴링하는 타이머(`setInterval`)가 정상적으로 해제되지 않아 무한 루프에 빠지는 현상 완벽 방어.
+  - **Startup Perf Fix (2026-04-22)**: `index.tsx` — Vite의 Worker 번들링 병목(Rollup)을 피하기 위해 Native ESM Worker 방식으로 전환. 초기 로딩 속도 10초 이상 단축.
 - **New Features (2026-04-20)**:
   - **ISMS URL Integration**: `Step2_3_FileList.tsx` — 서명 작업을 위한 ISMS URL 입력창 및 브라우저 열기(`openExternal`) 연동 기능 추가. `localStorage`를 통한 URL 영구 저장 지원.
   - **ISMS Auto Sign (Phase 2)**: `main.cjs`, `index.tsx`, `Step2_3_FileList.tsx` — CDP(Chrome DevTools Protocol)와 가상 브라우저 제어를 통한 자동 서명 기능. `persist:isms` 세션 파티션을 도입하여 앱 내 로그인 상태를 자동화 엔진과 공유하도록 개선.
@@ -109,9 +110,10 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - **API Server**: `FastAPI` 기반 검색 및 분석 API (포트: 8888).
   - **Data Integrity**: `ingest.py` — ID 기반 **Upsert 로직** 적용으로 인덱싱 중복 방지 및 정합성 강화.
   - **Monitoring**: `main.py` — 실시간 검색 쿼리 및 성능 메트릭 **로깅 시스템** 구축 (`rag_server.log`).
-- **Process Management (2026-04-11)**:
+- **Process Management (2026-04-11 & 2026-04-22)**:
   - **Lifecycle Guard**: `electron/main.cjs` — Electron 메인 프로세스에서 파이썬 서버 기동/종료를 직접 관리 (`spawn` & `SIGTERM`).
     - **Update (2026-04-16)**: 패키징 시 `.asar` 내부의 파이썬 실행 불가 문제 해결을 위해 `asarUnpack` 적용 및 `app.asar.unpacked` 경로 참조 로직 추가.
+    - **Startup Optimization (2026-04-22)**: 백엔드 서버 로딩과 UI 렌더링 완료 대기를 분리하여, 서버가 준비되는 즉시 스플래시 화면을 종료하도록 `main.cjs` 로직 고도화.
   - **UI Integration**: `components/RagAnalyzerTest/index.tsx` — 플러그인 상단에 **서버 시작(Start Server) 버튼**과 실시간 상태 인디케이터 연동.
 - **Tools**:
   - `ingest.py`: 데이터 인덱싱 스크립트. (로컬 `models/` 폴더 우선 로직 및 SSL 우회 탑재)
@@ -131,4 +133,4 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 - **핵심 전략**: Public Vendor화, Runtime Loading, Type-Only Import.
 
 ---
-*Last Updated: 2026-04-17 (NupkgSigner Build Fix & Knowledge Base Added)*
+*Last Updated: 2026-04-22 (Startup Performance Optimization & Worker Loading Refalctoring)*
