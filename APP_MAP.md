@@ -133,7 +133,7 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 - **핵심 전략**: Public Vendor화, Runtime Loading, Type-Only Import.
 
 - **Build & Reliability Enhancements (2026-04-22)**:
-  - **JSZip Vendor Integration**: `components/NupkgSigner/vendor/` — `node_modules`의 JSZip 번들을 프로젝트 내부로 소스 코드화하여 워커 빌드 시의 경로 해석 오류를 원천 차단.
+  - **JSZip Vendor Integration & ESM Patch**: `vendor/jszip-bundle.js` — JSZip 번들을 프로젝트 내부로 소스 코드화하고, `export default`를 수동으로 추가하여 Vite/Rollup의 ESM 임포트 호환성 완벽 해결.
   - **Deep Clean Script**: `scripts/deep_clean.cjs` — Vite 캐시(`node_modules/.vite`)와 빌드 잔해를 일괄 정리하는 강력한 초기화 명령어(`npm run clean:deep`) 도입.
   - **Cross-Platform Startup Fix**: `package.json` — `npx cross-env` 도입으로 다양한 OS/Shell 환경에서 동일하게 동작하도록 `electron:dev` 명령어 개선.
   - **Zombie Port Cleanup**: `scripts/deep_clean.cjs` — 3000번 포트를 점유 중인 좀비 프로세스를 추적하여 강제 종료하는 로직 추가.
