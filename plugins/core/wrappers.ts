@@ -3,7 +3,7 @@ import {
     FileText, Send, Braces, Archive, Smartphone, Pickaxe, Workflow, 
     Activity, Search, SearchCode, Blocks, Cpu, LayoutDashboard, 
     Scan, Bot, Zap, Gauge, BrainCircuit, MessageSquare, ShieldCheck, 
-    Network 
+    Network, History
 } from 'lucide-react';
 import React from 'react';
 
@@ -20,6 +20,7 @@ const PerfTool = React.lazy(() => import('../../components/PerfTool'));
 const EverythingSearch = React.lazy(() => import('../../components/EverythingSearch'));
 const RagAnalyzerTest = React.lazy(() => import('../../components/RagAnalyzerTest'));
 const NupkgSigner = React.lazy(() => import('../../components/NupkgSigner'));
+const ReleaseHistory = React.lazy(() => import('../ReleaseHistory/ReleaseHistoryPlugin'));
 import { ToolId } from '../../types';
 
 // 🐧 아이콘들을 상단에서 미리 꺼내왔습니다!
@@ -236,6 +237,14 @@ export const NupkgSignerPlugin: HappyPlugin = {
     order: 24,
 };
 
+export const ReleaseHistoryPlugin: HappyPlugin = {
+    id: ToolId.RELEASE_HISTORY,
+    name: 'Release History',
+    icon: History,
+    component: ReleaseHistory,
+    order: 25,
+};
+
 export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
     [ToolId.LOG_EXTRACTOR]: LogExtractorPlugin,
     [ToolId.POST_TOOL]: PostToolPlugin,
@@ -260,4 +269,5 @@ export const ALL_PLUGINS_MAP: Record<ToolId, HappyPlugin> = {
     [ToolId.EVERYTHING_SEARCH]: EverythingSearchPlugin,
     [ToolId.RAG_ANALYZER_TEST]: RagAnalyzerTestPlugin,
     [ToolId.NUPKG_SIGNER]: NupkgSignerPlugin,
+    [ToolId.RELEASE_HISTORY]: ReleaseHistoryPlugin,
 };

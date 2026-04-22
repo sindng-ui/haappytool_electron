@@ -49,6 +49,16 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
   - **ISMS URL Integration**: `Step2_3_FileList.tsx` — 서명 작업을 위한 ISMS URL 입력창 및 브라우저 열기(`openExternal`) 연동 기능 추가. `localStorage`를 통한 URL 영구 저장 지원.
   - **ISMS Auto Sign (Phase 2)**: `main.cjs`, `index.tsx`, `Step2_3_FileList.tsx` — CDP(Chrome DevTools Protocol)와 가상 브라우저 제어를 통한 자동 서명 기능. `persist:isms` 세션 파티션을 도입하여 앱 내 로그인 상태를 자동화 엔진과 공유하도록 개선.
 
+### [Release History](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/ReleaseHistory/ReleaseHistoryPlugin.tsx) [NEW]
+앱 릴리즈 버전을 제품별/릴리즈별로 타임라인과 리스트 형태로 관리하는 도구입니다.
+- **UI Components**:
+  - `ReleaseHistoryPlugin`: 듀얼 뷰 모드(List/Timeline), 검색 및 Import/Export 제어.
+  - `ListView`: 릴리즈 버전과 노트를 정리된 카테고리로 보여주는 아코디언형 리스트.
+  - `TimelineGraphView`: 정보를 포함한 작은 카드(Release Name, Version) 형태로 시각화된 2D 타임라인 뷰.
+- **Features**:
+  - JSON Import (Drag & Drop), Markdown Table Copy, Timeline PNG Export 지원.
+  - 대용량 데이터 시 렌더링 최적화 (`useMemo` 기반 상태 관리).
+
 ## 🏗️ UI Components
 
 ### [Log Extractor](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogExtractor.tsx)

@@ -17,6 +17,7 @@ export const PLUGIN_CONFIG = {
     SHOW_EVERYTHING_SEARCH: false,
     SHOW_RAG_ANALYZER_TEST: true,
     SHOW_NUPKG_SIGNER: true,
+    SHOW_RELEASE_HISTORY: true,
     SHOW_REVERSE_ENGINEER: false,
     SHOW_EASY_UML: false,
     SHOW_AI_ASSISTANT: false,
