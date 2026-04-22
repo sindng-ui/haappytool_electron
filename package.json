@@ -8,7 +8,9 @@
   "scripts": {
     "dev": "concurrently -k \"vite\" \"node server/index.cjs\"",
     "clean": "rimraf dist dist_electron",
+    "clean:deep": "node scripts/deep_clean.cjs",
     "build": "vite build",
+
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"set CHOKIDAR_USEPOLLING=true && vite\" \"wait-on --no-proxy tcp:127.0.0.1:3000 && electron .\"",
     "cli": "electron . cli",

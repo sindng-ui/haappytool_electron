@@ -132,5 +132,10 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 - **주요 사례**: JSZip (Vite Worker & Proxy Conflict)
 - **핵심 전략**: Public Vendor화, Runtime Loading, Type-Only Import.
 
+- **Build & Reliability Enhancements (2026-04-22)**:
+  - **JSZip Resolution Fix**: `vite.config.ts` — Native Worker 빌드 시 Rollup이 `jszip`을 찾지 못하는 이슈를 `resolve.alias` 추가로 원천 해결.
+  - **Deep Clean Script**: `scripts/deep_clean.cjs` — Vite 캐시(`node_modules/.vite`)와 빌드 잔해를 일괄 정리하는 강력한 초기화 명령어(`npm run clean:deep`) 도입. "Optimization Storm" 및 환경 꼬임 현상 해결 전용.
+
 ---
-*Last Updated: 2026-04-22 (Startup Performance Optimization & Worker Loading Refalctoring)*
+*Last Updated: 2026-04-22 (JSZip Build Fix & Deep Clean Integration)*
+

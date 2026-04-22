@@ -75,7 +75,9 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, '.'),
         // ✅ ESM 패키지 경로 명시적 해결을 위한 별칭 대폭 보강 🐧⚡
         // ENOENT 에러 방지를 위해 파일명(.js)을 제거하고 패키지 루트 디렉토리까지만 지정
+        'jszip': path.resolve(__dirname, 'node_modules/jszip/dist/jszip.min.js'),
         'react-markdown': path.join(__dirname, 'node_modules/react-markdown'),
+
         'remark-gfm': path.join(__dirname, 'node_modules/remark-gfm'),
         'unified': path.join(__dirname, 'node_modules/unified'),
         'vfile': path.join(__dirname, 'node_modules/vfile'),
