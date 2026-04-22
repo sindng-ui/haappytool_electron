@@ -1,4 +1,5 @@
-import JSZip from 'jszip';
+import JSZip from 'jszip/dist/jszip.js';
+
 import { SoFileItem } from '../types';
 
 /**
