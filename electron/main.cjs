@@ -414,9 +414,11 @@ app.whenReady().then(async () => {
 
         return new Promise(async (resolve, reject) => {
             let isResolved = false;
+            let checkDownload = null; // ✅ 타이머 레퍼런스 유지
             const timeout = setTimeout(() => {
                 if (!isResolved) {
-                    tempWin.destroy();
+                    if (checkDownload) clearInterval(checkDownload);
+                    if (!tempWin.isDestroyed()) tempWin.destroy();
                     reject(new Error('AutoSign Timeout (60s) - 로그인 세션을 확인해 주세요.'));
                 }
             }, 60000);
@@ -570,18 +572,18 @@ app.whenReady().then(async () => {
                 `);
 
                 // 6. 파일 다운로드 대기 및 버퍼 반환
-                const checkDownload = setInterval(async () => {
+                checkDownload = setInterval(async () => {
                     if (downloadedFilePath) {
                         clearInterval(checkDownload);
                         clearTimeout(timeout);
                         try {
                             const buffer = await originalFs.promises.readFile(downloadedFilePath);
                             await originalFs.promises.rm(tempDownloadDir, { recursive: true, force: true });
-                            tempWin.destroy();
+                            if (!tempWin.isDestroyed()) tempWin.destroy();
                             isResolved = true;
                             resolve(buffer);
                         } catch (err) {
-                            tempWin.destroy();
+                            if (!tempWin.isDestroyed()) tempWin.destroy();
                             isResolved = true;
                             reject(err);
                         }
@@ -589,8 +591,9 @@ app.whenReady().then(async () => {
                 }, 1000);
 
             } catch (err) {
+                if (checkDownload) clearInterval(checkDownload); // ✅ 예외 시 확실히 해제
                 clearTimeout(timeout);
-                tempWin.destroy();
+                if (!tempWin.isDestroyed()) tempWin.destroy();
                 isResolved = true;
                 reject(err);
             }
@@ -621,6 +624,22 @@ app.whenReady().then(async () => {
     });
 
     const activeStreams = new Map();
+
+    // ✅ 렌더러가 파괴되거나 새로고침 될 때 남은 스트림을 일괄 정리하여 Memory Leak 방지 🐧🧹
+    app.on('web-contents-created', (event, contents) => {
+        const cleanupStreams = () => {
+            if (activeStreams.size > 0) {
+                console.log(`[Main] WebContents changed or destroyed. Cleaning up ${activeStreams.size} active streams... 🐧🧹`);
+                for (const [requestId, stream] of activeStreams.entries()) {
+                    stream.destroy();
+                    activeStreams.delete(requestId);
+                }
+            }
+        };
+        contents.on('destroyed', cleanupStreams);
+        contents.on('did-navigate', cleanupStreams);
+    });
+
     ipcMain.handle('streamReadFile', (event, filePath, requestId, options = {}) => {
         const stream = originalFs.createReadStream(filePath, {
             encoding: 'utf-8', highWaterMark: 64 * 1024, start: options.start || 0

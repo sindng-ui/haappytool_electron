@@ -40,9 +40,10 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
 - **Testing & Build Compatibility (2026-04-17)**:
   - `nupkgUtils.test.ts`: 아키텍처 제외 로직 및 바이너리 교체 무결성 검증 완료.
   - **Build Fix**: Worker 빌드 시 `jszip` bare import 해석 실패 문제를 해결하기 위해, Worker 및 관련 유틸에서 standalone UMD 번들(`jszip/dist/jszip.js`)을 직접 import하도록 변경. 어떤 환경에서든 `npm install`만 하면 빌드 가능.
-- **Bug Fixes (2026-04-20)**:
+- **Bug Fixes (2026-04-20 & 2026-04-22)**:
   - **Extension Fix**: `Step5_FinalDownload.tsx` — 다운로드 시 파일 확장자가 `.tpk`로 고정되던 문제를 `saveNupkgFile` API 도입으로 해결하여 정상적인 `.nupkg` 저장을 보장.
   - **UI State Sync**: `index.tsx` — 마지막 다운로드 완료 시(`isFinalized`), 상단 스텝 바의 4번 인디케이터가 활성(Indigo) 상태에서 완료(Emerald) 상태로 즉시 전환되도록 로직 개선.
+  - **Memory Leak Fix (2026-04-22)**: `main.cjs` — 타임아웃이나 예외 상황 시 자동 서명을 폴링하는 타이머(`setInterval`)가 정상적으로 해제되지 않아 무한 루프에 빠지는 현상 완벽 방어.
 - **New Features (2026-04-20)**:
   - **ISMS URL Integration**: `Step2_3_FileList.tsx` — 서명 작업을 위한 ISMS URL 입력창 및 브라우저 열기(`openExternal`) 연동 기능 추가. `localStorage`를 통한 URL 영구 저장 지원.
   - **ISMS Auto Sign (Phase 2)**: `main.cjs`, `index.tsx`, `Step2_3_FileList.tsx` — CDP(Chrome DevTools Protocol)와 가상 브라우저 제어를 통한 자동 서명 기능. `persist:isms` 세션 파티션을 도입하여 앱 내 로그인 상태를 자동화 엔진과 공유하도록 개선.
@@ -64,6 +65,8 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
   - **Transaction Analysis Fix (2026-04-10)**:
     - **Worker Regex Fix**: `workers/workerAnalysisHandlers.ts` — PID/TID 추출용 정규표현식 오류(불필요한 공백/오타) 수정으로 분석 기능 정상화.
     - **Context Menu UI**: `components/LogSession.tsx` — "Analyze PID: 1234", "Analyze TID: 5678" 등 직관적인 레이블 개선 및 Tag 분석 연동 안정화.
+- **Stability Fixes (2026-04-22)**:
+  - **Orphaned Stream GC**: `main.cjs` — 대용량 로그 스트리밍 중 브라우저 렌더러가 새로고침되거나 크래시 날 경우, 메모리에 남겨진 스트림들을 일괄 방출(GC)하는 방어 로직을 `web-contents-created` 이벤트에 탑재.
 
 ### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
 - **Unified Diff Mode v2 (2026-04-06)**: 두 프로파일의 성능 차이를 직관적으로 분석하는 고대화된 비교 모드.
