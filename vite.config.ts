@@ -8,7 +8,8 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       strictPort: true, // 🐧⚡ 포트 3000 고정 (electron 실행 대기용)
-      host: '127.0.0.1',
+      host: '0.0.0.0', // 🐧🌐 모든 인터페이스에서 접속 허용 (127.0.0.1 루프백 이슈 방지)
+
       watch: {
         usePolling: true,
       },

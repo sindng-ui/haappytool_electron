@@ -28,8 +28,25 @@ deleteFolderRecursive(distElectronPath);
 try {
     console.log('실행 중인 좀비 프로세스(HappyTool.exe)를 소탕함다...');
     execSync('taskkill /F /IM HappyTool.exe /T', { stdio: 'ignore' });
+} catch (e) {}
+
+// 3.5 포트 3000 점유 프로세스 소탕 (Vite 좀비 방지)
+try {
+    console.log('3000번 포트를 점유 중인 프로세스를 찾아서 종료함다...');
+    const result = execSync('netstat -ano | findstr :3000', { encoding: 'utf-8' });
+    if (result) {
+        const lines = result.trim().split('\n');
+        lines.forEach(line => {
+            const parts = line.trim().split(/\s+/);
+            const pid = parts[parts.length - 1];
+            if (pid && pid !== '0') {
+                console.log(`포트 3000 점유 발견 (PID: ${pid}). 소멸 시킵니다!`);
+                execSync(`taskkill /F /PID ${pid} /T`, { stdio: 'ignore' });
+            }
+        });
+    }
 } catch (e) {
-    // 프로세스가 없는 경우 패스
+    // 포트가 사용 중이지 않으면 findstr에서 에러가 날 수 있으므로 무시함다.
 }
 
 // 4. (부가 서비스) Electron GPU/Code Cache 안내
