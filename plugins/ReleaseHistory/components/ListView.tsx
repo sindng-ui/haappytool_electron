@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ReleaseItem } from '../types';
+import { ReleaseItem, getTagColor } from '../types';
 import { ChevronDown, ChevronRight, Package, Box } from 'lucide-react';
 
 interface ListViewProps {
@@ -83,15 +83,30 @@ const ListView: React.FC<ListViewProps> = ({ items, onItemClick }) => {
                                                 <div 
                                                     key={item.id} 
                                                     onClick={() => onItemClick(item)}
-                                                    className="bg-slate-700 p-3 rounded-md cursor-pointer hover:bg-slate-600 hover:ring-1 hover:ring-indigo-500 transition-all flex flex-col"
+                                                    className="bg-slate-700 p-3 rounded-md cursor-pointer hover:bg-slate-600 hover:ring-1 hover:ring-indigo-500 transition-all flex flex-col group"
                                                 >
-                                                    <div className="flex justify-between items-start mb-1">
+                                                    <div className="flex justify-between items-start mb-2">
                                                         <span className="font-bold text-slate-100">{item.version}</span>
-                                                        <span className="text-xs text-slate-400">
+                                                        <span className="text-[10px] text-slate-400 font-medium">
                                                             {new Date(item.releaseDate).toLocaleDateString()}
                                                         </span>
                                                     </div>
-                                                    <div className="text-sm text-slate-300 line-clamp-2">
+                                                    
+                                                    {item.tags && item.tags.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mb-2">
+                                                            {item.tags.map(tag => (
+                                                                <span 
+                                                                    key={tag} 
+                                                                    className="px-1.5 py-0.5 rounded-[4px] text-[9px] font-black text-white/90 uppercase tracking-tighter"
+                                                                    style={{ backgroundColor: getTagColor(tag) }}
+                                                                >
+                                                                    {tag}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    <div className="text-xs text-slate-400 line-clamp-2 italic group-hover:text-slate-300 transition-colors">
                                                         {item.note || 'No notes provided.'}
                                                     </div>
                                                 </div>

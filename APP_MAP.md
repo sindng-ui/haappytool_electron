@@ -54,8 +54,12 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
 - **UI Components**:
   - `ReleaseHistoryPlugin`: 듀얼 뷰 모드(List/Timeline), 검색 및 Import/Export 제어.
   - `ListView`: 릴리즈 버전과 노트를 정리된 카테고리로 보여주는 아코디언형 리스트.
-  - `TimelineGraphView`: 정보를 포함한 작은 카드(Release Name, Version) 형태로 시각화된 2D 타임라인 뷰.
+    - **Update (2026-04-23)**: 릴리즈 카드에 컬러 코딩된 **태그 배지** 표시 기능 추가.
+  - `TimelineGraphView`: 정보를 포함한 작은 카드 형태로 시각화된 2D 타임라인 뷰.
+    - **Update (2026-04-23)**: 하단 **타임라인 미니맵(Mini-map)** 추가. 전체 기간 조망 및 드래그 내비게이션 지원.
+    - **Update (2026-04-23)**: 태그 기반 **컬러 코딩** 적용. 태그 성격에 따라 아이템 색상이 자동 변경됨.
 - **Features**:
+  - **Tag System**: `Hotfix`, `Feature`, `Major` 등 프리셋 태그 및 사용자 정의 태그 지원. 각 태그별 고유 색상 매핑.
   - JSON Import (Drag & Drop), Markdown Table Copy, Timeline PNG Export 지원.
   - 대용량 데이터 시 렌더링 최적화 (`useMemo` 기반 상태 관리).
 

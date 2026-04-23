@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { ReleaseItem } from '../types';
-import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { ReleaseItem, getTagColor } from '../types';
+import { ZoomIn, ZoomOut, Maximize, MousePointer2 } from 'lucide-react';
 
 interface TimelineGraphViewProps {
     items: ReleaseItem[];
@@ -9,7 +9,9 @@ interface TimelineGraphViewProps {
 
 const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClick }) => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const miniMapRef = useRef<HTMLDivElement>(null);
     const [zoom, setZoom] = useState<number>(1);
+    const [scrollState, setScrollState] = useState({ scrollLeft: 0, clientWidth: 0, scrollWidth: 0 });
     
     // Calculate timeline boundaries and dimensions
     const { minDate, maxDate, products, daySpan } = useMemo(() => {
@@ -52,11 +54,45 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
         return ((now - minDate) / (1000 * 60 * 60 * 24)) * dayWidth;
     }, [minDate, maxDate, dayWidth]);
 
+    // Handle scroll syncing for MiniMap
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+
+        const handleScroll = () => {
+            setScrollState({
+                scrollLeft: el.scrollLeft,
+                clientWidth: el.clientWidth,
+                scrollWidth: el.scrollWidth
+            });
+        };
+
+        el.addEventListener('scroll', handleScroll);
+        handleScroll(); // Initial
+        return () => el.removeEventListener('scroll', handleScroll);
+    }, [zoom, totalWidth]);
+
     const handleZoom = (delta: number) => {
         setZoom(z => Math.max(0.1, Math.min(5, z + delta)));
     };
 
     const handleResetZoom = () => setZoom(1);
+
+    // MiniMap Click/Drag Logic
+    const handleMiniMapNav = (e: React.MouseEvent | React.TouchEvent) => {
+        const mm = miniMapRef.current;
+        const main = containerRef.current;
+        if (!mm || !main) return;
+
+        const rect = mm.getBoundingClientRect();
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const x = clientX - rect.left;
+        const ratio = x / rect.width;
+        
+        // Center the viewport on the click
+        const scrollTarget = (ratio * main.scrollWidth) - (main.clientWidth / 2);
+        main.scrollLeft = scrollTarget;
+    };
 
     // Generate axis labels (Months & Years)
     const timeLabels = useMemo(() => {
@@ -98,7 +134,7 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
     return (
         <div className="flex-1 flex flex-col overflow-hidden bg-slate-900 relative selection:bg-indigo-500/30" id="timeline-export-container">
             {/* Toolbar Overlay */}
-            <div className="absolute bottom-6 right-6 z-50 flex space-x-2 bg-slate-800/80 backdrop-blur p-2 rounded-xl shadow-2xl border border-slate-700">
+            <div className="absolute bottom-24 right-6 z-50 flex space-x-2 bg-slate-800/80 backdrop-blur p-2 rounded-xl shadow-2xl border border-slate-700">
                 <button onClick={() => handleZoom(-0.2)} className="p-2 bg-slate-700/50 hover:bg-slate-600 rounded-lg text-slate-300 transition-colors" title="Zoom Out">
                     <ZoomOut size={18} />
                 </button>
@@ -236,17 +272,18 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
                                             const firstPos = ((appItems[0].releaseDate - minDate) / (1000 * 60 * 60 * 24)) * dayWidth;
                                             const lastPos = ((appItems[appItems.length - 1].releaseDate - minDate) / (1000 * 60 * 60 * 24)) * dayWidth;
                                             
-                                            const colorHash = rName.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0);
-                                            const hue = Math.abs(colorHash) % 360;
+                                            const itemWithTag = appItems.find(i => i.tags && i.tags.length > 0);
+                                            const accentColor = itemWithTag?.tags ? getTagColor(itemWithTag.tags[0]) : `hsl(${Math.abs(rName.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0)) % 360}, 70%, 60%)`;
 
                                             return (
                                                 <div 
                                                     key={rName}
-                                                    className="absolute top-1/2 -translate-y-1/2 h-1 rounded-full opacity-10 blur-[1px] bg-white"
+                                                    className="absolute top-1/2 -translate-y-1/2 h-1 rounded-full opacity-10 blur-[1px]"
                                                     style={{ 
                                                         left: firstPos, 
                                                         width: lastPos - firstPos,
-                                                        boxShadow: `0 0 20px 2px hsl(${hue}, 70%, 60%)`
+                                                        backgroundColor: accentColor,
+                                                        boxShadow: `0 0 20px 2px ${accentColor}`
                                                     }}
                                                 />
                                             );
@@ -274,8 +311,7 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
                                         });
 
                                         return renderedItems.map((item) => {
-                                            const colorHash = item.releaseName.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0);
-                                            const hue = Math.abs(colorHash) % 360;
+                                            const accentColor = item.tags && item.tags.length > 0 ? getTagColor(item.tags[0]) : `hsl(${Math.abs(item.releaseName.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0)) % 360}, 70%, 60%)`;
                                             
                                             return (
                                                 <div
@@ -289,25 +325,38 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
                                                 >
                                                     {/* Card-style Item */}
                                                     <div 
-                                                        className="min-w-[160px] max-w-[240px] bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 rounded-xl p-3 shadow-2xl hover:shadow-indigo-500/40 hover:bg-slate-800/90 hover:border-indigo-500/50 transition-all group-hover:-translate-y-1"
+                                                        className="min-w-[170px] max-w-[220px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 shadow-2xl hover:shadow-indigo-500/30 hover:border-indigo-500/50 transition-all group-hover:-translate-y-1.5 flex flex-col gap-3"
                                                     >
-                                                        <div className="flex items-center space-x-2 mb-2">
-                                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: `hsl(${hue}, 70%, 60%)`, boxShadow: `0 0 10px hsl(${hue}, 70%, 60%)` }} />
-                                                            <div className="text-[10px] font-black truncate uppercase tracking-[0.2em] text-slate-400">
-                                                                {item.releaseName}
+                                                        {/* Top Row: Release Name & Date */}
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-xs font-bold text-slate-100 truncate max-w-[100px]">{item.releaseName}</span>
                                                             </div>
+                                                            <span className="text-[9px] font-bold text-slate-500 bg-slate-950/50 px-2 py-1 rounded-md border border-slate-800/50">
+                                                                {new Date(item.releaseDate).toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' })}
+                                                            </span>
                                                         </div>
-                                                        <div className="text-sm text-white font-black truncate drop-shadow-md">
-                                                            v{item.version}
+
+                                                        {/* Middle Row: Version */}
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: accentColor, boxShadow: `0 0 10px ${accentColor}44` }} />
+                                                            <span className="text-xl font-black text-white tracking-tight leading-none">v{item.version}</span>
                                                         </div>
-                                                        <div className="flex justify-between items-center mt-3 text-[10px]">
-                                                            <div className="text-slate-500 font-bold bg-slate-950/50 px-2 py-0.5 rounded-full border border-slate-800">
-                                                                {new Date(item.releaseDate).toLocaleDateString()}
+                                                        
+                                                        {/* Bottom Row: Tags */}
+                                                        {item.tags && item.tags.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {item.tags.map(t => (
+                                                                    <span 
+                                                                        key={t} 
+                                                                        className="px-2 py-0.5 rounded-[4px] text-[8px] font-black text-white leading-none uppercase tracking-tight shadow-sm border border-white/10"
+                                                                        style={{ backgroundColor: getTagColor(t) }}
+                                                                    >
+                                                                        {t}
+                                                                    </span>
+                                                                ))}
                                                             </div>
-                                                            <div className="text-indigo-400/80 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                Details →
-                                                            </div>
-                                                        </div>
+                                                        )}
                                                     </div>
 
                                                     {/* Vertical Connector Line to Axis */}
@@ -329,6 +378,56 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
                         ))}
                     </div>
 
+                </div>
+            </div>
+
+            {/* MiniMap Navigator */}
+            <div className="flex-none h-16 bg-slate-950 border-t border-slate-800 flex items-center px-6 gap-6 z-50">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest rotate-180 [writing-mode:vertical-lr]">MINIMAP</div>
+                
+                <div 
+                    ref={miniMapRef}
+                    className="flex-1 h-8 bg-slate-900/50 rounded-lg relative overflow-hidden cursor-grab active:cursor-grabbing group/mm border border-slate-800"
+                    onMouseDown={handleMiniMapNav}
+                    onMouseMove={(e) => e.buttons === 1 && handleMiniMapNav(e)}
+                >
+                    {/* Render dots for each release on the minimap */}
+                    {items.map(item => {
+                        const ratio = (item.releaseDate - minDate) / (maxDate - minDate);
+                        const accentColor = item.tags && item.tags.length > 0 ? getTagColor(item.tags[0]) : '#6366f1';
+                        return (
+                            <div 
+                                key={item.id}
+                                className="absolute top-1/2 -translate-y-1/2 w-1 h-3 rounded-full opacity-60 group-hover/mm:opacity-100 transition-opacity"
+                                style={{ 
+                                    left: `${ratio * 100}%`,
+                                    backgroundColor: accentColor,
+                                    boxShadow: `0 0 8px ${accentColor}`
+                                }}
+                            />
+                        );
+                    })}
+
+                    {/* Viewport Indicator */}
+                    {scrollState.scrollWidth > 0 && (
+                        <div 
+                            className="absolute top-0 bottom-0 bg-indigo-500/20 border-x border-indigo-500/50 backdrop-blur-[1px] pointer-events-none"
+                            style={{ 
+                                left: `${(scrollState.scrollLeft / scrollState.scrollWidth) * 100}%`,
+                                width: `${(scrollState.clientWidth / scrollState.scrollWidth) * 100}%`
+                            }}
+                        >
+                            <div className="absolute inset-0 flex items-center justify-between px-1 opacity-40">
+                                <div className="w-px h-4 bg-indigo-400" />
+                                <div className="w-px h-4 bg-indigo-400" />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center space-x-2 text-slate-500">
+                    <MousePointer2 size={14} />
+                    <span className="text-[10px] font-bold uppercase tracking-tight">Pan & Drag</span>
                 </div>
             </div>
         </div>

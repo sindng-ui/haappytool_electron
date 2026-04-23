@@ -1,5 +1,5 @@
 import React from 'react';
-import { ReleaseItem } from '../types';
+import { ReleaseItem, getTagColor } from '../types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { X, Calendar, Package, Tag, Box, Edit2 } from 'lucide-react';
@@ -60,6 +60,23 @@ const ReleaseDetailModal: React.FC<ReleaseDetailModalProps> = ({ item, onClose, 
                             </div>
                         </div>
                     </div>
+
+                    {item.tags && item.tags.length > 0 && (
+                        <div className="mb-6">
+                            <h3 className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Tags</h3>
+                            <div className="flex flex-wrap gap-2">
+                                {item.tags.map(tag => (
+                                    <span 
+                                        key={tag} 
+                                        className="px-2.5 py-1 rounded text-xs font-bold text-white shadow-lg"
+                                        style={{ backgroundColor: getTagColor(tag) }}
+                                    >
+                                        {tag}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="mt-4">
                         <h3 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Release Notes</h3>
