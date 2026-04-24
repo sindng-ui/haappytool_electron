@@ -104,7 +104,7 @@ const ReleaseDetailModal: React.FC<ReleaseDetailModalProps> = ({ item, onClose, 
                             <button
                                 onClick={() => {
                                     navigator.clipboard.writeText(item.note || '');
-                                    showToast('Copied to clipboard!', 'success');
+                                    showToast('Documentation copied to clipboard', 'success');
                                 }}
                                 className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all text-[9px] font-black uppercase tracking-widest border border-slate-700 active:scale-95"
                             >

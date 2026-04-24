@@ -15,6 +15,7 @@ if (isCliMode) {
 
 // ✅ WSL/Virtual Drive(Y:) Environment Fixes & SharedArrayBuffer Enable
 if (app && app.commandLine) {
+  app.commandLine.appendSwitch('lang', 'en-US'); // ✅ 형님, 달력 등 네이티브 UI 언어를 영어로 강제 고정합니다! 🐧🇺🇸
   app.commandLine.appendSwitch('disable-gpu');
   app.commandLine.appendSwitch('disable-software-rasterizer');
   app.commandLine.appendSwitch('no-sandbox');
