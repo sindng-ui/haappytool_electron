@@ -93,7 +93,7 @@ const AddReleaseModal: React.FC<AddReleaseModalProps> = ({
             {/* Modal Container: matches View Modal width and layout */}
             <div
                 className="bg-[#0f172a] border-2 border-slate-800 rounded-[32px] shadow-2xl w-full max-w-5xl flex flex-col relative"
-                style={{ maxHeight: 'calc(100vh - 40px)' }}
+                style={{ maxHeight: 'calc(100vh - 40px)', minHeight: 'min(900px, calc(100vh - 40px))' }}
             >
                 {/* ── 1. Header (fixed) ── */}
                 <div className="shrink-0 px-6 py-5 border-b border-slate-800 bg-[#161e2e] rounded-t-[30px]">
@@ -267,12 +267,12 @@ const AddReleaseModal: React.FC<AddReleaseModalProps> = ({
                         <div className="shrink-0 px-6 py-3 flex justify-between items-center bg-[#161e2e]/60 border-b border-slate-800/50">
                             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Internal Documentation</h3>
                         </div>
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                        <div className="flex-1 overflow-hidden p-6 flex flex-col">
                             <textarea
                                 value={note}
                                 onChange={e => setNote(e.target.value)}
                                 placeholder="Enter technical notes, change details, release context..."
-                                className="w-full h-full min-h-[250px] text-[14px] text-slate-300 font-medium outline-none resize-none custom-scrollbar placeholder:text-slate-600 focus:border-indigo-500/60 focus:bg-[#1a2333] border border-slate-800 rounded-2xl p-5 transition-all leading-relaxed shadow-sm whitespace-pre-wrap"
+                                className="flex-1 w-full text-[14px] text-slate-300 font-medium outline-none resize-none custom-scrollbar placeholder:text-slate-600 focus:border-indigo-500/60 focus:bg-[#1a2333] border border-slate-800 rounded-2xl p-5 transition-all leading-relaxed shadow-sm whitespace-pre-wrap"
                                 style={{ backgroundColor: '#161e2e', colorScheme: 'dark', wordBreak: 'break-all' }}
                             />
                         </div>
