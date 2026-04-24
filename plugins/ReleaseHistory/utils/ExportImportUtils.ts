@@ -1,7 +1,8 @@
-import { ReleaseItem } from '../types';
+import { ReleaseItem, ReleaseHistoryData } from '../types';
 
-export const exportToJson = (items: ReleaseItem[]) => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(items, null, 2));
+export const exportToJson = (items: ReleaseItem[], yearConfigs?: Record<number, any>) => {
+    const data: ReleaseHistoryData = { items, yearConfigs: yearConfigs || {} };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
     downloadAnchorNode.setAttribute("download", "release_history.json");
@@ -13,15 +14,35 @@ export const exportToJson = (items: ReleaseItem[]) => {
 export const importFromJson = (jsonString: string): ReleaseItem[] | null => {
     try {
         const parsed = JSON.parse(jsonString);
+        let items: any[] = [];
+        
         if (Array.isArray(parsed)) {
-            // Basic validation (allow both releaseName and appName for backward compatibility)
-            const valid = parsed.every(item => item.id && (item.releaseName || item.appName) && item.productName);
-            if (valid) {
-                return parsed.map(item => ({
+            items = parsed;
+        } else if (parsed && parsed.items && Array.isArray(parsed.items)) {
+            items = parsed.items;
+        } else {
+            return null;
+        }
+
+        // Basic validation and migration
+        const valid = items.every(item => item.id && (item.releaseName || item.appName));
+        if (valid) {
+            return items.map(item => {
+                const releaseName = item.releaseName || item.appName || 'Unknown';
+                let years = item.years;
+                if (!years) {
+                    if (item.productName && /^\d{4}$/.test(item.productName)) {
+                        years = [parseInt(item.productName)];
+                    } else {
+                        years = [new Date(item.releaseDate).getFullYear()];
+                    }
+                }
+                return {
                     ...item,
-                    releaseName: item.releaseName || item.appName || 'Unknown'
-                }));
-            }
+                    releaseName,
+                    years
+                };
+            });
         }
         return null;
     } catch (e) {
@@ -35,13 +56,14 @@ export const exportToMarkdown = (items: ReleaseItem[]) => {
     const sorted = [...items].sort((a, b) => b.releaseDate - a.releaseDate);
     
     let markdown = `# Release History\n\n`;
-    markdown += `| Release | Product | Version | Date | Notes |\n`;
+    markdown += `| Release | Years | Version | Date | Notes |\n`;
     markdown += `| :--- | :--- | :--- | :--- | :--- |\n`;
 
     sorted.forEach(item => {
         const date = new Date(item.releaseDate).toLocaleDateString();
         const noteSummary = item.note.split('\n')[0].replace(/\|/g, '\\|') || '-';
-        markdown += `| ${item.releaseName} | ${item.productName} | ${item.version} | ${date} | ${noteSummary} |\n`;
+        const yearsStr = item.years.join(', ');
+        markdown += `| ${item.releaseName} | ${yearsStr} | ${item.version} | ${date} | ${noteSummary} |\n`;
     });
 
     // Copy to clipboard

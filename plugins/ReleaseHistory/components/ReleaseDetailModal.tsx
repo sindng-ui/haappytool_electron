@@ -34,8 +34,14 @@ const ReleaseDetailModal: React.FC<ReleaseDetailModalProps> = ({ item, onClose, 
                         <div className="bg-slate-700/50 p-3 rounded-lg border border-slate-600/50 flex items-center">
                             <Box className="text-emerald-400 mr-3" size={20} />
                             <div>
-                                <div className="text-xs text-slate-400">Product</div>
-                                <div className="font-semibold text-slate-200">{item.productName}</div>
+                                <div className="text-xs text-slate-400">Years</div>
+                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                    {item.years.map(y => (
+                                        <span key={y} className="px-1.5 py-0.5 bg-slate-800 rounded text-xs font-bold text-slate-300 border border-slate-600">
+                                            {y}
+                                        </span>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                         <div className="bg-slate-700/50 p-3 rounded-lg border border-slate-600/50 flex items-center">

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { PluginContext } from '../types';
-import { ReleaseItem, ViewMode } from './types';
+import { ReleaseItem, ViewMode, YearConfig, ReleaseHistoryData } from './types';
 import ListView from './components/ListView';
 import TimelineGraphView from './components/TimelineGraphView';
 import ReleaseDetailModal from './components/ReleaseDetailModal';
@@ -16,22 +16,47 @@ interface ReleaseHistoryPluginProps {
 const STORAGE_KEY = 'happytool_release_history';
 
 const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) => {
-    const [items, setItems] = useState<ReleaseItem[]>(() => {
+    const [items, setItems] = useState<ReleaseItem[]>([]);
+    const [yearConfigs, setYearConfigs] = useState<Record<number, YearConfig>>({});
+
+    // Load and Migrate data
+    useEffect(() => {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
             try {
                 const parsed = JSON.parse(stored);
-                // Migration: appName -> releaseName
-                return parsed.map((item: any) => ({
-                    ...item,
-                    releaseName: item.releaseName || item.appName || 'Unknown',
-                }));
+                let loadedItems: any[] = [];
+                let loadedConfigs: Record<number, YearConfig> = {};
+
+                if (Array.isArray(parsed)) {
+                    loadedItems = parsed;
+                } else if (parsed.items) {
+                    loadedItems = parsed.items;
+                    loadedConfigs = parsed.yearConfigs || {};
+                }
+
+                const migratedItems: ReleaseItem[] = loadedItems.map((item: any) => {
+                    const releaseName = item.releaseName || item.appName || 'Unknown';
+                    let years = item.years;
+                    if (!years) {
+                        // Migration from productName
+                        if (item.productName && /^\d{4}$/.test(item.productName)) {
+                            years = [parseInt(item.productName)];
+                        } else {
+                            // Fallback to year of releaseDate
+                            years = [new Date(item.releaseDate).getFullYear()];
+                        }
+                    }
+                    return { ...item, releaseName, years };
+                });
+
+                setItems(migratedItems);
+                setYearConfigs(loadedConfigs);
             } catch (e) {
-                return [];
+                console.error('Failed to parse stored release history', e);
             }
         }
-        return [];
-    });
+    }, []);
 
     const [viewMode, setViewMode] = useState<ViewMode>('list');
     const [searchQuery, setSearchQuery] = useState('');
@@ -42,10 +67,13 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Save to local storage whenever items change
+    // Save to local storage whenever items or configs change
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    }, [items]);
+        if (items.length > 0 || Object.keys(yearConfigs).length > 0) {
+            const data: ReleaseHistoryData = { items, yearConfigs };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+    }, [items, yearConfigs]);
 
     // Filtering logic (Memoized for performance)
     const filteredItems = useMemo(() => {
@@ -53,16 +81,16 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
         const q = searchQuery.toLowerCase();
         return items.filter(item => 
             item.releaseName.toLowerCase().includes(q) ||
-            item.productName.toLowerCase().includes(q) ||
+            item.years.some(y => y.toString().includes(q)) ||
             item.version.toLowerCase().includes(q) ||
             item.note.toLowerCase().includes(q)
         );
     }, [items, searchQuery]);
 
-    const existingProducts = useMemo(() => {
-        const prods = new Set<string>();
-        items.forEach(i => prods.add(i.productName));
-        return Array.from(prods);
+    const existingYears = useMemo(() => {
+        const years = new Set<number>();
+        items.forEach(i => i.years.forEach(y => years.add(y)));
+        return Array.from(years).sort((a, b) => b - a);
     }, [items]);
 
     const handleSaveRelease = (newItemData: Omit<ReleaseItem, 'id'>) => {
@@ -92,6 +120,13 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
         setEditingItem(item);
         setSelectedItem(null); // Close detail modal
         setIsAddModalOpen(true); // Open add modal in edit mode
+    };
+
+    const handleUpdateYearConfig = (config: YearConfig) => {
+        setYearConfigs(prev => ({
+            ...prev,
+            [config.year]: config
+        }));
     };
 
     const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,7 +227,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
                         </div>
                         <input
                             type="text"
-                            placeholder="Search release, product, version..."
+                            placeholder="Search release, version, year..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full bg-slate-950/50 border border-slate-700 rounded-full pl-12 pr-4 py-1.5 text-sm text-slate-200 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 focus:bg-slate-950 outline-none transition-all placeholder:text-slate-600"
@@ -230,7 +265,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
                         />
 
                         <button
-                            onClick={() => exportToJson(items)}
+                            onClick={() => exportToJson(items, yearConfigs)}
                             className="p-1.5 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
                             title="Export JSON"
                         >
@@ -285,7 +320,12 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
             {viewMode === 'list' ? (
                 <ListView items={filteredItems} onItemClick={setSelectedItem} />
             ) : (
-                <TimelineGraphView items={filteredItems} onItemClick={setSelectedItem} />
+                <TimelineGraphView 
+                    items={filteredItems} 
+                    onItemClick={setSelectedItem} 
+                    yearConfigs={yearConfigs}
+                    onUpdateYearConfig={handleUpdateYearConfig}
+                />
             )}
 
             {/* Modals */}
@@ -303,7 +343,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
                     setEditingItem(null);
                 }} 
                 onSave={handleSaveRelease}
-                existingProducts={existingProducts}
+                existingYears={existingYears}
                 initialData={editingItem}
             />
         </div>

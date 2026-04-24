@@ -10,23 +10,26 @@ interface ListViewProps {
 const ListView: React.FC<ListViewProps> = ({ items, onItemClick }) => {
     const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
 
-    // Group items by productName -> appName
+    // Group items by year -> releaseName
     const groupedData = useMemo(() => {
-        const groups: Record<string, Record<string, ReleaseItem[]>> = {};
+        const groups: Record<number, Record<string, ReleaseItem[]>> = {};
         items.forEach(item => {
-            if (!groups[item.productName]) {
-                groups[item.productName] = {};
-            }
-            if (!groups[item.productName][item.releaseName]) {
-                groups[item.productName][item.releaseName] = [];
-            }
-            groups[item.productName][item.releaseName].push(item);
+            item.years.forEach(year => {
+                if (!groups[year]) {
+                    groups[year] = {};
+                }
+                if (!groups[year][item.releaseName]) {
+                    groups[year][item.releaseName] = [];
+                }
+                groups[year][item.releaseName].push(item);
+            });
         });
 
         // Sort items by date descending inside groups
-        Object.keys(groups).forEach(prod => {
-            Object.keys(groups[prod]).forEach(app => {
-                groups[prod][app].sort((a, b) => b.releaseDate - a.releaseDate);
+        Object.keys(groups).forEach(yearStr => {
+            const year = parseInt(yearStr);
+            Object.keys(groups[year]).forEach(app => {
+                groups[year][app].sort((a, b) => b.releaseDate - a.releaseDate);
             });
         });
 
@@ -50,22 +53,23 @@ const ListView: React.FC<ListViewProps> = ({ items, onItemClick }) => {
 
     return (
         <div className="flex-1 overflow-auto p-4 space-y-4">
-            {Object.keys(groupedData).sort().map(prodName => {
-                const isExpanded = expandedProducts[prodName] !== false; // Default expanded
-                const apps = groupedData[prodName];
+            {Object.keys(groupedData).sort((a, b) => parseInt(b) - parseInt(a)).map(yearStr => {
+                const year = parseInt(yearStr);
+                const isExpanded = expandedProducts[yearStr] !== false; // Default expanded
+                const apps = groupedData[year];
 
                 return (
-                    <div key={prodName} className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-                        {/* Product Header */}
+                    <div key={yearStr} className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+                        {/* Year Header */}
                         <div 
                             className="bg-slate-700 p-3 flex items-center cursor-pointer hover:bg-slate-600 transition-colors"
-                            onClick={() => toggleProduct(prodName)}
+                            onClick={() => toggleProduct(yearStr)}
                         >
                             {isExpanded ? <ChevronDown size={18} className="mr-2" /> : <ChevronRight size={18} className="mr-2" />}
                             <Package size={20} className="mr-2 text-indigo-400" />
-                            <h3 className="text-lg font-semibold text-slate-100">{prodName}</h3>
+                            <h3 className="text-lg font-black text-slate-100">{year}</h3>
                             <span className="ml-auto text-sm text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
-                                {Object.values(apps).flat().length} items
+                                {Object.values(apps).flat().length} releases
                             </span>
                         </div>
 

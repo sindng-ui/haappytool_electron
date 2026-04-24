@@ -5,6 +5,8 @@ import { ZoomIn, ZoomOut, Maximize, MousePointer2 } from 'lucide-react';
 interface TimelineGraphViewProps {
     items: ReleaseItem[];
     onItemClick: (item: ReleaseItem) => void;
+    yearConfigs: Record<number, YearConfig>;
+    onUpdateYearConfig: (config: YearConfig) => void;
 }
 
 const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClick }) => {
@@ -14,17 +16,17 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
     const [scrollState, setScrollState] = useState({ scrollLeft: 0, clientWidth: 0, scrollWidth: 0 });
     
     // Calculate timeline boundaries and dimensions
-    const { minDate, maxDate, products, daySpan } = useMemo(() => {
-        if (items.length === 0) return { minDate: 0, maxDate: 0, products: [], daySpan: 0 };
+    const { minDate, maxDate, years, daySpan } = useMemo(() => {
+        if (items.length === 0) return { minDate: 0, maxDate: 0, years: [], daySpan: 0 };
         
         let min = items[0].releaseDate;
         let max = items[0].releaseDate;
-        const prods = new Set<string>();
+        const yearSet = new Set<number>();
         
         items.forEach(it => {
             if (it.releaseDate < min) min = it.releaseDate;
             if (it.releaseDate > max) max = it.releaseDate;
-            prods.add(it.productName);
+            it.years.forEach(y => yearSet.add(y));
         });
         
         // Add padding (90 days before and after to prevent clipping)
@@ -37,7 +39,7 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
         return { 
             minDate: min, 
             maxDate: max, 
-            products: Array.from(prods).sort(),
+            years: Array.from(yearSet).sort((a, b) => b - a),
             daySpan: span
         };
     }, [items]);
@@ -113,15 +115,19 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
         return labels;
     }, [minDate, maxDate, daySpan]);
 
-    // Group items by product for rendering lanes
-    const itemsByProduct = useMemo(() => {
-        const map = new Map<string, ReleaseItem[]>();
-        products.forEach(p => map.set(p, []));
+    // Group items by year for rendering lanes
+    const itemsByYear = useMemo(() => {
+        const map = new Map<number, ReleaseItem[]>();
+        years.forEach(y => map.set(y, []));
         items.forEach(it => {
-            map.get(it.productName)?.push(it);
+            it.years.forEach(y => {
+                if (map.has(y)) {
+                    map.get(y)?.push(it);
+                }
+            });
         });
         return map;
-    }, [items, products]);
+    }, [items, years]);
 
     if (items.length === 0) {
         return (
@@ -239,143 +245,174 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
                             ))}
                         </div>
 
-                        {/* Product Lanes */}
-                        {products.map((prod, idx) => (
-                            <div 
-                                key={prod}
-                                className="relative flex items-center border-b border-slate-800 group/lane transition-colors z-10"
-                                style={{ height: laneHeight }}
-                            >
-                                {/* Lane Glow Effect */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover/lane:opacity-100 transition-opacity pointer-events-none" />
+                        {/* Year Lanes */}
+                        {years.map((year, idx) => {
+                            const yearItems = itemsByYear.get(year) || [];
+                            const autoLatest = yearItems.length > 0 ? [...yearItems].sort((a, b) => b.releaseDate - a.releaseDate)[0] : null;
+                            const config = yearConfigs[year];
+                            const displayVersion = config?.latestVersion || autoLatest?.version || 'N/A';
+                            const latestReleaseId = config?.latestReleaseId || autoLatest?.id;
+                            const latestRelease = latestReleaseId ? items.find(i => i.id === latestReleaseId) : autoLatest;
 
-                                {/* Sticky Product Label */}
-                                <div className="sticky left-0 bg-slate-950 z-40 px-6 py-4 border-r border-slate-800 shadow-[10px_0_15px_-10px_rgba(0,0,0,0.5)] w-48 shrink-0 flex flex-col justify-center">
-                                    <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Product</div>
-                                    <span className="font-black text-slate-200 text-lg truncate drop-shadow-sm" title={prod}>{prod}</span>
-                                    <div className="text-[10px] text-indigo-500/70 font-semibold mt-1">
-                                        {itemsByProduct.get(prod)?.length || 0} Releases
+                            return (
+                                <div 
+                                    key={year}
+                                    className="relative flex items-center border-b border-slate-800 group/lane transition-colors z-10"
+                                    style={{ height: laneHeight }}
+                                >
+                                    {/* Lane Glow Effect */}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover/lane:opacity-100 transition-opacity pointer-events-none" />
+
+                                    {/* Sticky Year Label */}
+                                    <div className="sticky left-0 bg-slate-950 z-40 px-6 py-4 border-r border-slate-800 shadow-[10px_0_15px_-10px_rgba(0,0,0,0.5)] w-48 shrink-0 flex flex-col justify-center">
+                                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1 flex justify-between items-center">
+                                            <span>YEAR</span>
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const newVer = prompt(`Enter latest version for ${year}:`, displayVersion);
+                                                    if (newVer !== null) {
+                                                        onUpdateYearConfig({ year, latestVersion: newVer });
+                                                    }
+                                                }}
+                                                className="p-1 hover:bg-slate-800 rounded text-slate-600 hover:text-indigo-400 transition-colors"
+                                                title="Manually set latest version"
+                                            >
+                                                <MousePointer2 size={10} />
+                                            </button>
+                                        </div>
+                                        <span className="font-black text-slate-200 text-2xl drop-shadow-sm">{year}</span>
+                                        <div 
+                                            className="mt-2 group/ver cursor-pointer"
+                                            onClick={() => latestRelease && onItemClick(latestRelease)}
+                                        >
+                                            <div className="text-[10px] text-indigo-500/70 font-semibold mb-0.5">LATEST</div>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-sm font-bold text-white bg-indigo-600/20 px-2 py-0.5 rounded border border-indigo-500/30 group-hover/ver:bg-indigo-600/40 transition-colors">
+                                                    v{displayVersion}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Items Container */}
-                                <div className="absolute top-0 bottom-0 left-0 right-0 overflow-visible">
-                                    {/* App Tracks */}
-                                    {(() => {
-                                        const laneItems = itemsByProduct.get(prod) || [];
-                                        const uniqueReleases = Array.from(new Set(laneItems.map(i => i.releaseName)));
-                                        
-                                        return uniqueReleases.map(rName => {
-                                            const appItems = laneItems.filter(i => i.releaseName === rName).sort((a, b) => a.releaseDate - b.releaseDate);
-                                            if (appItems.length < 2) return null;
+                                    {/* Items Container */}
+                                    <div className="absolute top-0 bottom-0 left-0 right-0 overflow-visible">
+                                        {/* App Tracks */}
+                                        {(() => {
+                                            const uniqueReleases = Array.from(new Set(yearItems.map(i => i.releaseName)));
                                             
-                                            const firstPos = ((appItems[0].releaseDate - minDate) / (1000 * 60 * 60 * 24)) * dayWidth;
-                                            const lastPos = ((appItems[appItems.length - 1].releaseDate - minDate) / (1000 * 60 * 60 * 24)) * dayWidth;
-                                            
-                                            const itemWithTag = appItems.find(i => i.tags && i.tags.length > 0);
-                                            const accentColor = itemWithTag?.tags ? getTagColor(itemWithTag.tags[0]) : `hsl(${Math.abs(rName.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0)) % 360}, 70%, 60%)`;
+                                            return uniqueReleases.map(rName => {
+                                                const appItems = yearItems.filter(i => i.releaseName === rName).sort((a, b) => a.releaseDate - b.releaseDate);
+                                                if (appItems.length < 2) return null;
+                                                
+                                                const firstPos = ((appItems[0].releaseDate - minDate) / (1000 * 60 * 60 * 24)) * dayWidth;
+                                                const lastPos = ((appItems[appItems.length - 1].releaseDate - minDate) / (1000 * 60 * 60 * 24)) * dayWidth;
+                                                
+                                                const itemWithTag = appItems.find(i => i.tags && i.tags.length > 0);
+                                                const accentColor = itemWithTag?.tags ? getTagColor(itemWithTag.tags[0]) : `hsl(${Math.abs(rName.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0)) % 360}, 70%, 60%)`;
 
-                                            return (
-                                                <div 
-                                                    key={rName}
-                                                    className="absolute top-1/2 -translate-y-1/2 h-1 rounded-full opacity-10 blur-[1px]"
-                                                    style={{ 
-                                                        left: firstPos, 
-                                                        width: lastPos - firstPos,
-                                                        backgroundColor: accentColor,
-                                                        boxShadow: `0 0 20px 2px ${accentColor}`
-                                                    }}
-                                                />
-                                            );
-                                        });
-                                    })()}
-
-                                    {(() => {
-                                        const laneItems = [...(itemsByProduct.get(prod) || [])].sort((a, b) => a.releaseDate - b.releaseDate);
-                                        const renderedItems: any[] = [];
-                                        
-                                        laneItems.forEach(item => {
-                                            const offsetDays = (item.releaseDate - minDate) / (1000 * 60 * 60 * 24);
-                                            const leftPos = offsetDays * dayWidth;
-                                            
-                                            // Slotting logic for overlap
-                                            let slot = 0;
-                                            while (renderedItems.some(ri => 
-                                                ri.slot === slot && 
-                                                Math.abs(ri.leftPos - leftPos) < 220
-                                            )) {
-                                                slot = (slot === 0) ? 1 : (slot === 1) ? -1 : (slot > 0) ? slot + 1 : slot - 1;
-                                                if (Math.abs(slot) > 2) break; // Max 5 levels
-                                            }
-                                            renderedItems.push({ ...item, leftPos, slot });
-                                        });
-
-                                        return renderedItems.map((item) => {
-                                            const accentColor = item.tags && item.tags.length > 0 ? getTagColor(item.tags[0]) : `hsl(${Math.abs(item.releaseName.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0)) % 360}, 70%, 60%)`;
-                                            
-                                            return (
-                                                <div
-                                                    key={item.id}
-                                                    onClick={(e) => { e.stopPropagation(); onItemClick(item); }}
-                                                    className="absolute top-1/2 group cursor-pointer z-10 transition-all duration-300"
-                                                    style={{ 
-                                                        left: item.leftPos,
-                                                        transform: `translateY(calc(-50% + ${item.slot * 45}px))`
-                                                    }}
-                                                >
-                                                    {/* Card-style Item */}
+                                                return (
                                                     <div 
-                                                        className="min-w-[170px] max-w-[220px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 shadow-2xl hover:shadow-indigo-500/30 hover:border-indigo-500/50 transition-all group-hover:-translate-y-1.5 flex flex-col gap-3"
-                                                    >
-                                                        {/* Top Row: Release Name & Date */}
-                                                        <div className="flex justify-between items-start">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-xs font-bold text-slate-100 truncate max-w-[100px]">{item.releaseName}</span>
-                                                            </div>
-                                                            <span className="text-[9px] font-bold text-slate-500 bg-slate-950/50 px-2 py-1 rounded-md border border-slate-800/50">
-                                                                {new Date(item.releaseDate).toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' })}
-                                                            </span>
-                                                        </div>
-
-                                                        {/* Middle Row: Version */}
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: accentColor, boxShadow: `0 0 10px ${accentColor}44` }} />
-                                                            <span className="text-xl font-black text-white tracking-tight leading-none">v{item.version}</span>
-                                                        </div>
-                                                        
-                                                        {/* Bottom Row: Tags */}
-                                                        {item.tags && item.tags.length > 0 && (
-                                                            <div className="flex flex-wrap gap-1">
-                                                                {item.tags.map(t => (
-                                                                    <span 
-                                                                        key={t} 
-                                                                        className="px-2 py-0.5 rounded-[4px] text-[8px] font-black text-white leading-none uppercase tracking-tight shadow-sm border border-white/10"
-                                                                        style={{ backgroundColor: getTagColor(t) }}
-                                                                    >
-                                                                        {t}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Vertical Connector Line to Axis */}
-                                                    <div 
-                                                        className="absolute w-px bg-gradient-to-b from-indigo-500/50 to-transparent -z-10 group-hover:from-indigo-400 transition-all"
+                                                        key={rName}
+                                                        className="absolute top-1/2 -translate-y-1/2 h-1 rounded-full opacity-10 blur-[1px]"
                                                         style={{ 
-                                                            height: Math.abs(item.slot * 45) + 20,
-                                                            top: item.slot >= 0 ? -Math.abs(item.slot * 45) : 100,
-                                                            left: 0,
-                                                            display: item.slot === 0 ? 'none' : 'block'
+                                                            left: firstPos, 
+                                                            width: lastPos - firstPos,
+                                                            backgroundColor: accentColor,
+                                                            boxShadow: `0 0 20px 2px ${accentColor}`
                                                         }}
                                                     />
-                                                </div>
-                                            );
-                                        });
-                                    })()}
+                                                );
+                                            });
+                                        })()}
+
+                                        {(() => {
+                                            const laneItems = [...yearItems].sort((a, b) => a.releaseDate - b.releaseDate);
+                                            const renderedItems: any[] = [];
+                                            
+                                            laneItems.forEach(item => {
+                                                const offsetDays = (item.releaseDate - minDate) / (1000 * 60 * 60 * 24);
+                                                const leftPos = offsetDays * dayWidth;
+                                                
+                                                // Slotting logic for overlap
+                                                let slot = 0;
+                                                while (renderedItems.some(ri => 
+                                                    ri.slot === slot && 
+                                                    Math.abs(ri.leftPos - leftPos) < 220
+                                                )) {
+                                                    slot = (slot === 0) ? 1 : (slot === 1) ? -1 : (slot > 0) ? slot + 1 : slot - 1;
+                                                    if (Math.abs(slot) > 2) break; // Max 5 levels
+                                                }
+                                                renderedItems.push({ ...item, leftPos, slot });
+                                            });
+
+                                            return renderedItems.map((item) => {
+                                                const accentColor = item.tags && item.tags.length > 0 ? getTagColor(item.tags[0]) : `hsl(${Math.abs(item.releaseName.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0)) % 360}, 70%, 60%)`;
+                                                
+                                                return (
+                                                    <div
+                                                        key={item.id}
+                                                        onClick={(e) => { e.stopPropagation(); onItemClick(item); }}
+                                                        className="absolute top-1/2 group cursor-pointer z-10 transition-all duration-300"
+                                                        style={{ 
+                                                            left: item.leftPos,
+                                                            transform: `translateY(calc(-50% + ${item.slot * 45}px))`
+                                                        }}
+                                                    >
+                                                        {/* Card-style Item */}
+                                                        <div 
+                                                            className="min-w-[170px] max-w-[220px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 shadow-2xl hover:shadow-indigo-500/30 hover:border-indigo-500/50 transition-all group-hover:-translate-y-1.5 flex flex-col gap-3"
+                                                        >
+                                                            {/* Top Row: Release Name & Date */}
+                                                            <div className="flex justify-between items-start">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-xs font-bold text-slate-100 truncate max-w-[100px]">{item.releaseName}</span>
+                                                                </div>
+                                                                <span className="text-[9px] font-bold text-slate-500 bg-slate-950/50 px-2 py-1 rounded-md border border-slate-800/50">
+                                                                    {new Date(item.releaseDate).toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' })}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Middle Row: Version */}
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: accentColor, boxShadow: `0 0 10px ${accentColor}44` }} />
+                                                                <span className="text-xl font-black text-white tracking-tight leading-none">v{item.version}</span>
+                                                            </div>
+                                                            
+                                                            {/* Bottom Row: Tags */}
+                                                            {item.tags && item.tags.length > 0 && (
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {item.tags.map(t => (
+                                                                        <span 
+                                                                            key={t} 
+                                                                            className="px-2 py-0.5 rounded-[4px] text-[8px] font-black text-white leading-none uppercase tracking-tight shadow-sm border border-white/10"
+                                                                            style={{ backgroundColor: getTagColor(t) }}
+                                                                        >
+                                                                            {t}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Vertical Connector Line to Axis */}
+                                                        <div 
+                                                            className="absolute w-px bg-gradient-to-b from-indigo-500/50 to-transparent -z-10 group-hover:from-indigo-400 transition-all"
+                                                            style={{ 
+                                                                height: Math.abs(item.slot * 45) + 20,
+                                                                top: item.slot >= 0 ? -Math.abs(item.slot * 45) : 100,
+                                                                left: 0,
+                                                                display: item.slot === 0 ? 'none' : 'block'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                 </div>

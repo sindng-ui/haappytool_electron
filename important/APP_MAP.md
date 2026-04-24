@@ -209,6 +209,20 @@
   - **자동 파일명 제안**: 원본이 `aaa.nupkg`인 경우 `aaa_signed.nupkg`로 저장 유도. [NEW]
   - **성능 최적화 (JSZip ESM 전환)**: `importScripts` 제거 및 ESM 임포트 방식으로 전환, Vite 사전 번들링 설정을 통해 회사 PC 등 저사양 환경에서의 로딩 속도 대폭 개선. [UPDATED][HOT]
 
+### [[Release History Plugin]] 📅🚀 [NEW]
+- **ID**: `RELEASE_HISTORY`
+- **Keywords**: [`릴리즈 히스토리`, `Release History`, `Timeline`, `버전 관리`, `다중 년도`, `OS Upgrade`]
+- **Location**:
+- `View`: [ReleaseHistoryPlugin.tsx](./plugins/ReleaseHistory/ReleaseHistoryPlugin.tsx)
+- `Types`: [types.ts](./plugins/ReleaseHistory/types.ts)
+- `Timeline`: [TimelineGraphView.tsx](./plugins/ReleaseHistory/components/TimelineGraphView.tsx)
+- **Features**:
+- **다중 년도(Multi-year) 지원**: 하나의 릴리즈를 여러 년도(예: OS 업그레이드 상황)에 걸쳐 등록 가능.
+- **지능형 타임라인**: 좌측 년도 레이블에 해당 년도의 최신 버전 자동/수동 표시.
+- **수동 최신 버전 관리**: 유저가 특정 년도의 대표 버전을 직접 지정 가능.
+- **데이터 마이그레이션**: 기존 `productName` 기반 데이터를 신규 년도 체계로 자동 변환.
+- **프리미엄 UI**: 글래스모피즘 기반의 타임라인 카드와 고대비 달력 아이콘 적용. [UPDATED]
+
 ### [[SpeedScope Plugin]]
 - **ID**: `plugin-speedscope`
 - **Keywords**: [`SpeedScope`, `Flame Graph`, `Performance`, `Main Thread Detection`]

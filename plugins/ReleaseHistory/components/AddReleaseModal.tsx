@@ -6,14 +6,15 @@ interface AddReleaseModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (item: Omit<ReleaseItem, 'id'>) => void;
-    existingProducts: string[];
+    existingYears: number[];
     initialData?: ReleaseItem | null;
 }
 
 const PRESET_TAGS = Object.keys(TAG_COLORS);
 
-const AddReleaseModal: React.FC<AddReleaseModalProps> = ({ isOpen, onClose, onSave, existingProducts, initialData }) => {
-    const [productName, setProductName] = useState('');
+const AddReleaseModal: React.FC<AddReleaseModalProps> = ({ isOpen, onClose, onSave, existingYears, initialData }) => {
+    const [years, setYears] = useState<number[]>([]);
+    const [yearInput, setYearInput] = useState('');
     const [releaseName, setReleaseName] = useState('');
     const [version, setVersion] = useState('');
     const [releaseDate, setReleaseDate] = useState('');
@@ -23,15 +24,28 @@ const AddReleaseModal: React.FC<AddReleaseModalProps> = ({ isOpen, onClose, onSa
 
     useEffect(() => {
         if (isOpen) {
-            setProductName(initialData?.productName || '');
+            setYears(initialData?.years || [new Date().getFullYear()]);
             setReleaseName(initialData?.releaseName || '');
             setVersion(initialData?.version || '');
             setReleaseDate(initialData ? new Date(initialData.releaseDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
             setNote(initialData?.note || '');
             setTags(initialData?.tags || []);
             setTagInput('');
+            setYearInput('');
         }
     }, [isOpen, initialData]);
+
+    const handleAddYear = (yearStr: string) => {
+        const year = parseInt(yearStr);
+        if (!isNaN(year) && !years.includes(year) && year > 1990 && year < 2100) {
+            setYears([...years, year].sort((a, b) => b - a));
+        }
+        setYearInput('');
+    };
+
+    const handleRemoveYear = (yearToRemove: number) => {
+        setYears(years.filter(y => y !== yearToRemove));
+    };
 
     if (!isOpen) return null;
 
@@ -49,10 +63,10 @@ const AddReleaseModal: React.FC<AddReleaseModalProps> = ({ isOpen, onClose, onSa
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!productName || !releaseName || !version || !releaseDate) return;
+        if (years.length === 0 || !releaseName || !version || !releaseDate) return;
 
         onSave({
-            productName,
+            years,
             releaseName,
             version,
             releaseDate: new Date(releaseDate).getTime(),
@@ -73,28 +87,75 @@ const AddReleaseModal: React.FC<AddReleaseModalProps> = ({ isOpen, onClose, onSa
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 overflow-auto flex-1 custom-scrollbar space-y-5">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2 sm:col-span-1">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center">
-                                <Package size={14} className="mr-1.5 text-emerald-400" />
-                                Product Name
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="col-span-2">
+                            <label className="block text-xs font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center">
+                                <Package size={14} className="mr-1.5" />
+                                Years (Multi-select)
                             </label>
-                            <input
-                                type="text"
-                                value={productName}
-                                onChange={(e) => setProductName(e.target.value)}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                placeholder="e.g. SmartThings"
-                                list="product-list"
-                                required
-                            />
-                            <datalist id="product-list">
-                                {existingProducts.map(p => <option key={p} value={p} />)}
-                            </datalist>
+                            
+                            <div className="flex flex-wrap gap-2 mb-3 bg-slate-900/50 p-3 rounded-xl border border-slate-700/50 min-h-[50px] items-center">
+                                {years.map(year => (
+                                    <span 
+                                        key={year} 
+                                        className="px-3 py-1 bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 rounded-full flex items-center text-sm font-bold animate-in fade-in zoom-in duration-200"
+                                    >
+                                        {year}
+                                        <button 
+                                            type="button"
+                                            onClick={() => handleRemoveYear(year)}
+                                            className="ml-2 hover:text-white transition-colors"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </span>
+                                ))}
+                                {years.length === 0 && <span className="text-xs text-slate-600 italic px-2">Please select years...</span>}
+                            </div>
+
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <input
+                                        type="number"
+                                        value={yearInput}
+                                        onChange={(e) => setYearInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleAddYear(yearInput);
+                                            }
+                                        }}
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                        placeholder="Enter Year (e.g. 2026)"
+                                    />
+                                </div>
+                                <button 
+                                    type="button"
+                                    onClick={() => handleAddYear(yearInput)}
+                                    className="px-4 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition-colors font-bold text-sm"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                            
+                            {/* Preset Years */}
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                {[new Date().getFullYear(), new Date().getFullYear() + 1, ...existingYears].filter((y, i, a) => a.indexOf(y) === i).slice(0, 5).map(y => (
+                                    <button
+                                        key={y}
+                                        type="button"
+                                        onClick={() => handleAddYear(y.toString())}
+                                        className="px-2 py-1 bg-slate-800/50 hover:bg-slate-700 text-[10px] text-slate-400 rounded border border-slate-700 transition-colors"
+                                    >
+                                        + {y}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <div className="col-span-2 sm:col-span-1">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center">
-                                <Info size={14} className="mr-1.5 text-blue-400" />
+
+                        <div className="col-span-2">
+                            <label className="block text-xs font-black text-blue-400 uppercase tracking-widest mb-2 flex items-center">
+                                <Info size={14} className="mr-1.5" />
                                 Release Name
                             </label>
                             <input
@@ -102,7 +163,7 @@ const AddReleaseModal: React.FC<AddReleaseModalProps> = ({ isOpen, onClose, onSa
                                 value={releaseName}
                                 onChange={(e) => setReleaseName(e.target.value)}
                                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                placeholder="e.g. PluginA"
+                                placeholder="e.g. 26R1"
                                 required
                             />
                         </div>
@@ -124,17 +185,22 @@ const AddReleaseModal: React.FC<AddReleaseModalProps> = ({ isOpen, onClose, onSa
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center">
-                                <Calendar size={14} className="mr-1.5 text-rose-400" />
+                            <label className="block text-xs font-black text-rose-400 uppercase tracking-widest mb-2 flex items-center">
+                                <Calendar size={14} className="mr-1.5" />
                                 Release Date
                             </label>
-                            <input
-                                type="date"
-                                value={releaseDate}
-                                onChange={(e) => setReleaseDate(e.target.value)}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all [color-scheme:dark]"
-                                required
-                            />
+                            <div className="relative group">
+                                <input
+                                    type="date"
+                                    value={releaseDate}
+                                    onChange={(e) => setReleaseDate(e.target.value)}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all [color-scheme:dark] group-hover:border-slate-500"
+                                    required
+                                />
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-rose-500/50 group-hover:text-rose-400 transition-colors">
+                                    <Calendar size={16} />
+                                </div>
+                            </div>
                         </div>
                     </div>
 

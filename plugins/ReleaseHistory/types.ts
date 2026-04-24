@@ -1,11 +1,22 @@
 export interface ReleaseItem {
     id: string;
     releaseName: string;
-    productName: string;
+    years: number[]; // Changed from productName: string to support multiple years
     version: string;
     releaseDate: number; // Unix timestamp for easy sorting and timeline placement
     note: string; // Markdown supported
     tags?: string[];
+}
+
+export interface YearConfig {
+    year: number;
+    latestVersion?: string;
+    latestReleaseId?: string;
+}
+
+export interface ReleaseHistoryData {
+    items: ReleaseItem[];
+    yearConfigs: Record<number, YearConfig>;
 }
 
 export type ViewMode = 'list' | 'timeline';

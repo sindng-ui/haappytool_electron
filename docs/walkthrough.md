@@ -1,25 +1,34 @@
-# RAG 서버 패키징 실행 오류 수정 완료
+# 릴리즈 히스토리 플러그인 고도화 완료 보고서 🐧🚀
 
-형님, `electron:build` 이후 RAG 서버 시작 시 발생하던 `ENOENT` 에러를 깔끔하게 해결했습니다! 🐧🚀
+형님, 요청하신 릴리즈 히스토리 플러그인의 고도화 작업을 성공적으로 마쳤습니다! 이제 OS 업그레이드와 같은 복수 년도 상황도 완벽하게 관리하실 수 있습니다.
 
 ## 주요 변경 사항
 
-### 1. ASAR Unpack 설정 적용
-파이썬 가상환경(`venv`)과 서버 스크립트들이 압축된 `.asar` 파일 내부에 있으면 운영체제가 이를 실행 파일로 인식하지 못합니다.
-- `package.json`의 `asarUnpack` 목록에 `server/rag_analyzer/**/*`를 추가하여, 빌드 후에도 `resources/app.asar.unpacked` 폴더에 실제 파일로 풀려 있도록 설정했습니다.
+### 1. 다중 년도(Multi-year) 지원 체계 구축
+- **데이터 모델 혁신**: 기존 단일 `productName` 방식에서 `years: number[]` 배열 방식으로 전환했습니다.
+- **자동 마이그레이션**: 기존 데이터가 로드될 때, 제품명이 년도(예: "2024")인 경우 자동으로 변환하며, 그렇지 않은 경우 출시일의 년도를 자동으로 추출하여 데이터를 보존합니다.
 
-### 2. 메인 프로세스 경로 참조 로직 수정
-패키징된 환경에서는 `app.getAppPath()`가 `.asar` 파일을 가리키기 때문에, 이를 `.asar.unpacked` 경로로 변환하여 접근하도록 수정했습니다.
-- **파일**: [electron/main.cjs](file:///k:/Antigravity_Projects/gitbase/happytool_electron/electron/main.cjs)
-- **수정 내용**: `app.isPackaged`인 경우 경로 문자열에서 `app.asar`를 `app.asar.unpacked`로 치환하는 로직 추가.
+### 2. UI/UX 개선 (Add Release 모달)
+- **YEAR 다중 선택**: 이제 년도를 하나하나 타이핑할 필요 없이, 태그 방식으로 여러 년도를 간편하게 추가/삭제할 수 있습니다.
+- **가독성 강화**: 릴리즈 명 힌트를 `e.g. 26R1`로 변경하고, 달력 아이콘이 어두운 테마에서도 명확히 보이도록 스타일을 보강했습니다.
 
-## 검증 결과
-- **설정 확인**: `package.json`에 언팩 설정이 정확히 반영되었습니다.
-- **로직 확인**: `main.cjs`에서 분기 처리를 통해 개발(dev) 환경과 운영(prod) 환경 모두에서 올바른 파이썬 경로를 찾을 수 있도록 개선되었습니다.
+### 3. 지능형 타임라인 (Timeline View)
+- **년도별 레이인(Lane)**: 타임라인의 행(Row) 기준을 제품에서 년도로 변경하여 시간 흐름을 더 직관적으로 파악할 수 있습니다.
+- **최신 버전 자동 표시**: 각 년도 레이블 옆에 해당 년도의 가장 최신 릴리즈 버전이 자동으로 표시됩니다.
+- **수동 관리 기능**: 자동 계산된 버전이 맘에 안 드실 경우, 옆의 편집 아이콘을 눌러 형님이 직접 대표 버전을 지정할 수 있습니다. 이 설정은 영구 저장됩니다!
 
-## 형님을 위한 다음 단계
-1. **다시 빌드**: `npm run electron:build:dir` 명령으로 앱을 다시 빌드해 주십시오. (기존 빌드 결과물을 `cleanup_build.cjs`가 지워줄 겁니다.)
-2. **확인**: 빌드된 폴더(`dist_electron/win-unpacked/resources`) 내부에 `app.asar.unpacked/server/rag_analyzer` 폴더가 정상적으로 생성되었는지 확인해 주십시오.
-3. **실행**: 앱을 실행하고 RAG 서버를 시작하면 이제 'ENOENT' 에러 없이 시원하게 돌아갈 겁니다!
+### 4. 데이터 일관성 및 호환성
+- **리스트 뷰 그룹화**: 년도별로 릴리즈를 묶어서 보여주며, 여러 년도에 걸친 릴리즈는 각 년도 그룹에 모두 나타납니다.
+- **내보내기/가져오기**: 새로 추가된 `years` 필드와 `yearConfigs`(년도별 설정)까지 모두 포함하여 안전하게 백업 및 복구가 가능합니다.
 
-수정 사항은 **[APP_MAP.md](file:///k:/Antigravity_Projects/gitbase/happytool_electron/APP_MAP.md)**에도 꼼꼼히 기록해 두었습니다. 형님, 고생하셨습니다! 🐧✨
+## 작업 결과물
+
+- [types.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/ReleaseHistory/types.ts): 데이터 규격 업데이트
+- [ReleaseHistoryPlugin.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/ReleaseHistory/ReleaseHistoryPlugin.tsx): 메인 로직 및 상태 관리
+- [AddReleaseModal.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/ReleaseHistory/components/AddReleaseModal.tsx): 년도 다중 선택 UI
+- [TimelineGraphView.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/ReleaseHistory/components/TimelineGraphView.tsx): 지능형 타임라인 구현
+- [APP_MAP.md](file:///k:/Antigravity_Projects/gitbase/happytool_electron/important/APP_MAP.md): 인터페이스 문서 업데이트
+
+---
+
+형님, 이제 더욱 강력해진 릴리즈 히스토리 플러그인으로 프로젝트 이력을 멋지게 관리해 보세요! 추가로 필요하신 기능이 있다면 언제든 말씀해 주십쇼! 🐧🔥
