@@ -61,6 +61,8 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
   - `ReleaseDetailModal` & `AddReleaseModal`:
     - **Update (2026-04-24)**: **Solid & Clean UI** 리뉴얼. 투명도와 배경 글로우를 제거하여 시각적 피로도를 낮추고 성능 최적화.
     - **Update (2026-04-24)**: 마크다운 렌더링 개선 (`whitespace-pre-wrap`, `break-all`). 줄바꿈 유지 및 긴 문자열 삐져나옴 현상 해결.
+    - **Update (2026-04-24)**: **Modal Layout Optimization**. 상하 잘림 현상 해결을 위해 `max-height` 조정 및 내부 문서 영역 전용 스크롤 적용. 컨텐츠 밀도 최적화.
+    - **Update (2026-04-24)**: **AddReleaseModal Dark UI Fix**. input/textarea 배경색을 inline style로 강제 지정하여 브라우저 기본 흰색 스타일 충돌 해소. 전체 레이아웃 여백 압축 및 사이드바 컴팩트 재설계.
 - **Features**:
   - **Tag System**: `Hotfix`, `Feature`, `Major` 등 프리셋 태그 및 사용자 정의 태그 지원. 각 태그별 고유 색상 매핑.
   - JSON Import (Drag & Drop), Markdown Table Copy, Timeline PNG Export 지원.
@@ -158,5 +160,5 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 
 
 ---
-*Last Updated: 2026-04-22 (JSZip Build Fix & Deep Clean Integration)*
+*Last Updated: 2026-04-24 (Release History UI/UX Premium Renewal & Toast System)*
 

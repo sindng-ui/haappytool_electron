@@ -338,30 +338,32 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
                 />
             )}
 
-            {/* Modals: Rendered at root level to avoid stacking issues, using high z-index */}
-            <div className="relative">
-                {selectedItem && (
-                    <ReleaseDetailModal 
-                        item={selectedItem} 
-                        onClose={() => setSelectedItem(null)} 
-                        onDelete={handleDeleteItem}
-                        onEdit={handleEditItem}
-                        showToast={showToast}
-                    />
-                )}
-                
-                <AddReleaseModal 
-                    isOpen={isAddModalOpen} 
+            {/* Modals: createPortal로 document.body에 마운트 → fixed position 정상 동작 보장 */}
+            {selectedItem && createPortal(
+                <ReleaseDetailModal
+                    item={selectedItem}
+                    onClose={() => setSelectedItem(null)}
+                    onDelete={handleDeleteItem}
+                    onEdit={handleEditItem}
+                    showToast={showToast}
+                />,
+                document.body
+            )}
+
+            {createPortal(
+                <AddReleaseModal
+                    isOpen={isAddModalOpen}
                     onClose={() => {
                         setIsAddModalOpen(false);
                         setEditingItem(null);
-                    }} 
+                    }}
                     onSave={handleSaveRelease}
                     existingYears={existingYears}
                     initialData={editingItem}
                     showToast={showToast}
-                />
-            </div>
+                />,
+                document.body
+            )}
 
             {/* Premium Toast Notification */}
             {toast && (
