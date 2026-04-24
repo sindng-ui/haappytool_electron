@@ -141,18 +141,6 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
 
     return (
         <div className="flex-1 flex flex-col overflow-hidden bg-slate-900 relative selection:bg-indigo-500/30" id="timeline-export-container">
-            {/* Toolbar Overlay */}
-            <div className="absolute bottom-24 right-6 z-50 flex space-x-2 bg-slate-800/80 backdrop-blur p-2 rounded-xl shadow-2xl border border-slate-700">
-                <button onClick={() => handleZoom(-0.2)} className="p-2 bg-slate-700/50 hover:bg-slate-600 rounded-lg text-slate-300 transition-colors" title="Zoom Out">
-                    <ZoomOut size={18} />
-                </button>
-                <button onClick={handleResetZoom} className="p-2 bg-slate-700/50 hover:bg-slate-600 rounded-lg text-slate-300 transition-colors" title="Reset Zoom">
-                    <Maximize size={18} />
-                </button>
-                <button onClick={() => handleZoom(0.2)} className="p-2 bg-slate-700/50 hover:bg-slate-600 rounded-lg text-slate-300 transition-colors" title="Zoom In">
-                    <ZoomIn size={18} />
-                </button>
-            </div>
 
             {/* Scrollable Container */}
             <div 
@@ -438,7 +426,7 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
                                                             <div className="flex justify-between items-center h-6">
                                                                 <span className="text-[11px] font-bold text-slate-100 truncate max-w-[100px]">{item.releaseName}</span>
                                                                 <span className="text-[11px] font-black text-indigo-300 bg-indigo-500/10 px-2 py-1 rounded-lg border border-indigo-500/20 shadow-inner">
-                                                                    {new Date(item.releaseDate).toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' })}
+                                                                    {new Date(item.releaseDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}
                                                                 </span>
                                                             </div>
 

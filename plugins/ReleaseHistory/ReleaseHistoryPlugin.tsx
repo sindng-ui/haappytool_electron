@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { PluginContext } from '../types';
 import { ReleaseItem, ViewMode, YearConfig, ReleaseHistoryData } from './types';
 import ListView from './components/ListView';
@@ -64,8 +65,21 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<ReleaseItem | null>(null);
     const [isExporting, setIsExporting] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+        setToast({ message, type });
+    };
+
+    // Auto-hide toast
+    useEffect(() => {
+        if (toast) {
+            const timer = setTimeout(() => setToast(null), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [toast]);
 
     // Save to local storage whenever items or configs change
     useEffect(() => {
@@ -144,7 +158,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
                     return [...prev, ...newItems];
                 });
             } else {
-                alert('Invalid JSON file format for Release History.');
+                showToast('Invalid JSON file format for Release History.', 'error');
             }
         };
         reader.readAsText(file);
@@ -177,7 +191,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
                         return [...prev, ...newItems];
                     });
                 } else {
-                    alert('Invalid JSON file format.');
+                    showToast('Invalid JSON file format.', 'error');
                 }
             };
             reader.readAsText(jsonFile);
@@ -186,7 +200,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
 
     const exportToPng = async () => {
         if (viewMode !== 'timeline') {
-            alert('PNG Export is only supported in Timeline View mode.');
+            showToast('PNG Export is only supported in Timeline View mode.', 'info');
             return;
         }
 
@@ -202,7 +216,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
             downloadDataUri(dataUrl, 'release_history_timeline.png');
         } catch (error) {
             console.error('Error exporting PNG:', error);
-            alert('Failed to export PNG.');
+            showToast('Failed to export PNG.', 'error');
         } finally {
             setIsExporting(false);
         }
@@ -210,107 +224,103 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
 
     return (
         <div 
-            className="flex flex-col h-full bg-slate-900 text-slate-200"
+            className="flex flex-col h-full bg-[#020617] text-slate-200 selection:bg-indigo-500/30"
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
-            {/* Toolbar */}
+            <style>
+                {`
+                input[type="date"]::-webkit-calendar-picker-indicator {
+                    filter: invert(0.8) brightness(1.5) contrast(1.2);
+                    cursor: pointer;
+                    padding: 4px;
+                    border-radius: 4px;
+                    transition: all 0.2s;
+                }
+                input[type="date"]::-webkit-calendar-picker-indicator:hover {
+                    filter: invert(1) brightness(2);
+                    background: rgba(255,255,255,0.1);
+                }
+                `}
+            </style>
+            {/* Premium Header / Toolbar */}
             <div 
-                className="flex-none px-4 py-3 border-b border-slate-700 bg-slate-800 flex items-center justify-between gap-4"
+                className="flex-none px-6 py-3 border-b border-white/5 bg-slate-900/40 backdrop-blur-xl sticky top-0 z-[60] flex items-center justify-between gap-4 shadow-[0_4px_30px_rgba(0,0,0,0.1)]"
                 style={{ WebkitAppRegion: 'drag' } as any}
             >
-                {/* Left Side: Search & Actions */}
-                <div className="flex items-center space-x-4" style={{ WebkitAppRegion: 'no-drag' } as any}>
-                    <div className="w-80 relative group">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <Search size={14} className="text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="Search release, version, year..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-slate-950/50 border border-slate-700 rounded-full pl-12 pr-4 py-1.5 text-sm text-slate-200 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 focus:bg-slate-950 outline-none transition-all placeholder:text-slate-600"
-                        />
-                    </div>
+                {/* Left Side: Actions & Search */}
+                <div className="flex items-center space-x-2 flex-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
+                    <button
+                        onClick={() => {
+                            setEditingItem(null);
+                            setIsAddModalOpen(true);
+                        }}
+                        className="h-10 px-5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-xl transition-all flex items-center font-black text-xs shadow-xl shadow-indigo-500/20 active:scale-95 group border border-white/5"
+                    >
+                        <Plus size={18} className="mr-2 group-hover:rotate-90 transition-transform duration-300" />
+                        ADD RELEASE
+                    </button>
 
-                    {/* Actions */}
-                    <div className="flex items-center space-x-2">
-                        <button
-                            onClick={() => {
-                                setEditingItem(null);
-                                setIsAddModalOpen(true);
-                            }}
-                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors flex items-center font-medium shadow-lg shadow-indigo-500/20 text-xs"
-                        >
-                            <Plus size={14} className="mr-1" />
-                            Add Release
-                        </button>
-                        
-                        <div className="h-6 w-px bg-slate-700 mx-1" />
-
+                    <div className="flex items-center space-x-1">
                         <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="p-1.5 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
-                            title="Import JSON"
+                            className="h-10 w-10 flex items-center justify-center text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5"
+                            title="Import Data"
                         >
                             <Upload size={16} />
                         </button>
-                        <input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            onChange={handleImportFile} 
-                            accept=".json" 
-                            className="hidden" 
-                        />
+                        <input type="file" ref={fileInputRef} onChange={handleImportFile} accept=".json" className="hidden" />
 
                         <button
                             onClick={() => exportToJson(items, yearConfigs)}
-                            className="p-1.5 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
-                            title="Export JSON"
+                            className="h-10 w-10 flex items-center justify-center text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5"
+                            title="Export Data"
                         >
                             <Download size={16} />
                         </button>
 
                         <button
-                            onClick={() => {
-                                exportToMarkdown(filteredItems);
-                                alert('Markdown copied to clipboard!');
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
-                            title="Copy as Markdown"
-                        >
-                            <FileText size={16} />
-                        </button>
-
-                        <button
                             onClick={exportToPng}
                             disabled={viewMode !== 'timeline' || isExporting}
-                            className={`p-1.5 rounded-lg transition-colors ${viewMode !== 'timeline' ? 'text-slate-600 bg-slate-800/50 cursor-not-allowed' : 'text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-700'}`}
-                            title="Export Timeline as PNG"
+                            className={`h-10 w-10 flex items-center justify-center rounded-xl transition-all border border-white/5 ${viewMode !== 'timeline' ? 'text-slate-700 bg-transparent opacity-50 cursor-not-allowed' : 'text-slate-400 hover:text-white bg-white/5 hover:bg-white/10'}`}
+                            title="Save as Image"
                         >
-                            <ImageIcon size={16} />
+                            {isExporting ? <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /> : <ImageIcon size={16} />}
                         </button>
+                    </div>
+
+                    <div className="h-6 w-px bg-white/10 mx-2" />
+
+                    <div className="w-80 relative group">
+                        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                            <Search size={14} className="text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-10 w-full bg-slate-950/40 border border-white/5 rounded-xl pl-12 pr-4 text-xs text-slate-200 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 focus:bg-slate-950/80 outline-none transition-all placeholder:text-slate-700"
+                        />
                     </div>
                 </div>
 
                 {/* Right Side: View Toggles (With margin for Window Controls) */}
-                <div className="flex-1" />
                 <div className="flex items-center" style={{ WebkitAppRegion: 'no-drag', marginRight: '220px' } as any}>
-                    <div className="flex bg-slate-900/80 rounded-lg p-1 border border-slate-700 shadow-inner">
+                    <div className="flex bg-slate-950/50 rounded-xl p-1 border border-white/5 shadow-inner">
                         <button
                             onClick={() => setViewMode('list')}
-                            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all flex items-center ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center ${viewMode === 'list' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:text-slate-300'}`}
                         >
-                            <LayoutList size={14} className="mr-1.5" />
-                            List
+                            <LayoutList size={14} className="mr-2" />
+                            LIST
                         </button>
                         <button
                             onClick={() => setViewMode('timeline')}
-                            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all flex items-center ${viewMode === 'timeline' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center ${viewMode === 'timeline' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:text-slate-300'}`}
                         >
-                            <CalendarRange size={14} className="mr-1.5" />
-                            Timeline
+                            <CalendarRange size={14} className="mr-2" />
+                            TIMELINE
                         </button>
                     </div>
                 </div>
@@ -328,24 +338,49 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
                 />
             )}
 
-            {/* Modals */}
-            <ReleaseDetailModal 
-                item={selectedItem} 
-                onClose={() => setSelectedItem(null)} 
-                onDelete={handleDeleteItem}
-                onEdit={handleEditItem}
-            />
-            
-            <AddReleaseModal 
-                isOpen={isAddModalOpen} 
-                onClose={() => {
-                    setIsAddModalOpen(false);
-                    setEditingItem(null);
-                }} 
-                onSave={handleSaveRelease}
-                existingYears={existingYears}
-                initialData={editingItem}
-            />
+            {/* Modals: Rendered at root level to avoid stacking issues, using high z-index */}
+            <div className="relative">
+                {selectedItem && (
+                    <ReleaseDetailModal 
+                        item={selectedItem} 
+                        onClose={() => setSelectedItem(null)} 
+                        onDelete={handleDeleteItem}
+                        onEdit={handleEditItem}
+                        showToast={showToast}
+                    />
+                )}
+                
+                <AddReleaseModal 
+                    isOpen={isAddModalOpen} 
+                    onClose={() => {
+                        setIsAddModalOpen(false);
+                        setEditingItem(null);
+                    }} 
+                    onSave={handleSaveRelease}
+                    existingYears={existingYears}
+                    initialData={editingItem}
+                    showToast={showToast}
+                />
+            </div>
+
+            {/* Premium Toast Notification */}
+            {toast && (
+                <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[10000] animate-in slide-in-from-bottom-8 fade-in duration-300">
+                    <div className={`
+                        px-8 py-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border flex items-center gap-4 min-w-[300px]
+                        ${toast.type === 'error' ? 'bg-rose-950 border-rose-500/50 text-rose-200' : 
+                          toast.type === 'info' ? 'bg-indigo-950 border-indigo-500/50 text-indigo-200' : 
+                          'bg-emerald-950 border-emerald-500/50 text-emerald-200'}
+                    `}>
+                        <div className={`w-2 h-2 rounded-full animate-pulse ${
+                            toast.type === 'error' ? 'bg-rose-500' : 
+                            toast.type === 'info' ? 'bg-indigo-500' : 
+                            'bg-emerald-500'
+                        }`} />
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em]">{toast.message}</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

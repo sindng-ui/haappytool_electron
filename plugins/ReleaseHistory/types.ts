@@ -21,11 +21,13 @@ export interface ReleaseHistoryData {
 
 export type ViewMode = 'list' | 'timeline';
 
+export const PRESET_TAGS = ['Release', 'Hotfix', 'OTN', 'OSU'];
+
 export const TAG_COLORS: Record<string, string> = {
-    'Major': '#3b82f6', // blue-500
-    'Hotfix': '#ef4444', // red-500
-    'OSU': '#10b981',    // emerald-500
-    'OTN': '#f59e0b',    // amber-500
+    'Release': '#6366f1', // indigo-500
+    'Hotfix': '#f43f5e',  // rose-500
+    'OTN': '#10b981',     // emerald-500
+    'OSU': '#f59e0b',     // amber-500
 };
 
 export const getTagColor = (tag: string): string => {
