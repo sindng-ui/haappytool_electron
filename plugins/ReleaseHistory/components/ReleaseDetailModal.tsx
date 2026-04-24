@@ -102,8 +102,13 @@ const ReleaseDetailModal: React.FC<ReleaseDetailModalProps> = ({ item, onClose, 
                         <div className="shrink-0 px-6 py-3 flex justify-between items-center bg-[#161e2e]/60 border-b border-slate-800/50">
                             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Internal Documentation</h3>
                             <button
-                                onClick={() => {
-                                    navigator.clipboard.writeText(item.note || '');
+                                onClick={async () => {
+                                    const textToCopy = item.note || '';
+                                    if ((window as any).electronAPI?.copyToClipboard) {
+                                        await (window as any).electronAPI.copyToClipboard(textToCopy);
+                                    } else {
+                                        await navigator.clipboard.writeText(textToCopy);
+                                    }
                                     showToast('Documentation copied to clipboard', 'success');
                                 }}
                                 className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all text-[9px] font-black uppercase tracking-widest border border-slate-700 active:scale-95"
