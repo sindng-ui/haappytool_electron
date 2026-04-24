@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { ReleaseItem, getTagColor } from '../types';
+import { ReleaseItem, getTagColor, YearConfig } from '../types';
 import { ZoomIn, ZoomOut, Maximize, MousePointer2 } from 'lucide-react';
 
 interface TimelineGraphViewProps {
@@ -9,7 +9,7 @@ interface TimelineGraphViewProps {
     onUpdateYearConfig: (config: YearConfig) => void;
 }
 
-const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClick }) => {
+const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClick, yearConfigs, onUpdateYearConfig }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const miniMapRef = useRef<HTMLDivElement>(null);
     const [zoom, setZoom] = useState<number>(1);
