@@ -338,8 +338,8 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
                 />
             )}
 
-            {/* Modals: createPortal로 document.body에 마운트 → fixed position 정상 동작 보장 */}
-            {selectedItem && createPortal(
+            {/* Modals: 항상 마운트 상태로 isOpen prop으로 제어 → 모달 간 전환 시 언마운트 없음 */}
+            {createPortal(
                 <ReleaseDetailModal
                     item={selectedItem}
                     onClose={() => setSelectedItem(null)}
