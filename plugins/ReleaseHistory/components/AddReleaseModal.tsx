@@ -14,7 +14,7 @@ const PRESET_TAGS = Object.keys(TAG_COLORS);
 
 const AddReleaseModal: React.FC<AddReleaseModalProps> = ({ isOpen, onClose, onSave, existingYears, initialData }) => {
     const [years, setYears] = useState<number[]>([]);
-    const [yearInput, setYearInput] = useState('');
+    const [yearInput, setYearInput] = useState(new Date().getFullYear().toString());
     const [releaseName, setReleaseName] = useState('');
     const [version, setVersion] = useState('');
     const [releaseDate, setReleaseDate] = useState('');
@@ -24,14 +24,15 @@ const AddReleaseModal: React.FC<AddReleaseModalProps> = ({ isOpen, onClose, onSa
 
     useEffect(() => {
         if (isOpen) {
-            setYears(initialData?.years || [new Date().getFullYear()]);
+            const currentYear = new Date().getFullYear();
+            setYears(initialData?.years || [currentYear]);
             setReleaseName(initialData?.releaseName || '');
             setVersion(initialData?.version || '');
             setReleaseDate(initialData ? new Date(initialData.releaseDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
             setNote(initialData?.note || '');
             setTags(initialData?.tags || []);
             setTagInput('');
-            setYearInput('');
+            setYearInput(currentYear.toString());
         }
     }, [isOpen, initialData]);
 
@@ -140,16 +141,22 @@ const AddReleaseModal: React.FC<AddReleaseModalProps> = ({ isOpen, onClose, onSa
                             
                             {/* Preset Years */}
                             <div className="flex flex-wrap gap-1.5 mt-2">
-                                {[new Date().getFullYear(), new Date().getFullYear() + 1, ...existingYears].filter((y, i, a) => a.indexOf(y) === i).slice(0, 5).map(y => (
-                                    <button
-                                        key={y}
-                                        type="button"
-                                        onClick={() => handleAddYear(y.toString())}
-                                        className="px-2 py-1 bg-slate-800/50 hover:bg-slate-700 text-[10px] text-slate-400 rounded border border-slate-700 transition-colors"
-                                    >
-                                        + {y}
-                                    </button>
-                                ))}
+                                {(() => {
+                                    const currentYear = new Date().getFullYear();
+                                    const presets = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
+                                    const combined = Array.from(new Set([...presets, ...existingYears])).sort((a, b) => b - a).slice(0, 8);
+                                    
+                                    return combined.map(y => (
+                                        <button
+                                            key={y}
+                                            type="button"
+                                            onClick={() => handleAddYear(y.toString())}
+                                            className={`px-2 py-1 rounded text-[10px] transition-colors border ${years.includes(y) ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300' : 'bg-slate-800/50 hover:bg-slate-700 text-slate-400 border-slate-700'}`}
+                                        >
+                                            + {y}
+                                        </button>
+                                    ));
+                                })()}
                             </div>
                         </div>
 
