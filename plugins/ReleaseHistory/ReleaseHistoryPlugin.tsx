@@ -58,7 +58,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
         }
     }, []);
 
-    const [viewMode, setViewMode] = useState<ViewMode>('list');
+    const [viewMode, setViewMode] = useState<ViewMode>('timeline');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedItem, setSelectedItem] = useState<ReleaseItem | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);

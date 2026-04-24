@@ -14,6 +14,8 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
     const miniMapRef = useRef<HTMLDivElement>(null);
     const [zoom, setZoom] = useState<number>(1);
     const [scrollState, setScrollState] = useState({ scrollLeft: 0, clientWidth: 0, scrollWidth: 0 });
+    const [editingYear, setEditingYear] = useState<number | null>(null);
+    const [dropdownSearch, setDropdownSearch] = useState('');
     
     // Calculate timeline boundaries and dimensions
     const { minDate, maxDate, years, daySpan } = useMemo(() => {
@@ -257,7 +259,7 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
                             return (
                                 <div 
                                     key={year}
-                                    className="relative flex items-center border-b border-slate-800 group/lane transition-colors z-10"
+                                    className={`relative flex items-center border-b border-slate-800 group/lane transition-colors ${editingYear === year ? 'z-50' : 'z-10'}`}
                                     style={{ height: laneHeight }}
                                 >
                                     {/* Lane Glow Effect */}
@@ -270,10 +272,7 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
                                             <button 
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    const newVer = prompt(`Enter latest version for ${year}:`, displayVersion);
-                                                    if (newVer !== null) {
-                                                        onUpdateYearConfig({ year, latestVersion: newVer });
-                                                    }
+                                                    setEditingYear(year);
                                                 }}
                                                 className="p-1 hover:bg-slate-800 rounded text-slate-600 hover:text-indigo-400 transition-colors"
                                                 title="Manually set latest version"
@@ -284,13 +283,85 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
                                         <span className="font-black text-slate-200 text-2xl drop-shadow-sm">{year}</span>
                                         <div 
                                             className="mt-2 group/ver cursor-pointer"
-                                            onClick={() => latestRelease && onItemClick(latestRelease)}
+                                            onClick={() => {
+                                                if (editingYear !== year) {
+                                                    latestRelease && onItemClick(latestRelease);
+                                                }
+                                            }}
                                         >
-                                            <div className="text-[10px] text-indigo-500/70 font-semibold mb-0.5">LATEST</div>
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="text-sm font-bold text-white bg-indigo-600/20 px-2 py-0.5 rounded border border-indigo-500/30 group-hover/ver:bg-indigo-600/40 transition-colors">
-                                                    v{displayVersion}
-                                                </span>
+                                            <div className="flex items-center gap-1.5 relative">
+                                                {editingYear === year ? (
+                                                    <div className="absolute left-0 top-full mt-1 z-[100] bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-72 max-h-80 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-1 duration-200">
+                                                        <div className="p-2 border-b border-slate-700 bg-slate-900/80 backdrop-blur-md sticky top-0 z-10 space-y-2">
+                                                            <div className="flex justify-between items-center px-1">
+                                                                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Search Release</span>
+                                                                <button 
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setEditingYear(null);
+                                                                        setDropdownSearch('');
+                                                                    }} 
+                                                                    className="text-slate-500 hover:text-white p-0.5"
+                                                                >
+                                                                    <MousePointer2 size={10}/>
+                                                                </button>
+                                                            </div>
+                                                            <input
+                                                                autoFocus
+                                                                type="text"
+                                                                placeholder="Search version or name..."
+                                                                value={dropdownSearch}
+                                                                onChange={(e) => setDropdownSearch(e.target.value)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="w-full bg-slate-950/50 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[10px] text-white placeholder:text-slate-600 outline-none focus:border-indigo-500 transition-all"
+                                                            />
+                                                        </div>
+                                                        <div className="overflow-auto custom-scrollbar p-2 space-y-3">
+                                                            {years.map(y => {
+                                                                const yearItems = (itemsByYear.get(y) || []).filter(it => 
+                                                                    it.releaseName.toLowerCase().includes(dropdownSearch.toLowerCase()) ||
+                                                                    it.version.toLowerCase().includes(dropdownSearch.toLowerCase())
+                                                                );
+                                                                if (yearItems.length === 0) return null;
+                                                                return (
+                                                                    <div key={y} className="space-y-1">
+                                                                        <div className="px-2 py-1 text-[9px] font-bold text-indigo-400 bg-indigo-500/10 rounded uppercase tracking-tighter">{y} RELEASES</div>
+                                                                        {yearItems.map(it => (
+                                                                            <div 
+                                                                                key={it.id}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    onUpdateYearConfig({ 
+                                                                                        year, 
+                                                                                        latestVersion: it.version, 
+                                                                                        latestReleaseId: it.id 
+                                                                                    });
+                                                                                    setEditingYear(null);
+                                                                                    setDropdownSearch('');
+                                                                                }}
+                                                                                className={`flex items-center justify-between p-2 hover:bg-indigo-600 rounded-lg cursor-pointer transition-all group/item ${latestReleaseId === it.id ? 'bg-indigo-600/30 ring-1 ring-indigo-500/50' : ''}`}
+                                                                            >
+                                                                                <div className="flex flex-col min-w-0">
+                                                                                    <span className="text-xs font-bold text-white truncate">{it.releaseName}</span>
+                                                                                    <span className="text-[10px] text-slate-400 group-hover/item:text-indigo-200">v{it.version}</span>
+                                                                                </div>
+                                                                                <span className="text-[9px] text-slate-500 group-hover/item:text-indigo-100 shrink-0 ml-2">{new Date(it.releaseDate).toLocaleDateString()}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                            {/* Empty state */}
+                                                            {years.every(y => (itemsByYear.get(y) || []).filter(it => it.releaseName.toLowerCase().includes(dropdownSearch.toLowerCase()) || it.version.toLowerCase().includes(dropdownSearch.toLowerCase())).length === 0) && (
+                                                                <div className="p-8 text-center text-[10px] text-slate-600 italic">No matching releases found.</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-sm font-bold text-white bg-indigo-600/20 px-2 py-0.5 rounded border border-indigo-500/30 group-hover/ver:bg-indigo-600/40 transition-colors">
+                                                        v{displayVersion}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -364,11 +435,9 @@ const TimelineGraphView: React.FC<TimelineGraphViewProps> = ({ items, onItemClic
                                                             className="min-w-[170px] max-w-[220px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 shadow-2xl hover:shadow-indigo-500/30 hover:border-indigo-500/50 transition-all group-hover:-translate-y-1.5 flex flex-col gap-3"
                                                         >
                                                             {/* Top Row: Release Name & Date */}
-                                                            <div className="flex justify-between items-start">
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-xs font-bold text-slate-100 truncate max-w-[100px]">{item.releaseName}</span>
-                                                                </div>
-                                                                <span className="text-[9px] font-bold text-slate-500 bg-slate-950/50 px-2 py-1 rounded-md border border-slate-800/50">
+                                                            <div className="flex justify-between items-center h-6">
+                                                                <span className="text-[11px] font-bold text-slate-100 truncate max-w-[100px]">{item.releaseName}</span>
+                                                                <span className="text-[11px] font-black text-indigo-300 bg-indigo-500/10 px-2 py-1 rounded-lg border border-indigo-500/20 shadow-inner">
                                                                     {new Date(item.releaseDate).toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' })}
                                                                 </span>
                                                             </div>
