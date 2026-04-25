@@ -24,31 +24,27 @@ vi.mock('framer-motion', () => ({
     AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
 
-// Mock worker with a robust implementation inside the factory
-vi.mock('../../../components/NupkgSigner/workers/nupkg.worker?worker', () => {
-    return {
-        default: class mock {
-            onmessage: any = null;
-            postMessage(msg: any) {
-                // Simulate async worker response
-                setTimeout(() => {
-                    if (this.onmessage) {
-                        this.onmessage({
-                            data: {
-                                type: msg.type === 'EXTRACT_SO' ? 'EXTRACT_SO_COMPLETE' : 'REPACKAGE_COMPLETE',
-                                requestId: msg.requestId,
-                                payload: msg.type === 'EXTRACT_SO' ? [
-                                    { path: 'test.so', basename: 'test.so', originalBlob: new Blob([]), checked: true }
-                                ] : new Blob([])
-                            }
-                        });
+// Mock Worker globally since JSDOM doesn't support it
+global.Worker = class mock {
+    onmessage: any = null;
+    postMessage(msg: any) {
+        // Simulate async worker response
+        setTimeout(() => {
+            if (this.onmessage) {
+                this.onmessage({
+                    data: {
+                        type: msg.type === 'EXTRACT_SO' ? 'EXTRACT_SO_COMPLETE' : 'REPACKAGE_COMPLETE',
+                        requestId: msg.requestId,
+                        payload: msg.type === 'EXTRACT_SO' ? [
+                            { path: 'test.so', basename: 'test.so', originalBlob: new Blob([]), checked: true }
+                        ] : new Blob([])
                     }
-                }, 10);
+                });
             }
-            terminate() {}
-        }
-    };
-});
+        }, 10);
+    }
+    terminate() {}
+} as any;
 
 // Mock Step components to keep the test focused on NupkgSigner's logic
 vi.mock('../../../components/NupkgSigner/Step1_SourceUpload', () => ({
@@ -83,21 +79,21 @@ describe('NupkgSigner Component Integration', () => {
         // Step 1 -> 2
         fireEvent.click(screen.getByText('Select File'));
         await act(async () => {
-            vi.advanceTimersByTime(50);
+            await vi.advanceTimersByTimeAsync(100);
         });
 
         // Step 2 -> 4
         expect(screen.getByText('Process')).toBeInTheDocument();
         fireEvent.click(screen.getByText('Process'));
         await act(async () => {
-            vi.advanceTimersByTime(50);
+            await vi.advanceTimersByTimeAsync(100);
         });
 
         // Step 4 -> 5
         expect(screen.getByText('Complete')).toBeInTheDocument();
         fireEvent.click(screen.getByText('Complete'));
         await act(async () => {
-            vi.advanceTimersByTime(50);
+            await vi.advanceTimersByTimeAsync(100);
         });
 
         expect(screen.getByTestId('step5')).toBeInTheDocument();

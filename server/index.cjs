@@ -123,7 +123,9 @@ const handleSocketConnection = (socket, deps = {}) => {
     const getSdbCmd = (p) => p ? `"${p}"` : 'sdb';
 
     // --- Everything Search Handler ---
-    everythingService.initSocket(socket);
+    if (everythingService && typeof everythingService.initSocket === 'function') {
+        everythingService.initSocket(socket);
+    }
 
     // --- SSH Handler ---
     socket.on('connect_ssh', ({ host, port, username, password, debug, saveToFile, command, tags }) => {

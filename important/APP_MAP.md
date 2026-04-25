@@ -29,6 +29,7 @@
   - `Startup Safeguard`: 백엔드 기동 지연 시 무한 로딩을 방지하기 위한 10초 타임아웃 레이스 도입 및 상세 진단 로그 강화 [NEW]
   - `Module Lazy Loading`: `opencv-wasm`, `jimp` 등 무거운 백엔드 라이브러리를 기동 이후(5초)로 지연 로딩하여 30초 구동 지연 해결 [NEW]
   - `Vite Pre-bundling`: `jszip`, `pako` 등을 사전 최적화 목록에 추가하여 초기 번들링 속도 개선 [NEW]
+  - `Backend Stability`: `everythingService` 초기화 전 호출 방지를 위한 가드 로직 추가로 SDB/SSH 연동 테스트 안정화. (`server/index.cjs`) [NEW]
 - **Data Flow**: `localStorage` -> `Settings Load` -> `Context State` -> `Plugin Injection`
 
 ### [[Plugin Registry & Injection]]
@@ -208,6 +209,7 @@
   - **안전한 재패키징**: 원본 구조를 유지하며 서명본만 교체하여 새로운 `.nupkg` 생성.
   - **자동 파일명 제안**: 원본이 `aaa.nupkg`인 경우 `aaa_signed.nupkg`로 저장 유도. [NEW]
   - **성능 최적화 (JSZip ESM 전환)**: `importScripts` 제거 및 ESM 임포트 방식으로 전환, Vite 사전 번들링 설정을 통해 회사 PC 등 저사양 환경에서의 로딩 속도 대폭 개선. [UPDATED][HOT]
+  - **테스트 안정화**: JSDOM 환경용 `Worker` 모킹 및 비동기 타이머 연동(`advanceTimersByTimeAsync`)을 통해 테스트 통과율 100% 확보. [NEW]
 
 ### [[Release History Plugin]] 📅🚀 [NEW]
 - **ID**: `RELEASE_HISTORY`
@@ -222,6 +224,7 @@
 - **수동 최신 버전 관리**: 유저가 특정 년도의 대표 버전을 직접 지정 가능.
 - **데이터 마이그레이션**: 기존 `productName` 기반 데이터를 신규 년도 체계로 자동 변환.
 - **프리미엄 UI**: 글래스모피즘 기반의 타임라인 카드와 고대비 달력 아이콘 적용. [UPDATED]
+- **테스트 안정화**: `act` 및 `waitFor` 로직 보강, 모달 닫힘 상태 명시적 대기를 통해 CRUD 작업의 비동기 신뢰성 확보 (전체 테스트 통과 완료). [DONE]
 
 ### [[SpeedScope Plugin]]
 - **ID**: `plugin-speedscope`
