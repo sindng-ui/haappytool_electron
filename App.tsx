@@ -258,7 +258,6 @@ const AppContent: React.FC = () => {
           const oldUA = localStorage.getItem('happytool_nettraffic_ua_pattern');
           const oldPatterns = localStorage.getItem('happytool_nettraffic_traffic_patterns');
           if (oldUA || oldPatterns) {
-            console.log('[App] Migrating NetTraffic patterns to global settings');
             const newSettings: NetTrafficSettings = { ...netTrafficSettings };
             if (oldUA) {
               try { newSettings.uaPattern = JSON.parse(oldUA); } catch (e) {}
@@ -270,13 +269,18 @@ const AppContent: React.FC = () => {
           }
         }
 
+        if (parsed.pluginOrder) {
+          setToolOrder(parsed.pluginOrder);
+        } else {
+          setToolOrder(ALL_PLUGINS.sort((a, b) => (a.order || 99) - (b.order || 99)).map(p => p.id));
+        }
+
+        setIsSettingsLoaded(true);
       } catch (e) {
         console.error("Failed to load settings", e);
-        // Fallback to default on error
         setSavedRequests([defaultRequest]);
       }
     } else {
-      // First run ever
       setSavedRequests([defaultRequest]);
     }
     setIsSettingsLoaded(true);
@@ -299,6 +303,7 @@ const AppContent: React.FC = () => {
         lastEndpoint: lastApiUrl,
         lastMethod,
         enabledPlugins,
+        pluginOrder: toolOrder,
         defaultOutputFolder,
         netTrafficSettings
       };
@@ -317,9 +322,9 @@ const AppContent: React.FC = () => {
         console.error('[App] Failed to save settings:', e);
       }
     }, 1000); // ✅ 1-second debounce
-
+ 
     return () => clearTimeout(timer);
-  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins, defaultOutputFolder, netTrafficSettings]);
+  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins, toolOrder, defaultOutputFolder, netTrafficSettings]);
 
   // ✅ Performance: Memoize export/import handlers
   const handleExportSettings = React.useCallback(() => {
@@ -659,6 +664,9 @@ const AppContent: React.FC = () => {
               onClose={() => setIsLibraryOpen(false)}
               plugins={ALL_PLUGINS}
               enabledPlugins={enabledPlugins}
+              setEnabledPlugins={setEnabledPlugins}
+              pluginOrder={toolOrder}
+              onReorderPlugins={setToolOrder}
               activePluginId={activeTool}
               onSelectPlugin={handleSetActiveTool}
             />

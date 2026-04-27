@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import * as Lucide from 'lucide-react';
 import { HappyPlugin } from '../plugins/types';
 
@@ -7,6 +7,9 @@ interface AppLibraryModalProps {
   onClose: () => void;
   plugins: HappyPlugin[];
   enabledPlugins: string[];
+  setEnabledPlugins: React.Dispatch<React.SetStateAction<string[]>>;
+  pluginOrder: string[];
+  onReorderPlugins: (order: string[]) => void;
   activePluginId: string;
   onSelectPlugin: (id: string) => void;
 }
@@ -16,6 +19,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
   onClose,
   plugins,
   enabledPlugins,
+  setEnabledPlugins,
   activePluginId,
   onSelectPlugin
 }) => {
@@ -28,7 +32,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
       requestAnimationFrame(() => requestAnimationFrame(() => setAnimateIn(true)));
     } else {
       setAnimateIn(false);
-      const timer = setTimeout(() => setRenderModal(false), 300); // match transition duration
+      const timer = setTimeout(() => setRenderModal(false), 300);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
@@ -41,34 +45,37 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!renderModal) return null;
+  const corePlugins = useMemo(() => plugins.filter(p => enabledPlugins.includes(p.id)), [plugins, enabledPlugins]);
+  const labPlugins = useMemo(() => plugins.filter(p => !enabledPlugins.includes(p.id)), [plugins, enabledPlugins]);
 
-  const corePlugins = plugins.filter(p => enabledPlugins.includes(p.id));
-  const labPlugins = plugins.filter(p => !enabledPlugins.includes(p.id));
+  const handleTogglePin = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEnabledPlugins(prev => 
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
+
+  if (!renderModal) return null;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-8">
-      {/* Backdrop */}
       <div 
         className={`absolute inset-0 bg-[#020617]/90 transition-opacity duration-300 ${animateIn ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose} 
       />
       
-      {/* Modal Container */}
       <div 
-        className={`relative w-full max-w-5xl max-h-full bg-slate-900 border border-slate-700/50 rounded-[32px] shadow-2xl shadow-black/50 flex flex-col overflow-hidden transition-all duration-300 transform will-change-transform ${animateIn ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'}`}
-        style={{ transform: 'translateZ(0)' }}
+        className={`relative w-full max-w-6xl max-h-[90vh] bg-slate-900 border border-slate-700/50 rounded-[40px] shadow-2xl shadow-black/50 flex flex-col overflow-hidden transition-all duration-300 transform will-change-transform ${animateIn ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'}`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-10 py-8 border-b border-white/5 shrink-0 bg-slate-900/50">
-          <div className="flex items-center gap-4">
-             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 relative overflow-hidden">
-               <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full animate-[shimmer_2s_infinite]"></div>
-               <span className="text-white font-black text-2xl relative z-10">H</span>
+        <div className="flex items-center justify-between px-10 py-10 border-b border-white/5 shrink-0 bg-slate-900/50 backdrop-blur-xl">
+          <div className="flex items-center gap-6">
+             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+               <Lucide.LayoutGrid size={32} className="text-white" />
              </div>
              <div>
-               <h2 className="text-3xl font-extrabold text-white tracking-tight">App Library</h2>
-               <p className="text-slate-400 text-sm mt-1 font-medium">Select a module to launch</p>
+               <h2 className="text-4xl font-black text-white tracking-tight">App Library</h2>
+               <p className="text-slate-400 text-base mt-1 font-medium">Launch and manage your modules</p>
              </div>
           </div>
           <button 
@@ -80,108 +87,142 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-10 py-8 custom-scrollbar">
-          
-          {/* Core Apps Section */}
-          <div className="mb-14">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
-                <Lucide.Box size={20} />
+        <div className="flex-1 overflow-y-auto px-10 py-10 custom-scrollbar space-y-16">
+          {/* Core Tools Section */}
+          <section>
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-2.5 rounded-xl bg-indigo-500/20 text-indigo-400">
+                <Lucide.Zap size={24} />
               </div>
-              <h3 className="text-xl font-bold text-slate-200 tracking-tight">Core Tools</h3>
-              <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent ml-4" />
+              <h3 className="text-2xl font-bold text-slate-100 tracking-tight">Core Tools</h3>
+              <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent ml-6" />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {corePlugins.map(plugin => {
-                const Icon = plugin.icon || Lucide.Activity;
-                const isActive = plugin.id === activePluginId;
-                
-                return (
-                  <button
-                    key={plugin.id}
-                    onClick={() => {
-                      onSelectPlugin(plugin.id);
-                      onClose();
-                    }}
-                    className={`flex items-start p-5 text-left rounded-3xl transition-all duration-300 group border ${
-                      isActive 
-                        ? 'bg-gradient-to-br from-indigo-600/20 to-indigo-500/10 border-indigo-500/40 shadow-lg shadow-indigo-500/10' 
-                        : 'bg-white/5 border-transparent hover:bg-white/10 hover:border-white/10 hover:scale-[1.02] hover:shadow-xl hover:shadow-black/20'
-                    }`}
-                  >
-                    <div className={`p-4 rounded-2xl mr-4 flex-shrink-0 transition-colors duration-300 ${
-                      isActive ? 'bg-indigo-500/30 text-indigo-300' : 'bg-black/40 text-slate-400 group-hover:bg-indigo-500/20 group-hover:text-indigo-300'
-                    }`}>
-                      <Icon size={28} strokeWidth={2} />
-                    </div>
-                    <div className="flex flex-col flex-1 min-w-0 justify-center h-full">
-                      <span className={`font-bold text-lg truncate ${isActive ? 'text-indigo-200' : 'text-slate-100 group-hover:text-white'}`}>
-                        {plugin.name}
-                      </span>
-                      <span className="text-sm text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">
-                        {plugin.id === 'log_extractor' ? 'Advanced log analysis and filtering' :
-                         plugin.id === 'json_tools' ? 'JSON formatting and diffing' :
-                         plugin.id === 'post_tool' ? 'API request testing and debugging' :
-                         plugin.id === 'tpk_extractor' ? 'TPK package management' :
-                         plugin.id === 'speed_scope' ? 'Performance profiling' :
-                         plugin.id === 'net_traffic_analyzer' ? 'Network traffic inspection' :
-                         'Launch and manage this module'}
-                      </span>
-                    </div>
-                  </button>
-                )
-              })}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+              {corePlugins.map(plugin => (
+                <AppCard 
+                  key={plugin.id}
+                  plugin={plugin}
+                  isPinned={true}
+                  isActive={plugin.id === activePluginId}
+                  onSelect={() => {
+                    onSelectPlugin(plugin.id);
+                    onClose();
+                  }}
+                  onTogglePin={handleTogglePin}
+                />
+              ))}
             </div>
-          </div>
+          </section>
 
           {/* Labs Apps Section */}
-          {labPlugins.length > 0 && (
-            <div>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400">
-                  <Lucide.FlaskConical size={20} />
-                </div>
-                <h3 className="text-xl font-bold text-slate-200 tracking-tight">Labs / Experimental</h3>
-                <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent ml-4" />
+          <section>
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-400">
+                <Lucide.FlaskConical size={24} />
               </div>
-              
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {labPlugins.map(plugin => {
-                  const Icon = plugin.icon || Lucide.Activity;
-                  const isActive = plugin.id === activePluginId;
-                  
-                  return (
-                    <button
-                      key={plugin.id}
-                      onClick={() => {
-                        onSelectPlugin(plugin.id);
-                        onClose();
-                      }}
-                      className={`flex flex-col items-center p-6 text-center rounded-3xl transition-all duration-300 group border ${
-                        isActive 
-                          ? 'bg-purple-500/20 border-purple-500/40 shadow-lg shadow-purple-500/10' 
-                          : 'bg-black/20 border-transparent hover:bg-white/5 hover:border-white/10 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/20'
-                      }`}
-                    >
-                      <div className={`p-4 rounded-full mb-4 transition-all duration-300 ${
-                        isActive ? 'bg-purple-500/30 text-purple-300' : 'bg-white/5 text-slate-400 group-hover:text-purple-300 group-hover:bg-purple-500/20 group-hover:scale-110'
-                      }`}>
-                        <Icon size={32} strokeWidth={1.5} />
-                      </div>
-                      <span className={`font-semibold text-[15px] ${isActive ? 'text-purple-200' : 'text-slate-300 group-hover:text-slate-100'}`}>
-                        {plugin.name}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
+              <h3 className="text-2xl font-bold text-slate-100 tracking-tight">Labs & Experimental</h3>
+              <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent ml-6" />
             </div>
-          )}
-
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+              {labPlugins.map(plugin => (
+                <AppCard 
+                  key={plugin.id}
+                  plugin={plugin}
+                  isPinned={false}
+                  isActive={plugin.id === activePluginId}
+                  onSelect={() => {
+                    onSelectPlugin(plugin.id);
+                    onClose();
+                  }}
+                  onTogglePin={handleTogglePin}
+                />
+              ))}
+            </div>
+          </section>
         </div>
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+      `}} />
     </div>
+  );
+};
+
+const AppCard = ({ plugin, isActive, isPinned, onSelect, onTogglePin }: any) => {
+  const Icon = plugin.icon || Lucide.Package;
+
+  // 🐧 형님, 아이콘마다 개성 있는 컬러를 입혀서 지루함을 싹 날려버리겠슴다!
+  const getIconTheme = (id: string) => {
+    const themes: Record<string, string> = {
+      'log-extractor': 'from-blue-500 to-indigo-600 shadow-indigo-500/20 text-white',
+      'log-analysis-agent': 'from-purple-500 to-pink-600 shadow-pink-500/20 text-white',
+      'gauss-chat-agent': 'from-rose-500 to-orange-600 shadow-rose-500/20 text-white',
+      'everything-search': 'from-emerald-400 to-teal-600 shadow-emerald-500/20 text-white',
+      'rag-analyzer-test': 'from-cyan-400 to-blue-600 shadow-cyan-500/20 text-white',
+      'nupkg-signer': 'from-amber-400 to-orange-600 shadow-amber-500/20 text-white',
+      'release-history': 'from-violet-500 to-fuchsia-600 shadow-violet-500/20 text-white',
+      'net-traffic-analyzer': 'from-sky-400 to-indigo-500 shadow-sky-500/20 text-white',
+      'post-tool': 'from-pink-400 to-rose-500 shadow-rose-500/20 text-white',
+      'json-tools': 'from-slate-400 to-slate-600 shadow-slate-500/20 text-white',
+      'block-test': 'from-indigo-400 to-purple-500 shadow-indigo-500/20 text-white',
+    };
+    return themes[id] || 'from-slate-700 to-slate-800 shadow-black/20 text-slate-400';
+  };
+
+  const themeClass = getIconTheme(plugin.id);
+
+  return (
+    <button
+      onClick={onSelect}
+      className={`group relative flex flex-col items-center p-6 rounded-[32px] transition-all duration-500 border-2 ${
+        isActive 
+          ? 'bg-indigo-600/10 border-indigo-500/50 shadow-2xl shadow-indigo-500/20 scale-[1.02]' 
+          : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.08] hover:border-white/20 hover:scale-105 hover:shadow-2xl'
+      }`}
+    >
+      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-5 transition-all duration-500 bg-gradient-to-br shadow-lg group-hover:scale-110 group-hover:rotate-3 ${
+        isActive ? 'from-indigo-500 to-purple-600 text-white scale-110 rotate-3' : themeClass
+      }`}>
+        <Icon size={32} strokeWidth={2.5} />
+      </div>
+      
+      <span className={`text-[13px] font-black text-center tracking-tight transition-colors duration-300 uppercase ${
+        isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'
+      }`}>
+        {plugin.name}
+      </span>
+
+      <button
+        onClick={(e) => onTogglePin(plugin.id, e)}
+        className={`absolute top-4 right-4 p-2 rounded-xl transition-all duration-300 ${
+          isPinned 
+            ? 'text-indigo-400 bg-indigo-500/10 opacity-100' 
+            : 'text-slate-600 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-white/10'
+        }`}
+      >
+        <Lucide.Pin size={14} fill={isPinned ? 'currentColor' : 'none'} className={isPinned ? '' : 'rotate-45'} />
+      </button>
+      
+      {/* Decorative Glow */}
+      <div className={`absolute -bottom-2 left-1/2 -translate-x-1/2 w-1/2 h-4 blur-2xl rounded-full transition-opacity duration-500 pointer-events-none ${
+        isActive ? 'bg-indigo-500/40 opacity-100' : 'bg-white/10 opacity-0 group-hover:opacity-100'
+      }`} />
+    </button>
   );
 };
 

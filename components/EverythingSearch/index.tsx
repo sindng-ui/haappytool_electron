@@ -33,22 +33,30 @@ const EverythingSearch: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 overflow-hidden">
-            {/* Header / Search Bar */}
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-500 rounded-lg shadow-lg shadow-indigo-500/20 text-white">
-                            <Lucide.Search size={20} />
-                        </div>
-                        <h1 className="text-xl font-bold tracking-tight">Everything Search</h1>
+            {/* Header / Search Bar - Standardized for Zero-Sidebar (h-16, pl-16) */}
+            <div className="h-16 flex items-center justify-between pl-16 pr-6 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md shrink-0 select-none title-drag">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-500 rounded-lg shadow-lg shadow-indigo-500/20 text-white">
+                        <Lucide.Search size={18} />
                     </div>
-                    <div className="flex items-center gap-2 text-xs">
-                        <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
-                        <span className="opacity-60">{connected ? 'Local Engine Connected' : 'Disconnected'}</span>
+                    <div className="flex flex-col">
+                        <h1 className="text-sm font-black tracking-tight uppercase leading-none">Everything Search</h1>
+                        <p className="text-[9px] text-slate-500 font-medium uppercase tracking-[0.2em] mt-0.5">Lightning Fast Local Engine</p>
                     </div>
                 </div>
+                
+                <div className="flex items-center gap-4 no-drag">
+                    <div className="flex items-center gap-2 text-[10px] font-bold">
+                        <div className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                        <span className={connected ? 'text-green-600 dark:text-green-400' : 'text-red-500'}>
+                            {connected ? 'ENGINE ONLINE' : 'ENGINE OFFLINE'}
+                        </span>
+                    </div>
+                </div>
+            </div>
 
-                <div className="relative group">
+            <div className="flex-1 flex flex-col p-6 overflow-hidden">
+                <div className="relative group mb-6">
                     <Lucide.Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
                     <input
                         type="text"

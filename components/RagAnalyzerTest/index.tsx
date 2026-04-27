@@ -124,62 +124,56 @@ const RagAnalyzerTest: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full p-6 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 overflow-hidden font-sans">
-      {/* Header Section */}
-      <div className="flex items-start justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div className="p-2.5 bg-indigo-500 rounded-xl text-white shadow-lg shadow-indigo-500/20">
-            <Lucide.BrainCircuit size={24} />
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 overflow-hidden font-sans">
+      {/* Header Section - Standardized for Zero-Sidebar (h-16, pl-16) */}
+      <div className="h-16 flex items-center justify-between pl-16 pr-6 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md shrink-0 select-none title-drag">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-indigo-500 rounded-lg text-white shadow-lg shadow-indigo-500/20">
+            <Lucide.BrainCircuit size={20} />
           </div>
-          <div>
+          <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+              <h1 className="text-sm font-black tracking-tight leading-none bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 uppercase">
                 RAG ISSUE ANALYST
               </h1>
               {/* Server Status Indicator (Mini) */}
-              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+              <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border ${
                 serverStatus === 'online' 
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400' 
-                  : serverStatus === 'offline'
-                  ? 'bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400'
-                  : 'bg-slate-100 border-slate-200 text-slate-500'
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' 
+                  : 'bg-rose-500/10 border-rose-500/20 text-rose-500'
               }`}>
-                <div className={`w-1.5 h-1.5 rounded-full ${
-                  serverStatus === 'online' ? 'bg-emerald-500 animate-pulse' : serverStatus === 'offline' ? 'bg-rose-500' : 'bg-slate-400'
+                <div className={`w-1 h-1 rounded-full ${
+                  serverStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
                 }`} />
-                {serverStatus === 'online' ? 'ONLINE' : serverStatus === 'offline' ? 'OFFLINE' : 'CHECKING'}
+                {serverStatus === 'online' ? 'ONLINE' : 'OFFLINE'}
               </div>
-
-              {/* 🐧 START SERVER 버튼을 안전한 왼쪽으로 이동! */}
-              {serverStatus === 'offline' && (
-                <button
-                  onClick={handleStartServer}
-                  disabled={startingServer}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white rounded-lg text-xs font-bold shadow-md transition-all active:scale-95 ml-2"
-                >
-                  {startingServer ? <Lucide.Loader2 size={14} className="animate-spin" /> : <Lucide.Play size={14} fill="currentColor" />}
-                  {startingServer ? 'STARTING...' : 'START SERVER'}
-                </button>
-              )}
             </div>
-            <div className="flex items-center gap-3 mt-0.5">
-              <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                AI-Powered Insight Engine (Test)
-              </p>
-              {serverStatus === 'online' && (
-                <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-800">
-                  <Lucide.Database size={10} />
-                  {totalIndexed} ISSUES INDEXED
-                </div>
-              )}
-            </div>
+            <p className="text-[9px] text-slate-500 font-medium uppercase tracking-[0.2em] mt-0.5">
+              AI-Powered Insight Engine
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* 🐧 우측 상단은 윈도우 컨트롤 영역이라 비워둡니다. */}
+        <div className="flex items-center gap-3 no-drag">
+          {serverStatus === 'online' ? (
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 dark:text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded border border-indigo-500/20">
+              <Lucide.Database size={10} />
+              {totalIndexed.toLocaleString()} ISSUES INDEXED
+            </div>
+          ) : (
+            <button
+              onClick={handleStartServer}
+              disabled={startingServer}
+              className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white rounded-lg text-[10px] font-bold shadow-md transition-all active:scale-95"
+            >
+              {startingServer ? <Lucide.Loader2 size={12} className="animate-spin" /> : <Lucide.Play size={12} fill="currentColor" />}
+              {startingServer ? 'STARTING...' : 'START RAG SERVER'}
+            </button>
+          )}
         </div>
       </div>
+
+      <div className="flex-1 flex flex-col p-6 overflow-hidden">
 
       {/* Search Input Section */}
       <div className="relative mb-6 group">
@@ -271,6 +265,7 @@ const RagAnalyzerTest: React.FC = () => {
           </div>
         )}
       </div>
+    </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         .custom-scrollbar::-webkit-scrollbar {

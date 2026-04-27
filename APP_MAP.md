@@ -26,6 +26,7 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
   - `RagAnalyzerTest`: 메인 검색 인터페이스.
     - **Update (2026-04-11)**: 인디고/퍼플 그라데이션 기반의 프리미엄 카드 UI 적용.
     - **Update (2026-04-11)**: 500ms Debounce 검색 로직 및 서버 상태(8888 포트) 실시간 모니터링 기능 탑재.
+    - **Update (2026-04-27)**: **Header Standardization**. 제로-사이드바 환경에 맞춰 헤더 높이를 `h-16`으로 압축하고, 플로팅 아이콘 영역 확보를 위해 `pl-16` 패딩 적용. 타이틀 레이아웃을 더 컴팩트하게 개선. 🐧✨
 - **Interactions**:
   - 검색 결과 유사도(`distance`)를 별점(Star Rating)으로 시각화.
   - Root Cause 및 Resolution 힌트 카드형 레이아웃 제공.
@@ -160,6 +161,13 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - **Host Binding Relaxation**: `vite.config.ts` — `host: '0.0.0.0'` 설정으로 루프백 이슈 및 타 기기 접근성 개선.
 
 
+### [App Library Modal](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/AppLibraryModal.tsx) [NEW]
+앱 전체 모듈을 관리하고 배치하는 중앙 허브(App Hub)입니다.
+- **UI Features (2026-04-27)**:
+  - **Static Grid System**: 사용자 요청에 따라 드래그 앤 드롭 기능을 제거하고 안정적인 정적 그리드 레이아웃으로 복구.
+  - **Core/Labs 섹션**: 'Pin' 버튼을 통해 상단 고정(Core) 영역과 하단(Labs) 영역 간 이동 가능.
+  - **Icon Unification**: 모든 모듈 아이콘 크기를 일관성 있게 배치하여 시각적 안정성 확보.
+
 ---
-*Last Updated: 2026-04-27 (Global JSZip Build Alias Fix for Workers)*
+*Last Updated: 2026-04-27 (App Hub Revamp & Plugin Header Standardization)*
 

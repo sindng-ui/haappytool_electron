@@ -141,6 +141,7 @@ export interface AppSettings {
   lastEndpoint: string;
   lastMethod: string;
   enabledPlugins?: string[];
+  pluginOrder?: string[]; // ✅ NEW: Custom order of plugins in App Hub
   blocks?: CommandBlock[];
   pipelines?: Pipeline[];
   mockEndpoints?: MockEndpoint[];
