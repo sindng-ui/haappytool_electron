@@ -678,9 +678,6 @@ const AppContent: React.FC = () => {
           <AppHub
             activePlugin={ALL_PLUGINS.find(p => p.id === activeTool)}
             onOpenLibrary={() => setIsLibraryOpen(true)}
-            isFocusMode={isFocusMode}
-          />
-          <TopRightActions
             onOpenSettings={() => setIsSettingsOpen(true)}
             isFocusMode={isFocusMode}
           />

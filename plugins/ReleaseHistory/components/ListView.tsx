@@ -68,7 +68,7 @@ const ListView: React.FC<ListViewProps> = ({ items, onItemClick }) => {
                             className="flex items-center gap-4 mb-6 cursor-pointer group/header"
                             onClick={() => toggleProduct(yearStr)}
                         >
-                            <div className="relative">
+                            <div className="relative flex items-center gap-4">
                                 <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl blur opacity-20 group-hover/header:opacity-40 transition-opacity" />
                                 <div className="relative px-6 py-2 bg-slate-900 border border-white/10 rounded-2xl flex items-center gap-3">
                                     <h3 className="text-2xl font-black text-white tracking-tighter">{year}</h3>
@@ -77,11 +77,11 @@ const ListView: React.FC<ListViewProps> = ({ items, onItemClick }) => {
                                         {Object.values(apps).flat().length} Records
                                     </span>
                                 </div>
+                                <div className={`p-2 rounded-xl border border-white/5 bg-slate-950/50 text-slate-500 transition-all duration-300 group-hover/header:bg-indigo-500/20 group-hover/header:text-indigo-400 ${isExpanded ? '' : '-rotate-90 scale-90 opacity-50'}`}>
+                                    <ChevronDown size={16} />
+                                </div>
                             </div>
                             <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent" />
-                            <div className={`p-2 rounded-xl border border-white/5 bg-slate-950/50 text-slate-500 transition-transform duration-300 ${isExpanded ? '' : '-rotate-90'}`}>
-                                <ChevronDown size={16} />
-                            </div>
                         </div>
 
                         {/* Releases List */}
