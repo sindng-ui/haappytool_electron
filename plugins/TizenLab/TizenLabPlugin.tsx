@@ -15,6 +15,8 @@ interface TizenLabPluginProps {
     isActive?: boolean;
 }
 
+import PluginHeader from '../../components/PluginHeader';
+
 const TizenLabPlugin: React.FC<TizenLabPluginProps> = ({ isActive = false }) => {
     const { addToast } = useToast();
     const [activeTab, setActiveTab] = useState<Tab>('explorer');
@@ -25,57 +27,52 @@ const TizenLabPlugin: React.FC<TizenLabPluginProps> = ({ isActive = false }) => 
 
     return (
         <div className="flex flex-col h-full bg-slate-950 text-slate-200 overflow-hidden">
-            {/* Tab Bar */}
-            <div className="h-16 bg-slate-900 border-b border-indigo-500/20 flex items-center pl-16 pr-[140px] gap-8 flex-shrink-0 backdrop-blur-xl z-20">
-                <div className="flex items-center gap-2 mr-4">
-                    <div className="p-1.5 bg-indigo-500/20 rounded-lg text-indigo-400">
-                        <Activity size={18} />
+            <PluginHeader 
+                title="Tizen Lab" 
+                icon={Activity} 
+                actions={
+                    <div className="flex items-center gap-6">
+                        <div className="flex h-16 no-drag">
+                            <button
+                                onClick={() => setActiveTab('explorer')}
+                                className={`px-4 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${activeTab === 'explorer' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+                            >
+                                <FolderTree size={14} /> File Explorer
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('apps')}
+                                className={`px-4 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${activeTab === 'apps' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+                            >
+                                <Box size={14} /> App Manager
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('perf')}
+                                className={`px-4 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${activeTab === 'perf' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+                            >
+                                <Activity size={14} /> Performance Monitor
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('settings')}
+                                className={`px-4 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${activeTab === 'settings' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+                            >
+                                <Settings2 size={14} /> Lab Settings
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-2 bg-slate-800 rounded-full px-4 py-1.5 border border-slate-700 no-drag">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">Device</span>
+                            <input
+                                className="bg-transparent border-none outline-none text-[11px] font-mono text-indigo-300 w-24"
+                                value={deviceId}
+                                onChange={(e) => {
+                                    setDeviceId(e.target.value);
+                                    localStorage.setItem('lastSdbDeviceId', e.target.value);
+                                }}
+                                placeholder="auto-detect"
+                            />
+                        </div>
                     </div>
-                    <span className="font-bold text-sm tracking-tight text-white uppercase">Tizen Lab</span>
-                </div>
-
-                <div className="flex h-full no-drag">
-                    <button
-                        onClick={() => setActiveTab('explorer')}
-                        className={`px-4 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${activeTab === 'explorer' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-                    >
-                        <FolderTree size={14} /> File Explorer
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('apps')}
-                        className={`px-4 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${activeTab === 'apps' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-                    >
-                        <Box size={14} /> App Manager
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('perf')}
-                        className={`px-4 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${activeTab === 'perf' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-                    >
-                        <Activity size={14} /> Performance Monitor
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('settings')}
-                        className={`px-4 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${activeTab === 'settings' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-                    >
-                        <Settings2 size={14} /> Lab Settings
-                    </button>
-                </div>
-
-                <div className="ml-auto flex items-center gap-3 no-drag">
-                    <div className="flex items-center gap-2 bg-slate-800 rounded-full px-4 py-1.5 border border-slate-700">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase">Device</span>
-                        <input
-                            className="bg-transparent border-none outline-none text-[11px] font-mono text-indigo-300 w-24"
-                            value={deviceId}
-                            onChange={(e) => {
-                                setDeviceId(e.target.value);
-                                localStorage.setItem('lastSdbDeviceId', e.target.value);
-                            }}
-                            placeholder="auto-detect"
-                        />
-                    </div>
-                </div>
-            </div>
+                }
+            />
 
             {/* Content Area */}
             <div className="flex-1 overflow-hidden relative">

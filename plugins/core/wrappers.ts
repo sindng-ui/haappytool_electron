@@ -162,6 +162,7 @@ export const EasyPostPlugin: HappyPlugin = {
     icon: Zap,
     component: EasyPost,
     order: 16,
+    isLab: true,
 };
 
 // Gauge (from named import)
@@ -171,6 +172,7 @@ export const PerfToolPlugin: HappyPlugin = {
     icon: Gauge,
     component: PerfTool,
     order: 17,
+    isLab: true,
 };
 
 const SpeedScope = React.lazy(() => import('../../components/SpeedScope/SpeedScopePlugin'));
@@ -181,6 +183,7 @@ export const SpeedScopePlugin: HappyPlugin = {
     icon: Activity,
     component: SpeedScope,
     order: 18,
+    isLab: true,
 };
 
 const NetTrafficAnalyzer = React.lazy(() => import('../../components/NetTrafficAnalyzer/NetTrafficAnalyzerPlugin'));
@@ -191,6 +194,7 @@ export const NetTrafficAnalyzerPluginWrapper: HappyPlugin = {
     icon: Network,
     component: NetTrafficAnalyzer,
     order: 19,
+    isLab: true,
 };
 
 const LogAnalysisAgent = React.lazy(() => import('../LogAnalysisAgent/index'));
@@ -201,6 +205,7 @@ export const LogAnalysisAgentPlugin: HappyPlugin = {
     icon: BrainCircuit,
     component: LogAnalysisAgent,
     order: 20,
+    isLab: true,
 };
 
 const GaussChatAgent = React.lazy(() => import('../GaussChatAgent/index'));
@@ -211,6 +216,7 @@ export const GaussChatAgentPlugin: HappyPlugin = {
     icon: MessageSquare,
     component: GaussChatAgent,
     order: 21,
+    isLab: true,
 };
 
 export const EverythingSearchPlugin: HappyPlugin = {
@@ -227,6 +233,7 @@ export const RagAnalyzerTestPlugin: HappyPlugin = {
     icon: SearchCode,
     component: RagAnalyzerTest,
     order: 23,
+    isLab: true,
 };
 
 export const NupkgSignerPlugin: HappyPlugin = {

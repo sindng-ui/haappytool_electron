@@ -22,6 +22,8 @@ interface SmartThingsLabPluginProps {
     isActive?: boolean;
 }
 
+import PluginHeader from '../../components/PluginHeader';
+
 const SmartThingsLabPlugin: React.FC<SmartThingsLabPluginProps> = ({ isActive = false }) => {
     const { postGlobalAuth } = useHappyTool();
     const [token, setToken] = useState<string>('');
@@ -194,15 +196,15 @@ const SmartThingsLabPlugin: React.FC<SmartThingsLabPluginProps> = ({ isActive = 
         <div className="flex h-full w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 overflow-hidden">
             {/* Sidebar */}
             <div className="w-80 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80">
-                <div className="h-16 pl-16 pr-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white/50 dark:bg-slate-900/50 backdrop-blur-md">
-                    <h2 className="font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                        <Smartphone size={18} className="text-indigo-500" />
-                        ST Lab
-                    </h2>
-                    <button onClick={refreshData} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors" title="Refresh">
-                        <RefreshCw size={16} className={loading ? "animate-spin text-indigo-500" : "text-slate-400"} />
-                    </button>
-                </div>
+                <PluginHeader 
+                    title="ST Lab" 
+                    icon={Smartphone} 
+                    actions={
+                        <button onClick={refreshData} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors" title="Refresh">
+                            <RefreshCw size={16} className={loading ? "animate-spin text-indigo-500" : "text-slate-400"} />
+                        </button>
+                    }
+                />
 
                 {!token && (
                     <div className="p-4 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
