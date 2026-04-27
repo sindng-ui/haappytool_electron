@@ -77,6 +77,7 @@ export default defineConfig(({ mode }) => {
         // ✅ ESM 패키지 경로 명시적 해결을 위한 별칭 대폭 보강 🐧⚡
         // ENOENT 에러 방지를 위해 파일명(.js)을 제거하고 패키지 루트 디렉토리까지만 지정
         'react-markdown': path.join(__dirname, 'node_modules/react-markdown'),
+        'jszip': path.resolve(__dirname, 'components/NupkgSigner/vendor/jszip-bundle.js'),
 
 
         'remark-gfm': path.join(__dirname, 'node_modules/remark-gfm'),

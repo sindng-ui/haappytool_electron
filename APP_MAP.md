@@ -45,6 +45,7 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
   - **UI State Sync**: `index.tsx` — 마지막 다운로드 완료 시(`isFinalized`), 상단 스텝 바의 4번 인디케이터가 활성(Indigo) 상태에서 완료(Emerald) 상태로 즉시 전환되도록 로직 개선.
   - **Memory Leak Fix (2026-04-22)**: `main.cjs` — 타임아웃이나 예외 상황 시 자동 서명을 폴링하는 타이머(`setInterval`)가 정상적으로 해제되지 않아 무한 루프에 빠지는 현상 완벽 방어.
   - **Startup Perf Fix (2026-04-22)**: `index.tsx` — Vite의 Worker 번들링 병목(Rollup)을 피하기 위해 Native ESM Worker 방식으로 전환. 초기 로딩 속도 10초 이상 단축.
+  - **Global Build Fix (2026-04-27)**: `vite.config.ts` — 워커 내부의 `jszip` 참조 오류를 해결하기 위해 `jszip` 임포트를 벤더 번들(`jszip-bundle.js`)로 강제 연결하는 **Global Alias** 도입. 프로덕션 빌드 무결성 확보. 🐧⚡
 - **New Features (2026-04-20)**:
   - **ISMS URL Integration**: `Step2_3_FileList.tsx` — 서명 작업을 위한 ISMS URL 입력창 및 브라우저 열기(`openExternal`) 연동 기능 추가. `localStorage`를 통한 URL 영구 저장 지원.
   - **ISMS Auto Sign (Phase 2)**: `main.cjs`, `index.tsx`, `Step2_3_FileList.tsx` — CDP(Chrome DevTools Protocol)와 가상 브라우저 제어를 통한 자동 서명 기능. `persist:isms` 세션 파티션을 도입하여 앱 내 로그인 상태를 자동화 엔진과 공유하도록 개선.
@@ -152,7 +153,7 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 - **핵심 전략**: Public Vendor화, Runtime Loading, Type-Only Import.
 
 - **Build & Reliability Enhancements (2026-04-22)**:
-  - **JSZip Vendor Integration & ESM Patch**: `vendor/jszip-bundle.js` — JSZip 번들을 프로젝트 내부로 소스 코드화하고, `export default`를 수동으로 추가하여 Vite/Rollup의 ESM 임포트 호환성 완벽 해결.
+  - **JSZip Vendor Integration & ESM Patch**: `vendor/jszip-bundle.js` — JSZip 번들을 프로젝트 내부로 소스 코드화하고, `export default`를 수동으로 추가하여 Vite/Rollup의 ESM 임포트 호환성 완벽 해결. (2026-04-27: `vite.config.ts`에 **Global Alias** 설정을 추가하여 모든 워커 및 유틸에서 이 번들을 강제 사용하도록 확정)
   - **Deep Clean Script**: `scripts/deep_clean.cjs` — Vite 캐시(`node_modules/.vite`)와 빌드 잔해를 일괄 정리하는 강력한 초기화 명령어(`npm run clean:deep`) 도입.
   - **Cross-Platform Startup Fix**: `package.json` — `npx cross-env` 도입으로 다양한 OS/Shell 환경에서 동일하게 동작하도록 `electron:dev` 명령어 개선.
   - **Zombie Port Cleanup**: `scripts/deep_clean.cjs` — 3000번 포트를 점유 중인 좀비 프로세스를 추적하여 강제 종료하는 로직 추가.
@@ -160,5 +161,5 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 
 
 ---
-*Last Updated: 2026-04-24 (Release History UI/UX Premium Renewal & Toast System)*
+*Last Updated: 2026-04-27 (Global JSZip Build Alias Fix for Workers)*
 
