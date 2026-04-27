@@ -9,7 +9,7 @@ interface Props {
     onToggleChecked: (path: string) => void;
     onSignedUpload: (path: string, file: File) => void;
     onProcess: () => void;
-    onAutoSign: () => void;
+    onAutoSign: (ismsUrl: string) => void;
     onBack: () => void;
 }
 
@@ -71,7 +71,7 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                         </div>
                     </div>
                     <button 
-                        onClick={onAutoSign}
+                        onClick={() => onAutoSign(ismsUrl)}
                         disabled={checkedCount === 0 || soFiles.some(f => f.isSigning)}
                         className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl font-bold transition-all ${
                             checkedCount > 0 && !soFiles.some(f => f.isSigning)

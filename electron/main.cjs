@@ -401,9 +401,11 @@ app.whenReady().then(async () => {
     });
 
     // 🐧 Nupkg Signer: ISMS 자동 서명 핸들러 (CDP 마법 사용)
-    ipcMain.handle('nupkg-auto-sign-so', async (event, { filePath }) => {
-        const ismsUrl = 'https://isms.sec.samsung.net/isms/securityInformation/kUEPSign/kUEPSign.do?_menuId=AUIVQbvqAADw6CMK&_menuF=true';
-        console.log(`[AutoSign] Starting for file: ${filePath}`);
+    ipcMain.handle('nupkg-auto-sign-so', async (event, { filePath, ismsUrl, year }) => {
+        const targetIsmsUrl = ismsUrl || 'https://isms.sec.samsung.net/isms/securityInformation/kUEPSign/kUEPSign.do?_menuId=AUIVQbvqAADw6CMK&_menuF=true';
+        const targetYear = year || new Date().getFullYear().toString();
+        
+        console.log(`[AutoSign] Starting for file: ${filePath} at ${targetIsmsUrl} for year ${targetYear}`);
         
         const tempWin = new BrowserWindow({
             show: false,
@@ -415,18 +417,25 @@ app.whenReady().then(async () => {
 
         return new Promise(async (resolve, reject) => {
             let isResolved = false;
-            let checkDownload = null; // ✅ 타이머 레퍼런스 유지
-            const timeout = setTimeout(() => {
+            let checkDownload = null;
+            const waitTime = 20000; // ✅ 20초로 연장
+            const timeout = setTimeout(async () => {
                 if (!isResolved) {
                     if (checkDownload) clearInterval(checkDownload);
-                    if (!tempWin.isDestroyed()) tempWin.destroy();
-                    reject(new Error('AutoSign Timeout (60s) - 로그인 세션을 확인해 주세요.'));
+                    let debugInfo = '(Timeout)';
+                    if (!tempWin.isDestroyed()) {
+                        const currentUrl = tempWin.webContents.getURL();
+                        const currentTitle = tempWin.webContents.getTitle();
+                        debugInfo = `\n- URL: ${currentUrl}\n- Title: ${currentTitle}`;
+                        tempWin.destroy();
+                    }
+                    reject(new Error(`자동 서명 대기 시간 초과 (20초). ${debugInfo}\n로그인 세션을 확인하거나 ISMS URL을 확인해 주세요.`));
                 }
-            }, 60000);
+            }, waitTime);
 
             try {
-                // 1. 페이지 로드 (리다이렉트 에러 무시 로직 추가)
-                await tempWin.loadURL(ismsUrl).catch(err => {
+                // 1. 페이지 로드
+                await tempWin.loadURL(targetIsmsUrl).catch(err => {
                     if (err.code === 'ERR_ABORTED') {
                         console.log('[AutoSign] loadURL aborted (possibly redirect), continuing...');
                     } else {
@@ -439,31 +448,33 @@ app.whenReady().then(async () => {
                     const jsCode = `
                         (function() {
                             function findInFrames(doc) {
-                                // 1. 현재 문서에서 찾기
                                 const yr = doc.getElementById('year');
                                 const ft = doc.getElementById('fileType');
                                 const up = doc.getElementById('file_upload_1');
                                 
-                                if (yr && ft && up) return { found: true, frameId: null };
+                                if (yr && ft && up) return { found: true, details: 'All elements found' };
                                 
-                                // 2. 프레임들 뒤지기
                                 const frames = doc.querySelectorAll('iframe, frame');
                                 for (let i = 0; i < frames.length; i++) {
                                     try {
                                         const frameDoc = frames[i].contentDocument || frames[i].contentWindow.document;
                                         const result = findInFrames(frameDoc);
-                                        if (result.found) return { found: true, frameIndex: i };
-                                    } catch (e) { /* 크로스 도메인 이슈 등 무시 */ }
+                                        if (result.found) return result;
+                                    } catch (e) {}
                                 }
-                                return { found: false };
+                                
+                                let missing = [];
+                                if (!yr) missing.push('year');
+                                if (!ft) missing.push('fileType');
+                                if (!up) missing.push('file_upload_1');
+                                return { found: false, missing: missing };
                             }
                             
-                            // 자동 선택 및 성공 여부 반환
-                            function setupElements(doc) {
+                            function setupElements(doc, yrVal) {
                                 const yr = doc.getElementById('year');
                                 const ft = doc.getElementById('fileType');
                                 if (yr && ft) {
-                                    yr.value = '2020'; yr.dispatchEvent(new Event('change'));
+                                    yr.value = yrVal; yr.dispatchEvent(new Event('change'));
                                     ft.value = 'el'; ft.dispatchEvent(new Event('change'));
                                     return true;
                                 }
@@ -471,46 +482,49 @@ app.whenReady().then(async () => {
                                 for (let i = 0; i < frames.length; i++) {
                                     try {
                                         const frameDoc = frames[i].contentDocument || frames[i].contentWindow.document;
-                                        if (setupElements(frameDoc)) return true;
+                                        if (setupElements(frameDoc, yrVal)) return true;
                                     } catch (e) {}
                                 }
                                 return false;
                             }
 
-                            const foundInfo = findInFrames(document);
-                            if (foundInfo.found) {
-                                setupElements(document);
-                                return foundInfo;
+                            const result = findInFrames(document);
+                            if (result.found) {
+                                setupElements(document, '${targetYear}');
+                                return result;
                             }
-                            return null;
+                            return result;
                         })();
                     `;
 
-                    // 최대 10초간 폴링 (페이지 로딩 대기)
-                    for (let i = 0; i < 20; i++) {
+                    // 최대 20초간 폴링 (페이지 로딩 대기)
+                    for (let i = 0; i < 40; i++) {
                         const result = await tempWin.webContents.executeJavaScript(jsCode);
-                        if (result) return result;
+                        if (result && result.found) return result;
                         await new Promise(r => setTimeout(r, 500));
                     }
-                    return null;
+                    
+                    // 마지막 실패 시 상태 반환
+                    return await tempWin.webContents.executeJavaScript(jsCode);
                 };
 
                 const elementsInfo = await findElementsInFrames();
-                if (!elementsInfo) {
-                    throw new Error('ISMS 페이지 요소를 찾을 수 없습니다 (10초 대기 초과). 로그인 상태나 서버 응답을 확인해 주세요.');
+                if (!elementsInfo || !elementsInfo.found) {
+                    const currentUrl = tempWin.webContents.getURL();
+                    const currentTitle = tempWin.webContents.getTitle();
+                    const missing = elementsInfo?.missing ? elementsInfo.missing.join(', ') : 'Unknown';
+                    throw new Error(`ISMS 페이지 요소를 찾을 수 없습니다.\n- 누락: ${missing}\n- URL: ${currentUrl}\n- Title: ${currentTitle}\n로그인 상태를 확인해 주세요.`);
                 }
 
-                console.log('[AutoSign] Elements found, info:', elementsInfo);
+                console.log('[AutoSign] Elements found and setup complete.');
 
                 // 3. CDP 연결 및 파일 업로드 🎯
                 if (!tempWin.webContents.debugger.isAttached()) {
                     tempWin.webContents.debugger.attach('1.3');
                 }
 
-                // 🐧 프레임 속에 요소가 있는 경우를 위해 모든 노드를 다 뒤져야 함다
                 const { root } = await tempWin.webContents.debugger.sendCommand('DOM.getDocument', { depth: -1, pierce: true });
                 
-                // 재귀적으로 모든 노드에서 selector 찾기
                 async function findNodeId(rootNode, selector) {
                     try {
                         const { nodeId } = await tempWin.webContents.debugger.sendCommand('DOM.querySelector', {
@@ -526,8 +540,6 @@ app.whenReady().then(async () => {
                             if (res) return res;
                         }
                     }
-                    
-                    // iframe 내부는 contentDocument를 봐야 함다
                     if (rootNode.contentDocument) {
                         return await findNodeId(rootNode.contentDocument, selector);
                     }
@@ -535,7 +547,6 @@ app.whenReady().then(async () => {
                 }
 
                 const nodeId = await findNodeId(root, '#file_upload_1');
-                
                 if (!nodeId || nodeId === 0) {
                     throw new Error('업로드 필드(#file_upload_1)를 찾을 수 없습니다. (CDP 검색 실패)');
                 }
@@ -550,7 +561,7 @@ app.whenReady().then(async () => {
                 await originalFs.promises.mkdir(tempDownloadDir, { recursive: true });
                 
                 let downloadedFilePath = null;
-                tempWin.webContents.session.once('will-download', (event, item, webContents) => {
+                tempWin.webContents.session.once('will-download', (event, item) => {
                     const savePath = path.join(tempDownloadDir, item.getFilename());
                     item.setSavePath(savePath);
                     item.once('done', (event, state) => {
@@ -592,7 +603,7 @@ app.whenReady().then(async () => {
                 }, 1000);
 
             } catch (err) {
-                if (checkDownload) clearInterval(checkDownload); // ✅ 예외 시 확실히 해제
+                if (checkDownload) clearInterval(checkDownload);
                 clearTimeout(timeout);
                 if (!tempWin.isDestroyed()) tempWin.destroy();
                 isResolved = true;

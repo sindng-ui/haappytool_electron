@@ -140,7 +140,7 @@ const NupkgSigner: React.FC = () => {
         }
     };
 
-    const handleAutoSign = async () => {
+    const handleAutoSign = async (ismsUrl: string) => {
         const targets = state.soFiles.filter(f => f.checked && !f.isSigned);
         if (targets.length === 0) {
             addToast("No unsigned files selected for auto-sign.", "warning");
@@ -181,7 +181,7 @@ const NupkgSigner: React.FC = () => {
                 });
 
                 // 3. 자동 서명 호출 (CDP 마법 가동)
-                const signedBuffer = await (window as any).electronAPI.autoSignSoFile(fullTempPath);
+                const signedBuffer = await (window as any).electronAPI.autoSignSoFile(fullTempPath, ismsUrl);
 
                 if (signedBuffer) {
                     const signedBlob = new Blob([signedBuffer], { type: 'application/octet-stream' });
