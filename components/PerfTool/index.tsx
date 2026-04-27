@@ -357,7 +357,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     return (
         <div className="flex w-full h-full flex-col bg-[#0b0f19] text-slate-200 overflow-hidden relative">
             {/* System Header */}
-            <div className="h-9 shrink-0 title-drag pl-4 flex items-center justify-between border-b border-indigo-500/20 bg-gradient-to-r from-[#0f172a] to-[#0d1321]">
+            <div className="h-16 shrink-0 title-drag pl-16 flex items-center justify-between border-b border-indigo-500/20 bg-gradient-to-r from-[#0f172a] to-[#0d1321]">
                 <div className="flex items-center gap-3 no-drag">
                     <div className="p-1.5 bg-gradient-to-br from-indigo-500/20 to-purple-500/10 rounded-lg text-indigo-400 shadow-lg shadow-indigo-500/5">
                         <Activity size={14} className="icon-glow" />

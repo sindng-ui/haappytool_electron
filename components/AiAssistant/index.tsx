@@ -1050,7 +1050,7 @@ const AiAssistant: React.FC = () => {
                 className="bg-white dark:bg-[#0b0f19] border-r border-slate-200 dark:border-white/5 flex flex-col shrink-0 z-20 relative"
                 style={{ width: sidebarWidth }}
             >
-                <div className="h-9 shrink-0 title-drag pl-4 flex items-center border-b border-white/5 bg-[#0f172a]">
+                <div className="h-16 shrink-0 title-drag pl-16 flex items-center border-b border-white/5 bg-[#0f172a]">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest no-drag">Control Panel</span>
                 </div>
                 {/* Drag Handle */}
@@ -1316,7 +1316,7 @@ const AiAssistant: React.FC = () => {
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col h-full min-w-0 bg-white dark:bg-[#0b0f19] relative">
                 {/* System Header */}
-                <div className="h-9 shrink-0 title-drag pl-4 pr-36 flex items-center gap-3 border-b border-white/5 bg-[#0f172a]">
+                <div className="h-16 shrink-0 title-drag pl-16 pr-36 flex items-center gap-3 border-b border-white/5 bg-[#0f172a]">
                     <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Bot size={14} className="icon-glow" /></div>
                     <span className="font-bold text-xs text-slate-200 no-drag">AI Assistant</span>
                     <div className="w-px h-3 bg-white/10 mx-1"></div>

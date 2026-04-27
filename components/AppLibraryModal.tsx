@@ -50,13 +50,14 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-8">
       {/* Backdrop */}
       <div 
-        className={`absolute inset-0 bg-[#020617]/80 backdrop-blur-md transition-opacity duration-300 ${animateIn ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-[#020617]/90 transition-opacity duration-300 ${animateIn ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose} 
       />
       
       {/* Modal Container */}
       <div 
-        className={`relative w-full max-w-5xl max-h-full bg-slate-900/90 backdrop-blur-2xl border border-slate-700/50 rounded-[32px] shadow-2xl shadow-black/50 flex flex-col overflow-hidden transition-all duration-300 transform ${animateIn ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'}`}
+        className={`relative w-full max-w-5xl max-h-full bg-slate-900 border border-slate-700/50 rounded-[32px] shadow-2xl shadow-black/50 flex flex-col overflow-hidden transition-all duration-300 transform will-change-transform ${animateIn ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'}`}
+        style={{ transform: 'translateZ(0)' }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-10 py-8 border-b border-white/5 shrink-0 bg-slate-900/50">

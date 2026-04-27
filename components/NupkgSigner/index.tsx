@@ -237,20 +237,15 @@ const NupkgSigner: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 overflow-hidden">
-            {/* Header - Optimized for Dragging */}
+            {/* Header - Standardized for Zero-Sidebar (h-16, pl-16) */}
             <header 
-                className="flex items-center justify-between px-6 py-4 pr-[140px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 select-none"
+                className="h-16 flex items-center justify-between pl-16 pr-[140px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 select-none title-drag shrink-0"
                 style={{ WebkitAppRegion: 'drag' } as any}
             >
-                <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' } as any}>
-                    <div className="p-2 bg-indigo-500 rounded-lg shadow-lg shadow-indigo-500/20 text-white cursor-default">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04m12.892 7.781l1.499 4.497a1 1 0 01-1.211 1.296l-3.97-1.323a1 1 0 00-.638 0l-3.97 1.323a1 1 0 01-1.211-1.296l1.498-4.497m1.288-1.288a5.238 5.238 0 117.408 0l-1.288 1.288a3.415 3.415 0 10-4.832 0l-1.288-1.288z" />
-                        </svg>
-                    </div>
+                <div className="flex items-center gap-3 no-drag">
                     <div className="cursor-default">
-                        <h1 className="text-xl font-bold tracking-tight">Nupkg Signer</h1>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium" data-testid="step-badge">
+                        <h1 className="text-lg font-bold tracking-tight text-slate-800 dark:text-slate-200">Nupkg Signer</h1>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider" data-testid="step-badge">
                             Step {state.currentStep === 4 ? 3 : (state.currentStep === 5 ? 4 : state.currentStep)} / 4
                         </p>
                     </div>

@@ -117,18 +117,22 @@ const ConfigurationPanel = React.memo(() => {
                 />
             )}
 
-            <div className="absolute top-[18px] right-[-14px] z-50">
+            <div className="absolute top-[22px] right-[-14px] z-50">
                 <Button
                     variant="secondary"
-                    className="w-7 h-8 rounded-full bg-indigo-600 border border-indigo-400/30 hover:bg-indigo-500 shadow-lg shadow-indigo-900/40 flex items-center justify-center transition-all active:scale-95 focus:scale-100 ring-0 hover:scale-110"
+                    className="w-7 h-10 rounded-full bg-indigo-600 border border-indigo-400/30 hover:bg-indigo-500 shadow-lg shadow-indigo-900/40 flex items-center justify-center transition-all active:scale-95 focus:scale-100 ring-0 hover:scale-110 group/btn"
                     onClick={onToggle}
                 >
-                    {isPanelOpen ? <ChevronLeft size={16} className="text-white" /> : <ChevronRight size={16} className="text-white" />}
+                    {isPanelOpen ? (
+                        <ChevronLeft size={16} className="text-white group-hover/btn:-translate-x-0.5 transition-transform" />
+                    ) : (
+                        <ChevronRight size={16} className="text-white group-hover/btn:translate-x-0.5 transition-transform" />
+                    )}
                 </Button>
             </div>
             {isPanelOpen ? (
                 <div
-                    className="p-5 pt-8 overflow-y-auto h-full custom-scrollbar pb-20 space-y-10"
+                    className="p-5 pt-14 overflow-y-auto h-full custom-scrollbar pb-20 space-y-10"
                     style={{ width: configPanelWidth }}
                 >
                     <ConfigHeader
@@ -195,8 +199,16 @@ const ConfigurationPanel = React.memo(() => {
 
                 </div>
             ) : (
-                <div className="h-full flex flex-col items-center pt-24 gap-4 cursor-pointer hover:bg-white/5 transition-colors group px-0" onClick={onToggle}>
-                    <div className="vertical-text text-slate-500 font-bold tracking-[0.1em] text-[9px] uppercase transform rotate-180 opacity-60 group-hover:text-indigo-400 group-hover:opacity-100 transition-all whitespace-nowrap" style={{ writingMode: 'vertical-rl' }}>
+                <div className="h-full w-full flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 transition-all group px-0 relative py-12" onClick={onToggle}>
+                    {/* Vertical Configuration Text */}
+                    <div 
+                        className="text-slate-100 font-black tracking-[0.1em] text-[11px] uppercase group-hover:text-indigo-400 transition-all select-none"
+                        style={{ 
+                            writingMode: 'vertical-rl', 
+                            transform: 'rotate(180deg)',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
                         Configuration
                     </div>
                 </div>

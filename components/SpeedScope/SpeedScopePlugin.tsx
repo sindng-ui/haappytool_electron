@@ -327,7 +327,7 @@ const SpeedScopePlugin: React.FC<SpeedScopePluginProps> = ({ isActive = true }) 
     return (
         <div className="flex w-full h-full flex-col bg-[#0b0f19] text-slate-200 overflow-hidden relative">
             {/* Header */}
-            <div className="h-10 shrink-0 title-drag pl-4 pr-52 flex items-center justify-between border-b border-indigo-500/20 bg-gradient-to-r from-[#0f172a] to-[#0d1321]">
+            <div className="h-16 shrink-0 title-drag pl-16 pr-52 flex items-center justify-between border-b border-indigo-500/20 bg-gradient-to-r from-[#0f172a] to-[#0d1321]">
                 <div className="flex items-center gap-3 no-drag">
                     <div className="p-1.5 bg-indigo-500/20 rounded-lg text-indigo-400">
                         <Activity size={14} />

@@ -9,7 +9,7 @@ const SmartHomeDashboard: React.FC = () => {
     return (
         <div className="flex flex-col h-full bg-[#0b0f19] text-slate-100 overflow-hidden">
             {/* System Header */}
-            <div className="h-9 shrink-0 title-drag pl-4 pr-36 flex items-center gap-3 border-b border-white/5 bg-[#0f172a]">
+            <div className="h-16 shrink-0 title-drag pl-16 pr-36 flex items-center gap-3 border-b border-white/5 bg-[#0f172a]">
                 <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400 no-drag"><Lucide.LayoutDashboard size={14} className="icon-glow" /></div>
                 <span className="font-bold text-xs text-slate-200 no-drag">Smart Home Dashboard</span>
             </div>

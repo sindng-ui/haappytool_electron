@@ -107,7 +107,7 @@ const GaussChatAgentPlugin: React.FC = () => {
       {/* ── Main Chat Area ── */}
       <div className="flex flex-col flex-1 min-w-0 border-r border-white/5">
         {/* Header */}
-        <div className="h-12 flex items-center justify-between bg-slate-900/50 backdrop-blur-md border-b border-white/5 px-6 shrink-0 z-20">
+        <div className="h-16 flex items-center justify-between bg-slate-900/50 backdrop-blur-md border-b border-white/5 pl-16 pr-6 shrink-0 z-20 title-drag" style={{ WebkitAppRegion: 'drag' } as any}>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
               <MessageSquare size={16} className="text-indigo-400" />

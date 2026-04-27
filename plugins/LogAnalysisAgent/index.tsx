@@ -150,7 +150,7 @@ const LogAnalysisAgentPlugin: React.FC = () => {
 
     <div className="flex flex-col h-full w-full bg-slate-950 text-slate-200 overflow-hidden font-sans">
       <div 
-        className="h-10 flex items-center bg-slate-900 border-b border-slate-800 px-4 shrink-0 z-20 title-drag" 
+        className="h-16 flex items-center bg-slate-900 border-b border-slate-800 pl-16 pr-4 shrink-0 z-20 title-drag" 
         style={{ WebkitAppRegion: 'drag' } as any}
       >
         <div className="flex items-center gap-2 mr-6 select-none no-drag">
