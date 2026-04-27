@@ -46,14 +46,17 @@
   - `PLUGIN_CONFIG`: 14종의 실험실 플러그인 각각에 대한 노출 여부 제어 플래그 [UPDATED]
 - **Data Flow**: `config.ts` -> `registry.ts` (Filtering via visibilityMap) -> `App.tsx` -> `Sidebar`
 
-### [[Sidebar Navigation]]
-- **ID**: `ui-sidebar-nav`
-- **Keywords**: [`사이드바`, `메뉴`, `navigation`, `tool switch`]
+### [[Zero-Sidebar App Hub & Library]] [NEW]
+- **ID**: `ui-app-hub-nav`
+- **Keywords**: [`Zero-Sidebar`, `사이드바 제거`, `App Hub`, `App Library`, `메가 메뉴`, `navigation`]
 - **Location**:
-  - `View`: [Sidebar.tsx](./components/Sidebar.tsx)
-- **Interactions**:
-  - `Click`: 플러그인 전환 (`setActiveTool`)
-  - `Drag & Drop`: 플러그인 아이콘 순서 변경 (Reorder)
+  - `Hub`: [AppHub.tsx](./components/AppHub.tsx)
+  - `Library Modal`: [AppLibraryModal.tsx](./components/AppLibraryModal.tsx)
+  - `Top Actions`: [TopRightActions.tsx](./components/TopRightActions.tsx)
+- **Features**:
+  - **Zero-Sidebar Layout**: 기존 좌측 사이드바를 완전히 제거하여 로그 뷰어 가로 해상도 100% 확보.
+  - **App Hub**: 좌측 상단 플로팅 버튼. 클릭 시 거대한 앱 라이브러리 모달 호출.
+  - **Mega Library**: Core Apps와 Labs를 명확히 분리하여 트렌디하게 보여주는 모달 (Glassmorphism 적용).
 
 ### [[Headless CLI Infrastructure]] 🐧💻
 - **ID**: `system-headless-cli`

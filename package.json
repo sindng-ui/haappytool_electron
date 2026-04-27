@@ -1,7 +1,7 @@
 {
   "name": "happytool",
   "private": true,
-  "version": "1.2.2",
+  "version": "1.2.3",
   "type": "module",
   "homepage": "./",
   "main": "electron/main.cjs",
@@ -10,10 +10,8 @@
     "clean": "rimraf dist dist_electron",
     "clean:deep": "node scripts/deep_clean.cjs",
     "build": "vite build",
-
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"npx cross-env CHOKIDAR_USEPOLLING=true vite\" \"wait-on --no-proxy tcp:127.0.0.1:3000 && electron .\"",
-
     "cli": "electron . cli",
     "electron:build": "node scripts/cleanup_build.cjs && vite build && electron-builder",
     "electron:build:dir": "node scripts/cleanup_build.cjs && vite build && electron-builder --dir --win --x64",

@@ -498,7 +498,7 @@ const PostTool: React.FC = () => {
     return (
         <div className="flex flex-col h-full bg-[#0b0f19] overflow-hidden transition-colors duration-300">
             {/* Consistent System Header */}
-            <div className="h-9 shrink-0 title-drag pl-4 pr-36 flex items-center justify-between border-b border-indigo-500/30 bg-[#0f172a]">
+            <div className="h-16 shrink-0 title-drag pl-16 pr-36 flex items-center justify-between border-b border-indigo-500/30 bg-[#0f172a]">
                 {/* Brand Area */}
                 <div className="flex items-center gap-3 no-drag">
                     <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400"><Lucide.Send size={14} className="icon-glow" /></div>

@@ -133,7 +133,7 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
     return (
         <div className={`flex flex-col h-full overflow-hidden ${THEME.layout.main}`}>
             {/* System Header (Standard Plugin Header) */}
-            <div className={`h-9 shrink-0 title-drag pl-4 pr-36 flex items-center gap-3 ${THEME.header.container}`}>
+            <div className={`h-16 shrink-0 title-drag pl-16 pr-36 flex items-center gap-3 ${THEME.header.container}`}>
                 <div className="p-1 bg-indigo-500/10 rounded-lg text-indigo-400">
                     <Lucide.Workflow size={14} className="icon-glow" />
                 </div>

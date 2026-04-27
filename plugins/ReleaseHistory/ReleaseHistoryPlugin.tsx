@@ -245,7 +245,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
             </style>
             {/* Premium Header / Toolbar */}
             <div 
-                className="flex-none px-6 py-3 border-b border-white/5 bg-slate-900/40 backdrop-blur-xl sticky top-0 z-[60] flex items-center justify-between gap-4 shadow-[0_4px_30px_rgba(0,0,0,0.1)]"
+                className="flex-none h-16 px-6 pl-16 border-b border-white/5 bg-slate-900/40 backdrop-blur-xl sticky top-0 z-[60] flex items-center justify-between gap-4 shadow-[0_4px_30px_rgba(0,0,0,0.1)]"
                 style={{ WebkitAppRegion: 'drag' } as any}
             >
                 {/* Left Side: Actions & Search */}

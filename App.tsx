@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
+import AppHub from './components/AppHub';
+import AppLibraryModal from './components/AppLibraryModal';
+import TopRightActions from './components/TopRightActions';
 import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem, PostGlobalAuth, EnvironmentProfile, NetTrafficSettings, TrafficPattern, UAPattern } from './types';
 
 import { mergeById } from './utils/settingsHelper';
@@ -128,6 +130,7 @@ const AppContent: React.FC = () => {
 
   const [postGlobalAuth, setPostGlobalAuth] = useState<PostGlobalAuth>({ enabled: true, type: 'none' });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [defaultOutputFolder, setDefaultOutputFolder] = useState<string>('');
   const [netTrafficSettings, setNetTrafficSettings] = useState<NetTrafficSettings>({
@@ -629,19 +632,7 @@ const AppContent: React.FC = () => {
 
       <div className={`flex flex-col h-screen w-screen overflow-hidden bg-[#0B0F19] font-sans text-slate-900 dark:text-slate-200 transition-colors duration-300 relative ${isFocusMode ? 'focus-mode' : ''}`}>
         <div className="flex-1 flex overflow-hidden z-10 relative">
-          <div className={`sidebar-transition relative z-[100] ${isFocusMode ? 'sidebar-hidden w-0 opacity-0 -ml-14' : 'w-14 opacity-100'}`}>
-            <Sidebar
-              activePluginId={activeTool}
-              onSelectPlugin={handleSetActiveTool}
-              pluginOrder={toolOrder}
-              onReorderPlugins={setToolOrder}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-              plugins={ALL_PLUGINS}
-              enabledPlugins={enabledPlugins}
-            />
-          </div>
-
-          <main className="flex-1 overflow-hidden relative bg-slate-50 dark:bg-slate-950 min-h-0 transition-colors duration-300">
+          <main className="flex-1 w-full overflow-hidden relative bg-slate-50 dark:bg-slate-950 min-h-0 transition-colors duration-300">
             {!isSettingsLoaded ? (
               <div className="flex h-full items-center justify-center text-slate-500">Loading settings...</div>
             ) : (
@@ -663,10 +654,28 @@ const AppContent: React.FC = () => {
               enabledPlugins={enabledPlugins}
               setEnabledPlugins={setEnabledPlugins}
             />
+            <AppLibraryModal
+              isOpen={isLibraryOpen}
+              onClose={() => setIsLibraryOpen(false)}
+              plugins={ALL_PLUGINS}
+              enabledPlugins={enabledPlugins}
+              activePluginId={activeTool}
+              onSelectPlugin={handleSetActiveTool}
+            />
             <CommandPalette />
             {/* Log Archive - Global feature available across all plugins */}
             <LogArchive />
           </main>
+
+          <AppHub
+            activePlugin={ALL_PLUGINS.find(p => p.id === activeTool)}
+            onOpenLibrary={() => setIsLibraryOpen(true)}
+            isFocusMode={isFocusMode}
+          />
+          <TopRightActions
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            isFocusMode={isFocusMode}
+          />
         </div>
         {/* Splash Overlay - Always rendered until complete to allow plugins to load underneath */}
         {showSplash && (
