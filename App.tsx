@@ -669,6 +669,7 @@ const AppContent: React.FC = () => {
               onReorderPlugins={setToolOrder}
               activePluginId={activeTool}
               onSelectPlugin={handleSetActiveTool}
+              onOpenSettings={() => setIsSettingsOpen(true)}
             />
             <CommandPalette />
             {/* Log Archive - Global feature available across all plugins */}

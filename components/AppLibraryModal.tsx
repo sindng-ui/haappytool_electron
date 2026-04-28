@@ -12,6 +12,7 @@ interface AppLibraryModalProps {
   setEnabledPlugins: React.Dispatch<React.SetStateAction<string[]>>;
   activePluginId: string;
   onSelectPlugin: (id: string) => void;
+  onOpenSettings?: () => void; // 🐧 설정 창을 열기 위한 프롭 추가!
 }
 
 // 🐧 형님, ToolId 상수를 키로 사용하여 색상을 100% 매칭했습니다! 
@@ -44,7 +45,8 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
   enabledPlugins,
   setEnabledPlugins,
   activePluginId,
-  onSelectPlugin
+  onSelectPlugin,
+  onOpenSettings
 }) => {
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -110,6 +112,17 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,1)]" />
                   <h2 className="text-xl font-black text-white tracking-tight">APP HUB</h2>
+                  
+                  {/* Settings Shortcut - 🐧 형님, 이제 시원시원하게 키웠습니다! */}
+                  {onOpenSettings && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onOpenSettings(); }}
+                      className="ml-3 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all duration-300 active:scale-90 group/settings"
+                      title="Open Settings"
+                    >
+                      <Lucide.Settings size={22} className="group-hover/settings:rotate-90 transition-transform duration-500" />
+                    </button>
+                  )}
                 </div>
                 <p className="text-slate-500 text-[10px] font-black tracking-[0.2em] uppercase">Vivid Workspace</p>
               </div>

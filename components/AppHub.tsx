@@ -24,11 +24,7 @@ const AppHub: React.FC<AppHubProps> = ({
 }) => {
   const [isHovered, setIsHovered] = React.useState(false);
 
-  // 🐧 형님, 핀 고정된 앱들만 쏙 골라냅니다! (현재 활성 앱은 제외)
-  const pinnedPlugins = React.useMemo(() => {
-    const enabledSet = new Set(enabledPlugins);
-    return plugins.filter(p => enabledSet.has(p.id) && p.id !== activePlugin?.id);
-  }, [plugins, enabledPlugins, activePlugin?.id]);
+  // 🐧 퀵 메뉴는 이제 설정만 나오므로 앱 목록 로직은 삭제합니다!
 
   if (!activePlugin) return null;
 
@@ -51,17 +47,6 @@ const AppHub: React.FC<AppHubProps> = ({
           <Lucide.LayoutGrid size={22} className={`${isHovered ? 'rotate-90' : ''} transition-transform duration-500`} />
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-pink-500 rounded-full border-2 border-slate-950 animate-pulse shadow-[0_0_8px_rgba(236,72,153,0.5)]"></div>
         </button>
-        
-        {/* Active Tool Indicator - 🐧 현재 무슨 앱인지 살짝 보여주는 뱃지 (솔리드 배경) */}
-        {!isHovered && (
-          <motion.div 
-            initial={{ opacity: 0, x: -5 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="absolute left-full ml-3 px-3 py-1 bg-slate-900 border border-white/10 rounded-lg whitespace-nowrap pointer-events-none shadow-xl"
-          >
-            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{activePlugin.name}</span>
-          </motion.div>
-        )}
       </div>
 
       {/* Quick Access Orbit - 🐧 솔리드 배경으로 변경! */}
@@ -76,42 +61,15 @@ const AppHub: React.FC<AppHubProps> = ({
               visible: { transition: { staggerChildren: 0.05 } }
             }}
           >
-            {pinnedPlugins.map((plugin) => {
-              const Icon = plugin.icon || Lucide.Package;
-              return (
-                <motion.button
-                  key={plugin.id}
-                  variants={{
-                    hidden: { opacity: 0, x: -15, scale: 0.5 },
-                    visible: { opacity: 1, x: 0, scale: 1 }
-                  }}
-                  whileHover={{ scale: 1.1, y: -2 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => onSelectPlugin(plugin.id)}
-                  className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-indigo-600 border border-white/10 rounded-xl shadow-lg text-slate-300 hover:text-white transition-all duration-300 group/item"
-                  style={{ WebkitAppRegion: 'no-drag' } as any}
-                  title={plugin.name}
-                >
-                  <Icon size={18} className="group-hover/item:animate-bounce" />
-                </motion.button>
-              );
-            })}
-
-            {/* Separator */}
-            <motion.div 
-              variants={{ hidden: { opacity: 0, scale: 0 }, visible: { opacity: 1, scale: 1 } }}
-              className="w-px h-6 bg-white/20 mx-1" 
-            />
-
-            {/* Settings Button */}
+            {/* Settings Button - 🐧 형님, 이제 이 녀석 하나만 깔끔하게 나옵니다! */}
             <motion.button
               variants={{
-                hidden: { opacity: 0, x: -15, scale: 0.5 },
+                hidden: { opacity: 0, x: -10, scale: 0.8 },
                 visible: { opacity: 1, x: 0, scale: 1 }
               }}
               whileHover={{ scale: 1.1, rotate: 90 }}
               onClick={onOpenSettings}
-              className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl shadow-lg text-slate-400 hover:text-white transition-all duration-300"
+              className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-indigo-600 border border-white/10 rounded-xl shadow-lg text-slate-400 hover:text-white transition-all duration-300 ml-1"
               style={{ WebkitAppRegion: 'no-drag' } as any}
               title="Settings"
             >
