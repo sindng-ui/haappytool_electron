@@ -89,7 +89,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
             initial={{ opacity: 0, scale: 0.98, y: -20, originX: 0, originY: 0 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 450 }}
+            transition={{ type: "spring", damping: 20, stiffness: 500 }}
             className="relative w-full max-w-2xl max-h-[90vh] mt-16 ml-2 bg-[#080B14] border border-white/10 rounded-[32px] shadow-[0_50px_120px_rgba(0,0,0,1)] flex flex-col overflow-hidden pointer-events-auto"
           >
             {/* Header */}
@@ -114,7 +114,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
               initial="hidden"
               animate="visible"
               variants={{
-                visible: { transition: { staggerChildren: 0.05 } }
+                visible: { transition: { staggerChildren: 0.03, delayChildren: 0.02 } }
               }}
               className="flex-1 overflow-y-auto px-8 py-8 custom-scrollbar"
             >
@@ -128,6 +128,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                   onSelect={(id: string) => { onSelectPlugin(id); onClose(); }} 
                   onTogglePin={handleTogglePin} 
                   isBento={true}
+                  startIndex={0}
                 />
                 
                 <Section 
@@ -139,6 +140,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                   onSelect={(id: string) => { onSelectPlugin(id); onClose(); }} 
                   onTogglePin={handleTogglePin} 
                   isBento={false}
+                  startIndex={corePlugins.length}
                 />
               </div>
             </motion.div>
@@ -151,7 +153,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
   );
 };
 
-const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSelect, onTogglePin, isBento }: any) => {
+const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSelect, onTogglePin, isBento, startIndex }: any) => {
   if (plugins.length === 0) return null;
   
   return (
@@ -181,6 +183,7 @@ const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSele
           return (
             <AppCard 
               key={plugin.id}
+              idx={startIndex + idx}
               plugin={plugin}
               variant={variant}
               isPinned={enabledSet.has(plugin.id)}
@@ -195,7 +198,7 @@ const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSele
   );
 });
 
-const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin, variant = 'normal' }: any) => {
+const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin, variant = 'normal', idx = 0 }: any) => {
   const Icon = plugin.icon || Lucide.Package;
   // 🐧 형님, 테마가 없으면 기본값을 슬레이트로 주되, 있으면 아주 쨍하게 갑니다!
   const theme = THEME_COLORS[plugin.id] || { base: 'from-slate-600 to-slate-800', glow: 'shadow-slate-500/30', text: 'text-slate-400', bg: 'bg-slate-700', border: 'border-slate-500' };
@@ -209,10 +212,30 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
   return (
     <motion.button
       variants={{
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0 }
+        hidden: { 
+          opacity: 0, 
+          y: 30, 
+          x: plugin.id.length % 2 === 0 ? 15 : -15, // 🐧 ID 길이에 따른 미세한 좌우 오프셋
+          rotate: plugin.id.length % 2 === 0 ? 3 : -3, // 🐧 미세한 회전으로 랜덤감 부여
+          scale: 0.9 
+        },
+        visible: { 
+          opacity: 1, 
+          y: 0, 
+          x: 0, 
+          rotate: 0, 
+          scale: 1,
+          transition: {
+            type: "spring",
+            damping: 12 + (plugin.id.length % 5), // 🐧 앱마다 다른 댐핑
+            stiffness: 90 + (plugin.id.length % 7) * 10, // 🐧 앱마다 다른 강도
+            mass: 0.5 + (plugin.id.length % 3) * 0.15, // 🐧 더 가벼운 물리 법칙
+            delay: idx * 0.01 + (plugin.id.length % 4) * 0.005, // 🐧 딜레이 대폭 축소
+            velocity: 2
+          }
+        }
       }}
-      whileHover={{ y: -10, scale: 1.03 }}
+      whileHover={{ y: -8, scale: 1.03, rotate: 0 }}
       whileTap={{ scale: 0.97 }}
       onClick={onSelect}
       className={`group relative flex transition-all duration-500 border overflow-hidden rounded-[40px] ${sizeClasses[variant]} ${
