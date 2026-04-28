@@ -170,7 +170,7 @@ const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSele
         <div className="h-px flex-1 bg-gradient-to-r from-white/10 via-white/5 to-transparent ml-8" />
       </div>
       
-      <div className="grid grid-cols-6 gap-6 grid-flow-row-dense">
+      <div className="grid grid-cols-4 gap-5 grid-flow-row-dense">
         {plugins.map((plugin: HappyPlugin, idx: number) => {
           let variant: 'normal' | 'wide' | 'large' = 'normal';
           if (isBento) {
@@ -201,9 +201,9 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
   const theme = THEME_COLORS[plugin.id] || { base: 'from-slate-600 to-slate-800', glow: 'shadow-slate-500/30', text: 'text-slate-400', bg: 'bg-slate-700', border: 'border-slate-500' };
 
   const sizeClasses = {
-    normal: 'col-span-1 row-span-1 h-36 flex-col justify-center gap-5 items-center text-center',
-    wide: 'col-span-2 row-span-1 h-36 flex-row items-center justify-start px-10 gap-8 text-left',
-    large: 'col-span-2 row-span-2 h-[312px] flex-col justify-between p-12 items-center text-center'
+    normal: 'col-span-1 row-span-1 h-28 flex-col justify-center gap-3 items-center text-center p-3',
+    wide: 'col-span-2 row-span-1 h-28 flex-row items-center justify-start pl-6 pr-14 gap-5 text-left',
+    large: 'col-span-2 row-span-2 h-[230px] flex-col justify-between p-8 items-center text-center'
   };
 
   return (
@@ -233,35 +233,35 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
 
       {/* Icon Wrapper - 🐧 비활성 상태에서도 쨍한 색상 노출! */}
       <div className={`
-        flex items-center justify-center transition-all duration-500 relative z-10 shrink-0 shadow-xl
-        ${variant === 'large' ? 'w-32 h-32 rounded-[48px]' : 'w-16 h-16 rounded-[28px]'}
-        ${isActive ? `bg-gradient-to-br ${theme.base} text-white shadow-2xl ${theme.glow}` : `${theme.bg} ${theme.text} bg-opacity-80 group-hover:bg-opacity-100 group-hover:scale-110`}
+        flex items-center justify-center transition-all duration-700 relative z-10 shrink-0 shadow-2xl
+        ${variant === 'large' ? 'w-24 h-24 rounded-[36px]' : (variant === 'wide' ? 'w-18 h-18 rounded-[24px]' : 'w-12 h-12 rounded-[18px]')}
+        ${isActive ? `bg-gradient-to-br ${theme.base} text-white shadow-2xl ${theme.glow}` : `${theme.bg} ${theme.text} bg-opacity-80 group-hover:bg-opacity-100 group-hover:scale-105`}
       `}>
-        <Icon size={variant === 'large' ? 60 : 30} strokeWidth={isActive ? 3 : 2.5} />
+        <Icon size={variant === 'large' ? 48 : (variant === 'wide' ? 32 : 22)} strokeWidth={isActive ? 3 : 2.5} />
         {/* Extreme Glow */}
-        <div className={`absolute inset-0 rounded-inherit opacity-0 group-hover:opacity-80 blur-3xl ${theme.base} -z-10 transition-opacity`} />
+        <div className={`absolute inset-0 rounded-inherit opacity-0 group-hover:opacity-70 blur-3xl ${theme.base} -z-10 transition-opacity`} />
       </div>
       
       <div className={`flex flex-col relative z-10 min-w-0 ${variant === 'wide' ? 'flex-1' : ''}`}>
-        <span className={`font-black tracking-tight uppercase transition-colors duration-300 ${
-          variant === 'large' ? 'text-3xl text-white mt-10' : 'text-[12px]'
+        <span className={`font-black tracking-tight transition-colors duration-300 uppercase leading-none ${
+          variant === 'large' ? 'text-2xl text-white mt-8' : (variant === 'wide' ? 'text-lg text-white' : 'text-[12px] text-slate-100')
         } ${
-          isActive ? 'text-white' : 'text-slate-200 group-hover:text-white'
+          isActive ? 'text-white' : 'group-hover:text-white'
         }`}>
           {plugin.name}
         </span>
       </div>
 
-      {/* Pinned Marker - 🐧 유배지로 보냈습니다! 절대 안 겹침! */}
+      {/* Pinned Marker - 🐧 위치와 크기 최적화 */}
       <button
         onClick={(e) => onTogglePin(plugin.id, e)}
-        className={`absolute top-4 right-4 p-2.5 rounded-2xl transition-all duration-300 z-30 ${
+        className={`absolute top-3 right-3 p-2 rounded-xl transition-all duration-300 z-30 ${
           isPinned 
             ? 'text-white opacity-100 bg-indigo-600 shadow-lg shadow-indigo-600/40' 
-            : 'text-slate-600 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-white/20'
+            : 'text-slate-700 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-white/20'
         }`}
       >
-        <Lucide.Pin size={12} fill={isPinned ? 'currentColor' : 'none'} className={isPinned ? '' : 'rotate-45'} />
+        <Lucide.Pin size={10} fill={isPinned ? 'currentColor' : 'none'} className={isPinned ? '' : 'rotate-45'} />
       </button>
 
       {/* Selection Animated Border */}
