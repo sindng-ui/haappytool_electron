@@ -211,6 +211,8 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
 
   return (
     <motion.button
+      initial="hidden"
+      animate="visible"
       variants={{
         hidden: { 
           opacity: 0, 
