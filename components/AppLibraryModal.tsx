@@ -155,6 +155,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                   onRightClick={togglePluginSize}
                   pluginSizes={pluginSizes}
                   isBento={true}
+                  isGlassy={true}
                   startIndex={0}
                 />
                 
@@ -169,6 +170,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                   onRightClick={togglePluginSize}
                   pluginSizes={pluginSizes}
                   isBento={false}
+                  isGlassy={false}
                   startIndex={corePlugins.length}
                 />
               </div>
@@ -182,7 +184,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
   );
 };
 
-const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSelect, onTogglePin, onRightClick, pluginSizes, isBento, startIndex }: any) => {
+const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSelect, onTogglePin, onRightClick, pluginSizes, isBento, isGlassy, startIndex }: any) => {
   if (plugins.length === 0) return null;
   
   return (
@@ -223,6 +225,7 @@ const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSele
               isActive={plugin.id === activeId}
               onSelect={() => onSelect(plugin.id)}
               onTogglePin={onTogglePin}
+              isGlassy={isGlassy}
               onRightClick={(e: any) => onRightClick(plugin.id, e)}
             />
           );
@@ -232,7 +235,7 @@ const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSele
   );
 });
 
-const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin, onRightClick, variant = 'normal', idx = 0 }: any) => {
+const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin, onRightClick, variant = 'normal', idx = 0, isGlassy = false }: any) => {
   const Icon = plugin.icon || Lucide.Package;
   // 🐧 형님, 테마가 없으면 기본값을 슬레이트로 주되, 있으면 아주 쨍하게 갑니다!
   const theme = THEME_COLORS[plugin.id] || { base: 'from-slate-600 to-slate-800', glow: 'shadow-slate-500/30', text: 'text-slate-400', bg: 'bg-slate-700', border: 'border-slate-500' };
@@ -275,12 +278,20 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
       whileTap={{ scale: 0.97 }}
       onClick={onSelect}
       onContextMenu={onRightClick}
-      className={`group relative flex transition-all duration-500 border overflow-hidden rounded-[40px] ${sizeClasses[variant]} ${
+      style={{ willChange: isGlassy ? 'transform, backdrop-filter' : 'transform' }}
+      className={`group relative flex transition-[transform,opacity,background-color,border-color,box-shadow] duration-500 border overflow-hidden rounded-[40px] ${sizeClasses[variant]} ${
         isActive 
           ? `bg-slate-900 border-indigo-500 shadow-[0_30px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(99,102,241,0.3)]` 
-          : `bg-white/[0.03] border-white/5 hover:border-white/20 hover:bg-white/[0.08]`
+          : isGlassy
+            ? `bg-white/[0.12] backdrop-blur-2xl border-white/20 hover:border-white/40 hover:bg-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] ring-1 ring-white/15`
+            : `bg-white/[0.03] border-white/5 hover:border-white/20 hover:bg-white/[0.08]`
       }`}
     >
+      {/* Glass Highlight - 🐧 형님, 빛 반사 효과를 넣어서 진짜 유리처럼 만들었습니다! */}
+      {isGlassy && !isActive && (
+        <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent opacity-60 pointer-events-none z-0" />
+      )}
+
       {/* Background Aura - 🐧 비비드함의 극치! */}
       <div className={`absolute inset-0 opacity-0 group-hover:opacity-30 bg-gradient-to-br ${theme.base} transition-opacity duration-500`} />
       

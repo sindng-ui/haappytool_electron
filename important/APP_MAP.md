@@ -48,12 +48,13 @@
 
 ### [[Zero-Sidebar App Hub & Library]] [UPDATED][HOT]
 - **ID**: `ui-app-hub-nav`
-- **Keywords**: [`Zero-Sidebar`, `App Hub`, `App Library`, `Quick Switcher`, `Orbit Expansion`, `Popover Menu`, `UX Optimization`, `Labs`] [UPDATED]
+- **Keywords**: [`Zero-Sidebar`, `App Hub`, `App Library`, `Quick Switcher`, `Orbit Expansion`, `Popover Menu`, `UX Optimization`, `Labs`, `Glassmorphism`] [UPDATED]
 - **Location**:
   - `Hub`: [AppHub.tsx](./components/AppHub.tsx)
   - `Library Popover`: [AppLibraryModal.tsx](./components/AppLibraryModal.tsx)
 - **Features**:
   - **Dynamic Bento Grid Layout**: 모든 카드가 동일한 크기였던 기존 격자를 탈피하여 2x2(Large), 2x1(Wide), 1x1(Normal) 크기가 혼합된 Bento Grid 레이아웃 적용. 시각적 계층 구조와 역동성 확보. [NEW][HOT]
+  - **Pinned Glassmorphism**: Pinned Tools 섹션의 앱들에 은은한 백그라운드 블러(`backdrop-blur-xl`)와 유리 질감 UI를 적용하여 프리미엄 감성 강화. [NEW]
   - **Aura & Ghost Typography**: 각 앱 고유 테마 컬러를 활용한 Radial Glow 효과와 배경 고스트 타이포그래피를 적용하여 프리미엄 디자인 완성. [NEW]
   - **Smart Popover Library**: 버튼 근처(`top-left`)에서 나타나는 콤팩트한 팝오버 레이아웃과 가변 카드 시스템의 시너지로 마우스 이동 거리 최소화 및 직관성 극대화. [UPDATED]
   - **Dynamic Active Badge**: 현재 실행 중인 플러그인 이름을 버튼 옆에 우아하게 표시하여 상태 가시성 확보. [NEW]
