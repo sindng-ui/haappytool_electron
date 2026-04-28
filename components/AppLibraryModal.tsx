@@ -159,7 +159,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                 />
                 
                 <Section 
-                  title="More Apps" 
+                  title="Labs" 
                   icon={<Lucide.LayoutGrid size={14} />} 
                   plugins={labPlugins} 
                   activeId={activePluginId} 

@@ -48,7 +48,7 @@
 
 ### [[Zero-Sidebar App Hub & Library]] [UPDATED][HOT]
 - **ID**: `ui-app-hub-nav`
-- **Keywords**: [`Zero-Sidebar`, `App Hub`, `App Library`, `Quick Switcher`, `Orbit Expansion`, `Popover Menu`, `UX Optimization`]
+- **Keywords**: [`Zero-Sidebar`, `App Hub`, `App Library`, `Quick Switcher`, `Orbit Expansion`, `Popover Menu`, `UX Optimization`, `Labs`] [UPDATED]
 - **Location**:
   - `Hub`: [AppHub.tsx](./components/AppHub.tsx)
   - `Library Popover`: [AppLibraryModal.tsx](./components/AppLibraryModal.tsx)
