@@ -677,8 +677,11 @@ const AppContent: React.FC = () => {
 
           <AppHub
             activePlugin={ALL_PLUGINS.find(p => p.id === activeTool)}
+            plugins={ALL_PLUGINS}
+            enabledPlugins={enabledPlugins}
             onOpenLibrary={() => setIsLibraryOpen(true)}
             onOpenSettings={() => setIsSettingsOpen(true)}
+            onSelectPlugin={handleSetActiveTool}
             isFocusMode={isFocusMode}
           />
         </div>

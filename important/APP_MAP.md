@@ -46,18 +46,17 @@
   - `PLUGIN_CONFIG`: 14종의 실험실 플러그인 각각에 대한 노출 여부 제어 플래그 [UPDATED]
 - **Data Flow**: `config.ts` -> `registry.ts` (Filtering via visibilityMap) -> `App.tsx` -> `Sidebar`
 
-### [[Zero-Sidebar App Hub & Library]] [UPDATED]
+### [[Zero-Sidebar App Hub & Library]] [UPDATED][HOT]
 - **ID**: `ui-app-hub-nav`
-- **Keywords**: [`Zero-Sidebar`, `사이드바 제거`, `App Hub`, `App Library`, `메가 메뉴`, `navigation`, `Unified Header`]
+- **Keywords**: [`Zero-Sidebar`, `App Hub`, `App Library`, `Quick Switcher`, `Orbit Expansion`, `Popover Menu`, `UX Optimization`]
 - **Location**:
   - `Hub`: [AppHub.tsx](./components/AppHub.tsx)
-  - `Library Modal`: [AppLibraryModal.tsx](./components/AppLibraryModal.tsx)
-  - `Top Actions`: [TopRightActions.tsx](./components/TopRightActions.tsx)
+  - `Library Popover`: [AppLibraryModal.tsx](./components/AppLibraryModal.tsx)
 - **Features**:
-  - **Zero-Sidebar Layout**: 기존 좌측 사이드바를 완전히 제거하여 로그 뷰어 가로 해상도 100% 확보.
-  - **App Hub**: 좌측 상단 플로팅 버튼. 클릭 시 거대한 앱 라이브러리 모달 호출. 드래그 방지(`no-drag`) 및 클릭 우선순위 확보.
-  - **Unified Title Bar**: 모든 플러그인 헤더를 `h-16 (64px)`로 통일하고, `pl-16` 패딩을 적용하여 앱허브 아이콘과 콘텐츠의 간섭을 원천 차단.
-  - **Mega Library**: Core Apps와 Labs를 명확히 분리하여 트렌디하게 보여주는 모달 (Glassmorphism 제거 및 성능 최적화 완료). [UPDATED]
+  - **Orbit Quick Switcher**: `App Hub` 버튼 호버 시 핀(Pinned)된 앱들이 가로로 순차적으로 확장(`staggerChildren` 애니메이션). 클릭 없이 즉각적인 앱 전환 지원. [NEW]
+  - **Smart Popover Library**: 기존 화면 중앙 모달 방식을 탈피하여 버튼 근처(`top-left`)에서 나타나는 콤팩트한 팝오버 레이아웃 적용. 마우스 이동 거리 최소화. [UPDATED]
+  - **Dynamic Active Badge**: 현재 실행 중인 플러그인 이름을 버튼 옆에 우아하게 표시하여 상태 가시성 확보. [NEW]
+  - **Zero-Sidebar Synergy**: 사이드바가 없는 광활한 공간을 유지하면서도, 버튼 하나로 모든 네비게이션을 버튼 근처에서 해결.
 
 ### [[Headless CLI Infrastructure]] 🐧💻
 - **ID**: `system-headless-cli`

@@ -54,45 +54,48 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-8 overflow-hidden">
-          {/* Backdrop - 🐧 형님, 전체 화면 블러는 성능을 너무 잡아먹어서 제거하고 어둡게만 처리했슴다! */}
+        <div className="fixed inset-0 z-[200] flex items-start justify-start p-4 overflow-hidden pointer-events-none">
+          {/* Backdrop - 🐧 형님, 클릭하면 닫히게 하되 배경은 투명하게 유지해서 뒤가 보이게 했습니다! */}
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-slate-950/90"
+            className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] pointer-events-auto"
           />
           
-          {/* Modal Container */}
+          {/* Modal Container - 🐧 버튼 바로 아래(mt-16)에 위치시킵니다! */}
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            initial={{ opacity: 0, scale: 0.9, y: -20, originX: 0, originY: 0 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ type: "spring", damping: 30, stiffness: 400 }}
-            className="relative w-full max-w-6xl max-h-full bg-slate-900/80 border border-white/10 rounded-[48px] shadow-[0_32px_80px_rgba(0,0,0,0.6)] flex flex-col overflow-hidden backdrop-blur-xl"
+            exit={{ opacity: 0, scale: 0.9, y: -20 }}
+            transition={{ type: "spring", damping: 25, stiffness: 350 }}
+            className="relative w-full max-w-2xl max-h-[85vh] mt-16 ml-2 bg-slate-900/95 border border-white/10 rounded-[32px] shadow-[0_32px_80px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden backdrop-blur-2xl pointer-events-auto"
           >
-            {/* Header */}
-            <div className="p-10 pb-6 flex items-center justify-between">
+            {/* Header - 🐧 더 콤팩트하게! */}
+            <div className="p-6 pb-4 flex items-center justify-between border-b border-white/5">
               <div>
-                <h2 className="text-4xl font-black text-white tracking-tighter mb-2">APP HUB</h2>
-                <p className="text-slate-400 text-sm font-medium tracking-wide uppercase">Select a tool to accelerate your workflow</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+                  <h2 className="text-xl font-black text-white tracking-tight">APP LIBRARY</h2>
+                </div>
+                <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase opacity-60">Accelerate your workflow</p>
               </div>
               <button 
                 onClick={onClose}
-                className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all active:scale-95 border border-white/5"
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all active:scale-90 border border-white/5"
               >
-                <Lucide.X size={24} />
+                <Lucide.X size={18} />
               </button>
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto px-10 pb-10 custom-scrollbar">
-              <div className="space-y-12">
+            <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar">
+              <div className="space-y-8">
                 {/* Core Tools Section */}
                 <Section 
-                  title="Core Tools" 
-                  icon={<Lucide.Zap size={18} />} 
+                  title="Pinned Tools" 
+                  icon={<Lucide.Pin size={14} className="fill-current" />} 
                   plugins={corePlugins} 
                   activeId={activePluginId} 
                   enabledSet={enabledSet}
@@ -102,8 +105,8 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                 
                 {/* Labs Section */}
                 <Section 
-                  title="Labs & Experiments" 
-                  icon={<Lucide.FlaskConical size={18} />} 
+                  title="More Apps" 
+                  icon={<Lucide.LayoutGrid size={14} />} 
                   plugins={labPlugins} 
                   activeId={activePluginId} 
                   enabledSet={enabledSet}
@@ -113,8 +116,8 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
               </div>
             </div>
 
-            {/* Bottom Glow Decoration */}
-            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-indigo-500/10 to-transparent pointer-events-none" />
+            {/* Footer decoration */}
+            <div className="h-1 bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent" />
           </motion.div>
         </div>
       )}
