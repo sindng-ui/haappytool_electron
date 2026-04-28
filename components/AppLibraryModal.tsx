@@ -13,6 +13,21 @@ interface AppLibraryModalProps {
   onSelectPlugin: (id: string) => void;
 }
 
+// 🐧 형님, 테마 로직은 렌더링 성능을 위해 밖으로 뺐습니다!
+const ICON_THEMES: Record<string, string> = {
+  'log-extractor': 'from-blue-500 to-indigo-600 shadow-indigo-500/20 text-white',
+  'log-analysis-agent': 'from-purple-500 to-pink-600 shadow-pink-500/20 text-white',
+  'gauss-chat-agent': 'from-rose-500 to-orange-600 shadow-rose-500/20 text-white',
+  'everything-search': 'from-emerald-400 to-teal-600 shadow-emerald-500/20 text-white',
+  'rag-analyzer-test': 'from-cyan-400 to-blue-600 shadow-cyan-500/20 text-white',
+  'nupkg-signer': 'from-amber-400 to-orange-600 shadow-amber-500/20 text-white',
+  'release-history': 'from-violet-500 to-fuchsia-600 shadow-violet-500/20 text-white',
+  'net-traffic-analyzer': 'from-sky-400 to-indigo-500 shadow-sky-500/20 text-white',
+  'post-tool': 'from-pink-400 to-rose-500 shadow-rose-500/20 text-white',
+  'json-tools': 'from-slate-400 to-slate-600 shadow-slate-500/20 text-white',
+  'block-test': 'from-indigo-400 to-purple-500 shadow-indigo-500/20 text-white',
+};
+
 const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
   isOpen,
   onClose,
@@ -44,18 +59,18 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
     [plugins, enabledSet]
   );
 
-  const handleTogglePin = (id: string, e: React.MouseEvent) => {
+  const handleTogglePin = React.useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setEnabledPlugins(prev => 
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
     );
-  };
+  }, [setEnabledPlugins]);
 
   return (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[200] flex items-start justify-start p-4 overflow-hidden pointer-events-none">
-          {/* Backdrop - 🐧 형님, 클릭하면 닫히게 하되 배경은 투명하게 유지해서 뒤가 보이게 했습니다! */}
+          {/* Backdrop */}
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -64,15 +79,15 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
             className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] pointer-events-auto"
           />
           
-          {/* Modal Container - 🐧 버튼 바로 아래(mt-16)에 위치시킵니다! */}
+          {/* Modal Container - 🐧 GPU 가속을 위해 will-change 추가! */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.9, y: -20, originX: 0, originY: 0 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: -20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 350 }}
-            className="relative w-full max-w-2xl max-h-[85vh] mt-16 ml-2 bg-slate-900/95 border border-white/10 rounded-[32px] shadow-[0_32px_80px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden backdrop-blur-2xl pointer-events-auto"
+            transition={{ type: "spring", damping: 25, stiffness: 400 }}
+            className="relative w-full max-w-2xl max-h-[85vh] mt-16 ml-2 bg-slate-900/98 border border-white/10 rounded-[32px] shadow-[0_32px_80px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden backdrop-blur-xl pointer-events-auto will-change-transform"
           >
-            {/* Header - 🐧 더 콤팩트하게! */}
+            {/* Header */}
             <div className="p-6 pb-4 flex items-center justify-between border-b border-white/5">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -89,10 +104,16 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
               </button>
             </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar">
-              <div className="space-y-8">
-                {/* Core Tools Section */}
+            {/* Scrollable Content - 🐧 staggerChildren으로 렌더링 부하 분산! */}
+            <motion.div 
+              initial="hidden"
+              animate="visible"
+              variants={{
+                visible: { transition: { staggerChildren: 0.03 } }
+              }}
+              className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar"
+            >
+              <div className="space-y-10">
                 <Section 
                   title="Pinned Tools" 
                   icon={<Lucide.Pin size={14} className="fill-current" />} 
@@ -103,7 +124,6 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                   onTogglePin={handleTogglePin} 
                 />
                 
-                {/* Labs Section */}
                 <Section 
                   title="More Apps" 
                   icon={<Lucide.LayoutGrid size={14} />} 
@@ -114,7 +134,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                   onTogglePin={handleTogglePin} 
                 />
               </div>
-            </div>
+            </motion.div>
 
             {/* Footer decoration */}
             <div className="h-1 bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent" />
@@ -125,20 +145,27 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
   );
 };
 
-const Section = ({ title, icon, plugins, activeId, enabledSet, onSelect, onTogglePin }: any) => {
+// 🐧 형님, 리렌더링 방지를 위해 React.memo 필수입니다!
+const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSelect, onTogglePin }: any) => {
   if (plugins.length === 0) return null;
   
   return (
-    <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center gap-4 mb-8">
-        <div className="p-2.5 rounded-xl bg-indigo-500/20 text-indigo-400">
+    <motion.section 
+      variants={{
+        hidden: { opacity: 0, y: 10 },
+        visible: { opacity: 1, y: 0 }
+      }}
+      className="relative"
+    >
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
           {icon}
         </div>
-        <h3 className="text-2xl font-bold text-slate-100 tracking-tight uppercase">{title}</h3>
-        <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent ml-6" />
+        <h3 className="text-sm font-black text-slate-300 tracking-widest uppercase">{title}</h3>
+        <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent ml-4" />
       </div>
       
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-4">
         {plugins.map((plugin: HappyPlugin) => (
           <AppCard 
             key={plugin.id}
@@ -150,73 +177,54 @@ const Section = ({ title, icon, plugins, activeId, enabledSet, onSelect, onToggl
           />
         ))}
       </div>
-    </section>
+    </motion.section>
   );
-};
+});
 
-const AppCard = ({ plugin, isActive, isPinned, onSelect, onTogglePin }: any) => {
+// 🐧 카드 하나하나도 소중하니까 메모이제이션!
+const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin }: any) => {
   const Icon = plugin.icon || Lucide.Package;
-
-  const getIconTheme = (id: string) => {
-    const themes: Record<string, string> = {
-      'log-extractor': 'from-blue-500 to-indigo-600 shadow-indigo-500/20 text-white',
-      'log-analysis-agent': 'from-purple-500 to-pink-600 shadow-pink-500/20 text-white',
-      'gauss-chat-agent': 'from-rose-500 to-orange-600 shadow-rose-500/20 text-white',
-      'everything-search': 'from-emerald-400 to-teal-600 shadow-emerald-500/20 text-white',
-      'rag-analyzer-test': 'from-cyan-400 to-blue-600 shadow-cyan-500/20 text-white',
-      'nupkg-signer': 'from-amber-400 to-orange-600 shadow-amber-500/20 text-white',
-      'release-history': 'from-violet-500 to-fuchsia-600 shadow-violet-500/20 text-white',
-      'net-traffic-analyzer': 'from-sky-400 to-indigo-500 shadow-sky-500/20 text-white',
-      'post-tool': 'from-pink-400 to-rose-500 shadow-rose-500/20 text-white',
-      'json-tools': 'from-slate-400 to-slate-600 shadow-slate-500/20 text-white',
-      'block-test': 'from-indigo-400 to-purple-500 shadow-indigo-500/20 text-white',
-    };
-    return themes[id] || 'from-slate-700 to-slate-800 shadow-black/20 text-slate-400';
-  };
-
-  const themeClass = getIconTheme(plugin.id);
+  const themeClass = ICON_THEMES[plugin.id] || 'from-slate-700 to-slate-800 shadow-black/20 text-slate-400';
 
   return (
-    <button
+    <motion.button
+      variants={{
+        hidden: { opacity: 0, scale: 0.8 },
+        visible: { opacity: 1, scale: 1 }
+      }}
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.95 }}
       onClick={onSelect}
-      className={`group relative flex flex-col items-center py-4 px-5 rounded-[24px] transition-all duration-300 border-2 overflow-hidden ${
+      className={`group relative flex flex-col items-center py-3 px-2 rounded-2xl transition-all duration-300 border overflow-hidden ${
         isActive 
-          ? 'bg-indigo-600/10 border-indigo-500/50 shadow-2xl shadow-indigo-500/20' 
-          : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.08] hover:border-white/20 hover:shadow-2xl'
+          ? 'bg-indigo-600/10 border-indigo-500/40 shadow-lg shadow-indigo-500/10' 
+          : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10'
       }`}
     >
-      <div className={`absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ${isActive ? 'opacity-100' : ''}`} />
-      
-      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-2 transition-all duration-500 bg-gradient-to-br shadow-lg transform group-hover:scale-110 group-hover:rotate-3 ${
-        isActive ? 'from-indigo-500 to-purple-600 text-white scale-110 rotate-3' : themeClass
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-2 transition-all duration-500 bg-gradient-to-br shadow-md ${
+        isActive ? 'from-indigo-500 to-purple-600 text-white' : themeClass
       }`}>
-        <Icon size={28} strokeWidth={2.5} />
+        <Icon size={20} strokeWidth={2.5} />
       </div>
       
-      <div className="h-10 flex items-center justify-center px-2 relative z-10">
-        <span className={`text-[11px] font-black text-center leading-tight tracking-tight transition-colors duration-300 uppercase antialiased ${
-          isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'
-        }`}>
-          {plugin.name}
-        </span>
-      </div>
+      <span className={`text-[9px] font-black text-center leading-tight tracking-tighter uppercase truncate w-full px-1 ${
+        isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'
+      }`}>
+        {plugin.name}
+      </span>
 
       <button
         onClick={(e) => onTogglePin(plugin.id, e)}
-        className={`absolute top-4 right-4 p-2 rounded-xl transition-all duration-300 z-20 ${
+        className={`absolute top-1 right-1 p-1 rounded-lg transition-all duration-300 z-20 ${
           isPinned 
-            ? 'text-indigo-400 bg-indigo-500/10 opacity-100' 
-            : 'text-slate-600 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-white/10'
+            ? 'text-indigo-400 opacity-100' 
+            : 'text-slate-700 opacity-0 group-hover:opacity-100 hover:text-white'
         }`}
       >
-        <Lucide.Pin size={14} fill={isPinned ? 'currentColor' : 'none'} className={isPinned ? '' : 'rotate-45'} />
+        <Lucide.Pin size={10} fill={isPinned ? 'currentColor' : 'none'} className={isPinned ? '' : 'rotate-45'} />
       </button>
-      
-      <div className={`absolute -bottom-2 left-1/2 -translate-x-1/2 w-1/2 h-4 blur-2xl rounded-full transition-all duration-500 pointer-events-none group-hover:scale-150 ${
-        isActive ? 'bg-indigo-500/40 opacity-100' : 'bg-white/10 opacity-0 group-hover:opacity-100'
-      }`} />
-    </button>
+    </motion.button>
   );
-};
+});
 
 export default AppLibraryModal;
