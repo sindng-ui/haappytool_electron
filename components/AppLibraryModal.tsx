@@ -257,10 +257,10 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
       {/* Icon Wrapper - 🐧 비활성 상태에서도 쨍한 색상 노출! */}
       <div className={`
         flex items-center justify-center transition-all duration-700 relative z-10 shrink-0 shadow-2xl
-        ${variant === 'large' ? 'w-24 h-24 rounded-[36px]' : (variant === 'wide' ? 'w-18 h-18 rounded-[24px]' : 'w-12 h-12 rounded-[18px]')}
+        ${variant === 'large' ? 'w-24 h-24 rounded-[36px]' : 'w-14 h-14 rounded-[20px]'}
         ${isActive ? `bg-gradient-to-br ${theme.base} text-white shadow-2xl ${theme.glow}` : `${theme.bg} ${theme.text} bg-opacity-80 group-hover:bg-opacity-100 group-hover:scale-105`}
       `}>
-        <Icon size={variant === 'large' ? 48 : (variant === 'wide' ? 32 : 22)} strokeWidth={isActive ? 3 : 2.5} />
+        <Icon size={variant === 'large' ? 48 : 24} strokeWidth={isActive ? 3 : 2.5} />
         {/* Extreme Glow */}
         <div className={`absolute inset-0 rounded-inherit opacity-0 group-hover:opacity-70 blur-3xl ${theme.base} -z-10 transition-opacity`} />
       </div>
@@ -275,23 +275,29 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
         </span>
       </div>
 
-      {/* Pinned Marker - 🐧 위치와 크기 최적화 */}
+      {/* Pinned Marker - 🐧 UX 힌트 강화: 고정 안 된 앱은 상시 노출 & 화살표 아이콘 */}
       <button
         onClick={(e) => onTogglePin(plugin.id, e)}
-        className={`absolute top-3 right-3 p-2 rounded-xl transition-all duration-300 z-30 ${
+        className={`absolute top-2.5 right-2.5 w-8 h-8 flex items-center justify-center rounded-full transition-all duration-300 z-30 ${
           isPinned 
-            ? 'text-white opacity-100 bg-indigo-600 shadow-lg shadow-indigo-600/40' 
-            : 'text-slate-700 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-white/20'
+            ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 shadow-inner' 
+            : 'text-white/40 bg-white/10 group-hover:text-white group-hover:bg-white/20 hover:scale-110 active:scale-90'
         }`}
       >
-        <Lucide.Pin size={10} fill={isPinned ? 'currentColor' : 'none'} className={isPinned ? '' : 'rotate-45'} />
+        {isPinned ? (
+          <Lucide.Pin size={11} fill="currentColor" />
+        ) : (
+          <Lucide.ChevronUp size={14} strokeWidth={3} />
+        )}
       </button>
 
-      {/* Selection Animated Border */}
+      {/* Selection Animated Border - 🐧 곡률 강제 적용으로 각진 현상 방지 */}
       {isActive && (
         <motion.div 
           layoutId="activeIndicator"
-          className="absolute inset-0 border-[4px] border-indigo-500/80 rounded-inherit pointer-events-none z-20"
+          className={`absolute inset-0 border-[3px] border-indigo-500/60 pointer-events-none z-20 ${
+            variant === 'large' ? 'rounded-[40px]' : (variant === 'wide' ? 'rounded-[32px]' : 'rounded-[32px]')
+          }`}
           initial={false}
           transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
         />
