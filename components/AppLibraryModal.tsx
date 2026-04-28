@@ -55,6 +55,18 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
   }, [isOpen, onClose]);
 
   const enabledSet = useMemo(() => new Set(enabledPlugins), [enabledPlugins]);
+  const [pluginSizes, setPluginSizes] = React.useState<Record<string, 'normal' | 'wide' | 'large'>>({});
+
+  const togglePluginSize = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    setPluginSizes(prev => {
+      const current = prev[id] || 'normal';
+      const next: 'normal' | 'wide' | 'large' = 
+        current === 'normal' ? 'wide' : 
+        current === 'wide' ? 'large' : 'normal';
+      return { ...prev, [id]: next };
+    });
+  };
 
   const corePlugins = useMemo(() => 
     plugins.filter(p => enabledSet.has(p.id)), 
@@ -127,6 +139,8 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                   enabledSet={enabledSet}
                   onSelect={(id: string) => { onSelectPlugin(id); onClose(); }} 
                   onTogglePin={handleTogglePin} 
+                  onRightClick={togglePluginSize}
+                  pluginSizes={pluginSizes}
                   isBento={true}
                   startIndex={0}
                 />
@@ -139,6 +153,8 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                   enabledSet={enabledSet}
                   onSelect={(id: string) => { onSelectPlugin(id); onClose(); }} 
                   onTogglePin={handleTogglePin} 
+                  onRightClick={togglePluginSize}
+                  pluginSizes={pluginSizes}
                   isBento={false}
                   startIndex={corePlugins.length}
                 />
@@ -153,7 +169,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
   );
 };
 
-const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSelect, onTogglePin, isBento, startIndex }: any) => {
+const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSelect, onTogglePin, onRightClick, pluginSizes, isBento, startIndex }: any) => {
   if (plugins.length === 0) return null;
   
   return (
@@ -172,13 +188,17 @@ const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSele
         <div className="h-px flex-1 bg-gradient-to-r from-white/10 via-white/5 to-transparent ml-8" />
       </div>
       
-      <div className="grid grid-cols-4 gap-5 grid-flow-row-dense">
+      <motion.div layout className="grid grid-cols-4 gap-5 grid-flow-row-dense">
         {plugins.map((plugin: HappyPlugin, idx: number) => {
-          let variant: 'normal' | 'wide' | 'large' = 'normal';
-          if (isBento) {
+          let variant = pluginSizes[plugin.id];
+          
+          // 🐧 커스텀 사이즈가 없으면 기본 Bento 레이아웃 적용
+          if (!variant && isBento) {
             if (idx === 0) variant = 'large';
             else if (idx === 1 || idx === 2) variant = 'wide';
           }
+          
+          variant = variant || 'normal';
 
           return (
             <AppCard 
@@ -190,15 +210,16 @@ const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSele
               isActive={plugin.id === activeId}
               onSelect={() => onSelect(plugin.id)}
               onTogglePin={onTogglePin}
+              onRightClick={(e: any) => onRightClick(plugin.id, e)}
             />
           );
         })}
-      </div>
+      </motion.div>
     </motion.section>
   );
 });
 
-const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin, variant = 'normal', idx = 0 }: any) => {
+const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin, onRightClick, variant = 'normal', idx = 0 }: any) => {
   const Icon = plugin.icon || Lucide.Package;
   // 🐧 형님, 테마가 없으면 기본값을 슬레이트로 주되, 있으면 아주 쨍하게 갑니다!
   const theme = THEME_COLORS[plugin.id] || { base: 'from-slate-600 to-slate-800', glow: 'shadow-slate-500/30', text: 'text-slate-400', bg: 'bg-slate-700', border: 'border-slate-500' };
@@ -240,6 +261,7 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
       whileHover={{ y: -8, scale: 1.03, rotate: 0 }}
       whileTap={{ scale: 0.97 }}
       onClick={onSelect}
+      onContextMenu={onRightClick}
       className={`group relative flex transition-all duration-500 border overflow-hidden rounded-[40px] ${sizeClasses[variant]} ${
         isActive 
           ? `bg-slate-900 border-indigo-500 shadow-[0_30px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(99,102,241,0.3)]` 
@@ -268,8 +290,8 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
       </div>
       
       <div className={`flex flex-col relative z-10 min-w-0 ${variant === 'wide' ? 'flex-1' : ''}`}>
-        <span className={`font-black tracking-tight transition-colors duration-300 uppercase leading-none ${
-          variant === 'large' ? 'text-2xl text-white mt-8' : (variant === 'wide' ? 'text-lg text-white' : 'text-[12px] text-slate-100')
+        <span className={`font-extrabold tracking-normal transition-colors duration-300 uppercase leading-tight antialiased ${
+          variant === 'large' ? 'text-2xl text-white mt-8' : (variant === 'wide' ? 'text-lg text-white' : 'text-[12.5px] text-slate-100')
         } ${
           isActive ? 'text-white' : 'group-hover:text-white'
         }`}>
