@@ -244,21 +244,12 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
       
       <div className={`flex flex-col relative z-10 min-w-0 ${variant === 'wide' ? 'flex-1' : ''}`}>
         <span className={`font-black tracking-tight uppercase transition-colors duration-300 ${
-          variant === 'large' ? 'text-3xl text-white mt-8' : 'text-[12px]'
+          variant === 'large' ? 'text-3xl text-white mt-10' : 'text-[12px]'
         } ${
           isActive ? 'text-white' : 'text-slate-200 group-hover:text-white'
         }`}>
           {plugin.name}
         </span>
-        {variant !== 'normal' && (
-          <div className={`flex flex-col gap-1 mt-3 ${variant === 'wide' ? 'items-start' : 'items-center'}`}>
-            <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${isActive ? 'text-indigo-400' : 'text-indigo-300'}`}>
-              {plugin.isLab ? 'Experimental Lab' : 'Core Integration'}
-            </span>
-            {variant === 'large' && <div className="h-px w-8 bg-white/20 my-1" />}
-            {variant === 'large' && <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Premium Build v1.2</span>}
-          </div>
-        )}
       </div>
 
       {/* Pinned Marker - 🐧 유배지로 보냈습니다! 절대 안 겹침! */}
