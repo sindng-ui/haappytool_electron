@@ -70,25 +70,25 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[200] flex items-start justify-start p-4 overflow-hidden pointer-events-none">
-          {/* Backdrop */}
+          {/* Backdrop - 🐧 블러 제거하고 어둡게만 처리! */}
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] pointer-events-auto"
+            className="absolute inset-0 bg-slate-950/60 pointer-events-auto"
           />
           
-          {/* Modal Container - 🐧 GPU 가속을 위해 will-change 추가! */}
+          {/* Modal Container - 🐧 투명도와 블러를 완전히 제거한 Opaque 솔리드 테마! */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.9, y: -20, originX: 0, originY: 0 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: -20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 400 }}
-            className="relative w-full max-w-2xl max-h-[85vh] mt-16 ml-2 bg-slate-900/98 border border-white/10 rounded-[32px] shadow-[0_32px_80px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden backdrop-blur-xl pointer-events-auto will-change-transform"
+            transition={{ type: "spring", damping: 25, stiffness: 450 }}
+            className="relative w-full max-w-2xl max-h-[85vh] mt-16 ml-2 bg-[#0B0F19] border border-white/20 rounded-[32px] shadow-[0_40px_100px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden pointer-events-auto will-change-transform"
           >
             {/* Header */}
-            <div className="p-6 pb-4 flex items-center justify-between border-b border-white/5">
+            <div className="p-6 pb-4 flex items-center justify-between border-b border-white/10 bg-slate-900/50">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />

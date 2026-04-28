@@ -52,19 +52,19 @@ const AppHub: React.FC<AppHubProps> = ({
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-pink-500 rounded-full border-2 border-slate-950 animate-pulse shadow-[0_0_8px_rgba(236,72,153,0.5)]"></div>
         </button>
         
-        {/* Active Tool Indicator - 🐧 현재 무슨 앱인지 살짝 보여주는 뱃지 */}
+        {/* Active Tool Indicator - 🐧 현재 무슨 앱인지 살짝 보여주는 뱃지 (솔리드 배경) */}
         {!isHovered && (
           <motion.div 
             initial={{ opacity: 0, x: -5 }}
             animate={{ opacity: 1, x: 0 }}
-            className="absolute left-full ml-3 px-3 py-1 bg-slate-900/80 backdrop-blur-md border border-white/5 rounded-lg whitespace-nowrap pointer-events-none"
+            className="absolute left-full ml-3 px-3 py-1 bg-slate-900 border border-white/10 rounded-lg whitespace-nowrap pointer-events-none shadow-xl"
           >
             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{activePlugin.name}</span>
           </motion.div>
         )}
       </div>
 
-      {/* Quick Access Orbit - 🐧 호버 시 핀된 앱들이 쇽쇽! */}
+      {/* Quick Access Orbit - 🐧 솔리드 배경으로 변경! */}
       <AnimatePresence>
         {isHovered && (
           <motion.div 
@@ -88,7 +88,7 @@ const AppHub: React.FC<AppHubProps> = ({
                   whileHover={{ scale: 1.1, y: -2 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => onSelectPlugin(plugin.id)}
-                  className="w-10 h-10 flex items-center justify-center bg-slate-800/40 hover:bg-indigo-500/20 backdrop-blur-md border border-white/10 rounded-xl shadow-lg text-slate-300 hover:text-white transition-all duration-300 group/item"
+                  className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-indigo-600 border border-white/10 rounded-xl shadow-lg text-slate-300 hover:text-white transition-all duration-300 group/item"
                   style={{ WebkitAppRegion: 'no-drag' } as any}
                   title={plugin.name}
                 >
@@ -100,7 +100,7 @@ const AppHub: React.FC<AppHubProps> = ({
             {/* Separator */}
             <motion.div 
               variants={{ hidden: { opacity: 0, scale: 0 }, visible: { opacity: 1, scale: 1 } }}
-              className="w-px h-6 bg-white/10 mx-1" 
+              className="w-px h-6 bg-white/20 mx-1" 
             />
 
             {/* Settings Button */}
@@ -111,7 +111,7 @@ const AppHub: React.FC<AppHubProps> = ({
               }}
               whileHover={{ scale: 1.1, rotate: 90 }}
               onClick={onOpenSettings}
-              className="w-10 h-10 flex items-center justify-center bg-slate-800/80 hover:bg-slate-700/80 backdrop-blur-md border border-white/10 rounded-xl shadow-lg text-slate-400 hover:text-white transition-all duration-300"
+              className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl shadow-lg text-slate-400 hover:text-white transition-all duration-300"
               style={{ WebkitAppRegion: 'no-drag' } as any}
               title="Settings"
             >
@@ -121,14 +121,14 @@ const AppHub: React.FC<AppHubProps> = ({
         )}
       </AnimatePresence>
       
-      {/* Background Glow - 🐧 형님, 호버 시 뒤에 은은한 오로라를 깔았습니다. */}
+      {/* Background Glow - 🐧 블러 제거! 솔리드 배경으로 변경 */}
       <motion.div 
         initial={false}
         animate={{ 
           opacity: isHovered ? 1 : 0,
           width: isHovered ? 'auto' : 0
         }}
-        className="absolute -inset-x-3 inset-y-1.5 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent rounded-2xl -z-10 backdrop-blur-sm border border-white/5 pointer-events-none transition-all duration-500" 
+        className="absolute -inset-x-3 inset-y-1.5 bg-slate-900/60 rounded-2xl -z-10 border border-white/10 pointer-events-none transition-all duration-500" 
       />
     </motion.div>
   );
