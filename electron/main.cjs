@@ -418,23 +418,24 @@ app.whenReady().then(async () => {
         return new Promise(async (resolve, reject) => {
             let isResolved = false;
             let checkDownload = null;
-            const waitTime = 20000; // ✅ 20초로 연장
+            const waitTime = 60000; // ✅ 20초 -> 60초로 연장
+            let lastStep = 'Initialization';
             const timeout = setTimeout(async () => {
                 if (!isResolved) {
                     if (checkDownload) clearInterval(checkDownload);
-                    let debugInfo = '(Timeout)';
+                    let debugInfo = `(Timeout at step: ${lastStep})`;
                     if (!tempWin.isDestroyed()) {
                         const currentUrl = tempWin.webContents.getURL();
                         const currentTitle = tempWin.webContents.getTitle();
-                        debugInfo = `\n- URL: ${currentUrl}\n- Title: ${currentTitle}`;
+                        debugInfo = `\n- Last Step: ${lastStep}\n- URL: ${currentUrl}\n- Title: ${currentTitle}`;
                         tempWin.destroy();
                     }
-                    reject(new Error(`자동 서명 대기 시간 초과 (20초). ${debugInfo}\n로그인 세션을 확인하거나 ISMS URL을 확인해 주세요.`));
+                    reject(new Error(`자동 서명 대기 시간 초과 (60초). ${debugInfo}\n로그인 세션을 확인하거나 ISMS URL을 확인해 주세요.`));
                 }
             }, waitTime);
 
             try {
-                // 1. 페이지 로드
+                lastStep = 'Loading URL';
                 await tempWin.loadURL(targetIsmsUrl).catch(err => {
                     if (err.code === 'ERR_ABORTED') {
                         console.log('[AutoSign] loadURL aborted (possibly redirect), continuing...');
@@ -442,6 +443,8 @@ app.whenReady().then(async () => {
                         throw err;
                     }
                 });
+                console.log('[AutoSign] URL loaded successfully.');
+                lastStep = 'Page Loaded';
 
                 // 2. 중요 요소 탐색 및 대기 (모든 프레임 샅샅이 뒤지기) 🐧🔍
                 const findElementsInFrames = async () => {
@@ -508,6 +511,7 @@ app.whenReady().then(async () => {
                     return await tempWin.webContents.executeJavaScript(jsCode);
                 };
 
+                lastStep = 'Finding Elements';
                 const elementsInfo = await findElementsInFrames();
                 if (!elementsInfo || !elementsInfo.found) {
                     const currentUrl = tempWin.webContents.getURL();
@@ -517,8 +521,10 @@ app.whenReady().then(async () => {
                 }
 
                 console.log('[AutoSign] Elements found and setup complete.');
+                lastStep = 'Elements Setup Done';
 
                 // 3. CDP 연결 및 파일 업로드 🎯
+                lastStep = 'Attaching Debugger';
                 if (!tempWin.webContents.debugger.isAttached()) {
                     tempWin.webContents.debugger.attach('1.3');
                 }
@@ -546,37 +552,48 @@ app.whenReady().then(async () => {
                     return 0;
                 }
 
+                lastStep = 'Finding Upload Field';
                 const nodeId = await findNodeId(root, '#file_upload_1');
                 if (!nodeId || nodeId === 0) {
                     throw new Error('업로드 필드(#file_upload_1)를 찾을 수 없습니다. (CDP 검색 실패)');
                 }
                 
+                lastStep = 'Setting Input Files';
                 await tempWin.webContents.debugger.sendCommand('DOM.setFileInputFiles', {
                     files: [filePath],
                     nodeId: nodeId
                 });
+                console.log('[AutoSign] File upload command sent via CDP.');
+                lastStep = 'File Uploaded';
 
                 // 4. 다운로드 가로채기 설정
                 const tempDownloadDir = path.join(app.getPath('temp'), 'happytool_sign_' + Date.now());
                 await originalFs.promises.mkdir(tempDownloadDir, { recursive: true });
                 
+                lastStep = 'Setting Download Interceptor';
                 let downloadedFilePath = null;
                 tempWin.webContents.session.once('will-download', (event, item) => {
+                    console.log(`[AutoSign] Download started: ${item.getFilename()}`);
+                    lastStep = 'Downloading';
                     const savePath = path.join(tempDownloadDir, item.getFilename());
                     item.setSavePath(savePath);
                     item.once('done', (event, state) => {
+                        console.log(`[AutoSign] Download finished: ${state}`);
                         if (state === 'completed') {
                             downloadedFilePath = savePath;
+                            lastStep = 'Download Completed';
                         }
                     });
                 });
 
                 // 5. 결과 링크 클릭 (폴링)
+                lastStep = 'Polling Download Link';
                 await tempWin.webContents.executeJavaScript(`
                     if (window._signPoll) clearInterval(window._signPoll);
                     window._signPoll = setInterval(() => {
                         const link = document.querySelector('#download_link');
                         if (link) {
+                            console.log('[AutoSign-JS] Download link found, clicking...');
                             clearInterval(window._signPoll);
                             link.click();
                         }

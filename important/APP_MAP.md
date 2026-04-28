@@ -212,7 +212,7 @@
   - **안전한 재패키징**: 원본 구조를 유지하며 서명본만 교체하여 새로운 `.nupkg` 생성.
   - **자동 파일명 제안**: 원본이 `aaa.nupkg`인 경우 `aaa_signed.nupkg`로 저장 유도. [NEW]
   - **성능 최적화 (JSZip ESM 전환)**: `importScripts` 제거 및 ESM 임포트 방식으로 전환, Vite 사전 번들링 설정을 통해 회사 PC 등 저사양 환경에서의 로딩 속도 대폭 개선. [UPDATED][HOT]
-  - **자동 서명 진단 강화**: ISMS 자동 서명 실패 시 상세 원인(누락 요소, 현재 URL/Title) 리포트 기능 및 대기 시간(20초) 연장으로 안정성 확보. [NEW]
+  - **자동 서명 진단 강화**: ISMS 자동 서명 실패 시 상세 원인(누락 요소, 현재 URL/Title, 마지막 단계) 리포트 기능 및 대기 시간(60초) 연장으로 안정성 확보. [UPDATED]
   - **ISMS URL 동기화**: UI에서 설정한 ISMS URL이 메인 프로세스의 자동화 엔진과 실시간 연동되도록 개선. [NEW]
   - **테스트 안정화**: JSDOM 환경용 `Worker` 모킹 및 비동기 타이머 연동(`advanceTimersByTimeAsync`)을 통해 테스트 통과율 100% 확보. [DONE]
 
