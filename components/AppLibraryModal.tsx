@@ -267,21 +267,21 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
           x: 0,
           rotate: 0,
           scale: 1,
-          transition: isEntranceDone 
+          transition: isEntranceDone
             ? { type: "spring", stiffness: 400, damping: 25 } // 🐧 한 번 뜬 이후에는 빠릿하게 복귀
             : {
-                type: "tween",
-                ease: "easeOut",
-                duration: 0.5, // 🐧 형님이 좋아하시는 그 굼뜬 CSS 느낌을 그대로 재현!
-                delay: 0.2 + (plugin.id.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0) % 12) * 0.05
-              }
+              type: "tween",
+              ease: "easeOut",
+              duration: 0.4, // 🐧 형님이 좋아하시는 그 굼뜬 CSS 느낌을 그대로 재현!
+              delay: 0.2 + (plugin.id.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0) % 12) * 0.05
+            }
         }
       }}
-      whileHover={{ 
-        y: -8, 
-        scale: 1.04, 
+      whileHover={{
+        y: -8,
+        scale: 1.04,
         rotate: 0,
-        transition: { type: "spring", stiffness: 400, damping: 28, bounce: 0.15 } 
+        transition: { type: "spring", stiffness: 400, damping: 28, bounce: 0.15 }
       }}
       whileTap={{ scale: 0.96 }}
       onClick={onSelect}
