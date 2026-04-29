@@ -139,7 +139,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
               initial="hidden"
               animate="visible"
               variants={{
-                visible: { transition: { staggerChildren: 0.05, delayChildren: 0.1 } }
+                visible: { transition: { delayChildren: 0.1 } }
               }}
               className="flex-1 overflow-y-auto px-8 py-4 scrollbar-stable"
             >
@@ -273,7 +273,7 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
                 type: "tween",
                 ease: "easeOut",
                 duration: 0.5, // 🐧 형님이 좋아하시는 그 굼뜬 CSS 느낌을 그대로 재현!
-                delay: 0.3 + idx * 0.02 + (plugin.id.length % 4) * 0.01 // 🐧 0.3초 기본 대기 후 제각각 등장
+                delay: 0.2 + (plugin.id.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0) % 12) * 0.05
               }
         }
       }}
