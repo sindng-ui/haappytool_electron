@@ -190,7 +190,7 @@ const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSele
   return (
     <motion.section
       variants={{
-        hidden: { opacity: 0, scale: 0.95 },
+        hidden: { opacity: 1, scale: 0.98 },
         visible: { opacity: 1, scale: 1 }
       }}
       className="relative"
@@ -255,7 +255,7 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
       onAnimationComplete={() => setIsEntranceDone(true)}
       variants={{
         hidden: {
-          opacity: 0,
+          opacity: 1, // 🐧 투명도 없이 실체가 있는 상태에서 시작
           y: 30,
           x: plugin.id.length % 2 === 0 ? 15 : -15, // 🐧 ID 길이에 따른 미세한 좌우 오프셋
           rotate: plugin.id.length % 2 === 0 ? 3 : -3, // 🐧 미세한 회전으로 랜덤감 부여
