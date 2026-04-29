@@ -63,26 +63,26 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
     e.preventDefault();
     setPluginSizes(prev => {
       const current = prev[id] || 'normal';
-      const next: 'normal' | 'wide' | 'large' = 
-        current === 'normal' ? 'wide' : 
-        current === 'wide' ? 'large' : 'normal';
+      const next: 'normal' | 'wide' | 'large' =
+        current === 'normal' ? 'wide' :
+          current === 'wide' ? 'large' : 'normal';
       return { ...prev, [id]: next };
     });
   };
 
-  const corePlugins = useMemo(() => 
-    plugins.filter(p => enabledSet.has(p.id)), 
+  const corePlugins = useMemo(() =>
+    plugins.filter(p => enabledSet.has(p.id)),
     [plugins, enabledSet]
   );
-  
-  const labPlugins = useMemo(() => 
-    plugins.filter(p => !enabledSet.has(p.id)), 
+
+  const labPlugins = useMemo(() =>
+    plugins.filter(p => !enabledSet.has(p.id)),
     [plugins, enabledSet]
   );
 
   const handleTogglePin = React.useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setEnabledPlugins(prev => 
+    setEnabledPlugins(prev =>
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
     );
   }, [setEnabledPlugins]);
@@ -91,15 +91,15 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[200] flex items-start justify-start p-4 overflow-hidden pointer-events-none">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
             className="absolute inset-0 bg-slate-950/80 pointer-events-auto"
           />
-          
-          <motion.div 
+
+          <motion.div
             initial={{ opacity: 0, scale: 0.98, y: -20, originX: 0, originY: 0 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -20 }}
@@ -112,10 +112,10 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                 <div className="flex items-center gap-2 mb-0.5">
                   <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,1)]" />
                   <h2 className="text-xl font-black text-white tracking-tight">APP HUB</h2>
-                  
+
                   {/* Settings Shortcut - 🐧 형님, 이제 시원시원하게 키웠습니다! */}
                   {onOpenSettings && (
-                    <button 
+                    <button
                       onClick={(e) => { e.stopPropagation(); onOpenSettings(); }}
                       className="ml-3 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all duration-300 active:scale-90 group/settings"
                       title="Open Settings"
@@ -126,7 +126,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                 </div>
                 <p className="text-slate-500 text-[10px] font-black tracking-[0.2em] uppercase">Vivid Workspace</p>
               </div>
-              <button 
+              <button
                 onClick={onClose}
                 className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-rose-600 hover:text-white transition-all active:scale-90 border border-white/5"
               >
@@ -135,7 +135,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
             </div>
 
             {/* Scrollable Content */}
-            <motion.div 
+            <motion.div
               initial="hidden"
               animate="visible"
               variants={{
@@ -144,29 +144,29 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
               className="flex-1 overflow-y-auto px-8 py-4 scrollbar-stable"
             >
               <div className="space-y-8">
-                <Section 
-                  title="Pinned Tools" 
-                  icon={<Lucide.Pin size={14} className="fill-current" />} 
-                  plugins={corePlugins} 
-                  activeId={activePluginId} 
+                <Section
+                  title="Pinned Tools"
+                  icon={<Lucide.Pin size={14} className="fill-current" />}
+                  plugins={corePlugins}
+                  activeId={activePluginId}
                   enabledSet={enabledSet}
-                  onSelect={(id: string) => { onSelectPlugin(id); onClose(); }} 
-                  onTogglePin={handleTogglePin} 
+                  onSelect={(id: string) => { onSelectPlugin(id); onClose(); }}
+                  onTogglePin={handleTogglePin}
                   onRightClick={togglePluginSize}
                   pluginSizes={pluginSizes}
                   isBento={true}
                   isGlassy={true}
                   startIndex={0}
                 />
-                
-                <Section 
-                  title="Labs" 
-                  icon={<Lucide.LayoutGrid size={14} />} 
-                  plugins={labPlugins} 
-                  activeId={activePluginId} 
+
+                <Section
+                  title="Labs"
+                  icon={<Lucide.LayoutGrid size={14} />}
+                  plugins={labPlugins}
+                  activeId={activePluginId}
                   enabledSet={enabledSet}
-                  onSelect={(id: string) => { onSelectPlugin(id); onClose(); }} 
-                  onTogglePin={handleTogglePin} 
+                  onSelect={(id: string) => { onSelectPlugin(id); onClose(); }}
+                  onTogglePin={handleTogglePin}
                   onRightClick={togglePluginSize}
                   pluginSizes={pluginSizes}
                   isBento={false}
@@ -186,9 +186,9 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
 
 const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSelect, onTogglePin, onRightClick, pluginSizes, isBento, isGlassy, startIndex }: any) => {
   if (plugins.length === 0) return null;
-  
+
   return (
-    <motion.section 
+    <motion.section
       variants={{
         hidden: { opacity: 0, scale: 0.95 },
         visible: { opacity: 1, scale: 1 }
@@ -202,21 +202,21 @@ const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSele
         <h3 className="text-[11px] font-black text-slate-400 tracking-[0.3em] uppercase">{title}</h3>
         <div className="h-px flex-1 bg-gradient-to-r from-white/10 via-white/5 to-transparent ml-5" />
       </div>
-      
+
       <motion.div layout className="grid grid-cols-4 gap-5 grid-flow-row-dense">
         {plugins.map((plugin: HappyPlugin, idx: number) => {
           let variant = pluginSizes[plugin.id];
-          
+
           // 🐧 커스텀 사이즈가 없으면 기본 Bento 레이아웃 적용
           if (!variant && isBento) {
             if (idx === 0) variant = 'large';
             else if (idx === 1 || idx === 2) variant = 'wide';
           }
-          
+
           variant = variant || 'normal';
 
           return (
-            <AppCard 
+            <AppCard
               key={plugin.id}
               idx={startIndex + idx}
               plugin={plugin}
@@ -251,18 +251,18 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
       initial="hidden"
       animate="visible"
       variants={{
-        hidden: { 
-          opacity: 0, 
-          y: 30, 
+        hidden: {
+          opacity: 0,
+          y: 30,
           x: plugin.id.length % 2 === 0 ? 15 : -15, // 🐧 ID 길이에 따른 미세한 좌우 오프셋
           rotate: plugin.id.length % 2 === 0 ? 3 : -3, // 🐧 미세한 회전으로 랜덤감 부여
-          scale: 0.9 
+          scale: 0.9
         },
-        visible: { 
-          opacity: 1, 
-          y: 0, 
-          x: 0, 
-          rotate: 0, 
+        visible: {
+          opacity: 1,
+          y: 0,
+          x: 0,
+          rotate: 0,
           scale: 1,
           transition: {
             type: "spring",
@@ -274,18 +274,17 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
           }
         }
       }}
-      whileHover={{ y: -8, scale: 1.03, rotate: 0 }}
-      whileTap={{ scale: 0.97 }}
+      whileHover={{ y: -10, scale: 1.05, rotate: 0 }}
+      whileTap={{ scale: 0.95 }}
       onClick={onSelect}
       onContextMenu={onRightClick}
       style={{ willChange: isGlassy ? 'transform, backdrop-filter' : 'transform' }}
-      className={`group relative flex transition-[transform,opacity,background-color,border-color,box-shadow] duration-500 border overflow-hidden rounded-[40px] ${sizeClasses[variant]} ${
-        isActive 
-          ? `bg-slate-900 border-indigo-500 shadow-[0_30px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(99,102,241,0.3)]` 
-          : isGlassy
-            ? `bg-white/[0.12] backdrop-blur-2xl border-white/20 hover:border-white/40 hover:bg-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] ring-1 ring-white/15`
-            : `bg-white/[0.03] border-white/5 hover:border-white/20 hover:bg-white/[0.08]`
-      }`}
+      className={`group relative flex transition-[transform,opacity,background-color,border-color,box-shadow] duration-500 hover:duration-100 border overflow-hidden rounded-[40px] ${sizeClasses[variant]} ${isActive
+        ? `bg-slate-900 border-indigo-500 shadow-[0_30px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(99,102,241,0.3)]`
+        : isGlassy
+          ? `bg-white/[0.12] backdrop-blur-2xl border-white/20 hover:border-white/40 hover:bg-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] ring-1 ring-white/15`
+          : `bg-white/[0.03] border-white/5 hover:border-white/20 hover:bg-white/[0.08]`
+        }`}
     >
       {/* Glass Highlight - 🐧 형님, 빛 반사 효과를 넣어서 진짜 유리처럼 만들었습니다! */}
       {isGlassy && !isActive && (
@@ -293,8 +292,8 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
       )}
 
       {/* Background Aura - 🐧 비비드함의 극치! */}
-      <div className={`absolute inset-0 opacity-0 group-hover:opacity-30 bg-gradient-to-br ${theme.base} transition-opacity duration-500`} />
-      
+      <div className={`absolute inset-0 opacity-0 group-hover:opacity-30 bg-gradient-to-br ${theme.base} transition-opacity duration-200`} />
+
       {/* Ghost Typography */}
       {variant === 'large' && (
         <div className="absolute top-10 -left-6 text-white/[0.03] text-9xl font-black italic select-none pointer-events-none transform -rotate-12 uppercase whitespace-nowrap">
@@ -312,13 +311,11 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
         {/* Extreme Glow */}
         <div className={`absolute inset-0 rounded-inherit opacity-0 group-hover:opacity-70 blur-3xl ${theme.base} -z-10 transition-opacity`} />
       </div>
-      
+
       <div className={`flex flex-col relative z-10 min-w-0 ${variant === 'wide' ? 'flex-1' : ''}`}>
-        <span className={`font-extrabold tracking-normal transition-colors duration-300 uppercase leading-tight antialiased ${
-          variant === 'large' ? 'text-2xl text-white mt-8' : (variant === 'wide' ? 'text-lg text-white' : 'text-[12.5px] text-slate-100')
-        } ${
-          isActive ? 'text-white' : 'group-hover:text-white'
-        }`}>
+        <span className={`font-extrabold tracking-normal transition-colors duration-300 uppercase leading-tight antialiased ${variant === 'large' ? 'text-2xl text-white mt-8' : (variant === 'wide' ? 'text-lg text-white' : 'text-[12.5px] text-slate-100')
+          } ${isActive ? 'text-white' : 'group-hover:text-white'
+          }`}>
           {plugin.name}
         </span>
       </div>
@@ -326,11 +323,10 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
       {/* Pinned Marker - 🐧 UX 힌트 강화: 고정 안 된 앱은 상시 노출 & 화살표 아이콘 */}
       <button
         onClick={(e) => onTogglePin(plugin.id, e)}
-        className={`absolute top-2.5 right-2.5 w-8 h-8 flex items-center justify-center rounded-full transition-all duration-300 z-30 ${
-          isPinned 
-            ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 shadow-inner' 
-            : 'text-white/40 bg-white/10 group-hover:text-white group-hover:bg-white/20 hover:scale-110 active:scale-90'
-        }`}
+        className={`absolute top-2.5 right-2.5 w-8 h-8 flex items-center justify-center rounded-full transition-all duration-300 z-30 ${isPinned
+          ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 shadow-inner'
+          : 'text-white/40 bg-white/10 group-hover:text-white group-hover:bg-white/20 hover:scale-110 active:scale-90'
+          }`}
       >
         {isPinned ? (
           <Lucide.Pin size={11} fill="currentColor" />
@@ -341,11 +337,10 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
 
       {/* Selection Animated Border - 🐧 곡률 강제 적용으로 각진 현상 방지 */}
       {isActive && (
-        <motion.div 
+        <motion.div
           layoutId="activeIndicator"
-          className={`absolute inset-0 border-[3px] border-indigo-500/60 pointer-events-none z-20 ${
-            variant === 'large' ? 'rounded-[40px]' : (variant === 'wide' ? 'rounded-[32px]' : 'rounded-[32px]')
-          }`}
+          className={`absolute inset-0 border-[3px] border-indigo-500/60 pointer-events-none z-20 ${variant === 'large' ? 'rounded-[40px]' : (variant === 'wide' ? 'rounded-[32px]' : 'rounded-[32px]')
+            }`}
           initial={false}
           transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
         />
