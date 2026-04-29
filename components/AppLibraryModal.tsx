@@ -239,6 +239,7 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
   const Icon = plugin.icon || Lucide.Package;
   // 🐧 형님, 테마가 없으면 기본값을 슬레이트로 주되, 있으면 아주 쨍하게 갑니다!
   const theme = THEME_COLORS[plugin.id] || { base: 'from-slate-600 to-slate-800', glow: 'shadow-slate-500/30', text: 'text-slate-400', bg: 'bg-slate-700', border: 'border-slate-500' };
+  const [isEntranceDone, setIsEntranceDone] = React.useState(false);
 
   const sizeClasses = {
     normal: 'col-span-1 row-span-1 h-28 flex-col justify-center gap-3 items-center text-center p-3',
@@ -248,8 +249,10 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
 
   return (
     <motion.button
+      layout
       initial="hidden"
       animate="visible"
+      onAnimationComplete={() => setIsEntranceDone(true)}
       variants={{
         hidden: {
           opacity: 0,
@@ -264,12 +267,14 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
           x: 0,
           rotate: 0,
           scale: 1,
-          transition: {
-            type: "tween",
-            ease: "easeOut",
-            duration: 0.5, // 🐧 형님이 좋아하시는 그 굼뜬 CSS 느낌을 그대로 재현!
-            delay: 0.3 + idx * 0.02 + (plugin.id.length % 4) * 0.01 // 🐧 0.3초 기본 대기 후 제각각 등장
-          }
+          transition: isEntranceDone 
+            ? { type: "spring", stiffness: 400, damping: 25 } // 🐧 한 번 뜬 이후에는 빠릿하게 복귀
+            : {
+                type: "tween",
+                ease: "easeOut",
+                duration: 0.5, // 🐧 형님이 좋아하시는 그 굼뜬 CSS 느낌을 그대로 재현!
+                delay: 0.3 + idx * 0.02 + (plugin.id.length % 4) * 0.01 // 🐧 0.3초 기본 대기 후 제각각 등장
+              }
         }
       }}
       whileHover={{ 
