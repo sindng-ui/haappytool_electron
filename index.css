@@ -104,6 +104,10 @@ pre {
   border-radius: 7px;
 }
 
+.scrollbar-stable {
+  scrollbar-gutter: stable;
+}
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.6);
   background-clip: padding-box;

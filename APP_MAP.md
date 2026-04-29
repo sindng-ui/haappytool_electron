@@ -116,6 +116,12 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - **Backend Process Guard**: `server/index.cjs` — 명령 실행 시 백엔드 자체 타임아웃(**15초**) 및 좀비 프로세스 방지를 위한 `SIGKILL` 로직 도입.
   - **Enhanced Debugging**: 타임아웃 발생 시 대상 명령어를 로그에 명시하여 트러블슈팅 편의성 증대.
 
+### [AppHub](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/AppHub.tsx) [NEW]
+앱 라이브러리 및 설정을 호출하는 메인 진입점 컴포넌트입니다.
+- **UI Features**:
+  - **Quick Access Orbit**: 호버 시 설정 버튼이 나타나는 애니메이션 인터페이스.
+  - **Status Indicator (2026-04-29)**: 우상단 알림 점(Dot) 색상을 핑크에서 **에메랄드(그린)**로 변경하여 시각적 안정성 강화. 🐧💚
+
 ### [Plugin Visibility Management](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/config.ts) [NEW]
 - **Management Logic (2026-04-10)**:
   - **Comprehensive Toggle**: `plugins/config.ts` — SmartThings, Tizen, AI Agent 등 14종의 실험실 플러그인 전체에 대해 개별 가시성 플래그 제공.
@@ -171,6 +177,7 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - Header: `px-6 pt-4 pb-3`, 타이틀 간격 `mb-0.5`
   - Content: `py-4`, 섹션 간격 `space-y-8`
   - Section Title: `mb-4`, 아이콘 패딩 `p-1.5`
+- **Scrollbar Stabilization (2026-04-29)**: 스크롤바 출현 시 레이아웃 흔들림(Shift) 방지를 위해 `scrollbar-gutter: stable` 적용 및 슬림 스크롤바(6px)로 최적화. 🐧✨
 
 ---
 *Last Updated: 2026-04-29 (App Hub Layout Optimization)*

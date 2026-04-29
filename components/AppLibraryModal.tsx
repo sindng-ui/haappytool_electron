@@ -141,7 +141,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
               variants={{
                 visible: { transition: { staggerChildren: 0.03, delayChildren: 0.02 } }
               }}
-              className="flex-1 overflow-y-auto px-8 py-4 custom-scrollbar"
+              className="flex-1 overflow-y-auto px-8 py-4 scrollbar-stable"
             >
               <div className="space-y-8">
                 <Section 

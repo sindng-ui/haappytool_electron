@@ -45,7 +45,7 @@ const AppHub: React.FC<AppHubProps> = ({
           title="Open App Library"
         >
           <Lucide.LayoutGrid size={22} className={`${isHovered ? 'rotate-90' : ''} transition-transform duration-500`} />
-          <div className="absolute -top-1 -right-1 w-3 h-3 bg-pink-500 rounded-full border-2 border-slate-950 animate-pulse shadow-[0_0_8px_rgba(236,72,153,0.5)]"></div>
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-950 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
         </button>
       </div>
 
