@@ -352,7 +352,7 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - Content: `py-4`, 섹션 간격 `space-y-8`
   - Section Title: `mb-4`, 아이콘 패딩 `p-1.5`
 - **Scrollbar Stabilization (2026-04-29)**: 스크롤바 출현 시 레이아웃 흔들림(Shift) 방지를 위해 `scrollbar-gutter: stable` 적용 및 슬림 스크롤바(6px)로 최적화. 🐧✨
-- **Animation Optimization (2026-04-29)**: 등장(`tween: 0.5s`)과 호버(`spring: bouncy`) 로직을 완전 분리하여 CSS 간섭 없는 즉각적인 인터랙션 구현. 🐧⚡
+- **Animation Optimization (2026-04-29)**: 등장(`tween`)과 호버(`spring`)의 완전한 로직 분리 및 절제된 탄성(`bounce: 0.15`, `damping: 28`)을 적용하여 명품급 인터랙션 손맛 완성. 🐧💎⚡
 
 ---
 *Last Updated: 2026-04-29 (App Hub Layout Optimization)*

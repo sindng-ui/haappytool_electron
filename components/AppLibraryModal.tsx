@@ -278,12 +278,12 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
         }
       }}
       whileHover={{ 
-        y: -12, 
-        scale: 1.06, 
+        y: -8, 
+        scale: 1.04, 
         rotate: 0,
-        transition: { type: "spring", stiffness: 600, damping: 15, bounce: 0.4 } 
+        transition: { type: "spring", stiffness: 400, damping: 28, bounce: 0.15 } 
       }}
-      whileTap={{ scale: 0.92 }}
+      whileTap={{ scale: 0.96 }}
       onClick={onSelect}
       onContextMenu={onRightClick}
       style={{ willChange: isGlassy ? 'transform, backdrop-filter' : 'transform' }}
