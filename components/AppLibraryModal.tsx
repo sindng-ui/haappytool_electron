@@ -139,7 +139,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
               initial="hidden"
               animate="visible"
               variants={{
-                visible: { transition: { staggerChildren: 0.03, delayChildren: 0.02 } }
+                visible: { transition: { staggerChildren: 0.05, delayChildren: 0.1 } }
               }}
               className="flex-1 overflow-y-auto px-8 py-4 scrollbar-stable"
             >
@@ -265,21 +265,24 @@ const AppCard = React.memo(({ plugin, isActive, isPinned, onSelect, onTogglePin,
           rotate: 0,
           scale: 1,
           transition: {
-            type: "spring",
-            damping: 12 + (plugin.id.length % 5), // 🐧 앱마다 다른 댐핑
-            stiffness: 90 + (plugin.id.length % 7) * 10, // 🐧 앱마다 다른 강도
-            mass: 0.5 + (plugin.id.length % 3) * 0.15, // 🐧 더 가벼운 물리 법칙
-            delay: idx * 0.01 + (plugin.id.length % 4) * 0.005, // 🐧 딜레이 대폭 축소
-            velocity: 2
+            type: "tween",
+            ease: "easeOut",
+            duration: 0.5, // 🐧 형님이 좋아하시는 그 굼뜬 CSS 느낌을 그대로 재현!
+            delay: 0.3 + idx * 0.02 + (plugin.id.length % 4) * 0.01 // 🐧 0.3초 기본 대기 후 제각각 등장
           }
         }
       }}
-      whileHover={{ y: -10, scale: 1.05, rotate: 0 }}
-      whileTap={{ scale: 0.95 }}
+      whileHover={{ 
+        y: -12, 
+        scale: 1.06, 
+        rotate: 0,
+        transition: { type: "spring", stiffness: 600, damping: 15, bounce: 0.4 } 
+      }}
+      whileTap={{ scale: 0.92 }}
       onClick={onSelect}
       onContextMenu={onRightClick}
       style={{ willChange: isGlassy ? 'transform, backdrop-filter' : 'transform' }}
-      className={`group relative flex transition-[transform,opacity,background-color,border-color,box-shadow] duration-500 hover:duration-100 border overflow-hidden rounded-[40px] ${sizeClasses[variant]} ${isActive
+      className={`group relative flex transition-[background-color,border-color,box-shadow] duration-300 border overflow-hidden rounded-[40px] ${sizeClasses[variant]} ${isActive
         ? `bg-slate-900 border-indigo-500 shadow-[0_30px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(99,102,241,0.3)]`
         : isGlassy
           ? `bg-white/[0.12] backdrop-blur-2xl border-white/20 hover:border-white/40 hover:bg-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] ring-1 ring-white/15`
