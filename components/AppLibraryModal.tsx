@@ -107,9 +107,9 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
             className="relative w-full max-w-2xl max-h-[90vh] mt-16 ml-2 bg-[#080B14] border border-white/10 rounded-[32px] shadow-[0_50px_120px_rgba(0,0,0,1)] flex flex-col overflow-hidden pointer-events-auto"
           >
             {/* Header */}
-            <div className="px-6 pt-4 pb-3 flex items-center justify-between border-b border-white/5 bg-slate-900/40">
+            <div className="px-6 py-2.5 flex items-center justify-between border-b border-white/5 bg-slate-900/40">
               <div>
-                <div className="flex items-center gap-2 mb-0.5">
+                <div className="flex items-center gap-2 mb-0">
                   <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,1)]" />
                   <h2 className="text-xl font-black text-white tracking-tight">APP HUB</h2>
 
