@@ -167,7 +167,10 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - **Static Grid System**: 사용자 요청에 따라 드래그 앤 드롭 기능을 제거하고 안정적인 정적 그리드 레이아웃으로 복구.
   - **Core/Labs 섹션**: 'Pin' 버튼을 통해 상단 고정(Core) 영역과 하단(Labs) 영역 간 이동 가능.
   - **Icon Unification**: 모든 모듈 아이콘 크기를 일관성 있게 배치하여 시각적 안정성 확보.
+- **Layout Optimization V2 (2026-04-29)**: 사용자 피드백을 반영하여 여백을 더 과감하게 축소. 🐧⚡
+  - Header: `px-6 pt-4 pb-3`, 타이틀 간격 `mb-0.5`
+  - Content: `py-4`, 섹션 간격 `space-y-8`
+  - Section Title: `mb-4`, 아이콘 패딩 `p-1.5`
 
 ---
-*Last Updated: 2026-04-27 (App Hub Revamp & Plugin Header Standardization)*
-
+*Last Updated: 2026-04-29 (App Hub Layout Optimization)*

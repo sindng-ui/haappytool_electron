@@ -107,9 +107,9 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
             className="relative w-full max-w-2xl max-h-[90vh] mt-16 ml-2 bg-[#080B14] border border-white/10 rounded-[32px] shadow-[0_50px_120px_rgba(0,0,0,1)] flex flex-col overflow-hidden pointer-events-auto"
           >
             {/* Header */}
-            <div className="p-8 pb-4 flex items-center justify-between border-b border-white/5 bg-slate-900/40">
+            <div className="px-6 pt-4 pb-3 flex items-center justify-between border-b border-white/5 bg-slate-900/40">
               <div>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-0.5">
                   <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,1)]" />
                   <h2 className="text-xl font-black text-white tracking-tight">APP HUB</h2>
                   
@@ -141,9 +141,9 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
               variants={{
                 visible: { transition: { staggerChildren: 0.03, delayChildren: 0.02 } }
               }}
-              className="flex-1 overflow-y-auto px-8 py-8 custom-scrollbar"
+              className="flex-1 overflow-y-auto px-8 py-4 custom-scrollbar"
             >
-              <div className="space-y-16">
+              <div className="space-y-8">
                 <Section 
                   title="Pinned Tools" 
                   icon={<Lucide.Pin size={14} className="fill-current" />} 
@@ -195,12 +195,12 @@ const Section = React.memo(({ title, icon, plugins, activeId, enabledSet, onSele
       }}
       className="relative"
     >
-      <div className="flex items-center gap-3 mb-10">
-        <div className="p-3 rounded-2xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 shadow-lg shadow-indigo-500/10">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-1.5 rounded-2xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 shadow-lg shadow-indigo-500/10">
           {icon}
         </div>
         <h3 className="text-[11px] font-black text-slate-400 tracking-[0.3em] uppercase">{title}</h3>
-        <div className="h-px flex-1 bg-gradient-to-r from-white/10 via-white/5 to-transparent ml-8" />
+        <div className="h-px flex-1 bg-gradient-to-r from-white/10 via-white/5 to-transparent ml-5" />
       </div>
       
       <motion.div layout className="grid grid-cols-4 gap-5 grid-flow-row-dense">
