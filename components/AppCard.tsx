@@ -110,10 +110,14 @@ const AppCard: React.FC<AppCardProps> = ({
       className={`group relative flex transition-[background-color,border-color,box-shadow] duration-500 border overflow-hidden rounded-[40px] transform-gpu ${sizeClasses[variant]} ${isActive
         ? `bg-slate-900 border-indigo-500 shadow-[0_30px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(99,102,241,0.3)]`
         : isGlassy
-          ? `bg-white/[0.12] backdrop-blur-2xl border-white/20 hover:border-white/40 hover:bg-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] ring-1 ring-white/15`
-          : `bg-white/[0.03] border-white/5 hover:border-white/20 hover:bg-white/[0.08]`
+          ? `bg-white/[0.08] backdrop-blur-md border-white/30 hover:border-white/50 hover:bg-white/[0.12] shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] ring-1 ring-white/20`
+          : `bg-white/[0.03] border-white/10 hover:border-white/20 hover:bg-white/[0.08]`
         }`}
     >
+      {/* 🐧 Glass Shine - 상단 광택 효과 추가 */}
+      {isGlassy && !isActive && (
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none z-10" />
+      )}
       {/* Glass Highlight */}
       {isGlassy && !isActive && (
         <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent opacity-60 pointer-events-none z-0" />
