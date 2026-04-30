@@ -96,10 +96,15 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
               type: "spring", 
               damping: 25, 
               stiffness: 400,
-              staggerChildren: 0.08, // 🐧 섹션 간의 미세한 시차 부여
-              delayChildren: 0.1
+              staggerChildren: 0.08,
+              delayChildren: 0.25
             }}
-            className="relative w-full max-w-2xl max-h-[90vh] mt-16 ml-2 bg-[#080B14] border border-white/10 rounded-[32px] shadow-[0_50px_120px_rgba(0,0,0,1)] flex flex-col overflow-hidden pointer-events-auto"
+            style={{ 
+              willChange: 'transform, opacity',
+              backfaceVisibility: 'hidden',
+              transformStyle: 'preserve-3d'
+            }}
+            className="relative w-full max-w-2xl max-h-[90vh] mt-16 ml-2 bg-[#080B14] border border-white/10 rounded-[32px] shadow-[0_30px_80px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden pointer-events-auto"
           >
             {/* Header */}
             <div className="px-6 py-2.5 flex items-center justify-between border-b border-white/5 bg-slate-900/40">
@@ -129,7 +134,10 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto px-8 py-4 scrollbar-stable">
+            <div 
+              className="flex-1 overflow-y-auto px-8 py-4 scrollbar-stable"
+              style={{ scrollbarGutter: 'stable', transform: 'translateZ(0)' }}
+            >
               <div className="space-y-8 pb-4">
                 <Section
                   title="Pinned Tools"

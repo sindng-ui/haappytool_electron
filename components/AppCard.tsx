@@ -113,7 +113,12 @@ const AppCard: React.FC<AppCardProps> = ({
       whileTap={{ scale: 0.98 }}
       onClick={onSelect}
       onContextMenu={onRightClick}
-      style={{ willChange: 'transform, opacity, filter' }}
+      style={{ 
+        willChange: 'transform, opacity, filter',
+        backfaceVisibility: 'hidden',
+        WebkitFontSmoothing: 'antialiased',
+        transformStyle: 'preserve-3d'
+      }}
       className={`group relative flex transition-[background-color,border-color,box-shadow] duration-500 border overflow-hidden rounded-[40px] transform-gpu ${sizeClasses[variant]} ${isActive
         ? `bg-slate-900 border-indigo-500 shadow-[0_30px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(99,102,241,0.3)]`
         : isGlassy
