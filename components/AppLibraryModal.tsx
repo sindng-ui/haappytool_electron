@@ -135,10 +135,21 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
 
             {/* Scrollable Content */}
             <div 
-              className="flex-1 overflow-y-auto px-8 py-4 scrollbar-stable"
+              className="flex-1 overflow-y-auto px-8 py-4 scrollbar-stable relative"
               style={{ scrollbarGutter: 'stable', transform: 'translateZ(0)' }}
             >
-              <div className="space-y-8 pb-4">
+              {/* 🐧 Noise Texture - 아날로그 감성 입자 */}
+              <div className="noise-overlay" />
+              
+              {/* SVG Noise Filter Definition */}
+              <svg className="hidden">
+                <filter id="noiseFilter">
+                  <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="3" stitchTiles="stitch" />
+                  <feColorMatrix type="saturate" values="0" />
+                </filter>
+              </svg>
+
+              <div className="space-y-8 pb-4" style={{ contentVisibility: 'auto' } as any}>
                 <Section
                   title="Pinned Tools"
                   icon={<Lucide.Pin size={14} className="fill-current" />}

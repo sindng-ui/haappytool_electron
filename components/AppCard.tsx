@@ -135,6 +135,9 @@ const AppCard: React.FC<AppCardProps> = ({
         <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent opacity-60 pointer-events-none z-0" />
       )}
 
+      {/* 💎 Liquid Shine - 마우스 호버 시 빛이 흐르는 효과 */}
+      {!isActive && <div className="liquid-shine z-20 pointer-events-none" />}
+
       {/* Background Aura */}
       <div className={`absolute inset-0 opacity-0 group-hover:opacity-30 bg-gradient-to-br ${theme.base} transition-opacity duration-200`} />
 
