@@ -354,6 +354,10 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 - **Scrollbar Stabilization (2026-04-29)**: 스크롤바 출현 시 레이아웃 흔들림(Shift) 방지를 위해 `scrollbar-gutter: stable` 적용 및 슬림 스크롤바(6px)로 최적화. 🐧✨
 - **Animation Optimization (2026-04-29)**: 등장(`tween`)과 호버(`spring`)의 완전한 로직 분리 및 절제된 탄성(`bounce: 0.15`, `damping: 28`)을 적용하여 명품급 인터랙션 손맛 완성. 🐧💎⚡
 - **Card Size Persistence (2026-04-30)**: 앱 카드 크기(normal, wide, large) 변경 사항을 `localStorage`에 저장하여 앱 재시작 시에도 유지되도록 개선. 🐧💾🚀
+- **Performance Tuning (2026-05-01)**: 모달 오픈 및 카드 등장 애니메이션 성능 최적화. 🐧🏎️💨
+  - GPU 가속 강화 (`transform-gpu`, `will-change: filter`)
+  - 레이아웃 연산 최적화 (`layout="position"`)
+  - 렌더링 부하 분산 (`staggerChildren` 오케스트레이션)
 
 ---
-*Last Updated: 2026-04-30 (App Hub Card Size Persistence)*
+*Last Updated: 2026-05-01 (App Hub Performance Tuning)*

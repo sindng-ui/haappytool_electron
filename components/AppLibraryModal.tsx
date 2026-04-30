@@ -92,7 +92,13 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
             initial={{ opacity: 0, scale: 0.98, y: -20, originX: 0, originY: 0 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 400 }}
+            transition={{ 
+              type: "spring", 
+              damping: 25, 
+              stiffness: 400,
+              staggerChildren: 0.08, // 🐧 섹션 간의 미세한 시차 부여
+              delayChildren: 0.1
+            }}
             className="relative w-full max-w-2xl max-h-[90vh] mt-16 ml-2 bg-[#080B14] border border-white/10 rounded-[32px] shadow-[0_50px_120px_rgba(0,0,0,1)] flex flex-col overflow-hidden pointer-events-auto"
           >
             {/* Header */}

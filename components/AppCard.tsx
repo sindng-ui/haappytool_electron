@@ -106,8 +106,8 @@ const AppCard: React.FC<AppCardProps> = ({
       whileTap={{ scale: 0.98 }}
       onClick={onSelect}
       onContextMenu={onRightClick}
-      style={{ willChange: 'transform, opacity' }}
-      className={`group relative flex transition-[background-color,border-color,box-shadow] duration-300 border overflow-hidden rounded-[40px] ${sizeClasses[variant]} ${isActive
+      style={{ willChange: 'transform, opacity, filter' }}
+      className={`group relative flex transition-[background-color,border-color,box-shadow] duration-500 border overflow-hidden rounded-[40px] transform-gpu ${sizeClasses[variant]} ${isActive
         ? `bg-slate-900 border-indigo-500 shadow-[0_30px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(99,102,241,0.3)]`
         : isGlassy
           ? `bg-white/[0.12] backdrop-blur-2xl border-white/20 hover:border-white/40 hover:bg-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] ring-1 ring-white/15`
@@ -124,14 +124,14 @@ const AppCard: React.FC<AppCardProps> = ({
 
       {/* Ghost Typography */}
       {variant === 'large' && (
-        <div className="absolute top-10 -left-6 text-white/[0.03] text-9xl font-black italic select-none pointer-events-none transform -rotate-12 uppercase whitespace-nowrap">
+        <div className="absolute top-10 -left-6 text-white/[0.03] text-9xl font-black italic select-none pointer-events-none transform-gpu -rotate-12 uppercase whitespace-nowrap">
           {plugin.name}
         </div>
       )}
 
       {/* Icon Wrapper */}
       <div className={`
-        flex items-center justify-center transition-all duration-700 relative z-10 shrink-0 shadow-2xl
+        flex items-center justify-center transition-[transform,background-color,box-shadow] duration-500 relative z-10 shrink-0 shadow-2xl transform-gpu
         ${variant === 'large' ? 'w-24 h-24 rounded-[36px]' : 'w-14 h-14 rounded-[20px]'}
         ${isActive ? `bg-gradient-to-br ${theme.base} text-white shadow-2xl ${theme.glow}` : `${theme.bg} ${theme.text} bg-opacity-80 group-hover:bg-opacity-100 group-hover:scale-105`}
       `}>
@@ -150,7 +150,7 @@ const AppCard: React.FC<AppCardProps> = ({
       {/* Pinned Marker */}
       <button
         onClick={(e) => onTogglePin(plugin.id, e)}
-        className={`absolute top-2.5 right-2.5 w-8 h-8 flex items-center justify-center rounded-full transition-all duration-300 z-30 ${isPinned
+        className={`absolute top-2.5 right-2.5 w-8 h-8 flex items-center justify-center rounded-full transition-[transform,background-color,color] duration-300 z-30 transform-gpu ${isPinned
           ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 shadow-inner'
           : 'text-white/40 bg-white/10 group-hover:text-white group-hover:bg-white/20 hover:scale-110 active:scale-90'
           }`}

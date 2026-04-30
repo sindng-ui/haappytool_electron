@@ -56,7 +56,10 @@ const Section: React.FC<SectionProps> = ({
         <div className="h-px flex-1 bg-gradient-to-r from-white/10 via-white/5 to-transparent ml-5" />
       </div>
 
-      <motion.div layout className="grid grid-cols-4 gap-5 grid-flow-row-dense">
+      <motion.div 
+        layout="position" 
+        className="grid grid-cols-4 gap-5 grid-flow-row-dense"
+      >
         {plugins.map((plugin: HappyPlugin, idx: number) => {
           let variant = pluginSizes[plugin.id];
 
