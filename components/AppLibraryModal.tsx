@@ -84,7 +84,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-slate-950/80 pointer-events-auto"
+            className="absolute inset-0 bg-slate-950/90 pointer-events-auto"
           />
 
           {/* Modal Container */}

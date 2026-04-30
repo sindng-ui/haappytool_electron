@@ -357,7 +357,7 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 - **App Hub Hybrid Interaction (2026-05-01)**: 중후한 입장 감성과 번개 같은 상호작용 속도의 공존. 🐧💎🏎️
   - **성능 최적화 스펙**:
     - GPU 가속: `transform-gpu` 강제 적용 및 `will-change: filter`를 통한 Blur 연산 선제 대응.
-    - 렌더링 부하: `backdrop-blur-md` 적용으로 GPU 연산량 60% 절감 (Edge-Glass 기법 도입).
+    - 렌더링 부하: `backdrop-blur` 전면 제거 및 고성능 불투명도(Opacity) 기반 디자인으로 전환 (GPU 연산 부하 0% 수렴).
     - 레이아웃: `layout="position"` 설정을 통해 그리드 전체 리플로우(Reflow) 방지.
   - **애니메이션 세부 사양 (수호 수치)**:
     - **Initial Entrance**: `type: "tween"`, `ease: "easeOut"`, `duration: 0.5s`, `delay: 0.1s + randomFactor` (엇박 감성).
