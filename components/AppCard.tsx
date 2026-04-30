@@ -63,6 +63,8 @@ const AppCard: React.FC<AppCardProps> = ({
     };
   }, [plugin.id]);
 
+  const [isEntered, setIsEntered] = React.useState(false);
+
   const cardVariants = {
     hidden: {
       opacity: 1, // 🐧 투명도 없이 실체가 있는 상태에서 툭 튀어나오는 느낌
@@ -77,12 +79,14 @@ const AppCard: React.FC<AppCardProps> = ({
       x: 0,
       rotate: 0,
       scale: 1,
-      transition: {
-        type: "tween", // 🐧 형님이 좋아하시는 그 굼뜬 CSS 느낌을 위해 tween 사용
-        ease: "easeOut",
-        duration: 0.5,
-        delay: 0.1 + randomFactor.delay
-      }
+      transition: isEntered 
+        ? { type: "spring", stiffness: 500, damping: 30 } // 🐧 등장 후: 빠릿빠릿한 복귀
+        : {
+            type: "tween", // 🐧 최초 등장 시: 형님의 소중한 엇박 감성 그대로
+            ease: "easeOut",
+            duration: 0.5,
+            delay: 0.1 + randomFactor.delay
+          }
     }
   };
 
@@ -98,6 +102,7 @@ const AppCard: React.FC<AppCardProps> = ({
       initial="hidden"
       animate="visible"
       variants={cardVariants}
+      onAnimationComplete={() => setIsEntered(true)}
       whileHover={{ 
         y: -5, 
         scale: 1.02, 
