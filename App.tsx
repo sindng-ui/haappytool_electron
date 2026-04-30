@@ -161,6 +161,9 @@ const AppContent: React.FC = () => {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const toggleFocusMode = React.useCallback(() => setIsFocusMode(prev => !prev), []);
 
+  // Plugin Sizes State
+  const [pluginSizes, setPluginSizes] = useState<Record<string, 'normal' | 'wide' | 'large'>>({});
+
   // Reactive Ambient Mood
   const [ambientMood, setAmbientMood] = useState<'idle' | 'working' | 'error' | 'success'>('idle');
 
@@ -275,6 +278,10 @@ const AppContent: React.FC = () => {
           setToolOrder(ALL_PLUGINS.sort((a, b) => (a.order || 99) - (b.order || 99)).map(p => p.id));
         }
 
+        if (parsed.pluginSizes) {
+          setPluginSizes(parsed.pluginSizes);
+        }
+
         setIsSettingsLoaded(true);
       } catch (e) {
         console.error("Failed to load settings", e);
@@ -305,7 +312,8 @@ const AppContent: React.FC = () => {
         enabledPlugins,
         pluginOrder: toolOrder,
         defaultOutputFolder,
-        netTrafficSettings
+        netTrafficSettings,
+        pluginSizes
       };
 
       try {
@@ -324,7 +332,7 @@ const AppContent: React.FC = () => {
     }, 1000); // ✅ 1-second debounce
  
     return () => clearTimeout(timer);
-  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins, toolOrder, defaultOutputFolder, netTrafficSettings]);
+  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins, toolOrder, defaultOutputFolder, netTrafficSettings, pluginSizes]);
 
   // ✅ Performance: Memoize export/import handlers
   const handleExportSettings = React.useCallback(() => {
@@ -667,6 +675,8 @@ const AppContent: React.FC = () => {
               setEnabledPlugins={setEnabledPlugins}
               pluginOrder={toolOrder}
               onReorderPlugins={setToolOrder}
+              pluginSizes={pluginSizes}
+              setPluginSizes={setPluginSizes}
               activePluginId={activeTool}
               onSelectPlugin={handleSetActiveTool}
               onOpenSettings={() => setIsSettingsOpen(true)}

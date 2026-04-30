@@ -147,6 +147,7 @@ export interface AppSettings {
   mockEndpoints?: MockEndpoint[];
   defaultOutputFolder?: string; // ✅ NEW: CLI Default Output Folder
   netTrafficSettings?: NetTrafficSettings; // ✅ NEW: NetTraffic Analyer Settings for CLI sync
+  pluginSizes?: Record<string, 'normal' | 'wide' | 'large'>; // ✅ NEW: App Hub Card Sizes
 }
 
 export interface RequestGroup {

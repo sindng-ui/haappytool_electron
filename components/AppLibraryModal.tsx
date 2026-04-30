@@ -13,6 +13,8 @@ interface AppLibraryModalProps {
   activePluginId: string;
   onSelectPlugin: (id: string) => void;
   onOpenSettings?: () => void;
+  pluginSizes: Record<string, 'normal' | 'wide' | 'large'>;
+  setPluginSizes: React.Dispatch<React.SetStateAction<Record<string, 'normal' | 'wide' | 'large'>>>;
 }
 
 const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
@@ -23,7 +25,9 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
   setEnabledPlugins,
   activePluginId,
   onSelectPlugin,
-  onOpenSettings
+  onOpenSettings,
+  pluginSizes,
+  setPluginSizes
 }) => {
   // 🐧 Keyboard Interaction
   React.useEffect(() => {
@@ -36,7 +40,6 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
 
   // 🐧 Optimized States & Memoization
   const enabledSet = useMemo(() => new Set(enabledPlugins), [enabledPlugins]);
-  const [pluginSizes, setPluginSizes] = React.useState<Record<string, 'normal' | 'wide' | 'large'>>({});
 
   const togglePluginSize = useCallback((id: string, e: React.MouseEvent) => {
     e.preventDefault();
