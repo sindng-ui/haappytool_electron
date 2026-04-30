@@ -64,28 +64,28 @@ export const getCardVariants = (randomFactor: { delay: number, rotate: number, x
   }
 });
 
-const AppCard: React.FC<AppCardProps> = ({ 
-  plugin, 
-  isActive, 
-  isPinned, 
-  onSelect, 
-  onTogglePin, 
-  onRightClick, 
-  variant = 'normal', 
-  idx = 0, 
-  isGlassy = false 
+const AppCard: React.FC<AppCardProps> = ({
+  plugin,
+  isActive,
+  isPinned,
+  onSelect,
+  onTogglePin,
+  onRightClick,
+  variant = 'normal',
+  idx = 0,
+  isGlassy = false
 }) => {
   const Icon = plugin.icon || Lucide.Package;
   const theme = THEME_COLORS[plugin.id] || { base: 'from-slate-600 to-slate-800', glow: 'shadow-slate-500/30', text: 'text-slate-400', bg: 'bg-slate-700', border: 'border-slate-500' };
-  
+
   // 🐧 형님, 다시 그 불규칙한 감성을 살렸습니다!
   // ID 기반으로 고유의 지연시간과 각도를 계산합니다.
   const randomFactor = React.useMemo(() => {
     const sum = plugin.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
     return {
       delay: (sum % 12) * 0.05,
-      rotate: sum % 2 === 0 ? 3 : -3,
-      x: sum % 2 === 0 ? 15 : -15
+      rotate: sum % 2 === 0 ? 5 : -5, // 🐧 형님의 감성을 위해 다시 5도로 복구!
+      x: sum % 2 === 0 ? 8 : -8      // 🐧 잘림 방지를 위해 15px -> 8px로 소폭 하향
     };
   }, [plugin.id]);
 
@@ -105,21 +105,21 @@ const AppCard: React.FC<AppCardProps> = ({
       animate="visible"
       variants={cardVariants}
       onAnimationComplete={() => setIsEntered(true)}
-      whileHover={{ 
-        y: -5, 
-        scale: 1.02, 
-        transition: { type: "spring", stiffness: 400, damping: 25 } 
+      whileHover={{
+        y: -5,
+        scale: 1.02,
+        transition: { type: "spring", stiffness: 400, damping: 25 }
       }}
       whileTap={{ scale: 0.98 }}
       onClick={onSelect}
       onContextMenu={onRightClick}
-      style={{ 
+      style={{
         willChange: 'transform, opacity, filter',
         backfaceVisibility: 'hidden',
         WebkitFontSmoothing: 'antialiased',
         transformStyle: 'preserve-3d'
       }}
-      className={`group relative flex transition-[background-color,border-color,box-shadow] duration-500 border overflow-hidden rounded-[40px] transform-gpu ${sizeClasses[variant]} ${isActive
+      className={`group relative flex transition-[background-color,border-color,box-shadow,z-index] duration-500 border overflow-hidden rounded-[40px] transform-gpu hover:z-50 ${sizeClasses[variant]} ${isActive
         ? `bg-slate-900 border-indigo-500 shadow-[0_30px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(99,102,241,0.3)]`
         : isGlassy
           ? `bg-white/[0.12] border-white/40 hover:border-white/60 hover:bg-white/[0.18] shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] ring-1 ring-white/30`

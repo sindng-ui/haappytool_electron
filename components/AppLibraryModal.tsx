@@ -149,7 +149,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                 </filter>
               </svg>
 
-              <div className="space-y-8 pb-4" style={{ contentVisibility: 'auto' } as any}>
+              <div className="space-y-8 pb-4 px-4" style={{ contentVisibility: 'auto' } as any}>
                 <Section
                   title="Pinned Tools"
                   icon={<Lucide.Pin size={14} className="fill-current" />}
