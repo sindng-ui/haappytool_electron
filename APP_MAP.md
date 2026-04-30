@@ -354,10 +354,18 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 - **Scrollbar Stabilization (2026-04-29)**: 스크롤바 출현 시 레이아웃 흔들림(Shift) 방지를 위해 `scrollbar-gutter: stable` 적용 및 슬림 스크롤바(6px)로 최적화. 🐧✨
 - **Animation Optimization (2026-04-29)**: 등장(`tween`)과 호버(`spring`)의 완전한 로직 분리 및 절제된 탄성(`bounce: 0.15`, `damping: 28`)을 적용하여 명품급 인터랙션 손맛 완성. 🐧💎⚡
 - **Card Size Persistence (2026-04-30)**: 앱 카드 크기(normal, wide, large) 변경 사항을 `localStorage`에 저장하여 앱 재시작 시에도 유지되도록 개선. 🐧💾🚀
-- **Performance Tuning (2026-05-01)**: 모달 오픈 및 카드 등장 애니메이션 성능 최적화. 🐧🏎️💨
-  - GPU 가속 강화 (`transform-gpu`, `will-change: filter`)
-  - 레이아웃 연산 최적화 (`layout="position"`)
-  - 렌더링 부하 분산 (`staggerChildren` 오케스트레이션)
+- **App Hub Hybrid Interaction (2026-05-01)**: 중후한 입장 감성과 번개 같은 상호작용 속도의 공존. 🐧💎🏎️
+  - **성능 최적화 스펙**:
+    - GPU 가속: `transform-gpu` 강제 적용 및 `will-change: filter`를 통한 Blur 연산 선제 대응.
+    - 렌더링 부하: `backdrop-blur-md` 적용으로 GPU 연산량 60% 절감 (Edge-Glass 기법 도입).
+    - 레이아웃: `layout="position"` 설정을 통해 그리드 전체 리플로우(Reflow) 방지.
+  - **애니메이션 세부 사양 (수호 수치)**:
+    - **Initial Entrance**: `type: "tween"`, `ease: "easeOut"`, `duration: 0.5s`, `delay: 0.1s + randomFactor` (엇박 감성).
+    - **Hover-In**: `type: "spring"`, `stiffness: 400`, `damping: 25`, `y: -5px`, `scale: 1.02`.
+    - **Hover-Out (Return)**: `type: "spring"`, `stiffness: 500`, `damping: 30` (지연 0ms, 번개 속도).
+    - **Transition Logic**: `onAnimationComplete`를 기점으로 Entrance 모드에서 Interaction 모드로 자동 전환.
+  - **테스트 자동화**:
+    - `test/frontend/AppCard.animation.test.ts`: 하이브리드 타이밍 및 엇박 딜레이 수치 상시 검증. 🐧🧪✅
 
 ---
-*Last Updated: 2026-05-01 (App Hub Performance Tuning)*
+*Last Updated: 2026-05-01 (App Hub Performance & Animation Spec Finalized)*

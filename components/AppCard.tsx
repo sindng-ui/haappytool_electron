@@ -38,6 +38,32 @@ interface AppCardProps {
   isGlassy?: boolean;
 }
 
+// 🐧 형님, 테스트를 위해 애니메이션 수치를 계산하는 함수를 추출했습니다!
+export const getCardVariants = (randomFactor: { delay: number, rotate: number, x: number }, isEntered: boolean) => ({
+  hidden: {
+    opacity: 1,
+    y: 30,
+    x: randomFactor.x,
+    rotate: randomFactor.rotate,
+    scale: 0.9
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    x: 0,
+    rotate: 0,
+    scale: 1,
+    transition: isEntered
+      ? { type: "spring", stiffness: 500, damping: 30 } // 🐧 등장 후: 빠릿빠릿한 복귀
+      : {
+        type: "tween", // 🐧 최초 등장 시: 형님의 소중한 엇박 감성 그대로
+        ease: "easeOut",
+        duration: 0.5,
+        delay: 0.1 + randomFactor.delay
+      }
+  }
+});
+
 const AppCard: React.FC<AppCardProps> = ({ 
   plugin, 
   isActive, 
@@ -64,31 +90,7 @@ const AppCard: React.FC<AppCardProps> = ({
   }, [plugin.id]);
 
   const [isEntered, setIsEntered] = React.useState(false);
-
-  const cardVariants = {
-    hidden: {
-      opacity: 1, // 🐧 투명도 없이 실체가 있는 상태에서 툭 튀어나오는 느낌
-      y: 30,
-      x: randomFactor.x,
-      rotate: randomFactor.rotate,
-      scale: 0.9
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      x: 0,
-      rotate: 0,
-      scale: 1,
-      transition: isEntered 
-        ? { type: "spring", stiffness: 500, damping: 30 } // 🐧 등장 후: 빠릿빠릿한 복귀
-        : {
-            type: "tween", // 🐧 최초 등장 시: 형님의 소중한 엇박 감성 그대로
-            ease: "easeOut",
-            duration: 0.5,
-            delay: 0.1 + randomFactor.delay
-          }
-    }
-  };
+  const cardVariants = React.useMemo(() => getCardVariants(randomFactor, isEntered), [randomFactor, isEntered]);
 
   const sizeClasses = {
     normal: 'col-span-1 row-span-1 h-28 flex-col justify-center gap-3 items-center text-center p-3',
