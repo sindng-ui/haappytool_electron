@@ -30,37 +30,34 @@ interface AppCardProps {
   plugin: HappyPlugin;
   isActive: boolean;
   isPinned: boolean;
-  onSelect: () => void;
+  onSelect: (id: string) => void;
   onTogglePin: (id: string, e: React.MouseEvent) => void;
-  onRightClick: (e: React.MouseEvent) => void;
+  onRightClick: (id: string, e: React.MouseEvent) => void;
   variant?: 'normal' | 'wide' | 'large';
   idx?: number;
   isGlassy?: boolean;
 }
 
-// 🐧 형님, 테스트를 위해 애니메이션 수치를 계산하는 함수를 추출했습니다!
-export const getCardVariants = (randomFactor: { delay: number, rotate: number, x: number }, isEntered: boolean) => ({
+// 🐧 형님, 성능을 위해 블러는 빼고 '애니메이션 곡선'의 정수로 승부합니다!
+export const getCardVariants = (randomFactor: { rotate: number, x: number }, idx: number) => ({
   hidden: {
-    opacity: 1,
-    y: 30,
-    x: randomFactor.x,
-    rotate: randomFactor.rotate,
-    scale: 0.9
+    opacity: 0,
+    y: 35,
+    rotate: idx % 2 === 0 ? 6 : -6,
+    scale: 0.88
   },
   visible: {
     opacity: 1,
     y: 0,
-    x: 0,
     rotate: 0,
     scale: 1,
-    transition: isEntered
-      ? { type: "spring", stiffness: 500, damping: 30 } // 🐧 등장 후: 빠릿빠릿한 복귀
-      : {
-        type: "tween", // 🐧 최초 등장 시: 형님의 소중한 엇박 감성 그대로
-        ease: "easeOut",
-        duration: 0.5,
-        delay: 0.1 + randomFactor.delay
-      }
+    transition: {
+      type: "spring",
+      stiffness: 260, // 🐧 기분 좋은 에너지 (Happy Bounce)
+      damping: 18,    // 🐧 약간 묵직하게 감속 (성능 최적화)
+      mass: 0.6,
+      delay: Math.pow(idx, 0.7) * 0.04
+    }
   }
 });
 
@@ -78,19 +75,14 @@ const AppCard: React.FC<AppCardProps> = ({
   const Icon = plugin.icon || Lucide.Package;
   const theme = THEME_COLORS[plugin.id] || { base: 'from-slate-600 to-slate-800', glow: 'shadow-slate-500/30', text: 'text-slate-400', bg: 'bg-slate-700', border: 'border-slate-500' };
 
-  // 🐧 형님, 다시 그 불규칙한 감성을 살렸습니다!
-  // ID 기반으로 고유의 지연시간과 각도를 계산합니다.
-  const randomFactor = React.useMemo(() => {
-    const sum = plugin.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const animationFactor = React.useMemo(() => {
     return {
-      delay: (sum % 12) * 0.05,
-      rotate: sum % 2 === 0 ? 5 : -5, // 🐧 형님의 감성을 위해 다시 5도로 복구!
-      x: sum % 2 === 0 ? 8 : -8      // 🐧 잘림 방지를 위해 15px -> 8px로 소폭 하향
+      rotate: idx % 2 === 0 ? 4 : -4,
+      x: idx % 2 === 0 ? 6 : -6
     };
-  }, [plugin.id]);
+  }, [idx]);
 
-  const [isEntered, setIsEntered] = React.useState(false);
-  const cardVariants = React.useMemo(() => getCardVariants(randomFactor, isEntered), [randomFactor, isEntered]);
+  const cardVariants = React.useMemo(() => getCardVariants(animationFactor, idx), [animationFactor, idx]);
 
   const sizeClasses = {
     normal: 'col-span-1 row-span-1 h-28 flex-col justify-center gap-3 items-center text-center p-3',
@@ -100,36 +92,34 @@ const AppCard: React.FC<AppCardProps> = ({
 
   return (
     <motion.button
-      layout={isEntered}
       initial="hidden"
       animate="visible"
       variants={cardVariants}
-      onAnimationComplete={() => setIsEntered(true)}
       whileHover={{
-        y: -5,
+        y: -8,
         scale: 1.02,
         transition: { type: "spring", stiffness: 400, damping: 25 }
       }}
       whileTap={{ scale: 0.98 }}
-      onClick={onSelect}
-      onContextMenu={onRightClick}
+      onClick={() => onSelect(plugin.id)}
+      onContextMenu={(e) => onRightClick(plugin.id, e)}
       style={{
         WebkitFontSmoothing: 'antialiased'
       }}
       className={`group relative flex transition-[background-color,border-color,box-shadow,z-index] duration-500 border overflow-hidden rounded-[40px] hover:z-50 ${sizeClasses[variant]} ${isActive
         ? `bg-slate-900 border-indigo-500 shadow-[0_30px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(99,102,241,0.3)]`
         : isGlassy
-          ? `bg-white/[0.08] border-white/20 hover:border-white/40 hover:bg-white/[0.15] shadow-lg ring-1 ring-white/10`
+          ? `bg-white/[0.08] border-white/20 hover:border-white/40 hover:bg-white/[0.15] shadow-xl ring-1 ring-white/10`
           : `bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/[0.05]`
         }`}
     >
-      {/* 🐧 Glass Shine - 상단 광택 효과 추가 */}
+      {/* 💎 Glass Shine - 상단 광택 효과 추가 */}
       {isGlassy && !isActive && (
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none z-10" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none z-10" />
       )}
       {/* Glass Highlight */}
       {isGlassy && !isActive && (
-        <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent opacity-60 pointer-events-none z-0" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-30 pointer-events-none z-0" />
       )}
 
       {/* 💎 Liquid Shine - 마우스 호버 시 빛이 흐르는 효과 */}
@@ -178,14 +168,10 @@ const AppCard: React.FC<AppCardProps> = ({
         )}
       </button>
 
-      {/* Selection Animated Border */}
+      {/* Selection Border - No LayoutId for performance */}
       {isActive && (
-        <motion.div
-          layoutId="activeIndicator"
-          className={`absolute inset-0 border-[3px] border-indigo-500/60 pointer-events-none z-20 ${variant === 'large' ? 'rounded-[40px]' : (variant === 'wide' ? 'rounded-[32px]' : 'rounded-[32px]')
-            }`}
-          initial={false}
-          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+        <div
+          className={`absolute inset-0 border-[3px] border-indigo-500/60 pointer-events-none z-20 ${variant === 'large' ? 'rounded-[40px]' : 'rounded-[32px]'}`}
         />
       )}
     </motion.button>

@@ -84,32 +84,46 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-slate-950/90 pointer-events-auto"
+            className="absolute inset-0 bg-slate-950/80 pointer-events-auto"
           />
 
           {/* Modal Container */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.98, y: -20, originX: 0, originY: 0 }}
+            initial={{ opacity: 0, scale: 0.95, y: -20, originX: 0, originY: 0 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.98, y: -20 }}
+            exit={{ opacity: 0, scale: 0.95, y: -20 }}
             transition={{ 
               type: "spring", 
-              damping: 25, 
+              damping: 30, 
               stiffness: 400,
-              staggerChildren: 0.08,
-              delayChildren: 0.25
+              delayChildren: 0.15
             }}
             style={{ 
               willChange: 'transform, opacity'
             }}
-            className="relative w-full max-w-2xl max-h-[90vh] mt-16 ml-2 bg-[#080B14] border border-white/10 rounded-[32px] shadow-[0_30px_80px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden pointer-events-auto"
+            className="relative w-full max-w-2xl max-h-[90vh] mt-16 ml-2 bg-[#0C111D] border border-white/10 rounded-[40px] shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden pointer-events-auto"
           >
             {/* Header */}
             <div className="px-6 py-2.5 flex items-center justify-between border-b border-white/5 bg-slate-900/40">
               <div>
                 <div className="flex items-center gap-2 mb-0">
-                  <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,1)]" />
-                  <h2 className="text-xl font-black text-white tracking-tight">APP HUB</h2>
+                  <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,1)] animate-pulse" />
+                  <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                    APP HUB
+                    <motion.span
+                      animate={{ 
+                        scale: [1, 1.2, 1],
+                        rotate: [0, 15, -15, 0]
+                      }}
+                      transition={{ 
+                        duration: 2, 
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    >
+                      <Lucide.Sparkles size={16} className="text-yellow-400 fill-yellow-400/30" />
+                    </motion.span>
+                  </h2>
 
                   {onOpenSettings && (
                     <button
@@ -133,10 +147,19 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
 
             {/* Scrollable Content */}
             <div 
-              className="flex-1 overflow-y-auto px-8 py-4 scrollbar-stable relative"
+              className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 scrollbar-stable relative"
               style={{ scrollbarGutter: 'stable', transform: 'translateZ(0)' }}
             >
-              {/* 노이즈 텍스처와 필터는 렌더링 성능을 위해 제거되었습니다. */}
+              {/* 🐧 Happy Aura Burst - 성능을 위해 CSS Blur 필터 대신 Radial Gradient 사용 */}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1.2 }}
+                transition={{ duration: 1.5, ease: "easeOut" }}
+                className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] pointer-events-none -z-10"
+                style={{
+                  background: 'radial-gradient(circle, rgba(79, 70, 229, 0.15) 0%, transparent 70%)'
+                }}
+              />
 
               <div className="space-y-8 pb-4 px-4" style={{ contentVisibility: 'auto' } as any}>
                 <Section

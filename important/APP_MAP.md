@@ -60,9 +60,8 @@
   - **Pinned Glassmorphism**: Pinned Tools 섹션의 앱들에 은은한 백그라운드 블러(`backdrop-blur-xl`)와 유리 질감 UI를 적용하여 프리미엄 감성 강화. [NEW]
   - **Aura & Ghost Typography**: 각 앱 고유 테마 컬러를 활용한 Radial Glow 효과와 배경 고스트 타이포그래피를 적용하여 프리미엄 디자인 완성. [NEW]
   - **Smart Popover Library**: 버튼 근처(`top-left`)에서 나타나는 콤팩트한 팝오버 레이아웃과 가변 카드 시스템의 시너지로 마우스 이동 거리 최소화 및 직관성 극대화. [UPDATED]
-  - **Performance Optimization**: 
-    - `AppCard`의 `layout` 속성을 조건부 지연(defer)시키고, 무거운 SVG Noise 필터와 과도한 GPU 레이어(`transform-gpu`)를 걷어내어 저사양 기기에서도 팝오버가 60fps로 매끄럽게 열리도록 최적화. [HOT][UPDATED]
-    - 컴포넌트 분리, `staggerChildren`을 통한 선언적 애니메이션 구현 및 `React.memo` 적용.
+    - `Pure Performance Architecture`: 버벅임의 주범인 `layout`, `layoutId`는 물론, GPU 부하를 주는 CSS `filter(blur, brightness)` 애니메이션을 완전히 제거함. 대신 하드웨어 가속이 보장되는 `transform`, `opacity` 및 `radial-gradient` 배경 효과를 사용하여 저사양 기기에서도 완벽한 60fps를 구현함. [HOT][NEW]
+    - `Happy & Abundant UX`: 에너제틱한 Happy Bounce와 곡선형 순차 지연(Organic Stagger), 그리고 반짝이는 헤더 애니메이션을 통해 풍성하고 기분 좋은 첫인상을 제공함. [NEW]
   - **Dynamic Active Badge**: 현재 실행 중인 플러그인 이름을 버튼 옆에 우아하게 표시하여 상태 가시성 확보. [NEW]
   - **Zero-Sidebar Synergy**: 사이드바가 없는 광활한 공간을 유지하면서도, 버튼 하나로 모든 네비게이션을 버튼 근처에서 해결.
 

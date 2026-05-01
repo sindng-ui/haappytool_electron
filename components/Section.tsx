@@ -57,7 +57,7 @@ const Section: React.FC<SectionProps> = ({
       </div>
 
       <motion.div 
-        className="grid grid-cols-4 gap-5 grid-flow-row-dense overflow-visible p-2"
+        className="grid grid-cols-4 gap-4 grid-flow-row-dense overflow-visible p-1"
       >
         {plugins.map((plugin: HappyPlugin, idx: number) => {
           let variant = pluginSizes[plugin.id];
@@ -78,10 +78,10 @@ const Section: React.FC<SectionProps> = ({
               variant={variant}
               isPinned={enabledSet.has(plugin.id)}
               isActive={plugin.id === activeId}
-              onSelect={() => onSelect(plugin.id)}
+              onSelect={onSelect}
               onTogglePin={onTogglePin}
               isGlassy={isGlassy}
-              onRightClick={(e: React.MouseEvent) => onRightClick(plugin.id, e)}
+              onRightClick={onRightClick}
             />
           );
         })}
