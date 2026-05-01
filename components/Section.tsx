@@ -57,6 +57,7 @@ const Section: React.FC<SectionProps> = ({
       </div>
 
       <motion.div 
+        layout
         className="grid grid-cols-4 gap-4 grid-flow-row-dense overflow-visible p-1"
       >
         {plugins.map((plugin: HappyPlugin, idx: number) => {

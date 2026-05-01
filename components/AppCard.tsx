@@ -123,6 +123,10 @@ const AppCard: React.FC<AppCardProps> = ({
 
   return (
     <motion.button
+      layout
+      transition={{ 
+        layout: { type: "spring", stiffness: 250, damping: 28, mass: 0.5 }
+      }}
       initial="hidden"
       animate="visible"
       variants={cardVariants}
