@@ -42,7 +42,9 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
   const enabledSet = useMemo(() => new Set(enabledPlugins), [enabledPlugins]);
 
   const [isLabsCollapsed, setIsLabsCollapsed] = React.useState(() => {
-    return localStorage.getItem('happy_app_hub_labs_collapsed') === 'true';
+    const saved = localStorage.getItem('happy_app_hub_labs_collapsed');
+    // 🐧 기본적으로 접힌 상태(true)로 시작하며, 사용자가 명시적으로 설정한 값을 우선합니다.
+    return saved === null ? true : saved === 'true';
   });
 
   const toggleLabsCollapse = useCallback(() => {
