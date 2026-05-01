@@ -62,6 +62,9 @@
   - **Smart Popover Library**: 버튼 근처(`top-left`)에서 나타나는 콤팩트한 팝오버 레이아웃과 가변 카드 시스템의 시너지로 마우스 이동 거리 최소화 및 직관성 극대화. [UPDATED]
     - `Pure Performance Architecture`: 버벅임의 주범인 `layout`, `layoutId`는 물론, GPU 부하를 주는 CSS `filter(blur, brightness)` 애니메이션을 완전히 제거함. 대신 하드웨어 가속이 보장되는 `transform`, `opacity` 및 `radial-gradient` 배경 효과를 사용하여 저사양 기기에서도 완벽한 60fps를 구현함. [HOT][NEW]
     - `Happy & Abundant UX`: 에너제틱한 Happy Bounce와 곡선형 순차 지연(Organic Stagger), 그리고 반짝이는 헤더 애니메이션을 통해 풍성하고 기분 좋은 첫인상을 제공함. [NEW]
+    - `Layered Premium Motion`: 카드 입성 후 아이콘이 별도로 팝핑되는 2단계 애니메이션과 은은한 아우라 펄스를 적용하여 레이어의 깊이감을 극대화함. [NEW]
+    - `Collapsible Sections`: Labs 등 섹션을 접고 펼 수 있는 기능을 추가하여 시각적 복잡도를 낮추고 성능을 추가로 확보함. 접힘 상태는 `localStorage`에 영구 저장됨. [NEW]
+    - `Animation Specification UT`: 새로운 프리미엄 스프링 사양에 맞춰 프론트엔드 애니메이션 단위 테스트를 최신화함. [UPDATED]
   - **Dynamic Active Badge**: 현재 실행 중인 플러그인 이름을 버튼 옆에 우아하게 표시하여 상태 가시성 확보. [NEW]
   - **Zero-Sidebar Synergy**: 사이드바가 없는 광활한 공간을 유지하면서도, 버튼 하나로 모든 네비게이션을 버튼 근처에서 해결.
 

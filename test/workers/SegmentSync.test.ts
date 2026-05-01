@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
+
 import { LogRule, LogMetadata } from '../../types';
 import { extractTimestamp } from '../../utils/logTime';
 import { extractSourceMetadata } from '../../utils/perfAnalysis';
@@ -31,14 +30,21 @@ const mockRule: LogRule = {
 describe('Analyze Diff Segment Synchronization', () => {
 
     it('Should synchronize segments precisely by fileName, functionName, and codeLineNum', () => {
-        const leftLogPath = path.join(__dirname, '../../test/test_startup.log');
-        const rightLogPath = path.join(__dirname, '../../test/test_startup_2.log');
+        const mockLeftLog = `
+[1000.000] 100.001 I/TAG (P 1, T 1): main.cpp: Init(10) > System Boot
+[1000.100] 100.101 I/TAG (P 1, T 1): main.cpp: OnCreate(20) > OnCreate
+[1000.200] 100.201 I/TAG (P 1, T 1): main.cpp: OnStart(30) > OnStart
+[1000.300] 100.301 I/TAG (P 1, T 1): main.cpp: OnResume(40) > OnResume
+        `;
+        const mockRightLog = `
+[2000.000] 200.001 I/TAG (P 2, T 2): main.cpp: Init(10) > System Boot (New)
+[2000.150] 200.151 I/TAG (P 2, T 2): main.cpp: OnCreate(20) > OnCreate
+[2000.250] 200.251 I/TAG (P 2, T 2): main.cpp: OnStart(30) > OnStart
+[2000.350] 200.351 I/TAG (P 2, T 2): main.cpp: OnResume(40) > OnResume
+        `;
 
-        const leftContent = fs.readFileSync(leftLogPath, 'utf-8');
-        const rightContent = fs.readFileSync(rightLogPath, 'utf-8');
-
-        const leftLines = leftContent.split(/\r?\n/).filter(l => l.trim().length > 0);
-        const rightLines = rightContent.split(/\r?\n/).filter(l => l.trim().length > 0);
+        const leftLines = mockLeftLog.split(/\r?\n/).filter(l => l.trim().length > 0);
+        const rightLines = mockRightLog.split(/\r?\n/).filter(l => l.trim().length > 0);
 
         // 1. 메타데이터 및 시퀀스 추출
         const parseLogs = (lines: string[]) => {
