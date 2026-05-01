@@ -41,6 +41,18 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
   // 🐧 Optimized States & Memoization
   const enabledSet = useMemo(() => new Set(enabledPlugins), [enabledPlugins]);
 
+  const [isLabsCollapsed, setIsLabsCollapsed] = React.useState(() => {
+    return localStorage.getItem('happy_app_hub_labs_collapsed') === 'true';
+  });
+
+  const toggleLabsCollapse = useCallback(() => {
+    setIsLabsCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('happy_app_hub_labs_collapsed', String(next));
+      return next;
+    });
+  }, []);
+
   const togglePluginSize = useCallback((id: string, e: React.MouseEvent) => {
     e.preventDefault();
     setPluginSizes(prev => {
@@ -145,23 +157,23 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
               </button>
             </div>
 
+            {/* 🐧 Happy Aura Burst - 컨텐츠가 아닌 모달 배경에 고정하여 스크롤 유발 방지 */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1.2 }}
+              transition={{ duration: 1.5, ease: "easeOut" }}
+              className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] pointer-events-none z-0"
+              style={{
+                background: 'radial-gradient(circle, rgba(79, 70, 229, 0.12) 0%, transparent 70%)'
+              }}
+            />
+
             {/* Scrollable Content */}
             <div 
-              className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 scrollbar-stable relative"
+              className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 scrollbar-stable relative z-10"
               style={{ scrollbarGutter: 'stable', transform: 'translateZ(0)' }}
             >
-              {/* 🐧 Happy Aura Burst - 성능을 위해 CSS Blur 필터 대신 Radial Gradient 사용 */}
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1.2 }}
-                transition={{ duration: 1.5, ease: "easeOut" }}
-                className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] pointer-events-none -z-10"
-                style={{
-                  background: 'radial-gradient(circle, rgba(79, 70, 229, 0.15) 0%, transparent 70%)'
-                }}
-              />
-
-              <div className="space-y-8 pb-4 px-4" style={{ contentVisibility: 'auto' } as any}>
+              <div className="pb-4 px-4" style={{ contentVisibility: 'auto' } as any}>
                 <Section
                   title="Pinned Tools"
                   icon={<Lucide.Pin size={14} className="fill-current" />}
@@ -190,6 +202,8 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                   isBento={false}
                   isGlassy={false}
                   startIndex={corePlugins.length}
+                  isCollapsed={isLabsCollapsed}
+                  onToggleCollapse={toggleLabsCollapse}
                 />
               </div>
             </div>
