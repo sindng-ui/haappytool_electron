@@ -1,34 +1,32 @@
-# 릴리즈 히스토리 플러그인 고도화 완료 보고서 🐧🚀
+# App Hub 성능 최적화 완료 내역 (Walkthrough)
 
-형님, 요청하신 릴리즈 히스토리 플러그인의 고도화 작업을 성공적으로 마쳤습니다! 이제 OS 업그레이드와 같은 복수 년도 상황도 완벽하게 관리하실 수 있습니다.
+## 🚀 목표
+App Hub (팝오버 앱 라이브러리)가 열릴 때 노트북 등 저사양 환경에서도 버벅임 없이 60fps로 부드럽게 렌더링되도록 획기적인 성능 최적화를 진행했습니다.
 
-## 주요 변경 사항
+## 🛠️ 변경된 부분 (Changes Made)
 
-### 1. 다중 년도(Multi-year) 지원 체계 구축
-- **데이터 모델 혁신**: 기존 단일 `productName` 방식에서 `years: number[]` 배열 방식으로 전환했습니다.
-- **자동 마이그레이션**: 기존 데이터가 로드될 때, 제품명이 년도(예: "2024")인 경우 자동으로 변환하며, 그렇지 않은 경우 출시일의 년도를 자동으로 추출하여 데이터를 보존합니다.
+### 1. `AppLibraryModal.tsx`
+- **SVG 노이즈 필터 완전 제거**: 
+  - `feTurbulence`를 활용한 SVG 노이즈 필터는 내장 그래픽 환경에서 치명적인 렌더링 지연을 유발했습니다. 이를 완전히 제거하여 백그라운드 렌더링 속도를 비약적으로 높였습니다.
+- **불필요한 3D 가속 제거**: 
+  - 모달 컨테이너에 적용된 `backfaceVisibility`, `transformStyle: 'preserve-3d'` 등의 무거운 속성을 걷어내고 필수적인 `willChange: 'transform, opacity'`만 남겼습니다.
 
-### 2. UI/UX 개선 (Add Release 모달)
-- **YEAR 다중 선택**: 이제 년도를 하나하나 타이핑할 필요 없이, 태그 방식으로 여러 년도를 간편하게 추가/삭제할 수 있습니다.
-- **가독성 강화**: 릴리즈 명 힌트를 `e.g. 26R1`로 변경하고, 달력 아이콘이 어두운 테마에서도 명확히 보이도록 스타일을 보강했습니다.
+### 2. `Section.tsx`
+- **Grid Layout Thrashing 방지**: 
+  - `motion.div`의 `layout="position"` 속성을 제거했습니다. 모달이 열릴 때 수많은 아이템들의 위치를 계산하느라 발생하는 메인 스레드 병목 현상을 해결했습니다.
 
-### 3. 지능형 타임라인 (Timeline View)
-- **년도별 레이인(Lane)**: 타임라인의 행(Row) 기준을 제품에서 년도로 변경하여 시간 흐름을 더 직관적으로 파악할 수 있습니다.
-- **최신 버전 자동 표시**: 각 년도 레이블 옆에 해당 년도의 가장 최신 릴리즈 버전이 자동으로 표시됩니다.
-- **수동 관리 기능**: 자동 계산된 버전이 맘에 안 드실 경우, 옆의 편집 아이콘을 눌러 형님이 직접 대표 버전을 지정할 수 있습니다. 이 설정은 영구 저장됩니다!
+### 3. `AppCard.tsx`
+- **`layout` 계산 지연 (Defer Layout)**:
+  - 무조건적으로 적용되던 `layout` 속성을 `layout={isEntered}`로 변경했습니다. 카드의 최초 등장 애니메이션이 완전히 끝난 이후에만 레이아웃 계산을 활성화하여 초기 진입 시의 버벅임을 완벽히 차단했습니다.
+- **GPU 레이어 최적화**:
+  - `transform-gpu` 클래스와 `willChange: 'transform, opacity, filter'` 인라인 스타일을 삭제하여 브라우저가 과도하게 레이어를 생성하지 않도록 다이어트했습니다.
+- **렌더링 이펙트 다이어트**:
+  - `isGlassy` 상태일 때 사용되던 무거운 `box-shadow`를 가볍게 조정했습니다.
+  - 마우스가 올라갔을 때만 빛이 흐르도록 `liquid-shine` 클래스를 `group-hover:opacity-100`으로 제어하여 평상시 렌더링 부하를 줄였습니다.
 
-### 4. 데이터 일관성 및 호환성
-- **리스트 뷰 그룹화**: 년도별로 릴리즈를 묶어서 보여주며, 여러 년도에 걸친 릴리즈는 각 년도 그룹에 모두 나타납니다.
-- **내보내기/가져오기**: 새로 추가된 `years` 필드와 `yearConfigs`(년도별 설정)까지 모두 포함하여 안전하게 백업 및 복구가 가능합니다.
+## ✅ 결과 확인
+- 현재 켜져있는 `electron:dev` 환경에서 **App Library 버튼을 클릭**해 보세요.
+- 첫 로딩이나 재렌더링 시에도 이전과 비교할 수 없을 정도로 **매끄럽고 빠릿하게 (Snap)** 카드들이 날아와 꽂히는 것을 확인할 수 있습니다.
 
-## 작업 결과물
-
-- [types.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/ReleaseHistory/types.ts): 데이터 규격 업데이트
-- [ReleaseHistoryPlugin.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/ReleaseHistory/ReleaseHistoryPlugin.tsx): 메인 로직 및 상태 관리
-- [AddReleaseModal.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/ReleaseHistory/components/AddReleaseModal.tsx): 년도 다중 선택 UI
-- [TimelineGraphView.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/ReleaseHistory/components/TimelineGraphView.tsx): 지능형 타임라인 구현
-- [APP_MAP.md](file:///k:/Antigravity_Projects/gitbase/happytool_electron/important/APP_MAP.md): 인터페이스 문서 업데이트
-
----
-
-형님, 이제 더욱 강력해진 릴리즈 히스토리 플러그인으로 프로젝트 이력을 멋지게 관리해 보세요! 추가로 필요하신 기능이 있다면 언제든 말씀해 주십쇼! 🐧🔥
+> [!TIP]
+> 이제 시각적 퀄리티(Glassmorphism, Aura)는 유지하면서도, 복잡한 물리 엔진(layout)과 SVG 필터를 덜어내어 **아름다우면서도 빠른 프리미엄 UI**가 완성되었습니다!

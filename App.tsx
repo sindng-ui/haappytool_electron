@@ -163,6 +163,9 @@ const AppContent: React.FC = () => {
 
   // Plugin Sizes State
   const [pluginSizes, setPluginSizes] = useState<Record<string, 'normal' | 'wide' | 'large'>>({});
+  
+  // Zoom Level State
+  const [zoomFactor, setZoomFactor] = useState<number>(1);
 
   // Reactive Ambient Mood
   const [ambientMood, setAmbientMood] = useState<'idle' | 'working' | 'error' | 'success'>('idle');
@@ -282,6 +285,13 @@ const AppContent: React.FC = () => {
           setPluginSizes(parsed.pluginSizes);
         }
 
+        if (parsed.zoomFactor) {
+          setZoomFactor(parsed.zoomFactor);
+          if (window.electronAPI?.setZoomFactor) {
+            window.electronAPI.setZoomFactor(parsed.zoomFactor);
+          }
+        }
+
         setIsSettingsLoaded(true);
       } catch (e) {
         console.error("Failed to load settings", e);
@@ -313,7 +323,8 @@ const AppContent: React.FC = () => {
         pluginOrder: toolOrder,
         defaultOutputFolder,
         netTrafficSettings,
-        pluginSizes
+        pluginSizes,
+        zoomFactor
       };
 
       try {
@@ -332,7 +343,7 @@ const AppContent: React.FC = () => {
     }, 1000); // ✅ 1-second debounce
  
     return () => clearTimeout(timer);
-  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins, toolOrder, defaultOutputFolder, netTrafficSettings, pluginSizes]);
+  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins, toolOrder, defaultOutputFolder, netTrafficSettings, pluginSizes, zoomFactor]);
 
   // ✅ Performance: Memoize export/import handlers
   const handleExportSettings = React.useCallback(() => {
@@ -607,6 +618,37 @@ const AppContent: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+  }, []);
+
+  // Global Zoom Shortcut
+  useEffect(() => {
+    const handleZoomKey = (e: KeyboardEvent) => {
+      if (!window.electronAPI?.setZoomFactor) return;
+
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === '=' || e.key === '+' || (e.shiftKey && (e.key === '+' || e.key === '='))) {
+          e.preventDefault();
+          setZoomFactor(prev => {
+            const next = Math.min(prev + 0.1, 3.0);
+            window.electronAPI.setZoomFactor(next);
+            return next;
+          });
+        } else if (e.key === '-') {
+          e.preventDefault();
+          setZoomFactor(prev => {
+            const next = Math.max(prev - 0.1, 0.5);
+            window.electronAPI.setZoomFactor(next);
+            return next;
+          });
+        } else if (e.key === '0') {
+          e.preventDefault();
+          setZoomFactor(1.0);
+          window.electronAPI.setZoomFactor(1.0);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleZoomKey, { capture: true });
+    return () => window.removeEventListener('keydown', handleZoomKey, { capture: true });
   }, []);
 
   // Focus Mode Shortcut (F11)

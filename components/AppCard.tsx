@@ -100,7 +100,7 @@ const AppCard: React.FC<AppCardProps> = ({
 
   return (
     <motion.button
-      layout
+      layout={isEntered}
       initial="hidden"
       animate="visible"
       variants={cardVariants}
@@ -114,16 +114,13 @@ const AppCard: React.FC<AppCardProps> = ({
       onClick={onSelect}
       onContextMenu={onRightClick}
       style={{
-        willChange: 'transform, opacity, filter',
-        backfaceVisibility: 'hidden',
-        WebkitFontSmoothing: 'antialiased',
-        transformStyle: 'preserve-3d'
+        WebkitFontSmoothing: 'antialiased'
       }}
-      className={`group relative flex transition-[background-color,border-color,box-shadow,z-index] duration-500 border overflow-hidden rounded-[40px] transform-gpu hover:z-50 ${sizeClasses[variant]} ${isActive
+      className={`group relative flex transition-[background-color,border-color,box-shadow,z-index] duration-500 border overflow-hidden rounded-[40px] hover:z-50 ${sizeClasses[variant]} ${isActive
         ? `bg-slate-900 border-indigo-500 shadow-[0_30px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(99,102,241,0.3)]`
         : isGlassy
-          ? `bg-white/[0.12] border-white/40 hover:border-white/60 hover:bg-white/[0.18] shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] ring-1 ring-white/30`
-          : `bg-white/[0.03] border-white/10 hover:border-white/20 hover:bg-white/[0.08]`
+          ? `bg-white/[0.08] border-white/20 hover:border-white/40 hover:bg-white/[0.15] shadow-lg ring-1 ring-white/10`
+          : `bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/[0.05]`
         }`}
     >
       {/* 🐧 Glass Shine - 상단 광택 효과 추가 */}
@@ -136,7 +133,7 @@ const AppCard: React.FC<AppCardProps> = ({
       )}
 
       {/* 💎 Liquid Shine - 마우스 호버 시 빛이 흐르는 효과 */}
-      {!isActive && <div className="liquid-shine z-20 pointer-events-none" />}
+      {!isActive && <div className="liquid-shine z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />}
 
       {/* Background Aura */}
       <div className={`absolute inset-0 opacity-0 group-hover:opacity-30 bg-gradient-to-br ${theme.base} transition-opacity duration-200`} />

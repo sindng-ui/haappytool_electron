@@ -30,6 +30,7 @@
   - `Module Lazy Loading`: `opencv-wasm`, `jimp` 등 무거운 백엔드 라이브러리를 기동 이후(5초)로 지연 로딩하여 30초 구동 지연 해결 [NEW]
   - `Vite Pre-bundling`: `jszip`, `pako` 등을 사전 최적화 목록에 추가하여 초기 번들링 속도 개선 [NEW]
   - `Backend Stability`: `everythingService` 초기화 전 호출 방지를 위한 가드 로직 추가로 SDB/SSH 연동 테스트 안정화. (`server/index.cjs`) [NEW]
+  - `Global UI Zoom`: `Ctrl +/-/0` 단축키를 통해 전역 UI 크기(Zoom Factor)를 조절하고, `localStorage`를 통해 값을 영구 저장하여 앱 재시작 시에도 유지. (`App.tsx`) [NEW]
 - **Data Flow**: `localStorage` -> `Settings Load` -> `Context State` -> `Plugin Injection`
 
 ### [[Plugin Registry & Injection]]
@@ -59,7 +60,9 @@
   - **Pinned Glassmorphism**: Pinned Tools 섹션의 앱들에 은은한 백그라운드 블러(`backdrop-blur-xl`)와 유리 질감 UI를 적용하여 프리미엄 감성 강화. [NEW]
   - **Aura & Ghost Typography**: 각 앱 고유 테마 컬러를 활용한 Radial Glow 효과와 배경 고스트 타이포그래피를 적용하여 프리미엄 디자인 완성. [NEW]
   - **Smart Popover Library**: 버튼 근처(`top-left`)에서 나타나는 콤팩트한 팝오버 레이아웃과 가변 카드 시스템의 시너지로 마우스 이동 거리 최소화 및 직관성 극대화. [UPDATED]
-  - **Performance Optimization**: `AppCard`와 `Section` 컴포넌트 분리, `staggerChildren`을 통한 선언적 애니메이션 구현, `React.memo` 및 `useCallback` 최적화로 모달 오픈 및 상호작용 성능 극대화. [NEW][HOT]
+  - **Performance Optimization**: 
+    - `AppCard`의 `layout` 속성을 조건부 지연(defer)시키고, 무거운 SVG Noise 필터와 과도한 GPU 레이어(`transform-gpu`)를 걷어내어 저사양 기기에서도 팝오버가 60fps로 매끄럽게 열리도록 최적화. [HOT][UPDATED]
+    - 컴포넌트 분리, `staggerChildren`을 통한 선언적 애니메이션 구현 및 `React.memo` 적용.
   - **Dynamic Active Badge**: 현재 실행 중인 플러그인 이름을 버튼 옆에 우아하게 표시하여 상태 가시성 확보. [NEW]
   - **Zero-Sidebar Synergy**: 사이드바가 없는 광활한 공간을 유지하면서도, 버튼 하나로 모든 네비게이션을 버튼 근처에서 해결.
 

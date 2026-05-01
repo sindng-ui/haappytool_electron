@@ -148,6 +148,7 @@ export interface AppSettings {
   defaultOutputFolder?: string; // ✅ NEW: CLI Default Output Folder
   netTrafficSettings?: NetTrafficSettings; // ✅ NEW: NetTraffic Analyer Settings for CLI sync
   pluginSizes?: Record<string, 'normal' | 'wide' | 'large'>; // ✅ NEW: App Hub Card Sizes
+  zoomFactor?: number; // ✅ NEW: Global UI zoom factor
 }
 
 export interface RequestGroup {

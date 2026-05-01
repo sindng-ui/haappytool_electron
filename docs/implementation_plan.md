@@ -1,62 +1,37 @@
-# 릴리즈 히스토리 플러그인 고도화 계획서 🚀
+# App Hub 성능 개선 (Breakthrough Performance) 계획
 
-형님, 릴리즈 히스토리 플러그인을 더욱 강력하게 만들기 위한 작업 계획입니다. OS 업그레이드와 같은 복수 년도 상황을 완벽하게 지원하고, 년도별 최신 버전을 한눈에 파악할 수 있도록 개선하겠습니다.
+## 1. 분석: 현재 느리고 버벅이는 원인 (List Up)
 
-## 유저 리뷰 필요 사항
+코드 분석 결과, App Hub가 열릴 때 노트북 등 저사양 기기에서 병목을 일으키는 주요 원인은 다음과 같습니다.
 
-> [!IMPORTANT]
-> **데이터 구조 변경에 따른 마이그레이션**: 기존 `productName` 필드를 `years` 배열로 대체합니다. 기존 데이터 중 `productName`이 "2024"와 같이 숫자인 경우 자동으로 `years: [2024]`로 변환하며, 숫자가 아닌 경우 `releaseDate`의 년도를 기본값으로 사용하도록 마이그레이션 로직을 태우겠습니다.
-
-> [!TIP]
-> **년도별 최신 버전 수동 설정**: 자동으로 계산된 최신 버전 외에 형님이 직접 특정 버전을 '최신'으로 지정할 수 있는 기능을 추가합니다. 이 정보는 별도의 `yearConfigs` 객체에 저장되어 관리됩니다.
-
-## 제안된 변경 사항
-
----
-
-### 1. 데이터 모델 및 타입 정의 (`plugins/ReleaseHistory/types.ts`)
-
-- [MODIFY] `ReleaseItem` 인터페이스 수정: `productName: string` -> `years: number[]`
-- [NEW] `YearConfig` 인터페이스 추가: `{ year: number, latestVersion?: string, latestReleaseId?: string }`
-- [NEW] `ReleaseHistoryData` 인터페이스: `items`와 `yearConfigs`를 포함하는 전체 데이터 구조
-
-### 2. 메인 플러그인 로직 (`plugins/ReleaseHistory/ReleaseHistoryPlugin.tsx`)
-
-- [MODIFY] 상태 관리 업데이트: `items`뿐만 아니라 `yearConfigs`도 `localStorage`에 저장 및 로드
-- [MODIFY] 마이그레이션 로직 보강: 기존 데이터를 신규 규격으로 자동 변환
-- [MODIFY] 핸들러 추가: 년도별 최신 버전 설정을 위한 `handleUpdateYearConfig` 추가
-
-### 3. Add Release 모달 (`plugins/ReleaseHistory/components/AddReleaseModal.tsx`)
-
-- [MODIFY] **Product Name -> YEAR**: 단일 입력창을 다중 선택 가능한 UI(태그 시스템과 유사한 방식 혹은 체크박스)로 변경
-- [MODIFY] **Release Name Hint**: `e.g. PluginA` -> `e.g. 26R1`
-- [MODIFY] **Release Date Icon**: 달력 아이콘이 어두운 배경에서도 잘 보이도록 스타일 수정 (`text-rose-400` 강화 및 배경 대비 조정)
-
-### 4. 타임라인 그래프 뷰 (`plugins/ReleaseHistory/components/TimelineGraphView.tsx`)
-
-- [MODIFY] **년도 레이블 강화**: 좌측 년도 표시 옆에 해당 년도의 최신 버전(vX.Y.Z) 표시
-- [NEW] **자동 최신 버전 계산**: 별도 설정이 없으면 해당 년도의 가장 최근 `releaseDate`를 가진 아이템의 버전을 표시
-- [NEW] **수동 변경 UI**: 최신 버전 표시 옆에 작은 편집 아이콘을 추가하여 유저가 직접 버전을 입력하거나 선택할 수 있게 함
-- [MODIFY] **클릭 이벤트**: 최신 버전 텍스트 클릭 시 해당 릴리즈의 상세 모달 호출
-
-### 5. 기타 UI 및 유틸리티
-
-- [MODIFY] `ListView.tsx`: 제품명 대신 년도별로 그룹화하여 표시 (하나의 아이템이 여러 년도에 걸칠 경우 중복 표시)
-- [MODIFY] `ReleaseDetailModal.tsx`: 'Product' 레이블을 'Years'로 변경하고 선택된 모든 년도 표시
-- [MODIFY] `ExportImportUtils.ts`: 신규 필드(`years`, `yearConfigs`)를 포함하여 내보내기/가져오기 기능 업데이트
-
-## 검증 계획
-
-### 자동화 테스트
-- `wsl npm test plugins/ReleaseHistory` 명령어를 통해 기존 기능의 리그레션 체크
-- 신규 데이터 구조에 대한 단위 테스트 (필요 시 작성)
-
-### 수동 검증
-1. **데이터 마이그레이션**: 기존 데이터를 로드했을 때 년도가 정상적으로 추출되는지 확인
-2. **복수 년도 선택**: 한 릴리즈에 2024, 2025년을 동시에 선택하고 타임라인과 리스트 뷰에서 각각 잘 보이는지 확인
-3. **최신 버전 수동 설정**: 특정 년도의 최신 버전을 수동으로 변경했을 때 타임라인에 즉시 반영되는지 확인
-4. **UI 가독성**: 달력 아이콘과 년도별 버전 표시가 명확하게 보이는지 확인
+1. **Framer Motion `layout` 속성의 남용 (가장 큰 원인)**
+   - `AppCard.tsx`와 `Section.tsx`에 `layout` 및 `layout="position"`이 적용되어 있습니다. 모달이 열릴 때 (최초 마운트 시점) 수십 개의 카드가 동시에 레이아웃 크기와 위치를 계산(Layout Thrashing)하게 되어 JS 스레드를 심각하게 차단합니다.
+2. **초고부하 SVG Noise Filter (`feTurbulence`)**
+   - `AppLibraryModal.tsx`의 배경에 아날로그 감성을 위해 추가된 `<svg><filter id="noiseFilter">...`는 실시간으로 프랙탈 노이즈 연산을 수행하므로 내장 그래픽(GPU)의 프레임 드랍을 유발합니다.
+3. **과도한 GPU 레이어 (`transform-gpu`, `willChange`)**
+   - 모든 `AppCard` 요소에 `transform-gpu`, `willChange: 'transform, opacity, filter'`가 강제되어 있습니다. 이로 인해 브라우저가 수십 개의 독립된 컴포지팅 레이어를 생성하게 되어 메모리와 VRAM을 낭비하고 역효과를 냅니다.
+4. **무거운 Glassmorphism 및 Shadow**
+   - 다수의 카드에 동시에 적용된 `backdrop-blur`, 복잡한 다중 `box-shadow`, `liquid-shine` 등의 효과가 렌더링 파이프라인에 부하를 줍니다.
 
 ---
 
-형님, 이 계획대로 진행해도 될까요? 승인해주시면 바로 작업 시작하겠습니다! 🐧🚀
+## 2. 해결 계획 (Action Plan)
+
+확실하고 획기적인 부드러움을 확보하기 위해 다음 항목들을 수정하겠습니다.
+
+### [MODIFY] components/AppLibraryModal.tsx
+- **SVG 노이즈 필터 제거**: 무거운 `<feTurbulence>` SVG 노이즈 필터를 완전히 삭제합니다. 감성을 유지하고 싶다면 CSS의 `background-image`를 활용한 아주 가벼운 정적 base64 패턴 이미지로 대체하거나, 노이즈 오버레이의 CSS 연산을 최소화합니다.
+- **모달 애니메이션 간소화**: `willChange` 및 `transformStyle` 등 불필요하게 무거운 3D 속성을 제거하여 브라우저의 기본 컴포지터가 효율적으로 동작하게 합니다.
+
+### [MODIFY] components/Section.tsx
+- **`layout="position"` 제거**: 불필요한 레이아웃 애니메이션 연산을 없앱니다. 카드의 크기가 변경될 때 알아서 자연스럽게 밀려나도록 CSS Grid 속성만으로 맡깁니다.
+
+### [MODIFY] components/AppCard.tsx
+- **`layout` 속성 조건부 적용 (또는 제거)**: 카드가 처음 등장할 때는 `layout` 계산을 하지 않도록 아예 제거하거나, 우클릭으로 사이즈를 바꿀 때만 일시적으로 `layout`이 켜지도록 수정합니다.
+- **레이어 및 이펙트 다이어트**:
+  - `transform-gpu`와 `willChange: 'transform, opacity, filter'`를 삭제합니다. (호버링 시에만 브라우저가 가속하도록 둡니다)
+  - `liquid-shine` 요소나 `backdrop-blur` 등 무거운 CSS는 `isActive` 상태이거나 `hover` 상태일 때만 켜지도록 최적화합니다.
+  - 진입 애니메이션의 난수 기반 delay 로직은 유지하되, 너무 무거운 `filter` 애니메이션은 배제합니다.
+
+## User Review Required
+형님, 위 원인들을 제거하면 구형 노트북에서도 60fps로 매우 부드럽게 팝오버가 열리게 될 것입니다. 감성을 크게 해치지 않는 선에서 GPU를 괴롭히는 이펙트들(SVG 노이즈, 남용된 layout 계산 등)만 걷어내는 방향인데, 이대로 진행(Proceed) 할까요?
