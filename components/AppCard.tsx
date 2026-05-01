@@ -39,12 +39,13 @@ interface AppCardProps {
 }
 
 // 🐧 형님, 성능을 위해 블러는 빼고 '애니메이션 곡선'의 정수로 승부합니다!
-export const getCardVariants = (randomFactor: { rotate: number, x: number }, idx: number) => ({
+// 🐧 형님, 성능은 잡았으니 이제 '레이어의 깊이감'으로 고급짐을 더합니다!
+export const getCardVariants = (idx: number) => ({
   hidden: {
     opacity: 0,
-    y: 35,
-    rotate: idx % 2 === 0 ? 6 : -6,
-    scale: 0.88
+    y: 40,
+    rotate: idx % 2 === 0 ? 4 : -4,
+    scale: 0.85,
   },
   visible: {
     opacity: 1,
@@ -53,10 +54,38 @@ export const getCardVariants = (randomFactor: { rotate: number, x: number }, idx
     scale: 1,
     transition: {
       type: "spring",
-      stiffness: 260, // 🐧 기분 좋은 에너지 (Happy Bounce)
-      damping: 18,    // 🐧 약간 묵직하게 감속 (성능 최적화)
-      mass: 0.6,
+      stiffness: 280, // 🐧 더 쫀득하고 활기차게
+      damping: 20,    // 🐧 과하지 않은 반동
+      mass: 0.5,
       delay: Math.pow(idx, 0.7) * 0.04
+    }
+  }
+});
+
+export const getIconVariants = (idx: number) => ({
+  hidden: { scale: 0.6, opacity: 0, rotate: -15 },
+  visible: {
+    scale: 1,
+    opacity: 1,
+    rotate: 0,
+    transition: {
+      type: "spring",
+      stiffness: 350,
+      damping: 15,
+      delay: (Math.pow(idx, 0.7) * 0.04) + 0.12 // 🐧 카드 안착 후 팝!
+    }
+  }
+});
+
+export const getShineVariants = (idx: number) => ({
+  hidden: { left: '-100%', opacity: 0 },
+  visible: {
+    left: '150%',
+    opacity: [0, 1, 1, 0],
+    transition: {
+      duration: 0.8,
+      ease: "easeInOut",
+      delay: (Math.pow(idx, 0.7) * 0.04) + 0.25 // 🐧 안착 후 빛이 훑고 지남
     }
   }
 });
@@ -82,7 +111,9 @@ const AppCard: React.FC<AppCardProps> = ({
     };
   }, [idx]);
 
-  const cardVariants = React.useMemo(() => getCardVariants(animationFactor, idx), [animationFactor, idx]);
+  const cardVariants = React.useMemo(() => getCardVariants(idx), [idx]);
+  const iconVariants = React.useMemo(() => getIconVariants(idx), [idx]);
+  const shineVariants = React.useMemo(() => getShineVariants(idx), [idx]);
 
   const sizeClasses = {
     normal: 'col-span-1 row-span-1 h-28 flex-col justify-center gap-3 items-center text-center p-3',
@@ -113,6 +144,12 @@ const AppCard: React.FC<AppCardProps> = ({
           : `bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/[0.05]`
         }`}
     >
+      {/* 💎 Entrance Shine - 입장 시 은은하게 슥 지나가는 빛 */}
+      <motion.div
+        variants={shineVariants}
+        className="absolute top-0 w-2/3 h-full bg-gradient-to-r from-transparent via-white/[0.08] to-transparent skew-x-[-25deg] pointer-events-none z-30"
+      />
+
       {/* 💎 Glass Shine - 상단 광택 효과 추가 */}
       {isGlassy && !isActive && (
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none z-10" />
@@ -136,14 +173,17 @@ const AppCard: React.FC<AppCardProps> = ({
       )}
 
       {/* Icon Wrapper */}
-      <div className={`
-        flex items-center justify-center transition-[transform,background-color,box-shadow] duration-500 relative z-10 shrink-0 shadow-2xl transform-gpu
-        ${variant === 'large' ? 'w-24 h-24 rounded-[36px]' : 'w-14 h-14 rounded-[20px]'}
-        ${isActive ? `bg-gradient-to-br ${theme.base} text-white shadow-2xl ${theme.glow}` : `${theme.bg} ${theme.text} bg-opacity-80 group-hover:bg-opacity-100 group-hover:scale-105`}
-      `}>
+      <motion.div 
+        variants={iconVariants}
+        className={`
+          flex items-center justify-center transition-[background-color,box-shadow] duration-500 relative z-10 shrink-0 shadow-2xl transform-gpu
+          ${variant === 'large' ? 'w-24 h-24 rounded-[36px]' : 'w-14 h-14 rounded-[20px]'}
+          ${isActive ? `bg-gradient-to-br ${theme.base} text-white shadow-2xl ${theme.glow}` : `${theme.bg} ${theme.text} bg-opacity-80 group-hover:bg-opacity-100 group-hover:scale-105`}
+        `}
+      >
         <Icon size={variant === 'large' ? 48 : 24} strokeWidth={isActive ? 3 : 2.5} />
         <div className={`absolute inset-0 rounded-inherit opacity-0 group-hover:opacity-70 blur-3xl ${theme.base} -z-10 transition-opacity`} />
-      </div>
+      </motion.div>
 
       <div className={`flex flex-col relative z-10 min-w-0 ${variant === 'wide' ? 'flex-1' : ''}`}>
         <span className={`font-extrabold tracking-normal transition-colors duration-300 uppercase leading-tight antialiased ${variant === 'large' ? 'text-2xl text-white mt-8' : (variant === 'wide' ? 'text-lg text-white' : 'text-[12.5px] text-slate-100')
