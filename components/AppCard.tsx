@@ -63,29 +63,29 @@ export const getCardVariants = (idx: number) => ({
 });
 
 export const getIconVariants = (idx: number) => ({
-  hidden: { scale: 0.6, opacity: 0, rotate: -15 },
+  hidden: { scale: 0.7, opacity: 0, y: 10 },
   visible: {
     scale: 1,
     opacity: 1,
-    rotate: 0,
+    y: 0,
     transition: {
       type: "spring",
-      stiffness: 350,
-      damping: 15,
-      delay: (Math.pow(idx, 0.7) * 0.04) + 0.12 // 🐧 카드 안착 후 팝!
+      stiffness: 300,
+      damping: 18,
+      delay: (Math.pow(idx, 0.7) * 0.04) + 0.1 // 🐧 카드 도착에 맞춰 자연스럽게 팝!
     }
   }
 });
 
-export const getShineVariants = (idx: number) => ({
-  hidden: { left: '-100%', opacity: 0 },
+// 🐧 형님, 과한 광택(Shine)은 걷어내고 '은은한 아우라 펄스'로 변경했습니다.
+export const getAuraVariants = (idx: number) => ({
+  hidden: { opacity: 0, scale: 0.5 },
   visible: {
-    left: '150%',
-    opacity: [0, 1, 1, 0],
+    opacity: [0, 0.2, 0], // 🐧 아주 미세하게 깜빡임
+    scale: [0.5, 1.2, 1],
     transition: {
-      duration: 0.8,
-      ease: "easeInOut",
-      delay: (Math.pow(idx, 0.7) * 0.04) + 0.25 // 🐧 안착 후 빛이 훑고 지남
+      duration: 1.2,
+      delay: (Math.pow(idx, 0.7) * 0.04) + 0.15
     }
   }
 });
@@ -113,7 +113,7 @@ const AppCard: React.FC<AppCardProps> = ({
 
   const cardVariants = React.useMemo(() => getCardVariants(idx), [idx]);
   const iconVariants = React.useMemo(() => getIconVariants(idx), [idx]);
-  const shineVariants = React.useMemo(() => getShineVariants(idx), [idx]);
+  const auraVariants = React.useMemo(() => getAuraVariants(idx), [idx]);
 
   const sizeClasses = {
     normal: 'col-span-1 row-span-1 h-28 flex-col justify-center gap-3 items-center text-center p-3',
@@ -144,10 +144,10 @@ const AppCard: React.FC<AppCardProps> = ({
           : `bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/[0.05]`
         }`}
     >
-      {/* 💎 Entrance Shine - 입장 시 은은하게 슥 지나가는 빛 */}
+      {/* 🐧 Entrance Aura Pulse - 등장 시 아주 미세하게 피어오르는 빛 */}
       <motion.div
-        variants={shineVariants}
-        className="absolute top-0 w-2/3 h-full bg-gradient-to-r from-transparent via-white/[0.08] to-transparent skew-x-[-25deg] pointer-events-none z-30"
+        variants={auraVariants}
+        className={`absolute inset-0 bg-gradient-to-br ${theme.base} blur-2xl pointer-events-none z-0`}
       />
 
       {/* 💎 Glass Shine - 상단 광택 효과 추가 */}
