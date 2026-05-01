@@ -54,10 +54,10 @@ export const getCardVariants = (idx: number) => ({
     scale: 1,
     transition: {
       type: "spring",
-      stiffness: 280, // 🐧 더 쫀득하고 활기차게
-      damping: 20,    // 🐧 과하지 않은 반동
-      mass: 0.5,
-      delay: Math.pow(idx, 0.7) * 0.04
+      stiffness: 180, // 🐧 약간 더 느긋하게 (기존 280)
+      damping: 22,    // 🐧 부드러운 감속 (기존 20)
+      mass: 0.8,      // 🐧 묵직한 무게감 추가
+      delay: Math.pow(idx, 0.7) * 0.05 // 🐧 정갈한 간격 확대
     }
   }
 });
@@ -70,9 +70,9 @@ export const getIconVariants = (idx: number) => ({
     y: 0,
     transition: {
       type: "spring",
-      stiffness: 300,
-      damping: 18,
-      delay: (Math.pow(idx, 0.7) * 0.04) + 0.1 // 🐧 카드 도착에 맞춰 자연스럽게 팝!
+      stiffness: 220, // 🐧 동기화된 속도 (기존 300)
+      damping: 20,
+      delay: (Math.pow(idx, 0.7) * 0.05) + 0.15 // 🐧 카드 안착 후 여유 있게
     }
   }
 });
@@ -81,11 +81,11 @@ export const getIconVariants = (idx: number) => ({
 export const getAuraVariants = (idx: number) => ({
   hidden: { opacity: 0, scale: 0.5 },
   visible: {
-    opacity: [0, 0.2, 0], // 🐧 아주 미세하게 깜빡임
+    opacity: [0, 0.2, 0], 
     scale: [0.5, 1.2, 1],
     transition: {
-      duration: 1.2,
-      delay: (Math.pow(idx, 0.7) * 0.04) + 0.15
+      duration: 1.5, // 🐧 펄스도 조금 더 길게
+      delay: (Math.pow(idx, 0.7) * 0.05) + 0.2
     }
   }
 });
