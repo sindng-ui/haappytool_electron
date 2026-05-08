@@ -515,40 +515,44 @@ export const useLogExtractorLogic = ({
         // ✅ Optimization: Only filter when active and worker is ready
         if (isActive && leftWorkerRef.current && currentConfig && leftWorkerReady) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
-            const effectiveIncludes = refinedGroups.map(g =>
-                g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
-            ).filter(g => g.length > 0);
-            const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
+            // ... (기존 로직 유지하되 setTimeout으로 감쌈)
+            const applyFilter = () => {
+                const effectiveIncludes = refinedGroups.map(g =>
+                    g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
+                ).filter(g => g.length > 0);
+                const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
 
-            // 💡 isActive를 hash에서 제거: 해피콤보 체크박스 토글 시마다 불필요한 재필터링 방지
-            // 탭 활성화 시 재실행은 isActive 변경 시 lastFilterHashLeft 초기화로 보장 (아래 useEffect)
-            const payloadHash = JSON.stringify({
-                inc: effectiveIncludes,
-                exc: effectiveExcludes,
-                happyCase: !!currentConfig.happyCombosCaseSensitive,
-                blockCase: !!currentConfig.blockListCaseSensitive,
-                quickFilter,
-            });
+                const payloadHash = JSON.stringify({
+                    inc: effectiveIncludes,
+                    exc: effectiveExcludes,
+                    happyCase: !!currentConfig.happyCombosCaseSensitive,
+                    blockCase: !!currentConfig.blockListCaseSensitive,
+                    quickFilter,
+                });
 
-            if (payloadHash === lastFilterHashLeft.current && leftWorkerReady) {
-                return;
-            }
-            lastFilterHashLeft.current = payloadHash;
+                if (payloadHash === lastFilterHashLeft.current && leftWorkerReady) {
+                    return;
+                }
+                lastFilterHashLeft.current = payloadHash;
 
-            // Immediately set to not ready to show loader
-            setLeftWorkerReady(false);
-            setLeftSegmentIndex(0); // ✅ Reset to first page
-            leftViewerRef.current?.scrollTo(0); // ✅ Reset scroll position to top
-            if (setClearCacheTick) setClearCacheTick(prev => prev + 1); // ✅ Clear renderer cache
+                setLeftWorkerReady(false);
+                setLeftSegmentIndex(0);
+                leftViewerRef.current?.scrollTo(0);
+                if (setClearCacheTick) setClearCacheTick(prev => prev + 1);
 
-            console.log('[useLog-Left] Auto-Apply FILTER_LOGS (Active Check). hash:', payloadHash);
-            leftWorkerRef.current.postMessage({
-                type: 'FILTER_LOGS',
-                payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
-            });
+                console.log('[useLog-Left] Debounced FILTER_LOGS. hash:', payloadHash);
+                leftWorkerRef.current?.postMessage({
+                    type: 'FILTER_LOGS',
+                    payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
+                });
 
-            setActiveLineIndexLeft(-1);
-            setSelectedIndicesLeft(new Set());
+                setActiveLineIndexLeft(-1);
+                setSelectedIndicesLeft(new Set());
+            };
+
+            // 🐧🎯 형님! 콤보 추가나 수정을 할 때 팬이 돌지 않게 400ms 정도 숨을 고르고 필터링합니다.
+            const timer = setTimeout(applyFilter, 400);
+            return () => clearTimeout(timer);
         }
     }, [currentConfig, tizenSocket, quickFilter, leftWorkerReady, isActive]);
 
@@ -560,37 +564,41 @@ export const useLogExtractorLogic = ({
         if (isActive && isDualView && rightWorkerRef.current && currentConfig && rightWorkerReady && rightTotalLines > 0) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
 
-            const effectiveIncludes = refinedGroups.map(g =>
-                g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
-            ).filter(g => g.length > 0);
-            const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
+            const applyFilter = () => {
+                const effectiveIncludes = refinedGroups.map(g =>
+                    g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
+                ).filter(g => g.length > 0);
+                const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
 
-            // 💡 isActive를 hash에서 제거 (Left와 동일)
-            const payloadHash = JSON.stringify({
-                inc: effectiveIncludes,
-                exc: effectiveExcludes,
-                happyCase: !!currentConfig.happyCombosCaseSensitive,
-                blockCase: !!currentConfig.blockListCaseSensitive,
-                quickFilter,
-            });
+                const payloadHash = JSON.stringify({
+                    inc: effectiveIncludes,
+                    exc: effectiveExcludes,
+                    happyCase: !!currentConfig.happyCombosCaseSensitive,
+                    blockCase: !!currentConfig.blockListCaseSensitive,
+                    quickFilter,
+                });
 
-            if (payloadHash === lastFilterHashRight.current && rightWorkerReady) {
-                return;
-            }
-            lastFilterHashRight.current = payloadHash;
+                if (payloadHash === lastFilterHashRight.current && rightWorkerReady) {
+                    return;
+                }
+                lastFilterHashRight.current = payloadHash;
 
-            console.log('[useLog-Right] Auto-Apply FILTER_LOGS (Active Check). hash:', payloadHash);
-            setRightWorkerReady(false);
-            setRightSegmentIndex(0); // ✅ Reset to first page
-            rightViewerRef.current?.scrollTo(0); // ✅ Reset scroll position to top
-            if (setClearCacheTick) setClearCacheTick(prev => prev + 1); // ✅ Clear renderer cache
+                setRightWorkerReady(false);
+                setRightSegmentIndex(0);
+                rightViewerRef.current?.scrollTo(0);
+                if (setClearCacheTick) setClearCacheTick(prev => prev + 1);
 
-            rightWorkerRef.current.postMessage({
-                type: 'FILTER_LOGS',
-                payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
-            });
-            setActiveLineIndexRight(-1);
-            setSelectedIndicesRight(new Set());
+                console.log('[useLog-Right] Debounced FILTER_LOGS. hash:', payloadHash);
+                rightWorkerRef.current?.postMessage({
+                    type: 'FILTER_LOGS',
+                    payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
+                });
+                setActiveLineIndexRight(-1);
+                setSelectedIndicesRight(new Set());
+            };
+
+            const timer = setTimeout(applyFilter, 400);
+            return () => clearTimeout(timer);
         }
     }, [currentConfig, rightTotalLines, isDualView, quickFilter, rightWorkerReady, isActive]);
 

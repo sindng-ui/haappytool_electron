@@ -6,6 +6,7 @@ const fs = require('fs');
 let express, http, Server, cors, Client, spawn, exec;
 let app, server, io;
 let everythingService;
+let serialService;
 
 // Global BlockTest Dir (Configurable via startServer)
 let globalBlockTestDir = path.join(process.cwd(), 'BlockTest');
@@ -90,6 +91,32 @@ function logDebug(msg) {
 }
 
 const handleSocketConnection = (socket, deps = {}) => {
+    // 🐧 형님! 시리얼 통신 이벤트들을 여기에 모았습니다. 로직은 serialService가 다 처리합니다.
+    socket.on('list_serial_ports', async () => {
+        if (!serialService) return;
+        const ports = await serialService.listPorts();
+        socket.emit('serial_ports', ports);
+    });
+
+    socket.on('connect_serial', (params) => {
+        if (!serialService) return;
+        serialService.connect(socket, { 
+            ...params, 
+            globalUserDataPath, 
+            handleLogData 
+        });
+    });
+
+    socket.on('disconnect_serial', () => {
+        if (!serialService) return;
+        serialService.disconnect();
+    });
+
+    socket.on('serial_write', (data) => {
+        if (!serialService) return;
+        serialService.write(data);
+    });
+
     const internalSpawn = deps.spawn || spawn;
     const SSHClient = deps.Client || Client;
 
@@ -2565,6 +2592,7 @@ function startServer(userDataPath) {
         spawn = cp.spawn;
         exec = cp.exec;
         everythingService = require('./services/everythingService.cjs');
+        serialService = require('./services/serialService.cjs');
         
         console.log(`[TIME] Core modules required in ${Date.now() - startTime}ms`);
 

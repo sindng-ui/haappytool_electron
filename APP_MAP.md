@@ -74,6 +74,10 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
 
 ### [Log Extractor](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogExtractor.tsx)
 로그 추출 및 실시간 스트리밍 기능을 제공합니다.
+- **Tizen Connection (2026-05-09)**: [NEW]
+  - **Serial Support**: SDB, SSH 외에 **Serial(COM Port)** 직접 연결 모드 추가. 🐧🔌
+  - **Auto Port Detection**: 시스템의 사용 가능한 COM 포트 목록을 자동으로 스캔하여 드롭다운으로 제공.
+  - **Configurable Settings**: Baud Rate(기본 115200) 및 디버그 모드, 로컬 파일 자동 저장 기능 연동.
 - **Log Settings**: 'Start Logging' 버튼 (인디고 테마의 솔리드 버튼의 기준 디자인).
 - **Interactions**: `Alt + Mouse Double Click` 시 하이라이트 토글, `Alt + Mouse Right Click` 시 모든 퀵 하이라이트 일괄 해제 기능 구현.
 - **Bookmarks Modal Export (2026-04-10)**:
@@ -128,6 +132,11 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - **Registry Filtering**: `plugins/registry.ts` — `visibilityMap` 테이블을 통해 각 플러그인 ID와 설정값을 매핑하여 필터링 수행.
 
 ## 🤖 Backend Services & RAG [NEW]
+
+### [Backend Core Refactoring] (server/index.cjs) [NEW]
+- **Refactoring Strategy (2026-05-09)**:
+  - **Phase 1: Serial Service**: 2,600줄이 넘는 monolithic 구조를 탈피하기 위해 시리얼 통신 로직을 `services/serialService.cjs`로 완전 분리. 🐧 구조 혁신!
+  - **Service Architecture**: `index.cjs`는 소켓 라우팅만 담당하고, 실제 로직은 각 서비스 모듈(SDB, SSH, Serial 등)이 수행하도록 설계 변경 착수.
 
 ### [SW Issue Analyst RAG](file:///k:/Antigravity_Projects/gitbase/happytool_electron/server/rag_analyzer)
 과거 S/W 문제점 사례를 기반으로 신규 이슈에 대한 1차 분석 힌트를 제공하는 RAG 서버입니다.
@@ -195,4 +204,4 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 - **Section Collapse Default (2026-05-01)**: Labs 섹션의 기본 상태를 '접힘(collapsed)'으로 변경하여 초기 진입 시 핵심 도구에 집중할 수 있도록 개선. 사용자 변경 상태는 `localStorage`에 자동 저장되어 유지됨. 🐧💾📁
 
 ---
-*Last Updated: 2026-05-01 (App Hub Labs Collapse Default Implemented)*
+*Last Updated: 2026-05-09 (Tizen Serial Connection Support & Backend Refactoring Phase 1 Implemented)*

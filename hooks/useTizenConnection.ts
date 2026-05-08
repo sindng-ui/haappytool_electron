@@ -23,8 +23,7 @@ interface TizenConnectionProps {
 }
 
 /**
- * Tizen (SDB/SSH) 소켓 연결 및 로그 스트리밍을 전담하는 훅.
- * useLogExtractorLogic.ts에서 거대했던 소켓 로직을 분리해냈습니다.
+ * Tizen (SDB/SSH/Serial) 소켓 연결 및 로그 스트리밍을 전담하는 훅.
  */
 export function useTizenConnection({
     leftWorkerRef,
@@ -44,7 +43,7 @@ export function useTizenConnection({
     setLeftBookmarks
 }: TizenConnectionProps) {
     const [tizenSocket, setTizenSocket] = useState<Socket | null>(null);
-    const [connectionMode, setConnectionMode] = useState<'sdb' | 'ssh' | null>(null);
+    const [connectionMode, setConnectionMode] = useState<'sdb' | 'ssh' | 'serial' | null>(null);
     const [isLogging, setIsLogging] = useState(false);
     const [hasEverConnected, setHasEverConnected] = useState(false);
     const [clearCacheTick, setClearCacheTick] = useState(0);
@@ -81,7 +80,7 @@ export function useTizenConnection({
     }, [leftWorkerRef]);
 
     // 스트림 시작 핸들러
-    const handleTizenStreamStart = useCallback((socket: Socket, deviceName: string, mode: 'sdb' | 'ssh' | 'test' = 'sdb') => {
+    const handleTizenStreamStart = useCallback((socket: Socket, deviceName: string, mode: 'sdb' | 'ssh' | 'serial' | 'test' = 'sdb') => {
         setHasEverConnected(true);
         setTizenSocket(socket);
         setLeftFileName(deviceName);
@@ -93,7 +92,7 @@ export function useTizenConnection({
         setActiveLineIndexLeft(-1);
         setSelectedIndicesLeft(new Set());
         shouldAutoScroll.current = true;
-        setConnectionMode(mode === 'test' ? null : mode as 'sdb' | 'ssh');
+        setConnectionMode(mode === 'test' ? null : mode as 'sdb' | 'ssh' | 'serial');
         setIsLogging(true);
 
         leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM', payload: { isLive: true } });
@@ -138,7 +137,13 @@ export function useTizenConnection({
 
         socket.on('ssh_error', (data: { message: string }) => {
             addToast(`SSH Error: ${data.message}`, 'error');
-            tizenBuffer.current.push(`[SSH ERROR] ${data.message}`);
+            tizenBuffer.current.push(`[SSH ERROR] ${data.message}\n`);
+            flushTizenBuffer();
+        });
+
+        socket.on('serial_error', (data: { message: string }) => {
+            addToast(`Serial Error: ${data.message}`, 'error');
+            tizenBuffer.current.push(`[SERIAL ERROR] ${data.message}\n`);
             flushTizenBuffer();
         });
 
@@ -159,6 +164,7 @@ export function useTizenConnection({
 
         socket.on('sdb_status', handleLogicalDisconnect);
         socket.on('ssh_status', handleLogicalDisconnect);
+        socket.on('serial_status', handleLogicalDisconnect);
     }, [rules, selectedRuleId, quickFilter, addToast, leftWorkerRef, setLeftFileName, setLeftFilePath, setLeftWorkerReady, setLeftIndexingProgress, setLeftTotalLines, setLeftFilteredCount, setActiveLineIndexLeft, setSelectedIndicesLeft, flushTizenBuffer]);
 
     // 로그 및 디바이스 버퍼 비우기
@@ -168,6 +174,8 @@ export function useTizenConnection({
                 tizenSocket.emit('sdb_clear', { deviceId: leftFileName });
             } else if (connectionMode === 'ssh') {
                 tizenSocket.emit('ssh_clear');
+            } else if (connectionMode === 'serial') {
+                // Serial clearing normally clears UI
             }
         }
 
@@ -193,6 +201,8 @@ export function useTizenConnection({
                     tizenSocket.emit('sdb_write', cmd);
                 } else if (connectionMode === 'ssh') {
                     tizenSocket.emit('ssh_write', cmd);
+                } else if (connectionMode === 'serial') {
+                    tizenSocket.emit('serial_write', cmd);
                 } else {
                     tizenSocket.emit('sdb_write', cmd);
                 }
@@ -204,6 +214,7 @@ export function useTizenConnection({
         if (tizenSocket) {
             tizenSocket.emit('disconnect_sdb');
             tizenSocket.emit('disconnect_ssh');
+            tizenSocket.emit('disconnect_serial');
             setTimeout(() => {
                 tizenSocket.disconnect();
                 setTizenSocket(null);
@@ -216,6 +227,7 @@ export function useTizenConnection({
             if (tizenSocket) {
                 tizenSocket.emit('disconnect_sdb');
                 tizenSocket.emit('disconnect_ssh');
+                tizenSocket.emit('disconnect_serial');
                 tizenSocket.disconnect();
             }
         };
