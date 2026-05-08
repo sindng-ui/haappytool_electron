@@ -5,6 +5,7 @@ import LogViewerPane, { LogViewerHandle } from './LogViewer/LogViewerPane';
 import ConfigurationPanel from './LogViewer/ConfigurationPanel';
 import TizenConnectionModal from './TizenConnectionModal';
 import { useLogContext } from './LogViewer/LogContext';
+import QuickCommandPanel from './LogViewer/QuickCommandPanel';
 import { MAX_SEGMENT_SIZE } from '../hooks/useLogExtractorLogic';
 import TopBar from './LogViewer/TopBar';
 import LoadingOverlay from './ui/LoadingOverlay';
@@ -1137,6 +1138,12 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     // especially for SDB reconnects where server-side substitution might be flaky or unimplemented
                     return cmd.replace(/\$\(TAGS\)/g, tags);
                 })()}
+            />
+
+            {/* Quick Command Palette (Floating) */}
+            <QuickCommandPanel 
+                isConnected={!!tizenSocket} 
+                onExecute={sendTizenCommand} 
             />
 
 

@@ -78,6 +78,7 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
   - **Serial Support**: SDB, SSH 외에 **Serial(COM Port)** 직접 연결 모드 추가. 🐧🔌
   - **Auto Port Detection**: 시스템의 사용 가능한 COM 포트 목록을 자동으로 스캔하여 드롭다운으로 제공.
   - **Configurable Settings**: Baud Rate(기본 115200) 및 디버그 모드, 로컬 파일 자동 저장 기능 연동.
+  - **Quick Command Palette**: 실시간 연결 중 자주 사용하는 명령어를 저장하고 클릭 한 번으로 전송할 수 있는 플로팅 패널 구현. 🐧🚀⚡
 - **Log Settings**: 'Start Logging' 버튼 (인디고 테마의 솔리드 버튼의 기준 디자인).
 - **Interactions**: `Alt + Mouse Double Click` 시 하이라이트 토글, `Alt + Mouse Right Click` 시 모든 퀵 하이라이트 일괄 해제 기능 구현.
 - **Bookmarks Modal Export (2026-04-10)**:
