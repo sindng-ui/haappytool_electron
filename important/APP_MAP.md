@@ -134,6 +134,19 @@
   - **AI 요청 데이터 시각화**: 분석 중 어떤 힌트와 로그 데이터가 LLM으로 전송되었는지 실시간 요약 표시. [NEW]
   - **라인 넘버 토글**: # 인덱스와 원본 라인 번호 선택적 숨김 기능. [NEW]
   - **스플릿 뷰 스마트 스텝**: `Ctrl + Shift + Arrow`를 통한 0.1/0.5/0.9 비율 조절. [NEW]
+  - **Pane-aware Font Resize**: `Ctrl + [ / ]`를 통해 개별 패널의 폰트 크기를 독립적으로 조절. [NEW]
+
+### [[Log Config & Happy Combos]] 🐧✨ [NEW][HOT]
+- **ID**: `ui-log-config-happy-combos`
+- **Keywords**: [`Happy Combo`, `Configuration`, `Sticky Header`, `Search Filter`, `Quick Add`, `Collapse All`]
+- **Location**:
+  - `Section`: [HappyComboSection.tsx](./components/LogViewer/ConfigSections/HappyComboSection.tsx)
+  - `Panel`: [ConfigurationPanel.tsx](./components/LogViewer/ConfigurationPanel.tsx)
+- **Features**:
+  - **Sticky Action Header**: 설정 패널 스크롤 시에도 상단에 고정되어 즉시 추가/검색이 가능한 프리미엄 헤더 적용. [NEW]
+  - **Live Search Filter**: 콤보 이름, 태그, Alias를 실시간으로 검색하여 수백 개의 콤보 중 원하는 항목 즉시 식별. [NEW]
+  - **One-Click Batch Control**: 전체 접기/펴기 버튼을 통해 복잡한 설정 화면을 한 번에 정리. [NEW]
+  - **Local Branch Addition**: 각 그룹 헤더에 배치된 `+` 버튼을 통해 하단 이동 없이 즉시 브랜치 추가 가능. [NEW]
 
 ### [[NetTraffic Analyzer]] 🐧⚡ [CORE]
 - **ID**: `NET_TRAFFIC_ANALYZER`

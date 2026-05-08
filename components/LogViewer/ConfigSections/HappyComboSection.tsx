@@ -4,7 +4,7 @@ import { Button } from '../../ui/Button';
 import { IconButton } from '../../ui/IconButton';
 import { LogRule, HappyGroup } from '../../../types';
 
-const { Zap, X, Folder, FolderOpen, Plus, Activity, PlayCircle, StopCircle, MinusCircle } = Lucide;
+const { Zap, X, Folder, FolderOpen, Plus, Activity, PlayCircle, StopCircle, MinusCircle, Search, PlusCircle, ChevronsDownUp, ChevronsUpDown } = Lucide;
 
 interface HappyComboSectionProps {
     currentConfig: LogRule;
@@ -15,6 +15,7 @@ interface HappyComboSectionProps {
     handleToggleRoot: (root: string, enabled: boolean) => void;
     happyCombosCaseSensitive: boolean;
     tabId: string;
+    setCollapsedRoots: React.Dispatch<React.SetStateAction<Set<string>>>;
 }
 
 // Helper to check if a specific tag is being edited
@@ -32,8 +33,10 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
     onToggleRootCollapse,
     handleToggleRoot,
     happyCombosCaseSensitive,
-    tabId
+    tabId,
+    setCollapsedRoots
 }) => {
+    const [searchTerm, setSearchTerm] = useState('');
     // editingTarget only stores COORDINATES. Value is local to EditableTag.
     const [editingTarget, setEditingTarget] = useState<{ groupIdx: number, termIdx: number, isActive: boolean, value?: string } | null>(null);
     const [isPerfMode, setIsPerfMode] = useState(false); // ✅ Perf Mode Checkbox State
@@ -52,6 +55,46 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
         });
         return Array.from(set).sort();
     }, [currentConfig.happyGroups]);
+
+    // ✅ Filtered Groups based on search
+    const filteredGroupedRoots = useMemo(() => {
+        if (!searchTerm.trim()) return groupedRoots;
+        const term = searchTerm.toLowerCase();
+        return groupedRoots.filter(gr => {
+            const rootMatch = gr.root.toLowerCase().includes(term);
+            const tagMatch = gr.items.some(item => 
+                item.group.some(tag => tag.toLowerCase().includes(term))
+            );
+            const aliasMatch = gr.items.some(item => 
+                item.alias?.toLowerCase().includes(term)
+            );
+            return rootMatch || tagMatch || aliasMatch;
+        });
+    }, [groupedRoots, searchTerm]);
+
+    const handleCollapseAll = () => {
+        const allRoots = groupedRoots.map(g => g.root);
+        setCollapsedRoots(new Set(allRoots));
+    };
+
+    const handleExpandAll = () => {
+        setCollapsedRoots(new Set());
+    };
+
+    const handleCreateNewRoot = () => {
+        let newName = 'NewRoot';
+        let counter = 1;
+        const existing = new Set(groupedRoots.map(g => g.root));
+        while (existing.has(newName)) { newName = `NewRoot (${counter++})`; }
+
+        if (currentConfig.happyGroups) {
+            const newId = Math.random().toString(36).substring(7);
+            updateCurrentRule({ happyGroups: [...currentConfig.happyGroups, { id: newId, tags: [newName], enabled: true }] });
+        } else {
+            updateCurrentRule({ includeGroups: [...currentConfig.includeGroups, [newName]] });
+        }
+        pendingRootFocus.current = newName;
+    };
 
     useEffect(() => {
         if (pendingBranchFocus.current) {
@@ -222,50 +265,112 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
 
     return (
         <div className="p-0">
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <input
-                        type="checkbox"
-                        checked={groupedRoots.some(r => r.isRootEnabled)}
-                        onChange={(e) => {
-                            const enabled = e.target.checked;
-                            const updates: Partial<LogRule> = { happyCombosEnabled: enabled };
+            <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md -mx-5 px-5 py-4 mb-4 border-b border-slate-800/50 shadow-lg shadow-black/20">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <input
+                            type="checkbox"
+                            checked={groupedRoots.some(r => r.isRootEnabled)}
+                            onChange={(e) => {
+                                const enabled = e.target.checked;
+                                const updates: Partial<LogRule> = { happyCombosEnabled: enabled };
 
-                            // 💡 형님! 켜면 전체 켜기, 끄면 전체 끄기로 동작합니다.
-                            if (currentConfig.happyGroups) {
-                                updates.happyGroups = currentConfig.happyGroups.map(g => ({ ...g, enabled }));
-                            }
+                                // 💡 형님! 켜면 전체 켜기, 끄면 전체 끄기로 동작합니다.
+                                if (currentConfig.happyGroups) {
+                                    updates.happyGroups = currentConfig.happyGroups.map(g => ({ ...g, enabled }));
+                                }
 
-                            updateCurrentRule(updates);
-                        }}
-                        className="accent-yellow-400 w-4 h-4 cursor-pointer"
-                        title={groupedRoots.some(r => r.isRootEnabled) ? "Disable All Happy Combos" : "Enable All Happy Combos"}
-                    />
-                    <label className={`text-sm font-bold flex items-center gap-2 transition-colors ${groupedRoots.some(r => r.isRootEnabled) ? 'text-indigo-100' : 'text-slate-500'}`}>
-                        <Zap size={16} className={`${groupedRoots.some(r => r.isRootEnabled) ? 'text-yellow-400 fill-yellow-400 icon-glow' : 'text-slate-600'}`} />
-                        Happy Combos
-                    </label>
+                                updateCurrentRule(updates);
+                            }}
+                            className="accent-yellow-400 w-4 h-4 cursor-pointer"
+                            title={groupedRoots.some(r => r.isRootEnabled) ? "Disable All Happy Combos" : "Enable All Happy Combos"}
+                        />
+                        <label className={`text-sm font-black uppercase tracking-tighter flex items-center gap-2 transition-colors ${groupedRoots.some(r => r.isRootEnabled) ? 'text-indigo-100' : 'text-slate-500'}`}>
+                            <Zap size={16} className={`${groupedRoots.some(r => r.isRootEnabled) ? 'text-yellow-400 fill-yellow-400 icon-glow' : 'text-slate-600'}`} />
+                            Happy Combos
+                        </label>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        {/* ✅ Collapse/Expand All */}
+                        <div className="flex items-center bg-slate-800/50 rounded-lg p-0.5 border border-slate-700/50">
+                            <IconButton
+                                onClick={handleCollapseAll}
+                                icon={<ChevronsDownUp size={14} />}
+                                title="Collapse All"
+                                size="sm"
+                                variant="ghost"
+                                className="text-slate-400 hover:text-white"
+                            />
+                            <IconButton
+                                onClick={handleExpandAll}
+                                icon={<ChevronsUpDown size={14} />}
+                                title="Expand All"
+                                size="sm"
+                                variant="ghost"
+                                className="text-slate-400 hover:text-white"
+                            />
+                        </div>
+
+                        {/* ✅ Quick Create Button */}
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleCreateNewRoot}
+                            icon={<PlusCircle size={14} />}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-xs font-bold h-8"
+                        >
+                            ADD COMBO
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                    {/* ✅ Perf Mode Toggle */}
-                    <label className={`flex items-center gap-2 cursor-pointer text-[10px] uppercase font-bold tracking-wider transition-colors ${isPerfMode ? 'text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}>
-                        <input type="checkbox" checked={isPerfMode} onChange={(e) => setIsPerfMode(e.target.checked)} className="accent-amber-500 rounded-sm w-3 h-3" />
-                        <span className="flex items-center gap-1">
-                            <Activity size={12} />
-                            Performance Mode
-                        </span>
-                    </label>
+                    {/* ✅ Search Input - 너비 제한 추가 */}
+                    <div className="relative flex-1 max-w-[240px] group">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-slate-950/50 border border-slate-800 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                        />
+                        {searchTerm && (
+                            <button 
+                                onClick={() => setSearchTerm('')}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                            >
+                                <X size={12} />
+                            </button>
+                        )}
+                    </div>
 
-                    <label className="flex items-center gap-2 cursor-pointer text-[10px] text-slate-500 hover:text-indigo-400 transition-colors uppercase font-bold tracking-wider">
-                        <input type="checkbox" checked={happyCombosCaseSensitive ?? false} onChange={(e) => updateCurrentRule({ happyCombosCaseSensitive: e.target.checked })} className="accent-indigo-500 rounded-sm w-3 h-3" />
-                        <span>Case Sensitive</span>
-                    </label>
+                    <div className="flex items-center gap-3 shrink-0 ml-auto">
+                        {/* ✅ Perf Mode Toggle */}
+                        <label className={`flex items-center gap-1.5 cursor-pointer text-[10px] uppercase font-bold tracking-wider transition-colors ${isPerfMode ? 'text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}>
+                            <input type="checkbox" checked={isPerfMode} onChange={(e) => setIsPerfMode(e.target.checked)} className="accent-amber-500 rounded-sm w-3 h-3" />
+                            <span className="flex items-center gap-1">
+                                <Activity size={12} />
+                                Perf
+                            </span>
+                        </label>
+
+                        <label className={`flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-500 hover:text-indigo-400 transition-colors uppercase font-bold tracking-wider ${happyCombosCaseSensitive ? 'text-indigo-400' : ''}`}>
+                            <input type="checkbox" checked={happyCombosCaseSensitive ?? false} onChange={(e) => updateCurrentRule({ happyCombosCaseSensitive: e.target.checked })} className="accent-indigo-500 rounded-sm w-3 h-3" />
+                            <span>Case</span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
             <div className="space-y-4">
-                {groupedRoots.map(({ root, isRootEnabled, items }, rootIdx) => {
+                {filteredGroupedRoots.length === 0 && searchTerm && (
+                    <div className="py-20 text-center text-slate-600 italic text-sm">
+                        No combos matching "{searchTerm}"
+                    </div>
+                )}
+                {filteredGroupedRoots.map(({ root, isRootEnabled, items }, rootIdx) => {
                     const isAnyAliasFocusedInThisRoot = items.some(item => focusedAliasId === (item.id || item.originalIdx.toString()));
 
                     return (
@@ -339,6 +444,15 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
                                         {root}
                                     </span>
                                 )}
+
+                                <IconButton
+                                    variant="ghost"
+                                    size="sm"
+                                    icon={<Plus size={14} />}
+                                    title="Add Branch"
+                                    className={`ml-2 transition-all ${isRootEnabled ? 'text-indigo-400 hover:bg-indigo-500/20' : 'text-slate-600 hover:bg-slate-800'}`}
+                                    onClick={() => handleCreateBranch(rootIdx, root, items.length)}
+                                />
 
                                 <IconButton
                                     variant="ghost"

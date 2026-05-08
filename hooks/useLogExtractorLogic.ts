@@ -961,7 +961,9 @@ export const useLogExtractorLogic = ({
         const startWidth = configPanelWidth;
         const handleMouseMove = (moveEvent: MouseEvent) => {
             const deltaX = moveEvent.clientX - startX;
-            const newWidth = Math.max(312, Math.min(800, startWidth + deltaX));
+            // 🐧🎯 형님! 최대 너비를 1200px로 확 키웠습니다. 화면이 작으면 화면 너비에 맞게 조절됩니다.
+            const maxAllowedWidth = Math.min(window.innerWidth - 100, 1200);
+            const newWidth = Math.max(312, Math.min(maxAllowedWidth, startWidth + deltaX));
             setConfigPanelWidth(newWidth);
         };
         const handleMouseUp = () => {

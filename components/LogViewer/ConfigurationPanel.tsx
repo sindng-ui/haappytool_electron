@@ -150,6 +150,7 @@ const ConfigurationPanel = React.memo(() => {
                             handleToggleRoot={handleToggleRoot}
                             happyCombosCaseSensitive={currentConfig.happyCombosCaseSensitive || false}
                             tabId={tabId}
+                            setCollapsedRoots={setCollapsedRoots}
                         />
                     </div>
 
