@@ -1,16 +1,52 @@
 let SerialPort;
-try {
-    const spModule = require('serialport');
-    SerialPort = spModule.SerialPort;
-    console.log('[Serial] ✓ SerialPort module loaded successfully');
-} catch (err) {
-    console.error('[Serial] ✗ Failed to load serialport module:', err.message);
-    console.error('[Serial] Module Path Resolve:', require.resolve.paths('serialport'));
+
+// 🐧 Dynamic Load SerialPort (Handling ESM/CJS in Electron ASAR/Resources)
+async function loadSerialPort() {
+    if (SerialPort) return SerialPort;
     
-    // Fallback or re-throw with context
-    const error = new Error(`Cannot find module 'serialport'. Please ensure it's installed in the root node_modules and properly rebuilt for Electron. Details: ${err.message}`);
-    error.code = 'MODULE_NOT_FOUND';
-    throw error;
+    const electron = require('electron');
+    const app = electron.app || (electron.remote && electron.remote.app);
+    const isPackaged = app ? app.isPackaged : false;
+    const path = require('path');
+
+    const tryLoad = async (targetPath) => {
+        try {
+            console.log(`[Serial] Attempting to load from: ${targetPath}`);
+            const spModule = await import(targetPath);
+            return spModule.SerialPort;
+        } catch (err) {
+            try {
+                const spModule = require(targetPath);
+                return spModule.SerialPort;
+            } catch (err2) {
+                throw new Error(`Failed to load from ${targetPath}: ${err.message} | ${err2.message}`);
+            }
+        }
+    };
+
+    try {
+        // 1. Try standard resolution first
+        SerialPort = await tryLoad('serialport');
+        console.log('[Serial] ✓ SerialPort loaded via standard resolution');
+        return SerialPort;
+    } catch (err) {
+        console.warn('[Serial] ! Standard resolution failed, trying extraResources...');
+        
+        // 2. Try extraResources path (Production)
+        if (isPackaged) {
+            try {
+                const resourcesPath = process.resourcesPath;
+                const extraPath = path.join(resourcesPath, 'node_modules', 'serialport');
+                SerialPort = await tryLoad(extraPath);
+                console.log(`[Serial] ✓ SerialPort loaded from extraResources: ${extraPath}`);
+                return SerialPort;
+            } catch (errPackage) {
+                console.error('[Serial] ✗ Failed to load from extraResources:', errPackage.message);
+            }
+        }
+
+        throw new Error(`SerialPort loading failed. Please ensure it's installed and rebuilt correctly. Last error: ${err.message}`);
+    }
 }
 
 /**
@@ -27,7 +63,8 @@ class SerialService {
 
     async listPorts() {
         try {
-            const ports = await SerialPort.list();
+            const SP = await loadSerialPort();
+            const ports = await SP.list();
             return ports;
         } catch (err) {
             console.error('[Serial] Failed to list ports:', err);
@@ -35,8 +72,10 @@ class SerialService {
         }
     }
 
-    connect(socket, { port, baudRate, dataBits, stopBits, parity, saveToFile, debug, globalUserDataPath, handleLogData }) {
+    async connect(socket, { port, baudRate, dataBits, stopBits, parity, saveToFile, debug, globalUserDataPath, handleLogData }) {
         this.currentSocket = socket;
+
+        const SP = await loadSerialPort();
 
         console.log('[Serial] ========== Serial Connection Request ==========');
         console.log('[Serial] Params:', { port, baudRate, dataBits, stopBits, parity });
@@ -47,7 +86,7 @@ class SerialService {
         }
 
         try {
-            this.serialPort = new SerialPort({
+            this.serialPort = new SP({
                 path: port,
                 baudRate: parseInt(baudRate) || 115200,
                 dataBits: parseInt(dataBits) || 8,

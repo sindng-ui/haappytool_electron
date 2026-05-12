@@ -4,15 +4,6 @@ const path = require('path');
 const fs = require('fs/promises');
 const originalFs = require('fs');
 
-// 🐧 SerialPort Diagnostic (Early Check)
-try {
-    console.log('[Main] Diagnostic: Attempting to load serialport...');
-    const { SerialPort } = require('serialport');
-    console.log('[Main] Diagnostic: SerialPort loaded successfully!');
-} catch (e) {
-    console.error('[Main] Diagnostic: SerialPort load failed!', e.message);
-}
-
 // ✅ CLI 실행 시 GUI와 데이터 잠금 충돌을 피하기 위해 전용 경로 설정
 // 이 로직은 app.whenReady() 이전에 실행되어야 안전합니다.
 const args = process.defaultApp ? process.argv.slice(2) : process.argv.slice(1);

@@ -36,6 +36,7 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@serialport/bindings-cpp": "^13.0.0",
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@radix-ui/react-collapsible": "^1.1.12",
@@ -102,8 +103,6 @@
     "asarUnpack": [
       "**/public/wasm/*.wasm",
       "**/*.node",
-      "node_modules/serialport/**/*",
-      "node_modules/@serialport/**/*",
       "server/rag_analyzer/**/*"
     ],
     "icon": "build/icon.png",
@@ -111,9 +110,7 @@
       "dist",
       "electron",
       "server",
-      "package.json",
-      "node_modules/serialport",
-      "node_modules/@serialport"
+      "package.json"
     ],
     "win": {
       "target": "nsis",
@@ -131,6 +128,14 @@
       {
         "from": "important/cli_user_guide.md",
         "to": "important/cli_user_guide.md"
+      },
+      {
+        "from": "node_modules/serialport",
+        "to": "node_modules/serialport"
+      },
+      {
+        "from": "node_modules/@serialport",
+        "to": "node_modules/@serialport"
       }
     ]
   }
