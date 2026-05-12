@@ -29,7 +29,6 @@
     "test:frontend": "vitest run --no-color test/hooks/useLogExtractorLogic.test.tsx",
     "test:backend": "vitest run --no-color test/server_socket.test.js",
     "build:wasm": "wasm-pack build src-wasm --target web --out-dir ../public/wasm"
-    // "postinstall": "electron-builder install-app-deps" 🐧 프록시 환경에서는 수동 실행 권장
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
