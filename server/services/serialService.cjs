@@ -1,4 +1,17 @@
-const { SerialPort } = require('serialport');
+let SerialPort;
+try {
+    const spModule = require('serialport');
+    SerialPort = spModule.SerialPort;
+    console.log('[Serial] ✓ SerialPort module loaded successfully');
+} catch (err) {
+    console.error('[Serial] ✗ Failed to load serialport module:', err.message);
+    console.error('[Serial] Module Path Resolve:', require.resolve.paths('serialport'));
+    
+    // Fallback or re-throw with context
+    const error = new Error(`Cannot find module 'serialport'. Please ensure it's installed in the root node_modules and properly rebuilt for Electron. Details: ${err.message}`);
+    error.code = 'MODULE_NOT_FOUND';
+    throw error;
+}
 
 /**
  * Serial Connection Service
