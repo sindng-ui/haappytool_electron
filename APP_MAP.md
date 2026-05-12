@@ -94,6 +94,8 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
     - **Context Menu UI**: `components/LogSession.tsx` — "Analyze PID: 1234", "Analyze TID: 5678" 등 직관적인 레이블 개선 및 Tag 분석 연동 안정화.
 - **Stability Fixes (2026-04-22)**:
   - **Orphaned Stream GC**: `main.cjs` — 대용량 로그 스트리밍 중 브라우저 렌더러가 새로고침되거나 크래시 날 경우, 메모리에 남겨진 스트림들을 일괄 방출(GC)하는 방어 로직을 `web-contents-created` 이벤트에 탑재.
+  - **Build Fix (2026-05-12)**: [NEW]
+    - `package.json` — 네이티브 모듈인 `serialport`를 루트 의존성으로 승격하여 Electron 빌드 시 자동 리빌드 및 ASAR 패키징 무결성 확보. 타 PC 설치 후 발생하던 'Module not found' 에러 해결. 🐧🛠️⚡
 
 ### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
 - **Unified Diff Mode v2 (2026-04-06)**: 두 프로파일의 성능 차이를 직관적으로 분석하는 고대화된 비교 모드.
@@ -205,4 +207,4 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 - **Section Collapse Default (2026-05-01)**: Labs 섹션의 기본 상태를 '접힘(collapsed)'으로 변경하여 초기 진입 시 핵심 도구에 집중할 수 있도록 개선. 사용자 변경 상태는 `localStorage`에 자동 저장되어 유지됨. 🐧💾📁
 
 ---
-*Last Updated: 2026-05-09 (Tizen Serial Connection Support & Backend Refactoring Phase 1 Implemented)*
+*Last Updated: 2026-05-12 (SerialPort Build Compatibility Fix Implemented)*
