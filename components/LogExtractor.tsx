@@ -7,6 +7,7 @@ import { useContextMenu } from './ContextMenu';
 import { useLogArchiveContext } from './LogArchive';
 import { deleteStoredValue } from '../utils/db';
 import { workerRegistry } from '../hooks/LogWorkerRegistry';
+import { LogViewPreferencesProvider } from './LogViewer/LogViewPreferencesContext';
 
 
 
@@ -467,7 +468,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     // ✅ UI Improvement: Unified title bar with smooth scrolling
     const headerElement = React.useMemo(() => (
         <div
-            className={`h-8 flex items-center bg-[#0f172a] border-b border-indigo-500/30 select-none title-drag pr-36 header-transition ${isFocusMode ? 'header-hidden' : ''}`}
+            className={`h-8 flex items-center bg-[#0f172a] border-b border-slate-800/60 select-none title-drag pr-36 header-transition ${isFocusMode ? 'header-hidden' : ''}`}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleGlobalDrop}
         >
@@ -513,14 +514,14 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                                 onDrop={(e) => handleTabDrop(e, tab.id)}
                                 onDragEnd={handleTabDragEnd}
                                 className={`
-                                    group relative flex items-center gap-2 px-4 py-1.5 min-w-[120px] max-w-[200px] h-full
+                                    group relative flex items-center gap-2 px-4 py-1.5 min-w-[120px] max-w-[200px]
                                     text-xs font-medium cursor-move rounded-t-lg border-t border-l border-r
                                     transition-colors duration-200 ease-out
                                     ${idx > 0 ? '-ml-3' : ''}
                                     ${isDragging ? 'opacity-40 scale-95' : ''}
                                     ${isActive
-                                        ? `bg-slate-900 ${tabStyles.base} text-slate-200 z-20 shadow-lg ${tabStyles.shadow} scale-[1.02]`
-                                        : `bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-900/50 hover:text-slate-300 border-b-indigo-500/30 z-10 hover:z-15 hover:scale-[1.01]`
+                                        ? `bg-slate-950 ${tabStyles.base} text-slate-200 z-20 shadow-lg ${tabStyles.shadow} scale-[1.02] h-full mb-0`
+                                        : `bg-slate-950/40 border-slate-800/40 text-slate-500 hover:bg-slate-900/50 hover:text-slate-300 z-10 hover:z-15 hover:scale-[1.01] h-[calc(100%-1px)] mb-[1px]`
                                     }
                                 `}
                                 style={{
@@ -555,9 +556,9 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                                 {isActive && (
                                     <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r ${tabStyles.gradient} rounded-t-full`} />
                                 )}
-                                {/* Bottom border hider for active tab */}
+                                {/* Bottom border hider for active tab - Positioned inside to avoid overflow clipping */}
                                 {isActive && (
-                                    <div className="absolute -bottom-[1px] left-0 right-0 h-[2px] bg-slate-900 z-30" />
+                                    <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-950 z-30" />
                                 )}
                             </div>
                         );
@@ -580,64 +581,66 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     }, []);
 
     return (
-        <div className="flex h-full flex-col font-sans overflow-hidden bg-[#0b0f19] relative">
-            {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
-            {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
-            {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
-            <div
-                className={`absolute right-0 h-8 z-40 transition-[left,transform] duration-700 ease-[cubic-bezier(0.19,1,0.22,1)] top-0 ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? 'translate-y-0 pointer-events-none' : 'translate-y-16 pointer-events-auto'}`}
-                style={{
-                    left: isPanelOpen ? configPanelWidth : 32,
-                    transitionDelay: isPanelOpen ? '100ms, 0ms' : '0ms, 100ms' // Staggered: Open=HeaderDown/Wait/PanelOut, Close=PanelIn/Wait/HeaderUp. Wait...
-                    // Close (!isPanel): Panel Shrink (Left) -> 0ms. Header Up (Transform) -> 100ms. Correct: '0ms, 100ms'.
-                    // Open (isPanel): Header Down (Transform) -> 0ms. Panel Expand (Left) -> 100ms. Correct: '100ms, 0ms'.
-                }}
-            >
-                {headerElement}
-            </div>
+        <LogViewPreferencesProvider>
+            <div className="flex h-full flex-col font-sans overflow-hidden bg-[#0b0f19] relative">
+                {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
+                {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
+                {/* ✅ Global Header - Rendered Once, Positioned Absolutely to sit right of Config Panel */}
+                <div
+                    className={`absolute right-0 h-8 z-40 transition-[left,transform] duration-700 ease-[cubic-bezier(0.19,1,0.22,1)] top-0 ${(isFocusMode && !isPanelOpen && !isSearchFocused) ? 'translate-y-0 pointer-events-none' : 'translate-y-16 pointer-events-auto'}`}
+                    style={{
+                        left: isPanelOpen ? configPanelWidth : 32,
+                        transitionDelay: isPanelOpen ? '100ms, 0ms' : '0ms, 100ms' // Staggered: Open=HeaderDown/Wait/PanelOut, Close=PanelIn/Wait/HeaderUp. Wait...
+                        // Close (!isPanel): Panel Shrink (Left) -> 0ms. Header Up (Transform) -> 100ms. Correct: '0ms, 100ms'.
+                        // Open (isPanel): Header Down (Transform) -> 0ms. Panel Expand (Left) -> 100ms. Correct: '100ms, 0ms'.
+                    }}
+                >
+                    {headerElement}
+                </div>
 
-            <div className="flex-1 overflow-hidden relative">
-                {tabs.map((tab) => (
-                    <div
-                        key={tab.id}
-                        className="w-full h-full"
-                        style={{ display: tab.id === activeTabId ? 'block' : 'none' }}
-                    >
-                        <LogProvider
+                <div className="flex-1 overflow-hidden relative">
+                    {tabs.map((tab) => (
+                        <div
                             key={tab.id}
-                            rules={rules}
-                            onUpdateRules={onUpdateRules}
-                            onExportSettings={onExportSettings}
-                            onImportSettings={onImportSettings}
-                            configPanelWidth={configPanelWidth}
-                            setConfigPanelWidth={setConfigPanelWidth}
-                            tabId={tab.id}
-                            initialFilePath={tab.filePath}
-                            initialFile={tab.initialFile} // ✅ Pass the File object
-                            onFileChange={(newPath) => {
-                                setTabs(current => current.map(t => t.id === tab.id ? { ...t, filePath: newPath } : t));
-                            }}
-                            isActive={isActive && tab.id === activeTabId}
-                            isPanelOpen={isPanelOpen}
-                            setIsPanelOpen={setIsPanelOpen}
-                            isSearchFocused={isSearchFocused} // ✅ Pass Down
-                            setIsSearchFocused={setIsSearchFocused} // ✅ Pass Down
-                            onAddTab={handleArchiveToTab} // ✅ New Tab Callback
+                            className="w-full h-full"
+                            style={{ display: tab.id === activeTabId ? 'block' : 'none' }}
                         >
-                            <SessionWrapper
-                                isActive={isActive && tab.id === activeTabId}
-                                title={tab.title}
+                            <LogProvider
+                                key={tab.id}
+                                rules={rules}
+                                onUpdateRules={onUpdateRules}
+                                onExportSettings={onExportSettings}
+                                onImportSettings={onImportSettings}
+                                configPanelWidth={configPanelWidth}
+                                setConfigPanelWidth={setConfigPanelWidth}
                                 tabId={tab.id}
-                                onTitleChange={handleTitleChange}
-                            />
-                        </LogProvider>
-                    </div>
-                ))}
-            </div>
+                                initialFilePath={tab.filePath}
+                                initialFile={tab.initialFile} // ✅ Pass the File object
+                                onFileChange={(newPath) => {
+                                    setTabs(current => current.map(t => t.id === tab.id ? { ...t, filePath: newPath } : t));
+                                }}
+                                isActive={isActive && tab.id === activeTabId}
+                                isPanelOpen={isPanelOpen}
+                                setIsPanelOpen={setIsPanelOpen}
+                                isSearchFocused={isSearchFocused} // ✅ Pass Down
+                                setIsSearchFocused={setIsSearchFocused} // ✅ Pass Down
+                                onAddTab={handleArchiveToTab} // ✅ New Tab Callback
+                            >
+                                <SessionWrapper
+                                    isActive={isActive && tab.id === activeTabId}
+                                    title={tab.title}
+                                    tabId={tab.id}
+                                    onTitleChange={handleTitleChange}
+                                />
+                            </LogProvider>
+                        </div>
+                    ))}
+                </div>
 
-            {/* ✅ Context Menu */}
-            {ContextMenuComponent}
-        </div>
+                {/* ✅ Context Menu */}
+                {ContextMenuComponent}
+            </div>
+        </LogViewPreferencesProvider>
     );
 };
 

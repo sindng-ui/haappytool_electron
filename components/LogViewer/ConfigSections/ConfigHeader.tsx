@@ -25,8 +25,8 @@ export const ConfigHeader = React.memo<ConfigHeaderProps>(({ name, onUpdateName 
     };
 
     return (
-        <div className="mb-6 relative group">
-            <div className="flex justify-between items-end mb-2">
+        <div className="mb-4 relative group">
+            <div className="flex justify-between items-end mb-1.5">
                 <label className="block text-[11px] font-bold text-indigo-400 uppercase tracking-widest pl-1">Mission Name</label>
             </div>
             <div className="relative">

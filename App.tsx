@@ -285,22 +285,41 @@ const AppContent: React.FC = () => {
           setPluginSizes(parsed.pluginSizes);
         }
 
-        if (parsed.zoomFactor) {
-          setZoomFactor(parsed.zoomFactor);
+        if (parsed.zoomFactor !== undefined) {
+          let loadedZoom = Number(parsed.zoomFactor);
+          let finalZoom = loadedZoom;
+
+          // 🐧 비정상 수치 보정 (백분율 100 등으로 저장된 경우 대응)
+          if (finalZoom > 10) finalZoom = finalZoom / 100;
+          
+          // 🐧 안전 범위 강제 (0.3 ~ 5.0) - 범위를 벗어나면 1.0으로 초기화
+          if (isNaN(finalZoom) || finalZoom < 0.3 || finalZoom > 5.0) {
+            finalZoom = 1.0;
+          }
+
+          const logMsg = `[App] Zoom loading: raw=${loadedZoom}, final=${finalZoom}`;
+          console.log(logMsg);
+          if (window.electronAPI?.cliStdout) window.electronAPI.cliStdout(logMsg + '\n');
+          
+          setZoomFactor(finalZoom);
           if (window.electronAPI?.setZoomFactor) {
-            window.electronAPI.setZoomFactor(parsed.zoomFactor);
+            window.electronAPI.setZoomFactor(finalZoom);
           }
         }
-
-        setIsSettingsLoaded(true);
       } catch (e) {
-        console.error("Failed to load settings", e);
-        setSavedRequests([defaultRequest]);
+        const errId = `[App] Failed to load settings: ${e}`;
+        console.error(errId);
+        if (window.electronAPI?.cliStdout) window.electronAPI.cliStdout(errId + '\n');
       }
     } else {
       setSavedRequests([defaultRequest]);
+      setToolOrder(ALL_PLUGINS.sort((a, b) => (a.order || 99) - (b.order || 99)).map(p => p.id));
     }
-    setIsSettingsLoaded(true);
+
+    // ✅ 상태 업데이트가 배칭되어 저장 로직이 이전 값을 읽지 않도록 약간의 지연을 줍니다.
+    setTimeout(() => {
+      setIsSettingsLoaded(true);
+    }, 150);
   }, []);
 
   // ✅ Performance: Auto-save settings with debounce to reduce I/O
@@ -581,6 +600,13 @@ const AppContent: React.FC = () => {
       }
     }
 
+    // 🐧🎯 형님! 백엔드가 이미 준비되었는지 직접 물어봐서 동기화하겠슴다! (신호 유실 방지)
+    window.electronAPI?.getStartupStatus?.().then((data: any) => {
+      if (data?.isComplete) {
+        setIsBackendReady(true);
+      }
+    });
+
     // Listen for backend loading complete (for initial app launch)
     window.electronAPI?.on('loading-complete', handleBackendLoadingComplete);
 
@@ -593,9 +619,9 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (isBackendReady && !isInitialPluginReady) {
       const timer = setTimeout(() => {
-        console.warn('Plugin loading timed out, forcing ready');
+        console.log('[App] Plugin loading check: forcing ready to clear splash');
         setIsInitialPluginReady(true);
-      }, 2000);
+      }, 1000); // 🐧🎯 형님! 백엔드가 준비됐으면 1초면 충분함다!
       return () => clearTimeout(timer);
     }
   }, [isBackendReady, isInitialPluginReady]);
@@ -605,55 +631,60 @@ const AppContent: React.FC = () => {
     setShowSplash(false);
   };
 
-  // Global Shortcut Prevention (Ctrl+W)
+  // 🐧 통합 글로벌 키보드 핸들러: 모든 단축키를 여기서 한 방에 관리함다!
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent Ctrl+W (Close Window) and Ctrl+T (New Tab) defaults
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 1. 브라우저 기본 동작 방지 (Ctrl+W, Ctrl+T)
       if ((e.ctrlKey || e.metaKey) && (e.key === 'w' || e.key === 'W' || e.key === 't' || e.key === 'T')) {
         e.preventDefault();
-        // Do not stop propagation, so other components (LogExtractor) can handle it
-        console.log(`[App] Parsed Ctrl+${e.key} - Preventing default behavior`);
       }
-    };
 
-    window.addEventListener('keydown', handleKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, []);
-
-  // Global Zoom Shortcut
-  useEffect(() => {
-    const handleZoomKey = (e: KeyboardEvent) => {
-      if (!window.electronAPI?.setZoomFactor) return;
-
+      // 2. 줌 단축키 (Ctrl + Plus/Minus/0)
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === '=' || e.key === '+' || (e.shiftKey && (e.key === '+' || e.key === '='))) {
+        // 확대 (+)
+        if (e.key === '=' || e.key === '+' || e.code === 'Equal' || e.code === 'NumpadAdd') {
           e.preventDefault();
+          e.stopImmediatePropagation();
+
+          const now = Date.now();
+          // 🐧 꾹 누르고 있을 때 너무 빠르지 않게 100ms 간격으로 조절 (연사 속도 조절)
+          if (now - GLOBAL_ZOOM_LOCK.lastTime < 100) return;
+          GLOBAL_ZOOM_LOCK.lastTime = now;
+
           setZoomFactor(prev => {
-            const next = Math.min(prev + 0.1, 3.0);
-            window.electronAPI.setZoomFactor(next);
+            const next = Math.round(Math.min(prev + 0.1, 3.0) * 10) / 10;
+            const msg = `[App] Zoom Key (+): ${prev} -> ${next}\n`;
+            if (window.electronAPI?.cliStdout) window.electronAPI.cliStdout(msg);
             return next;
           });
-        } else if (e.key === '-') {
+        } 
+        // 축소 (-)
+        else if (e.key === '-' || e.key === '_' || e.code === 'Minus' || e.code === 'NumpadSubtract') {
           e.preventDefault();
+          e.stopImmediatePropagation();
+
+          const now = Date.now();
+          if (now - GLOBAL_ZOOM_LOCK.lastTime < 100) return;
+          GLOBAL_ZOOM_LOCK.lastTime = now;
+
           setZoomFactor(prev => {
-            const next = Math.max(prev - 0.1, 0.5);
-            window.electronAPI.setZoomFactor(next);
+            const next = Math.round(Math.max(prev - 0.1, 0.5) * 10) / 10;
+            const msg = `[App] Zoom Key (-): ${prev} -> ${next}\n`;
+            if (window.electronAPI?.cliStdout) window.electronAPI.cliStdout(msg);
             return next;
           });
-        } else if (e.key === '0') {
+        } 
+        // 초기화 (0)
+        else if (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0') {
           e.preventDefault();
+          e.stopImmediatePropagation();
           setZoomFactor(1.0);
-          window.electronAPI.setZoomFactor(1.0);
+          const msg = `[App] Zoom Key (Reset): 1.0\n`;
+          if (window.electronAPI?.cliStdout) window.electronAPI.cliStdout(msg);
         }
       }
-    };
-    window.addEventListener('keydown', handleZoomKey, { capture: true });
-    return () => window.removeEventListener('keydown', handleZoomKey, { capture: true });
-  }, []);
 
-  // Focus Mode Shortcut (F11)
-  useEffect(() => {
-    const handleFocusModeKey = (e: KeyboardEvent) => {
+      // 3. 포커스 모드 (F11) - Ctrl 여부 상관없음
       if (e.key === 'F11') {
         e.preventDefault();
         const nextState = !isFocusMode;
@@ -663,9 +694,17 @@ const AppContent: React.FC = () => {
         }
       }
     };
-    window.addEventListener('keydown', handleFocusModeKey);
-    return () => window.removeEventListener('keydown', handleFocusModeKey);
+
+    window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
   }, [isFocusMode]);
+
+  // Apply Zoom Level to Electron Window
+  useEffect(() => {
+    if (window.electronAPI?.setZoomFactor) {
+      window.electronAPI.setZoomFactor(zoomFactor);
+    }
+  }, [zoomFactor]);
 
   return (
     <HappyToolProvider value={contextValue}>
@@ -758,6 +797,9 @@ const AppContent: React.FC = () => {
     </HappyToolProvider>
   );
 };
+
+// 🐧 줌 중복 호출 방지를 위한 전역 락 (컴포넌트 재마운트 시에도 유지)
+const GLOBAL_ZOOM_LOCK = { lastTime: 0 };
 
 const App: React.FC = () => {
   return (

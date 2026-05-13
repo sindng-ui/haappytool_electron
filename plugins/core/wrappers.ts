@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import React from 'react';
 
-// Lazy Load Components
-const LogExtractor = React.lazy(() => import('../../components/LogExtractor'));
+// Core Components - Static import for faster initial boot
+import LogExtractor from '../../components/LogExtractor';
 const PostTool = React.lazy(() => import('../../components/PostTool'));
 const TpkExtractor = React.lazy(() => import('../../components/TpkExtractor'));
 const JsonTools = React.lazy(() => import('../../components/JsonTools'));

@@ -100,6 +100,18 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
     - **Input Handling**: `LogSession.tsx` — 시리얼 모드일 때 엔터 입력 시 `\r` (Carriage Return)을 전송하도록 개선하여 장치 측 명령어 인식률 확보. 연결 모드에 따른 동적 플레이스홀더 적용.
     - **Backend Reliability**: `services/serialService.cjs` — `write` 메소드에 서버 측 로깅 기능을 추가하고 포트 상태 체크 로직을 강화하여 데이터 전송 무결성 보장. 🐧🛡️⚡
     - **Interface Integrity Test**: `test/hooks/useLogExtractorInterface.test.tsx` — 훅과 컴포넌트 간의 데이터 전달 누락(ReferenceError)을 방지하기 위한 계약 테스트(Contract Test) 시스템 도입. 🐧🧪✅
+  - **Startup & Performance Optimization (2026-05-14)**: [NEW]
+    - **Backend Lazy Loading**: `server/index.cjs` — `ssh2`, `serialport` 등 무거운 모듈 지연 로딩을 통한 부팅 속도 단축 (5s -> 0.2s). 🐧⚡
+    - **Splash Sync Logic**: `App.tsx` — 앱 마운트 시 백엔드 상태 직접 조회 및 안전 타이머(1s) 도입으로 기동 지연 해결.
+    - **Plugin Eager Loading**: `plugins/core/wrappers.ts` — 메인 플러그인(`LogExtractor`)을 정적 import로 전환하여 스플래시 종료 직후 즉시 렌더링되도록 개선. 🐧⚡🚀
+    - **Tab Bar Design Polish**: `LogExtractor.tsx` — 탭 바 하단 선 색상 일관성 확보 및 중복 보더 제거를 통한 UI 고도화. 🐧🎨✨
+    - **UI Spacing Optimization (2026-05-14)**: [NEW]
+      - `ConfigurationPanel.tsx`: 상단 여백(`pt-14` -> `pt-6`) 및 섹션 간격(`space-y-10` -> `space-y-6`)을 대폭 축소하여 정보 밀도 향상. 🐧⚡
+      - `ConfigHeader.tsx`: 미션 이름 섹션의 하단 마진(`mb-6` -> `mb-4`) 및 라벨 간격(`mb-2` -> `mb-1.5`)을 조정하여 쫀득한 레이아웃 구현. 🐧🎨✨
+    - **Global Zoom Sync (2026-05-14)**: [NEW]
+      - **Shared State Architecture**: `LogViewPreferencesContext`를 도입하여 폰트 크기와 줄 간격 설정을 모든 탭(세션)이 공유하도록 개선. 🐧💎⚡
+      - **Cross-Tab Synchronization**: 한 탭에서 `Ctrl + Wheel`로 줌 조절 시, 열려있는 모든 로그 탭이 실시간으로 동기화되어 동일한 시각적 경험 제공.
+      - **Persistence**: 전역 설정 변경 시 `localStorage`에 즉시 반영되어 앱 재시작 시에도 모든 탭에 일관되게 적용됨. 🐧💾🚀
 
 ### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
 - **Unified Diff Mode v2 (2026-04-06)**: 두 프로파일의 성능 차이를 직관적으로 분석하는 고대화된 비교 모드.
@@ -211,4 +223,4 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 - **Section Collapse Default (2026-05-01)**: Labs 섹션의 기본 상태를 '접힘(collapsed)'으로 변경하여 초기 진입 시 핵심 도구에 집중할 수 있도록 개선. 사용자 변경 상태는 `localStorage`에 자동 저장되어 유지됨. 🐧💾📁
 
 ---
-*Last Updated: 2026-05-13 (Serial Shell Input Fix Implemented)*
+*Last Updated: 2026-05-14 (Global Zoom Sync Implemented)*

@@ -7,6 +7,7 @@ let express, http, Server, cors, Client, spawn, exec;
 let app, server, io;
 let everythingService;
 let serialService;
+let ssh2; // Lazy loaded 🐧
 
 // Global BlockTest Dir (Configurable via startServer)
 let globalBlockTestDir = path.join(process.cwd(), 'BlockTest');
@@ -99,7 +100,7 @@ const handleSocketConnection = (socket, deps = {}) => {
     });
 
     socket.on('connect_serial', (params) => {
-        if (!serialService) return;
+        if (!serialService) serialService = require('./services/serialService.cjs'); // 🐧 지연 로딩!
         serialService.connect(socket, { 
             ...params, 
             globalUserDataPath, 
@@ -129,7 +130,7 @@ const handleSocketConnection = (socket, deps = {}) => {
     });
 
     const internalSpawn = deps.spawn || spawn;
-    const SSHClient = deps.Client || Client;
+    const SSHClient = deps.Client || Client; // Client might be undefined if not lazy loaded yet
 
     /**
      * ✅ Safe Spawn Wrapper for Socket Session
@@ -161,9 +162,11 @@ const handleSocketConnection = (socket, deps = {}) => {
     const getSdbCmd = (p) => p ? `"${p}"` : 'sdb';
 
     // --- Everything Search Handler ---
-    if (everythingService && typeof everythingService.initSocket === 'function') {
+    socket.on('start_everything_scan', (params) => {
+        if (!everythingService) everythingService = require('./services/everythingService.cjs'); // 🐧 지연 로딩!
         everythingService.initSocket(socket);
-    }
+        everythingService.startScan(params);
+    });
 
     // --- SSH Handler ---
     socket.on('connect_ssh', ({ host, port, username, password, debug, saveToFile, command, tags }) => {
@@ -254,7 +257,9 @@ const handleSocketConnection = (socket, deps = {}) => {
         }
 
         console.log('[SSH] Creating SSH client...');
-        const conn = new SSHClient();
+        if (!ssh2) ssh2 = require('ssh2'); // 🐧 지연 로딩!
+        const { Client: SSHClientLazy } = ssh2;
+        const conn = new SSHClientLazy();
 
         conn.on('keyboard-interactive', (name, instructions, instructionsLang, prompts, finish) => {
             console.log('[SSH] Keyboard-Interactive Auth Requested');

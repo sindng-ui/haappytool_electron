@@ -83,7 +83,7 @@ async function createWindow() {
             console.log('[DEBUG] did-finish-load fired inside createWindow');
             // Zoom 제한 (렌더러 준비된 후 설정)
             mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
-            mainWindow.webContents.setZoomFactor(1.0);
+            // 🐧 줌 수치는 렌더러(App.tsx)의 설정을 존중하기 위해 여기서 강제하지 않습니다!
             resolve();
         });
     });
@@ -117,7 +117,9 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
-    const { session } = require('electron');
+    const { session, Menu } = require('electron');
+    // ✅ 기본 메뉴를 제거하여 일렉트론이 줌 단축키(Ctrl+Plus/Minus)를 가로채지 못하게 함다! 🐧🚫
+    Menu.setApplicationMenu(null);
 
     // ✅ 'app://' 프로토콜 핸들러 등록 (SharedArrayBuffer를 위해 Response에 헤더 주입 가능)
     protocol.handle('app', async (request) => {
@@ -172,6 +174,15 @@ app.whenReady().then(async () => {
     const bootLogs = [];
     ipcMain.handle('get-startup-status', () => {
         return { ...startupStatus, logs: bootLogs };
+    });
+
+    // ✅ GUI 모드에서도 렌더러의 로그를 터미널로 출력할 수 있게 합니다. 🐧📝
+    ipcMain.on('cli-stdout', (event, msg) => {
+        process.stdout.write(msg);
+    });
+
+    ipcMain.on('cli-stderr', (event, msg) => {
+        process.stderr.write(msg);
     });
 
     ipcMain.handle('getFileSize', async (event, filePath) => {

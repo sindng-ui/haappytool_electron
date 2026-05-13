@@ -132,7 +132,7 @@ const ConfigurationPanel = React.memo(() => {
             </div>
             {isPanelOpen ? (
                 <div
-                    className="p-5 pt-14 overflow-y-auto h-full custom-scrollbar pb-20 space-y-10"
+                    className="p-5 pt-6 overflow-y-auto h-full custom-scrollbar pb-20 space-y-6"
                     style={{ width: configPanelWidth }}
                 >
                     <ConfigHeader
