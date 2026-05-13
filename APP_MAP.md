@@ -99,6 +99,7 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
   - **Serial Shell Connectivity Fix (2026-05-13)**: [NEW]
     - **Input Handling**: `LogSession.tsx` — 시리얼 모드일 때 엔터 입력 시 `\r` (Carriage Return)을 전송하도록 개선하여 장치 측 명령어 인식률 확보. 연결 모드에 따른 동적 플레이스홀더 적용.
     - **Backend Reliability**: `services/serialService.cjs` — `write` 메소드에 서버 측 로깅 기능을 추가하고 포트 상태 체크 로직을 강화하여 데이터 전송 무결성 보장. 🐧🛡️⚡
+    - **Interface Integrity Test**: `test/hooks/useLogExtractorInterface.test.tsx` — 훅과 컴포넌트 간의 데이터 전달 누락(ReferenceError)을 방지하기 위한 계약 테스트(Contract Test) 시스템 도입. 🐧🧪✅
 
 ### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
 - **Unified Diff Mode v2 (2026-04-06)**: 두 프로파일의 성능 차이를 직관적으로 분석하는 고대화된 비교 모드.
