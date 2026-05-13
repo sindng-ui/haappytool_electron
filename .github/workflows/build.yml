@@ -1,0 +1,40 @@
+name: Build and Release HappyTool
+
+on:
+  push:
+    branches:
+      - main
+      - '0430' # 형님이 현재 작업 중인 브랜치 포함
+  workflow_dispatch: # 수동 실행 버튼 활성화
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22 # Electron 39 대응 최신 노드 버전
+
+      - name: Install Dependencies
+        run: npm install
+        env:
+          # 회사 프록시 걱정 없는 시원한 GitHub 망 사용
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
+      - name: Build Electron App
+        run: npm run electron:build
+        env:
+          # 시리얼포트 리빌드 등을 위해 필요한 환경 변수
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HappyTool-Windows-Exe
+          path: dist_electron/*.exe
+          retention-days: 7 # 7일 동안 보관
