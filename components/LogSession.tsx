@@ -114,6 +114,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         quickFilter, setQuickFilter,
         isSpamAnalyzerOpen, setIsSpamAnalyzerOpen,
         isAnalyzingSpam, spamResultsLeft, requestSpamAnalysisLeft,
+        isLogging, setIsLogging, connectionMode, // ✅ Added for Serial mode and logging state
         clearCacheTick,
         leftSharedBuffers, rightSharedBuffers,
         leftWorkerRef, rightWorkerRef,
