@@ -141,9 +141,16 @@ class SerialService {
 
     write(data) {
         if (this.serialPort && this.serialPort.isOpen) {
+            console.log(`[Serial] -> Writing data (${data.length} bytes): ${JSON.stringify(data)}`);
             this.serialPort.write(data, (err) => {
-                if (err) console.error('[Serial] Write error:', err.message);
+                if (err) {
+                    console.error('[Serial] ✗ Write error:', err.message);
+                } else {
+                    // console.log('[Serial] ✓ Write successful');
+                }
             });
+        } else {
+            console.warn('[Serial] ! Cannot write: Port is not open');
         }
     }
 

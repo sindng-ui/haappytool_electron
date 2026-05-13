@@ -1405,11 +1405,13 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                             <span className="text-indigo-400 font-bold text-xs whitespace-nowrap flex items-center gap-1"><Lucide.Terminal size={12} /> SHELL &gt;</span>
                             <input
                                 className="flex-1 bg-transparent text-slate-200 text-sm focus:outline-none font-mono placeholder-slate-600"
-                                placeholder="Type sdb shell command..."
+                                placeholder={connectionMode === 'serial' ? "Type serial command (e.g. ls, help)..." : "Type sdb shell command..."}
                                 autoFocus
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
-                                        sendTizenCommand(e.currentTarget.value + '\n');
+                                        // 🐧🎯 형님! 시리얼 쉘은 보통 \r 이나 \r\n을 기대합니다. 
+                                        const ending = connectionMode === 'serial' ? '\r' : '\n';
+                                        sendTizenCommand(e.currentTarget.value + ending);
                                         e.currentTarget.value = '';
                                     }
                                 }}
