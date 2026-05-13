@@ -117,6 +117,17 @@ const handleSocketConnection = (socket, deps = {}) => {
         serialService.write(data);
     });
 
+    socket.on('serial_special_key', (key) => {
+        if (!serialService) return;
+        if (key === 'ctrl_p') {
+            serialService.write(Buffer.from([0x10]));
+        } else if (key === 'ctrl_p_twice') {
+            serialService.write(Buffer.from([0x10, 0x10]));
+        } else if (key === 'ctrl_p_thrice') {
+            serialService.write(Buffer.from([0x10, 0x10, 0x10]));
+        }
+    });
+
     const internalSpawn = deps.spawn || spawn;
     const SSHClient = deps.Client || Client;
 

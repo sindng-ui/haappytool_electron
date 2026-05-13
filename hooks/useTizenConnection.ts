@@ -209,6 +209,12 @@ export function useTizenConnection({
             }
         }
     }, [tizenSocket, connectionMode]);
+    
+    const sendSerialSpecialKey = useCallback((key: 'ctrl_p' | 'ctrl_p_twice' | 'ctrl_p_thrice') => {
+        if (tizenSocket && connectionMode === 'serial') {
+            tizenSocket.emit('serial_special_key', key);
+        }
+    }, [tizenSocket, connectionMode]);
 
     const handleTizenDisconnect = useCallback(() => {
         if (tizenSocket) {
@@ -245,6 +251,7 @@ export function useTizenConnection({
         setClearCacheTick,
         handleTizenStreamStart,
         sendTizenCommand,
+        sendSerialSpecialKey,
         handleClearLogs,
         handleTizenDisconnect
     };

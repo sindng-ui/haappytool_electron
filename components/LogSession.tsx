@@ -83,7 +83,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,
         clearLeftBookmarks, clearRightBookmarks,
         jumpToHighlight, requestBookmarkedLines, jumpToGlobalLine,
-        tizenSocket, sendTizenCommand, handleClearLogs, handleTizenDisconnect,
+        tizenSocket, sendTizenCommand, sendSerialSpecialKey, handleClearLogs, handleTizenDisconnect,
         handleLineClick,
 
         // Segmentation
@@ -1145,6 +1145,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             <QuickCommandPanel 
                 isConnected={!!tizenSocket} 
                 onExecute={sendTizenCommand} 
+                onSpecialKey={sendSerialSpecialKey}
             />
 
 

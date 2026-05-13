@@ -609,6 +609,7 @@ export const useLogExtractorLogic = ({
             if (tizenSocket) {
                 tizenSocket.emit('disconnect_sdb');
                 tizenSocket.emit('disconnect_ssh');
+                tizenSocket.emit('disconnect_serial'); // ✅ Added to release COM port
                 tizenSocket.disconnect();
             }
         };
@@ -1042,7 +1043,7 @@ export const useLogExtractorLogic = ({
         clearLeftBookmarks, clearRightBookmarks,
         handleRightFileChange, handleRightReset, requestRightLines, requestRightRawLines,
         handleCopyLogs, handleSaveLogs, handleCopyAsConfluenceTable, jumpToHighlight, findText,
-        requestBookmarkedLines, sendTizenCommand, hasEverConnected, handleClearLogs,
+        requestBookmarkedLines, sendTizenCommand, sendSerialSpecialKey, hasEverConnected, handleClearLogs,
         jumpToGlobalLine, handleLineClick,
         leftSegmentIndex, setLeftSegmentIndex, leftTotalSegments, leftCurrentSegmentLines,
         rightSegmentIndex, setRightSegmentIndex, rightTotalSegments, rightCurrentSegmentLines,

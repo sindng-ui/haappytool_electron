@@ -10,10 +10,11 @@ interface QuickCommand {
 
 interface QuickCommandPanelProps {
     onExecute: (cmd: string) => void;
+    onSpecialKey?: (key: 'ctrl_p' | 'ctrl_p_twice' | 'ctrl_p_thrice') => void;
     isConnected: boolean;
 }
 
-const QuickCommandPanel: React.FC<QuickCommandPanelProps> = ({ onExecute, isConnected }) => {
+const QuickCommandPanel: React.FC<QuickCommandPanelProps> = ({ onExecute, onSpecialKey, isConnected }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [commands, setCommands] = useState<QuickCommand[]>(() => {
         const saved = localStorage.getItem('quickCommands');
@@ -81,7 +82,30 @@ const QuickCommandPanel: React.FC<QuickCommandPanelProps> = ({ onExecute, isConn
                         </div>
 
                         <div className="flex-1 overflow-y-auto max-h-[400px] p-2 custom-scrollbar space-y-1">
-                            {commands.length === 0 && (
+                            {/* 🐧 Special Serial Keys Section */}
+                            {onSpecialKey && (
+                                <div className="mb-2 p-1 bg-slate-950/30 rounded-xl border border-slate-800/50">
+                                    <div className="px-2 py-1 text-[8px] font-bold text-slate-500 uppercase tracking-tighter">System Actions</div>
+                                    <div className="grid grid-cols-2 gap-1 p-1">
+                                        <button 
+                                            onClick={() => onSpecialKey('ctrl_p_twice')}
+                                            className="flex flex-col items-center justify-center p-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-300 transition-all active:scale-95"
+                                        >
+                                            <span className="text-[10px] font-black">UNLOCK</span>
+                                            <span className="text-[8px] opacity-60">Ctrl+P x2</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => onSpecialKey('ctrl_p_thrice')}
+                                            className="flex flex-col items-center justify-center p-2 rounded-lg bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/30 text-purple-300 transition-all active:scale-95"
+                                        >
+                                            <span className="text-[10px] font-black">RE-ACT</span>
+                                            <span className="text-[8px] opacity-60">Ctrl+P x3</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {commands.length === 0 && !onSpecialKey && (
                                 <div className="py-8 text-center text-slate-500 text-[10px]">
                                     명령어를 추가해 주세요.
                                 </div>
