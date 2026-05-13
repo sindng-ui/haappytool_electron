@@ -380,6 +380,7 @@ export const useLogExtractorLogic = ({
         setClearCacheTick,
         handleTizenStreamStart,
         sendTizenCommand,
+        sendSerialSpecialKey,
         handleClearLogs,
         handleTizenDisconnect
     } = useTizenConnection({
