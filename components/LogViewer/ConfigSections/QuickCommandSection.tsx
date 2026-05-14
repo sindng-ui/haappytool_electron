@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, Edit2, Trash2, Zap, Terminal, Command } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
+import { Plus, X, Edit2, Trash2, Zap, Terminal, Command, GripVertical } from 'lucide-react';
 
 interface QuickCommand {
     id: string;
@@ -14,6 +14,75 @@ interface QuickCommandSectionProps {
     onSpecialKey?: (key: 'ctrl_p' | 'ctrl_p_twice' | 'ctrl_p_thrice') => void;
     isConnected: boolean;
 }
+
+// 🐧🎯 독립된 드래그 핸들과 렌더링을 담당하는 개별 카드 컴포넌트
+const DraggableCommandItem = ({
+    c,
+    handleExecute,
+    setHoveredCmd,
+    setHoverPos,
+    handleEdit,
+    handleDelete,
+    renderTokensToHtml
+}: {
+    c: QuickCommand,
+    handleExecute: (cmd: string) => void,
+    setHoveredCmd: (cmd: string | null) => void,
+    setHoverPos: (pos: { top: number, left: number } | null) => void,
+    handleEdit: (c: QuickCommand, e: React.MouseEvent) => void,
+    handleDelete: (id: string, e: React.MouseEvent) => void,
+    renderTokensToHtml: (cmd: string) => string
+}) => {
+    const dragControls = useDragControls();
+
+    return (
+        <Reorder.Item
+            value={c}
+            dragListener={false} // 🐧 카드 전체가 아닌 핸들로만 드래그되도록 제한
+            dragControls={dragControls}
+            className="group relative flex items-center justify-between p-3 rounded-2xl bg-slate-900/40 hover:bg-indigo-600/10 border border-slate-800/50 hover:border-indigo-500/30 transition-colors duration-300 select-none"
+            onMouseEnter={(e) => {
+                setHoveredCmd(c.cmd);
+                const rect = e.currentTarget.getBoundingClientRect();
+                setHoverPos({ top: rect.top, left: rect.right + 20 });
+            }}
+            onMouseLeave={() => {
+                setHoveredCmd(null);
+                setHoverPos(null);
+            }}
+        >
+            {/* 🐧 전용 드래그 핸들 */}
+            <div
+                className="flex items-center justify-center p-2 mr-2 cursor-grab active:cursor-grabbing text-slate-600 hover:text-indigo-400 hover:bg-white/5 rounded-lg transition-colors"
+                onPointerDown={(e) => dragControls.start(e)}
+            >
+                <GripVertical size={16} />
+            </div>
+
+            <div
+                className="flex flex-col min-w-0 pr-4 flex-1 cursor-pointer"
+                onClick={() => handleExecute(c.cmd)}
+            >
+                <span className="text-xs font-bold text-slate-200 truncate group-hover:text-white flex items-center gap-2">
+                    {c.name}
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono truncate mt-1 flex items-center flex-wrap gap-1">
+                    {c.cmd.includes('[[') ? (
+                        <div dangerouslySetInnerHTML={{ __html: renderTokensToHtml(c.cmd) }} className="flex items-center gap-1 scale-90 origin-left" />
+                    ) : c.cmd}
+                </span>
+            </div>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                <button onClick={(e) => handleEdit(c, e)} className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-indigo-400">
+                    <Edit2 size={14} />
+                </button>
+                <button onClick={(e) => handleDelete(c.id, e)} className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-red-400">
+                    <Trash2 size={14} />
+                </button>
+            </div>
+        </Reorder.Item>
+    );
+};
 
 export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExecute, onSpecialKey, isConnected }) => {
     const [commands, setCommands] = useState<QuickCommand[]>(() => {
@@ -43,6 +112,12 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
     const [hoveredCmd, setHoveredCmd] = useState<string | null>(null);
     const [hoverPos, setHoverPos] = useState<{ top: number, left: number } | null>(null);
     const editorRef = React.useRef<HTMLDivElement>(null);
+
+    // 🐧🎯 순서 변경 시 저장 로직
+    const handleReorder = (newOrder: QuickCommand[]) => {
+        setCommands(newOrder);
+        localStorage.setItem('quickCommands', JSON.stringify(newOrder));
+    };
 
     // 🐧 특수 토큰 정의
     const SPECIAL_TOKENS: Record<string, { label: string, color: string, value: string }> = {
@@ -197,7 +272,12 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar pb-10">
+                <Reorder.Group
+                    axis="y"
+                    values={commands}
+                    onReorder={handleReorder}
+                    className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar pb-10"
+                >
                     {commands.length === 0 && (
                         <div className="py-20 text-center flex flex-col items-center gap-3 opacity-30">
                             <Terminal size={32} />
@@ -205,39 +285,18 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                         </div>
                     )}
                     {commands.map((c) => (
-                        <div
+                        <DraggableCommandItem
                             key={c.id}
-                            onClick={() => handleExecute(c.cmd)}
-                            onMouseEnter={(e) => {
-                                setHoveredCmd(c.cmd);
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                setHoverPos({ top: rect.top, left: rect.right + 20 });
-                            }}
-                            onMouseLeave={() => {
-                                setHoveredCmd(null);
-                                setHoverPos(null);
-                            }}
-                            className="group relative flex items-center justify-between p-4 rounded-2xl bg-slate-900/40 hover:bg-indigo-600/10 border border-slate-800/50 hover:border-indigo-500/30 cursor-pointer transition-all duration-300"
-                        >
-                            <div className="flex flex-col min-w-0 pr-4 flex-1">
-                                <span className="text-xs font-bold text-slate-200 truncate group-hover:text-white">{c.name}</span>
-                                <span className="text-[10px] text-slate-500 font-mono truncate mt-1 flex items-center flex-wrap gap-1">
-                                    {c.cmd.includes('[[') ? (
-                                        <div dangerouslySetInnerHTML={{ __html: renderTokensToHtml(c.cmd) }} className="flex items-center gap-1 scale-90 origin-left" />
-                                    ) : c.cmd}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                                <button onClick={(e) => handleEdit(c, e)} className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-indigo-400">
-                                    <Edit2 size={14} />
-                                </button>
-                                <button onClick={(e) => handleDelete(c.id, e)} className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-red-400">
-                                    <Trash2 size={14} />
-                                </button>
-                            </div>
-                        </div>
+                            c={c}
+                            handleExecute={handleExecute}
+                            setHoveredCmd={setHoveredCmd}
+                            setHoverPos={setHoverPos}
+                            handleEdit={handleEdit}
+                            handleDelete={handleDelete}
+                            renderTokensToHtml={renderTokensToHtml}
+                        />
                     ))}
-                </div>
+                </Reorder.Group>
             </div>
 
             {/* 🐧🎯 글로벌 전문 프리뷰 HUD (마우스 오버한 카드 우측에 밀착 렌더링) */}
@@ -259,9 +318,11 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                                     <div className="p-2 bg-indigo-500/10 rounded-lg">
                                         <Terminal size={18} className="text-indigo-400" />
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Quick Preview</span>
-                                        <span className="text-[9px] text-slate-500 italic">Floating next to active command</span>
+                                    <div className="flex flex-col gap-1.5">
+                                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none mt-1">Quick Preview</span>
+                                        <span className="text-[10px] font-black text-emerald-300 bg-emerald-500/20 border border-emerald-400/30 px-2 py-0.5 rounded-md inline-flex items-center w-fit shadow-[0_0_15px_rgba(52,211,153,0.15)]">
+                                            🖱️ Click card to execute
+                                        </span>
                                     </div>
                                 </div>
                                 <div className="text-xl text-white font-mono leading-relaxed break-all whitespace-pre-wrap">
