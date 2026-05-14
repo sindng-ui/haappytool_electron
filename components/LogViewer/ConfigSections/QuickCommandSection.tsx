@@ -313,14 +313,16 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                                 left: hoverPos.left
                             }}
                         >
-                            <div className="bg-slate-900 border-2 border-indigo-500/50 rounded-3xl p-8 shadow-[0_20px_100px_rgba(0,0,0,0.7)] min-w-[550px] max-w-[900px]">
+                            {/* 🐧 GPU 최적화: 무거운 다중 레이어 그림자 제거 */}
+                            <div className="bg-slate-900 border border-indigo-500/50 rounded-3xl p-8 shadow-xl min-w-[550px] max-w-[900px]">
                                 <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3">
                                     <div className="p-2 bg-indigo-500/10 rounded-lg">
                                         <Terminal size={18} className="text-indigo-400" />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
                                         <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none mt-1">Quick Preview</span>
-                                        <span className="text-[10px] font-black text-emerald-300 bg-emerald-500/20 border border-emerald-400/30 px-2 py-0.5 rounded-md inline-flex items-center w-fit shadow-[0_0_15px_rgba(52,211,153,0.15)]">
+                                        {/* 🐧 GPU 최적화: glow 효과(shadow) 제거 */}
+                                        <span className="text-[10px] font-black text-emerald-300 bg-emerald-500/20 border border-emerald-400/30 px-2 py-0.5 rounded-md inline-flex items-center w-fit">
                                             🖱️ Click card to execute
                                         </span>
                                     </div>
@@ -337,14 +339,15 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                 document.body
             )}
 
-            {/* 🐧 Edit Overlay */}
+            {/* 🐧 Edit Overlay (GPU 최적화: blur 제거) */}
             <AnimatePresence>
                 {isEditing && (
                     <motion.div
-                        initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
-                        animate={{ opacity: 1, backdropFilter: 'blur(8px)' }}
-                        exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
-                        className="absolute inset-[-20px] bg-slate-950/80 z-50 p-8 flex flex-col space-y-6"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute inset-[-20px] bg-slate-950/98 z-50 p-8 flex flex-col space-y-6"
                     >
                         <div className="flex justify-between items-center">
                             <h4 className="text-sm font-black text-white uppercase tracking-wider">{editData.id ? 'Edit Command' : 'New Command'}</h4>
@@ -428,7 +431,8 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                             </div>
                             <button
                                 onClick={handleSave}
-                                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-sm font-black transition-all shadow-xl shadow-indigo-900/40 active:scale-[0.98]"
+                                // 🐧 GPU 최적화: 컬러 섀도우 제거 및 transition-colors로 변경
+                                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-sm font-black transition-colors active:scale-[0.98]"
                             >
                                 SAVE COMMAND
                             </button>

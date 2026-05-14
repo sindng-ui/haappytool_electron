@@ -32,20 +32,21 @@ const ConfigurationPanel = React.memo(() => {
 
     const [activeTab, setActiveTab] = useState<'settings' | 'commands'>('settings');
 
-    // 🐧🎯 형님! Ctrl + Shift + Z 단축키로 탭을 토글하는 로직입니다!
+    // 🐧🎯 형님! Ctrl + Shift + Z 단축키로 탭을 토글하는 로직입니다! (최적화 완료)
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') {
                 e.preventDefault();
                 setActiveTab(prev => prev === 'settings' ? 'commands' : 'settings');
-                // 패널이 닫혀있으면 열어주는 센스! 🐧✨
-                if (!isPanelOpen) setIsPanelOpen(true);
+                // setIsPanelOpen에 값 자체를 넣으면 현재 상태를 몰라도 무조건 열리게 할 수 있으므로 
+                // 의존성 배열에서 isPanelOpen을 뺄 수 있습니다.
+                setIsPanelOpen(true); 
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isPanelOpen, setIsPanelOpen]);
+    }, [setIsPanelOpen]); // 🐧 isPanelOpen을 빼서 마운트 시 1번만 실행되게 최적화!
 
     const onToggle = useCallback(() => setIsPanelOpen(prev => !prev), [setIsPanelOpen]);
 
@@ -140,7 +141,7 @@ const ConfigurationPanel = React.memo(() => {
             <div className="absolute top-[22px] right-[-14px] z-50">
                 <Button
                     variant="secondary"
-                    className="w-7 h-10 rounded-full bg-indigo-600 border border-indigo-400/30 hover:bg-indigo-500 shadow-lg shadow-indigo-900/40 flex items-center justify-center transition-all active:scale-95 focus:scale-100 ring-0 hover:scale-110 group/btn"
+                    className="w-7 h-10 rounded-full bg-indigo-600 border border-indigo-400/30 hover:bg-indigo-500 flex items-center justify-center transition-all active:scale-95 focus:scale-100 ring-0 hover:scale-110 group/btn"
                     onClick={onToggle}
                 >
                     {isPanelOpen ? (
@@ -161,9 +162,9 @@ const ConfigurationPanel = React.memo(() => {
                 {/* 탭 바와 내용물은 패널이 닫혀있어도 메모리에 유지됨 */}
                 <div className="px-5 py-2 flex items-center justify-between border-b border-white/5 bg-slate-950/40">
                     <div className="flex bg-slate-900/80 p-0.5 rounded-lg border border-white/5 w-full relative overflow-hidden h-8">
-                        {/* 🐧🎯 단축키/클릭 모두 완벽하게 대응하는 싱글 트래킹 인디케이터 */}
+                        {/* 🐧🎯 단축키/클릭 모두 완벽하게 대응하는 싱글 트래킹 인디케이터 (그림자 제거) */}
                         <motion.div 
-                            className="absolute top-0.5 bottom-0.5 rounded-md shadow-lg"
+                            className="absolute top-0.5 bottom-0.5 rounded-md"
                             initial={false}
                             animate={{ 
                                 x: activeTab === 'settings' ? '0%' : '100%',
