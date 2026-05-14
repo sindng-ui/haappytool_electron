@@ -5,7 +5,6 @@ import LogViewerPane, { LogViewerHandle } from './LogViewer/LogViewerPane';
 import ConfigurationPanel from './LogViewer/ConfigurationPanel';
 import TizenConnectionModal from './TizenConnectionModal';
 import { useLogContext } from './LogViewer/LogContext';
-import QuickCommandPanel from './LogViewer/QuickCommandPanel';
 import { MAX_SEGMENT_SIZE } from '../hooks/useLogExtractorLogic';
 import TopBar from './LogViewer/TopBar';
 import LoadingOverlay from './ui/LoadingOverlay';
@@ -1141,16 +1140,9 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 })()}
             />
 
-            {/* Quick Command Palette (Floating) */}
-            <QuickCommandPanel 
-                isConnected={!!tizenSocket} 
-                onExecute={sendTizenCommand} 
-                onSpecialKey={sendSerialSpecialKey}
-            />
-
-
-
-
+            {/* Hidden File Inputs for Click-to-Upload */}
+            <input type="file" ref={leftFileInputRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleLeftFileChange(e.target.files[0]); e.target.value = ''; } }} />
+            <input type="file" ref={rightFileInputRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleRightFileChange(e.target.files[0]); e.target.value = ''; } }} />
 
             <div ref={logContentRef} className="flex-1 flex overflow-hidden h-full relative group/layout">
                 {/* 1. Left Sidebar (Configuration) */}
@@ -1400,7 +1392,6 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 </div>
                             </div>
                         </div>
-                    </div>
                     {/* Tizen Command Input */}
                     {tizenSocket && (
                         <div className="h-10 bg-slate-950 border-t border-slate-800 flex items-center px-4 gap-3 shrink-0 z-30">
@@ -1427,20 +1418,21 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                             </button>
                         </div>
                     )}
+                    </div>
                 </div>
             </div>
 
-            {/* Go To Line Modal */}
-            <GoToLineModal
-                isOpen={isGoToLineModalOpen}
-                onClose={handleGoToLineClose}
-                onGo={handleGoToLineGo}
-                isDualView={isDualView}
-                leftTotalLines={leftFilteredCount || 0}
-                rightTotalLines={rightFilteredCount || 0}
-                leftFileName={leftFileName || 'Left'}
-                rightFileName={rightFileName || 'Right'}
-            />
+        {/* Go To Line Modal */}
+        <GoToLineModal
+            isOpen={isGoToLineModalOpen}
+            onClose={handleGoToLineClose}
+            onGo={handleGoToLineGo}
+            isDualView={isDualView}
+            leftTotalLines={leftFilteredCount || 0}
+            rightTotalLines={rightFilteredCount || 0}
+            leftFileName={leftFileName || 'Left'}
+            rightFileName={rightFileName || 'Right'}
+        />
 
             {/* Bookmarks Modal - Left */}
             <BookmarksModal

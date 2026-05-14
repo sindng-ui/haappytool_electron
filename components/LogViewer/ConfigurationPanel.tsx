@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import { useLogContext } from './LogContext';
 import { Button } from '../ui/Button';
@@ -11,8 +12,9 @@ import { LogSettingsSection } from './ConfigSections/LogSettingsSection';
 import { PerfSettingsSection } from './ConfigSections/PerfSettingsSection';
 
 import { ViewSettingsSection } from './ConfigSections/ViewSettingsSection';
+import { QuickCommandSection } from './ConfigSections/QuickCommandSection';
 
-const { ChevronLeft, ChevronRight } = Lucide;
+const { ChevronLeft, ChevronRight, Settings, Zap } = Lucide;
 
 const ConfigurationPanel = React.memo(() => {
     const {
@@ -20,12 +22,15 @@ const ConfigurationPanel = React.memo(() => {
         configPanelWidth, handleConfigResizeStart,
         currentConfig, updateCurrentRule,
         groupedRoots, collapsedRoots, setCollapsedRoots, handleToggleRoot,
-        sendTizenCommand,
+        sendTizenCommand, sendSerialSpecialKey,
         logViewPreferences, updateLogViewPreferences,
         isLogging, setIsLogging, connectionMode,
         hasEverConnected, setIsTizenQuickConnect, setIsTizenModalOpen,
+        tizenSocket,
         tabId
     } = useLogContext();
+
+    const [activeTab, setActiveTab] = React.useState<'settings' | 'commands'>('settings');
 
     const onToggle = React.useCallback(() => setIsPanelOpen(prev => !prev), [setIsPanelOpen]);
 
@@ -132,72 +137,123 @@ const ConfigurationPanel = React.memo(() => {
             </div>
             {isPanelOpen ? (
                 <div
-                    className="p-5 pt-6 overflow-y-auto h-full custom-scrollbar pb-20 space-y-6"
+                    className="flex flex-col h-full overflow-hidden"
                     style={{ width: configPanelWidth }}
                 >
-                    <ConfigHeader
-                        name={currentConfig.name}
-                        onUpdateName={handleUpdateName}
-                    />
-
-                    <div className="card-gradient p-1">
-                        <HappyComboSection
-                            currentConfig={currentConfig}
-                            updateCurrentRule={updateCurrentRule}
-                            groupedRoots={groupedRoots}
-                            collapsedRoots={collapsedRoots}
-                            onToggleRootCollapse={onToggleRootCollapse}
-                            handleToggleRoot={handleToggleRoot}
-                            happyCombosCaseSensitive={currentConfig.happyCombosCaseSensitive || false}
-                            tabId={tabId}
-                            setCollapsedRoots={setCollapsedRoots}
-                        />
+                    {/* 🐧 Ultra-Slim Segmented Control Tab Bar */}
+                    <div className="px-5 py-2 flex items-center justify-between border-b border-white/5 bg-slate-950/40">
+                        <div className="flex bg-slate-900/80 p-0.5 rounded-lg border border-white/5 w-full relative">
+                            {/* Animated Background Indicator */}
+                            <motion.div 
+                                className={`absolute top-0.5 bottom-0.5 rounded-md shadow-lg ${
+                                    activeTab === 'settings' ? 'bg-indigo-600' : 'bg-amber-500'
+                                }`}
+                                layoutId="activeTabIndicator"
+                                initial={false}
+                                animate={{ 
+                                    left: activeTab === 'settings' ? '2px' : 'calc(50% + 1px)',
+                                    right: activeTab === 'settings' ? 'calc(50% + 1px)' : '2px'
+                                }}
+                                transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                            />
+                            
+                            <button 
+                                onClick={() => setActiveTab('settings')}
+                                className={`flex-1 flex items-center justify-center gap-1.5 py-1 z-10 text-[9px] font-black uppercase tracking-widest transition-colors duration-300 ${
+                                    activeTab === 'settings' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+                                }`}
+                            >
+                                <Settings size={12} className={activeTab === 'settings' ? 'animate-spin-slow' : ''} />
+                                Settings
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('commands')}
+                                className={`flex-1 flex items-center justify-center gap-1.5 py-1 z-10 text-[9px] font-black uppercase tracking-widest transition-colors duration-300 ${
+                                    activeTab === 'commands' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-300'
+                                }`}
+                            >
+                                <Zap size={12} className={activeTab === 'commands' ? 'fill-current' : ''} />
+                                Commands
+                            </button>
+                        </div>
                     </div>
 
+                    <div className="flex-1 overflow-y-auto p-5 pt-4 custom-scrollbar pb-20">
+                        <div className={activeTab === 'settings' ? 'block' : 'hidden'}>
+                            <div className="space-y-6">
+                                <ConfigHeader
+                                    name={currentConfig.name}
+                                    onUpdateName={handleUpdateName}
+                                />
 
+                                <div className="card-gradient p-1">
+                                    <HappyComboSection
+                                        currentConfig={currentConfig}
+                                        updateCurrentRule={updateCurrentRule}
+                                        groupedRoots={groupedRoots}
+                                        collapsedRoots={collapsedRoots}
+                                        onToggleRootCollapse={onToggleRootCollapse}
+                                        handleToggleRoot={handleToggleRoot}
+                                        happyCombosCaseSensitive={currentConfig.happyCombosCaseSensitive || false}
+                                        tabId={tabId}
+                                        setCollapsedRoots={setCollapsedRoots}
+                                    />
+                                </div>
 
-                    <div className="card-gradient p-1">
-                        <BlockListSection
-                            currentConfig={currentConfig}
-                            updateCurrentRule={updateCurrentRule}
-                            blockListCaseSensitive={currentConfig.blockListCaseSensitive || false}
-                        />
+                                <div className="card-gradient p-1">
+                                    <BlockListSection
+                                        currentConfig={currentConfig}
+                                        updateCurrentRule={updateCurrentRule}
+                                        blockListCaseSensitive={currentConfig.blockListCaseSensitive || false}
+                                    />
+                                </div>
+
+                                <div className="card-gradient p-1">
+                                    <HighlightSection
+                                        currentConfig={currentConfig}
+                                        updateCurrentRule={updateCurrentRule}
+                                        colorHighlightsCaseSensitive={currentConfig.colorHighlightsCaseSensitive || false}
+                                    />
+                                </div>
+
+                                <div className="card-gradient p-1">
+                                    <LogSettingsSection
+                                        currentConfig={currentConfig}
+                                        updateCurrentRule={updateCurrentRule}
+                                        isLogging={isLogging}
+                                        onToggleLogging={handleToggleLogging}
+                                        connectionMode={connectionMode}
+                                        hasEverConnected={hasEverConnected}
+                                        onReconnect={handleReconnect}
+                                    />
+                                </div>
+
+                                <div className="card-gradient p-1">
+                                    <ViewSettingsSection
+                                        preferences={logViewPreferences}
+                                        onUpdate={updateLogViewPreferences}
+                                    />
+                                </div>
+
+                                <div className="card-gradient p-1">
+                                    <PerfSettingsSection
+                                        currentConfig={currentConfig}
+                                        updateCurrentRule={updateCurrentRule}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {activeTab === 'commands' && (
+                            <div className="h-full">
+                                <QuickCommandSection 
+                                    isConnected={!!tizenSocket}
+                                    onExecute={sendTizenCommand}
+                                    onSpecialKey={sendSerialSpecialKey}
+                                />
+                            </div>
+                        )}
                     </div>
-
-                    <div className="card-gradient p-1">
-                        <HighlightSection
-                            currentConfig={currentConfig}
-                            updateCurrentRule={updateCurrentRule}
-                            colorHighlightsCaseSensitive={currentConfig.colorHighlightsCaseSensitive || false}
-                        />
-                    </div>
-
-                    <div className="card-gradient p-1">
-                        <LogSettingsSection
-                            currentConfig={currentConfig}
-                            updateCurrentRule={updateCurrentRule}
-                            isLogging={isLogging}
-                            onToggleLogging={handleToggleLogging}
-                            connectionMode={connectionMode}
-                            hasEverConnected={hasEverConnected}
-                            onReconnect={handleReconnect}
-                        />
-                    </div>
-
-                    <div className="card-gradient p-1">
-                        <ViewSettingsSection
-                            preferences={logViewPreferences}
-                            onUpdate={updateLogViewPreferences}
-                        />
-                    </div>
-
-                    <div className="card-gradient p-1">
-                        <PerfSettingsSection
-                            currentConfig={currentConfig}
-                            updateCurrentRule={updateCurrentRule}
-                        />
-                    </div>
-
                 </div>
             ) : (
                 <div className="h-full w-full flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 transition-all group px-0 relative py-12" onClick={onToggle}>
