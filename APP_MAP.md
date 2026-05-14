@@ -112,6 +112,8 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
       - **Shared State Architecture**: `LogViewPreferencesContext`를 도입하여 폰트 크기와 줄 간격 설정을 모든 탭(세션)이 공유하도록 개선. 🐧💎⚡
       - **Cross-Tab Synchronization**: 한 탭에서 `Ctrl + Wheel`로 줌 조절 시, 열려있는 모든 로그 탭이 실시간으로 동기화되어 동일한 시각적 경험 제공.
       - **Persistence**: 전역 설정 변경 시 `localStorage`에 즉시 반영되어 앱 재시작 시에도 모든 탭에 일관되게 적용됨. 🐧💾🚀
+    - **Serial Quick Command Enhancement (2026-05-14)**: [NEW]
+      - **Special Key Expansion**: `QuickCommandPanel.tsx` — `Ctrl+P` (BREAK) 버튼을 추가하고, 기존 2열 레이아웃을 3열 그리드로 확장하여 시각적 접근성 개선. 🐧🚀⚡
 
 ### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
 - **Unified Diff Mode v2 (2026-04-06)**: 두 프로파일의 성능 차이를 직관적으로 분석하는 고대화된 비교 모드.
@@ -223,4 +225,4 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
 - **Section Collapse Default (2026-05-01)**: Labs 섹션의 기본 상태를 '접힘(collapsed)'으로 변경하여 초기 진입 시 핵심 도구에 집중할 수 있도록 개선. 사용자 변경 상태는 `localStorage`에 자동 저장되어 유지됨. 🐧💾📁
 
 ---
-*Last Updated: 2026-05-14 (Global Zoom Sync Implemented)*
+*Last Updated: 2026-05-14 (Serial Quick Command Enhancement Added)*

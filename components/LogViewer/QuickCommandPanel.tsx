@@ -86,7 +86,14 @@ const QuickCommandPanel: React.FC<QuickCommandPanelProps> = ({ onExecute, onSpec
                             {onSpecialKey && (
                                 <div className="mb-2 p-1 bg-slate-950/30 rounded-xl border border-slate-800/50">
                                     <div className="px-2 py-1 text-[8px] font-bold text-slate-500 uppercase tracking-tighter">System Actions</div>
-                                    <div className="grid grid-cols-2 gap-1 p-1">
+                                    <div className="grid grid-cols-3 gap-1 p-1">
+                                        <button 
+                                            onClick={() => onSpecialKey('ctrl_p')}
+                                            className="flex flex-col items-center justify-center p-2 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 text-emerald-300 transition-all active:scale-95"
+                                        >
+                                            <span className="text-[10px] font-black">BREAK</span>
+                                            <span className="text-[8px] opacity-60">Ctrl+P</span>
+                                        </button>
                                         <button 
                                             onClick={() => onSpecialKey('ctrl_p_twice')}
                                             className="flex flex-col items-center justify-center p-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-300 transition-all active:scale-95"
