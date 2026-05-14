@@ -729,8 +729,33 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         const handleGlobalMouseUp = () => {
             isDraggingRef.current = false;
         };
+        
+        // ✅ Alt 키 추적으로 네이티브 텍스트 선택과 커스텀 줄 선택 완벽 분리
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Alt' || e.altKey) {
+                containerRef.current?.classList.add('alt-pressed');
+            }
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Alt' || !e.altKey) {
+                containerRef.current?.classList.remove('alt-pressed');
+            }
+        };
+        const handleBlur = () => {
+            containerRef.current?.classList.remove('alt-pressed');
+        };
+
         window.addEventListener('mouseup', handleGlobalMouseUp);
-        return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        window.addEventListener('blur', handleBlur);
+        
+        return () => {
+            window.removeEventListener('mouseup', handleGlobalMouseUp);
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+            window.removeEventListener('blur', handleBlur);
+        };
     }, []);
 
     useLayoutEffect(() => {
@@ -884,6 +909,9 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     }, [stableScrollTop, viewportHeight, rowHeight, totalCount, cachedLines, isActive]);
     const handleLineAction = (e: React.MouseEvent, index: number, type: 'click' | 'dbclick' | 'enter') => {
         if (e.altKey) {
+            // ✅ Alt 키가 눌린 상태라면 컨테이너에 클래스 누락 시 즉시 추가
+            containerRef.current?.classList.add('alt-pressed');
+
             if (type === 'dbclick' && onQuickHighlight) {
                 const selection = window.getSelection()?.toString().trim();
                 if (selection) {
@@ -984,14 +1012,20 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     background: rgba(79, 70, 229, 0.4);
                     color: inherit;
                 }
-                /* 형님, 분신술 방지를 위해 글자 자체는 숨기되, 선택 배경은 상시 가시화합니다. */
+                /* 형님, 기본적으로는 브라우저 네이티브 선택을 완전히 죽입니다. (줄 선택 전용 모드) */
                 .interaction-line::selection {
-                    background: rgba(79, 70, 229, 0.4) !important;
+                    background: transparent !important;
                     color: transparent !important;
                     -webkit-text-fill-color: transparent !important;
                 }
+                /* Alt 키를 눌렀을 때만 브라우저 네이티브 텍스트 선택 배경과 글자를 켭니다. */
+                .hyper-log-container.alt-pressed .interaction-line::selection {
+                    background: rgba(79, 70, 229, 0.4) !important;
+                    color: inherit !important;
+                    -webkit-text-fill-color: initial !important;
+                }
                 .interaction-line {
-                    user-select: text !important;
+                    user-select: none !important; /* 기본: 텍스트 선택 원천 차단 */
                     color: transparent !important;
                     -webkit-text-fill-color: transparent !important;
                     letter-spacing: 0px !important; 
@@ -1003,6 +1037,10 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     text-rendering: geometricPrecision !important;
                     text-indent: 0px !important; 
                     clip-path: inset(0 0 0 -200px); /* Allow selection to bleed left but hidden by clipping box anyway */
+                }
+                /* Alt 키 누를 때 텍스트 선택 모드 발동! */
+                .hyper-log-container.alt-pressed .interaction-line {
+                    user-select: text !important;
                 }
                 /* ✅ Clipping Box to protect Gutter from DOM text interaction */
                 .interaction-scroll-layer::before {

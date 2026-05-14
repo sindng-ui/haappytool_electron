@@ -70,7 +70,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
 
     return (
         <div
-            className={`group flex items-center text-xs whitespace-pre cursor-pointer transition-colors duration-75
+            className={`group flex items-center text-xs whitespace-pre cursor-pointer
                 ${isSelected
                     ? 'bg-indigo-500/10 dark:bg-indigo-500/20 font-medium'
                     : isActive
@@ -124,7 +124,7 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                 <div className="absolute inset-0 bg-slate-50 dark:bg-[#020617]" />
 
                 {/* State Overlay (matches row state) */}
-                <div className={`absolute inset-0 transition-colors 
+                <div className={`absolute inset-0
                     ${isSelected
                         ? 'bg-indigo-500/10 dark:bg-indigo-500/20'
                         : isActive
@@ -142,11 +142,11 @@ export const LogLine = React.memo(({ index, style, data, isActive, isSelected, h
                         : {}}
                 />
 
-                {/* Left Active Indicator */}
-                {isActive && <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />}
+                {/* Left Active Indicator (Shadow 제거 최적화) */}
+                {isActive && <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-indigo-500" />}
 
                 <div className="relative z-10">
-                    {hasBookmark && <span className="text-yellow-600 dark:text-yellow-400 font-bold text-[10px] icon-glow">★</span>}
+                    {hasBookmark && <span className="text-yellow-600 dark:text-yellow-400 font-bold text-[10px]">★</span>}
                 </div>
             </div>
 
