@@ -449,6 +449,14 @@ const initStream = (payload?: { isLive?: boolean }) => {
     lastFilterNotifyTime = 0;
     currentFilterRequestId++;
     respond({ type: 'STATUS_UPDATE', payload: { status: 'loading', mode: 'stream' } });
+    
+    // 🐧 형님! 데이터가 아직 없더라도 워커는 준비되었으니 즉시 Ready를 선언합니다.
+    // 이렇게 해야 데이터 수신 전에도 로딩 스피너가 멈추고 빈 화면이 보입니다.
+    respond({ 
+        type: 'FILTER_COMPLETE', 
+        payload: { matchCount: 0, totalLines: 0, visualBookmarks: [] } 
+    });
+    respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
 };
 
 // --- Handler: Process Chunk (Stream) ---
