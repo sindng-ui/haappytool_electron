@@ -908,6 +908,14 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         return res;
     }, [stableScrollTop, viewportHeight, rowHeight, totalCount, cachedLines, isActive]);
     const handleLineAction = (e: React.MouseEvent, index: number, type: 'click' | 'dbclick' | 'enter') => {
+        // ✅ Alt 키가 눌려있지 않은 일반 클릭 시에는 브라우저 네이티브 텍스트 선택이 시작되지 않도록 막습니다.
+        if (!e.altKey && type === 'click') {
+            // 브라우저 기본 선택 시작을 방지하여 줄 선택(Row selection)만 되게 합니다.
+            e.preventDefault(); 
+            // 새로운 줄 선택 시 기존의 텍스트 선택 영역을 깔끔하게 지워줍니다.
+            window.getSelection()?.removeAllRanges();
+        }
+
         if (e.altKey) {
             // ✅ Alt 키가 눌린 상태라면 컨테이너에 클래스 누락 시 즉시 추가
             containerRef.current?.classList.add('alt-pressed');
@@ -935,12 +943,6 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             return;
         }
 
-        // ✅ 실제 왼쪽 클릭(button 0)이거나 줄 선택 드래그 중인 경우에만 기존 텍스트 선택을 지워줍니다.
-        // 단순히 마우스가 줄 위로 올라가는(enter) 상황이나 우클릭 시에는 지우지 않습니다.
-        if (e.button === 0 && (type !== 'enter' || isDraggingRef.current)) {
-            window.getSelection()?.removeAllRanges();
-        }
-
         // 형님, 클릭 시 즉시 스크롤 컨테이너에 포커스를 줘서 키보드 이벤트를 받을 수 있게 합니다.
         if (type === 'click' && scrollContainerRef.current) {
             scrollContainerRef.current.focus({ preventScroll: true });
@@ -964,7 +966,6 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
                 // 형님, 일반 드래그 시에는 브라우저 선택을 막아야 깔끔한 줄 선택이 됩니다.
                 if (e.button === 0) {
-                    e.preventDefault();
                     isDraggingRef.current = true;
                 }
                 onLineClick(globalIndex, e.shiftKey, e.ctrlKey || e.metaKey);
@@ -1012,20 +1013,13 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     background: rgba(79, 70, 229, 0.4);
                     color: inherit;
                 }
-                /* 형님, 기본적으로는 브라우저 네이티브 선택을 완전히 죽입니다. (줄 선택 전용 모드) */
                 .interaction-line::selection {
-                    background: transparent !important;
-                    color: transparent !important;
-                    -webkit-text-fill-color: transparent !important;
-                }
-                /* Alt 키를 눌렀을 때만 브라우저 네이티브 텍스트 선택 배경과 글자를 켭니다. */
-                .hyper-log-container.alt-pressed .interaction-line::selection {
                     background: rgba(79, 70, 229, 0.4) !important;
                     color: inherit !important;
                     -webkit-text-fill-color: initial !important;
                 }
                 .interaction-line {
-                    user-select: none !important; /* 기본: 텍스트 선택 원천 차단 */
+                    user-select: text !important; /* 형님, 항상 선택 가능하게 열어둡니다. (Alt를 떼도 영역이 사라지지 않게!) */
                     color: transparent !important;
                     -webkit-text-fill-color: transparent !important;
                     letter-spacing: 0px !important; 
@@ -1036,11 +1030,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     font-kerning: none !important; 
                     text-rendering: geometricPrecision !important;
                     text-indent: 0px !important; 
-                    clip-path: inset(0 0 0 -200px); /* Allow selection to bleed left but hidden by clipping box anyway */
-                }
-                /* Alt 키 누를 때 텍스트 선택 모드 발동! */
-                .hyper-log-container.alt-pressed .interaction-line {
-                    user-select: text !important;
+                    clip-path: inset(0 0 0 -200px); 
                 }
                 /* ✅ Clipping Box to protect Gutter from DOM text interaction */
                 .interaction-scroll-layer::before {

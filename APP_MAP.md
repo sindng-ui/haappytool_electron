@@ -118,6 +118,13 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
       - **Quick Command Migration**: 플로팅 패널 대신 왼쪽 사이드바 전체 영역을 활용하도록 이식하여 작업 공간 효율성 극대화.
       - **Jump-to-Bottom**: `LogViewerPane.tsx` — 최하단 로그로 즉시 이동하는 동그란 점프 아이콘 복구 및 프리미엄 글로우 효과 적용. 🐧🚀⚡
       - **Jump to Bottom Resurrection**: 플로팅 패널 제거 후, 로그를 위로 스크롤했을 때 나타나는 **'최신 로그 점프(Jump to Bottom)'** 버튼을 프리미엄 디자인으로 보강하여 사용자 편의성 복구. 🐧🚀🛡️
+    - **Log Viewer Selection Engine High-Fidelity (2026-05-15)**: [NEW]
+      - **Dual Selection Conflict Fix**: 마우스 드래그 시 브라우저 기본 텍스트 선택과 커스텀 라인 선택이 동시에 발생하던 현상을 `user-select` 동적 제어로 해결.
+      - **Alt-Key Modifier**: `Alt` 키를 누른 상태에서만 네이티브 텍스트 선택이 활성화되도록 인터랙션 로직 고도화.
+      - **Shortcut Collision Resolution**: `Ctrl+Shift+A` 입력 시 로그 전체 선택이 아닌 **Log Archive** 사이드바가 정상적으로 호출되도록 우선순위 조정. 🐧🚩⚡
+      - **Visual Performance**: 선택된 라인의 배경색과 텍스트 가시성을 최적화하고, GPU 부하를 주는 CSS 필터를 제거하여 대용량 로그 환경에서도 끊김 없는 선택 경험 제공.
+    - **Testing & Verification (2026-05-15)**: [NEW]
+      - `test/components/QuickCommandPerformance.test.tsx`: Quick Command 섹션 및 설정 패널의 성능 최적화(Blur, Shadow 제거 등)와 단축키 동작을 상시 검증하는 단위 테스트 구축 완료. 🐧🧪✅
 
 ### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
 - **Unified Diff Mode v2 (2026-04-06)**: 두 프로파일의 성능 차이를 직관적으로 분석하는 고대화된 비교 모드.
