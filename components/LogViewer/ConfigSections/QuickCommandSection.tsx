@@ -17,15 +17,95 @@ interface QuickCommandSectionProps {
 export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExecute, onSpecialKey, isConnected }) => {
     const [commands, setCommands] = useState<QuickCommand[]>(() => {
         const saved = localStorage.getItem('quickCommands');
-        return saved ? JSON.parse(saved) : [
-            { id: '1', name: 'Log Clear', cmd: 'dlogutil -c' },
-            { id: '2', name: 'Process List', cmd: 'ps -ef' },
-            { id: '3', name: 'Restart App', cmd: 'app_control restart' }
+        // 🐧 형님! 실무에서 자주 쓰시는 Tizen 전용 명령어로 기본 세트를 교체했습니다!
+        const defaults = [
+            { id: 'ps', name: 'ps', cmd: 'ps -efc grep -Ei "smartthingsapp|smartthings-client|vd-sc-client" [[ENTER]]' },
+            { id: 'pkgcmd', name: 'pkgcmd', cmd: 'pkgcmd -l | grep -Ei "smartthingsapp|smartthings-client|iotwidget|aov-dashboard|stpreview" [[ENTER]]' },
+            { id: 'home_owner', name: '/home/owner', cmd: 'cd /home/owner/apps/com.samsung.tv.SmartThingsApp [[ENTER]]' },
+            { id: 'launch_viewer', name: 'launch appinfoviewer', cmd: 'launch_app com.samsung.tv.appinfoviewer [[ENTER]]' },
+            { id: 'launch_factory', name: 'launch factory menu', cmd: 'launch_app org.tizen.factory [[ENTER]]' }
         ];
+        
+        if (!saved) return defaults;
+        
+        // 만약 기존에 구버전 기본값(Log Clear 등)만 있다면 새 기본값으로 교체해드리는 센스! 🐧✨
+        const parsed = JSON.parse(saved);
+        if (parsed.length === 3 && parsed[0].name === 'Log Clear') {
+            return defaults;
+        }
+        
+        return parsed;
     });
 
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState<{ id?: string, name: string, cmd: string }>({ name: '', cmd: '' });
+    const editorRef = React.useRef<HTMLDivElement>(null);
+
+    // 🐧 특수 토큰 정의
+    const SPECIAL_TOKENS: Record<string, { label: string, color: string, value: string }> = {
+        '[[ENTER]]': { label: 'ENTER', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', value: '\\n' },
+        '[[ESC]]': { label: 'ESC', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', value: '\\x1b' },
+        '[[CTRL_C]]': { label: 'CTRL+C', color: 'bg-red-500/20 text-red-400 border-red-500/30', value: '\\x03' },
+        '[[TAB]]': { label: 'TAB', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', value: '\\t' },
+    };
+
+    // 🐧 토큰을 칩으로 렌더링하는 함수
+    const renderTokensToHtml = (cmd: string) => {
+        if (!cmd) return '';
+        let html = cmd
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+            
+        Object.entries(SPECIAL_TOKENS).forEach(([token, info]) => {
+            const escapedToken = token.replace(/[[\]]/g, '\\$&');
+            const chipHtml = `<span contenteditable="false" class="inline-flex items-center px-2 py-0.5 rounded-md border ${info.color} text-[10px] font-black mx-0.5 cursor-default select-none shadow-sm align-middle" data-token="${token}">${info.label}</span>`;
+            html = html.replace(new RegExp(escapedToken, 'g'), chipHtml);
+        });
+        return html;
+    };
+
+    // 🐧 HTML에서 토큰 문자열로 변환
+    const htmlToTokens = (html: string | null | undefined) => {
+        if (!html) return '';
+        try {
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            const chips = temp.querySelectorAll('[data-token]');
+            chips.forEach(chip => {
+                const token = chip.getAttribute('data-token');
+                if (token) chip.replaceWith(token);
+            });
+            return temp.innerText || temp.textContent || '';
+        } catch (e) {
+            console.error('[QuickCommand] htmlToTokens error:', e);
+            return '';
+        }
+    };
+
+    // 🐧 에디터가 열릴 때 초기 내용 채우기
+    useEffect(() => {
+        if (isEditing && editorRef.current) {
+            const currentHtml = editorRef.current.innerHTML;
+            const targetHtml = renderTokensToHtml(editData.cmd);
+            if (currentHtml !== targetHtml) {
+                editorRef.current.innerHTML = targetHtml;
+            }
+            // 포커스 및 커서 끝으로 이동
+            setTimeout(() => {
+                const el = editorRef.current;
+                if (el) {
+                    el.focus();
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    range.selectNodeContents(el);
+                    range.collapse(false);
+                    sel?.removeAllRanges();
+                    sel?.addRange(range);
+                }
+            }, 50);
+        }
+    }, [isEditing]);
 
     useEffect(() => {
         localStorage.setItem('quickCommands', JSON.stringify(commands));
@@ -55,6 +135,14 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
         setIsEditing(true);
     };
 
+    const handleExecute = (cmd: string) => {
+        let finalCmd = cmd;
+        Object.entries(SPECIAL_TOKENS).forEach(([token, info]) => {
+            finalCmd = finalCmd.split(token).join(info.value);
+        });
+        onExecute(finalCmd);
+    };
+
     return (
         <div className="flex flex-col h-full space-y-6 relative">
             {/* 🐧 Special Serial Keys (System Actions) */}
@@ -65,21 +153,21 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                         <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">System Actions</h3>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
-                        <button
+                        <button 
                             onClick={() => onSpecialKey('ctrl_p')}
                             className="flex flex-col items-center justify-center p-3 rounded-xl bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-500/20 text-emerald-400 transition-all active:scale-95 group"
                         >
                             <span className="text-[10px] font-black uppercase group-hover:text-emerald-300">Break</span>
                             <span className="text-[8px] opacity-50 font-mono">Ctrl P</span>
                         </button>
-                        <button
+                        <button 
                             onClick={() => onSpecialKey('ctrl_p_twice')}
                             className="flex flex-col items-center justify-center p-3 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 text-indigo-400 transition-all active:scale-95 group"
                         >
                             <span className="text-[10px] font-black uppercase group-hover:text-indigo-300">Unlock</span>
                             <span className="text-[8px] opacity-50 font-mono">Ctrl P P</span>
                         </button>
-                        <button
+                        <button 
                             onClick={() => onSpecialKey('ctrl_p_thrice')}
                             className="flex flex-col items-center justify-center p-3 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/20 text-purple-400 transition-all active:scale-95 group"
                         >
@@ -97,7 +185,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                         <Zap size={14} className="text-amber-400" />
                         <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">User Commands</h3>
                     </div>
-                    <button
+                    <button 
                         onClick={() => { setIsEditing(true); setEditData({ name: '', cmd: '' }); }}
                         className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors"
                         title="Add Command"
@@ -116,12 +204,16 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                     {commands.map((c) => (
                         <div
                             key={c.id}
-                            onClick={() => onExecute(c.cmd)}
+                            onClick={() => handleExecute(c.cmd)}
                             className="group relative flex items-center justify-between p-4 rounded-2xl bg-slate-900/40 hover:bg-indigo-600/10 border border-slate-800/50 hover:border-indigo-500/30 cursor-pointer transition-all duration-300"
                         >
                             <div className="flex flex-col min-w-0 pr-4">
                                 <span className="text-xs font-bold text-slate-200 truncate group-hover:text-white">{c.name}</span>
-                                <span className="text-[10px] text-slate-500 font-mono truncate group-hover:text-indigo-400/80 mt-1">{c.cmd}</span>
+                                <span className="text-[10px] text-slate-500 font-mono truncate group-hover:text-indigo-400/80 mt-1 flex items-center flex-wrap gap-1">
+                                    {c.cmd.includes('[[') ? (
+                                        <div dangerouslySetInnerHTML={{ __html: renderTokensToHtml(c.cmd) }} className="flex items-center gap-1 scale-90 origin-left" />
+                                    ) : c.cmd}
+                                </span>
                             </div>
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
                                 <button onClick={(e) => handleEdit(c, e)} className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-indigo-400">
@@ -147,18 +239,18 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                     >
                         <div className="flex justify-between items-center">
                             <h4 className="text-sm font-black text-white uppercase tracking-wider">{editData.id ? 'Edit Command' : 'New Command'}</h4>
-                            <button
+                            <button 
                                 onClick={() => setIsEditing(false)}
                                 className="p-2 hover:bg-white/10 rounded-full transition-colors"
                             >
                                 <X size={20} className="text-slate-400" />
                             </button>
                         </div>
-
+                        
                         <div className="space-y-5">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Friendly Name</label>
-                                <input
+                                <input 
                                     className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
                                     value={editData.name}
                                     onChange={e => setEditData(prev => ({ ...prev, name: e.target.value }))}
@@ -168,50 +260,64 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center ml-1">
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Shell Command</label>
-                                    <span className="text-[9px] text-indigo-400/60 italic">Use \n for Enter</span>
+                                    <span className="text-[9px] text-indigo-400/60 italic">Chips are treated as single entities</span>
                                 </div>
-                                <textarea
-                                    id="cmd-textarea"
-                                    className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none h-32 resize-none font-mono transition-all"
-                                    value={editData.cmd}
-                                    onChange={e => setEditData(prev => ({ ...prev, cmd: e.target.value }))}
-                                    placeholder="e.g. dlogutil -c\n"
+                                
+                                {/* 🐧🎯 Tokenized Editor */}
+                                <div 
+                                    ref={editorRef}
+                                    contentEditable
+                                    className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none h-32 overflow-y-auto font-mono transition-all custom-scrollbar whitespace-pre-wrap break-all"
+                                    onBlur={(e) => {
+                                        const html = e.currentTarget?.innerHTML;
+                                        setEditData(prev => ({ ...prev, cmd: htmlToTokens(html) }));
+                                    }}
+                                    onInput={(e) => {
+                                        const html = e.currentTarget?.innerHTML;
+                                        const tokens = htmlToTokens(html);
+                                        if (tokens !== editData.cmd) {
+                                            setEditData(prev => ({ ...prev, cmd: tokens }));
+                                        }
+                                    }}
                                 />
-
+                                
                                 {/* 🐧 Quick Insert Buttons */}
                                 <div className="flex flex-wrap gap-2 mt-2">
-                                    {[
-                                        { label: 'ENTER', value: '\\n', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-                                        { label: 'ESC', value: '\\x1b', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-                                        { label: 'CTRL+C', value: '\\x03', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
-                                        { label: 'TAB', value: '\\t', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-                                    ].map(btn => (
+                                    {Object.entries(SPECIAL_TOKENS).map(([token, info]) => (
                                         <button
-                                            key={btn.label}
+                                            key={token}
                                             onClick={() => {
-                                                const el = document.getElementById('cmd-textarea') as HTMLTextAreaElement;
+                                                const el = editorRef.current;
                                                 if (el) {
-                                                    const start = el.selectionStart;
-                                                    const end = el.selectionEnd;
-                                                    const text = editData.cmd;
-                                                    const before = text.substring(0, start);
-                                                    const after = text.substring(end, text.length);
-                                                    setEditData(prev => ({ ...prev, cmd: before + btn.value + after }));
-                                                    // Refocus after state update (using timeout to let react render)
+                                                    const currentCmd = htmlToTokens(el.innerHTML);
+                                                    const newCmd = currentCmd + token;
+                                                    setEditData(prev => ({ ...prev, cmd: newCmd }));
+                                                    
+                                                    // 🐧 칩 삽입 후 수동으로 HTML 업데이트 및 포커스 유지
+                                                    el.innerHTML = renderTokensToHtml(newCmd);
+                                                    
                                                     setTimeout(() => {
-                                                        el.focus();
-                                                        el.setSelectionRange(start + btn.value.length, start + btn.value.length);
+                                                        const freshEl = editorRef.current;
+                                                        if (freshEl) {
+                                                            freshEl.focus();
+                                                            const range = document.createRange();
+                                                            const sel = window.getSelection();
+                                                            range.selectNodeContents(freshEl);
+                                                            range.collapse(false);
+                                                            sel?.removeAllRanges();
+                                                            sel?.addRange(range);
+                                                        }
                                                     }, 0);
                                                 }
                                             }}
-                                            className={`px-3 py-1.5 rounded-xl border text-[9px] font-black transition-all hover:scale-105 active:scale-95 ${btn.color}`}
+                                            className={`px-3 py-1.5 rounded-xl border text-[9px] font-black transition-all hover:scale-105 active:scale-95 ${info.color}`}
                                         >
-                                            +{btn.label}
+                                            +{info.label}
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                            <button
+                            <button 
                                 onClick={handleSave}
                                 className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-sm font-black transition-all shadow-xl shadow-indigo-900/40 active:scale-[0.98]"
                             >

@@ -112,12 +112,11 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
       - **Shared State Architecture**: `LogViewPreferencesContext`를 도입하여 폰트 크기와 줄 간격 설정을 모든 탭(세션)이 공유하도록 개선. 🐧💎⚡
       - **Cross-Tab Synchronization**: 한 탭에서 `Ctrl + Wheel`로 줌 조절 시, 열려있는 모든 로그 탭이 실시간으로 동기화되어 동일한 시각적 경험 제공.
       - **Persistence**: 전역 설정 변경 시 `localStorage`에 즉시 반영되어 앱 재시작 시에도 모든 탭에 일관되게 적용됨. 🐧💾🚀
-    - **Serial Quick Command Enhancement (2026-05-14)**: [NEW]
-      - **Special Key Expansion**: `QuickCommandPanel.tsx` — `Ctrl+P` (BREAK) 버튼을 추가하고, 기존 2열 레이아웃을 3열 그리드로 확장하여 시각적 접근성 개선. 🐧🚀⚡
     - **Configuration UI & Quick Command Integration (2026-05-14)**: [NEW]
-      - **Sidebar Tab System**: `ConfigurationPanel.tsx`에 `Settings`와 `Commands`를 전환할 수 있는 **초슬림 세그먼트 컨트롤(Pill Style)** 도입. 공간 점유를 최소화하고 시각적 피드백 강화. 🐧💎⚡
-      - **Quick Command Migration**: 플로팅 패널 대신 왼쪽 사이드바 전체 영역을 활용하는 `QuickCommandSection.tsx`로 이식하여 작업 공간 효율성 대폭 향상.
-      - **Special Key Quick Insert**: 커맨드 편집 창에 **ENTER, ESC, CTRL+C 등 특수 키 원클릭 입력 버튼** 도입 및 `\n` 가이드 제공으로 명령어 작성 편의성 극대화. 🐧⌨️🚀
+      - **Sidebar Tab System**: `ConfigurationPanel.tsx`에 `Settings`와 `Commands`를 전환할 수 있는 **초슬림 세그먼트 컨트롤(Pill Style)** 도입.
+      - **Tokenized Editor**: `QuickCommandSection.tsx` — 특수 키(ENTER, ESC 등)를 시각적 **칩(Chip)**으로 표현하는 아토믹 에디터 구현. "한 번에 삭제" 기능 포함. 🐧💎⚡
+      - **Quick Command Migration**: 플로팅 패널 대신 왼쪽 사이드바 전체 영역을 활용하도록 이식하여 작업 공간 효율성 극대화.
+      - **Jump-to-Bottom**: `LogViewerPane.tsx` — 최하단 로그로 즉시 이동하는 동그란 점프 아이콘 복구 및 프리미엄 글로우 효과 적용. 🐧🚀⚡
       - **Jump to Bottom Resurrection**: 플로팅 패널 제거 후, 로그를 위로 스크롤했을 때 나타나는 **'최신 로그 점프(Jump to Bottom)'** 버튼을 프리미엄 디자인으로 보강하여 사용자 편의성 복구. 🐧🚀🛡️
 
 ### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)

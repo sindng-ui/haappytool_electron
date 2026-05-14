@@ -118,8 +118,29 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
     const { session, Menu } = require('electron');
-    // ✅ 기본 메뉴를 제거하여 일렉트론이 줌 단축키(Ctrl+Plus/Minus)를 가로채지 못하게 함다! 🐧🚫
-    Menu.setApplicationMenu(null);
+    // ✅ 'Reload' 및 'Copy/Paste' 등 필수 단축키를 위한 메뉴 구성
+    // 줌 관련 기능은 App.tsx의 커스텀 로직이 담당하므로 메뉴에서 제외하여 충돌을 방지함다! 🐧🛡️
+    const template = [
+        {
+            label: 'Edit',
+            submenu: [
+                { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
+                { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }
+            ]
+        },
+        {
+            label: 'View',
+            submenu: [
+                { role: 'reload' },
+                { role: 'forceReload' },
+                { role: 'toggleDevTools' },
+                { type: 'separator' },
+                { role: 'togglefullscreen' }
+            ]
+        }
+    ];
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
 
     // ✅ 'app://' 프로토콜 핸들러 등록 (SharedArrayBuffer를 위해 Response에 헤더 주입 가능)
     protocol.handle('app', async (request) => {
