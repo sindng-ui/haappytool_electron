@@ -84,22 +84,83 @@ const DraggableCommandItem = ({
     );
 };
 
+// 🐧 특수 토큰 전역 정의
+export const QUICK_COMMAND_SPECIAL_TOKENS: Record<string, { label: string, color: string, value: string }> = {
+    '[[ENTER]]': { label: 'ENTER', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', value: '\\n' },
+    '[[ESC]]': { label: 'ESC', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', value: '\\x1b' },
+    '[[CTRL_C]]': { label: 'CTRL+C', color: 'bg-red-500/20 text-red-400 border-red-500/30', value: '\\x03' },
+    '[[TAB]]': { label: 'TAB', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', value: '\\t' },
+    '[[CLIPBOARD]]': { label: 'CLIPBOARD', color: 'bg-fuchsia-500/20 text-fuchsia-400 border-fuchsia-500/30', value: '' }, // 특수 처리
+};
+
+// 🐧 글로벌 단축키(Alt+1~9) 연동을 위한 공용 실행 함수
+export const executeQuickCommand = async (rawCmd: string, sendCommand: (cmd: string) => void) => {
+    if (!rawCmd) return;
+    
+    let processedCmd = rawCmd;
+    
+    // 1. CLIPBOARD 매크로 치환
+    if (processedCmd.includes('[[CLIPBOARD]]')) {
+        try {
+            const text = await navigator.clipboard.readText();
+            processedCmd = processedCmd.split('[[CLIPBOARD]]').join(text);
+        } catch (e) {
+            console.error('[QuickCommand] Failed to read clipboard', e);
+        }
+    }
+    
+    // 2. PROMPT 매크로 치환
+    const promptMatches = processedCmd.match(/\[\[PROMPT:([^\]]+)\]\]/g);
+    if (promptMatches) {
+        for (const match of promptMatches) {
+            const promptMsg = match.replace('[[PROMPT:', '').replace(']]', '');
+            const userInput = window.prompt(promptMsg);
+            if (userInput === null) return; // 사용자가 취소하면 전체 실행 중단
+            processedCmd = processedCmd.replace(match, userInput);
+        }
+    }
+    
+    // 3. DELAY 매크로에 따른 순차 실행
+    const parts = processedCmd.split(/(\[\[DELAY:\d+\]\])/);
+    
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (part.startsWith('[[DELAY:') && part.endsWith(']]')) {
+            const delayMs = parseInt(part.replace('[[DELAY:', '').replace(']]', ''), 10);
+            if (!isNaN(delayMs)) {
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+        } else if (part.length > 0) {
+            let finalCmd = part;
+            Object.entries(QUICK_COMMAND_SPECIAL_TOKENS).forEach(([token, info]) => {
+                if (token !== '[[CLIPBOARD]]') { // 클립보드는 이미 처리됨
+                    finalCmd = finalCmd.split(token).join(info.value);
+                }
+            });
+            if (finalCmd) {
+                sendCommand(finalCmd);
+            }
+        }
+    }
+};
+
 export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExecute, onSpecialKey, isConnected }) => {
     const [commands, setCommands] = useState<QuickCommand[]>(() => {
         const saved = localStorage.getItem('quickCommands');
-        // 🐧 형님! 실무에서 자주 쓰시는 Tizen 전용 명령어로 기본 세트를 교체했습니다!
+        // 🐧 스마트 매크로가 반영된 실무 최적화 기본값!
         const defaults = [
             { id: 'ps', name: 'ps', cmd: 'ps -efc | grep -Ei "smartthingsapp|smartthings-client|vd-sc-client" [[ENTER]]' },
             { id: 'pkgcmd', name: 'pkgcmd', cmd: 'pkgcmd -l | grep -Ei "smartthingsapp|smartthings-client|iotwidget|aov-dashboard|stpreview" [[ENTER]]' },
-            { id: 'home_owner', name: '/home/owner', cmd: 'cd /home/owner/apps/com.samsung.tv.SmartThingsApp [[ENTER]]' },
-            { id: 'launch_viewer', name: 'launch appinfoviewer', cmd: 'launch_app com.samsung.tv.appinfoviewer [[ENTER]]' },
-            { id: 'launch_factory', name: 'launch factory menu', cmd: 'launch_app org.tizen.factory [[ENTER]]' }
+            { id: 'kill_clip', name: 'kill (clipboard)', cmd: 'kill -9 [[CLIPBOARD]] [[ENTER]]' },
+            { id: 'launch_prompt', name: 'launch app (prompt)', cmd: 'launch_app [[PROMPT:패키지명 입력]] [[ENTER]]' },
+            { id: 'uninstall', name: 'uninstall', cmd: 'pkgcmd -un [[PROMPT:패키지명 입력]] [[ENTER]]' }
         ];
 
         if (!saved) return defaults;
 
-        // 만약 기존에 구버전 기본값(Log Clear 등)만 있다면 새 기본값으로 교체해드리는 센스! 🐧✨
         const parsed = JSON.parse(saved);
+        // 🐧 형님! 예전 버전(Log Clear 등)을 쓰고 계신 경우에만 최신 기본값으로 업데이트 해드립니다.
+        // 형님이 직접 다 지우셔서 빈 목록([])이 된 경우에는 그대로 빈 상태를 유지합니다.
         if (parsed.length === 3 && parsed[0].name === 'Log Clear') {
             return defaults;
         }
@@ -119,15 +180,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
         localStorage.setItem('quickCommands', JSON.stringify(newOrder));
     };
 
-    // 🐧 특수 토큰 정의
-    const SPECIAL_TOKENS: Record<string, { label: string, color: string, value: string }> = {
-        '[[ENTER]]': { label: 'ENTER', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', value: '\\n' },
-        '[[ESC]]': { label: 'ESC', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', value: '\\x1b' },
-        '[[CTRL_C]]': { label: 'CTRL+C', color: 'bg-red-500/20 text-red-400 border-red-500/30', value: '\\x03' },
-        '[[TAB]]': { label: 'TAB', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', value: '\\t' },
-    };
-
-    // 🐧 토큰을 칩으로 렌더링하는 함수
+    // 🐧 토큰을 칩으로 렌더링하는 함수 (스마트 매크로 추가)
     const renderTokensToHtml = (cmd: string) => {
         if (!cmd) return '';
         let html = cmd
@@ -135,11 +188,23 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
 
-        Object.entries(SPECIAL_TOKENS).forEach(([token, info]) => {
+        // 1. 기본 정적 토큰 변환
+        Object.entries(QUICK_COMMAND_SPECIAL_TOKENS).forEach(([token, info]) => {
             const escapedToken = token.replace(/[[\]]/g, '\\$&');
             const chipHtml = `<span contenteditable="false" class="inline-flex items-center px-2 py-0.5 rounded-md border ${info.color} text-[10px] font-black mx-0.5 cursor-default select-none shadow-sm align-middle" data-token="${token}">${info.label}</span>`;
             html = html.replace(new RegExp(escapedToken, 'g'), chipHtml);
         });
+
+        // 2. PROMPT 동적 토큰 변환
+        html = html.replace(/\[\[PROMPT:([^\]]+)\]\]/g, (match, msg) => {
+            return `<span contenteditable="false" class="inline-flex items-center px-2 py-0.5 rounded-md border bg-sky-500/20 text-sky-400 border-sky-500/30 text-[10px] font-black mx-0.5 cursor-default select-none shadow-sm align-middle" data-token="${match}">PROMPT:${msg}</span>`;
+        });
+
+        // 3. DELAY 동적 토큰 변환
+        html = html.replace(/\[\[DELAY:(\d+)\]\]/g, (match, ms) => {
+            return `<span contenteditable="false" class="inline-flex items-center px-2 py-0.5 rounded-md border bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px] font-black mx-0.5 cursor-default select-none shadow-sm align-middle" data-token="${match}">DELAY:${ms}ms</span>`;
+        });
+
         return html;
     };
 
@@ -204,6 +269,9 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
         e.stopPropagation();
         if (window.confirm('삭제하시겠습니까?')) {
             setCommands(prev => prev.filter(c => c.id !== id));
+            // 🐧 형님! 삭제되는 순간 프리뷰 잔상도 깔끔하게 지워줍니다.
+            setHoveredCmd(null);
+            setHoverPos(null);
         }
     };
 
@@ -214,11 +282,8 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
     };
 
     const handleExecute = (cmd: string) => {
-        let finalCmd = cmd;
-        Object.entries(SPECIAL_TOKENS).forEach(([token, info]) => {
-            finalCmd = finalCmd.split(token).join(info.value);
-        });
-        onExecute(finalCmd);
+        if (!isConnected) return;
+        executeQuickCommand(cmd, onExecute);
     };
 
     return (
@@ -265,10 +330,11 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                     </div>
                     <button
                         onClick={() => { setIsEditing(true); setEditData({ name: '', cmd: '' }); }}
-                        className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors"
+                        className="group flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400/50 transition-all active:scale-95"
                         title="Add Command"
                     >
-                        <Plus size={16} />
+                        <Plus size={12} className="text-indigo-400 group-hover:rotate-90 transition-transform duration-300" />
+                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">New</span>
                     </button>
                 </div>
 
@@ -347,7 +413,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute inset-[-20px] bg-slate-950/98 z-50 p-8 flex flex-col space-y-6"
+                        className="absolute inset-0 bg-slate-950 z-[100] p-6 flex flex-col space-y-6 overflow-y-auto custom-scrollbar"
                     >
                         <div className="flex justify-between items-center">
                             <h4 className="text-sm font-black text-white uppercase tracking-wider">{editData.id ? 'Edit Command' : 'New Command'}</h4>
@@ -395,7 +461,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
 
                                 {/* 🐧 Quick Insert Buttons */}
                                 <div className="flex flex-wrap gap-2 mt-2">
-                                    {Object.entries(SPECIAL_TOKENS).map(([token, info]) => (
+                                    {Object.entries(QUICK_COMMAND_SPECIAL_TOKENS).map(([token, info]) => (
                                         <button
                                             key={token}
                                             onClick={() => {

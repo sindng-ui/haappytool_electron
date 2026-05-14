@@ -24,6 +24,7 @@ import TransactionDrawer from './LogViewer/TransactionDrawer';
 import { extractTransactionIds } from '../utils/transactionAnalysis';
 
 import { RawContextViewer } from './LogViewer/RawContextViewer';
+import { executeQuickCommand } from './LogViewer/ConfigSections/QuickCommandSection';
 
 const { X, Eraser, ChevronLeft, ChevronRight, GripHorizontal } = Lucide;
 
@@ -123,6 +124,36 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         addQuickHighlight,
         clearQuickHighlights
     } = useLogContext();
+
+    // 🐧⚡ Global Quick Command Hotkeys (Alt+1 ~ Alt+9)
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Alt + Number (1-9)
+            if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key >= '1' && e.key <= '9') {
+                const num = parseInt(e.key, 10);
+                if (isNaN(num) || num < 1 || num > 9) return;
+                
+                const saved = localStorage.getItem('quickCommands');
+                if (saved) {
+                    try {
+                        const cmds = JSON.parse(saved);
+                        const cmdToRun = cmds[num - 1];
+                        if (cmdToRun && cmdToRun.cmd) {
+                            e.preventDefault();
+                            // Execute the command via Tizen socket/serial
+                            executeQuickCommand(cmdToRun.cmd, sendTizenCommand);
+                        }
+                    } catch (err) {
+                        console.error('Failed to parse quick commands for hotkey', err);
+                    }
+                }
+            }
+        };
+
+        // 전역 이벤트로 캡처 단계에서 등록 (입력창 등에서 방해받지 않도록)
+        window.addEventListener('keydown', handleKeyDown, true);
+        return () => window.removeEventListener('keydown', handleKeyDown, true);
+    }, [sendTizenCommand]);
 
     const [isAnimatingSplit, setIsAnimatingSplit] = React.useState(false);
     const splitAnimTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
