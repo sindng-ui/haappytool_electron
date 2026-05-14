@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import { useLogContext } from './LogContext';
 import { Button } from '../ui/Button';
@@ -142,117 +142,135 @@ const ConfigurationPanel = React.memo(() => {
                 >
                     {/* 🐧 Ultra-Slim Segmented Control Tab Bar */}
                     <div className="px-5 py-2 flex items-center justify-between border-b border-white/5 bg-slate-950/40">
-                        <div className="flex bg-slate-900/80 p-0.5 rounded-lg border border-white/5 w-full relative">
-                            {/* Animated Background Indicator */}
-                            <motion.div 
-                                className={`absolute top-0.5 bottom-0.5 rounded-md shadow-lg ${
-                                    activeTab === 'settings' ? 'bg-indigo-600' : 'bg-amber-500'
-                                }`}
-                                layoutId="activeTabIndicator"
-                                initial={false}
-                                animate={{ 
-                                    left: activeTab === 'settings' ? '2px' : 'calc(50% + 1px)',
-                                    right: activeTab === 'settings' ? 'calc(50% + 1px)' : '2px'
-                                }}
-                                transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                            />
-                            
+                        <div className="flex bg-slate-900/80 p-0.5 rounded-lg border border-white/5 w-full relative overflow-hidden">
                             <button 
                                 onClick={() => setActiveTab('settings')}
-                                className={`flex-1 flex items-center justify-center gap-1.5 py-1 z-10 text-[9px] font-black uppercase tracking-widest transition-colors duration-300 ${
+                                className={`flex-1 flex items-center justify-center gap-1.5 py-1 z-10 text-[9px] font-black uppercase tracking-widest transition-colors duration-300 relative ${
                                     activeTab === 'settings' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
                                 }`}
                             >
-                                <Settings size={12} className={activeTab === 'settings' ? 'animate-spin-slow' : ''} />
-                                Settings
+                                {activeTab === 'settings' && (
+                                    <motion.div 
+                                        layoutId="activeTabIndicator"
+                                        className="absolute inset-0 bg-indigo-600 rounded-md shadow-lg shadow-indigo-900/20"
+                                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                    />
+                                )}
+                                <span className="relative z-20 flex items-center gap-1.5">
+                                    <Settings size={12} className={activeTab === 'settings' ? 'animate-spin-slow' : ''} />
+                                    Settings
+                                </span>
                             </button>
                             <button 
                                 onClick={() => setActiveTab('commands')}
-                                className={`flex-1 flex items-center justify-center gap-1.5 py-1 z-10 text-[9px] font-black uppercase tracking-widest transition-colors duration-300 ${
+                                className={`flex-1 flex items-center justify-center gap-1.5 py-1 z-10 text-[9px] font-black uppercase tracking-widest transition-colors duration-300 relative ${
                                     activeTab === 'commands' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-300'
                                 }`}
                             >
-                                <Zap size={12} className={activeTab === 'commands' ? 'fill-current' : ''} />
-                                Commands
+                                {activeTab === 'commands' && (
+                                    <motion.div 
+                                        layoutId="activeTabIndicator"
+                                        className="absolute inset-0 bg-amber-500 rounded-md shadow-lg shadow-amber-900/20"
+                                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                    />
+                                )}
+                                <span className="relative z-20 flex items-center gap-1.5">
+                                    <Zap size={12} className={activeTab === 'commands' ? 'fill-current' : ''} />
+                                    Commands
+                                </span>
                             </button>
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-5 pt-4 custom-scrollbar pb-20">
-                        <div className={activeTab === 'settings' ? 'block' : 'hidden'}>
-                            <div className="space-y-6">
-                                <ConfigHeader
-                                    name={currentConfig.name}
-                                    onUpdateName={handleUpdateName}
-                                />
-
-                                <div className="card-gradient p-1">
-                                    <HappyComboSection
-                                        currentConfig={currentConfig}
-                                        updateCurrentRule={updateCurrentRule}
-                                        groupedRoots={groupedRoots}
-                                        collapsedRoots={collapsedRoots}
-                                        onToggleRootCollapse={onToggleRootCollapse}
-                                        handleToggleRoot={handleToggleRoot}
-                                        happyCombosCaseSensitive={currentConfig.happyCombosCaseSensitive || false}
-                                        tabId={tabId}
-                                        setCollapsedRoots={setCollapsedRoots}
+                    <div className="flex-1 overflow-y-auto p-5 pt-4 custom-scrollbar pb-20 relative">
+                        <AnimatePresence mode="wait">
+                            {activeTab === 'settings' ? (
+                                <motion.div
+                                    key="settings"
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: 10 }}
+                                    transition={{ duration: 0.2, ease: "easeOut" }}
+                                    className="space-y-6"
+                                >
+                                    <ConfigHeader
+                                        name={currentConfig.name}
+                                        onUpdateName={handleUpdateName}
                                     />
-                                </div>
 
-                                <div className="card-gradient p-1">
-                                    <BlockListSection
-                                        currentConfig={currentConfig}
-                                        updateCurrentRule={updateCurrentRule}
-                                        blockListCaseSensitive={currentConfig.blockListCaseSensitive || false}
+                                    <div className="card-gradient p-1">
+                                        <HappyComboSection
+                                            currentConfig={currentConfig}
+                                            updateCurrentRule={updateCurrentRule}
+                                            groupedRoots={groupedRoots}
+                                            collapsedRoots={collapsedRoots}
+                                            onToggleRootCollapse={onToggleRootCollapse}
+                                            handleToggleRoot={handleToggleRoot}
+                                            happyCombosCaseSensitive={currentConfig.happyCombosCaseSensitive || false}
+                                            tabId={tabId}
+                                            setCollapsedRoots={setCollapsedRoots}
+                                        />
+                                    </div>
+
+                                    <div className="card-gradient p-1">
+                                        <BlockListSection
+                                            currentConfig={currentConfig}
+                                            updateCurrentRule={updateCurrentRule}
+                                            blockListCaseSensitive={currentConfig.blockListCaseSensitive || false}
+                                        />
+                                    </div>
+
+                                    <div className="card-gradient p-1">
+                                        <HighlightSection
+                                            currentConfig={currentConfig}
+                                            updateCurrentRule={updateCurrentRule}
+                                            colorHighlightsCaseSensitive={currentConfig.colorHighlightsCaseSensitive || false}
+                                        />
+                                    </div>
+
+                                    <div className="card-gradient p-1">
+                                        <LogSettingsSection
+                                            currentConfig={currentConfig}
+                                            updateCurrentRule={updateCurrentRule}
+                                            isLogging={isLogging}
+                                            onToggleLogging={handleToggleLogging}
+                                            connectionMode={connectionMode}
+                                            hasEverConnected={hasEverConnected}
+                                            onReconnect={handleReconnect}
+                                        />
+                                    </div>
+
+                                    <div className="card-gradient p-1">
+                                        <ViewSettingsSection
+                                            preferences={logViewPreferences}
+                                            onUpdate={updateLogViewPreferences}
+                                        />
+                                    </div>
+
+                                    <div className="card-gradient p-1">
+                                        <PerfSettingsSection
+                                            currentConfig={currentConfig}
+                                            updateCurrentRule={updateCurrentRule}
+                                        />
+                                    </div>
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="commands"
+                                    initial={{ opacity: 0, x: 10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -10 }}
+                                    transition={{ duration: 0.2, ease: "easeOut" }}
+                                    className="h-full"
+                                >
+                                    <QuickCommandSection 
+                                        isConnected={!!tizenSocket}
+                                        onExecute={sendTizenCommand}
+                                        onSpecialKey={sendSerialSpecialKey}
                                     />
-                                </div>
-
-                                <div className="card-gradient p-1">
-                                    <HighlightSection
-                                        currentConfig={currentConfig}
-                                        updateCurrentRule={updateCurrentRule}
-                                        colorHighlightsCaseSensitive={currentConfig.colorHighlightsCaseSensitive || false}
-                                    />
-                                </div>
-
-                                <div className="card-gradient p-1">
-                                    <LogSettingsSection
-                                        currentConfig={currentConfig}
-                                        updateCurrentRule={updateCurrentRule}
-                                        isLogging={isLogging}
-                                        onToggleLogging={handleToggleLogging}
-                                        connectionMode={connectionMode}
-                                        hasEverConnected={hasEverConnected}
-                                        onReconnect={handleReconnect}
-                                    />
-                                </div>
-
-                                <div className="card-gradient p-1">
-                                    <ViewSettingsSection
-                                        preferences={logViewPreferences}
-                                        onUpdate={updateLogViewPreferences}
-                                    />
-                                </div>
-
-                                <div className="card-gradient p-1">
-                                    <PerfSettingsSection
-                                        currentConfig={currentConfig}
-                                        updateCurrentRule={updateCurrentRule}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {activeTab === 'commands' && (
-                            <div className="h-full">
-                                <QuickCommandSection 
-                                    isConnected={!!tizenSocket}
-                                    onExecute={sendTizenCommand}
-                                    onSpecialKey={sendSerialSpecialKey}
-                                />
-                            </div>
-                        )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </div>
             ) : (
