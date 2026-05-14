@@ -77,8 +77,8 @@ export function useLogViewerKeyboard({
             }
         }
 
-        // Ctrl+A => Select All
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+        // Ctrl+A => Select All (Shift가 눌리지 않았을 때만 작동하여 Ctrl+Shift+A와 충돌 방지)
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'a' || e.key === 'A')) {
             if (onSelectAll) {
                 e.preventDefault();
                 e.stopPropagation();
