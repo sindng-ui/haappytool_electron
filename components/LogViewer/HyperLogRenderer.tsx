@@ -1095,18 +1095,20 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     position: 'relative',
                     overflow: 'hidden'
                 }}>
-                    {/* Interaction Items (Each line positioned absolutely for perfect alignment) */}
-                    {visibleLines.map(({ index, line }) => {
-                        const fontSize = preferences?.fontSize || 13;
-                        const fontFamily = preferences?.fontFamily || MONO_FONT_STACK;
+                    <div style={{ 
+                        paddingTop: visibleLines.length > 0 ? visibleLines[0].index * rowHeight : 0,
+                        paddingLeft: CONTENT_X_OFFSET
+                    }}>
+                        {/* Interaction Items (Now in normal document flow for perfect text selection) */}
+                        {visibleLines.map(({ index, line }) => {
+                            const fontSize = preferences?.fontSize || 13;
+                            const fontFamily = preferences?.fontFamily || MONO_FONT_STACK;
 
-                        return (
-                            <div
-                                key={index}
-                                className="absolute select-text whitespace-pre overflow-hidden pointer-events-auto active:bg-indigo-500/5 hover:bg-slate-500/5 interaction-line"
-                                style={{
-                                    top: index * rowHeight,
-                                    left: CONTENT_X_OFFSET,
+                            return (
+                                <div
+                                    key={index}
+                                    className="select-text whitespace-pre overflow-hidden pointer-events-auto active:bg-indigo-500/5 hover:bg-slate-500/5 interaction-line"
+                                    style={{
                                     // 🐧 형님! 너비를 10000px로 대폭 늘려서 마우스가 오른쪽으로 한참 나가도 
                                     // 선택 영역이 위로 튀지 않게 잡았습니다. 부모 div가 overflow: hidden이라 
                                     // 가로 스크롤바에는 영향을 주지 않으니 안심하십쇼!
@@ -1133,6 +1135,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                             >{(line?.decodedContent || decodeHTMLEntities(line?.content || '')) + '\n'}</div>
                         );
                     })}
+                    </div>
                 </div>
             </div>
         </div>
