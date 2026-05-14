@@ -337,7 +337,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                             />
                             {showScrollToBottom && (
                                 <button
-                                    className="absolute bottom-8 right-10 z-[60] p-4 bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-full shadow-[0_10px_25px_-5px_rgba(79,70,229,0.5),0_8px_10px_-6px_rgba(79,70,229,0.5)] hover:shadow-[0_20px_35px_-10px_rgba(79,70,229,0.6),0_15px_15px_-10px_rgba(79,70,229,0.6)] border border-white/20 transition-all duration-300 hover:scale-115 active:scale-90 group/jump overflow-hidden"
+                                    className="absolute bottom-8 right-10 z-[60] p-4 bg-indigo-600 text-white rounded-full shadow-lg border border-white/10 transition-all duration-200 hover:bg-indigo-500 active:scale-90 group/jump overflow-hidden"
                                     onClick={() => {
                                         if (onScrollToBottomRequest) {
                                             onScrollToBottomRequest();
@@ -348,7 +348,6 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                     }}
                                     title="Jump to Bottom (Ctrl+End)"
                                 >
-                                    <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 translate-y-full group-hover/jump:translate-y-[-100%] transition-transform duration-700 rotate-45" />
                                     <ArrowDown size={24} className="relative z-10 group-hover/jump:translate-y-0.5 transition-transform" />
                                 </button>
                             )}

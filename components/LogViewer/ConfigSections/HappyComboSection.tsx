@@ -265,7 +265,7 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
 
     return (
         <div className="p-0">
-            <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md -mx-5 px-5 py-4 mb-4 border-b border-slate-800/50 shadow-lg shadow-black/20">
+            <div className="sticky top-0 z-30 bg-slate-900 -mx-5 px-5 py-4 mb-4 border-b border-slate-800/50 shadow-lg shadow-black/20">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                         <input
