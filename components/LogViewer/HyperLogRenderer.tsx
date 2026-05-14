@@ -1054,7 +1054,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     height: 100%;
                     cursor: pointer;
                     z-index: 50;
-                    pointer-events: auto;
+                    pointer-events: none; /* 🐧 형님! 선택 드래그가 히트맵에 걸리지 않게 통과시킵니다. 클릭은 JS에서 좌표로 계산하니 걱정 마십쇼! */
                 }
                 /* 하지만 실제 스크롤바 조작을 방해하지 않기 위해 로그 라인이 없을 때만 노출되거나 
                    투명하게 유지하여 클릭 이벤트는 JS에서 선점합니다. */
@@ -1106,8 +1106,11 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                                 className="absolute select-text whitespace-pre overflow-hidden pointer-events-auto active:bg-indigo-500/5 hover:bg-slate-500/5 interaction-line"
                                 style={{
                                     top: index * rowHeight,
-                                    left: CONTENT_X_OFFSET, // ✅ Fixed: Horizontal scroll handled by browser
-                                    width: stableScrollWidth ? stableScrollWidth - CONTENT_X_OFFSET : '100%',
+                                    left: CONTENT_X_OFFSET,
+                                    // 🐧 형님! 너비를 10000px로 대폭 늘려서 마우스가 오른쪽으로 한참 나가도 
+                                    // 선택 영역이 위로 튀지 않게 잡았습니다. 부모 div가 overflow: hidden이라 
+                                    // 가로 스크롤바에는 영향을 주지 않으니 안심하십쇼!
+                                    width: 10000, 
                                     height: rowHeight,
                                     lineHeight: `${rowHeight}px`,
                                     fontSize: `${fontSize}px`,
