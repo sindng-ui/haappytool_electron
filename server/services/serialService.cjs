@@ -80,9 +80,9 @@ class SerialService {
         console.log('[Serial] ========== Serial Connection Request ==========');
         console.log('[Serial] Params:', { port, baudRate, dataBits, stopBits, parity });
 
-        if (this.serialPort && this.serialPort.isOpen) {
-            console.log('[Serial] Closing existing port...');
-            this.serialPort.close();
+        if (this.serialPort) {
+            console.log('[Serial] Cleaning up existing port state...');
+            this.disconnect();
         }
 
         try {
@@ -162,6 +162,9 @@ class SerialService {
     }
 
     cleanup() {
+        if (this.serialPort) {
+            this.serialPort = null;
+        }
         if (this.logFileStream) {
             this.logFileStream.end();
             this.logFileStream = null;

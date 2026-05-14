@@ -64,6 +64,9 @@ let batchTimeout = null;
 let ignoreLogs = false; // ✅ Flag to drop old buffered logs during clear operations
 const BATCH_INTERVAL = 20; // ms
 
+const { StringDecoder } = require('string_decoder');
+const decoder = new StringDecoder('utf8');
+
 function flushLogs(socket) {
     if (logBuffer.length > 0) {
         socket.emit('log_data', logBuffer);
@@ -75,7 +78,8 @@ function flushLogs(socket) {
 function handleLogData(data, socket) {
     if (ignoreLogs) return; // ✅ Drop old buffered data arriving during a clear operation
 
-    const str = data.toString();
+    // ✅ StringDecoder를 사용하여 멀티바이트 문자(한글 등)가 청크 경계에서 잘려도 깨지지 않게 보존합니다!
+    const str = decoder.write(data);
     if (logFileStream) logFileStream.write(data);
 
     logBuffer += str;
@@ -915,6 +919,9 @@ const handleSocketConnection = (socket, deps = {}) => {
         if (logFileStream) {
             logFileStream.end();
             logFileStream = null;
+        }
+        if (serialService) {
+            serialService.disconnect();
         }
     });
 
