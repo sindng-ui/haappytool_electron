@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import { useLogContext } from './LogContext';
@@ -30,11 +30,26 @@ const ConfigurationPanel = React.memo(() => {
         tabId
     } = useLogContext();
 
-    const [activeTab, setActiveTab] = React.useState<'settings' | 'commands'>('settings');
+    const [activeTab, setActiveTab] = useState<'settings' | 'commands'>('settings');
 
-    const onToggle = React.useCallback(() => setIsPanelOpen(prev => !prev), [setIsPanelOpen]);
+    // 🐧🎯 형님! Ctrl + Shift + Z 단축키로 탭을 토글하는 로직입니다!
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                setActiveTab(prev => prev === 'settings' ? 'commands' : 'settings');
+                // 패널이 닫혀있으면 열어주는 센스! 🐧✨
+                if (!isPanelOpen) setIsPanelOpen(true);
+            }
+        };
 
-    const onToggleRootCollapse = React.useCallback((root: string) => {
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isPanelOpen, setIsPanelOpen]);
+
+    const onToggle = useCallback(() => setIsPanelOpen(prev => !prev), [setIsPanelOpen]);
+
+    const onToggleRootCollapse = useCallback((root: string) => {
         setCollapsedRoots(prev => {
             const next = new Set(prev);
             if (next.has(root)) next.delete(root);
@@ -44,7 +59,7 @@ const ConfigurationPanel = React.memo(() => {
     }, [setCollapsedRoots]);
     const defaultLogCommand = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
 
-    const handleToggleLogging = React.useCallback(() => {
+    const handleToggleLogging = useCallback(() => {
         if (isLogging) {
             // Stop Logging
             // 1. Send Ctrl+C
@@ -87,12 +102,12 @@ const ConfigurationPanel = React.memo(() => {
             setIsLogging(true);
         }
     }, [isLogging, currentConfig, sendTizenCommand, setIsLogging, connectionMode, hasEverConnected]);
-    const handleReconnect = React.useCallback(() => {
+    const handleReconnect = useCallback(() => {
         setIsTizenQuickConnect(true);
         setIsTizenModalOpen(true);
     }, [setIsTizenQuickConnect, setIsTizenModalOpen]);
 
-    const handleUpdateName = React.useCallback((name: string) => {
+    const handleUpdateName = useCallback((name: string) => {
         updateCurrentRule({ name });
     }, [updateCurrentRule]);
 
