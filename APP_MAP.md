@@ -120,7 +120,9 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
       - **Jump to Bottom Resurrection**: 플로팅 패널 제거 후, 로그를 위로 스크롤했을 때 나타나는 **'최신 로그 점프(Jump to Bottom)'** 버튼을 프리미엄 디자인으로 보강하여 사용자 편의성 복구. 🐧🚀🛡️
     - **Log Viewer Selection Engine High-Fidelity (2026-05-15)**: [NEW]
       - **Dual Selection Conflict Fix**: 마우스 드래그 시 브라우저 기본 텍스트 선택과 커스텀 라인 선택이 동시에 발생하던 현상을 `user-select` 동적 제어로 해결.
-      - **Alt-Key Modifier**: `Alt` 키를 누른 상태에서만 네이티브 텍스트 선택이 활성화되도록 인터랙션 로직 고도화.
+      - **Alt-Key Modifier & Persistence**: `Alt` 키를 누른 상태에서만 네이티브 텍스트 선택이 시작되도록 하되, 키를 떼도 선택 영역이 유지되도록 `user-select` 로직 고도화.
+      - **Normal Document Flow Transition**: 로그 줄의 `absolute` 포지셔닝을 제거하고 위에서 아래로 쌓이는 자연스러운 문서 흐름을 복원하여, 드래그 시 선택 영역이 위로 튀는(Jumping) 브라우저 버그 근본적 해결. 🐧💎⚡
+      - **Virtualization Offset Optimization**: 가상 스크롤 환경에서 `padding-top` 래퍼를 통해 요소를 밀어내어 시각적 정밀도와 텍스트 선택 엔진의 순차적 정합성 동시 확보.
       - **Shortcut Collision Resolution**: `Ctrl+Shift+A` 입력 시 로그 전체 선택이 아닌 **Log Archive** 사이드바가 정상적으로 호출되도록 우선순위 조정. 🐧🚩⚡
       - **Visual Performance**: 선택된 라인의 배경색과 텍스트 가시성을 최적화하고, GPU 부하를 주는 CSS 필터를 제거하여 대용량 로그 환경에서도 끊김 없는 선택 경험 제공.
     - **Testing & Verification (2026-05-15)**: [NEW]
