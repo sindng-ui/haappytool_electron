@@ -86,19 +86,19 @@ const DraggableCommandItem = ({
 
 // 🐧 특수 토큰 전역 정의
 export const QUICK_COMMAND_SPECIAL_TOKENS: Record<string, { label: string, color: string, value: string }> = {
-    '[[ENTER]]': { label: 'ENTER', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', value: '\\n' },
-    '[[ESC]]': { label: 'ESC', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', value: '\\x1b' },
-    '[[CTRL_C]]': { label: 'CTRL+C', color: 'bg-red-500/20 text-red-400 border-red-500/30', value: '\\x03' },
-    '[[TAB]]': { label: 'TAB', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', value: '\\t' },
+    '[[ENTER]]': { label: 'ENTER', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', value: '\n' },
+    '[[ESC]]': { label: 'ESC', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', value: '\x1b' },
+    '[[CTRL_C]]': { label: 'CTRL+C', color: 'bg-red-500/20 text-red-400 border-red-500/30', value: '\x03' },
+    '[[TAB]]': { label: 'TAB', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', value: '\t' },
     '[[CLIPBOARD]]': { label: 'CLIPBOARD', color: 'bg-fuchsia-500/20 text-fuchsia-400 border-fuchsia-500/30', value: '' }, // 특수 처리
 };
 
 // 🐧 글로벌 단축키(Alt+1~9) 연동을 위한 공용 실행 함수
 export const executeQuickCommand = async (rawCmd: string, sendCommand: (cmd: string) => void) => {
     if (!rawCmd) return;
-    
+
     let processedCmd = rawCmd;
-    
+
     // 1. CLIPBOARD 매크로 치환
     if (processedCmd.includes('[[CLIPBOARD]]')) {
         try {
@@ -108,7 +108,7 @@ export const executeQuickCommand = async (rawCmd: string, sendCommand: (cmd: str
             console.error('[QuickCommand] Failed to read clipboard', e);
         }
     }
-    
+
     // 2. PROMPT 매크로 치환
     const promptMatches = processedCmd.match(/\[\[PROMPT:([^\]]+)\]\]/g);
     if (promptMatches) {
@@ -119,10 +119,13 @@ export const executeQuickCommand = async (rawCmd: string, sendCommand: (cmd: str
             processedCmd = processedCmd.replace(match, userInput);
         }
     }
-    
+
+    // 🐧🎯 형님! 지령대로 기본 엔터를 추가합니다. (유저가 입력한건 추가 입력)
+    processedCmd += '\n';
+
     // 3. DELAY 매크로에 따른 순차 실행
     const parts = processedCmd.split(/(\[\[DELAY:\d+\]\])/);
-    
+
     for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
         if (part.startsWith('[[DELAY:') && part.endsWith(']]')) {
