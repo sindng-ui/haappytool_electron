@@ -40,6 +40,10 @@ export interface HappyToolContextType {
     isFocusMode: boolean;
     toggleFocusMode: () => void;
 
+    // Configuration Panel State
+    configActiveTab: 'settings' | 'commands';
+    setConfigActiveTab: React.Dispatch<React.SetStateAction<'settings' | 'commands'>>;
+
     // Reactive Ambient Mood
     ambientMood: 'idle' | 'working' | 'error' | 'success';
     setAmbientMood: React.Dispatch<React.SetStateAction<'idle' | 'working' | 'error' | 'success'>>;

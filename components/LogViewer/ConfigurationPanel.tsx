@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import { useLogContext } from './LogContext';
+import { useHappyTool } from '../../contexts/HappyToolContext';
 import { Button } from '../ui/Button';
 import { ConfigHeader } from './ConfigSections/ConfigHeader';
 import { HappyComboSection } from './ConfigSections/HappyComboSection';
@@ -30,14 +31,14 @@ const ConfigurationPanel = React.memo(() => {
         tabId
     } = useLogContext();
 
-    const [activeTab, setActiveTab] = useState<'settings' | 'commands'>('settings');
+    const { configActiveTab, setConfigActiveTab } = useHappyTool();
 
     // 🐧🎯 형님! Ctrl + Shift + Z 단축키로 탭을 토글하는 로직입니다! (최적화 완료)
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') {
                 e.preventDefault();
-                setActiveTab(prev => prev === 'settings' ? 'commands' : 'settings');
+                setConfigActiveTab(prev => prev === 'settings' ? 'commands' : 'settings');
                 // setIsPanelOpen에 값 자체를 넣으면 현재 상태를 몰라도 무조건 열리게 할 수 있으므로 
                 // 의존성 배열에서 isPanelOpen을 뺄 수 있습니다.
                 setIsPanelOpen(true); 
@@ -46,7 +47,7 @@ const ConfigurationPanel = React.memo(() => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [setIsPanelOpen]); // 🐧 isPanelOpen을 빼서 마운트 시 1번만 실행되게 최적화!
+    }, [setIsPanelOpen, setConfigActiveTab]); // 🐧 isPanelOpen을 빼서 마운트 시 1번만 실행되게 최적화!
 
     const onToggle = useCallback(() => setIsPanelOpen(prev => !prev), [setIsPanelOpen]);
 
@@ -167,32 +168,32 @@ const ConfigurationPanel = React.memo(() => {
                             className="absolute top-0.5 bottom-0.5 rounded-md"
                             initial={false}
                             animate={{ 
-                                x: activeTab === 'settings' ? '0%' : '100%',
-                                backgroundColor: activeTab === 'settings' ? '#4f46e5' : '#f59e0b', // indigo-600 / amber-500
+                                x: configActiveTab === 'settings' ? '0%' : '100%',
+                                backgroundColor: configActiveTab === 'settings' ? '#4f46e5' : '#f59e0b', // indigo-600 / amber-500
                                 width: 'calc(50% - 1px)'
                             }}
                             transition={{ type: "spring", stiffness: 400, damping: 30 }}
                         />
 
                         <button 
-                            onClick={() => setActiveTab('settings')}
+                            onClick={() => setConfigActiveTab('settings')}
                             className={`flex-1 flex items-center justify-center gap-1.5 py-1 z-10 text-[9px] font-black uppercase tracking-widest transition-colors duration-300 relative ${
-                                activeTab === 'settings' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+                                configActiveTab === 'settings' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
                             }`}
                         >
                             <span className="relative z-20 flex items-center gap-1.5">
-                                <Settings size={12} className={activeTab === 'settings' ? 'animate-spin-slow' : ''} />
+                                <Settings size={12} className={configActiveTab === 'settings' ? 'animate-spin-slow' : ''} />
                                 Settings
                             </span>
                         </button>
                         <button 
-                            onClick={() => setActiveTab('commands')}
+                            onClick={() => setConfigActiveTab('commands')}
                             className={`flex-1 flex items-center justify-center gap-1.5 py-1 z-10 text-[9px] font-black uppercase tracking-widest transition-colors duration-300 relative ${
-                                activeTab === 'commands' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-300'
+                                configActiveTab === 'commands' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-300'
                             }`}
                         >
                             <span className="relative z-20 flex items-center gap-1.5">
-                                <Zap size={12} className={activeTab === 'commands' ? 'fill-current' : ''} />
+                                <Zap size={12} className={configActiveTab === 'commands' ? 'fill-current' : ''} />
                                 Commands
                             </span>
                         </button>
@@ -201,7 +202,7 @@ const ConfigurationPanel = React.memo(() => {
 
                 <div className="flex-1 overflow-y-auto p-5 pt-4 custom-scrollbar pb-20 relative">
                     <AnimatePresence mode="wait">
-                        {activeTab === 'settings' ? (
+                        {configActiveTab === 'settings' ? (
                             <motion.div
                                 key="settings"
                                 initial={{ opacity: 0, x: -10 }}

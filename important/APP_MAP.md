@@ -149,6 +149,7 @@
   - **One-Click Batch Control**: 전체 접기/펴기 버튼을 통해 복잡한 설정 화면을 한 번에 정리. [NEW]
   - **Local Branch Addition**: 각 그룹 헤더에 배치된 `+` 버튼을 통해 하단 이동 없이 즉시 브랜치 추가 가능. [NEW]
   - **Reliable Quick Command Storage**: `contentEditable` 환경에서의 비동기 상태 불일치 문제를 해결하기 위해 DOM 직접 참조 방식의 저장 엔진 적용. 한국어 IME 및 렌더링 지연 상황에서도 완벽한 저장 보장. [HOT][FIX]
+  - **Global Config Tab Sync**: Configuration 패널의 Settings/Commands 탭 상태를 전역 컨텍스트로 관리하여, 여러 로그 탭을 오갈 때도 선택 상태가 초기화되지 않고 완벽하게 동기화됨. [NEW][HOT]
 
 ### [[NetTraffic Analyzer]] 🐧⚡ [CORE]
 - **ID**: `NET_TRAFFIC_ANALYZER`

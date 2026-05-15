@@ -170,6 +170,9 @@ const AppContent: React.FC = () => {
   // Reactive Ambient Mood
   const [ambientMood, setAmbientMood] = useState<'idle' | 'working' | 'error' | 'success'>('idle');
 
+  // Configuration Panel Active Tab State
+  const [configActiveTab, setConfigActiveTab] = useState<'settings' | 'commands'>('settings');
+
   // Load settings on mount
   useEffect(() => {
     const saved = localStorage.getItem('devtool_suite_settings');
@@ -306,6 +309,12 @@ const AppContent: React.FC = () => {
             window.electronAPI.setZoomFactor(finalZoom);
           }
         }
+
+        // Configuration Active Tab
+        const savedConfigTab = localStorage.getItem('happytool_config_active_tab');
+        if (savedConfigTab === 'settings' || savedConfigTab === 'commands') {
+          setConfigActiveTab(savedConfigTab);
+        }
       } catch (e) {
         const errId = `[App] Failed to load settings: ${e}`;
         console.error(errId);
@@ -363,6 +372,11 @@ const AppContent: React.FC = () => {
  
     return () => clearTimeout(timer);
   }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins, toolOrder, defaultOutputFolder, netTrafficSettings, pluginSizes, zoomFactor]);
+
+  // Sync Config Active Tab to localStorage
+  useEffect(() => {
+    localStorage.setItem('happytool_config_active_tab', configActiveTab);
+  }, [configActiveTab]);
 
   // ✅ Performance: Memoize export/import handlers
   const handleExportSettings = React.useCallback(() => {
@@ -537,7 +551,9 @@ const AppContent: React.FC = () => {
     ambientMood,
     setAmbientMood,
     netTrafficSettings,
-    setNetTrafficSettings
+    setNetTrafficSettings,
+    configActiveTab,
+    setConfigActiveTab
   }), [
     logRules,
     savedRequests,
@@ -553,7 +569,9 @@ const AppContent: React.FC = () => {
     defaultOutputFolder,
     isFocusMode,
     toggleFocusMode,
-    netTrafficSettings // ✅ Added
+    netTrafficSettings, // ✅ Added
+    configActiveTab,
+    setConfigActiveTab
     // ✅ Removed duplicates: requestHistory, lastApiUrl, lastMethod
   ]);
 
