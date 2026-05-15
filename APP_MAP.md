@@ -248,7 +248,7 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
     - `LogArchive`: 아카이브 삭제 로직 적용 완료.
     - `PostTool`: 요청 및 그룹 삭제 로직 적용 완료.
     - `LogViewer`: 미션 삭제 시 ConfirmDialog 적용 완료 (LogContext/TopBar 연동).
-    - `LogViewer`: 퀵 커맨드 에디터에 `+PROMPT` 버튼 추가 (사용자 입력 매크로 편의성 향상). 🐧💎⚡
+    - `LogViewer`: 퀵 커맨드 에디터에 `+PROMPT` 버튼 추가 및 **1개 제한** 로직 적용. 🐧💎⚡
 
     - `EasyUML`: 다이어그램 삭제 로직 적용 완료.
     - `BlockTest`: 시나리오 삭제 로직 적용 완료.

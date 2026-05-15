@@ -553,7 +553,9 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                                         </button>
                                     ))}
                                     <button
+                                        disabled={editData.cmd.includes('[[PROMPT:')}
                                         onClick={() => {
+                                            if (editData.cmd.includes('[[PROMPT:')) return;
                                             setPromptConfig({
                                                 title: 'Add Prompt Token',
                                                 description: 'Enter the message to display to the user when executing this command:',
@@ -583,7 +585,11 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                                                 onCancel: () => {}
                                             });
                                         }}
-                                        className="px-3 py-1.5 rounded-xl border border-sky-500/30 bg-sky-500/20 text-sky-400 text-[9px] font-black transition-all hover:scale-105 active:scale-95"
+                                        className={`px-3 py-1.5 rounded-xl border text-[9px] font-black transition-all ${
+                                            editData.cmd.includes('[[PROMPT:') 
+                                            ? 'border-slate-800 bg-slate-900/50 text-slate-600 cursor-not-allowed opacity-50' 
+                                            : 'border-sky-500/30 bg-sky-500/20 text-sky-400 hover:scale-105 active:scale-95'
+                                        }`}
                                     >
                                         +PROMPT
                                     </button>
