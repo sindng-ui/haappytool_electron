@@ -158,14 +158,19 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
 
         if (!saved) return defaults;
 
-        const parsed = JSON.parse(saved);
-        // 🐧 형님! 예전 버전(Log Clear 등)을 쓰고 계신 경우에만 최신 기본값으로 업데이트 해드립니다.
-        // 형님이 직접 다 지우셔서 빈 목록([])이 된 경우에는 그대로 빈 상태를 유지합니다.
-        if (parsed.length === 3 && parsed[0].name === 'Log Clear') {
+        try {
+            const parsed = JSON.parse(saved);
+            // 🐧 형님! 예전 버전(Log Clear 등)을 쓰고 계신 경우에만 최신 기본값으로 업데이트 해드립니다.
+            // 형님이 직접 다 지우셔서 빈 목록([])이 된 경우에는 그대로 빈 상태를 유지합니다.
+            if (Array.isArray(parsed) && parsed.length === 3 && parsed[0].name === 'Log Clear') {
+                return defaults;
+            }
+
+            return Array.isArray(parsed) ? parsed : defaults;
+        } catch (e) {
+            console.error('[QuickCommand] Failed to parse saved commands', e);
             return defaults;
         }
-
-        return parsed;
     });
 
     const [isEditing, setIsEditing] = useState(false);
@@ -219,7 +224,10 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                 const token = chip.getAttribute('data-token');
                 if (token) chip.replaceWith(token);
             });
-            return temp.innerText || temp.textContent || '';
+            // 🐧 innerText는 렌더링되지 않은 엘리먼트에서 빈 문자열을 반환할 수 있으므로 textContent를 우선 사용합니다.
+            // trim()을 통해 불필요한 앞뒤 공백을 제거하여 저장 시 유효성 검사를 통과하게 합니다.
+            const result = (temp.textContent || temp.innerText || '').trim();
+            return result;
         } catch (e) {
             console.error('[QuickCommand] htmlToTokens error:', e);
             return '';
@@ -255,11 +263,25 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
     }, [commands]);
 
     const handleSave = () => {
-        if (!editData.name || !editData.cmd) return;
+        // 🐧 형님! state 업데이트가 비동기라 느릴 수 있으니, 저장 시점에 DOM에서 직접 최신 커맨드를 긁어옵니다!
+        const currentCmd = htmlToTokens(editorRef.current?.innerHTML);
+        const currentName = editData.name.trim();
+
+        if (!currentName || !currentCmd) {
+            console.warn('[QuickCommand] Save blocked: name or cmd is empty', { currentName, currentCmd });
+            return;
+        }
+
+        const newCommand: QuickCommand = {
+            id: editData.id || Math.random().toString(36).substring(7),
+            name: currentName,
+            cmd: currentCmd
+        };
+
         if (editData.id) {
-            setCommands(prev => prev.map(c => c.id === editData.id ? { ...c, name: editData.name, cmd: editData.cmd } : c));
+            setCommands(prev => prev.map(c => c.id === editData.id ? newCommand : c));
         } else {
-            setCommands(prev => [...prev, { id: Math.random().toString(36).substring(7), name: editData.name, cmd: editData.cmd }]);
+            setCommands(prev => [...prev, newCommand]);
         }
         setIsEditing(false);
         setEditData({ name: '', cmd: '' });
