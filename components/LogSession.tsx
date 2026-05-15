@@ -1448,9 +1448,30 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                 autoFocus
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
+                                        const val = e.currentTarget.value;
+                                        const cmd = val.trim();
+                                        
+                                        // 🐧 히스토리 저장 로직 추가
+                                        if (cmd) {
+                                            try {
+                                                const historyJson = localStorage.getItem('recentShellCommands') || '[]';
+                                                let history = JSON.parse(historyJson);
+                                                // 중복 제거 후 맨 앞에 추가
+                                                history = history.filter((c: string) => c !== cmd);
+                                                history.unshift(cmd);
+                                                // 최대 20개까지만 보관
+                                                if (history.length > 20) history = history.slice(0, 20);
+                                                localStorage.setItem('recentShellCommands', JSON.stringify(history));
+                                                // 🐧 실시간 연동을 위한 이벤트 발송
+                                                window.dispatchEvent(new Event('recentCommandsUpdated'));
+                                            } catch (err) {
+                                                console.error('Failed to save recent command', err);
+                                            }
+                                        }
+
                                         // 🐧🎯 형님! 시리얼 쉘은 보통 \r 이나 \r\n을 기대합니다. 
                                         const ending = connectionMode === 'serial' ? '\r' : '\n';
-                                        sendTizenCommand(e.currentTarget.value + ending);
+                                        sendTizenCommand(val + ending);
                                         e.currentTarget.value = '';
                                     }
                                 }}

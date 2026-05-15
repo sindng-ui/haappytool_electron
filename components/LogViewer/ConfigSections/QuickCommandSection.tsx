@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
-import { Plus, X, Edit2, Trash2, Zap, Terminal, Command, GripVertical } from 'lucide-react';
+import { Plus, X, Edit2, Trash2, Zap, Terminal, Command, GripVertical, History } from 'lucide-react';
 import { ConfirmDialog, PromptDialog } from '../../ui/CommonDialogs';
 
 interface QuickCommand {
@@ -94,6 +94,35 @@ const DraggableCommandItem = ({
             {/* 🐧 엣지 글로우 효과 (솔리드 그라데이션, 블러 0%) */}
             <div className={`absolute inset-0 bg-gradient-to-br ${accent.glow} to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`} />
         </Reorder.Item>
+    );
+};
+
+// 🐧 최근 명령어 아이템 뷰 (가벼운 스타일, 원클릭 등록)
+const RecentCommandItem = ({ cmd, onAdd, handleExecute }: { cmd: string, onAdd: () => void, handleExecute: (c: string) => void }) => {
+    return (
+        <div 
+            onClick={() => handleExecute(cmd)}
+            className="group relative flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900/40 hover:bg-slate-800/80 border border-slate-800/50 hover:border-slate-700 transition-colors duration-200 select-none cursor-pointer shadow-md shadow-black/20 overflow-hidden"
+        >
+            <div className="w-6 h-6 rounded-lg bg-slate-800/80 flex items-center justify-center shrink-0 transition-colors z-10 group-hover:bg-slate-700">
+                <History size={12} className="text-slate-500 group-hover:text-slate-300" />
+            </div>
+            
+            <span className="text-[13px] font-medium text-slate-500 group-hover:text-slate-300 whitespace-nowrap tracking-tight z-10 truncate max-w-[200px]" title={cmd}>
+                {cmd}
+            </span>
+            
+            {/* 🐧 호버 시 나타나는 Add 버튼 */}
+            <div className="flex items-center gap-0.5 ml-1 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all duration-300 z-10">
+                <button 
+                    onClick={(e) => { e.stopPropagation(); onAdd(); }} 
+                    className="p-1.5 hover:bg-indigo-500/20 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors"
+                    title="Add to User Commands"
+                >
+                    <Plus size={14} />
+                </button>
+            </div>
+        </div>
     );
 };
 
@@ -202,12 +231,39 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
     });
 
     const [isEditing, setIsEditing] = useState(false);
-    const [editData, setEditData] = useState<{ id?: string, name: string, cmd: string }>({ name: '', cmd: '' });
+    const [editData, setEditData] = useState<Omit<QuickCommand, 'id'> & { id?: string }>({ name: '', cmd: '' });
     const [hoveredCmd, setHoveredCmd] = useState<string | null>(null);
     const [hoverPos, setHoverPos] = useState<{ top: number, left: number } | null>(null);
-    const [dialogConfig, setDialogConfig] = useState<any>(null);
-    const [promptConfig, setPromptConfig] = useState<any>(null);
+    const [dialogConfig, setDialogConfig] = useState<{ title: string, description: string | React.ReactNode, onConfirm: () => void } | null>(null);
+    const [promptConfig, setPromptConfig] = useState<{ title: string, description: string, onConfirm: (val: string) => void, onCancel: () => void } | null>(null);
+    const [recentCommands, setRecentCommands] = useState<string[]>([]);
     const editorRef = React.useRef<HTMLDivElement>(null);
+
+    const loadRecentCommands = () => {
+        try {
+            const saved = localStorage.getItem('recentShellCommands');
+            if (saved) setRecentCommands(JSON.parse(saved));
+        } catch (e) { }
+    };
+
+    useEffect(() => {
+        loadRecentCommands();
+        window.addEventListener('recentCommandsUpdated', loadRecentCommands);
+        return () => window.removeEventListener('recentCommandsUpdated', loadRecentCommands);
+    }, []);
+
+    const handleAddRecent = (cmdStr: string) => {
+        const newCmd: QuickCommand = {
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+            name: cmdStr.length > 20 ? cmdStr.substring(0, 20) + '...' : cmdStr,
+            cmd: cmdStr
+        };
+        const updated = [...commands, newCmd];
+        setCommands(updated);
+        try {
+            localStorage.setItem('quickCommands', JSON.stringify(updated));
+        } catch (e) {}
+    };
 
     // 🐧🎯 순서 변경 시 저장 로직
     const handleReorder = (newOrder: QuickCommand[]) => {
@@ -392,51 +448,78 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                 </div>
             )}
 
-            {/* 🐧 Custom User Commands */}
-            <div className="flex flex-col flex-1 min-h-0 space-y-3">
-                <div className="flex items-center justify-between px-1">
-                    <div className="flex items-center gap-2">
-                        <Zap size={14} className="text-amber-400" />
-                        <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">User Commands</h3>
+            {/* 🐧 Custom User Commands & Recent Commands (Unified Scroll Area) */}
+            <div className="flex flex-col flex-1 min-h-0 overflow-y-auto custom-scrollbar pb-10 space-y-6 pr-2">
+                
+                {/* User Commands */}
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                            <Zap size={14} className="text-amber-400" />
+                            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">User Commands</h3>
+                        </div>
+                        <button
+                            onClick={() => { setIsEditing(true); setEditData({ name: '', cmd: '' }); }}
+                            className="group flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400/50 transition-all active:scale-95"
+                            title="Add Command"
+                        >
+                            <Plus size={12} className="text-indigo-400 group-hover:rotate-90 transition-transform duration-300" />
+                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">New</span>
+                        </button>
                     </div>
-                    <button
-                        onClick={() => { setIsEditing(true); setEditData({ name: '', cmd: '' }); }}
-                        className="group flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400/50 transition-all active:scale-95"
-                        title="Add Command"
+
+                    <Reorder.Group
+                        axis="y"
+                        values={commands}
+                        onReorder={handleReorder}
+                        className=""
                     >
-                        <Plus size={12} className="text-indigo-400 group-hover:rotate-90 transition-transform duration-300" />
-                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">New</span>
-                    </button>
+                        <div className="flex flex-wrap gap-2.5 p-2">
+                            {commands.length === 0 && (
+                                <div className="w-full py-10 text-center flex flex-col items-center gap-3 opacity-30">
+                                    <Terminal size={32} />
+                                    <span className="text-xs font-medium">No commands saved.</span>
+                                </div>
+                            )}
+                            {commands.map((c) => (
+                                <DraggableCommandItem
+                                    key={c.id}
+                                    c={c}
+                                    handleExecute={handleExecute}
+                                    setHoveredCmd={setHoveredCmd}
+                                    setHoverPos={setHoverPos}
+                                    handleEdit={handleEdit}
+                                    handleDelete={handleDelete}
+                                    renderTokensToHtml={renderTokensToHtml}
+                                />
+                            ))}
+                        </div>
+                    </Reorder.Group>
                 </div>
 
-                <Reorder.Group
-                    axis="y"
-                    values={commands}
-                    onReorder={handleReorder}
-                    className="flex-1 overflow-y-auto custom-scrollbar pb-10"
-                >
-                    <div className="flex flex-wrap gap-2.5 p-2">
-                        {commands.length === 0 && (
-                            <div className="w-full py-20 text-center flex flex-col items-center gap-3 opacity-30">
-                                <Terminal size={32} />
-                                <span className="text-xs font-medium">No commands saved.</span>
+                {/* 🐧 Recent Commands */}
+                {recentCommands.length > 0 && (
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between px-1">
+                            <div className="flex items-center gap-2">
+                                <History size={14} className="text-slate-400" />
+                                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Recent Commands</h3>
                             </div>
-                        )}
-                        {commands.map((c) => (
-                            <DraggableCommandItem
-                                key={c.id}
-                                c={c}
-                                handleExecute={handleExecute}
-                                setHoveredCmd={setHoveredCmd}
-                                setHoverPos={setHoverPos}
-                                handleEdit={handleEdit}
-                                handleDelete={handleDelete}
-                                renderTokensToHtml={renderTokensToHtml}
-                            />
-                        ))}
+                        </div>
+                        <div className="flex flex-wrap gap-2.5 p-2">
+                            {recentCommands.map((cmd, idx) => (
+                                <RecentCommandItem 
+                                    key={cmd + idx} 
+                                    cmd={cmd} 
+                                    onAdd={() => handleAddRecent(cmd)} 
+                                    handleExecute={handleExecute}
+                                />
+                            ))}
+                        </div>
                     </div>
-                </Reorder.Group>
+                )}
             </div>
+
 
             {/* 🐧🎯 글로벌 전문 프리뷰 HUD (마우스 오버한 카드 우측에 밀착 렌더링) */}
             {typeof document !== 'undefined' && createPortal(
