@@ -250,6 +250,7 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
     - `LogViewer`: 미션 삭제 시 ConfirmDialog 적용 완료 (LogContext/TopBar 연동).
     - `LogViewer`: 퀵 커맨드 UI를 **가변형 벤토 칩 그리드**로 개편. 자동 컬러 팔레트(Auto-Coloring), **Zero-Blur(GPU 최적화)** 정책 및 **특수키(20089999) 퀵 주입 버튼** 적용. 🐧🚀⚡
     - `LogViewer`: 터미널 셸(Shell) 명령어 자동 수집(localStorage 연동) 및 **Recent Commands(최근 명령어)** 카드 뷰 추가. 원클릭 실행 및 User Commands 빠른 등록 지원.
+    - `LogViewer`: **Atomic UI Synchronization (Applied Config Pattern)** 도입. Happy Combo 및 필터 변경 시 설정창 색상과 로그 화면 갱신을 150ms 디바운스 타이밍에 맞춰 완벽하게 동기화. 🐧🎯⚡
 
     - `EasyUML`: 다이어그램 삭제 로직 적용 완료.
     - `BlockTest`: 시나리오 삭제 로직 적용 완료.

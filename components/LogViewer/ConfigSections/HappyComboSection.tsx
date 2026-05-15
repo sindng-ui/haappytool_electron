@@ -8,8 +8,10 @@ const { Zap, X, Folder, FolderOpen, Plus, Activity, PlayCircle, StopCircle, Minu
 
 interface HappyComboSectionProps {
     currentConfig: LogRule;
+    appliedConfig?: LogRule; // ✅ Added for sync
     updateCurrentRule: (updates: Partial<LogRule>) => void;
     groupedRoots: { root: string; isRootEnabled: boolean; items: { group: string[]; active: boolean; originalIdx: number, id?: string, alias?: string }[] }[];
+    appliedGroupedRoots?: { root: string; isRootEnabled: boolean; items: { group: string[]; active: boolean; originalIdx: number, id?: string, alias?: string }[] }[]; // ✅ Added for sync
     collapsedRoots: Set<string>;
     onToggleRootCollapse: (root: string) => void;
     handleToggleRoot: (root: string, enabled: boolean) => void;
@@ -27,8 +29,10 @@ import { EditableTag } from './EditableTag';
 
 export const HappyComboSection = React.memo<HappyComboSectionProps>(({
     currentConfig,
+    appliedConfig,
     updateCurrentRule,
     groupedRoots,
+    appliedGroupedRoots,
     collapsedRoots,
     onToggleRootCollapse,
     handleToggleRoot,
@@ -373,19 +377,23 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
                 {filteredGroupedRoots.map(({ root, isRootEnabled, items }, rootIdx) => {
                     const isAnyAliasFocusedInThisRoot = items.some(item => focusedAliasId === (item.id || item.originalIdx.toString()));
 
+                    // 🐧🎯 형님! 시각적 상태(색상 등)는 실제로 적용된 설정을 따라가게 하여 로그 렌더러와 동기화합니다.
+                    const appliedRoot = appliedGroupedRoots?.find(a => a.root === root);
+                    const visuallyEnabled = appliedRoot ? appliedRoot.isRootEnabled : isRootEnabled;
+
                     return (
-                        <div key={rootIdx} className={`glass rounded-2xl p-4 transition-all duration-300 relative group border ${isRootEnabled ? 'border-indigo-500/10' : 'border-slate-800 opacity-60'} ${isAnyAliasFocusedInThisRoot ? 'z-50' : 'z-10'}`}>
+                        <div key={rootIdx} className={`glass rounded-2xl p-4 transition-all duration-300 relative group border ${visuallyEnabled ? 'border-indigo-500/10' : 'border-slate-800 opacity-60'} ${isAnyAliasFocusedInThisRoot ? 'z-50' : 'z-10'}`}>
                             {/* Background Gradient for Root */}
-                            <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br transition-opacity duration-500 pointer-events-none ${isRootEnabled ? 'from-indigo-500/5 to-transparent opacity-100' : 'opacity-0'}`} />
+                            <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br transition-opacity duration-500 pointer-events-none ${visuallyEnabled ? 'from-indigo-500/5 to-transparent opacity-100' : 'opacity-0'}`} />
 
                             {/* Root Header */}
                             <div className="flex items-center gap-3 relative z-10 mb-2">
-                                <input type="checkbox" checked={isRootEnabled} onChange={(e) => handleToggleRoot(root, e.target.checked)} className="accent-indigo-500 w-4 h-4 cursor-pointer" />
+                                <input type="checkbox" checked={visuallyEnabled} onChange={(e) => handleToggleRoot(root, e.target.checked)} className="accent-indigo-500 w-4 h-4 cursor-pointer" />
 
                                 <IconButton
                                     onClick={() => onToggleRootCollapse(root)}
                                     icon={collapsedRoots.has(root) ? <Folder size={14} /> : <FolderOpen size={14} />}
-                                    className={`rounded-lg transition-colors ${isRootEnabled ? 'text-indigo-300 hover:bg-indigo-500/20' : 'text-slate-500 hover:bg-slate-800'} ${!collapsedRoots.has(root) && isRootEnabled ? 'bg-indigo-500/10' : ''}`}
+                                    className={`rounded-lg transition-colors ${visuallyEnabled ? 'text-indigo-300 hover:bg-indigo-500/20' : 'text-slate-500 hover:bg-slate-800'} ${!collapsedRoots.has(root) && visuallyEnabled ? 'bg-indigo-500/10' : ''}`}
                                     size="sm"
                                 />
 
@@ -439,7 +447,7 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
                                 ) : (
                                     <span
                                         onClick={() => setEditingTarget({ groupIdx: -1, termIdx: -1, isActive: true, value: root } as any)}
-                                        className={`font-bold text-sm cursor-pointer hover:text-indigo-300 transition-colors px-2 py-1 rounded hover:bg-white/5 ${isRootEnabled ? 'text-indigo-100' : 'text-slate-500'}`}
+                                        className={`font-bold text-sm cursor-pointer hover:text-indigo-300 transition-colors px-2 py-1 rounded hover:bg-white/5 ${visuallyEnabled ? 'text-indigo-100' : 'text-slate-500'}`}
                                     >
                                         {root}
                                     </span>
@@ -471,6 +479,10 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
                                     {items.map((item, itemIdx) => {
                                         const branchTags = item.group.slice(1);
 
+                                        // 🐧🎯 형님! 브랜치(아이템) 단위로도 시각적 상태를 동기화합니다.
+                                        const appliedItem = appliedRoot?.items.find(ai => ai.id === item.id || (ai.originalIdx === item.originalIdx));
+                                        const visuallyActive = appliedItem ? appliedItem.active : item.active;
+
                                         return (
                                             <div key={item.originalIdx} className="relative group/branch flex items-center pr-2">
                                                 {/* Branch Line */}
@@ -483,7 +495,7 @@ export const HappyComboSection = React.memo<HappyComboSectionProps>(({
                                                             <EditableTag
                                                                 isEditing={isTagEditing(editingTarget, item.originalIdx, tIdx + 1, item.active)}
                                                                 value={term}
-                                                                isActive={item.active}
+                                                                isActive={visuallyActive}
                                                                 isLast={tIdx === branchTags.length - 1}
                                                                 groupIdx={item.originalIdx}
                                                                 termIdx={tIdx + 1}

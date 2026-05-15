@@ -74,6 +74,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         leftTotalLines, rightTotalLines, requestLeftRawLines, requestRightRawLines,
         rawViewerRef,
         currentConfig,
+        appliedConfig,
 
         leftViewerRef, leftWorkerReady, leftFilteredCount, requestLeftLines, setActiveLineIndexLeft,
         handleLineDoubleClickAction, activeLineIndexLeft, selectedIndicesLeft, setSelectedIndicesLeft, handleLeftFileChange, handleLeftReset, leftIndexingProgress,
@@ -689,12 +690,13 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     };
 
     // Prepare Effective Highlights (Explicit + Auto-generated Highlighting for Happy Combos)
+    // Prepare Effective Highlights (Explicit + Auto-generated Highlighting for Happy Combos)
     const effectiveHighlights = React.useMemo(() => {
-        const baseHighlights = currentConfig?.highlights || [];
+        const baseHighlights = appliedConfig?.highlights || [];
 
         // Determine case sensitivity for deduplication
         // 형님, 어느 한 쪽이라도 켜져 있으면 중복 체크할 때 대소문자를 구분합니다.
-        const isCaseSensitive = !!currentConfig?.happyCombosCaseSensitive || !!currentConfig?.colorHighlightsCaseSensitive;
+        const isCaseSensitive = !!appliedConfig?.happyCombosCaseSensitive || !!appliedConfig?.colorHighlightsCaseSensitive;
 
         // Only classify highlights with ACTUAL color as "existing/colliding"
         // Deduplicate based on case sensitivity setting
@@ -708,8 +710,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         const termsToHighlight = new Set<string>();
 
         // Collect terms from Happy Groups
-        if (currentConfig?.happyGroups) {
-            currentConfig.happyGroups.forEach(group => {
+        if (appliedConfig?.happyGroups) {
+            appliedConfig.happyGroups.forEach(group => {
                 // Check if group is enabled (default true if undefined)
                 if (group.enabled !== false) {
                     group.tags.forEach(tag => {
@@ -720,8 +722,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         }
 
         // Legacy Support
-        if (currentConfig?.includeGroups) {
-            currentConfig.includeGroups.forEach(group => {
+        if (appliedConfig?.includeGroups) {
+            appliedConfig.includeGroups.forEach(group => {
                 group.forEach(tag => {
                     if (tag && tag.trim()) termsToHighlight.add(tag.trim());
                 });
@@ -749,7 +751,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         // We put baseHighlights FIRST so find() returns manual highlight if both exist 
         // (though we try to filter duplicates, partial matches might still occur)
         return [...baseHighlights, ...autoHighlights];
-    }, [currentConfig?.highlights, currentConfig?.happyGroups, currentConfig?.includeGroups, currentConfig?.colorHighlightsCaseSensitive, currentConfig?.happyCombosCaseSensitive]);
+    }, [appliedConfig]);
 
     // Memoized handlers for Right Pane
     const onLineClickRight = React.useCallback((index: number, isShift?: boolean, isCtrl?: boolean) => handleLineClick('right', index, !!isShift, !!isCtrl), [handleLineClick]);

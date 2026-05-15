@@ -21,8 +21,8 @@ const ConfigurationPanel = React.memo(() => {
     const {
         isPanelOpen, setIsPanelOpen,
         configPanelWidth, handleConfigResizeStart,
-        currentConfig, updateCurrentRule,
-        groupedRoots, collapsedRoots, setCollapsedRoots, handleToggleRoot,
+        currentConfig, appliedConfig, updateCurrentRule,
+        groupedRoots, appliedGroupedRoots, collapsedRoots, setCollapsedRoots, handleToggleRoot,
         sendTizenCommand, sendSerialSpecialKey,
         logViewPreferences, updateLogViewPreferences,
         isLogging, setIsLogging, connectionMode,
@@ -219,8 +219,10 @@ const ConfigurationPanel = React.memo(() => {
                                 <div className="card-gradient p-1">
                                     <HappyComboSection
                                         currentConfig={currentConfig}
+                                        appliedConfig={appliedConfig}
                                         updateCurrentRule={updateCurrentRule}
                                         groupedRoots={groupedRoots}
+                                        appliedGroupedRoots={appliedGroupedRoots}
                                         collapsedRoots={collapsedRoots}
                                         onToggleRootCollapse={onToggleRootCollapse}
                                         handleToggleRoot={handleToggleRoot}

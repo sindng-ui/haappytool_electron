@@ -173,6 +173,18 @@ export const useLogExtractorLogic = ({
     const [activeLineIndexRight, setActiveLineIndexRight] = useState<number>(-1); // Anchor/Focus
     const currentConfig = rules.find(r => r.id === selectedRuleId);
 
+    // 🐧🎯 형님! 엇박자 해결을 위해 '실제로 적용된 설정' 상태를 도입합니다.
+    const [appliedConfig, setAppliedConfig] = useState<any>(currentConfig);
+
+    // Update appliedConfig when currentConfig is stable (no more updates for a while)
+    useEffect(() => {
+        if (!currentConfig) return;
+        const timer = setTimeout(() => {
+            setAppliedConfig(currentConfig);
+        }, 150); // 🐧 150ms 정도 숨을 고르고 적용합니다. (필터 디바운스와 일치)
+        return () => clearTimeout(timer);
+    }, [currentConfig]);
+
 
     const [leftBookmarks, setLeftBookmarks] = useState<Set<number>>(new Set());
     const [rightBookmarks, setRightBookmarks] = useState<Set<number>>(new Set());
@@ -519,7 +531,7 @@ export const useLogExtractorLogic = ({
         // ✅ Optimization: Only filter when active and worker is ready
         if (isActive && leftWorkerRef.current && currentConfig && leftWorkerReady) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
-            // ... (기존 로직 유지하되 setTimeout으로 감쌈)
+            
             const applyFilter = () => {
                 const effectiveIncludes = refinedGroups.map(g =>
                     g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
@@ -539,6 +551,7 @@ export const useLogExtractorLogic = ({
                 }
                 lastFilterHashLeft.current = payloadHash;
 
+                // 🐧🎯 형님! 작업 직전에 캐시를 비워야 설정창 색깔 변화와 화면 갱신이 한 호흡에 일어납니다!
                 setLeftWorkerReady(false);
                 setLeftSegmentIndex(0);
                 leftViewerRef.current?.scrollTo(0);
@@ -554,14 +567,11 @@ export const useLogExtractorLogic = ({
                 setSelectedIndicesLeft(new Set());
             };
 
-            // 🐧🎯 형님! 콤보 추가나 수정을 할 때 팬이 돌지 않게 400ms 정도 숨을 고르고 필터링합니다.
-            const timer = setTimeout(applyFilter, 400);
+            // 🐧🎯 형님! 콤보 추가나 수정을 할 때 팬이 돌지 않게 150ms 정도 숨을 고르고 필터링합니다. (400ms는 너무 깁니다!)
+            const timer = setTimeout(applyFilter, 150);
             return () => clearTimeout(timer);
         }
     }, [currentConfig, tizenSocket, quickFilter, leftWorkerReady, isActive]);
-
-
-
 
     // Auto-Apply Filter (Right)
     useEffect(() => {
@@ -587,6 +597,7 @@ export const useLogExtractorLogic = ({
                 }
                 lastFilterHashRight.current = payloadHash;
 
+                // 🐧🎯 우측 패널도 타이밍 일치 작업!
                 setRightWorkerReady(false);
                 setRightSegmentIndex(0);
                 rightViewerRef.current?.scrollTo(0);
@@ -601,7 +612,7 @@ export const useLogExtractorLogic = ({
                 setSelectedIndicesRight(new Set());
             };
 
-            const timer = setTimeout(applyFilter, 400);
+            const timer = setTimeout(applyFilter, 150);
             return () => clearTimeout(timer);
         }
     }, [currentConfig, rightTotalLines, isDualView, quickFilter, rightWorkerReady, isActive]);
@@ -858,12 +869,12 @@ export const useLogExtractorLogic = ({
         }
     }, [currentConfig, updateCurrentRule]);
 
-    const groupedRoots = useMemo(() => {
-        if (!currentConfig) return [];
+    const getGroupedRoots = useCallback((config: LogRule | undefined) => {
+        if (!config) return [];
         const groups = new Map<string, { group: string[], active: boolean, originalIdx: number, id?: string, alias?: string }[]>();
 
-        if (currentConfig.happyGroups) {
-            currentConfig.happyGroups.forEach((hGroup, idx) => {
+        if (config.happyGroups) {
+            config.happyGroups.forEach((hGroup, idx) => {
                 const root = (hGroup.tags[0] || '').trim();
                 if (!root) return;
                 if (!groups.has(root)) groups.set(root, []);
@@ -877,14 +888,14 @@ export const useLogExtractorLogic = ({
             });
         } else {
             // Legacy Fallback
-            currentConfig.includeGroups.forEach((group, idx) => {
+            config.includeGroups.forEach((group, idx) => {
                 const root = (group[0] || '').trim();
                 if (!root) return;
                 if (!groups.has(root)) groups.set(root, []);
                 groups.get(root)!.push({ group, active: true, originalIdx: idx });
             });
-            if (currentConfig.disabledGroups) {
-                currentConfig.disabledGroups.forEach((group, idx) => {
+            if (config.disabledGroups) {
+                config.disabledGroups.forEach((group, idx) => {
                     const root = (group[0] || '').trim();
                     if (!root) return;
                     if (!groups.has(root)) groups.set(root, []);
@@ -897,7 +908,10 @@ export const useLogExtractorLogic = ({
             const isRootEnabled = items.some(i => i.active);
             return { root, isRootEnabled, items };
         });
-    }, [currentConfig?.includeGroups, currentConfig?.disabledGroups, currentConfig?.happyGroups]);
+    }, []);
+
+    const groupedRoots = useMemo(() => getGroupedRoots(currentConfig), [currentConfig, getGroupedRoots]);
+    const appliedGroupedRoots = useMemo(() => getGroupedRoots(appliedConfig), [appliedConfig, getGroupedRoots]);
 
     const [collapsedRoots, setCollapsedRoots] = useState<Set<string>>(new Set());
 
@@ -1033,8 +1047,8 @@ export const useLogExtractorLogic = ({
 
     return {
         rules, onUpdateRules, tabId, onExportSettings, onImportSettings,
-        selectedRuleId, setSelectedRuleId, currentConfig,
-        groupedRoots, collapsedRoots, setCollapsedRoots,
+        selectedRuleId, setSelectedRuleId, currentConfig, appliedConfig,
+        groupedRoots, appliedGroupedRoots, collapsedRoots, setCollapsedRoots,
         updateCurrentRule, handleCreateRule, handleDeleteRule, handleToggleRoot,
         isDualView, setIsDualView, toggleDualView,
         splitRatio, setSplitRatio,
