@@ -19,7 +19,7 @@ interface Device {
 interface Room {
     roomId: string; // Since we don't fetch rooms API, we might not have room Name, but request implies grouping by roomId. 
     name?: string;
-    // Wait, the user specifically says "location -> room -> device의 계층구조".
+    // Wait, the user specifically says "location -> room -> device hierarchy".
     // Without fetching /rooms, we only have roomId. I will just use roomId as the key/label for now.
     devices: Device[];
 }

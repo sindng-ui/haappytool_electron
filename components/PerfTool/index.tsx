@@ -67,7 +67,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     // Load persistence (Local & Session)
     useEffect(() => {
         const loadAllSettings = async () => {
-            // 1. Permanent Settings (LocalStorage -> localStorage 그대로 유지해도 됨, 작으니까)
+            // 1. Permanent Settings (LocalStorage)
             const localSaved = localStorage.getItem('happytool_perf_tool_settings_v2');
             if (localSaved) {
                 try {
@@ -83,16 +83,16 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
             }
 
             // 2. Session Data Management (IndexedDB + sessionStorage Flag)
-            // 💡 형님, sessionStorage 플래그를 통해 '앱 재시작'인지 '탭/플러그인 전환'인지 구분합니다.
+            // 💡 Use sessionStorage flag to distinguish between 'app restart' and 'tab/plugin switch'.
             const sessionActive = sessionStorage.getItem('happytool_perf_tool_session_active');
 
             if (!sessionActive) {
-                // 앱 신규 실행 (또는 세션 만료): 기존 IndexedDB 데이터 정리
+                // New app launch (or session expiry): Clear existing IndexedDB data
                 // console.log("[PerfTool] New session detected. Clearing previous IndexedDB session data.");
                 await deleteStoredValue('happytool_perf_tool_session_v1');
                 sessionStorage.setItem('happytool_perf_tool_session_active', 'true');
             } else {
-                // 기존 세션 유지: 데이터 로드 (시중의 대용량 로그 대응)
+                // Persist existing session: Load data (for large-scale logs)
                 const sessionSaved = await getStoredValue('happytool_perf_tool_session_v1');
                 if (sessionSaved) {
                     try {
@@ -127,7 +127,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
     useEffect(() => {
         if (!isInitialLoadDone) return;
         const session = { fileHandle, targetKeyword, result, pidList, logTags };
-        // 💡 용량이 클 수 있으므로 IndexedDB에 저장합니다.
+        // 💡 Save to IndexedDB as the payload may be large.
         setStoredValue('happytool_perf_tool_session_v1', session);
     }, [fileHandle, targetKeyword, result, pidList, logTags, isInitialLoadDone]);
 
@@ -493,7 +493,7 @@ const PerfTool: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
                                 />
                             </div>
                             <p className="text-[9px] text-slate-500 leading-relaxed px-1">
-                                <span className="text-amber-500/80 font-bold">INFO:</span> PID 내에서 위 태그가 포함된 로그들만 골라 분석합니다. (비워두면 전체 분석)
+                                <span className="text-amber-500/80 font-bold">INFO:</span> Analyzes only the logs containing the above tags within the PID. (Leave empty for full analysis)
                             </p>
                         </div>
 

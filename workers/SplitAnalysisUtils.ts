@@ -28,7 +28,7 @@ export interface SequenceItem {
     alias: string | null;
 }
 
-// 🐧⚡ 정규표현식 재사용을 위한 상수 선언
+// 🐧⚡ Constant declarations for regex reuse
 const RE_TID_1 = /\(P\s*\d+,\s*T\s*(\d+)\)/;
 const RE_TID_2 = /\[\s*(\d+):/;
 const RE_NON_ALPHANUM = /[^a-zA-Z\uAC00-\uD7A3]/g;
@@ -67,7 +67,7 @@ export interface SplitAnalysisResult {
     isWarn: boolean;
     isAliasMatch?: boolean;
     isAliasInterval?: boolean;
-    isGlobalBatch?: boolean; // 🐧⚡ 거대 묶음 표시용 (최상단 노출)
+    isGlobalBatch?: boolean; // 🐧⚡ For global batch indicator (top-level exposure)
 
     prevFileName?: string;
     prevFunctionName?: string;
@@ -91,35 +91,35 @@ export interface SplitAnalysisResult {
     leftPrevCodeLineNum?: string | null;
     rightPrevCodeLineNum?: string | null;
 
-    // 🐧⚡ Burst(반복 로그) 정보
+    // 🐧⚡ Burst (repeated logs) info
     isBurst?: boolean;
     burstCount?: number;
-    // 버스트 종료 위치 (점프는 burstEndLineNum이 있으면 이 위치를 사용, 없으면 rightLineNum 사용)
-    burstEndLineNum?: number;      // 마지막 반복 발생의 우측 visualIndex
-    burstEndOrigLineNum?: number;  // 마지막 반복 발생의 우측 원본 라인 번호
-    burstEndLeftLineNum?: number;  // 마지막 반복 발생의 좌측 visualIndex
-    burstEndLeftOrigLineNum?: number; // 마지막 반복 발생의 좌측 원본 라인 번호
-    // burstDuration은 leftAvgDelta/rightAvgDelta 누적치로 대체 가능하므로 제거 (인터페이스 단순화)
+    // Burst end position (Jump uses burstEndLineNum if present, otherwise uses rightLineNum)
+    burstEndLineNum?: number;      // Right visualIndex of last repeat occurrence
+    burstEndOrigLineNum?: number;  // Right original line number of last repeat occurrence
+    burstEndLeftLineNum?: number;  // Left visualIndex of last repeat occurrence
+    burstEndLeftOrigLineNum?: number; // Left original line number of last repeat occurrence
+    // burstDuration is removed as it can be replaced by accumulated leftAvgDelta/rightAvgDelta (Interface simplification)
 }
 
 /**
- * 🐧⚡ 파일명, 함수명, 라인번호를 조합하여 통일된 시그니처 포맷을 반환합니다.
+ * 🐧⚡ Returns a unified signature format by combining filename, function name, and line number.
  */
 export const getFormattedSig = (fileName?: string, functionName?: string, codeLineNum?: string | null, preview?: string): string => {
     const fn = (fileName || '').split(/[\\/]/).pop() || '';
     const func = functionName || '';
 
-    // 🐧⚡ 메시지 패턴 추출: 숫자, Hex 등 변하는 부분을 #으로 치환하여 정적 패턴 생성
+    // 🐧⚡ Message pattern extraction: Create static patterns by replacing variable parts (numbers, hex, etc.) with #
     let pattern = '';
     if (preview) {
-        // 🐧⚡ '>' 가 있다면 그 이후의 진짜 본문 내용만 패턴 추출에 사용 (타임스탬프 등 제외)
+        // 🐧⚡ If '>' exists, only the real body content after it is used for pattern extraction (excluding timestamps, etc.)
         const markerIdx = preview.indexOf('>');
         const realBody = markerIdx !== -1 ? preview.substring(markerIdx + 1) : preview;
 
         pattern = realBody
             .replace(RE_HEX, '0x#')
             .replace(RE_DIGITS, '#')
-            .replace(/\s+/g, ' ') // 🐧⚡ 연속된 공백을 하나로 합침 (Whitespace Normalization)
+            .replace(/\s+/g, ' ') // 🐧⚡ Merge consecutive spaces into one (Whitespace Normalization)
             .substring(0, 40)
             .trim();
     }
@@ -131,7 +131,7 @@ export const getFormattedSig = (fileName?: string, functionName?: string, codeLi
 };
 
 /**
- * 🐧⚡ 단일 로그 라인에서 메타데이터를 추출합니다. (최적화 버전)
+ * 🐧⚡ Extracts metadata from a single log line. (Optimized version)
  */
 export const extractSingleMetadata = (
     text: string,
@@ -141,17 +141,17 @@ export const extractSingleMetadata = (
 ): LogMetadata => {
     const timestamp = extractTimestamp(text);
 
-    // TID 추출 (표시 장식용으로 유지)
+    // TID extraction (Maintained for display decoration)
     const tidMatch = text.match(RE_TID_1) || text.match(RE_TID_2);
     const tid = tidMatch ? tidMatch[1] : null;
 
-    // 파일/함수/라인명 추출
+    // Extraction of file/function/line names
     const { fileName, functionName, codeLineNum } = extractSourceMetadata(text);
 
     const isError = RE_ERROR_LVL.test(text);
     const isWarn = RE_WARN_LVL.test(text);
 
-    // Happy Combo Alias 매칭
+    // Happy Combo Alias matching
     let matchedAlias: string | null = null;
     if (currentRule?.happyGroups) {
         const caseSensitive = currentRule.happyCombosCaseSensitive ?? false;
@@ -160,9 +160,9 @@ export const extractSingleMetadata = (
         for (const group of currentRule.happyGroups) {
             if (!group.enabled || !group.alias || !group.tags.length) continue;
 
-            // 모든 태그가 포함되어 있는지 확인 (AND 조건)
+            // Check if all tags are included (AND condition)
             const allMatched = group.tags.every((tag, idx) => {
-                // 🐧⚡ 사전 소문자화된 태그가 있으면 사용, 없으면 즉석 변환 (호환성 유지)
+                // 🐧⚡ Use pre-lowercased tags if available, otherwise convert on the fly (maintain compatibility)
                 const searchTag = (group as any)._lowercasedTags?.[idx] || (caseSensitive ? tag : tag.toLowerCase());
                 return lowerText.includes(searchTag);
             });
@@ -190,7 +190,7 @@ export const extractSingleMetadata = (
 };
 
 /**
- * 🐧⚡ 특정 라인에서 Happy Combo Alias만 쏙 뽑아냅니다.
+ * 🐧⚡ Extracts only the Happy Combo Alias from a specific line.
  */
 export const extractAliasFromLine = (text: string, currentRule: LogRule | null): string | null => {
     if (!currentRule?.happyGroups) return null;
@@ -211,7 +211,7 @@ export const extractAliasFromLine = (text: string, currentRule: LogRule | null):
 };
 
 /**
- * 🐧⚡ Alias 이벤트를 매칭하여 결과를 반환합니다.
+ * 🐧⚡ Matches Alias events and returns results.
  */
 export const matchAliasEvents = (
     leftAliasEvents: AliasEvent[],
@@ -308,7 +308,7 @@ export const matchAliasEvents = (
 };
 
 /**
- * 🐧⚡ Alias 사이의 구간(Interval)을 분석합니다.
+ * 🐧⚡ Analyzes intervals between Aliases.
  */
 export const computeAliasIntervals = (
     leftAliasEvents: AliasEvent[],
@@ -323,8 +323,8 @@ export const computeAliasIntervals = (
             const start = events[i];
             const end = events[i + 1];
 
-            // 🐧⚡ [FIX] 완전 동일한 시그니처의 반복(A ➔ A)은 Global Batch와 LCS Burst Grouping으로 완벽히 커버되므로
-            // 무의미한 1:1 간격 생성을 방지하기 위해 스킵합니다. (단, Alias가 같더라도 시그니처가 다르면 진행)
+            // 🐧⚡ [FIX] Repetition of identical signatures (A ➔ A) is fully covered by Global Batch and LCS Burst Grouping
+            // Skip to prevent creating meaningless 1:1 intervals. (However, proceed if signatures differ even if Aliases match)
             if (getFormattedEventSig(start) === getFormattedEventSig(end)) continue;
 
             if (start.timestamp && end.timestamp) {
@@ -391,7 +391,7 @@ export const computeAliasIntervals = (
 };
 
 /**
- * 🐧⚡ 동일한 Alias의 최초 발생부터 최후 발생까지를 하나의 거대한 세그먼트로 계산합니다.
+ * 🐧⚡ Calculates from the first occurrence to the last occurrence of the same Alias as one giant segment.
  */
 export const computeGlobalAliasRanges = (
     leftAliasEvents: AliasEvent[],
@@ -403,7 +403,7 @@ export const computeGlobalAliasRanges = (
     const getRanges = (events: AliasEvent[]) => {
         const groups = new Map<string, AliasEvent[]>();
         events.forEach(ev => {
-            const sig = ev.alias; // 🐧⚡ 단순하게 알리아스 명칭으로만 그룹화합니다. (위치 무관)
+            const sig = ev.alias; // 🐧⚡ Simply grouped by Alias name (position independent)
             const list = groups.get(sig) || [];
             list.push(ev);
             groups.set(sig, list);
@@ -434,7 +434,7 @@ export const computeGlobalAliasRanges = (
     const leftRangeMap = new Map<string, typeof leftRanges[0]>();
     leftRanges.forEach(r => leftRangeMap.set(r.sig, r));
 
-    // 🐧⚡ 양쪽 매칭 및 오른쪽 신규 배치 처리
+    // 🐧⚡ Both-side matching and right-side new batch processing
     rightRanges.forEach(rr => {
         const lr = leftRangeMap.get(rr.sig);
         if (lr) {
@@ -454,9 +454,9 @@ export const computeGlobalAliasRanges = (
                 isNewError: false,
                 isError: false,
                 isWarn: false,
-                isAliasMatch: true, // ⚠️ 중복 제거 방지용
+                isAliasMatch: true, // ⚠️ For preventing duplicate removal
                 isAliasInterval: true,
-                isGlobalBatch: true, // 🐧⚡ 거대 묶음 표시
+                isGlobalBatch: true, // 🐧⚡ Global batch indicator
                 leftLineNum: lr.last.visualIndex,
                 rightLineNum: rr.last.visualIndex,
                 leftPrevLineNum: lr.first.visualIndex,
@@ -472,7 +472,7 @@ export const computeGlobalAliasRanges = (
                 leftUniqueTids: 1,
                 rightUniqueTids: 1
             });
-            leftRangeMap.delete(rr.sig); // 처리 완료
+            leftRangeMap.delete(rr.sig); // Processed
         } else {
             results.push({
                 key: `${getFormattedEventSig(rr.first)} ➔ ${getFormattedEventSig(rr.last)} [NEW]`,
@@ -509,7 +509,7 @@ export const computeGlobalAliasRanges = (
         }
     });
 
-    // 🐧⚡ 왼쪽만 존재하는 배치 처리 (Optional)
+    // 🐧⚡ Left-side only batch processing (Optional)
     leftRangeMap.forEach((lr, sig) => {
         results.push({
             key: `${getFormattedEventSig(lr.first)} ➔ ${getFormattedEventSig(lr.last)} [MISSING]`,
@@ -565,11 +565,11 @@ export interface AggregateMetrics {
         isWarn: boolean;
         lineNum: number;      // visualIndex (for jump)
         prevLineNum: number;  // visualIndex (for jump)
-        originalLineNum: number;     // 디스플레이용 원본 라인 번호
-        prevOriginalLineNum: number; // 디스플레이용 원본 라인 번호
-        codeLineNum?: string | null;     // 로그 내부 코드 라인 번호 (예: 350)
-        prevCodeLineNum?: string | null; // 로그 내부 코드 라인 번호
-        directCount?: number;            // 실제 연속된 로그 페어링 횟수
+        originalLineNum: number;     // Original line number for display
+        prevOriginalLineNum: number; // Original line number for display
+        codeLineNum?: string | null;     // Code line number inside the log (e.g. 350)
+        prevCodeLineNum?: string | null; // Code line number inside the log
+        directCount?: number;            // Actual consecutive log pairing count
     };
 }
 
@@ -581,34 +581,34 @@ export interface PointMetrics {
         codeLineNum: string | null;
         preview: string;
         tids: string[];
-        visualIndices: number[];     // 상세 내비게이션용 (< > 버튼)
-        originalLineNums: number[];  // 디스플레이용
+        visualIndices: number[];     // For detailed navigation (< > buttons)
+        originalLineNums: number[];  // For display
     };
 }
 
 /**
- * 🐧⚡ 'Significant' 로그(파일명/함수명 포함)인지 확인합니다.
+ * 🐧⚡ Checks if it is a 'Significant' log (including filename/function name).
  */
 export const isSignificant = (item: { fileName?: string, functionName?: string, alias?: string | null }): boolean => {
     return !!(item.fileName || item.functionName || item.alias);
 };
 
 /**
- * 🐧⚡ [NEW DP ALGORITHM] Needleman-Wunsch 기반의 글로벌 서열 정렬 
- * N-gram 윈도우 한계를 극복하기 위해 거대한 두 시퀀스를 O(N*M) 최적화로 정렬합니다. 
+ * 🐧⚡ [NEW DP ALGORITHM] Global sequence alignment based on Needleman-Wunsch 
+ * Sorts two giant sequences with O(N*M) optimization to overcome N-gram window limits. 
  */
 export const alignSequences = (
     leftSeq: SequenceItem[],
     rightSeq: SequenceItem[]
 ): SplitAnalysisResult[] => {
-    // 1. Find Anchors: 정확히 1:1로 등장하거나 동일 횟수로 등장하는 시그니처를 앵커 후보로 선정 🐧⚡
+    // 1. Find Anchors: Select signatures that appear exactly 1:1 or with the same frequency as anchor candidates 🐧⚡
     const leftCounts = new Map<string, number>();
     const rightCounts = new Map<string, number>();
     
     for (const item of leftSeq) leftCounts.set(item.sig, (leftCounts.get(item.sig) || 0) + 1);
     for (const item of rightSeq) rightCounts.set(item.sig, (rightCounts.get(item.sig) || 0) + 1);
     
-    // 1:1 고유 앵커 (기존 방식)
+    // 1:1 Unique anchors (legacy method)
     const uniqueSigs = new Set<string>();
     for (const [sig, count] of leftCounts) {
         if (count === 1 && rightCounts.get(sig) === 1) {
@@ -616,16 +616,16 @@ export const alignSequences = (
         }
     }
     
-    // 🐧⚡ 반복 앵커: 양쪽에 2개 이상 등장하는 시그니처를 순서 보존 페어링 (N:M 매칭)
-    // 예: OnError가 좌 7개, 우 9개면 앞에서 min(7,9)=7개를 1:1 앵커로 생성
-    //     → 나머지 우측 2개는 unmatched gap으로 남음
-    //     → 이렇게 해야 gap DP가 엉뚱한 위치와 매칭하지 않음
-    const repeatedSigLeftIndices = new Map<string, number[]>(); // sig -> leftSeq 인덱스 배열
-    const repeatedSigRightIndices = new Map<string, number[]>(); // sig -> rightSeq 인덱스 배열
+    // 🐧⚡ Repeated anchors: Pair signatures appearing 2+ times on both sides while preserving order (N:M matching)
+    // Ex: If OnError is 7 left, 9 right, create 7 1:1 anchors from the front (min(7,9)=7)
+    //     -> Remaining 2 on the right stay as unmatched gaps
+    //     -> This prevents gap DP from matching with wrong positions
+    const repeatedSigLeftIndices = new Map<string, number[]>(); // sig -> leftSeq index array
+    const repeatedSigRightIndices = new Map<string, number[]>(); // sig -> rightSeq index array
     for (const [sig, leftCount] of leftCounts) {
         const rightCount = rightCounts.get(sig) ?? 0;
-        // 1:1은 uniqueSigs에서 처리하므로 제외 (leftCount > 1 && rightCount > 1)
-        // 최대 100개까지 지원 (성능 보호)
+        // 1:1 is handled by uniqueSigs, so exclude (leftCount > 1 && rightCount > 1)
+        // Support up to 100 aliases (performance protection)
         if (leftCount > 1 && rightCount > 1 && Math.max(leftCount, rightCount) <= 100) {
             repeatedSigLeftIndices.set(sig, []);
             repeatedSigRightIndices.set(sig, []);
@@ -640,7 +640,7 @@ export const alignSequences = (
         if (repeatedSigRightIndices.has(sig)) repeatedSigRightIndices.get(sig)!.push(j);
     }
     
-    // leftSeq에서 uniqueSig의 인덱스를 추출 (sig -> index map)
+    // Extract indices of uniqueSigs from leftSeq (sig -> index map)
     const leftUniqueIdx = new Map<string, number>();
     for (let i = 0; i < leftSeq.length; i++) {
         if (uniqueSigs.has(leftSeq[i].sig)) {
@@ -648,7 +648,7 @@ export const alignSequences = (
         }
     }
     
-    // rightSeq를 순회하며 leftIdx 매핑 (고유 앵커 탐색)
+    // Traverse rightSeq to map leftIdx (Unique anchor search)
     const matches: { leftIdx: number, rightIdx: number }[] = [];
     for (let j = 0; j < rightSeq.length; j++) {
         const sig = rightSeq[j].sig;
@@ -656,7 +656,7 @@ export const alignSequences = (
             matches.push({ leftIdx: leftUniqueIdx.get(sig)!, rightIdx: j });
         }
     }
-    // 🐧⚡ 반복 앵커 페어링 추가 (N:M 매칭 순서 보존)
+    // 🐧⚡ Added repeated anchor pairing (Preserving N:M matching order)
     for (const [sig, leftIdxArr] of repeatedSigLeftIndices) {
         const rightIdxArr = repeatedSigRightIndices.get(sig)!;
         const pairCount = Math.min(leftIdxArr.length, rightIdxArr.length);
@@ -665,20 +665,20 @@ export const alignSequences = (
         }
     }
     
-    // 🐧⚡ LIS 계산 전 rightIdx 기준으로 반드시 정렬해야 함 (반복 앵커가 뒤에 무작위로 추가되었기 때문)
-    // 원래 unique 앵커는 rightSeq를 순회하며 넣어서 정렬되어 있었지만, 반복 앵커가 들어가며 순서가 깨짐
+    // 🐧⚡ Must sort by rightIdx before LIS calculation (since repeated anchors were added randomly at the end)
+    // Originally unique anchors were sorted by traversing rightSeq, but order broke as repeated anchors were added
     matches.sort((a, b) => a.rightIdx - b.rightIdx);
     
-    // LIS 알고리즘 (leftIdx 기준)을 통해 교차되지 않는 가장 긴 앵커 시퀀스 추출
+    // Extract the longest non-intersecting anchor sequence via LIS algorithm (based on leftIdx)
     const anchors = computeLIS(matches);
     
     const aggregatedMatches: { left: SequenceItem, right: SequenceItem }[] = [];
     
-    // 가상의 시작/끝 앵커 추가
+    // Add virtual start/end anchors
     anchors.unshift({ leftIdx: -1, rightIdx: -1 });
     anchors.push({ leftIdx: leftSeq.length, rightIdx: rightSeq.length });
     
-    // 앵커와 앵커 사이의 갭을 O(N*M) DP로 채운 뒤 합칩니다.
+    // Fills gaps between anchors with O(N*M) DP and merges them.
     for (let i = 0; i < anchors.length - 1; i++) {
         const startAnchor = anchors[i];
         const endAnchor = anchors[i + 1];
@@ -700,7 +700,7 @@ export const alignSequences = (
         }
     }
     
-    // 2-1. 순서가 보장된 결과 리스트 생성 (aggregatedMatches의 순서 기반) 🐧⚡
+    // 2-1. Generate order-guaranteed result list (Based on aggregatedMatches order) 🐧⚡
     const rawResults: SplitAnalysisResult[] = [];
     const seenIntervals = new Set<string>();
     for (let i = 1; i < aggregatedMatches.length; i++) {
@@ -708,9 +708,9 @@ export const alignSequences = (
         const curr = aggregatedMatches[i];
         const key = `${prev.left.sig} ➔ ${curr.left.sig}`;
         
-        // 해당 지점의 metrics 정보를 순서대로 push (이미 push된 key는 metrics 객체에 누적되어 있으므로 skip)
-        // 하지만 '연속된' 동일 인터벌을 그룹화해야 하므로, key가 같더라도 위치(Index)가 다르면 개별적으로 취급해야 함
-        // 따라서 metrics 객체 접근 대신, 여기서 즉석에서 Result 객체를 생성하여 raw 리스트를 만듦
+        // Push metrics info at that point in order (skip if key is already accumulated in metrics object)
+        // However, since 'consecutive' identical intervals must be grouped, handle separately if positions differ even if keys match
+        // Therefore, instead of metrics object access, create Result objects on the fly here to build the raw list
         
         let leftDelta = 0;
         let rightDelta = 0;
@@ -792,7 +792,7 @@ export const alignSequences = (
         }
     }
 
-    // 4. 후처리: 연속된 동일 시그니처 매칭 결과 그룹화 (Burst/N-회 반복) 🐧⚡
+    // 4. Post-processing: Group consecutive identical signature matching results (Burst/N-repeats) 🐧⚡
     const finalizedResults: SplitAnalysisResult[] = [];
     if (rawResults.length > 0) {
         let currentGroup: SplitAnalysisResult | null = null;
@@ -801,8 +801,8 @@ export const alignSequences = (
         for (let i = 0; i < rawResults.length; i++) {
             const res = rawResults[i];
             
-            // Interval 매칭이고, 이전 그룹과 동일한 서명(Key)인 경우 병합 시도
-            // (AliasMatch나 NewError는 건드리지 않고 일반 DP 매칭 구간만 병합)
+            // Try merging if it is an Interval match and has the same signature (Key) as the previous group
+            // (Merge only regular DP matching sections without touching AliasMatch or NewError)
             const canGroup = currentGroup && 
                              !res.isAliasMatch && !res.isAliasInterval && !res.isNewError &&
                              !currentGroup.isAliasMatch && !currentGroup.isAliasInterval && !currentGroup.isNewError &&
@@ -813,7 +813,7 @@ export const alignSequences = (
                 currentGroup.isBurst = true;
                 currentGroup.burstCount = groupCount;
                 
-                // Duration 및 카운트 누적
+                // Accumulate duration and counts
                 currentGroup.leftAvgDelta += res.leftAvgDelta;
                 currentGroup.rightAvgDelta += res.rightAvgDelta;
                 currentGroup.deltaDiff = currentGroup.rightAvgDelta - currentGroup.leftAvgDelta;
@@ -821,8 +821,8 @@ export const alignSequences = (
                 currentGroup.rightCount += res.rightCount;
                 currentGroup.countDiff = currentGroup.rightCount - currentGroup.leftCount;
                 
-                // 🐧⚡ 점프 위치(lineNum)는 첫 번째 발생 위치 유지!
-                // 버스트 종료 위치는 별도 필드에 저장
+                // 🐧⚡ Jump position (lineNum) maintains the first occurrence position!
+                // Burst end position is stored in a separate field
                 currentGroup.burstEndLineNum = res.rightLineNum;
                 currentGroup.burstEndOrigLineNum = res.rightOrigLineNum;
                 currentGroup.burstEndLeftLineNum = res.leftLineNum;
@@ -885,12 +885,12 @@ function alignGapDP(
 ): { left: SequenceItem, right: SequenceItem }[] {
     const results: { left: SequenceItem, right: SequenceItem }[] = [];
     
-    // 단순 최적화: 공통 접두사 매칭
+    // Simple optimization: common prefix matching
     while (ls <= le && rs <= re && leftSeq[ls].sig === rightSeq[rs].sig) {
         results.push({ left: leftSeq[ls], right: rightSeq[rs] });
         ls++; rs++;
     }
-    // 단순 최적화: 공통 접미사 매칭
+    // Simple optimization: common suffix matching
     const suffixes: { left: SequenceItem, right: SequenceItem }[] = [];
     while (ls <= le && rs <= re && leftSeq[le].sig === rightSeq[re].sig) {
         suffixes.unshift({ left: leftSeq[le], right: rightSeq[re] });
@@ -901,7 +901,7 @@ function alignGapDP(
     const M = re - rs + 1;
     
     if (N > 0 && M > 0) {
-        // [LIMIT CAP] DP 너무 길면 메모리 파괴. 하드 캡
+        // [LIMIT CAP] DP too long will cause OOM. Hard cap
         if (N * M > 25000000) {
             console.warn(`[SplitAnalysis] Gap too large for DP (${N}x${M}). Falling back to greedy matching.`);
             let currR = rs;
@@ -933,15 +933,15 @@ function alignGapDP(
             let j = M;
             const dpResults: { left: SequenceItem, right: SequenceItem }[] = [];
             while (i > 0 && j > 0) {
-                // 🐧⚡ (핵심 픽스) dp 테이블 값이 이전 값과 같다면 실제 매칭 채택을 건너뜀
-                // 뒤에서부터 거꾸로 추적하므로, "건너뛸 수 있다면 먼저 건너뛰는 것"이
-                // [A] vs [A, A] 상황에서 두 번째 A 대신 앞쪽의 첫 번째 A와 매칭되도록 강제함
+                // 🐧⚡ (Core Fix) Skip actual match adoption if DP table value is the same as the previous value
+                // Since backtracking from the end, "skipping if possible"
+                // Forces matching with the first A instead of the second in [A] vs [A, A] scenarios
                 if (dp[i * (M + 1) + j] === dp[(i - 1) * (M + 1) + j]) {
                     i--;
                 } else if (dp[i * (M + 1) + j] === dp[i * (M + 1) + (j - 1)]) {
                     j--;
                 } else {
-                    // 이제 dp값이 줄어드는 지점(실제로 공통 길이 +1을 만든 주역)에서만 페어링
+                    // Only pair at the point where DP value decreases (the one that actually added +1 to the common length)
                     dpResults.unshift({ left: leftSeq[ls + i - 1], right: rightSeq[rs + j - 1] });
                     i--; j--;
                 }

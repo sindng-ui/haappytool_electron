@@ -12,7 +12,7 @@ export interface WorkerContext {
     localFilePath?: string | null;
     localFileSize?: number;
     rpcCall?: (method: string, args: any) => Promise<any>;
-    // ✅ 바이너리 저장소 멤버 추가
+    // ✅ Added binary storage member
     logBuffer?: Uint8Array;
     lineOffsetsStream?: Uint32Array;
     lineLengthsStream?: Uint32Array;
@@ -64,7 +64,7 @@ export const analyzePerformance = async (
             const i = filteredIndices[idx];
             const start = lineOffsetsStream[i];
             const len = lineLengthsStream[i];
-            // ✅ SharedArrayBuffer는 직접 디코딩이 안되므로 .slice()로 복사본 생성 🐧💎
+            // ✅ Create copy via .slice() because SharedArrayBuffer cannot be decoded directly 🐧💎
             results.push(decoder.decode(logBuffer.subarray(start, start + len).slice()));
             lineIndices.push(idx);
         }
@@ -314,7 +314,7 @@ export const analyzeSpamLogs = async (
             const originalIdx = indicesSnapshot[i];
             const start = lineOffsetsStream[originalIdx];
             const len = lineLengthsStream[originalIdx];
-            // ✅ SharedArrayBuffer 디코딩 제약 우회 (.slice()) 🐧🚀
+            // ✅ Bypass SharedArrayBuffer decoding constraint (.slice()) 🐧🚀
             const line = decoder.decode(logBuffer.subarray(start, start + len).slice());
             processSpamLine(line, originalIdx + 1, originalIdx);
 
@@ -550,7 +550,7 @@ export const extractAllMetadata = async (
         results.push({
             fileName: fileName || '',
             functionName: functionName || '',
-            codeLineNum, // ✅ NEW: 추출된 코드 라인 번호 저장
+            codeLineNum, // ✅ NEW: Store extracted code line number
             timestamp,
             tid,
             lineNum: originalIdx + 1,
@@ -651,7 +651,7 @@ export const extractAnalysisMetrics = async (
     const totalLines = filteredIndices.length;
     respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0, message: `[Worker][${side}] Starting metrics extraction for ${totalLines} lines` } });
 
-    // 🐧⚡ Happy Combo 태그 사전 소문자화 (Performance Optimization)
+    // 🐧⚡ Lowercase Happy Combo tag dictionary (Performance Optimization)
     if (currentRule?.happyGroups) {
         for (const group of currentRule.happyGroups) {
             if (group.tags && !(group as any)._lowercasedTags) {
@@ -668,20 +668,20 @@ export const extractAnalysisMetrics = async (
     const processLineAndAggregate = (text: string, originalIdx: number, visualIdx: number) => {
         const item = extractSingleMetadata(text, originalIdx, visualIdx, currentRule);
 
-        // 1. 시그니처 생성
+        // 1. Generate signature
         if (!item.signature) {
             if (item.alias) {
                 item.signature = `[Alias] ${item.alias}|${getFormattedSig(item.fileName, item.functionName, item.codeLineNum, item.preview)}`;
             } else if (isSignificant(item)) {
                 item.signature = getFormattedSig(item.fileName, item.functionName, item.codeLineNum, item.preview);
             } else {
-                return; // Significant하지 않으면 시퀀스에 넣지 않음 (순수 LCS 매칭을 위해)
+                return; // Do not include in sequence if not significant (for pure LCS matching)
             }
         }
 
         const currentSig = item.signature;
 
-        // [POINT METRICS] 단일 지점 지표 업데이트
+        // [POINT METRICS] Single point metrics update
         if (pointMetricsCount.val < 50000) {
             if (!pointMetrics[currentSig]) {
                 pointMetrics[currentSig] = {
@@ -707,7 +707,7 @@ export const extractAnalysisMetrics = async (
             }
         }
 
-        // [SEQUENCE ITEM 추가] (LCS용)
+        // [SEQUENCE ITEM Addition] (For LCS)
         if (sequenceCount.val < 150000) {
             sequence.push({
                 sig: currentSig,
@@ -793,7 +793,7 @@ export const extractAnalysisMetrics = async (
 };
 
 /**
- * 🐧⚡ [NEW] 모든 Happy Combo Alias 이벤트를 추출합니다.
+ * 🐧⚡ [NEW] Extracts all Happy Combo Alias events.
  */
 export const extractAliasEvents = async (
     ctx: WorkerContext,
@@ -808,7 +808,7 @@ export const extractAliasEvents = async (
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'analyzing', progress: 0, message: 'Extracting Alias Events...' } });
 
-    // 🐧⚡ Happy Combo 태그 사전 소문자화 (Performance Optimization)
+    // 🐧⚡ Lowercase Happy Combo tag dictionary (Performance Optimization)
     if (currentRule.happyGroups) {
         for (const group of currentRule.happyGroups) {
             if (group.tags && !(group as any)._lowercasedTags) {

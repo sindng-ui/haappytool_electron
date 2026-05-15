@@ -32,7 +32,7 @@ const LINE_TYPE_STYLES = {
   normal:  { gutter: 'text-slate-600', text: 'text-slate-400',    dot: '' },
 };
 
-// 🐧 팁: React.memo와 windowed data를 결합하여, 바뀐 부분만 렌더링하도록 극도로 제한합니다.
+// 🐧 Tip: Combining React.memo and windowed data to extremely limit rendering to only changed parts.
 const LogLineItem = React.memo(({ 
   idx, 
   line, 
@@ -92,7 +92,7 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
 
   const lineIndicesSet = useMemo(() => new Set(lineIndices), [lineIndices]);
 
-  // 1. 인덱싱 워커 실행: 파일 전체를 읽지 않고 각 줄의 위치(Offset)만 파악합니다.
+  // 1. Run indexing worker: Identify only the offset of each line without reading the entire file.
   useEffect(() => {
     if (!file) return;
     setLoading(true);
@@ -107,7 +107,7 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
     return () => worker.terminate();
   }, [file]);
 
-  // 2. 윈도우 기반 부분 선택적 읽기: 현재 줄 기준 ±100줄만 파일에서 실시간으로 떼어옵니다.
+  // 2. Window-based partial read: Real-time slice of ±100 lines from the current line.
   useEffect(() => {
     if (!file || !lineOffsets || lineIndices.length === 0) return;
     
@@ -119,12 +119,12 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
     const startOffset = lineOffsets[start];
     const endOffset = end + 1 < lineOffsets.length ? lineOffsets[end + 1] : file.size;
     
-    // 🐧 팁: file.slice는 즉각적이며(O(1)), 필요한 영역의 ArrayBuffer만 읽어들입니다.
+    // 🐧 Tip: file.slice is instantaneous (O(1)), reading only the required ArrayBuffer range.
     file.slice(startOffset, endOffset).arrayBuffer().then(buf => {
       const text = new TextDecoder().decode(buf);
       const splitLines = text.split(/\r?\n/);
       
-      // 파일 끝부분이나 줄바꿈 처리 오차 방지
+      // Prevent errors in file end handling or newline processing
       const items = [];
       for (let i = 0; i < (end - start + 1); i++) {
         if (i < splitLines.length) {
@@ -144,7 +144,7 @@ const RawLogNavigator: React.FC<RawLogNavigatorProps> = ({ file, lineIndices, on
     });
   }, [file, lineOffsets, currentIndex, lineIndices]);
 
-  // 3. 동기화된 스크롤 점프: 데이터가 준비된 시점에 즉각적으로 점프합니다.
+  // 3. Synchronized scroll jump: Jump immediately when data is ready.
   useEffect(() => {
     if (!reading && visibleLines.length > 0) {
       const targetLine = lineIndices[currentIndex];

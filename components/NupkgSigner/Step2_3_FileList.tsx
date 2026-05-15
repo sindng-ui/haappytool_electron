@@ -32,11 +32,11 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
     const checkedCount = soFiles.filter(f => f.checked).length;
     const signedCount = soFiles.filter(f => f.checked && f.signedBlob).length;
 
-    // 🐧 형님 가라사대: 다운로드할 때 아키텍처 폴더명을 꼬리표로 붙여서 저장합니다!
+    // 🐧 Tip: Append the architecture folder name as a tag when downloading!
     const getTaggedName = (item: SoFileItem) => {
         const parts = item.path.split('/');
         // path 예시: runtimes/tizen-4.0.0-armel/native/libnative.so
-        // 두 번째 세그먼트(아키텍처/버전 정보)를 추출
+        // Extract the second segment (architecture/version info)
         const prefix = parts.length > 1 ? parts[1] : 'signed';
         return `${prefix}_${item.basename}`;
     };
@@ -78,7 +78,7 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                                 ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-600/20 hover:scale-[1.02] active:scale-[0.98]' 
                                 : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-50'
                         }`}
-                        title="ISMS 자동 서명을 시작합니다 (Phase 2)"
+                        title="Starts ISMS auto-signing (Phase 2)"
                     >
                         <Zap size={18} className={soFiles.some(f => f.isSigning) ? "animate-pulse" : ""} />
                         <span>Auto Sign</span>
@@ -118,7 +118,7 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                 <button
                     onClick={() => (window as any).electronAPI.openIsmsLogin()}
                     className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold text-sm transition-all group border border-indigo-500/20"
-                    title="앱 내부 브라우저로 ISMS에 로그인합니다. 자동 서명을 위해 최초 1회 필요합니다."
+                    title="Log in to ISMS via the in-app browser. Required once for auto-signing."
                 >
                     <Key size={16} className="transition-transform group-hover:rotate-12" />
                     <span>Login to ISMS</span>
@@ -127,7 +127,7 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                 <button
                     onClick={handleOpenIsms}
                     className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-slate-800 dark:bg-indigo-600 text-white font-bold text-sm shadow-lg shadow-slate-900/20 dark:shadow-indigo-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all group"
-                    title="시스템 기본 브라우저(Chrome 등)로 ISMS를 엽니다."
+                    title="Opens ISMS in the system's default browser (e.g., Chrome)."
                 >
                     <ExternalLink size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                     <span>External Browser</span>
@@ -163,7 +163,7 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                                 e.stopPropagation();
                                 setDragOverPath(null);
                                 if (file.checked && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                    // 🐧 형님 가라사대: 여러 개 던져도 다 받아먹어라!
+                                    // 🐧 Tip: Handle multiple files dropped simultaneously!
                                     Array.from(e.dataTransfer.files).forEach(f => {
                                         onSignedUpload(file.path, f);
                                     });
@@ -226,7 +226,7 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                                 </button>
                             </div>
 
-                            {/* Signed Upload Drop Target - 🐧 형님 가라사대: 여기가 넓어야 한다! */}
+                            {/* Signed Upload Drop Target - Keep this area wide! */}
                             <div className="w-[240px] flex items-center justify-center h-full">
                                 {file.checked ? (
                                     <div className="relative w-full h-14 group/drop">
@@ -281,7 +281,7 @@ const Step2_3_FileList: React.FC<Props> = ({ soFiles, onToggleChecked, onSignedU
                                 )}
                             </div>
 
-                            {/* Status Indicator - 🐧 형님 가라사대: 우측에 확실하게 보여라! */}
+                            {/* Status Indicator - Show clearly on the right! */}
                             <div className="w-12 flex justify-center">
                                 {file.isSigning ? (
                                     <div className="flex items-center justify-center">

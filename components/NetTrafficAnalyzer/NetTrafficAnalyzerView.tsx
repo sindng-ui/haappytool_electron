@@ -122,7 +122,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
                   <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Detection Keywords</label>
                 </div>
                 <input type="text" value={uaPattern.keywords} onChange={(e) => setUAPattern({ ...uaPattern, keywords: e.target.value })} className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-lg px-3 py-2 text-[11px] font-mono focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 outline-none text-slate-300 transition-all" placeholder="e.g. User Agent, SC_SERVICE" />
-                <p className="text-[8px] text-slate-600 pl-0.5">로그에서 UA 정보를 포함하는 라인 감지 키워드</p>
+                <p className="text-[8px] text-slate-600 pl-0.5">Keywords to detect lines containing UA information in logs</p>
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center space-x-1.5">
@@ -130,7 +130,7 @@ const NetTrafficAnalyzerView: React.FC = () => {
                   <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Extraction Template</label>
                 </div>
                 <textarea rows={3} value={uaPattern.template} onChange={(e) => setUAPattern({ ...uaPattern, template: e.target.value })} className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-lg px-3 py-2 text-[11px] font-mono focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 outline-none resize-none text-slate-300 leading-relaxed transition-all" placeholder="User Agent> $(ClientName)/$(Version)" />
-                <p className="text-[8px] text-slate-600 pl-0.5">{'$(변수)'}{'로 추출할 필드를 지정'}</p>
+                <p className="text-[8px] text-slate-600 pl-0.5">Use {'$(variable)'} to specify fields for extraction</p>
               </div>
             </div>
           </div>

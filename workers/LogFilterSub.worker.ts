@@ -22,12 +22,12 @@ const initWasm = async () => {
         wasmEngine = new FilterEngine(false);
 
         // --- WASM & JIT Warmup (Cold Start Optimization) ---
-        // V8 엔진(TurboFan)과 WASM 브릿지를 초기 필터링 전에 최적화 상태로 예열합니다.
+        // Pre-warm the V8 engine (TurboFan) and WASM bridge to an optimized state before initial filtering.
         try {
             const dummyRule = { excludes: [], includeGroups: [['___warmup___']], happyCombosCaseSensitive: false, showRawLogLines: true };
             wasmEngine.update_keywords(['___warmup___']);
             const dummyLine = "01-01 12:00:00.000  1000  1000 I WARMUP  : Warmup V8 JIT and WASM Bridge for fast first filter";
-            // ✅ 효율적 예열: 무조건 5만 번 도는 대신, 최대 10ms 이내에서만 JIT 최적화를 유도하여 불필요한 CPU 낭비 방지
+            // ✅ Efficient pre-warming: Induce JIT optimization within max 10ms instead of unconditional 50k loops to prevent CPU waste
             const startTime = performance.now();
             let iterations = 0;
             while (performance.now() - startTime < 10 && iterations < 15000) {
@@ -50,7 +50,7 @@ const textEncoder = new TextEncoder();
 const wasmInitPromise = initWasm();
 
 ctx.onmessage = async (e) => {
-    await wasmInitPromise; // 🚨 WASM 준비 전 처리 시 JS Fallback(5.5s)로 빠지는 문제 핵심 수정!
+    await wasmInitPromise; // 🚨 Critical fix: Prevent JS Fallback (5.5s) from triggering if processing starts before WASM is ready!
 
     const { type, payload } = e.data;
 
@@ -59,7 +59,7 @@ ctx.onmessage = async (e) => {
         const startTime = Date.now();
         console.log(`[SubWorker ${chunkId}] FILTER_CHUNK Start (RequestID: ${requestId})`);
 
-        // WASM 엔진 키워드 동기화
+        // Sync WASM engine keywords
         if (wasmEngine && wasmModule) {
             const isCaseSensitive = !!rule.happyCombosCaseSensitive;
             wasmEngine = new wasmModule.FilterEngine(isCaseSensitive);
@@ -145,7 +145,7 @@ ctx.onmessage = async (e) => {
         const startTime = Date.now();
         console.log(`[SubWorker ${chunkId}] FILTER_LINES Start (RequestID: ${requestId}) lines: ${lines.length}`);
 
-        // WASM 엔진 키워드 동기화
+        // Sync WASM engine keywords
         if (wasmEngine && wasmModule) {
             const isCaseSensitive = !!rule.happyCombosCaseSensitive;
             wasmEngine = new wasmModule.FilterEngine(isCaseSensitive);

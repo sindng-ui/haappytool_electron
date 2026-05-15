@@ -52,7 +52,7 @@ export interface HyperLogHandle {
     focus: () => void;
 }
 
-// ✅ 형님, Canvas와 DOM 레이어의 폰트 렌더링을 100% 일치시키기 위한 공통 폰트 스택입니다.
+// ✅ Common font stack to achieve 100% font rendering parity between Canvas and DOM layers.
 const MONO_FONT_STACK = "'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace";
 const DEFAULT_FONT_WEIGHT = '400';
 
@@ -78,8 +78,8 @@ const mapColor = (color: string, opacity = 0.3) => {
     return palette[clean] || `rgba(251, 191, 36, ${opacity})`;
 };
 
-// 형님, HTML 엔터티를 디코딩해야 폰트 너비 계산 시 오차가 생기지 않습니다.
-// 형님, HTML 엔터티를 완벽하게 디코딩해야 폰트 너비 계산 시 오차가 생기지 않습니다.
+// HTML entities must be fully decoded to prevent errors in font width calculation.
+// HTML entities must be fully decoded to prevent errors in font width calculation.
 const decodeHTMLEntities = (text: string) => {
     if (!text) return '';
     return text
@@ -89,9 +89,9 @@ const decodeHTMLEntities = (text: string) => {
         .replace(/&gt;/g, '>')
         .replace(/&apos;/g, "'")
         .replace(/&#39;/g, "'")
-        .replace(/&nbsp;/g, ' ') // 👈 nbsp 처리 추가
-        .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(dec)) // 👈 숫자형 엔터티 처리 추가
-        .replace(/\t/g, '    '); // 👈 탭 문자를 공백으로 치환하여 Canvas/DOM 일치
+        .replace(/&nbsp;/g, ' ') // 👈 added nbsp handling
+        .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(dec)) // 👈 added numeric entity handling
+        .replace(/\t/g, '    '); // 👈 replace tab characters with spaces for Canvas/DOM parity
 };
 
 export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, HyperLogRendererProps>((props, ref) => {
@@ -111,7 +111,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     const levelMatchers = props.levelMatchers ?? [];
     const performanceHeatmap = props.performanceHeatmap ?? [];
 
-    // ✅ 형님, 레이아웃 상수들을 컴포넌트 내부에서 계산하여 HMR이나 설정 변경에 즉각 대응하게 합니다.
+    // ✅ Calculate layout constants inside the component to respond immediately to HMR or setting changes.
     const {
         GUTTER_STAR_WIDTH,
         GUTTER_INDEX_WIDTH,
@@ -123,12 +123,12 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         const star = LOG_VIEW_CONFIG.COLUMN_WIDTHS.BOOKMARK;
         const showLineNumbers = preferences?.showLineNumbers !== false; // ✅ Default is true
 
-        // 🎯 형님, 폰트가 작을 때도 간격이 너무 넓어 보이지 않게 고정 최소 너비를 제거하고 비례식으로만 계산합니다! 🐧📐
+        // 🎯 Calculate by ratio without a fixed minimum width to prevent excessive spacing even when fonts are small! 🐧📐
         const charWidth = fontSize * 0.65; // 모노스페이스 폰트 대략적인 너비 비중
 
-        // 형님! 라인 넘버 표시가 꺼져있으면 아예 너비를 0으로 날려버립니다! 🚀
-        const index = showLineNumbers ? Math.ceil(charWidth * 7.0) : 0; // #999,999 등 인덱스 영역
-        const lineNum = showLineNumbers ? Math.ceil(charWidth * 6.0) : 0; // 원본 라인 번호 영역 
+        // If line number display is off, set the width to 0! 🚀
+        const index = showLineNumbers ? Math.ceil(charWidth * 7.0) : 0; // Index area (e.g., #999,999)
+        const lineNum = showLineNumbers ? Math.ceil(charWidth * 6.0) : 0; // Original line number area 
 
         const total = star + index + lineNum;
         const offset = total + LOG_VIEW_CONFIG.SPACING.CONTENT_LEFT_OFFSET;
@@ -150,7 +150,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     const [stableScrollLeft, setStableScrollLeft] = useState(0);
     const [stableScrollWidth, setStableScrollWidth] = useState(0); // ✅ NEW: Dynamic Width
     const [viewportHeight, setViewportHeight] = useState(0);
-    const [viewportWidth, setViewportWidth] = useState(0); // ✅ NEW: 너비 추적
+    const [viewportWidth, setViewportWidth] = useState(0); // ✅ NEW: Width tracking
     const [hoveredIndex, setHoveredIndex] = useState<number>(-1); // ✅ NEW: Hover Tracking
     const [cachedLines, setCachedLines] = useState<Map<number, CachedLine>>(new Map());
     const pendingIndices = useRef<Set<number>>(new Set());
@@ -167,8 +167,8 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 const prevRH = prevRowHeightRef.current;
                 const currentScrollTop = scrollTopRef.current;
 
-                // ✅ 형님, 중앙이 아닌 상단(First Visible Line)을 기준으로 줌을 보정합니다.
-                // 이렇게 해야 로그가 몇 줄 없을 때 화면 위로 사라지는 현상을 막을 수 있습니다.
+                // ✅ Correct zoom based on the top (First Visible Line) instead of the center.
+                // This prevents the log from disappearing above the screen when there are only a few lines.
                 const topFractionalIndex = currentScrollTop / prevRH;
                 const newScrollTop = topFractionalIndex * rowHeight;
 
@@ -183,7 +183,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     const cachedLinesRef = useRef(cachedLines);
     useEffect(() => { cachedLinesRef.current = cachedLines; }, [cachedLines]);
 
-    // ✅ clearCacheTick이 변경되면 내부 캐시를 비워줍니다. (wrapper의 clear 액션과 동기화)
+    // ✅ Clear internal cache when clearCacheTick changes (syncs with wrapper's clear action).
     useEffect(() => {
         setCachedLines(new Map());
     }, [clearCacheTick]);
@@ -228,8 +228,8 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         const currentCache = cachedLinesRef.current;
         const isSAB = !!(sharedBuffers && sharedBuffers.isStreamMode && sharedBuffers.logBuffer);
 
-        // 💡 최적화: SAB 모드일 때는 5,000줄도 순식간이지만, 로컬 파일(IPC) 모드에선 5,000줄이 독입니다.
-        // insbesondere Sparse 로그일 경우 IPC 통신 횟수가 폭증하므로, 비-SAB 모드에선 범위를 대폭 줄입니다. 🐧🛡️
+        // 💡 Optimization: 5,000 lines are instant in SAB mode, but can be harmful in local file (IPC) mode.
+        // For sparse logs, IPC communication frequency can surge, so significantly reduce the range in non-SAB mode. 🐧🛡️
         const PREFETCH_BUFFER = isSAB ? 5000 : 1000;
         const LOOKAHEAD_LIMIT = isSAB ? 3000 : 500;
         const LOOKBEHIND_LIMIT = isSAB ? 1000 : 200;
@@ -375,13 +375,13 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     const charWidthRef = useRef<number>(8); // Default fallback
     const measureCache = useRef<Map<string, number>>(new Map());
 
-    // ✅ 형님, 폰트가 늦게 로드되어 너비 계산이 틀어지는 현상을 방지합니다.
+    // ✅ Prevent width calculation errors caused by late font loading.
     useEffect(() => {
         const handleFontsReady = () => {
             console.log('[HyperLog] 🖋️ Fonts loaded, clearing measure cache...');
             measureCache.current.clear();
 
-            // 폰트가 로드되었으니 기본 글자 너비도 다시 재줍니다.
+            // Now that fonts are loaded, re-measure the default character width.
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             if (ctx) {
@@ -391,14 +391,14 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 charWidthRef.current = ctx.measureText('M').width;
                 console.log(` - Re-measured char width: ${charWidthRef.current}px`);
             }
-            render(); // Canvas 다시 그리기
+            render(); // Re-render Canvas
         };
 
         if ('fonts' in document) {
             document.fonts.ready.then(handleFontsReady);
         }
 
-        // 초기 로드 시에도 한번 더 확인
+        // Check once more during initial load
         handleFontsReady();
     }, [preferences?.fontSize, preferences?.fontFamily]);
 
@@ -446,7 +446,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         const bgCtx = bgCanvas.getContext('2d', { alpha: false }); // Background can be opaque
         if (!ctx || !bgCtx) return;
 
-        // ✅ 형님, DOM과 100% 일치시키기 위해 리게이처와 커닝을 명시적으로 끕니다.
+        // ✅ Explicitly disable ligatures and kerning to achieve 100% parity with DOM.
         (ctx as any).fontVariantLigatures = 'none';
         (ctx as any).fontKerning = 'none';
         (bgCtx as any).fontVariantLigatures = 'none';
@@ -469,7 +469,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         const fontSize = preferences?.fontSize || 13;
         const fontFamily = preferences?.fontFamily || MONO_FONT_STACK;
 
-        // 🎯 형님, 라인 번호 크기를 본문 폰트 크기와 동일하게 맞춰서 시인성을 높입니다!
+        // 🎯 Match line number size with body font size for improved visibility!
         const gutterFontSize = fontSize;
         const gutterFont = `${DEFAULT_FONT_WEIGHT} ${gutterFontSize}px ${fontFamily}`;
         const mainFont = `${DEFAULT_FONT_WEIGHT} ${fontSize}px ${fontFamily}`;
@@ -480,12 +480,12 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         bgCtx.fillRect(0, 0, width, height);
 
         // --- 0.1 RENDER GUTTER BACKGROUND (Z-DEPTH) ---
-        // 형님, 왼쪽 영역을 더 짙게 깔아서 본문과 확실히 분리해줍니다.
+        // Make the left area darker to clearly separate it from the body.
         bgCtx.fillStyle = '#010410'; // Darker than Slate-950
         bgCtx.fillRect(0, 0, GUTTER_TOTAL_WIDTH, height);
 
         // --- 0.2 RENDER VERTICAL DIVIDER ---
-        // 형님, 요청하신 세로 구분선입니다! 옅은 그라데이션 느낌의 선을 추가합니다.
+        // Here is the requested vertical divider! Adding a subtle gradient-like line.
         bgCtx.strokeStyle = 'rgba(71, 85, 105, 0.5)'; // Slate-500 with opacity
         bgCtx.lineWidth = 1;
         bgCtx.beginPath();
@@ -529,7 +529,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 bgCtx.fillRect(0, y, width, rowHeight);
             }
 
-            /* ✅ 즐겨찾기(Bookmark) 액센트 바: (주석 처리됨 - 필요 시 해제) 🐧💎
+            /* ✅ Bookmark accent bar: (Commented out - enable if needed) 🐧💎
             if (bookmarks.has(globalIdx)) {
                 bgCtx.fillStyle = 'rgba(234, 179, 8, 0.85)';
                 bgCtx.fillRect(GUTTER_TOTAL_WIDTH, y, 4, rowHeight);
@@ -601,7 +601,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
             if (lineData && preferences?.showLineNumbers !== false) {
                 ctx.font = gutterFont;
-                // #Index - 🎯 형님, 인덱스는 조금 더 어둡게!
+                // #Index - 🎯 Make index slightly darker!
                 ctx.fillStyle = '#475569'; // Slate-500
                 ctx.fillText(`#${globalIdx + 1}`, GUTTER_STAR_WIDTH, centerY);
 
@@ -628,15 +628,15 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 ctx.font = mainFont;
                 const displayContent = lineData.decodedContent;
 
-                // ✅ 캔버스 렌더링 극한 성능 튜닝: 정규식 대신 indexOf 사용 🐧🚀
+                // ✅ Canvas rendering extreme performance tuning: Use indexOf instead of regex 🐧🚀
                 const segments: { start: number, end: number, color: string | null }[] = [];
                 if (compiledTextHighlights.length > 0) {
                     for (const h of compiledTextHighlights) {
-                        // 1. 단순 텍스트 매칭 여단 판단 (대부분의 하이라이트가 해당)
+                        // 1. Simple text matching decision (applies to most highlights)
                         const isSimpleKeyword = /^[a-zA-Z0-9_\-\s]+$/.test(h.keyword);
 
                         if (isSimpleKeyword) {
-                            // 단순 문자열 매칭: 고속 indexOf 루프 🚀
+                            // Simple string matching: High-speed indexOf loop 🚀
                             const searchContent = highlightCaseSensitive ? displayContent : displayContent.toLowerCase();
                             const keyword = highlightCaseSensitive ? h.keyword : h.keyword.toLowerCase();
                             const kwLen = keyword.length;
@@ -652,7 +652,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                                 startIndex = index + kwLen;
                             }
                         } else {
-                            // 복잡한 정규식 매칭: 기존 fallback 
+                            // Complex regex matching: Legacy fallback 
                             h.regex.lastIndex = 0;
                             let match;
                             while ((match = h.regex.exec(displayContent)) !== null) {
@@ -704,7 +704,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     drawSegment(displayContent.substring(lastIndex), false, null);
                 }
 
-                // ✅ 즐겨찾기(Bookmark)의 경우, 텍스트 하단에 옅은 언더라인을 추가합니다. (Premium Design) 🐧✨
+                // ✅ For bookmarks, add a subtle underline below the text. (Premium Design) 🐧✨
                 const globalIdx = i + (absoluteOffset || 0);
                 if (bookmarks.has(globalIdx)) {
                     const textWidth = currentX - (CONTENT_X_OFFSET - currentScrollLeft);
@@ -730,7 +730,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             isDraggingRef.current = false;
         };
         
-        // ✅ Alt 키 추적으로 네이티브 텍스트 선택과 커스텀 줄 선택 완벽 분리
+        // ✅ Fully separate native text selection and custom line selection via Alt key tracking.
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Alt' || e.altKey) {
                 containerRef.current?.classList.add('alt-pressed');
@@ -768,7 +768,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 const { width, height } = entry.contentRect;
 
                 setViewportWidth(prev => {
-                    // 🐧⚡ 형님, 너비가 크게 변하면(특히 스플릿 모드 진입 시) 가로 스크롤을 0으로 리셋합니다!
+                    // 🐧⚡ Reset horizontal scroll to 0 when width changes significantly (especially when entering split mode)!
                     if (Math.abs(prev - width) > 50) {
                         if (scrollContainerRef.current) {
                             scrollContainerRef.current.scrollLeft = 0;
@@ -828,7 +828,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         if (cachedLines.size === 0) return;
 
         // Measure a sample of lines to estimate max width
-        // 형님, 성능을 위해 전체가 아닌 최근 로드된 라인들 위주로 검사합니다.
+        // For performance, primarily check recently loaded lines instead of the entire set.
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
@@ -868,7 +868,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             if (onScroll) onScroll(top, scrollHeight, clientHeight);
         });
 
-        // 👈 Interaction Layer (DOM) 업데이트는 약간 지연시켜서 스크롤 시 부하 경감
+        // 👈 Delay Interaction Layer (DOM) updates slightly to reduce load during scrolling.
         if (scrollTaskRef.current) clearTimeout(scrollTaskRef.current);
         scrollTaskRef.current = window.setTimeout(() => {
             setStableScrollTop(top);
@@ -908,16 +908,16 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         return res;
     }, [stableScrollTop, viewportHeight, rowHeight, totalCount, cachedLines, isActive]);
     const handleLineAction = (e: React.MouseEvent, index: number, type: 'click' | 'dbclick' | 'enter') => {
-        // ✅ Alt 키가 눌려있지 않은 일반 클릭 시에는 브라우저 네이티브 텍스트 선택이 시작되지 않도록 막습니다.
+        // ✅ Prevent native browser text selection on normal clicks when Alt key is not pressed.
         if (!e.altKey && type === 'click') {
-            // 브라우저 기본 선택 시작을 방지하여 줄 선택(Row selection)만 되게 합니다.
+            // Prevent default browser selection to allow only row selection.
             e.preventDefault(); 
-            // 새로운 줄 선택 시 기존의 텍스트 선택 영역을 깔끔하게 지워줍니다.
+            // Clear existing text selection ranges when a new row is selected.
             window.getSelection()?.removeAllRanges();
         }
 
         if (e.altKey) {
-            // ✅ Alt 키가 눌린 상태라면 컨테이너에 클래스 누락 시 즉시 추가
+            // ✅ If Alt key is pressed, ensure the class is added to the container.
             containerRef.current?.classList.add('alt-pressed');
 
             if (type === 'dbclick' && onQuickHighlight) {
@@ -928,22 +928,22 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 return;
             }
 
-            if (type === 'click' && e.button === 2 && onClearQuickHighlights) {
-                // ✅ Alt + 우클릭 시 모든 퀵 하이라이트 해제
+            if (type === 'click' && e.button === 2 && onQuickHighlight) {
+                // ✅ Alt + Right-click clears all quick highlights.
                 e.preventDefault();
                 onClearQuickHighlights();
                 return;
             }
 
-            // ✅ Alt 클릭으로 텍스트 선택을 시작하면 기존 라인 선택(파란 줄)을 지워줍니다.
+            // ✅ Clear existing line selection (blue highlight) when starting text selection via Alt-click.
             if (type === 'click' && onLineClick) {
                 onLineClick(-1, false, false);
             }
-            // Alt 모드일 때는 브라우저 기본 텍스트 선택을 위해 아무것도 하지 않습니다.
+            // Do nothing in Alt mode to allow default browser text selection.
             return;
         }
 
-        // 형님, 클릭 시 즉시 스크롤 컨테이너에 포커스를 줘서 키보드 이벤트를 받을 수 있게 합니다.
+        // Give focus to the scroll container on click to enable keyboard events.
         if (type === 'click' && scrollContainerRef.current) {
             scrollContainerRef.current.focus({ preventScroll: true });
         }
@@ -956,7 +956,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             if (onLineClick) {
                 const globalIndex = lineIndex + (absoluteOffset || 0);
 
-                // ✅ 텍스트 선택 영역이 있거나, 이미 선택된 라인이라면 우클릭 시 라인 선택을 새로 하지 않습니다.
+                // ✅ Do not perform new line selection on right-click if there is a text selection or the line is already selected.
                 const sel = window.getSelection();
                 const hasText = sel && !sel.isCollapsed && sel.toString().trim().length > 0;
 
@@ -964,14 +964,14 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     return;
                 }
 
-                // 형님, 일반 드래그 시에는 브라우저 선택을 막아야 깔끔한 줄 선택이 됩니다.
+                // Prevent browser selection during normal dragging for clean row selection.
                 if (e.button === 0) {
                     isDraggingRef.current = true;
                 }
                 onLineClick(globalIndex, e.shiftKey, e.ctrlKey || e.metaKey);
             }
         } else if (type === 'enter' && isDraggingRef.current && onLineClick) {
-            // 드래그 중인 라인에 마우스가 들어오면 자동으로 선택 범위를 확장합니다.
+            // Automatically expand selection range when mouse enters a line while dragging.
             onLineClick(lineIndex + (absoluteOffset || 0), true, false);
         } else if (type === 'dbclick' && onLineDoubleClick) {
             onLineDoubleClick(lineIndex + (absoluteOffset || 0));
@@ -983,8 +983,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     return (
         <div
             ref={containerRef}
-            // 🎯 형님, 컨테이너 배경색을 `bg-white dark:bg-slate-950` 대신 캔버스와 동일한 
-            // `#020617`(Slate-950 HEX)로 고정시켜 리사이즈 지연 시에도 흰색으로 번쩍이지 못하게 원천 봉쇄해버립니다! 🐧🛡️
+            // 🎯 Fix container background to #020617 (Slate-950 HEX) to prevent white flickering during resize delays! 🐧🛡️
             className="flex-1 relative overflow-hidden bg-[#020617] font-mono hyper-log-container"
             style={{ height: '100%' }}
             onMouseDown={(e) => {
@@ -1019,7 +1018,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     -webkit-text-fill-color: initial !important;
                 }
                 .interaction-line {
-                    user-select: text !important; /* 형님, 항상 선택 가능하게 열어둡니다. (Alt를 떼도 영역이 사라지지 않게!) */
+                    user-select: text !important; /* Keep selectable at all times (so the range doesn't disappear even when Alt is released!) */
                     color: transparent !important;
                     -webkit-text-fill-color: transparent !important;
                     letter-spacing: 0px !important; 
@@ -1054,7 +1053,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                     height: 100%;
                     cursor: pointer;
                     z-index: 50;
-                    pointer-events: none; /* 🐧 형님! 선택 드래그가 히트맵에 걸리지 않게 통과시킵니다. 클릭은 JS에서 좌표로 계산하니 걱정 마십쇼! */
+                    pointer-events: none; /* 🐧 Pass-through selection dragging to prevent it from getting stuck on the heatmap. Clicks are calculated via coordinates in JS! */
                 }
                 /* 하지만 실제 스크롤바 조작을 방해하지 않기 위해 로그 라인이 없을 때만 노출되거나 
                    투명하게 유지하여 클릭 이벤트는 JS에서 선점합니다. */
@@ -1109,9 +1108,8 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                                     key={index}
                                     className="select-text whitespace-pre overflow-hidden pointer-events-auto active:bg-indigo-500/5 hover:bg-slate-500/5 interaction-line"
                                     style={{
-                                    // 🐧 형님! 너비를 10000px로 대폭 늘려서 마우스가 오른쪽으로 한참 나가도 
-                                    // 선택 영역이 위로 튀지 않게 잡았습니다. 부모 div가 overflow: hidden이라 
-                                    // 가로 스크롤바에는 영향을 주지 않으니 안심하십쇼!
+                                    // 🐧 Significantly increased width to 10000px to prevent the selection area from jumping up even if the mouse goes far to the right! 
+                                    // Don't worry, parent div has overflow: hidden so it won't affect the horizontal scrollbar! 🚀
                                     width: 10000, 
                                     height: rowHeight,
                                     lineHeight: `${rowHeight}px`,

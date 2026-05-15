@@ -7,7 +7,7 @@ export interface DataReaderContext {
     localFilePath?: string | null;
     localFileSize?: number;
     rpcCall?: (method: string, args: any) => Promise<any>;
-    // ✅ 형님, 이제 문자열 배열 대신 바이너리 전용 버퍼들을 받습니다! 🐧💎
+    // ✅ Hyungnim, we now receive binary-only buffers instead of string arrays! 🐧💎
     logBuffer?: Uint8Array;
     lineOffsetsStream?: Uint32Array;
     lineLengthsStream?: Uint32Array;
@@ -78,8 +78,8 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
         }
 
         try {
-            const MAX_GAP_BYTES = 10 * 1024 * 1024; // 💡 512KB -> 10MB 상향: 현대 SSD에선 적게 자주 읽는 것보다 뭉쳐 읽는 게 훨씬 빠름! 🐧🚀
-            const MAX_CHUNK_BYTES = 20 * 1024 * 1024; // 10MB -> 20MB 상향
+            const MAX_GAP_BYTES = 10 * 1024 * 1024; // 💡 512KB -> 10MB Increase: Modern SSDs are much faster at batch reads than frequent small reads! 🐧🚀
+            const MAX_CHUNK_BYTES = 20 * 1024 * 1024; // 10MB -> 20MB Increase
 
             interface ReadChunk {
                 minByte: bigint;
@@ -113,11 +113,11 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
             }
             if (currentChunk) chunks.push(currentChunk);
 
-            // 📊 형님, 청크 통계를 찍어서 병합이 잘 되는지 확인합니다!
+            // 📊 Hyungnim, printing chunk stats to verify successful merging!
             const totalBytes = chunks.reduce((sum, c) => sum + (c.maxByte - c.minByte), 0n);
             console.log(`[DataReader] Batch Fetching: ${chunks.length} chunks, total ${Number(totalBytes / 1024n)}KB (Avg: ${chunks.length > 0 ? Number(totalBytes / BigInt(chunks.length) / 1024n) : 0}KB per chunk)`);
 
-            // 💡 병렬 처리 최적화: 동시성을 15개로 소폭 조정하여 IPC 대역폭을 더 효율적으로 사용합니다.
+            // 💡 Parallel processing optimization: Slightly adjusted concurrency to 15 for more efficient IPC bandwidth usage.
             const CONCURRENCY_LIMIT = 15;
             const results: { lineNum: number, content: string }[] = [];
 
@@ -152,7 +152,7 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
                 }
             };
 
-            // 동시성 제어 루핑
+            // Concurrency control looping
             for (let i = 0; i < chunks.length; i += CONCURRENCY_LIMIT) {
                 const batch = chunks.slice(i, i + CONCURRENCY_LIMIT);
                 await Promise.all(batch.map(processChunk));
@@ -182,13 +182,13 @@ export const getRawLines = async (context: DataReaderContext, startLineNum: numb
             respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
             return;
         }
-        // streamLineCount는 context에 직접 없으므로 lineOffsetsStream의 길이를 보거나 외부에서 주입 필요
-        // 하지만 여기서는 루프 범위 제한을 위해 context 확장이 권장됨. 일단 안전패치.
+        // streamLineCount is not directly in context, so check lineOffsetsStream length or inject from outside
+        // However, context expansion is recommended for loop range limitation. Temporary safety patch.
         const max = Math.min(startIdx + count, lineOffsetsStream.length);
         for (let i = startIdx; i < max; i++) {
             const start = lineOffsetsStream[i];
             const len = lineLengthsStream[i];
-            if (len === 0 && start === 0 && i > 0) break; // 빈 데이터 구간 도달 시 중단 (대략적 안전장치)
+            if (len === 0 && start === 0 && i > 0) break; // Break if empty data segment reached (rough safety guard)
             const text = decoder.decode(logBuffer.subarray(start, start + len).slice());
             resultLines.push({ lineNum: i + 1, content: text });
         }
@@ -250,7 +250,7 @@ export const getSurroundingLines = async (context: DataReaderContext, absoluteIn
             respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
             return;
         }
-        // streamLineCount 대신 lineOffsetsStream.length 사용 (안전장치 포함)
+        // Use lineOffsetsStream.length instead of streamLineCount (including safety guard)
         const max = Math.min(startIdx + count, lineOffsetsStream.length);
         for (let i = startIdx; i < max; i++) {
             const start = lineOffsetsStream[i];

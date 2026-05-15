@@ -28,26 +28,26 @@ const RagAnalyzerTest: React.FC = () => {
 
   const RAG_SERVER_URL = 'http://localhost:8888';
 
-  // 🐧 서버 시작 명령 호출
+  // 🐧 Invoke server start command
   const handleStartServer = async () => {
     setStartingServer(true);
     try {
       const result = await (window as any).electronAPI.startRagServer();
       if (result.status === 'success' || result.status === 'already_running') {
-        addToast(result.message || '서버가 성공적으로 시작되었습니다! 🐧🚀', 'success');
-        // 즉시 상태 체크 시도
+        addToast(result.message || 'Server started successfully! 🐧🚀', 'success');
+        // Immediate status check attempt
         setTimeout(checkServerStatus, 2000);
       } else {
-        addToast(`서버 실행 실패: ${result.message}`, 'error');
+        addToast(`Server start failed: ${result.message}`, 'error');
       }
     } catch (err: any) {
-      addToast(`서버 실행 중 오류 발생: ${err.message}`, 'error');
+      addToast(`Error while starting server: ${err.message}`, 'error');
     } finally {
       setStartingServer(false);
     }
   };
 
-  // 🐧 서버 상태 체크 로직
+  // 🐧 Server status check logic
   const checkServerStatus = useCallback(async () => {
     try {
       const resp = await fetch(`${RAG_SERVER_URL}/status`);
@@ -65,11 +65,11 @@ const RagAnalyzerTest: React.FC = () => {
 
   useEffect(() => {
     checkServerStatus();
-    const timer = setInterval(checkServerStatus, 15000); // 🐧 형님, 5초는 너무 잦아서 15초로 늦췄습니다!
+    const timer = setInterval(checkServerStatus, 15000); // 🐧 15 seconds for stability!
     return () => clearInterval(timer);
   }, [checkServerStatus]);
 
-  // 🐧 검색 실행 로직
+  // 🐧 Search execution logic
   const fetchResults = async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
@@ -77,7 +77,7 @@ const RagAnalyzerTest: React.FC = () => {
     }
 
     if (serverStatus !== 'online') {
-      addToast('형님, RAG 서버가 오프라인입니다! 서버를 켜 주십쇼!', 'error');
+      addToast('RAG server is offline! Please start the server.', 'error');
       return;
     }
 
@@ -88,16 +88,16 @@ const RagAnalyzerTest: React.FC = () => {
         const data: RagResponse = await resp.json();
         setResults(data.hints);
       } else {
-        addToast('검색 중 오류가 발생했습니다, 형님!', 'error');
+        addToast('An error occurred during search.', 'error');
       }
     } catch (err) {
-      addToast('서버 통신 실패! 서버가 켜져 있는지 봐주십쇼.', 'error');
+      addToast('Server communication failed! Please check if the server is running.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // 🐧 Debounce 구현 (500ms)
+  // 🐧 Debounce implementation (500ms)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (query) {
@@ -110,9 +110,9 @@ const RagAnalyzerTest: React.FC = () => {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // 유사도에 따른 별점 렌더링
+  // Star rating rendering based on similarity
   const renderStars = (distance: number) => {
-    // distance가 낮을수록 유사도가 높음 (0.0 ~ 1.0 가정)
+    // Lower distance means higher similarity (assuming 0.0 ~ 1.0)
     const score = Math.max(0, Math.min(5, Math.round((1 - distance) * 5)));
     return (
       <div className="flex gap-1 text-yellow-400">
@@ -184,7 +184,7 @@ const RagAnalyzerTest: React.FC = () => {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="형님, 궁금하신 장애 증상을 입력해 주십시오..."
+          placeholder="Please enter the symptoms or issues you're curious about..."
           className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-indigo-500 transition-all shadow-sm text-base placeholder:text-slate-400"
         />
         {loading && (
@@ -255,13 +255,13 @@ const RagAnalyzerTest: React.FC = () => {
         ) : query && !loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400">
             <Lucide.DatabaseBackup size={64} className="mb-4 opacity-20" />
-            <p className="font-medium text-lg italic">"형님, 이 건에 대한 매칭되는 과거 사례가 아직 없나 봅니다..."</p>
-            <p className="text-sm mt-2 opacity-60">다른 키워드로 검색해 보시는 건 어떻습니까?</p>
+            <p className="font-medium text-lg italic">"It seems there are no matching past cases for this issue..."</p>
+            <p className="text-sm mt-2 opacity-60">How about trying with other keywords?</p>
           </div>
         ) : !query && (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400">
             <Lucide.SearchCode size={64} className="mb-4 opacity-20" />
-            <p className="font-medium">검색어를 입력하시면 AI가 기가 막히게 분석해 드립니다!</p>
+            <p className="font-medium">Enter a search term and AI will analyze it brilliantly!</p>
           </div>
         )}
       </div>

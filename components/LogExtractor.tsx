@@ -174,8 +174,8 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     }, [tabCounter]);
 
     /**
-     * 아카이브 로그를 새 탭으로 로드
-     * content 문자열을 File 객체로 변환하여 기존 탭 생성 플로우 활용
+     * Load archive logs into a new tab
+     * Convert content string to File object to utilize existing tab creation flow
      */
     const handleArchiveToTab = useCallback((title: string, content: string) => {
         const blob = new Blob([content], { type: 'text/plain' });
@@ -183,7 +183,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         handleAddTab(file);
     }, [handleAddTab]);
 
-    // 아카이브 → 탭 로드 함수 등록
+    // Register Archive -> Tab load function
     useEffect(() => {
         setLoadArchiveToTab(handleArchiveToTab);
         return () => setLoadArchiveToTab(undefined);

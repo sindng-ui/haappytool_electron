@@ -15,10 +15,10 @@ export const SpamAnalyzerPanel: React.FC = () => {
         jumpToAbsoluteLine // 🔥 NEW: Use absolute index jump
     } = useLogContext();
 
-    // 점프 위치 추적을 위한 로컬 상태 (패턴 키(fileName+functionName)를 키로 사용)
+    // Local state for jump tracking (uses pattern key (fileName+functionName) as key)
     const [jumpIndices, setJumpIndices] = React.useState<Record<string, number>>({});
 
-    // UI가 열릴 때 데이터가 없으면 자동 분석 시작
+    // Start automated analysis if no data when UI opens
     useEffect(() => {
         if (isSpamAnalyzerOpen && spamResultsLeft.length === 0 && !isAnalyzingSpam && leftFilteredCount > 0) {
             requestSpamAnalysisLeft();
@@ -30,7 +30,7 @@ export const SpamAnalyzerPanel: React.FC = () => {
     const handleJump = (item: any, direction: 'next' | 'prev') => {
         if (!item.indices || item.indices.length === 0) return;
 
-        // 🎯 분석 로직과 동일한 키 규칙 적용 (소스 중심)
+        // 🎯 Apply the same key rules as the analysis logic (source-oriented)
         const key = (item.fileName !== 'Unknown File' || item.functionName !== 'Unknown Location')
             ? `${item.fileName}::${item.functionName}`
             : item.lineContent.replace(/[\d:\-\.\[\]\s]/g, '').substring(0, 60);
@@ -38,11 +38,11 @@ export const SpamAnalyzerPanel: React.FC = () => {
         const currentIdx = jumpIndices[key] === undefined ? 0 : jumpIndices[key];
         let nextIdx = direction === 'next' ? currentIdx + 1 : currentIdx - 1;
 
-        // 순환 처리
+        // Circular handling
         if (nextIdx >= item.indices.length) nextIdx = 0;
         if (nextIdx < 0) nextIdx = item.indices.length - 1;
 
-        // 🚀 [HYPER-JUMP] 절대 인덱스 기반 점프! (필터 변화에 무적 🐧🛡️)
+        // 🚀 [HYPER-JUMP] Absolute index-based jump! (Immune to filter changes 🐧🛡️)
         const absoluteIndex = item.indices[nextIdx];
         jumpToAbsoluteLine(absoluteIndex, 'left');
 
@@ -97,7 +97,7 @@ export const SpamAnalyzerPanel: React.FC = () => {
                         spamResultsLeft.map((item, idx) => {
                             const barWidth = Math.max(5, (item.count / spamResultsLeft[0].count) * 100);
 
-                            // 🎯 handleJump와 동일한 키 규칙
+                            // 🎯 Same key rules as handleJump
                             const itemKey = (item.fileName !== 'Unknown File' || item.functionName !== 'Unknown Location')
                                 ? `${item.fileName}::${item.functionName}`
                                 : item.lineContent.replace(/[\d:\-\.\[\]\s]/g, '').substring(0, 60);

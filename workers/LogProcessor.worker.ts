@@ -44,9 +44,9 @@ initWasm();
 // --- Parallelism: Worker Pool for Heavy Filtering ---
 const numSubWorkers = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
 const subWorkers: Worker[] = [];
-let isTabActive = true; // ✅ 현재 탭 활성화 여부 추적
+let isTabActive = true; // ✅ Tracks current tab active state
 
-// 서브워커는 탭이 비활성화(SET_ACTIVE_STATE)될 때만 종료합니다.
+// Sub-workers only terminate when the tab becomes inactive (SET_ACTIVE_STATE).
 
 const terminateSubWorkers = () => {
     if (subWorkers.length === 0) return;
@@ -149,7 +149,7 @@ let streamLineCount = 0;
 let filteredIndices: Int32Array | null = null;
 const textEncoder = new TextEncoder();
 
-// Helper: UI에게 공유 버퍼 정보 전송
+// Helper: Send shared buffer info to UI
 const sendSharedBuffers = () => {
     respond({
         type: 'BUFFER_SHARED',
@@ -282,7 +282,7 @@ const buildFileIndex = async (file: File) => {
     isCalculatingHeatmap = false; // Reset heatmap state for new file
     currentFilterRequestId++; // ✅ Cancel any pending filters from previous file
 
-    initSubWorkers(); // ✅ 스폰하여 병렬로 WASM 초기화 진행 (WASM Cold Start 최적화)
+    initSubWorkers(); // ✅ Spawn to proceed with WASM initialization in parallel (WASM Cold Start optimization)
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 0 } });
 
@@ -368,7 +368,7 @@ const buildLocalFileIndex = async (path: string, size: number) => {
     isCalculatingHeatmap = false;
     currentFilterRequestId++;
 
-    initSubWorkers(); // ✅ 스폰하여 병렬로 WASM 초기화 진행 (WASM Cold Start 최적화)
+    initSubWorkers(); // ✅ Spawn to proceed with WASM initialization in parallel (WASM Cold Start optimization)
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 0 } });
 
@@ -380,7 +380,7 @@ const buildLocalFileIndex = async (path: string, size: number) => {
 
     let offset = 0n;
     let processedBytes = 0;
-    // 💡 50MB 청크: IPC 왕복 횟수를 290번 -> 29번으로 줄여 멀티탭 시 경쟁 최소화 🐧🚀
+    // 💡 50MB Chunks: Reduces IPC round-trip count from 290 to 29, minimizing contention during multi-tab use 🐧🚀
     const chunkSize = 50 * 1024 * 1024;
 
     try {
@@ -450,8 +450,8 @@ const initStream = (payload?: { isLive?: boolean }) => {
     currentFilterRequestId++;
     respond({ type: 'STATUS_UPDATE', payload: { status: 'loading', mode: 'stream' } });
     
-    // 🐧 형님! 데이터가 아직 없더라도 워커는 준비되었으니 즉시 Ready를 선언합니다.
-    // 이렇게 해야 데이터 수신 전에도 로딩 스피너가 멈추고 빈 화면이 보입니다.
+    // 🐧 Hyungnim! Even if there's no data yet, the worker is ready, so we declare Ready immediately.
+    // This allows the loading spinner to stop and show an empty screen before data reception.
     respond({ 
         type: 'FILTER_COMPLETE', 
         payload: { matchCount: 0, totalLines: 0, visualBookmarks: [] } 
@@ -484,16 +484,16 @@ const processChunk = (chunk: string) => {
 
     if (lines.length === 0) return;
 
-    // ✅ 바이너리 저장소에 기록 루프
+    // ✅ Binary storage recording loop
     for (const line of lines) {
-        // ANSI 제거 및 CR 제거 (기존 로직 유지)
+        // Remove ANSI and CR (maintain existing logic)
         // eslint-disable-next-line no-control-regex
         const cleanLine = line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').replace(/\r$/, '');
         const encoded = textEncoder.encode(cleanLine);
         const len = encoded.length;
 
-        // 버퍼 확장 체크 (SAB인 경우 확장이 불가능하므로 새로운 SAB를 생성하거나 일반 버퍼로 전환해야 함)
-        // 여기서는 유연성을 위해 일반 Uint8Array 타입으로 다룹니다.
+        // Buffer expansion check (Since SAB cannot be expanded, must create a new SAB or switch to a regular buffer)
+        // Handled as regular Uint8Array for flexibility here.
         if (logBufferPtr + len > logBuffer.length) {
             const newSize = logBuffer.length * 2 + len;
             console.log(`[Worker] Growing logBuffer to ${newSize / (1024 * 1024)} MB`);
@@ -501,7 +501,7 @@ const processChunk = (chunk: string) => {
             newBuffer.set(logBuffer.subarray(0, logBufferPtr));
             logBuffer = newBuffer as any;
         }
-        // 오프셋 배열 확장 체크
+        // Offset array expansion check
         if (streamLineCount >= lineOffsetsStream.length) {
             const newSize = lineOffsetsStream.length * 2;
             const newOffsets = new Uint32Array(newSize);
@@ -512,12 +512,12 @@ const processChunk = (chunk: string) => {
             lineLengthsStream = newLengths as any;
         }
 
-        // 저장
+        // Save
         logBuffer.set(encoded, logBufferPtr);
         lineOffsetsStream[streamLineCount] = logBufferPtr;
         lineLengthsStream[streamLineCount] = len;
 
-        // 필터링 체크 (실시간 매칭을 위해 바이너리 상태에서 바로 체크)
+        // Filtering check (Checked immediately in binary state for real-time matching)
         if (checkIsMatch(cleanLine, currentRule, isLiveStream, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
             // Append to filteredIndices (Shared Buffer Strategy)
             const currentLen = filteredIndices ? filteredIndices.length : 0;
@@ -538,8 +538,8 @@ const processChunk = (chunk: string) => {
     // ✅ Performance: Invalidate bookmark cache when filtered indices change
     invalidateBookmarkCache();
 
-    // ✅ isLiveStream이 true인 경우(Tizen 실시간 스트림)에만 중간 FILTER_COMPLETE 전송
-    // isLive: false인 파일 읽기 스트림은 STREAM_DONE에서 단 한번만 보냄 → 깜박임 방지
+    // ✅ Send intermediate FILTER_COMPLETE only when isLiveStream is true (Tizen real-time stream)
+    // File read streams (isLive: false) send only once at STREAM_DONE to prevent flickering
     if (isLiveStream) {
         const now = Date.now();
         if (now - lastFilterNotifyTime >= MIN_NOTIFY_INTERVAL_MS) {
@@ -605,20 +605,20 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
     const totalLines = isStreamMode ? streamLineCount : (lineOffsets ? lineOffsets.length : 0);
     console.log(`[Worker] Preparing filter for ${totalLines} lines (isStream: ${isStreamMode})`);
 
-    // ✅ 동적 스케일링 (파일 크기 비례): 라인 수에 따라 청크 크기 및 동시성을 가변적으로 적용하여 처리 속도 극대화.
+    // ✅ Dynamic Scaling (File size proportional): Maximizes processing speed by variably applying chunk size and concurrency based on line count.
     let MAX_LINES_PER_CHUNK = 20000;
     let dynamicConcurrency = Math.max(2, numSubWorkers);
 
     if (totalLines > 5000000) {
-        // 초거대 용량 (5M 라인 이상) -> 청크 크기 극대화로 IPC/스트림 오버헤드 최소화 (최대 250k)
+        // Ultra-large capacity (5M+ lines) -> Maximize chunk size to minimize IPC/stream overhead (up to 250k)
         MAX_LINES_PER_CHUNK = 250000;
-        dynamicConcurrency = Math.max(6, numSubWorkers + 2); // 가용 코어 초과 허용 (강력한 멀티태스킹 유도)
+        dynamicConcurrency = Math.max(6, numSubWorkers + 2); // Allow exceeding available cores (Induce intensive multitasking)
     } else if (totalLines > 1000000) {
-        // 대용량 (1M ~ 5M 라인) -> 100k 청크
+        // Large capacity (1M ~ 5M lines) -> 100k chunks
         MAX_LINES_PER_CHUNK = 100000;
         dynamicConcurrency = Math.max(4, numSubWorkers);
     } else {
-        // 일반 용량 (1M 미만) -> UI 반응성에 유리하게 잘게 쪼갬
+        // Normal capacity (under 1M) -> Split finely for better UI responsiveness
         MAX_LINES_PER_CHUNK = 20000;
         dynamicConcurrency = numSubWorkers;
     }
@@ -645,7 +645,7 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
         if (completedChunks === numChunks) {
             console.log(`[Worker] Filtering complete. Aggregating results for ${numChunks} chunks...`);
 
-            // ✅ 실패한 청크가 있을 수 있으므로 방어적 취합
+            // ✅ Defensive aggregation in case of failed chunks
             const totalMatches = chunkResults.reduce((sum, res) => sum + (res ? res.length : 0), 0);
             console.log(`[Worker] Total matches found: ${totalMatches}`);
 
@@ -663,7 +663,7 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
             const bookmarks = BookmarkManager.getOriginalBookmarksSorted();
             const mergedMatches = mergeSortedUnique(finalMatches, bookmarks);
 
-            // ✅ Shared Buffer 크기 초과 방지
+            // ✅ Prevent Shared Buffer size overflow
             const safeMatchCount = Math.min(mergedMatches.length, MAX_LINES);
             filteredIndicesBuffer.set(mergedMatches.subarray(0, safeMatchCount));
             filteredIndices = (filteredIndicesBuffer as any).subarray(0, safeMatchCount);
@@ -690,7 +690,7 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
 
     const decoder = new TextDecoder();
     let nextChunkIdx = 0;
-    const MAX_CONCURRENT_CHUNKS = dynamicConcurrency; // ✅ 계산된 동적 동시성 적용
+    const MAX_CONCURRENT_CHUNKS = dynamicConcurrency; // ✅ Apply calculated dynamic concurrency
 
     const processNextChunk = async () => {
         if (nextChunkIdx >= numChunks || filterRequestId !== currentFilterRequestId) return;
@@ -808,7 +808,7 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
         }
     };
 
-    // 초기 실행
+    // Initial execution
     for (let k = 0; k < Math.min(MAX_CONCURRENT_CHUNKS, numChunks); k++) {
         processNextChunk();
     }
@@ -864,7 +864,7 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             } else {
                 console.log('[Worker] Tab activated → SubWorkers will be respawned on next filter or index');
                 if (currentFile || isLocalFileMode || isStreamMode) {
-                    initSubWorkers(); // 활성화 시 즉시 스폰하여 예열
+                    initSubWorkers(); // Spawn immediately upon activation for warm-up
                 }
             }
             break;
@@ -887,7 +887,7 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
                 respond({ type: 'INDEX_COMPLETE', payload: { totalLines: lineOffsets ? lineOffsets.length : 0 } });
                 return;
             }
-            // 핫픽스: payload 자체가 File 객체이므로 바로 전달합니다.
+            // Hotfix: Payload itself is a File object, so pass it directly.
             await buildFileIndex(payload);
             break;
         case 'INIT_LOCAL_FILE_STREAM':

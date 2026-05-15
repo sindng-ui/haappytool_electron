@@ -21,7 +21,7 @@ const METHOD_COLORS: Record<string, { bg: string; text: string; border: string }
 const CompareEndpointTable: React.FC<CompareEndpointTableProps> = ({ diffs, onCopy, rightFile, onJumpToRaw }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => {
-    // 🐧 팁: 사용자 요청에 따라 증가(+) 또는 신규(NEW) 항목은 기본적으로 펼쳐서 세부 루프를 보여줍니다.
+    // 🐧 Tip: Automatically expand increased (+) or NEW items to show detailed loops.
     const keys = new Set<string>();
     diffs.forEach(d => {
       if (d.diff > 0 || d.status === 'NEW') {
@@ -49,7 +49,7 @@ const CompareEndpointTable: React.FC<CompareEndpointTableProps> = ({ diffs, onCo
     const list = searchQuery 
       ? diffs.filter(d => d.templateUri.toLowerCase().includes(searchQuery.toLowerCase()))
       : [...diffs];
-    // 🐧 팁: 증가폭(+)이 큰 순서대로 먼저 정렬하여 형님의 분석 편의성을 높입니다. [HOT]
+    // 🐧 Tip: Sort by highest increase (+) first for easier analysis. [HOT]
     return list.sort((a, b) => b.diff - a.diff);
   }, [diffs, searchQuery]);
 

@@ -2,15 +2,15 @@
 /* eslint-disable no-restricted-globals */
 const ctx: Worker = self as any;
 
-// 🐧 팁: 네이티브 indexOf(10) (LF)을 사용하여 JS 루프보다 수십 배 빠르게 줄 바꿈을 탐지합니다.
+// 🐧 Tip: Using native indexOf(10) (LF) to detect line breaks magnitudes faster than JS loops.
 ctx.onmessage = async (e: MessageEvent) => {
   const { file } = e.data;
   if (!file) return;
 
   const fileSize = file.size;
-  let capacity = 1024 * 1024; // 초기 100만 라인 확보
+  let capacity = 1024 * 1024; // Pre-allocate 1M lines initially
   let offsets = new Uint32Array(capacity);
-  offsets[0] = 0; // 첫 번째 줄은 0바이트부터 시작
+  offsets[0] = 0; // First line starts at 0 bytes
   let lineCount = 1;
 
   const stream = file.stream();
@@ -28,7 +28,7 @@ ctx.onmessage = async (e: MessageEvent) => {
       const chunk: Uint8Array = value;
       let pos = -1;
       
-      // ASCII 10 은 '\n' (Line Feed) 입니다.
+      // ASCII 10 is '\n' (Line Feed)
       while ((pos = chunk.indexOf(10, pos + 1)) !== -1) {
         if (lineCount >= capacity) {
           const newCapacity = capacity * 2;
@@ -37,7 +37,7 @@ ctx.onmessage = async (e: MessageEvent) => {
           offsets = newArr;
           capacity = newCapacity;
         }
-        // 다음 줄의 시작 위치 = 현재 청크 내 LF 위치 + 지금까지 읽은 총 바이트 수 + 1
+        // Next line start position = LF position in chunk + total bytes read so far + 1
         offsets[lineCount++] = totalProcessed + pos + 1;
       }
       totalProcessed += chunk.length;

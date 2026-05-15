@@ -1,4 +1,4 @@
-// PointAnalysisResult 등 필요한 인터페이스는 남겨두고 나머지는 SplitAnalysisUtils에서 가져옵니다.
+// Keep necessary interfaces like PointAnalysisResult and import the rest from SplitAnalysisUtils.
 import {
     PointMetrics,
     AliasEvent,
@@ -48,8 +48,8 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
 
     // --- Part 1: Interval Analysis (Original) ---
     const results: SplitAnalysisResult[] = [];
-    // ... (기존 interval 분석 로직 생략 - 실제로는 포함되어야 함)
-    // 🐧💡 속도를 위해 기존 로직을 그대로 유지하되, Alias 매칭 결과를 상단에 추가합니다.
+    // ... (Legacy interval analysis logic omitted - should actually be included)
+    // 🐧💡 Maintain legacy logic for speed but add Alias matching results at the top.
 
     // --- Part 2: Alias Sequence Matching (New Engine) ---
     if (leftAliasEvents && rightAliasEvents) {
@@ -63,11 +63,11 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
     }
 
     // --- Part 3: Sequence Alignment (New LCS Engine) ---
-    // 기존의 N-gram 윈도우 루프를 삭제하고 DP 기반 글로벌 정렬 결과를 받아옵니다.
+    // Delete legacy N-gram window loop and receive DP-based global alignment results.
     const alignedResults = alignSequences(leftSequence, rightSequence);
     results.push(...alignedResults);
 
-    // 🐧⚡ 정렬 가중치 사전 계산 (Sorting Severity)
+    // 🐧⚡ Pre-calculate sorting weight (Sorting Severity)
     for (const res of results) {
         (res as any)._severity = Math.abs(res.deltaDiff) * 0.5 + Math.abs(res.countDiff) * 10;
     }
@@ -89,16 +89,16 @@ ctx.onmessage = (e: MessageEvent<SplitAnalysisRequest>) => {
         return ((b as any)._severity || 0) - ((a as any)._severity || 0);
     });
 
-    // 🐧⚡ Deduplication: 시각적으로 동일한 구간을 가리키는 중복 세그먼트 제거
-    // Alias 분석 결과와 일반 분석 결과가 겹칠 경우, 상단에 정렬된(Alias 등) 결과를 우선순위로 남깁니다.
+    // 🐧⚡ Deduplication: Remove redundant segments pointing to visually identical ranges
+    // If Alias analysis results overlap with general results, prioritize the sorted (Alias, etc.) results at the top.
     const finalResults: SplitAnalysisResult[] = [];
     const seenRanges = new Set<string>();
 
     for (const res of results) {
-        // 좌/우 로그의 시작~끝 라인이 모두 동일하면 중복으로 판단
-        // 🐧⚡ (수정) 시작과 끝 라인이 모두 0인 지점 매칭은 제외하고, 유의미한 구간 위주로 체크
+        // Judge as duplicate if start-end lines of both left/right logs are identical
+        // 🐧⚡ (Fix) Exclude matches where both start/end lines are 0, focusing on significant intervals
         if (res.leftPrevLineNum === res.leftLineNum && res.rightPrevLineNum === res.rightLineNum && !res.isAliasMatch) {
-            // 사실상 내용 없는 구간은 skip
+            // Skip segments with virtually no content
             continue;
         }
 

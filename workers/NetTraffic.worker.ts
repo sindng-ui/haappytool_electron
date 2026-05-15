@@ -128,20 +128,20 @@ export const extractBucket = (line: string): string | null => {
 export const templateToRegex = (template: string): RegExp | null => {
   if (!template) return null;
   try {
-    // 🐧 팁: 플레이스홀더를 기준으로 분할하여 리터럴 부분만 안전하게 이스케이프합니다.
+    // 🐧 Tip: Split based on placeholders and safely escape only the literal parts.
     const parts = template.split(/\$\((.*?)\)/);
     let regexStr = '';
     for (let i = 0; i < parts.length; i++) {
       if (i % 2 === 0) {
-        // 리터럴 영역: 모든 정규식 특수 문자를 이스케이프
+        // Literal area: Escape all regex special characters
         regexStr += parts[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       } else {
-        // 플레이스홀더 영역: 명명된 캡처 그룹으로 변환
-        // 변수명에 올바르지 않은 문자가 섞이는 것을 방지하기 위해 알파벳/숫자만 남김
+        // Placeholder area: Convert to named capture groups
+        // Leave only alphanumeric characters to prevent invalid characters in variable names
         const groupName = parts[i].replace(/[^a-zA-Z0-9]/g, '');
         if (groupName) {
-          // URIs나 UAs에서 구분자로 쓰이는 공백/슬래시/따옴표 등을 제외하고 매칭.
-          // 🐧 팁: 문자 클래스 내부에 [ ] ( ) 등이 포함될 경우 반드시 이스케이프가 필요합니다.
+          // Match excluding spaces/slashes/quotes used as delimiters in URIs or UAs.
+          // 🐧 Tip: If [ ] ( ) etc. are included inside character classes, they MUST be escaped.
           regexStr += `(?<${groupName}>[^/\\s"'<>\\(\\)\\[\\]{},;]+)`;
         }
       }

@@ -23,7 +23,7 @@ interface TransactionDrawerProps {
 }
 
 /**
- * 💡 Helper: Delta 문자열에서 숫자(ms) 추출
+ * 💡 Helper: Extract number (ms) from Delta string
  */
 const parseDeltaMs = (delta: string): number => {
     if (!delta) return 0;
@@ -37,7 +37,7 @@ const parseDeltaMs = (delta: string): number => {
 };
 
 /**
- * 💡 Helper: 지연 시간에 따른 스타일 반환 (Smart Delay)
+ * 💡 Helper: Return style based on latency (Smart Delay)
  */
 const getDeltaStyle = (delta: string) => {
     const ms = parseDeltaMs(delta);
@@ -70,7 +70,7 @@ const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
         return formatTransactionFlow(logs) as TransactionLogItem[];
     }, [logs]);
 
-    // 💡 Stats: 트랜잭션 성능 통계 계산
+    // 💡 Stats: Calculate transaction performance statistics
     const stats = useMemo(() => {
         if (logs.length < 2) return null;
 

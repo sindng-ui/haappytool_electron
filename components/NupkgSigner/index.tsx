@@ -6,8 +6,8 @@ import Step2_3_FileList from './Step2_3_FileList';
 import Step4_Repackage from './Step4_Repackage';
 import Step5_FinalDownload from './Step5_FinalDownload';
 import { useToast } from '../../contexts/ToastContext';
-// 🐧 형님, ?worker 문법을 쓰면 Vite가 개발 모드에서도 Rollup을 돌려서 엄청 느려집니다. 
-// 그래서 Native ESM 방식을 써서 esbuild의 속도를 그대로 챙기겠습니다!
+// 🐧 Hyungnim, using ?worker syntax makes Vite run Rollup even in dev mode, which is very slow. 
+// So we'll use Native ESM to keep the speed of esbuild!
 const NupkgWorkerFactory = () => new Worker(new URL('./workers/nupkg.worker.ts', import.meta.url), { type: 'module' });
 
 
@@ -95,13 +95,13 @@ const NupkgSigner: React.FC = () => {
             return;
         }
 
-        // 🐧 형님 가라사대: 파일명에 꼬리표가 있으면 알아서 자리를 찾아가게 하거라!
+        // 🐧 Hyungnim said: Let files with tags find their own places automatically!
         const fileName = file.name;
         let targets = [path];
         
         if (fileName.includes('_')) {
             const prefix = fileName.split('_')[0];
-            // soFiles 중 path에 이 prefix가 포함된 녀석들을 모두 찾음 (아키텍처/버전 폴더명 매칭)
+            // Find all items in soFiles whose path contains this prefix (architecture/version folder matching)
             const matchedPaths = state.soFiles
                 .filter(item => item.path.includes(`/${prefix}/`) || item.path.includes(`/${prefix}_`))
                 .map(item => item.path);
@@ -149,10 +149,10 @@ const NupkgSigner: React.FC = () => {
 
         addToast(`Starting auto-sign for ${targets.length} files...`, "info");
         
-        // 🐧 형님 가라사대: 한 번에 하나씩 차근차근 서명 서버를 조집니다!
+        // 🐧 Hyungnim said: Crush the signing server one by one, step by step!
         for (const fileItem of targets) {
             try {
-                // 1. 진행 상태 표시
+                // 1. Show progress status
                 setState(prev => ({
                     ...prev,
                     soFiles: prev.soFiles.map(f => 
@@ -160,16 +160,16 @@ const NupkgSigner: React.FC = () => {
                     )
                 }));
 
-                // 2. Blob을 파일로 임시 저장 (Main process가 읽을 수 있도록)
+                // 2. Temporarily save Blob as a file (so the Main process can read it)
                 const arrayBuffer = await fileItem.originalBlob.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
                 const tempPath = `temp_sign_${Date.now()}_${fileItem.basename}`;
                 
-                // 앱의 임시 폴더 경로 가져오기
+                // Get app's temporary folder path
                 const appPath = await (window as any).electronAPI.getAppPath();
                 const fullTempPath = `${appPath}/${tempPath}`;
 
-                // base64로 변환하여 전달 (saveFileDirect가 base64 지원함)
+                // Convert to base64 for transmission (saveFileDirect supports base64)
                 const base64Data = btoa(
                     uint8Array.reduce((data, byte) => data + String.fromCharCode(byte), '')
                 );
@@ -180,13 +180,13 @@ const NupkgSigner: React.FC = () => {
                     isBase64: true 
                 });
 
-                // 3. 자동 서명 호출 (CDP 마법 가동)
+                // 3. Call auto-sign (CDP magic activated)
                 const signedBuffer = await (window as any).electronAPI.autoSignSoFile(fullTempPath, ismsUrl);
 
                 if (signedBuffer) {
                     const signedBlob = new Blob([signedBuffer], { type: 'application/octet-stream' });
                     
-                    // 서명 유효성 재검증 (g==:UEP 체크)
+                    // Re-verify signature validity (check for g==:UEP)
                     const text = await signedBlob.slice(Math.max(0, signedBlob.size - 535)).text();
                     const isSignedResult = text.includes('g==:UEP');
 
@@ -202,8 +202,8 @@ const NupkgSigner: React.FC = () => {
                     throw new Error("Failed to receive signed buffer");
                 }
 
-                // 🐧 임시 파일은 굳이 안 지워도 main.cjs에서 프로세스 종료시 어느정도 정리되겠지만, 
-                // 여기서는 다음 파일로 넘어가기 전에 성공 알림!
+                // 🐧 Temporary files will be somewhat cleaned up by main.cjs on process exit, 
+                // but we'll notify success here before moving to the next file!
                 addToast(`Successfully signed: ${fileItem.basename}`, "success");
 
             } catch (err: any) {

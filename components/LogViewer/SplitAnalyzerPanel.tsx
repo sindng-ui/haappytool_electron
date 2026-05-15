@@ -10,19 +10,19 @@ interface SplitAnalyzerPanelProps {
     onClose: () => void;
     onJumpToRange?: (side: 'left' | 'right', startLine: number, endLine: number) => void;
     onViewRawSplit?: (res: SplitAnalysisResult) => void;
-    height?: number; // ✅ 가변 높이 지원
+    height?: number; // ✅ Support variable height
 }
 
 type AnalysisTab = 'summary' | 'timeline';
 
 export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results, isLoading, progress = 0, onClose, onJumpToRange, onViewRawSplit, height = 350 }) => {
     const [activeTab, setActiveTab] = useState<AnalysisTab>('summary');
-    // 🐧⚡ selectedKey(문자열) 대신 selectedIndex(숫자)로 관리 → 중복 key가 있어도 정확한 위치 추적
+    // 🐧⚡ Manage via selectedIndex (number) instead of selectedKey (string) -> Precise tracking even with duplicate keys
     const [selectedIndex, setSelectedIndex] = useState<number>(-1);
     const [summaryFilter, setSummaryFilter] = useState<'regression' | 'improvement' | 'stable'>('regression');
     const [pointNavigation, setPointNavigation] = useState<Record<string, number>>({});
 
-    // 🐧⚡ Timeline 페이징 상태 추가 (프리징 방지)
+    // 🐧⚡ Added Timeline paging state (to prevent freezing)
     const [timelinePage, setTimelinePage] = useState(1);
     const PAGE_SIZE = 50;
 
@@ -49,7 +49,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
             });
     }, [results]);
 
-    // 🐧⚡ selectedKey: selectedIndex 기반으로 파생 (선언 순서 문제 해결)
+    // 🐧⚡ selectedKey: Derived from selectedIndex (resolves declaration order issues)
     const selectedKey = selectedIndex >= 0 && sortedResults.length > 0 ? sortedResults[selectedIndex]?.key ?? null : null;
 
     const summaryData = useMemo(() => {
@@ -84,11 +84,11 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
 
 
     const handleItemClick = (res: SplitAnalysisResult, isSinglePoint: boolean = false, explicitIndex?: number) => {
-        // 🐧⚡ 인덱스 기반으로 선택 위치 추적 (중복 key 대응)
+        // 🐧⚡ Index-based tracking for selected position (handles duplicate keys)
         const idx = explicitIndex !== undefined ? explicitIndex : sortedResults.indexOf(res);
         setSelectedIndex(idx);
 
-        // Timeline 리스트 내 자동 스크롤 (Focus) - 페이징 확인 필요
+        // Auto-scroll within Timeline list (Focus) - paging check needed
         if (activeTab === 'timeline') {
             if (idx !== -1) {
                 const requiredPage = Math.floor(idx / PAGE_SIZE) + 1;
@@ -107,7 +107,7 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
 
         if (!onJumpToRange) return;
 
-        // 🐧🔍 디버그: 실제 전달되는 lineNum 값 확인
+        // 🐧🔍 Debug: Check actual lineNum values being passed
         console.log('[SplitAnalyzerPanel] Jump info:', {
             key: res.key,
             leftLineNum: res.leftLineNum, leftPrevLineNum: res.leftPrevLineNum,
@@ -117,17 +117,17 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
             isAliasInterval: res.isAliasInterval, isAliasMatch: res.isAliasMatch, isNewError: res.isNewError
         });
 
-        // 🐧🎯 점프 로직
-        // 1. Alias INTERVAL인 경우: PrevLineNum ~ LineNum (구간)
-        // 2. Alias MATCH (지점)인 경우: 해당 지점만 (단일)
-        // 3. New Error인 경우: 해당 지점만 (단일)
-        // 4. 🐧⚡ Burst인 경우: 첫 발생 위치(rightLineNum) ~ 마지막 발생 위치(burstEndLineNum)
+        // 🐧🎯 Jump Logic
+        // 1. Alias INTERVAL: PrevLineNum ~ LineNum (Range)
+        // 2. Alias MATCH (Point): That point only (Single)
+        // 3. New Error: That point only (Single)
+        // 4. 🐧⚡ Burst: First occurrence (rightLineNum) ~ Last occurrence (burstEndLineNum)
 
         const isInterval = res.isAliasInterval || (!res.isAliasMatch && !res.isNewError);
         const forceSingle = !isInterval || isSinglePoint;
 
         if (res.isBurst && !isSinglePoint) {
-            // 버스트: 첫 발생 ~ 마지막 발생 범위로 점프 (양쪽 패널 모두)
+            // Burst: Jump to range from first to last occurrence (both panels)
             const leftStart = res.leftPrevLineNum ?? 0;
             const leftEnd = res.burstEndLeftLineNum ?? res.leftLineNum;
             const rightStart = res.rightPrevLineNum ?? 0;
@@ -142,20 +142,20 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
             return;
         }
 
-        // 좌측 점프
+        // Jump Left
         if (res.leftLineNum !== undefined && res.leftLineNum >= 0) {
             const rawStart = forceSingle ? res.leftLineNum : (res.leftPrevLineNum ?? res.leftLineNum);
-            // 🐧⚡ start가 end보다 크면 end(현재 위치)로 단일 점프
+            // 🐧⚡ If start is greater than end, perform a single jump to end (current position)
             const start = (rawStart >= 0 && rawStart <= res.leftLineNum) ? rawStart : res.leftLineNum;
             const end = res.leftLineNum;
             console.log('[SplitAnalyzerPanel] Jump LEFT:', start, '->', end);
             onJumpToRange('left', start, end);
         }
 
-        // 우측 점프
+        // Jump Right
         if (res.rightLineNum !== undefined && res.rightLineNum >= 0) {
             const rawStart = forceSingle ? res.rightLineNum : (res.rightPrevLineNum ?? res.rightLineNum);
-            // 🐧⚡ start가 end보다 크면 end(현재 위치)로 단일 점프
+            // 🐧⚡ If start is greater than end, perform a single jump to end (current position)
             const start = (rawStart >= 0 && rawStart <= res.rightLineNum) ? rawStart : res.rightLineNum;
             const end = res.rightLineNum;
             console.log('[SplitAnalyzerPanel] Jump RIGHT:', start, '->', end);
@@ -522,13 +522,13 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                     <button
                                         onClick={() => {
                                             if (sortedResults.length === 0) return;
-                                            // 🐧⚡ 인덱스 기반: selectedIndex가 없으면 마지막으로
+                                            // 🐧⚡ Index-based: Go to last if no selectedIndex
                                             const idx = selectedIndex;
                                             if (idx > 0) {
                                                 const prevRes = sortedResults[idx - 1];
                                                 handleItemClick(prevRes, false, idx - 1);
                                             } else {
-                                                // 루핑: 처음에서 PREV 누르면 마지막으로
+                                                // Looping: Press PREV at start to go to the last
                                                 const lastIdx = sortedResults.length - 1;
                                                 handleItemClick(sortedResults[lastIdx], false, lastIdx);
                                             }
@@ -541,13 +541,13 @@ export const SplitAnalyzerPanel: React.FC<SplitAnalyzerPanelProps> = ({ results,
                                     <button
                                         onClick={() => {
                                             if (sortedResults.length === 0) return;
-                                            // 🐧⚡ 인덱스 기반: selectedIndex가 없으면 처음부터
+                                            // 🐧⚡ Index-based: Start from beginning if no selectedIndex
                                             const idx = selectedIndex;
                                             if (idx >= 0 && idx < sortedResults.length - 1) {
                                                 const nextRes = sortedResults[idx + 1];
                                                 handleItemClick(nextRes, false, idx + 1);
                                             } else {
-                                                // 루핑: 마지막에서 NEXT 누르면 처음으로
+                                                // Looping: Press NEXT at end to go to the first
                                                 handleItemClick(sortedResults[0], false, 0);
                                             }
                                         }}

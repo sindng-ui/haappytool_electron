@@ -209,8 +209,8 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
             { id: 'ps', name: 'ps', cmd: 'ps -efc | grep -Ei "smartthingsapp|smartthings-client|vd-sc-client" [[ENTER]]' },
             { id: 'pkgcmd', name: 'pkgcmd', cmd: 'pkgcmd -l | grep -Ei "smartthingsapp|smartthings-client|iotwidget|aov-dashboard|stpreview" [[ENTER]]' },
             { id: 'kill_clip', name: 'kill (clipboard)', cmd: 'kill -9 [[CLIPBOARD]] [[ENTER]]' },
-            { id: 'launch_prompt', name: 'launch app (prompt)', cmd: 'launch_app [[PROMPT:패키지명 입력]] [[ENTER]]' },
-            { id: 'uninstall', name: 'uninstall', cmd: 'pkgcmd -un [[PROMPT:패키지명 입력]] [[ENTER]]' }
+            { id: 'launch_prompt', name: 'launch app (prompt)', cmd: 'launch_app [[PROMPT:Enter Package Name]] [[ENTER]]' },
+            { id: 'uninstall', name: 'uninstall', cmd: 'pkgcmd -un [[PROMPT:Enter Package Name]] [[ENTER]]' }
         ];
 
         if (!saved) return defaults;

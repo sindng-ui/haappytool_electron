@@ -127,6 +127,10 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
       - **Visual Performance**: 선택된 라인의 배경색과 텍스트 가시성을 최적화하고, GPU 부하를 주는 CSS 필터를 제거하여 대용량 로그 환경에서도 끊김 없는 선택 경험 제공.
     - **Testing & Verification (2026-05-15)**: [NEW]
       - `test/components/QuickCommandPerformance.test.tsx`: Quick Command 섹션 및 설정 패널의 성능 최적화(Blur, Shadow 제거 등)와 단축키 동작을 상시 검증하는 단위 테스트 구축 완료. 🐧🧪✅
+    - **Global Localization (2026-05-15)**: [NEW]
+      - **English-First UI**: LogViewer 및 LogArchive 서브시스템의 모든 UI 문구 및 메시지를 영어로 전면 개편. 🐧🌐⚡
+      - **Worker Logic Documentation**: `LogProcessor`, `SplitAnalysis`, `NetTraffic`, `LogIndexer`, `LogFilterSub` 등 모든 핵심 워커 및 유틸리티의 복잡한 알고리즘(WASM 최적화, DP 하드 캡, 고속 문자열 탐색 등) 주석을 100% 영문으로 표준화하여 글로벌 개발자 접근성 확보.
+      - **Persona Preservation**: 영문 기술 문서 및 주석 내에서도 "Hyungnim/Penguin" 고유의 친근한 톤앤매너를 유지하여 프로젝트 아이덴티티 보존.
 
 ### [SpeedScope Analyzer](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/SpeedScope/SpeedScopePlugin.tsx)
 - **Unified Diff Mode v2 (2026-04-06)**: 두 프로파일의 성능 차이를 직관적으로 분석하는 고대화된 비교 모드.
@@ -257,4 +261,4 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
   - **Minimal Modification Principle**: 기존 비즈니스 로직은 유지하되, 사용자 인터랙션 레이어만 `dialogConfig` 상태 기반으로 깔끔하게 교체하여 사이드 이펙트 방지. 🐧🛡️⚡
 
 ---
-*Last Updated: 2026-05-15 (Global Dialog Standardization & CommonDialogs Suite Integrated)*
+*Last Updated: 2026-05-15 (Global Localization & Worker Documentation Standardized)*

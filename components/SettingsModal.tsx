@@ -42,7 +42,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
 
     const handleSaveAgentConfig = () => {
         localStorage.setItem('happytool_agent_config', JSON.stringify(agentConfig));
-        addToast('AI Agent 설정이 저장되었습니다.', 'success');
+        addToast('AI Agent settings saved.', 'success');
     };
 
     const handleTestAgentConnection = async () => {
@@ -50,9 +50,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
         try {
             const { testAgentConnection } = require('../plugins/LogAnalysisAgent/services/agentApiService');
             const success = await testAgentConnection(agentConfig);
-            if (success) addToast('API 연결 성공!', 'success');
+            if (success) addToast('API Connection Successful!', 'success');
         } catch (err: any) {
-            addToast(`연결 실패: ${err.message}`, 'error');
+            addToast(`Connection Failed: ${err.message}`, 'error');
         } finally {
             setIsTestingAgent(false);
         }
@@ -254,12 +254,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                         onClick={async () => {
                                             if (window.electronAPI?.openExternal && window.electronAPI?.getAppPath) {
                                                 const appPath = await window.electronAPI.getAppPath();
-                                                // 패키징 환경과 개발 환경 모두 대응 가능한 경로 조합
+                                                // Support both packaged and dev environments
                                                 const guidePath = appPath.includes('resources')
                                                     ? `${appPath}/important/cli_user_guide.md`
                                                     : `${appPath}/important/cli_user_guide.md`;
 
-                                                // 절대 경로를 그대로 전달 (openExternal이 인지하도록 처리)
                                                 window.electronAPI.openExternal(guidePath);
                                             }
                                         }}
@@ -317,7 +316,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                                 </button>
                                             </div>
                                             <div className="p-4 space-y-2">
-                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">거대 로그 파일을 백그라운드 필터링 및 내보내기</p>
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Filter and export large log files in the background</p>
                                                 <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
                                                     .\HappyTool.exe cli log-extractor -f "Filter" -i "path"
                                                 </div>
@@ -342,7 +341,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                                 </button>
                                             </div>
                                             <div className="p-4 space-y-2">
-                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">시나리오/파이프라인 자동화 봇 실행</p>
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Run automated scenario/pipeline bots</p>
                                                 <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
                                                     .\HappyTool.exe cli block-test --scenario "Name"
                                                 </div>
@@ -367,7 +366,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                                 </button>
                                             </div>
                                             <div className="p-4 space-y-2">
-                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">두 로그 파일의 성능 차이 및 신규 로그 분석 (JSON 추출)</p>
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Analyze performance differences and new events between two logs</p>
                                                 <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
                                                     .\HappyTool.exe cli analyze-diff -f "Mission" -l "left.log" -r "right.log" -o "diff.json"
                                                 </div>
@@ -403,7 +402,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                                 </div>
                                             </div>
                                             <div className="p-4 space-y-2">
-                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">네트워크 트래픽(Endpoint/UA) 분석 및 비교 결과 추출</p>
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Extract network traffic (Endpoint/UA) analysis and comparison results</p>
                                                 <div className="bg-slate-950 rounded-lg p-3 font-mono text-[11px] text-indigo-400/90 leading-relaxed border border-white/5">
                                                     .\HappyTool.exe cli nettraffic -l "left" -r "right" -o "res.json"
                                                 </div>
@@ -417,9 +416,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             <Info size={12} /> Advanced Technical Tip
                                         </div>
                                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                            HappyTool CLI는 내부적으로 **Hidden BrowserWindow**를 호출하여 구동됩니다.
-                                            덕분에 터미널 환경에서도 **WASM(WebAssembly)** 엔진과 **SharedArrayBuffer**의 고성능 멀티스레딩 필터링을 완벽하게 지원합니다.
-                                            IndexedDB에 저장된 GUI 필터 목록을 그대로 공유하여 쓰기 때문에 별도의 동기화가 필요 없습니다! 🐧💎
+                                            HappyTool CLI operates internally by invoking a **Hidden BrowserWindow**.
+                                            This allows full support for **WASM (WebAssembly)** engine and **SharedArrayBuffer** high-performance multi-threaded filtering even in terminal environments.
+                                            It shares the same GUI filter list stored in IndexedDB, so no separate synchronization is required! 🐧💎
                                         </p>
                                     </div>
                                 </div>
@@ -512,7 +511,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                     </button>
                                 </div>
                                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    SR Agent Builder(Gauss)와 통신하기 위한 API 설정을 구성합니다. 설정은 암호화되지 않은 형태로 localStorage에 저장됩니다. (공용 PC 주의)
+                                    Configure API settings for communication with SR Agent Builder (Gauss). Settings are stored in localStorage in an unencrypted form. (Caution on shared PCs)
                                 </p>
 
                                 <div className="bg-white dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-white/5 p-6 space-y-5">
@@ -582,7 +581,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                     </div>
 
                                     <div className="pt-4 border-t border-slate-700/50 flex items-center justify-between">
-                                        <p className="text-xs text-slate-500">* API 연동 후 설정은 브라우저 스토리지에 유지됩니다.</p>
+                                        <p className="text-xs text-slate-500">* API settings are maintained in browser storage after integration.</p>
                                         <button
                                             onClick={handleTestAgentConnection}
                                             disabled={isTestingAgent || !agentConfig.apiKey || !agentConfig.endpoint}
@@ -625,8 +624,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                     <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl mx-auto shadow-xl shadow-indigo-500/20 flex items-center justify-center mb-4 icon-glow">
                                         <BookOpen size={32} className="text-white" />
                                     </div>
-                                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">HappyTool 사용 가이드</h3>
-                                    <p className="text-slate-600 dark:text-slate-400">모든 기능을 자세히 알아보세요</p>
+                                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">HappyTool User Guide</h3>
+                                    <p className="text-slate-600 dark:text-slate-400">Learn more about all features</p>
                                 </div>
 
                                 <div className="bg-white dark:bg-slate-800/50 rounded-3xl p-6 border border-slate-200 dark:border-white/5 shadow-xl">
@@ -637,7 +636,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             </div>
                                             <div>
                                                 <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">Log Extractor</h4>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">로그 파일에서 원하는 내용만 빠르게 찾아내는 강력한 분석 도구</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Powerful analysis tool to quickly find desired content in log files</p>
                                             </div>
                                         </div>
 
@@ -647,7 +646,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             </div>
                                             <div>
                                                 <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">POST Tool</h4>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">REST API를 간편하게 테스트하는 도구</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Tool to easily test REST APIs</p>
                                             </div>
                                         </div>
 
@@ -657,7 +656,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             </div>
                                             <div>
                                                 <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">Analyze Diff</h4>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">두 로그 파일 간의 소요 시간 차이 및 신규 이벤트를 정밀 분석</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Precisely analyze time differences and new events between two log files</p>
                                             </div>
                                         </div>
 
@@ -667,7 +666,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                             </div>
                                             <div>
                                                 <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-1">TPK Extractor</h4>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Tizen RPM 패키지에서 TPK 파일 추출</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Extract TPK files from Tizen RPM packages</p>
                                             </div>
                                         </div>
                                     </div>
@@ -681,22 +680,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, e
                                                         const guidePath = 'file:///' + appPath.replace(/\\/g, '/') + '/USER_GUIDE.md';
                                                         console.log('Opening guide at:', guidePath);
                                                         await window.electronAPI.openExternal(guidePath);
-                                                        await window.electronAPI.openExternal(guidePath);
                                                     } else {
-                                                        addToast('현재 환경에서는 지원되지 않는 기능입니다.', 'error');
+                                                        addToast('Feature not supported in this environment.', 'error');
                                                     }
                                                 } catch (error) {
                                                     console.error('Failed to open guide:', error);
-                                                    addToast('가이드를 열 수 없습니다.', 'error');
+                                                    addToast('Could not open guide.', 'error');
                                                 }
                                             }}
                                             className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:scale-[1.02] flex items-center justify-center gap-3 border-2 border-transparent"
                                         >
                                             <BookOpen size={20} />
-                                            전체 사용자 가이드 열기
+                                            Open Full User Guide
                                         </button>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 text-center mt-3 font-medium">
-                                            브라우저에서 상세한 사용 가이드를 확인하세요
+                                            Check the detailed user guide in your browser
                                         </p>
                                     </div>
                                 </div>

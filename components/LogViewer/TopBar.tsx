@@ -9,7 +9,7 @@ import { ConfirmDialog } from '../ui/CommonDialogs';
 
 const { Plus, Trash2, Maximize, Columns, Sparkles } = Lucide;
 
-// 🎯 형님, Analyze Diff 버튼을 다시 켜고 싶으시면 아래 플래그를 true로 바꿔주십쇼!
+// 🎯 Hyungnim, if you want to turn the Analyze Diff button back on, please change the flag below to true!
 const ENABLE_SPLIT_ANALYZE_BUTTON = true;
 
 const TopBar: React.FC<{

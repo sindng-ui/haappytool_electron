@@ -121,7 +121,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         leftSharedBuffers, rightSharedBuffers,
         leftWorkerRef, rightWorkerRef,
         splitRatio, setSplitRatio, // ✅ Expose split states
-        splitAnalyzerHeight, setSplitAnalyzerHeight, // ✅ 펭귄! 분석창 높이 조절 상태 추가
+        splitAnalyzerHeight, setSplitAnalyzerHeight, // ✅ Penguin! Added split analyzer height adjustment state
         onAddTab, // ✅ New Tab Callback
         addQuickHighlight,
         clearQuickHighlights
@@ -166,7 +166,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             }
         };
 
-        // 전역 이벤트로 캡처 단계에서 등록 (입력창 등에서 방해받지 않도록)
+        // Register as a global event in the capture phase (to avoid interference from input fields, etc.)
         window.addEventListener('keydown', handleKeyDown, true);
         return () => window.removeEventListener('keydown', handleKeyDown, true);
     }, [sendTizenCommand]);
@@ -246,7 +246,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     // Log Archive: Text Selection
     // Log Archive: Text Selection & Line Selection
     const { openSaveDialog, isSaveDialogOpen, isViewerOpen } = useLogArchiveContext();
-    // ref로 최신값 추적: useEffect 클로저에서 리렌더링 없이 접근하기 위함
+    // Track latest value with ref: For accessing in useEffect closures without re-renders
     const archiveDialogOpenRef = React.useRef(isSaveDialogOpen);
     const archiveViewerOpenRef = React.useRef(isViewerOpen);
     React.useEffect(() => { archiveDialogOpenRef.current = isSaveDialogOpen; }, [isSaveDialogOpen]);
@@ -298,7 +298,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
     // === NEW CONTEXT MENU LOGIC === //
     const handleUnifiedSave = async () => {
-        // 1. 브라우저의 현재 텍스트 선택 영역을 최우선으로 확인합니다 (Alt+Drag 대응)
+        // 1. Check the browser's current text selection first (handles Alt+Drag)
         const currentSel = window.getSelection();
         const browserText = currentSel && !currentSel.isCollapsed ? currentSel.toString().trim() : null;
 
@@ -309,12 +309,12 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             openSaveDialog({
                 content,
                 sourceFile,
-                // 텍스트 선택의 경우 정확한 라인 번호를 알기 어려우므로 undefined로 유지
+                // Keep as undefined since exact line numbers are hard to determine for text selection
                 startLine: undefined,
                 endLine: undefined,
             });
         } else {
-            // 2. 라인 단위 선택(클릭/드래그) 저장 로직
+            // 2. Line-based selection (click/drag) save logic
             const targetIsLeft = (selectedIndicesLeft && selectedIndicesLeft.size > 0);
             const indices = targetIsLeft ? selectedIndicesLeft : selectedIndicesRight;
             const requestFn = targetIsLeft ? requestLeftLines : requestRightLines;
@@ -349,7 +349,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     };
  
     const handleOpenInNewTab = async () => {
-        // 텍스트 선택 또는 라인 선택 추출
+        // Extract text selection or line selection
         const currentSel = window.getSelection();
         const browserText = currentSel && !currentSel.isCollapsed ? currentSel.toString().trim() : null;
  
@@ -397,7 +397,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         // ✅ Prevent default immediately to ensure custom menu works correctly even with async logic
         e.preventDefault();
  
-        // 브라우저의 실시간 선택 영역을 확인합니다.
+        // Check the browser's real-time selection area.
         const currentSelection = window.getSelection();
         const hasTextSelection = currentSelection && !currentSelection.isCollapsed && currentSelection.toString().trim().length > 0;
  
@@ -695,7 +695,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         const baseHighlights = appliedConfig?.highlights || [];
 
         // Determine case sensitivity for deduplication
-        // 형님, 어느 한 쪽이라도 켜져 있으면 중복 체크할 때 대소문자를 구분합니다.
+        // Hyungnim, if either is enabled, perform case-sensitive checks during deduplication.
         const isCaseSensitive = !!appliedConfig?.happyCombosCaseSensitive || !!appliedConfig?.colorHighlightsCaseSensitive;
 
         // Only classify highlights with ACTUAL color as "existing/colliding"
@@ -857,7 +857,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
 
         const onWheel = (e: WheelEvent) => {
             if (e.ctrlKey) {
-                // ✅ 형님, Perf Dashboard가 활성화된 경우 폰트 줌 대신 Flame Map 줌이 작동하도록 양보합니다.
+                // ✅ Hyungnim, yielding to Perf Dashboard zoom when it's active instead of font zoom.
                 const target = e.target as HTMLElement;
                 if (!target || typeof target.closest !== 'function') return;
 
@@ -865,17 +865,17 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                 const targetPaneId = logPane?.getAttribute('data-pane-id');
                 const isOverDashboard = !!target.closest('.perf-dashboard-container');
 
-                // ✅ 형님, 오직 현재 마우스가 올라가 있는 Pane에 분석 결과가 있을 때만 폰트 줌을 양보합니다.
+                // ✅ Hyungnim, font zoom is yielded only when the pane under the mouse has analysis results.
                 let shouldSkipForPerf = false;
                 if (targetPaneId === 'left') {
                     shouldSkipForPerf = !!(leftPerfAnalysisResult || isAnalyzingPerformanceLeft);
                 } else if (targetPaneId === 'right') {
                     shouldSkipForPerf = !!(rightPerfAnalysisResult || isAnalyzingPerformanceRight);
                 } else if (isOverDashboard) {
-                    // 대시보드 위라면 무조건 양보 (대시보드가 줌 처리)
+                    // Always yield if over the dashboard (handled by the dashboard's own zoom)
                     shouldSkipForPerf = true;
                 } else if (!targetPaneId && (leftPerfAnalysisResult || rightPerfAnalysisResult)) {
-                    // 싱글 뷰 모드 등
+                    // Single view mode, etc.
                     shouldSkipForPerf = true;
                 }
 
@@ -1094,7 +1094,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     if (selection && selection.length > 0) {
                                         // 🔥 Log Copy Precision: Remove trailing newline from native selection
                                         navigator.clipboard.writeText(selection.replace(/\r?\n$/, ''));
-                                        addToast('Selection copied!', 'success'); // ✅ 형님, Alt+드래그 복사 피드백 추가했습니다!
+                                        addToast('Selection copied!', 'success'); // ✅ Hyungnim, added feedback for Alt+Drag copy!
                                         e.preventDefault();
                                         e.stopPropagation();
                                         return;
@@ -1138,17 +1138,17 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                             }
                         };
 
-                        // ✅ 글로벌 복사 이벤트 감지 (우클릭 등 앱 전역 복사 피드백 보강)
+                        // ✅ Global copy event detection (enhancing feedback for context menu copies, etc.)
                         const handleGlobalCopy = () => {
                             const selection = window.getSelection()?.toString();
                             if (selection && selection.length > 0) {
-                                // 단, Ctrl+C 핸들러에서 이미 toast를 띄우므로 중복 방지를 위해 
-                                // activeElement가 input이나 textarea인 경우는 제외하거나 로직 고민 가능.
-                                // 여기서는 단순 텍스트 선택이 있는 경우에만 띄웁니다.
-                                // (Ctrl+C 핸들러에서 preventDefault를 하므로 이 이벤트는 trigger 되지 않을 수도 있음)
+                                // However, since the Ctrl+C handler already shows a toast, to avoid duplication
+                                // logic can be considered to exclude cases where activeElement is an input or textarea.
+                                // Here, it only shows if there is a simple text selection.
+                                // (Since preventDefault is called in the Ctrl+C handler, this event might not be triggered)
                                 console.log('[LogSession] Native copy detected');
                                 if (!document.activeElement?.matches('input, textarea')) {
-                                    addToast('Selection copied to clipboard!', 'success'); // ✅ 우클릭 복사 시에도 피드백 제공
+                                    addToast('Selection copied to clipboard!', 'success'); // ✅ Provide feedback even for context menu copies
                                 }
                             }
                         };
@@ -1210,7 +1210,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     isLoading={isSplitAnalyzing}
                                     progress={splitAnalysisProgress}
                                     onClose={handleCloseSplitAnalysis}
-                                    height={splitAnalyzerHeight} // ✅ 가변 높이 전달
+                                    height={splitAnalyzerHeight} // ✅ Pass variable height
                                     onJumpToRange={(pane, start, end) => {
                                         handleFocusPaneRequest(pane);
                                         if (pane === 'left') {
@@ -1221,7 +1221,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     }}
                                     onViewRawSplit={handleViewRawSplit}
                                 />
-                                {/* 🐧⚡ 드래그 가능한 디바이더 영역 */}
+                                {/* 🐧⚡ Draggable divider area */}
                                 <div
                                     onMouseDown={handleAnalyzerResizeStart}
                                     className={`h-1.5 w-full bg-slate-900 border-y border-blue-500/20 hover:bg-blue-500/40 cursor-row-resize z-50 transition-colors flex items-center justify-center group/resize`}
@@ -1453,25 +1453,25 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                         const val = e.currentTarget.value;
                                         const cmd = val.trim();
                                         
-                                        // 🐧 히스토리 저장 로직 추가
+                                        // 🐧 Added history save logic
                                         if (cmd) {
                                             try {
                                                 const historyJson = localStorage.getItem('recentShellCommands') || '[]';
                                                 let history = JSON.parse(historyJson);
-                                                // 중복 제거 후 맨 앞에 추가
+                                                // Remove duplicates and prepend to the front
                                                 history = history.filter((c: string) => c !== cmd);
                                                 history.unshift(cmd);
-                                                // 최대 20개까지만 보관
+                                                // Keep up to 20 entries
                                                 if (history.length > 20) history = history.slice(0, 20);
                                                 localStorage.setItem('recentShellCommands', JSON.stringify(history));
-                                                // 🐧 실시간 연동을 위한 이벤트 발송
+                                                // 🐧 Dispatch event for real-time synchronization
                                                 window.dispatchEvent(new Event('recentCommandsUpdated'));
                                             } catch (err) {
                                                 console.error('Failed to save recent command', err);
                                             }
                                         }
 
-                                        // 🐧🎯 형님! 시리얼 쉘은 보통 \r 이나 \r\n을 기대합니다. 
+                                        // 🐧🎯 Hyungnim! Serial shells typically expect \r or \r\n. 
                                         const ending = connectionMode === 'serial' ? '\r' : '\n';
                                         sendTizenCommand(val + ending);
                                         e.currentTarget.value = '';

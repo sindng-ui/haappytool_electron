@@ -4,8 +4,8 @@ import * as Lucide from 'lucide-react';
 
 /**
  * [CommonDialogs]
- * HappyTool의 모든 공통 팝업 UI를 담당하는 컴포넌트입니다.
- * 프리미엄 애니메이션(Framer Motion)과 테마가 적용되어 있습니다.
+ * A component responsible for all common popup UIs in HappyTool.
+ * Premium animations (Framer Motion) and themes are applied.
  */
 
 interface BaseDialogProps {
@@ -31,7 +31,7 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
     isDanger = false,
     confirmIcon
 }) => {
-    // ESC 키로 닫기 지원
+    // Support closing with ESC key
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && isOpen) onClose();
@@ -109,7 +109,7 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
 };
 
 /**
- * 확인창 다이얼로그
+ * Confirmation Dialog
  */
 export const ConfirmDialog: React.FC<{
     isOpen: boolean;
@@ -132,7 +132,7 @@ export const ConfirmDialog: React.FC<{
 );
 
 /**
- * 입력창(Prompt) 다이얼로그
+ * Input (Prompt) Dialog
  */
 export const PromptDialog: React.FC<{
     isOpen: boolean;
