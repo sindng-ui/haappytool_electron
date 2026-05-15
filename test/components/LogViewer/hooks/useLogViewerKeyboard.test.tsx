@@ -18,6 +18,7 @@ describe('useLogViewerKeyboard', () => {
             onCopy: vi.fn(),
             onShowBookmarks: vi.fn(),
             onFocusPaneRequest: vi.fn(),
+            onSelectAll: vi.fn(),
             isRawMode: false,
             callbacks: {
                 scrollBy: vi.fn(),
@@ -92,6 +93,31 @@ describe('useLogViewerKeyboard', () => {
 
         expect(event.preventDefault).toHaveBeenCalled();
         expect(mockProps.onShowBookmarks).toHaveBeenCalled();
+    });
+
+    it('handles Ctrl+A for select all', () => {
+        const { result } = renderHook(() => useLogViewerKeyboard(mockProps));
+        const event = { key: 'a', ctrlKey: true, shiftKey: false, preventDefault: vi.fn(), stopPropagation: vi.fn() } as unknown as React.KeyboardEvent;
+
+        act(() => {
+            result.current.handleKeyDown(event);
+        });
+
+        expect(event.preventDefault).toHaveBeenCalled();
+        expect(event.stopPropagation).toHaveBeenCalled();
+        expect(mockProps.onSelectAll).toHaveBeenCalled();
+    });
+
+    it('ignores Ctrl+A if Shift is pressed (conflict prevention for Ctrl+Shift+A)', () => {
+        const { result } = renderHook(() => useLogViewerKeyboard(mockProps));
+        const event = { key: 'A', ctrlKey: true, shiftKey: true, preventDefault: vi.fn(), stopPropagation: vi.fn() } as unknown as React.KeyboardEvent;
+
+        act(() => {
+            result.current.handleKeyDown(event);
+        });
+
+        expect(event.preventDefault).not.toHaveBeenCalled();
+        expect(mockProps.onSelectAll).not.toHaveBeenCalled();
     });
 
     it('handles ArrowDown for navigation', () => {

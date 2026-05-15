@@ -45,7 +45,7 @@ vi.mock('../../components/LogViewer/ConfigSections/ViewSettingsSection', () => (
 
 vi.mock('../../contexts/ToastContext', () => ({ useToast: () => ({ addToast: vi.fn() }) }));
 vi.mock('../../contexts/CommandContext', () => ({ useCommand: () => ({ registerCommand: vi.fn(), unregisterCommand: vi.fn() }) }));
-vi.mock('../../contexts/HappyToolContext', () => ({ useHappyTool: () => ({ settings: { theme: 'dark' }, updateSettings: vi.fn() }) }));
+vi.mock('../../contexts/HappyToolContext', () => ({ useHappyTool: () => ({ settings: { theme: 'dark' }, updateSettings: vi.fn(), configActiveTab: 'settings', setConfigActiveTab: vi.fn() }) }));
 vi.mock('../../components/LogArchive', () => ({ useLogArchiveContext: () => ({ openSidebar: vi.fn() }), LogArchiveProvider: ({ children }: any) => <>{children}</> }));
 
 // Mocking Framer Motion

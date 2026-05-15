@@ -261,9 +261,12 @@ const handleSocketConnection = (socket, deps = {}) => {
         }
 
         console.log('[SSH] Creating SSH client...');
-        if (!ssh2) ssh2 = require('ssh2'); // 🐧 지연 로딩!
-        const { Client: SSHClientLazy } = ssh2;
-        const conn = new SSHClientLazy();
+        let SSHClientConstructor = SSHClient;
+        if (!SSHClientConstructor) {
+            if (!ssh2) ssh2 = require('ssh2'); // 🐧 지연 로딩!
+            SSHClientConstructor = ssh2.Client;
+        }
+        const conn = new SSHClientConstructor();
 
         conn.on('keyboard-interactive', (name, instructions, instructionsLang, prompts, finish) => {
             console.log('[SSH] Keyboard-Interactive Auth Requested');

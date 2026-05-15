@@ -15,6 +15,15 @@ vi.mock('../../contexts/ToastContext', () => ({
     useToast: () => ({ addToast: vi.fn() }),
 }));
 
+vi.mock('../../components/LogViewer/LogViewPreferencesContext', () => ({
+    useLogViewPreferencesContext: () => ({
+        fontSize: 12,
+        lineHeight: 1.2,
+        setFontSize: vi.fn(),
+        setLineHeight: vi.fn(),
+    })
+}));
+
 // Mock Web Worker
 class MockWorker {
     static instances: MockWorker[] = [];
