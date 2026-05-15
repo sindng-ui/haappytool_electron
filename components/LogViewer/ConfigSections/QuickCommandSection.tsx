@@ -552,6 +552,41 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                                             +{info.label}
                                         </button>
                                     ))}
+                                    <button
+                                        onClick={() => {
+                                            setPromptConfig({
+                                                title: 'Add Prompt Token',
+                                                description: 'Enter the message to display to the user when executing this command:',
+                                                onConfirm: (msg: string) => {
+                                                    const el = editorRef.current;
+                                                    if (el && msg.trim()) {
+                                                        const token = `[[PROMPT:${msg.trim()}]]`;
+                                                        const currentCmd = htmlToTokens(el.innerHTML);
+                                                        const newCmd = currentCmd + token;
+                                                        setEditData(prev => ({ ...prev, cmd: newCmd }));
+                                                        el.innerHTML = renderTokensToHtml(newCmd);
+                                                        
+                                                        setTimeout(() => {
+                                                            const freshEl = editorRef.current;
+                                                            if (freshEl) {
+                                                                freshEl.focus();
+                                                                const range = document.createRange();
+                                                                const sel = window.getSelection();
+                                                                range.selectNodeContents(freshEl);
+                                                                range.collapse(false);
+                                                                sel?.removeAllRanges();
+                                                                sel?.addRange(range);
+                                                            }
+                                                        }, 0);
+                                                    }
+                                                },
+                                                onCancel: () => {}
+                                            });
+                                        }}
+                                        className="px-3 py-1.5 rounded-xl border border-sky-500/30 bg-sky-500/20 text-sky-400 text-[9px] font-black transition-all hover:scale-105 active:scale-95"
+                                    >
+                                        +PROMPT
+                                    </button>
                                 </div>
                             </div>
                             <button
