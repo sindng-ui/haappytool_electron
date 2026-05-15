@@ -9,6 +9,7 @@ import PipelineRunner from './components/PipelineRunner';
 import * as Lucide from 'lucide-react';
 import { Pipeline } from './types';
 import { THEME } from './theme';
+import { RenamePipelineDialog, DeleteConfirmDialog } from './components/PipelineDialogs';
 
 interface BlockTestProps {
     isActive?: boolean;
@@ -54,6 +55,10 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
         return localStorage.getItem('blockTestLastPipelineId') || null;
     });
     const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null);
+
+    // Dialog States
+    const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
     React.useEffect(() => {
         if (selectedPipelineId) {
@@ -236,37 +241,14 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
                                 {selectedPipelineId && (
                                     <>
                                         <button
-                                            onClick={() => {
-                                                const current = pipelines.find(p => p.id === selectedPipelineId);
-                                                if (!current) return;
-                                                const newName = window.prompt("Enter new pipeline name:", current.name);
-                                                if (newName && newName.trim() !== "") {
-                                                    updatePipeline({ ...current, name: newName.trim() });
-                                                }
-                                            }}
+                                            onClick={() => setIsRenameDialogOpen(true)}
                                             className={`p-1.5 rounded transition-colors ${THEME.subHeader.deleteBtn} text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30`}
                                             title="Rename Pipeline"
                                         >
                                             <Lucide.Pencil size={16} />
                                         </button>
                                         <button
-                                            onClick={() => {
-                                                if (selectedPipelineId) {
-                                                    const currentIndex = pipelines.findIndex(p => p.id === selectedPipelineId);
-                                                    let nextId: string | null = null;
-
-                                                    if (pipelines.length > 1) {
-                                                        if (currentIndex < pipelines.length - 1) {
-                                                            nextId = pipelines[currentIndex + 1].id;
-                                                        } else {
-                                                            nextId = pipelines[currentIndex - 1].id;
-                                                        }
-                                                    }
-
-                                                    deletePipeline(selectedPipelineId);
-                                                    setSelectedPipelineId(nextId);
-                                                }
-                                            }}
+                                            onClick={() => setIsDeleteDialogOpen(true)}
                                             className={`p-1.5 rounded transition-colors ${THEME.subHeader.deleteBtn}`}
                                             title="Delete Current Pipeline"
                                         >
@@ -318,6 +300,40 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
                     )}
                 </div>
             </div>
+
+            {/* Dialogs */}
+            {editingPipeline && (
+                <>
+                    <RenamePipelineDialog 
+                        isOpen={isRenameDialogOpen}
+                        onClose={() => setIsRenameDialogOpen(false)}
+                        pipeline={editingPipeline}
+                        onRename={(newName) => updatePipeline({ ...editingPipeline, name: newName })}
+                    />
+                    <DeleteConfirmDialog 
+                        isOpen={isDeleteDialogOpen}
+                        onClose={() => setIsDeleteDialogOpen(false)}
+                        pipelineName={editingPipeline.name}
+                        onConfirm={() => {
+                            if (selectedPipelineId) {
+                                const currentIndex = pipelines.findIndex(p => p.id === selectedPipelineId);
+                                let nextId: string | null = null;
+
+                                if (pipelines.length > 1) {
+                                    if (currentIndex < pipelines.length - 1) {
+                                        nextId = pipelines[currentIndex + 1].id;
+                                    } else {
+                                        nextId = pipelines[currentIndex - 1].id;
+                                    }
+                                }
+
+                                deletePipeline(selectedPipelineId);
+                                setSelectedPipelineId(nextId);
+                            }
+                        }}
+                    />
+                </>
+            )}
         </div>
     );
 };
