@@ -50,7 +50,9 @@ const DraggableCommandItem = ({
     return (
         <Reorder.Item
             value={c}
-            className={`group relative flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 ${accent.border} transition-all duration-200 select-none cursor-pointer active:scale-[0.98] shadow-lg shadow-black/40 overflow-hidden`}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className={`group relative flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 ${accent.border} transition-colors duration-200 select-none cursor-pointer shadow-lg shadow-black/40 overflow-hidden z-0 hover:z-10`}
             onMouseEnter={(e) => {
                 setHoveredCmd(c.cmd);
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -66,22 +68,22 @@ const DraggableCommandItem = ({
             <div className={`w-6 h-6 rounded-lg ${accent.bg} flex items-center justify-center shrink-0 transition-colors z-10`}>
                 <Zap size={12} className={accent.text} />
             </div>
-            
+
             <span className="text-[13px] font-bold text-slate-100 group-hover:text-white whitespace-nowrap tracking-tight z-10">
                 {c.name}
             </span>
-            
+
             {/* 🐧 호버 시 나타나는 미니 컨트롤러 */}
             <div className="flex items-center gap-0.5 ml-1 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all duration-300 z-10">
-                <button 
-                    onClick={(e) => { e.stopPropagation(); handleEdit(c, e); }} 
+                <button
+                    onClick={(e) => { e.stopPropagation(); handleEdit(c, e); }}
                     className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-indigo-300 transition-colors"
                     title="Edit"
                 >
                     <Edit2 size={12} />
                 </button>
-                <button 
-                    onClick={(e) => { e.stopPropagation(); handleDelete(c.id, e); }} 
+                <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(c.id, e); }}
                     className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
                     title="Delete"
                 >
@@ -106,7 +108,7 @@ export const QUICK_COMMAND_SPECIAL_TOKENS: Record<string, { label: string, color
 
 // 🐧 글로벌 단축키(Alt+1~9) 연동을 위한 공용 실행 함수
 export const executeQuickCommand = async (
-    rawCmd: string, 
+    rawCmd: string,
     sendCommand: (cmd: string) => void,
     onPrompt?: (msg: string) => Promise<string | null>
 ) => {
@@ -130,14 +132,14 @@ export const executeQuickCommand = async (
         for (const match of promptMatches) {
             const promptMsg = match.replace('[[PROMPT:', '').replace(']]', '');
             let userInput: string | null = null;
-            
+
             if (onPrompt) {
                 userInput = await onPrompt(promptMsg);
             } else {
                 console.error('[QuickCommand] onPrompt callback missing for macro substitution');
                 return;
             }
-            
+
             if (userInput === null) return; // 사용자가 취소하면 전체 실행 중단
             processedCmd = processedCmd.replace(match, userInput);
         }
@@ -317,7 +319,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
 
     const handleDelete = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        
+
         setDialogConfig({
             title: 'Delete Command',
             description: 'Are you sure you want to delete this command?',
@@ -340,7 +342,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
 
     const handleExecute = (cmd: string) => {
         if (!isConnected) return;
-        
+
         const handlePrompt = (msg: string): Promise<string | null> => {
             return new Promise((resolve) => {
                 setPromptConfig({
@@ -380,11 +382,11 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                             <span className="text-[8px] opacity-50 font-mono">Ctrl P P</span>
                         </button>
                         <button
-                            onClick={() => onSpecialKey('ctrl_p_thrice')}
-                            className="flex flex-col items-center justify-center p-3 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/20 text-purple-400 transition-all active:scale-95 group"
+                            onClick={() => onExecute('20089999\n')}
+                            className="flex flex-col items-center justify-center p-3 rounded-xl bg-fuchsia-600/10 hover:bg-fuchsia-600/20 border border-fuchsia-500/20 text-fuchsia-400 transition-all active:scale-95 group"
                         >
-                            <span className="text-[10px] font-black uppercase group-hover:text-purple-300">Re-Act</span>
-                            <span className="text-[8px] opacity-50 font-mono">Ctrl P P P</span>
+                            <span className="text-[10px] font-black uppercase group-hover:text-fuchsia-300">Special Key</span>
+                            <span className="text-[8px] opacity-50 font-mono tracking-widest">20089999↵</span>
                         </button>
                     </div>
                 </div>
@@ -413,7 +415,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                     onReorder={handleReorder}
                     className="flex-1 overflow-y-auto custom-scrollbar pb-10"
                 >
-                    <div className="flex flex-wrap gap-2.5 p-1">
+                    <div className="flex flex-wrap gap-2.5 p-2">
                         {commands.length === 0 && (
                             <div className="w-full py-20 text-center flex flex-col items-center gap-3 opacity-30">
                                 <Terminal size={32} />
@@ -579,7 +581,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                                                         const newCmd = currentCmd + token;
                                                         setEditData(prev => ({ ...prev, cmd: newCmd }));
                                                         el.innerHTML = renderTokensToHtml(newCmd);
-                                                        
+
                                                         setTimeout(() => {
                                                             const freshEl = editorRef.current;
                                                             if (freshEl) {
@@ -594,14 +596,13 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                                                         }, 0);
                                                     }
                                                 },
-                                                onCancel: () => {}
+                                                onCancel: () => { }
                                             });
                                         }}
-                                        className={`px-3 py-1.5 rounded-xl border text-[9px] font-black transition-all ${
-                                            editData.cmd.includes('[[PROMPT:') 
-                                            ? 'border-slate-800 bg-slate-900/50 text-slate-600 cursor-not-allowed opacity-50' 
+                                        className={`px-3 py-1.5 rounded-xl border text-[9px] font-black transition-all ${editData.cmd.includes('[[PROMPT:')
+                                            ? 'border-slate-800 bg-slate-900/50 text-slate-600 cursor-not-allowed opacity-50'
                                             : 'border-sky-500/30 bg-sky-500/20 text-sky-400 hover:scale-105 active:scale-95'
-                                        }`}
+                                            }`}
                                     >
                                         +PROMPT
                                     </button>
@@ -620,7 +621,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
             </AnimatePresence>
 
             {dialogConfig && (
-                <ConfirmDialog 
+                <ConfirmDialog
                     isOpen={true}
                     onClose={() => setDialogConfig(null)}
                     title={dialogConfig.title}
@@ -632,7 +633,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
             )}
 
             {promptConfig && (
-                <PromptDialog 
+                <PromptDialog
                     isOpen={true}
                     onClose={() => {
                         promptConfig.onCancel();

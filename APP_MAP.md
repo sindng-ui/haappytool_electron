@@ -248,7 +248,7 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
     - `LogArchive`: 아카이브 삭제 로직 적용 완료.
     - `PostTool`: 요청 및 그룹 삭제 로직 적용 완료.
     - `LogViewer`: 미션 삭제 시 ConfirmDialog 적용 완료 (LogContext/TopBar 연동).
-    - `LogViewer`: 퀵 커맨드 UI를 **가변형 벤토 칩 그리드**로 개편. 자동 컬러 팔레트(Auto-Coloring) 및 **Zero-Blur(GPU 최적화)** 정책 적용. 🐧🚀⚡
+    - `LogViewer`: 퀵 커맨드 UI를 **가변형 벤토 칩 그리드**로 개편. 자동 컬러 팔레트(Auto-Coloring), **Zero-Blur(GPU 최적화)** 정책 및 **특수키(20089999) 퀵 주입 버튼** 적용. 🐧🚀⚡
 
     - `EasyUML`: 다이어그램 삭제 로직 적용 완료.
     - `BlockTest`: 시나리오 삭제 로직 적용 완료.
