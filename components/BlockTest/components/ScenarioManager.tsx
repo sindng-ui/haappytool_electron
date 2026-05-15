@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Scenario } from '../types';
 import * as Lucide from 'lucide-react';
 import { THEME } from '../theme';
+import { ConfirmDialog } from '../../ui/CommonDialogs';
 
 interface ScenarioManagerProps {
     scenarios: Scenario[];
@@ -24,6 +25,7 @@ const ScenarioManager: React.FC<ScenarioManagerProps> = ({
     const [editingScenario, setEditingScenario] = useState<Scenario | null>(null);
     const [name, setName] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [dialogConfig, setDialogConfig] = useState<any>(null);
 
     const filteredScenarios = scenarios.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -60,12 +62,18 @@ const ScenarioManager: React.FC<ScenarioManagerProps> = ({
 
     const handleDelete = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (confirm('Are you sure you want to delete this scenario?')) {
-            onDeleteScenario(id);
-            if (selectedScenarioId === id) {
-                onSelectScenario('');
+        setDialogConfig({
+            title: 'Delete Scenario',
+            description: 'Are you sure you want to delete this scenario?',
+            confirmLabel: 'Delete',
+            isDanger: true,
+            onConfirm: () => {
+                onDeleteScenario(id);
+                if (selectedScenarioId === id) {
+                    onSelectScenario('');
+                }
             }
-        }
+        });
     };
 
     return (
@@ -179,6 +187,18 @@ const ScenarioManager: React.FC<ScenarioManagerProps> = ({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {dialogConfig && (
+                <ConfirmDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    confirmLabel={dialogConfig.confirmLabel}
+                    isDanger={dialogConfig.isDanger}
+                    onConfirm={dialogConfig.onConfirm}
+                />
             )}
         </div>
     );

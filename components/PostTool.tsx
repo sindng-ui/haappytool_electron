@@ -7,6 +7,7 @@ import ResponseViewer from './PostTool/ResponseViewer';
 import EnvironmentModal from './PostTool/EnvironmentModal';
 import GlobalAuthModal from './PostTool/GlobalAuthModal'; // Added
 import { PostGlobalAuth } from '../types';
+import { ConfirmDialog } from './ui/CommonDialogs';
 
 const { Send, Shield, ShieldCheck, ShieldAlert, ChevronDown, Check, Terminal, Copy, X } = Lucide;
 
@@ -42,6 +43,7 @@ const PostTool: React.FC = () => {
         setRequestHistory
     } = useHappyTool();
     const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+    const [dialogConfig, setDialogConfig] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [responseCache, setResponseCache] = useState<Map<string, PerfResponse>>(new Map());
     // Derived response for current view
@@ -181,21 +183,28 @@ const PostTool: React.FC = () => {
 
     const handleDeleteRequest = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
-        if (window.confirm('Are you sure you want to delete this request?')) {
-            const newRequests = savedRequests.filter(r => r.id !== id);
-            onUpdateRequests(newRequests);
-            // Remove from cache
-            setResponseCache(prev => {
-                const next = new Map(prev);
-                next.delete(id);
-                return next;
-            });
+        
+        setDialogConfig({
+            title: 'Delete Request',
+            description: 'Are you sure you want to delete this request?',
+            confirmLabel: 'Delete',
+            isDanger: true,
+            onConfirm: () => {
+                const newRequests = savedRequests.filter(r => r.id !== id);
+                onUpdateRequests(newRequests);
+                // Remove from cache
+                setResponseCache(prev => {
+                    const next = new Map(prev);
+                    next.delete(id);
+                    return next;
+                });
 
-            if (activeRequestId === id) {
-                setActiveRequestId(null);
-                setCurrentRequest({ id: 'temp', name: 'New Request', method: 'GET', url: '', headers: [{ key: '', value: '' }], body: '' });
+                if (activeRequestId === id) {
+                    setActiveRequestId(null);
+                    setCurrentRequest({ id: 'temp', name: 'New Request', method: 'GET', url: '', headers: [{ key: '', value: '' }], body: '' });
+                }
             }
-        }
+        });
     };
 
     // Variable Replacement Logic
@@ -730,6 +739,18 @@ const PostTool: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+            
+            {dialogConfig && (
+                <ConfirmDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    confirmLabel={dialogConfig.confirmLabel}
+                    isDanger={dialogConfig.isDanger}
+                    onConfirm={dialogConfig.onConfirm}
+                />
             )}
         </div>
     );

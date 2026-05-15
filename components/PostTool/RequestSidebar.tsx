@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as Lucide from 'lucide-react';
 import { SavedRequest, RequestGroup, RequestHistoryItem } from '../../types';
+import { ConfirmDialog } from '../ui/CommonDialogs';
 
 const { List, Plus, Trash2, Folder, FolderOpen, ChevronRight, ChevronDown, FolderPlus, Copy, MoreVertical, History } = Lucide;
 
@@ -33,6 +34,7 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
     const [sidebarTab, setSidebarTab] = useState<'COLLECTIONS' | 'HISTORY'>('COLLECTIONS');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+    const [dialogConfig, setDialogConfig] = useState<any>(null);
     const prevCountRef = useRef(savedRequests.length);
 
     // DnD State
@@ -94,13 +96,19 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
         if (!onUpdateGroups) return;
 
         const children = savedRequests.filter(r => r.groupId === group.id);
-        const confirmMessage = children.length > 0
+        const confirmDescription = children.length > 0
             ? `Group "${group.name}" has ${children.length} requests. Are you sure you want to delete it? The requests will not be deleted but will become unassigned.`
             : `Are you sure you want to delete group "${group.name}"?`;
 
-        if (window.confirm(confirmMessage)) {
-            onUpdateGroups(savedRequestGroups.filter(g => g.id !== group.id));
-        }
+        setDialogConfig({
+            title: 'Delete Group',
+            description: confirmDescription,
+            confirmLabel: 'Delete Group',
+            isDanger: true,
+            onConfirm: () => {
+                onUpdateGroups(savedRequestGroups.filter(g => g.id !== group.id));
+            }
+        });
     };
 
     const toggleGroup = (group: RequestGroup) => {
@@ -516,6 +524,18 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                         </div>
                     )}
                 </div>
+            )}
+
+            {dialogConfig && (
+                <ConfirmDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    confirmLabel={dialogConfig.confirmLabel}
+                    isDanger={dialogConfig.isDanger}
+                    onConfirm={dialogConfig.onConfirm}
+                />
             )}
         </div>
     );

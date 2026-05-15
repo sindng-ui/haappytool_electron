@@ -8,6 +8,7 @@ import TizenAppManager from './TizenAppManager';
 const { FolderTree, Activity, Settings2, Box } = Lucide;
 
 import { useToast } from '../../contexts/ToastContext';
+import { ConfirmDialog } from '../../components/ui/CommonDialogs';
 
 type Tab = 'explorer' | 'perf' | 'apps' | 'settings';
 
@@ -22,6 +23,7 @@ const TizenLabPlugin: React.FC<TizenLabPluginProps> = ({ isActive = false }) => 
     const [activeTab, setActiveTab] = useState<Tab>('explorer');
     const [deviceId, setDeviceId] = useState(() => localStorage.getItem('lastSdbDeviceId') || '');
     const [sdbPath, setSdbPath] = useState(() => localStorage.getItem('tizen_sdb_path') || '');
+    const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
     if (!isActive) return null;
 
@@ -143,20 +145,28 @@ const TizenLabPlugin: React.FC<TizenLabPluginProps> = ({ isActive = false }) => 
 
                             {/* Reset Button */}
                             <button
-                                onClick={() => {
-                                    if (confirm('Reset all Tizen Lab settings to default?')) {
-                                        localStorage.removeItem('tizen_sdb_path');
-                                        localStorage.removeItem('tizen_perf_interval');
-                                        localStorage.removeItem('tizen_last_path');
-                                        localStorage.removeItem('local_last_path');
-                                        location.reload();
-                                    }
-                                }}
+                                onClick={() => setIsResetDialogOpen(true)}
                                 className="w-fit px-6 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-xs font-bold hover:bg-red-500 hover:text-white transition-all mx-auto"
                             >
                                 Reset to Default Settings
                             </button>
                         </div>
+
+                        <ConfirmDialog 
+                            isOpen={isResetDialogOpen}
+                            onClose={() => setIsResetDialogOpen(false)}
+                            title="Reset Settings"
+                            description="Are you sure you want to reset all Tizen Lab settings to default? This will clear SDB paths and preferences."
+                            confirmLabel="Reset Everything"
+                            isDanger={true}
+                            onConfirm={() => {
+                                localStorage.removeItem('tizen_sdb_path');
+                                localStorage.removeItem('tizen_perf_interval');
+                                localStorage.removeItem('tizen_last_path');
+                                localStorage.removeItem('local_last_path');
+                                location.reload();
+                            }}
+                        />
                     </div>
                 )}
             </div>

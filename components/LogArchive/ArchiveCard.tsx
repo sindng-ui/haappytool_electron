@@ -123,9 +123,7 @@ export const ArchiveCard = memo(function ArchiveCard({
                         className="p-1.5 hover:bg-red-900/30 rounded text-slate-400 hover:text-red-400 transition-colors"
                         onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm(`"${archive.title}" 아카이브를 삭제하시겠습니까?`)) {
-                                onDelete(archive);
-                            }
+                            onDelete(archive);
                         }}
                         title="Delete"
                     >

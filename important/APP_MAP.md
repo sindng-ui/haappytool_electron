@@ -277,7 +277,22 @@
 
 ---
 
-## 4. Shared Services & Infrastructure
+## 4. Global UI Components (공용 컴포넌트) 💎 [NEW]
+앱 전체에서 일관된 UX를 제공하기 위한 표준 컴포넌트입니다.
+
+### [[Common Dialogs System]]
+- **ID**: `global-ui-dialogs`
+- **Keywords**: [`ConfirmDialog`, `PromptDialog`, `모달`, `팝업`, `삭제 확인`, `이름 변경`]
+- **Location**: [CommonDialogs.tsx](./components/ui/CommonDialogs.tsx)
+- **Rules**:
+  - `window.confirm()` 및 `window.prompt()` 사용을 지양하고 본 컴포넌트를 사용합니다.
+  - Framer Motion 기반의 프리미엄 애니메이션과 다크 모드 테마가 적용되어 있습니다.
+  - **ConfirmDialog**: 삭제, 초기화 등 확인 절차가 필요할 때 사용 (`isDanger` 옵션으로 Red 스타일링 지원).
+  - **PromptDialog**: 이름 변경, 새 폴더 생성 등 텍스트 입력이 필요할 때 사용.
+
+---
+
+## 5. Shared Services & Infrastructure
 
 ### [[ESM Compatibility Management]] 📦 [NEW]
 - **ID**: `system-esm-compatibility`

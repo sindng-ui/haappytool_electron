@@ -5,6 +5,7 @@ import { Loader2, PackageX } from 'lucide-react';
 import { ArchivedLog } from './db/LogArchiveDB';
 import { ArchiveCard } from './ArchiveCard';
 import { useLogArchive } from './hooks/useLogArchive';
+import { ConfirmDialog } from '../ui/CommonDialogs';
 
 interface ArchiveListProps {
     /**
@@ -83,6 +84,7 @@ export function ArchiveList({
     isEntranceDone = false,
 }: ArchiveListProps) {
     const { deleteArchive } = useLogArchive();
+    const [dialogConfig, setDialogConfig] = React.useState<any>(null);
 
     /**
      * 삭제 핸들러
@@ -91,13 +93,20 @@ export function ArchiveList({
         async (archive: ArchivedLog) => {
             if (!archive.id) return;
 
-            try {
-                await deleteArchive(archive.id);
-                onDeleteProp?.(archive.id);
-            } catch (err) {
-                console.error('[ArchiveList] Failed to delete:', err);
-                alert('Failed to delete archive.');
-            }
+            setDialogConfig({
+                title: 'Delete Archive',
+                description: `Are you sure you want to delete "${archive.title}"?`,
+                confirmLabel: 'Delete',
+                isDanger: true,
+                onConfirm: async () => {
+                    try {
+                        await deleteArchive(archive.id!);
+                        onDeleteProp?.(archive.id!);
+                    } catch (err) {
+                        console.error('[ArchiveList] Failed to delete:', err);
+                    }
+                }
+            });
         },
         [deleteArchive, onDeleteProp]
     );
@@ -169,6 +178,18 @@ export function ArchiveList({
                     Footer,
                 }}
             />
+
+            {dialogConfig && (
+                <ConfirmDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    confirmLabel={dialogConfig.confirmLabel}
+                    isDanger={dialogConfig.isDanger}
+                    onConfirm={dialogConfig.onConfirm}
+                />
+            )}
         </div>
     );
 }

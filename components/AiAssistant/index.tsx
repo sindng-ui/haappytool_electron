@@ -3,6 +3,7 @@ import { useHappyTool } from '../../contexts/HappyToolContext';
 import * as Lucide from 'lucide-react';
 import { db, ChatSession } from './db'; // Import DB
 import { useTextSelectionMenu } from '../LogArchive/hooks/useTextSelectionMenu';
+import { ConfirmDialog } from '../ui/CommonDialogs';
 
 const { Send, Bot, User, Trash2, StopCircle, RefreshCw, Copy, Check, Settings, X, Save, Plus, Paperclip, FileText, History, Download, AlignJustify, Edit2, ChevronRight } = Lucide;
 
@@ -413,6 +414,7 @@ const AiAssistant: React.FC = () => {
     // Chat Renaming State
     const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
     const [editSessionTitle, setEditSessionTitle] = useState('');
+    const [dialogConfig, setDialogConfig] = useState<any>(null);
 
     // Load Sessions Helper
     const loadSessions = async () => {
@@ -589,22 +591,29 @@ const AiAssistant: React.FC = () => {
             alert("Cannot delete the last session.");
             return;
         }
-        if (confirm("Delete this chat?")) {
-            // Calculate next active session manually if deleting active
-            let nextId = activeSessionId;
-            if (activeSessionId === id && sessions.length > 1) {
-                // Find index
-                const idx = sessions.findIndex(s => s.id === id);
-                // Try next, or prev
-                const nextS = sessions[idx + 1] || sessions[idx - 1];
-                if (nextS) nextId = nextS.id;
-            }
 
-            db.sessions.delete(id).then(() => {
-                loadSessions();
-                if (activeSessionId === id) setActiveSessionId(nextId);
-            });
-        }
+        setDialogConfig({
+            title: 'Delete Chat',
+            description: 'Are you sure you want to delete this chat session? All messages will be permanently removed.',
+            confirmLabel: 'Delete Chat',
+            isDanger: true,
+            onConfirm: () => {
+                // Calculate next active session manually if deleting active
+                let nextId = activeSessionId;
+                if (activeSessionId === id && sessions.length > 1) {
+                    // Find index
+                    const idx = sessions.findIndex(s => s.id === id);
+                    // Try next, or prev
+                    const nextS = sessions[idx + 1] || sessions[idx - 1];
+                    if (nextS) nextId = nextS.id;
+                }
+
+                db.sessions.delete(id).then(() => {
+                    loadSessions();
+                    if (activeSessionId === id) setActiveSessionId(nextId);
+                });
+            }
+        });
     };
 
 
@@ -739,21 +748,28 @@ const AiAssistant: React.FC = () => {
             alert("Cannot delete default presets.");
             return;
         }
-        if (!confirm("Delete this prompt?")) return;
-
-        setSystemPrompts(prev => {
-            const updated = prev.filter(p => p.id !== editingPromptId);
-            localStorage.setItem('ai_assistant_prompts', JSON.stringify(updated));
-            // If we deleted the active one, revert to default
-            if (activePromptId === editingPromptId) {
-                updateActiveSession({ activePromptId: 'default' });
+        
+        setDialogConfig({
+            title: 'Delete Prompt',
+            description: `Are you sure you want to delete the prompt "${editName}"?`,
+            confirmLabel: 'Delete',
+            isDanger: true,
+            onConfirm: () => {
+                setSystemPrompts(prev => {
+                    const updated = prev.filter(p => p.id !== editingPromptId);
+                    localStorage.setItem('ai_assistant_prompts', JSON.stringify(updated));
+                    // If we deleted the active one, revert to default
+                    if (activePromptId === editingPromptId) {
+                        updateActiveSession({ activePromptId: 'default' });
+                    }
+                    // If we deleted the one we were editing, switch edit view to default
+                    setEditingPromptId('default');
+                    const def = updated.find(p => p.id === 'default') || DEFAULT_PROMPTS[0];
+                    setEditName(def.name);
+                    setEditContent(def.content);
+                    return updated;
+                });
             }
-            // If we deleted the one we were editing, switch edit view to default
-            setEditingPromptId('default');
-            const def = updated.find(p => p.id === 'default') || DEFAULT_PROMPTS[0];
-            setEditName(def.name);
-            setEditContent(def.content);
-            return updated;
         });
     };
 
@@ -1161,17 +1177,22 @@ const AiAssistant: React.FC = () => {
                                             alert("Cannot delete default presets.");
                                             return;
                                         }
-                                        if (confirm("Delete this role?")) {
-                                            setSystemPrompts(prev => {
-                                                const updated = prev.filter(p => p.id !== activePromptId);
-                                                localStorage.setItem('ai_assistant_prompts', JSON.stringify(updated));
-                                                return updated;
-                                            });
-                                            // Reset active session's role to default if deleted
-                                            if (activePromptId === activePromptId) {
+                                        
+                                        setDialogConfig({
+                                            title: 'Delete Role',
+                                            description: 'Are you sure you want to delete this system role?',
+                                            confirmLabel: 'Delete',
+                                            isDanger: true,
+                                            onConfirm: () => {
+                                                setSystemPrompts(prev => {
+                                                    const updated = prev.filter(p => p.id !== activePromptId);
+                                                    localStorage.setItem('ai_assistant_prompts', JSON.stringify(updated));
+                                                    return updated;
+                                                });
+                                                // Reset active session's role to default if deleted
                                                 updateActiveSession({ activePromptId: 'default' });
                                             }
-                                        }
+                                        });
                                     }}
                                     className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-red-500"
                                     title="Delete Role"
@@ -1504,6 +1525,17 @@ const AiAssistant: React.FC = () => {
                 </div>
             </div>
             {ContextMenuComponent}
+            {dialogConfig && (
+                <ConfirmDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    confirmLabel={dialogConfig.confirmLabel}
+                    isDanger={dialogConfig.isDanger}
+                    onConfirm={dialogConfig.onConfirm}
+                />
+            )}
         </div>
     );
 };

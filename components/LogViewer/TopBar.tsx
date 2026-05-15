@@ -4,6 +4,7 @@ import { useLogContext } from './LogContext';
 import { useToast } from '../../contexts/ToastContext';
 import MissionManagerModal from './MissionManagerModal';
 import { Settings2, ListOrdered } from 'lucide-react';
+import { ConfirmDialog } from '../ui/CommonDialogs';
 
 
 const { Plus, Trash2, Maximize, Columns, Sparkles } = Lucide;
@@ -34,6 +35,7 @@ const TopBar: React.FC<{
         isTizenQuickConnect, setIsTizenQuickConnect, // Added
         setIsSearchFocused, // ✅ Consumed
         quickFilter, setQuickFilter, // ✅ Quick Filter
+        dialogConfig, setDialogConfig, // ✅ Added for Global Dialogs
     } = useLogContext();
 
     // Quick Connect Handler
@@ -247,6 +249,18 @@ const TopBar: React.FC<{
                 rules={rules}
                 onUpdateRules={onUpdateRules}
             />
+
+            {dialogConfig && (
+                <ConfirmDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    confirmLabel={dialogConfig.confirmLabel}
+                    isDanger={dialogConfig.isDanger}
+                    onConfirm={dialogConfig.onConfirm}
+                />
+            )}
         </div>
     );
 };

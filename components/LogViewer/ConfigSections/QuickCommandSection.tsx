@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { Plus, X, Edit2, Trash2, Zap, Terminal, Command, GripVertical } from 'lucide-react';
+import { ConfirmDialog, PromptDialog } from '../../ui/CommonDialogs';
 
 interface QuickCommand {
     id: string;
@@ -94,7 +95,11 @@ export const QUICK_COMMAND_SPECIAL_TOKENS: Record<string, { label: string, color
 };
 
 // 🐧 글로벌 단축키(Alt+1~9) 연동을 위한 공용 실행 함수
-export const executeQuickCommand = async (rawCmd: string, sendCommand: (cmd: string) => void) => {
+export const executeQuickCommand = async (
+    rawCmd: string, 
+    sendCommand: (cmd: string) => void,
+    onPrompt?: (msg: string) => Promise<string | null>
+) => {
     if (!rawCmd) return;
 
     let processedCmd = rawCmd;
@@ -114,7 +119,15 @@ export const executeQuickCommand = async (rawCmd: string, sendCommand: (cmd: str
     if (promptMatches) {
         for (const match of promptMatches) {
             const promptMsg = match.replace('[[PROMPT:', '').replace(']]', '');
-            const userInput = window.prompt(promptMsg);
+            let userInput: string | null = null;
+            
+            if (onPrompt) {
+                userInput = await onPrompt(promptMsg);
+            } else {
+                console.error('[QuickCommand] onPrompt callback missing for macro substitution');
+                return;
+            }
+            
             if (userInput === null) return; // 사용자가 취소하면 전체 실행 중단
             processedCmd = processedCmd.replace(match, userInput);
         }
@@ -180,6 +193,8 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
     const [editData, setEditData] = useState<{ id?: string, name: string, cmd: string }>({ name: '', cmd: '' });
     const [hoveredCmd, setHoveredCmd] = useState<string | null>(null);
     const [hoverPos, setHoverPos] = useState<{ top: number, left: number } | null>(null);
+    const [dialogConfig, setDialogConfig] = useState<any>(null);
+    const [promptConfig, setPromptConfig] = useState<any>(null);
     const editorRef = React.useRef<HTMLDivElement>(null);
 
     // 🐧🎯 순서 변경 시 저장 로직
@@ -292,12 +307,19 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
 
     const handleDelete = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (window.confirm('삭제하시겠습니까?')) {
-            setCommands(prev => prev.filter(c => c.id !== id));
-            // 🐧 형님! 삭제되는 순간 프리뷰 잔상도 깔끔하게 지워줍니다.
-            setHoveredCmd(null);
-            setHoverPos(null);
-        }
+        
+        setDialogConfig({
+            title: 'Delete Command',
+            description: 'Are you sure you want to delete this command?',
+            confirmLabel: 'Delete',
+            isDanger: true,
+            onConfirm: () => {
+                setCommands(prev => prev.filter(c => c.id !== id));
+                // 🐧 형님! 삭제되는 순간 프리뷰 잔상도 깔끔하게 지워줍니다.
+                setHoveredCmd(null);
+                setHoverPos(null);
+            }
+        });
     };
 
     const handleEdit = (cmd: QuickCommand, e: React.MouseEvent) => {
@@ -308,7 +330,19 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
 
     const handleExecute = (cmd: string) => {
         if (!isConnected) return;
-        executeQuickCommand(cmd, onExecute);
+        
+        const handlePrompt = (msg: string): Promise<string | null> => {
+            return new Promise((resolve) => {
+                setPromptConfig({
+                    title: 'Quick Command Input',
+                    description: msg,
+                    onConfirm: (val: string) => resolve(val),
+                    onCancel: () => resolve(null)
+                });
+            });
+        };
+
+        executeQuickCommand(cmd, onExecute, handlePrompt);
     };
 
     return (
@@ -531,6 +565,34 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {dialogConfig && (
+                <ConfirmDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    confirmLabel={dialogConfig.confirmLabel}
+                    isDanger={dialogConfig.isDanger}
+                    onConfirm={dialogConfig.onConfirm}
+                />
+            )}
+
+            {promptConfig && (
+                <PromptDialog 
+                    isOpen={true}
+                    onClose={() => {
+                        promptConfig.onCancel();
+                        setPromptConfig(null);
+                    }}
+                    title={promptConfig.title}
+                    description={promptConfig.description}
+                    onConfirm={(val) => {
+                        promptConfig.onConfirm(val);
+                        setPromptConfig(null);
+                    }}
+                />
+            )}
         </div>
     );
 };

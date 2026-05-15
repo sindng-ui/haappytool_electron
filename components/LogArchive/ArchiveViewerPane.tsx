@@ -5,6 +5,7 @@ import { useLogArchiveContext } from './LogArchiveProvider';
 import { useLogArchive } from './hooks/useLogArchive';
 import { useToast } from '../../contexts/ToastContext';
 import { countLines, decodeHtmlEntities } from './utils';
+import { ConfirmDialog } from '../ui/CommonDialogs';
 
 // Optimized Sub-components
 import { ViewerHeader } from './ArchiveViewer/ViewerHeader';
@@ -53,6 +54,7 @@ export function ArchiveViewerPane({
     // Memo States
     const [isEditingMemo, setIsEditingMemo] = useState(false);
     const [editMemo, setEditMemo] = useState('');
+    const [dialogConfig, setDialogConfig] = useState<any>(null);
 
     // Reset state when archive changes
     useEffect(() => {
@@ -146,13 +148,22 @@ export function ArchiveViewerPane({
     }, [archive, loadArchiveToTab, closeViewer]);
 
     const handleDelete = useCallback(async () => {
-        if (!archive?.id || !confirm(`Delete "${archive.title}"?`)) return;
-        try {
-            await deleteArchive(archive.id);
-            onClose();
-        } catch (err) {
-            addToast('Failed to delete', 'error');
-        }
+        if (!archive?.id) return;
+        
+        setDialogConfig({
+            title: 'Delete Archive',
+            description: `Are you sure you want to delete "${archive.title}"? This action cannot be undone.`,
+            confirmLabel: 'Delete',
+            isDanger: true,
+            onConfirm: async () => {
+                try {
+                    await deleteArchive(archive.id!);
+                    onClose();
+                } catch (err) {
+                    addToast('Failed to delete', 'error');
+                }
+            }
+        });
     }, [archive, deleteArchive, onClose, addToast]);
 
     const handleMemoSave = useCallback(async () => {
@@ -227,6 +238,18 @@ export function ArchiveViewerPane({
                         />
                     </motion.div>
                 </motion.div>
+            )}
+            
+            {dialogConfig && (
+                <ConfirmDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    confirmLabel={dialogConfig.confirmLabel}
+                    isDanger={dialogConfig.isDanger}
+                    onConfirm={dialogConfig.onConfirm}
+                />
             )}
         </AnimatePresence>
     );

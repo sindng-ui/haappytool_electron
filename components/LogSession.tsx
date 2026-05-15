@@ -25,6 +25,7 @@ import { extractTransactionIds } from '../utils/transactionAnalysis';
 
 import { RawContextViewer } from './LogViewer/RawContextViewer';
 import { executeQuickCommand } from './LogViewer/ConfigSections/QuickCommandSection';
+import { PromptDialog } from './ui/CommonDialogs';
 
 const { X, Eraser, ChevronLeft, ChevronRight, GripHorizontal } = Lucide;
 
@@ -125,6 +126,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         clearQuickHighlights
     } = useLogContext();
 
+    const [promptConfig, setPromptConfig] = React.useState<any>(null);
+
     // 🐧⚡ Global Quick Command Hotkeys (Alt+1 ~ Alt+9)
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -140,8 +143,20 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                         const cmdToRun = cmds[num - 1];
                         if (cmdToRun && cmdToRun.cmd) {
                             e.preventDefault();
+                            
+                            const handlePrompt = (msg: string): Promise<string | null> => {
+                                return new Promise((resolve) => {
+                                    setPromptConfig({
+                                        title: 'Quick Command Input',
+                                        description: msg,
+                                        onConfirm: (val: string) => resolve(val),
+                                        onCancel: () => resolve(null)
+                                    });
+                                });
+                            };
+
                             // Execute the command via Tizen socket/serial
-                            executeQuickCommand(cmdToRun.cmd, sendTizenCommand);
+                            executeQuickCommand(cmdToRun.cmd, sendTizenCommand, handlePrompt);
                         }
                     } catch (err) {
                         console.error('Failed to parse quick commands for hotkey', err);
@@ -1568,6 +1583,22 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                         end: splitRawResult.rightOrigLineNum
                     }}
                     clearCacheTick={clearCacheTick}
+                />
+            )}
+
+            {promptConfig && (
+                <PromptDialog 
+                    isOpen={true}
+                    onClose={() => {
+                        promptConfig.onCancel();
+                        setPromptConfig(null);
+                    }}
+                    title={promptConfig.title}
+                    description={promptConfig.description}
+                    onConfirm={(val) => {
+                        promptConfig.onConfirm(val);
+                        setPromptConfig(null);
+                    }}
                 />
             )}
         </div>

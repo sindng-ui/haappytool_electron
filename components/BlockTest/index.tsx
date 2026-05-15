@@ -9,7 +9,7 @@ import PipelineRunner from './components/PipelineRunner';
 import * as Lucide from 'lucide-react';
 import { Pipeline } from './types';
 import { THEME } from './theme';
-import { RenamePipelineDialog, DeleteConfirmDialog } from './components/PipelineDialogs';
+import { ConfirmDialog, PromptDialog } from '../ui/CommonDialogs';
 
 interface BlockTestProps {
     isActive?: boolean;
@@ -304,16 +304,21 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
             {/* Dialogs */}
             {editingPipeline && (
                 <>
-                    <RenamePipelineDialog 
+                    <PromptDialog 
                         isOpen={isRenameDialogOpen}
                         onClose={() => setIsRenameDialogOpen(false)}
-                        pipeline={editingPipeline}
-                        onRename={(newName) => updatePipeline({ ...editingPipeline, name: newName })}
+                        title="Rename Pipeline"
+                        description="Enter a new name for this test pipeline."
+                        initialValue={editingPipeline.name}
+                        onConfirm={(newName) => updatePipeline({ ...editingPipeline, name: newName })}
                     />
-                    <DeleteConfirmDialog 
+                    <ConfirmDialog 
                         isOpen={isDeleteDialogOpen}
                         onClose={() => setIsDeleteDialogOpen(false)}
-                        pipelineName={editingPipeline.name}
+                        title="Delete Pipeline"
+                        description={`Are you sure you want to delete "${editingPipeline.name}"? This action cannot be undone.`}
+                        confirmLabel="Delete"
+                        isDanger={true}
                         onConfirm={() => {
                             if (selectedPipelineId) {
                                 const currentIndex = pipelines.findIndex(p => p.id === selectedPipelineId);

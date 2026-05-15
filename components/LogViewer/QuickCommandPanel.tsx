@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Terminal, Plus, X, Play, Edit2, Trash2, ChevronRight, ChevronLeft, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ConfirmDialog } from '../../ui/CommonDialogs';
 
 interface QuickCommand {
     id: string;
@@ -27,6 +28,7 @@ const QuickCommandPanel: React.FC<QuickCommandPanelProps> = ({ onExecute, onSpec
 
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState<{ id?: string, name: string, cmd: string }>({ name: '', cmd: '' });
+    const [dialogConfig, setDialogConfig] = useState<any>(null);
 
     useEffect(() => {
         localStorage.setItem('quickCommands', JSON.stringify(commands));
@@ -45,9 +47,15 @@ const QuickCommandPanel: React.FC<QuickCommandPanelProps> = ({ onExecute, onSpec
 
     const handleDelete = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (window.confirm('삭제하시겠습니까?')) {
-            setCommands(prev => prev.filter(c => c.id !== id));
-        }
+        setDialogConfig({
+            title: 'Delete Command',
+            description: 'Are you sure you want to delete this command?',
+            confirmLabel: 'Delete',
+            isDanger: true,
+            onConfirm: () => {
+                setCommands(prev => prev.filter(c => c.id !== id));
+            }
+        });
     };
 
     const handleEdit = (cmd: QuickCommand, e: React.MouseEvent) => {
@@ -200,6 +208,18 @@ const QuickCommandPanel: React.FC<QuickCommandPanelProps> = ({ onExecute, onSpec
                 {isExpanded ? <ChevronRight size={20} /> : <Zap size={20} />}
                 {!isExpanded && <span className="text-xs font-black tracking-tighter uppercase">Quick Commands</span>}
             </motion.button>
+
+            {dialogConfig && (
+                <ConfirmDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    confirmLabel={dialogConfig.confirmLabel}
+                    isDanger={dialogConfig.isDanger}
+                    onConfirm={dialogConfig.onConfirm}
+                />
+            )}
         </div>
     );
 };

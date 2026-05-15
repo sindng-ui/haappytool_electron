@@ -237,5 +237,20 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진입니다.
     - `test/frontend/AppCard.animation.test.ts`: 하이브리드 타이밍 및 엇박 딜레이 수치 상시 검증. 🐧🧪✅
 - **Section Collapse Default (2026-05-01)**: Labs 섹션의 기본 상태를 '접힘(collapsed)'으로 변경하여 초기 진입 시 핵심 도구에 집중할 수 있도록 개선. 사용자 변경 상태는 `localStorage`에 자동 저장되어 유지됨. 🐧💾📁
 
+### [Common Dialog System](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/ui/CommonDialogs.tsx) [NEW]
+- **Standardization (2026-05-15)**: [NEW]
+  - **Unified Interaction**: 기존의 `window.confirm()` 및 `window.prompt()`를 완전히 대체하는 React 기반 공통 다이얼로그 시스템 도입. 🐧💎⚡
+  - **Premium Aesthetics**: Framer Motion을 활용한 부드러운 애니메이션, 인디고 테마의 모던 다크 디자인, 그리고 블러(Blur) 효과가 가미된 세련된 UI 제공.
+  - **Component Suite**:
+    - `ConfirmDialog`: 삭제, 초기화 등 위험한 작업을 위한 확인 창. (isDanger 옵션 지원)
+    - `PromptDialog`: 사용자로부터 텍스트 입력을 받기 위한 세련된 입력 창.
+  - **Global Migration Status**:
+    - `LogArchive`: 아카이브 삭제 로직 적용 완료.
+    - `PostTool`: 요청 및 그룹 삭제 로직 적용 완료.
+    - `LogViewer`: 퀵 커맨드 삭제 및 **Alt+1~9 단축키** 입력 시 `PromptDialog` 연동 완료. 🐧🚀
+    - `EasyUML`: 다이어그램 삭제 로직 적용 완료.
+    - `BlockTest`: 시나리오 삭제 로직 적용 완료.
+  - **Minimal Modification Principle**: 기존 비즈니스 로직은 유지하되, 사용자 인터랙션 레이어만 `dialogConfig` 상태 기반으로 깔끔하게 교체하여 사이드 이펙트 방지. 🐧🛡️⚡
+
 ---
-*Last Updated: 2026-05-14 (Quick Command Sidebar Integration & Jump Button Added)*
+*Last Updated: 2026-05-15 (Global Dialog Standardization & CommonDialogs Suite Integrated)*

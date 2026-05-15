@@ -10,6 +10,7 @@ import { ArchiveList } from './ArchiveList';
 import { downloadJSON, openFileDialog, readFileAsText } from './utils';
 import { db } from './db/LogArchiveDB';
 import { useToast } from '../../contexts/ToastContext';
+import { ConfirmDialog } from '../ui/CommonDialogs';
 
 interface ArchiveSidebarProps {
     /**
@@ -41,6 +42,7 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
     const [showStoragePanel, setShowStoragePanel] = useState(false);
     const [cleanupDays, setCleanupDays] = useState(30);
     const [isCleaningUp, setIsCleaningUp] = useState(false);
+    const [dialogConfig, setDialogConfig] = useState<any>(null);
 
     // Register refresh function to context
     const { setRefreshArchives } = useLogArchiveContext();
@@ -164,22 +166,24 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
      * Clear All
      */
     const handleClearAll = useCallback(async () => {
-        if (!confirm('Are you sure you want to delete all archives?')) {
-            return;
-        }
-
-        try {
-            await clearAll();
-            alert('All archives deleted.');
-
-            // 목록 새로고침
-            search({});
-            setTotalCount(0);
-        } catch (err) {
-            console.error('[ArchiveSidebar] Clear failed:', err);
-            alert('Delete failed.');
-        }
-    }, [clearAll, search]);
+        setDialogConfig({
+            title: 'Clear All Archives',
+            description: 'Are you sure you want to delete ALL archives? This action cannot be undone.',
+            confirmLabel: 'Clear Everything',
+            isDanger: true,
+            onConfirm: async () => {
+                try {
+                    await clearAll();
+                    addToast('All archives deleted.', 'success');
+                    search({}, true);
+                    setTotalCount(0);
+                } catch (err) {
+                    console.error('[ArchiveSidebar] Clear failed:', err);
+                    addToast('Delete failed.', 'error');
+                }
+            }
+        });
+    }, [clearAll, search, addToast]);
 
     return (
         <AnimatePresence>
@@ -325,19 +329,27 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
                                             <span>days older</span>
                                             <button
                                                 onClick={async () => {
-                                                    if (!confirm(`Delete archives older than ${cleanupDays} days?`)) return;
-                                                    setIsCleaningUp(true);
-                                                    try {
-                                                        const deleted = await db.deleteOlderThan(cleanupDays);
-                                                        alert(`Deleted ${deleted} archives`);
-                                                        search({}, true);
-                                                        getTotalCount().then(setTotalCount);
-                                                        loadStorageInfo();
-                                                    } catch (e) {
-                                                        console.error('[ArchiveSidebar] Cleanup failed:', e);
-                                                    } finally {
-                                                        setIsCleaningUp(false);
-                                                    }
+                                                    setDialogConfig({
+                                                        title: 'Cleanup Archives',
+                                                        description: `Delete all archives older than ${cleanupDays} days?`,
+                                                        confirmLabel: 'Delete Old Archives',
+                                                        isDanger: true,
+                                                        onConfirm: async () => {
+                                                            setIsCleaningUp(true);
+                                                            try {
+                                                                const deleted = await db.deleteOlderThan(cleanupDays);
+                                                                addToast(`Deleted ${deleted} archives`, 'success');
+                                                                search({}, true);
+                                                                getTotalCount().then(setTotalCount);
+                                                                loadStorageInfo();
+                                                            } catch (e) {
+                                                                console.error('[ArchiveSidebar] Cleanup failed:', e);
+                                                                addToast('Cleanup failed', 'error');
+                                                            } finally {
+                                                                setIsCleaningUp(false);
+                                                            }
+                                                        }
+                                                    });
                                                 }}
                                                 disabled={isCleaningUp}
                                                 style={{
@@ -380,31 +392,34 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
                                                     const input = document.getElementById('deleteSizeInput') as HTMLInputElement;
                                                     const sizeMB = parseInt(input.value) || 10;
 
-                                                    if (!confirm(`Delete all archives larger than ${sizeMB}MB?`)) return;
-                                                    setIsCleaningUp(true);
-                                                    try {
-                                                        const sizeBytes = sizeMB * 1024 * 1024;
-                                                        const deleted = await db.deleteLargerThan(sizeBytes);
+                                                    setDialogConfig({
+                                                        title: 'Cleanup Large Archives',
+                                                        description: `Delete all archives larger than ${sizeMB}MB?`,
+                                                        confirmLabel: 'Delete Large Archives',
+                                                        isDanger: true,
+                                                        onConfirm: async () => {
+                                                            setIsCleaningUp(true);
+                                                            try {
+                                                                const sizeBytes = sizeMB * 1024 * 1024;
+                                                                const deleted = await db.deleteLargerThan(sizeBytes);
 
-                                                        if (deleted > 0) {
-                                                            addToast(`Deleted ${deleted} large archives`, 'success');
-                                                            // Explicitly alert user as requested if toast is missed
-                                                            alert(`${deleted} archives deleted.`);
-                                                        } else {
-                                                            addToast('No archives found to delete.', 'info');
-                                                            alert('No archives found to delete.');
+                                                                if (deleted > 0) {
+                                                                    addToast(`Deleted ${deleted} large archives`, 'success');
+                                                                } else {
+                                                                    addToast('No archives found to delete.', 'info');
+                                                                }
+
+                                                                search({}, true);
+                                                                getTotalCount().then(setTotalCount);
+                                                                loadStorageInfo();
+                                                            } catch (e) {
+                                                                console.error('[ArchiveSidebar] Cleanup large files failed:', e);
+                                                                addToast('Failed to delete large archives', 'error');
+                                                            } finally {
+                                                                setIsCleaningUp(false);
+                                                            }
                                                         }
-
-                                                        search({}, true);
-                                                        getTotalCount().then(setTotalCount);
-                                                        loadStorageInfo();
-                                                    } catch (e) {
-                                                        console.error('[ArchiveSidebar] Cleanup large files failed:', e);
-                                                        addToast('Failed to delete large archives', 'error');
-                                                        alert('Error deleting archives.');
-                                                    } finally {
-                                                        setIsCleaningUp(false);
-                                                    }
+                                                    });
                                                 }}
                                                 disabled={isCleaningUp}
                                                 style={{
@@ -473,6 +488,18 @@ export function ArchiveSidebar({ isOpen, onClose }: ArchiveSidebarProps) {
                         </div>
                     </motion.div>
                 </>
+            )}
+
+            {dialogConfig && (
+                <ConfirmDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    confirmLabel={dialogConfig.confirmLabel}
+                    isDanger={dialogConfig.isDanger}
+                    onConfirm={dialogConfig.onConfirm}
+                />
             )}
         </AnimatePresence>
     );

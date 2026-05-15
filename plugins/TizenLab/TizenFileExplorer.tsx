@@ -10,6 +10,7 @@ const {
 } = Lucide;
 
 import { useToast } from '../../contexts/ToastContext';
+import { ConfirmDialog, PromptDialog } from '../../components/ui/CommonDialogs';
 
 interface FileItem {
     name: string;
@@ -52,6 +53,7 @@ const FileTable = ({
     const lastToastRef = useRef<{ message: string, time: number } | null>(null);
     const lastTabRequestRef = useRef<number>(0);
     const paneRef = useRef<HTMLDivElement>(null);
+    const [dialogConfig, setDialogConfig] = useState<any>(null);
 
     useEffect(() => {
         const handleClick = () => setContextMenu(null);
@@ -129,12 +131,19 @@ const FileTable = ({
                         ? `Are you sure you want to delete ${selectedFiles[0]}?`
                         : `Are you sure you want to delete ${selectedFiles.length} items?`;
 
-                    if (confirm(confirmMsg)) {
-                        selectedFiles.forEach((name: string) => {
-                            onOperation('delete', { file: { name } });
-                        });
-                        onOperation('select_batch', { names: [], clear: true });
-                    }
+                    setDialogConfig({
+                        type: 'confirm',
+                        title: 'Delete Items',
+                        description: confirmMsg,
+                        confirmLabel: 'Delete',
+                        isDanger: true,
+                        onConfirm: () => {
+                            selectedFiles.forEach((name: string) => {
+                                onOperation('delete', { file: { name } });
+                            });
+                            onOperation('select_batch', { names: [], clear: true });
+                        }
+                    });
                 }
 
                 // 2. Ctrl+C (Copy)
@@ -216,8 +225,13 @@ const FileTable = ({
                 </button>
                 <button
                     onClick={() => {
-                        const name = prompt('Enter new folder name:');
-                        if (name) onOperation('mkdir', { name });
+                        setDialogConfig({
+                            type: 'prompt',
+                            title: 'New Folder',
+                            description: 'Enter new folder name:',
+                            placeholder: 'folder_name',
+                            onConfirm: (name: string) => onOperation('mkdir', { name })
+                        });
                     }}
                     className="p-1 hover:bg-slate-800 rounded text-slate-500 hover:text-emerald-400 transition-colors"
                     title="New Folder"
@@ -227,10 +241,17 @@ const FileTable = ({
                 {selectedFiles.length > 0 && (
                     <button
                         onClick={() => {
-                            if (confirm(`Are you sure you want to delete ${selectedFiles.length} item(s)?`)) {
-                                selectedFiles.forEach((name: string) => onOperation('delete', { file: { name } }));
-                                onOperation('select_batch', { names: [], clear: true });
-                            }
+                            setDialogConfig({
+                                type: 'confirm',
+                                title: 'Delete Selected',
+                                description: `Are you sure you want to delete ${selectedFiles.length} item(s)?`,
+                                confirmLabel: 'Delete All',
+                                isDanger: true,
+                                onConfirm: () => {
+                                    selectedFiles.forEach((name: string) => onOperation('delete', { file: { name } }));
+                                    onOperation('select_batch', { names: [], clear: true });
+                                }
+                            });
                         }}
                         className="p-1 hover:bg-red-500/20 rounded text-red-500 transition-colors"
                         title="Delete Selected"
@@ -525,11 +546,18 @@ const FileTable = ({
                     <button
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-300 hover:bg-indigo-500 hover:text-white transition-colors"
                         onClick={() => {
-                            const newName = prompt('Rename to:', contextMenu.file.name);
-                            if (newName && newName !== contextMenu.file.name) {
-                                onOperation('rename', { file: contextMenu.file, newName });
-                            }
                             setContextMenu(null);
+                            setDialogConfig({
+                                type: 'prompt',
+                                title: 'Rename',
+                                description: `Rename "${contextMenu.file.name}" to:`,
+                                initialValue: contextMenu.file.name,
+                                onConfirm: (newName: string) => {
+                                    if (newName && newName !== contextMenu.file.name) {
+                                        onOperation('rename', { file: contextMenu.file, newName });
+                                    }
+                                }
+                            });
                         }}
                     >
                         <Edit3 size={12} /> Rename
@@ -537,15 +565,44 @@ const FileTable = ({
                     <button
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-red-400 hover:bg-red-500 hover:text-white transition-colors"
                         onClick={() => {
-                            if (confirm(`Are you sure you want to delete ${contextMenu.file.name}?`)) {
-                                onOperation('delete', { file: contextMenu.file });
-                            }
                             setContextMenu(null);
+                            setDialogConfig({
+                                type: 'confirm',
+                                title: 'Delete Item',
+                                description: `Are you sure you want to delete ${contextMenu.file.name}?`,
+                                confirmLabel: 'Delete',
+                                isDanger: true,
+                                onConfirm: () => onOperation('delete', { file: contextMenu.file })
+                            });
                         }}
                     >
                         <Trash2 size={12} /> Delete
                     </button>
                 </div>
+            )}
+
+            {/* Common Dialogs Rendering */}
+            {dialogConfig && dialogConfig.type === 'confirm' && (
+                <ConfirmDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    confirmLabel={dialogConfig.confirmLabel}
+                    isDanger={dialogConfig.isDanger}
+                    onConfirm={dialogConfig.onConfirm}
+                />
+            )}
+            {dialogConfig && dialogConfig.type === 'prompt' && (
+                <PromptDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    initialValue={dialogConfig.initialValue}
+                    placeholder={dialogConfig.placeholder}
+                    onConfirm={dialogConfig.onConfirm}
+                />
             )}
         </div>
     );

@@ -3,6 +3,7 @@ import { useHappyTool } from '../../contexts/HappyToolContext';
 import { useToast } from '../../contexts/ToastContext';
 import * as Lucide from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
+import { ConfirmDialog } from '../ui/CommonDialogs';
 
 // --- Constants ---
 const SNAP_Y = 20; // Vertical snap grid
@@ -75,6 +76,7 @@ const EasyUML: React.FC = () => {
     // --- Diagram Management State ---
     const [diagrams, setDiagrams] = useState<SavedDiagram[]>([]);
     const [activeDiagramId, setActiveDiagramId] = useState<string | null>(null);
+    const [dialogConfig, setDialogConfig] = useState<any>(null);
 
     // --- Initialization & Persistence ---
     useEffect(() => {
@@ -189,21 +191,26 @@ const EasyUML: React.FC = () => {
             return;
         }
 
-        const confirm = window.confirm('Are you sure you want to delete this diagram?');
-        if (!confirm) return;
+        setDialogConfig({
+            title: 'Delete Diagram',
+            description: 'Are you sure you want to delete this diagram? This action cannot be undone.',
+            confirmLabel: 'Delete',
+            isDanger: true,
+            onConfirm: () => {
+                const newDiagrams = diagrams.filter(d => d.id !== id);
+                setDiagrams(newDiagrams);
+                localStorage.setItem('happytool_easyuml_diagrams', JSON.stringify(newDiagrams)); // Immediate sync
 
-        const newDiagrams = diagrams.filter(d => d.id !== id);
-        setDiagrams(newDiagrams);
-        localStorage.setItem('happytool_easyuml_diagrams', JSON.stringify(newDiagrams)); // Immediate sync
-
-        // If we deleted the active one, switch to the first available
-        if (activeDiagramId === id) {
-            const next = newDiagrams[0];
-            setActiveDiagramId(next.id);
-            setLifelines(next.lifelines);
-            setMessages(next.messages);
-        }
-        addToast('Diagram Deleted', 'info');
+                // If we deleted the active one, switch to the first available
+                if (activeDiagramId === id) {
+                    const next = newDiagrams[0];
+                    setActiveDiagramId(next.id);
+                    setLifelines(next.lifelines);
+                    setMessages(next.messages);
+                }
+                addToast('Diagram Deleted', 'info');
+            }
+        });
     };
 
     const switchDiagram = (id: string) => {
@@ -2632,6 +2639,17 @@ const EasyUML: React.FC = () => {
                     )
                 }
             </div>
+            {dialogConfig && (
+                <ConfirmDialog 
+                    isOpen={true}
+                    onClose={() => setDialogConfig(null)}
+                    title={dialogConfig.title}
+                    description={dialogConfig.description}
+                    confirmLabel={dialogConfig.confirmLabel}
+                    isDanger={dialogConfig.isDanger}
+                    onConfirm={dialogConfig.onConfirm}
+                />
+            )}
         </div >
     );
 };
