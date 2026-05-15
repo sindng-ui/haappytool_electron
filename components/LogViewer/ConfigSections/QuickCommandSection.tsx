@@ -16,7 +16,16 @@ interface QuickCommandSectionProps {
     isConnected: boolean;
 }
 
-// 🐧🎯 독립된 드래그 핸들과 렌더링을 담당하는 개별 카드 컴포넌트
+// 🐧 칩 전용 다이나믹 컬러 팔레트 (Tailwind PurgeSafe)
+const ACCENT_COLORS = [
+    { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'hover:border-emerald-500/50', glow: 'from-emerald-500/10' },
+    { bg: 'bg-sky-500/20', text: 'text-sky-400', border: 'hover:border-sky-500/50', glow: 'from-sky-500/10' },
+    { bg: 'bg-rose-500/20', text: 'text-rose-400', border: 'hover:border-rose-500/50', glow: 'from-rose-500/10' },
+    { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'hover:border-amber-500/50', glow: 'from-amber-500/10' },
+    { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'hover:border-purple-500/50', glow: 'from-purple-500/10' },
+    { bg: 'bg-fuchsia-500/20', text: 'text-fuchsia-400', border: 'hover:border-fuchsia-500/50', glow: 'from-fuchsia-500/10' },
+];
+
 const DraggableCommandItem = ({
     c,
     handleExecute,
@@ -34,53 +43,54 @@ const DraggableCommandItem = ({
     handleDelete: (id: string, e: React.MouseEvent) => void,
     renderTokensToHtml: (cmd: string) => string
 }) => {
-    const dragControls = useDragControls();
+    // 🐧 이름 기반 해시로 일관된 색상 부여
+    const hash = c.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const accent = ACCENT_COLORS[hash % ACCENT_COLORS.length];
 
     return (
         <Reorder.Item
             value={c}
-            dragListener={false} // 🐧 카드 전체가 아닌 핸들로만 드래그되도록 제한
-            dragControls={dragControls}
-            className="group relative flex items-center justify-between p-3 rounded-2xl bg-slate-900/40 hover:bg-indigo-600/10 border border-slate-800/50 hover:border-indigo-500/30 transition-colors duration-300 select-none"
+            className={`group relative flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 ${accent.border} transition-all duration-200 select-none cursor-pointer active:scale-[0.98] shadow-lg shadow-black/40 overflow-hidden`}
             onMouseEnter={(e) => {
                 setHoveredCmd(c.cmd);
                 const rect = e.currentTarget.getBoundingClientRect();
-                setHoverPos({ top: rect.top, left: rect.right + 20 });
+                // 🐧 HUD 위치 살짝 위로 띄움
+                setHoverPos({ top: rect.top - 15, left: rect.right + 20 });
             }}
             onMouseLeave={() => {
                 setHoveredCmd(null);
                 setHoverPos(null);
             }}
+            onClick={() => handleExecute(c.cmd)}
         >
-            {/* 🐧 전용 드래그 핸들 */}
-            <div
-                className="flex items-center justify-center p-2 mr-2 cursor-grab active:cursor-grabbing text-slate-600 hover:text-indigo-400 hover:bg-white/5 rounded-lg transition-colors"
-                onPointerDown={(e) => dragControls.start(e)}
-            >
-                <GripVertical size={16} />
+            <div className={`w-6 h-6 rounded-lg ${accent.bg} flex items-center justify-center shrink-0 transition-colors z-10`}>
+                <Zap size={12} className={accent.text} />
+            </div>
+            
+            <span className="text-[13px] font-bold text-slate-100 group-hover:text-white whitespace-nowrap tracking-tight z-10">
+                {c.name}
+            </span>
+            
+            {/* 🐧 호버 시 나타나는 미니 컨트롤러 */}
+            <div className="flex items-center gap-0.5 ml-1 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all duration-300 z-10">
+                <button 
+                    onClick={(e) => { e.stopPropagation(); handleEdit(c, e); }} 
+                    className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-indigo-300 transition-colors"
+                    title="Edit"
+                >
+                    <Edit2 size={12} />
+                </button>
+                <button 
+                    onClick={(e) => { e.stopPropagation(); handleDelete(c.id, e); }} 
+                    className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
+                    title="Delete"
+                >
+                    <Trash2 size={12} />
+                </button>
             </div>
 
-            <div
-                className="flex flex-col min-w-0 pr-4 flex-1 cursor-pointer"
-                onClick={() => handleExecute(c.cmd)}
-            >
-                <span className="text-xs font-bold text-slate-200 truncate group-hover:text-white flex items-center gap-2">
-                    {c.name}
-                </span>
-                <span className="text-[10px] text-slate-500 font-mono truncate mt-1 flex items-center flex-wrap gap-1">
-                    {c.cmd.includes('[[') ? (
-                        <div dangerouslySetInnerHTML={{ __html: renderTokensToHtml(c.cmd) }} className="flex items-center gap-1 scale-90 origin-left" />
-                    ) : c.cmd}
-                </span>
-            </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                <button onClick={(e) => handleEdit(c, e)} className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-indigo-400">
-                    <Edit2 size={14} />
-                </button>
-                <button onClick={(e) => handleDelete(c.id, e)} className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-red-400">
-                    <Trash2 size={14} />
-                </button>
-            </div>
+            {/* 🐧 엣지 글로우 효과 (솔리드 그라데이션, 블러 0%) */}
+            <div className={`absolute inset-0 bg-gradient-to-br ${accent.glow} to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`} />
         </Reorder.Item>
     );
 };
@@ -401,26 +411,28 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                     axis="y"
                     values={commands}
                     onReorder={handleReorder}
-                    className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar pb-10"
+                    className="flex-1 overflow-y-auto custom-scrollbar pb-10"
                 >
-                    {commands.length === 0 && (
-                        <div className="py-20 text-center flex flex-col items-center gap-3 opacity-30">
-                            <Terminal size={32} />
-                            <span className="text-xs font-medium">No commands saved.</span>
-                        </div>
-                    )}
-                    {commands.map((c) => (
-                        <DraggableCommandItem
-                            key={c.id}
-                            c={c}
-                            handleExecute={handleExecute}
-                            setHoveredCmd={setHoveredCmd}
-                            setHoverPos={setHoverPos}
-                            handleEdit={handleEdit}
-                            handleDelete={handleDelete}
-                            renderTokensToHtml={renderTokensToHtml}
-                        />
-                    ))}
+                    <div className="flex flex-wrap gap-2.5 p-1">
+                        {commands.length === 0 && (
+                            <div className="w-full py-20 text-center flex flex-col items-center gap-3 opacity-30">
+                                <Terminal size={32} />
+                                <span className="text-xs font-medium">No commands saved.</span>
+                            </div>
+                        )}
+                        {commands.map((c) => (
+                            <DraggableCommandItem
+                                key={c.id}
+                                c={c}
+                                handleExecute={handleExecute}
+                                setHoveredCmd={setHoveredCmd}
+                                setHoverPos={setHoverPos}
+                                handleEdit={handleEdit}
+                                handleDelete={handleDelete}
+                                renderTokensToHtml={renderTokensToHtml}
+                            />
+                        ))}
+                    </div>
                 </Reorder.Group>
             </div>
 
