@@ -11,7 +11,7 @@ interface QuickCommand {
 
 interface QuickCommandPanelProps {
     onExecute: (cmd: string) => void;
-    onSpecialKey?: (key: 'ctrl_p' | 'ctrl_p_twice' | 'ctrl_p_thrice') => void;
+    onSpecialKey?: (key: 'ctrl_p' | 'ctrl_c' | 'ctrl_p_thrice') => void;
     isConnected: boolean;
 }
 
@@ -121,11 +121,11 @@ const QuickCommandPanel: React.FC<QuickCommandPanelProps> = ({ onExecute, onSpec
                                             <span className="text-[8px] opacity-60">Ctrl+P</span>
                                         </button>
                                         <button 
-                                            onClick={() => onSpecialKey('ctrl_p_twice')}
-                                            className="flex flex-col items-center justify-center p-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-300 transition-all active:scale-95"
+                                            onClick={() => onSpecialKey('ctrl_c')}
+                                            className="flex flex-col items-center justify-center p-2 rounded-lg bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 text-red-300 transition-all active:scale-95"
                                         >
-                                            <span className="text-[10px] font-black">UNLOCK</span>
-                                            <span className="text-[8px] opacity-60">Ctrl+P x2</span>
+                                            <span className="text-[10px] font-black">CANCEL</span>
+                                            <span className="text-[8px] opacity-60">Ctrl+C</span>
                                         </button>
                                         <button 
                                             onClick={() => onSpecialKey('ctrl_p_thrice')}

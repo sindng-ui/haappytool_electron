@@ -126,8 +126,9 @@ const handleSocketConnection = (socket, deps = {}) => {
         if (!serialService) return;
         if (key === 'ctrl_p') {
             serialService.write(Buffer.from([0x10]));
-        } else if (key === 'ctrl_p_twice') {
-            serialService.write(Buffer.from([0x10, 0x10]));
+        } else if (key === 'ctrl_c') {
+            // 🐧 Ctrl+C = ASCII 0x03 (ETX): 시리얼 터미널에서 실행 중인 명령 취소
+            serialService.write(Buffer.from([0x03]));
         } else if (key === 'ctrl_p_thrice') {
             serialService.write(Buffer.from([0x10, 0x10, 0x10]));
         }

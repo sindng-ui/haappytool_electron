@@ -12,7 +12,7 @@ interface QuickCommand {
 
 interface QuickCommandSectionProps {
     onExecute: (cmd: string) => void;
-    onSpecialKey?: (key: 'ctrl_p' | 'ctrl_p_twice' | 'ctrl_p_thrice') => void;
+    onSpecialKey?: (key: 'ctrl_p' | 'ctrl_c' | 'ctrl_p_thrice') => void;
     isConnected: boolean;
 }
 
@@ -506,11 +506,11 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                             <span className="text-[8px] opacity-50 font-mono">Ctrl P</span>
                         </button>
                         <button
-                            onClick={() => onSpecialKey('ctrl_p_twice')}
-                            className="flex flex-col items-center justify-center p-3 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 text-indigo-400 transition-all active:scale-95 group"
+                            onClick={() => onSpecialKey('ctrl_c')}
+                            className="flex flex-col items-center justify-center p-3 rounded-xl bg-red-600/10 hover:bg-red-600/20 border border-red-500/20 text-red-400 transition-all active:scale-95 group"
                         >
-                            <span className="text-[10px] font-black uppercase group-hover:text-indigo-300">Unlock</span>
-                            <span className="text-[8px] opacity-50 font-mono">Ctrl P P</span>
+                            <span className="text-[10px] font-black uppercase group-hover:text-red-300">Cancel</span>
+                            <span className="text-[8px] opacity-50 font-mono">Ctrl+C</span>
                         </button>
                         <button
                             onClick={() => onExecute('20089999\n')}

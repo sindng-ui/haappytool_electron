@@ -210,7 +210,7 @@ export function useTizenConnection({
         }
     }, [tizenSocket, connectionMode]);
     
-    const sendSerialSpecialKey = useCallback((key: 'ctrl_p' | 'ctrl_p_twice' | 'ctrl_p_thrice') => {
+    const sendSerialSpecialKey = useCallback((key: 'ctrl_p' | 'ctrl_c' | 'ctrl_p_thrice') => {
         if (tizenSocket && connectionMode === 'serial') {
             tizenSocket.emit('serial_special_key', key);
         }
