@@ -33,7 +33,11 @@ const DraggableCommandItem = ({
     setHoverPos,
     handleEdit,
     handleDelete,
-    renderTokensToHtml
+    renderTokensToHtml,
+    draggedId,
+    onDragStart,
+    onDragEnter,
+    onDragEnd
 }: {
     c: QuickCommand,
     handleExecute: (cmd: string) => void,
@@ -41,19 +45,35 @@ const DraggableCommandItem = ({
     setHoverPos: (pos: { top: number, left: number } | null) => void,
     handleEdit: (c: QuickCommand, e: React.MouseEvent) => void,
     handleDelete: (id: string, e: React.MouseEvent) => void,
-    renderTokensToHtml: (cmd: string) => string
+    renderTokensToHtml: (cmd: string) => string,
+    draggedId: string | null,
+    onDragStart: (id: string) => void,
+    onDragEnter: (id: string) => void,
+    onDragEnd: () => void
 }) => {
     // 🐧 이름 기반 해시로 일관된 색상 부여
     const hash = c.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const accent = ACCENT_COLORS[hash % ACCENT_COLORS.length];
 
     return (
-        <Reorder.Item
-            value={c}
+        <motion.div
+            layout
+            draggable
+            onDragStart={(e) => {
+                // HTML5 Drag UI 세팅
+                if (e.dataTransfer) {
+                    e.dataTransfer.effectAllowed = 'move';
+                }
+                onDragStart(c.id);
+            }}
+            onDragEnter={() => onDragEnter(c.id)}
+            onDragEnd={onDragEnd}
+            onDragOver={(e) => e.preventDefault()}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className={`group relative flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 ${accent.border} transition-colors duration-200 select-none cursor-pointer shadow-lg shadow-black/40 overflow-hidden z-0 hover:z-10`}
+            className={`group relative flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 ${accent.border} transition-colors duration-200 select-none cursor-pointer shadow-lg shadow-black/40 overflow-hidden ${draggedId === c.id ? 'opacity-40 scale-95' : 'opacity-100 z-0 hover:z-10'}`}
             onMouseEnter={(e) => {
+                if (draggedId) return; // 🐧 드래그 중에는 프리뷰 차단
                 setHoveredCmd(c.cmd);
                 const rect = e.currentTarget.getBoundingClientRect();
                 // 🐧 HUD 위치 살짝 위로 띄움
@@ -93,7 +113,7 @@ const DraggableCommandItem = ({
 
             {/* 🐧 엣지 글로우 효과 (솔리드 그라데이션, 블러 0%) */}
             <div className={`absolute inset-0 bg-gradient-to-br ${accent.glow} to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`} />
-        </Reorder.Item>
+        </motion.div>
     );
 };
 
@@ -238,6 +258,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
     const [dialogConfig, setDialogConfig] = useState<{ title: string, description: string | React.ReactNode, onConfirm: () => void } | null>(null);
     const [promptConfig, setPromptConfig] = useState<{ title: string, description: string, onConfirm: (val: string) => void, onCancel: () => void } | null>(null);
     const [recentCommands, setRecentCommands] = useState<string[]>([]);
+    const [draggedId, setDraggedId] = useState<string | null>(null);
     const editorRef = React.useRef<HTMLDivElement>(null);
 
     const loadRecentCommands = () => {
@@ -266,11 +287,33 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
         } catch (e) {}
     };
 
-    // 🐧🎯 순서 변경 시 저장 로직
-    const handleReorder = (newOrder: QuickCommand[]) => {
-        if (searchQuery.trim() !== '') return; // 검색 중에는 순서 변경(덮어쓰기) 방지
-        setCommands(newOrder);
-        localStorage.setItem('quickCommands', JSON.stringify(newOrder));
+    // 🐧🎯 HTML5 Drag & Drop 순서 변경 (2D Flex Wrap 완벽 지원)
+    const handleDragStart = (id: string) => {
+        if (searchQuery.trim() !== '') return;
+        setDraggedId(id);
+        setHoveredCmd(null); // 드래그 시작 시 HUD 숨김
+        setHoverPos(null);
+    };
+
+    const handleDragEnter = (targetId: string) => {
+        if (!draggedId || draggedId === targetId) return;
+        if (searchQuery.trim() !== '') return;
+
+        setCommands(prev => {
+            const draggedIdx = prev.findIndex(c => c.id === draggedId);
+            const targetIdx = prev.findIndex(c => c.id === targetId);
+            if (draggedIdx === -1 || targetIdx === -1) return prev;
+
+            const newCmds = [...prev];
+            const [draggedItem] = newCmds.splice(draggedIdx, 1);
+            newCmds.splice(targetIdx, 0, draggedItem);
+            return newCmds;
+        });
+    };
+
+    const handleDragEnd = () => {
+        setDraggedId(null);
+        // 상태가 변경된 commands는 useEffect를 통해 localStorage에 자동 저장됨
     };
 
     const filteredCommands = React.useMemo(() => {
@@ -491,33 +534,30 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                         </div>
                     </div>
 
-                    <Reorder.Group
-                        axis="y"
-                        values={filteredCommands}
-                        onReorder={handleReorder}
-                        className=""
-                    >
-                        <div className="flex flex-wrap gap-2.5 p-2">
-                            {filteredCommands.length === 0 && (
-                                <div className="w-full py-10 text-center flex flex-col items-center gap-3 opacity-30">
-                                    <Terminal size={32} />
-                                    <span className="text-xs font-medium">No commands found.</span>
-                                </div>
-                            )}
-                            {filteredCommands.map((c) => (
-                                <DraggableCommandItem
-                                    key={c.id}
-                                    c={c}
-                                    handleExecute={handleExecute}
-                                    setHoveredCmd={setHoveredCmd}
-                                    setHoverPos={setHoverPos}
-                                    handleEdit={handleEdit}
-                                    handleDelete={handleDelete}
-                                    renderTokensToHtml={renderTokensToHtml}
-                                />
-                            ))}
-                        </div>
-                    </Reorder.Group>
+                    <div className="flex flex-wrap gap-2.5 p-2">
+                        {filteredCommands.length === 0 && (
+                            <div className="w-full py-10 text-center flex flex-col items-center gap-3 opacity-30">
+                                <Terminal size={32} />
+                                <span className="text-xs font-medium">No commands found.</span>
+                            </div>
+                        )}
+                        {filteredCommands.map((c) => (
+                            <DraggableCommandItem
+                                key={c.id}
+                                c={c}
+                                handleExecute={handleExecute}
+                                setHoveredCmd={setHoveredCmd}
+                                setHoverPos={setHoverPos}
+                                handleEdit={handleEdit}
+                                handleDelete={handleDelete}
+                                renderTokensToHtml={renderTokensToHtml}
+                                draggedId={draggedId}
+                                onDragStart={handleDragStart}
+                                onDragEnter={handleDragEnter}
+                                onDragEnd={handleDragEnd}
+                            />
+                        ))}
+                    </div>
                 </div>
 
                 {/* 🐧 Recent Commands */}
@@ -547,7 +587,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
             {/* 🐧🎯 글로벌 전문 프리뷰 HUD (마우스 오버한 카드 우측에 밀착 렌더링) */}
             {typeof document !== 'undefined' && createPortal(
                 <AnimatePresence>
-                    {hoveredCmd && hoverPos && (
+                    {hoveredCmd && hoverPos && !draggedId && (
                         <motion.div
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
