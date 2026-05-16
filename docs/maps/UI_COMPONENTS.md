@@ -7,7 +7,7 @@
 - **Tizen Connection (2026-05-09)**: [NEW]
   - **Serial Support**: SDB, SSH 외에 **Serial(COM Port)** 직접 연결 모드 추가. 🐧🔌
   - **Auto Port Detection**: 사용 가능한 COM 포트 목록 자동 스캔.
-  - **Quick Command Palette**: 플로팅 패널을 통한 빠른 명령어 전송. 🐧🚀⚡
+  - **Quick Command Palette (2026-05-17)**: 플로팅 패널을 통한 빠른 명령어 전송 및 실시간 검색(Search Bar) 추가. 🐧🚀⚡
 - **Bookmarks Modal Export (2026-04-10)**:
   - **Confluence Table Fix**: 마크업 생성 로직 개선.
   - **Original Line Number Support**: 원본 라인 번호 매핑 안정화.

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
-import { Plus, X, Edit2, Trash2, Zap, Terminal, Command, GripVertical, History } from 'lucide-react';
+import { Plus, X, Edit2, Trash2, Zap, Terminal, Command, GripVertical, History, Search } from 'lucide-react';
 import { ConfirmDialog, PromptDialog } from '../../ui/CommonDialogs';
 
 interface QuickCommand {
@@ -234,6 +234,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
     const [editData, setEditData] = useState<Omit<QuickCommand, 'id'> & { id?: string }>({ name: '', cmd: '' });
     const [hoveredCmd, setHoveredCmd] = useState<string | null>(null);
     const [hoverPos, setHoverPos] = useState<{ top: number, left: number } | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
     const [dialogConfig, setDialogConfig] = useState<{ title: string, description: string | React.ReactNode, onConfirm: () => void } | null>(null);
     const [promptConfig, setPromptConfig] = useState<{ title: string, description: string, onConfirm: (val: string) => void, onCancel: () => void } | null>(null);
     const [recentCommands, setRecentCommands] = useState<string[]>([]);
@@ -267,9 +268,16 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
 
     // 🐧🎯 순서 변경 시 저장 로직
     const handleReorder = (newOrder: QuickCommand[]) => {
+        if (searchQuery.trim() !== '') return; // 검색 중에는 순서 변경(덮어쓰기) 방지
         setCommands(newOrder);
         localStorage.setItem('quickCommands', JSON.stringify(newOrder));
     };
+
+    const filteredCommands = React.useMemo(() => {
+        if (!searchQuery.trim()) return commands;
+        const q = searchQuery.toLowerCase();
+        return commands.filter(c => c.name.toLowerCase().includes(q) || c.cmd.toLowerCase().includes(q));
+    }, [commands, searchQuery]);
 
     // 🐧 토큰을 칩으로 렌더링하는 함수 (스마트 매크로 추가)
     const renderTokensToHtml = (cmd: string) => {
@@ -458,30 +466,45 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
                             <Zap size={14} className="text-amber-400" />
                             <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">User Commands</h3>
                         </div>
-                        <button
-                            onClick={() => { setIsEditing(true); setEditData({ name: '', cmd: '' }); }}
-                            className="group flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400/50 transition-all active:scale-95"
-                            title="Add Command"
-                        >
-                            <Plus size={12} className="text-indigo-400 group-hover:rotate-90 transition-transform duration-300" />
-                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">New</span>
-                        </button>
+                        <div className="flex items-center gap-3">
+                            {/* Search Bar */}
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Search size={12} className="text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Search commands..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-56 bg-slate-900/80 border border-slate-700 hover:border-slate-600 focus:border-indigo-500/60 rounded-full pl-8 pr-4 py-1.5 text-xs text-slate-200 focus:bg-slate-900 outline-none transition-all placeholder-slate-500 shadow-inner shadow-black/20"
+                                />
+                            </div>
+                            <button
+                                onClick={() => { setIsEditing(true); setEditData({ name: '', cmd: '' }); }}
+                                className="group flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400/50 transition-all active:scale-95"
+                                title="Add Command"
+                            >
+                                <Plus size={12} className="text-indigo-400 group-hover:rotate-90 transition-transform duration-300" />
+                                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">New</span>
+                            </button>
+                        </div>
                     </div>
 
                     <Reorder.Group
                         axis="y"
-                        values={commands}
+                        values={filteredCommands}
                         onReorder={handleReorder}
                         className=""
                     >
                         <div className="flex flex-wrap gap-2.5 p-2">
-                            {commands.length === 0 && (
+                            {filteredCommands.length === 0 && (
                                 <div className="w-full py-10 text-center flex flex-col items-center gap-3 opacity-30">
                                     <Terminal size={32} />
-                                    <span className="text-xs font-medium">No commands saved.</span>
+                                    <span className="text-xs font-medium">No commands found.</span>
                                 </div>
                             )}
-                            {commands.map((c) => (
+                            {filteredCommands.map((c) => (
                                 <DraggableCommandItem
                                     key={c.id}
                                     c={c}

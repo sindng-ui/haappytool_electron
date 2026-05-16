@@ -29,6 +29,14 @@ const QuickCommandPanel: React.FC<QuickCommandPanelProps> = ({ onExecute, onSpec
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState<{ id?: string, name: string, cmd: string }>({ name: '', cmd: '' });
     const [dialogConfig, setDialogConfig] = useState<any>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const filteredCommands = useMemo(() => {
+        return commands.filter(c => 
+            c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+            c.cmd.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [commands, searchQuery]);
 
     useEffect(() => {
         localStorage.setItem('quickCommands', JSON.stringify(commands));
@@ -89,6 +97,16 @@ const QuickCommandPanel: React.FC<QuickCommandPanelProps> = ({ onExecute, onSpec
                             </button>
                         </div>
 
+                        <div className="px-3 py-2 border-b border-slate-800/50 bg-slate-900/30">
+                            <input
+                                type="text"
+                                placeholder="Search commands..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-slate-950/50 border border-slate-700/50 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:border-indigo-500/50 focus:bg-slate-900 outline-none placeholder-slate-600 transition-all"
+                            />
+                        </div>
+
                         <div className="flex-1 overflow-y-auto max-h-[400px] p-2 custom-scrollbar space-y-1">
                             {/* 🐧 Special Serial Keys Section */}
                             {onSpecialKey && (
@@ -120,12 +138,12 @@ const QuickCommandPanel: React.FC<QuickCommandPanelProps> = ({ onExecute, onSpec
                                 </div>
                             )}
 
-                            {commands.length === 0 && !onSpecialKey && (
+                            {filteredCommands.length === 0 && !onSpecialKey && (
                                 <div className="py-8 text-center text-slate-500 text-[10px]">
-                                    명령어를 추가해 주세요.
+                                    {commands.length === 0 ? '명령어를 추가해 주세요.' : '검색 결과가 없습니다.'}
                                 </div>
                             )}
-                            {commands.map((c) => (
+                            {filteredCommands.map((c) => (
                                 <div
                                     key={c.id}
                                     onClick={() => onExecute(c.cmd)}
