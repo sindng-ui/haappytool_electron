@@ -47,8 +47,8 @@ const DraggableCommandItem = ({
     handleDelete: (id: string, e: React.MouseEvent) => void,
     renderTokensToHtml: (cmd: string) => string,
     draggedId: string | null,
-    onDragStart: (id: string) => void,
-    onDragEnter: (id: string) => void,
+    onDragStart: (id: string, e: React.DragEvent) => void,
+    onDragEnter: (id: string, e: React.DragEvent) => void,
     onDragEnd: () => void
 }) => {
     // 🐧 이름 기반 해시로 일관된 색상 부여
@@ -57,6 +57,7 @@ const DraggableCommandItem = ({
 
     return (
         <motion.div
+            id={`cmd-${c.id}`}
             layout
             draggable
             onDragStart={(e) => {
@@ -64,11 +65,14 @@ const DraggableCommandItem = ({
                 if (e.dataTransfer) {
                     e.dataTransfer.effectAllowed = 'move';
                 }
-                onDragStart(c.id);
+                onDragStart(c.id, e);
             }}
-            onDragEnter={() => onDragEnter(c.id)}
-            onDragEnd={onDragEnd}
+            onDragEnter={(e) => {
+                e.preventDefault();
+                onDragEnter(c.id, e);
+            }}
             onDragOver={(e) => e.preventDefault()}
+            onDragEnd={onDragEnd}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className={`group relative flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 ${accent.border} transition-colors duration-200 select-none cursor-pointer shadow-lg shadow-black/40 overflow-hidden ${draggedId === c.id ? 'opacity-40 scale-95 z-50' : 'opacity-100 z-0 hover:z-10'}`}
@@ -259,8 +263,10 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
     const [promptConfig, setPromptConfig] = useState<{ title: string, description: string, onConfirm: (val: string) => void, onCancel: () => void } | null>(null);
     const [recentCommands, setRecentCommands] = useState<string[]>([]);
     const [draggedId, setDraggedId] = useState<string | null>(null);
+    const draggedIdRef = React.useRef<string | null>(null); // stale closure 방지용 ref
     const editorRef = React.useRef<HTMLDivElement>(null);
     const lastSwapTime = React.useRef<number>(0);
+    const dragOffset = React.useRef({ x: 0, y: 0 });
 
     const loadRecentCommands = () => {
         try {
@@ -289,36 +295,47 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
     };
 
     // 🐧🎯 HTML5 Drag & Drop 순서 변경 (2D Flex Wrap 완벽 지원)
-    const handleDragStart = (id: string) => {
+    const handleDragStart = (id: string, e: React.DragEvent) => {
         if (searchQuery.trim() !== '') return;
+        draggedIdRef.current = id; // ref 먼저 세팅 (즉시 반영)
         setDraggedId(id);
-        setHoveredCmd(null); // 드래그 시작 시 HUD 숨김
+        setHoveredCmd(null);
         setHoverPos(null);
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        dragOffset.current = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
     };
 
-    const handleDragEnter = (targetId: string) => {
-        if (!draggedId || draggedId === targetId) return;
+    // 🐧 onDragEnter 기반 정렬
+    // onDragEnter는 마우스가 카드 경계를 '진입'하는 순간 정확히 1회 발생 → 가장 신뢰할 수 있는 이벤트
+    // 쿨다운(150ms)으로 빠른 연속 swap 방지 (oscillation 차단)
+    const handleDragEnter = (targetId: string, _e: React.DragEvent) => {
+        const currentDraggedId = draggedIdRef.current;
+        if (!currentDraggedId || currentDraggedId === targetId) return;
         if (searchQuery.trim() !== '') return;
 
         const now = Date.now();
-        // 🐧 프레이머 모션의 스왑 애니메이션 도중 마우스에 스치는 걸 무시하기 위한 150ms 쿨다운
         if (now - lastSwapTime.current < 150) return;
 
+        lastSwapTime.current = now;
+
         setCommands(prev => {
-            const draggedIdx = prev.findIndex(c => c.id === draggedId);
+            const draggedIdx = prev.findIndex(c => c.id === currentDraggedId);
             const targetIdx = prev.findIndex(c => c.id === targetId);
             if (draggedIdx === -1 || targetIdx === -1) return prev;
 
             const newCmds = [...prev];
             const [draggedItem] = newCmds.splice(draggedIdx, 1);
             newCmds.splice(targetIdx, 0, draggedItem);
-            
-            lastSwapTime.current = now; // 스왑 성공 시 쿨다운 갱신
             return newCmds;
         });
     };
 
     const handleDragEnd = () => {
+        draggedIdRef.current = null;
         setDraggedId(null);
         // 상태가 변경된 commands는 useEffect를 통해 localStorage에 자동 저장됨
     };
