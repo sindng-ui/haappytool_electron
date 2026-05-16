@@ -71,7 +71,7 @@ const DraggableCommandItem = ({
             onDragOver={(e) => e.preventDefault()}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className={`group relative flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 ${accent.border} transition-colors duration-200 select-none cursor-pointer shadow-lg shadow-black/40 overflow-hidden ${draggedId === c.id ? 'opacity-40 scale-95' : 'opacity-100 z-0 hover:z-10'}`}
+            className={`group relative flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 ${accent.border} transition-colors duration-200 select-none cursor-pointer shadow-lg shadow-black/40 overflow-hidden ${draggedId === c.id ? 'opacity-40 scale-95 z-50' : 'opacity-100 z-0 hover:z-10'}`}
             onMouseEnter={(e) => {
                 if (draggedId) return; // 🐧 드래그 중에는 프리뷰 차단
                 setHoveredCmd(c.cmd);
@@ -260,6 +260,7 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
     const [recentCommands, setRecentCommands] = useState<string[]>([]);
     const [draggedId, setDraggedId] = useState<string | null>(null);
     const editorRef = React.useRef<HTMLDivElement>(null);
+    const lastSwapTime = React.useRef<number>(0);
 
     const loadRecentCommands = () => {
         try {
@@ -299,6 +300,10 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
         if (!draggedId || draggedId === targetId) return;
         if (searchQuery.trim() !== '') return;
 
+        const now = Date.now();
+        // 🐧 프레이머 모션의 스왑 애니메이션 도중 마우스에 스치는 걸 무시하기 위한 150ms 쿨다운
+        if (now - lastSwapTime.current < 150) return;
+
         setCommands(prev => {
             const draggedIdx = prev.findIndex(c => c.id === draggedId);
             const targetIdx = prev.findIndex(c => c.id === targetId);
@@ -307,6 +312,8 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
             const newCmds = [...prev];
             const [draggedItem] = newCmds.splice(draggedIdx, 1);
             newCmds.splice(targetIdx, 0, draggedItem);
+            
+            lastSwapTime.current = now; // 스왑 성공 시 쿨다운 갱신
             return newCmds;
         });
     };
