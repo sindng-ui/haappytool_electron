@@ -6,6 +6,7 @@ const fs = require('fs');
 let express, http, Server, cors, Client, spawn, exec;
 let app, server, io;
 let everythingService;
+let stPresentationService;
 let serialService;
 let ssh2; // Lazy loaded 🐧
 
@@ -171,6 +172,13 @@ const handleSocketConnection = (socket, deps = {}) => {
         if (!everythingService) everythingService = require('./services/everythingService.cjs'); // 🐧 지연 로딩!
         everythingService.initSocket(socket);
         everythingService.startScan(params);
+    });
+
+    // --- SmartThings Presentation Dictionary Handler ---
+    socket.on('st_presentation_init', () => {
+        if (!stPresentationService) stPresentationService = require('./services/stPresentationService.cjs'); // 🐧 지연 로딩!
+        stPresentationService.initSocket(socket);
+        socket.emit('st_presentation_initialized');
     });
 
     // --- SSH Handler ---
@@ -2619,6 +2627,7 @@ function startServer(userDataPath) {
         spawn = cp.spawn;
         exec = cp.exec;
         everythingService = require('./services/everythingService.cjs');
+        stPresentationService = require('./services/stPresentationService.cjs');
         serialService = require('./services/serialService.cjs');
         
         console.log(`[TIME] Core modules required in ${Date.now() - startTime}ms`);
@@ -2686,6 +2695,11 @@ function startServer(userDataPath) {
 
         // Everything Search 등록
         everythingService.initSocket(io);
+
+        // SmartThings Presentation Dictionary 등록
+        if (stPresentationService && typeof stPresentationService.initSocket === 'function') {
+            stPresentationService.initSocket(io);
+        }
 
         // 모든 소켓 핸들러 등록
         io.on('connection', (socket) => {

@@ -60,6 +60,24 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
 - **Features**:
   - **Tag System**: `Hotfix`, `Feature`, `Major` 등 프리셋 태그 지원.
 
+### [SmartThings Presentation Dictionary](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/STPresentationDictionary) [NEW]
+삼성 및 외부 업체의 다양한 SmartThings Device Presentation JSON 스키마를 수집, 분류, 검색하고 모바일 시뮬레이터로 가상 동작을 수행해볼 수 있는 프리미엄 사전 플러그인입니다.
+- **UI Components**:
+  - `STPresentationDictionary` ([index.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/STPresentationDictionary/index.tsx)): 메인 뷰 컴포넌트.
+    - **Header Clearance**: 플로팅 아이콘 및 좌측 사이드바와의 겹침 방지를 위해 `pl-16` 헤더 규격 및 최소화/최대화 버튼 간섭 방지를 위한 왼쪽 배치 정렬 적용.
+    - **Aesthetic Refinement**: 고대비 다크 모드에 어우러지는 네이비/인디고 Harmonious Palette 기반의 2-Column Bento Grid 레이아웃.
+    - **UI Polish (2026-05-19)**: 돋보기 아이콘의 보더 침범 현상을 방지하도록 X축 좌표를 안쪽(`left: '1rem'`)으로 배치 보정하고, 겹침 방지 패딩 (`paddingLeft: '2.75rem'`) 및 네이티브 드롭다운 화이트아웃 방지를 위한 다크 스키마 강제 (`colorScheme: 'dark'`)를 완비.
+  - `STAppPreview` ([STAppPreview.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/STPresentationDictionary/components/STAppPreview.tsx)): 대시보드 카드 타일 및 상세 슬라이더/스위치/토글 등 가상 인터랙션 모바일 뷰어 제공.
+  - `PresentationDetail` ([PresentationDetail.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/STPresentationDictionary/components/PresentationDetail.tsx)): JSON의 capabilities, states, actions, routine 스펙을 자동 파싱하여 다크모드 전용 하이콘트라스트 메트릭으로 분석 및 Raw JSON 뷰어 제공.
+  - `CategoryFilter` ([CategoryFilter.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/STPresentationDictionary/components/CategoryFilter.tsx)): 복수 선택 필터 및 실시간 카테고리 추가/삭제/수정(CRUD) 관리 모듈.
+    - **UI Polish (2026-05-19)**: 자글자글한 하얀 외곽 실선 테두리들을 전면 걷어내고, 깊이감 있는 슬레이트 블루(`bg-slate-950/80`)와 인디고 솔리드 배경을 조합한 깔끔한 고급 다크 칩 테마 도입.
+  - `ImportDialog` ([ImportDialog.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/STPresentationDictionary/components/ImportDialog.tsx)): JSON 드래그 앤 드롭 업로드 및 클립보드 원클릭 붙여넣기 폼.
+- **Backend & DB Integration (2026-05-18)**:
+  - `STPresentationService` ([stPresentationService.js](file:///k:/Antigravity_Projects/gitbase/happytool_electron/services/stPresentationService.js)): 로컬 로우 레벨 파일 데이터베이스(Lowdb 기반) 연동 및 JSON 검색/분류 관리 서비스.
+  - **Clipboard Sniffer**: 메인 앱 포커스 혹은 3초 디바운스로 클립보드 내 ST JSON 데이터 유무를 백그라운드 스니핑하여 가져오기 배너(Banner) 알림 연동.
+- **Aesthetic & Localization Standards**:
+  - 100% 영문(English) 기반 UI 번역 완비 및 윈도우 컨트롤 겹침 간섭 전면 회피 완료.
+
 ### [Plugin Visibility Management](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/config.ts) [NEW]
 - **Management Logic (2026-04-10)**:
   - **Comprehensive Toggle**: 14종의 실험실 플러그인 개별 가시성 플래그 제공.

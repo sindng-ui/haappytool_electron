@@ -257,6 +257,24 @@
 - **프리미엄 UI**: 글래스모피즘 기반의 타임라인 카드와 고대비 달력 아이콘 적용. [UPDATED]
 - **테스트 안정화**: `act` 및 `waitFor` 로직 보강, 모달 닫힘 상태 명시적 대기를 통해 CRUD 작업의 비동기 신뢰성 확보 (전체 테스트 통과 완료). [DONE]
 
+### [[ST Presentation Dictionary Plugin]] 📖📱 [NEW][HOT]
+- **ID**: `ST_PRESENTATION_DICTIONARY`
+- **Keywords**: [`스마트싱스 사전`, `SmartThings Presentation`, `JSON Dictionary`, `UI 시뮬레이터`, `Clipboard Sniffer`, `Bento Grid`, `카테고리 분류`]
+- **Location**:
+  - `Main View`: [index.tsx](./plugins/STPresentationDictionary/index.tsx)
+  - `Simulator`: [STAppPreview.tsx](./plugins/STPresentationDictionary/components/STAppPreview.tsx)
+  - `Detail Analyzer`: [PresentationDetail.tsx](./plugins/STPresentationDictionary/components/PresentationDetail.tsx)
+  - `Import Dialog`: [ImportDialog.tsx](./plugins/STPresentationDictionary/components/ImportDialog.tsx)
+  - `Category Filter`: [CategoryFilter.tsx](./plugins/STPresentationDictionary/components/CategoryFilter.tsx)
+  - `Backend Service`: [stPresentationService.cjs](./server/services/stPresentationService.cjs)
+- **Features**:
+  - **무제한 로컬 파일 DB**: 사용자 지정 Electron userData 아래에 개별 파일로 안전하게 JSON을 저장하여 데이터 크기 무관 무제한 로컬 저장소 보장.
+  - **실시간 클립보드 스니퍼**: 사전에 진입하면 주기적으로 클립보드를 스캔하여 SmartThings JSON 형태 포맷이 감지될 시 원클릭 가져오기를 지원하는 초간편 프리미엄 배너 알림 제공.
+  - **고성능 다중 단어 본문 검색 (AND)**: 단순 이름 매칭을 넘어, NodeJS fs.promises 비동기 동시 I/O 및 대량 파일 배치(Chunk) 처리를 통해 본문 전체를 대상으로 다중 단어(예: "tv switch")가 모두 포함된 스키마를 고속 비동기 스캔.
+  - **스마트싱스 모바일 앱 시뮬레이터**: dashboard/detailView 노드를 정밀 파싱하여 실제 스마트싱스 모바일 앱에 기기가 등록될 때 타일과 상세 설정 화면이 어떻게 보이는지 시뮬레이션(스위치 클릭, 슬라이더 변경 등 완벽 인터랙션 제공).
+  - **스키마 정밀 분석 & JSON 뷰어**: 총 사용된 Capabilities/Components 칩 리스트, Automation 루틴 호환 조건/동작 분석 요약 및 보기 편한 JSON Syntax Highlighter 내장.
+  - **분류 체계 & 카테고리 매니저**: 삼성 가전, TV 등 기본 분류 제공 및 유저가 즉각 커스텀 카테고리를 편집(추가, 이름 변경, 삭제)하여 기기별 멀티 카테고리를 바인딩 및 필터링할 수 있는 완전체 관리 인터페이스 구현.
+
 ### [[SpeedScope Plugin]]
 - **ID**: `plugin-speedscope`
 - **Keywords**: [`SpeedScope`, `Flame Graph`, `Performance`, `Main Thread Detection`]
