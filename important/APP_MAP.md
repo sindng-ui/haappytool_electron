@@ -60,7 +60,7 @@
   - **Pinned Glassmorphism**: Pinned Tools 섹션의 앱들에 은은한 백그라운드 블러(`backdrop-blur-xl`)와 유리 질감 UI를 적용하여 프리미엄 감성 강화. [NEW]
   - **Aura & Ghost Typography**: 각 앱 고유 테마 컬러를 활용한 Radial Glow 효과와 배경 고스트 타이포그래피를 적용하여 프리미엄 디자인 완성. [NEW]
   - **Smart Popover Library**: 버튼 근처(`top-left`)에서 나타나는 콤팩트한 팝오버 레이아웃과 가변 카드 시스템의 시너지로 마우스 이동 거리 최소화 및 직관성 극대화. [UPDATED]
-    - `Pure Performance Architecture`: **지능형 레이아웃 오케스트레이션(isEntranceDone)**을 도입하여 카드가 등장하는 최초 진입 기간(700ms) 동안은 실시간 레이아웃 추적(`layout={false}`)을 차단해 CPU 부하를 극소화하고, 진입이 끝나면 즉시 활성화하여 우클릭 리사이즈 격자 애니메이션은 그대로 제공합니다. 또한 오버레이에 걸리던 GPU 무거운 CSS `blur-2xl` 필터 연산을 초경량 하드웨어 가속 `radial-gradient` 배경 효과로 대체하여, **기존의 에너제틱한 Bouncy 스프링 감성과 반짝이는 라이트 펄스는 100% 보존하면서 저사양 회사 PC에서도 프레임 드랍 없이 완벽한 60fps**를 선사합니다. [UPDATED][HOT]
+    - `Pure Performance Architecture`: **지능형 레이아웃 오케스트레이션(isEntranceDone)**을 도입하여 카드가 등장하는 최초 진입 기간(1000ms) 동안은 실시간 레이아웃 추적(`layout={false}`)을 완벽 차단해 CPU 부하를 극소화하고, 진입이 끝나 완전히 정지하면 즉시 활성화하여 격자 애니메이션을 매끄럽게 유지합니다. 또한 카드 진입 물리 모델에 **임계 감쇠(Critical Damping, damping: 28)**를 적용하여 안착 직후의 미세 흔들림(Wobble)을 완전히 근절했으며, 오버레이에 걸리던 GPU 무거운 CSS `blur-2xl` 필터 연산을 초경량 하드웨어 가속 `radial-gradient` 배경 효과로 대체하여 **기존의 에너제틱한 Bouncy 스프링 감성은 100% 보존하면서 저사양 회사 PC에서도 프레임 드랍 없이 완벽한 60fps**를 실현했습니다. [UPDATED][HOT]
     - `Happy & Abundant UX`: 에너제틱한 Happy Bounce와 곡선형 순차 지연(Organic Stagger), 그리고 반짝이는 헤더 애니메이션을 통해 풍성하고 기분 좋은 첫인상을 제공함. [NEW]
     - `Layered Premium Motion`: 카드 입성 후 아이콘이 별도로 팝핑되는 2단계 애니메이션과 은은한 아우라 펄스를 적용하여 레이어의 깊이감을 극대화함. [NEW]
     - `Collapsible Sections`: Labs 등 섹션을 접고 펼 수 있는 기능을 추가하여 시각적 복잡도를 낮추고 성능을 추가로 확보함. 접힘 상태는 `localStorage`에 영구 저장됨. [NEW]

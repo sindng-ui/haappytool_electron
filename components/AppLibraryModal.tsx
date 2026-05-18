@@ -38,18 +38,19 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // 🐧 지능형 진입 감지 (등장하는 최초 700ms 동안은 layout 계산을 차단하여 성능 극대화)
+  // 🐧 지능형 진입 감지 (완전히 정지하는 1000ms 동안 layout 엔진을 격리하여 미세 떨림/부하 완전 박멸)
   const [isEntranceDone, setIsEntranceDone] = React.useState(false);
   React.useEffect(() => {
     if (isOpen) {
       const timer = setTimeout(() => {
         setIsEntranceDone(true);
-      }, 700);
+      }, 1000);
       return () => clearTimeout(timer);
     } else {
       setIsEntranceDone(false);
     }
   }, [isOpen]);
+
 
   // 🐧 Optimized States & Memoization
   const enabledSet = useMemo(() => new Set(enabledPlugins), [enabledPlugins]);

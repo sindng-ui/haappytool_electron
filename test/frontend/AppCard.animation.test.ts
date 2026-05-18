@@ -10,7 +10,7 @@ describe('AppCard Animation Specification Test', () => {
 
     expect(transition.type).toBe('spring');
     expect(transition.stiffness).toBe(180);
-    expect(transition.damping).toBe(22);
+    expect(transition.damping).toBe(28);
     expect(transition.mass).toBe(0.8);
     // 곡선형 순차 지연 (Organic Stagger) 체크
     expect(transition.delay).toBe(Math.pow(idx, 0.7) * 0.05);

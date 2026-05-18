@@ -56,7 +56,7 @@ export const getCardVariants = (idx: number) => ({
     transition: {
       type: "spring",
       stiffness: 180, // 🐧 약간 더 느긋하게 (기존 280)
-      damping: 22,    // 🐧 부드러운 감속 (기존 20)
+      damping: 28,    // 🐧 감쇠를 28로 높여 진입 시의 미세 흔들림(Wobble)을 완벽 박멸 (Critical Damping)
       mass: 0.8,      // 🐧 묵직한 무게감 추가
       delay: Math.pow(idx, 0.7) * 0.05 // 🐧 정갈한 간격 확대
     }
