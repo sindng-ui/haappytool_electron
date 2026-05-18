@@ -792,14 +792,14 @@ export const useLogExtractorLogic = ({
 
     const handleDeleteRule = useCallback(() => {
         const currentRule = rules.find(r => r.id === selectedRuleId);
-        const ruleName = currentRule?.name || '이 미션';
+        const ruleName = currentRule?.name || 'this mission';
 
         setDialogConfig({
             title: 'Delete Mission',
             description: (
                 <div className="space-y-2">
-                    <p>"{ruleName}" 미션을 정말 삭제하시겠습니까?</p>
-                    <p className="text-red-400 font-bold">중요한 필터 및 하이라이트 규칙이 모두 삭제됩니다.</p>
+                    <p>Are you sure you want to delete the mission "{ruleName}"?</p>
+                    <p className="text-red-400 font-bold">All important filters and highlight rules will be deleted.</p>
                 </div>
             ),
             confirmLabel: 'Delete',
