@@ -50,7 +50,7 @@ const BaseDialog: React.FC<BaseDialogProps> = ({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+                        className="absolute inset-0 bg-slate-950/75"
                     />
                     
                     {/* Dialog Content */}

@@ -286,7 +286,7 @@
 - **Location**: [CommonDialogs.tsx](./components/ui/CommonDialogs.tsx)
 - **Rules**:
   - `window.confirm()` 및 `window.prompt()` 사용을 지양하고 본 컴포넌트를 사용합니다.
-  - Framer Motion 기반의 프리미엄 애니메이션과 다크 모드 테마가 적용되어 있습니다.
+  - Framer Motion 기반의 프리미엄 애니메이션과 다크 모드 테마가 적용되어 있으며, **GPU 가속 최적화**를 위해 무거운 `backdrop-blur` 필터를 완전히 제거하고 `bg-slate-950/75` 배경을 적용하여 프레임 드랍 없는 부드러운 60fps 트랜지션 애니메이션을 선사합니다. [UPDATED]
   - **ConfirmDialog**: 삭제, 초기화 등 확인 절차가 필요할 때 사용 (`isDanger` 옵션으로 Red 스타일링 지원).
   - **PromptDialog**: 이름 변경, 새 폴더 생성 등 텍스트 입력이 필요할 때 사용.
 
