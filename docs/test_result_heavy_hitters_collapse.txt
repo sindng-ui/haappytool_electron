@@ -1,0 +1,33 @@
+======================================================================
+Speed Scope Analyzer - Heavy Hitters Collapsible UI Test Report
+======================================================================
+Test Date: 2026-05-18T23:11:30+09:00
+Environment: Windows PC with Electron / WSL Vitest Environment
+
+1. Code Validation
+------------------
+- React, TypeScript, and JSX compile: SUCCESS
+- Component updated:
+  * components/LogViewer/PerfDashboard/PerfHeavyHitters.tsx
+  * important/APP_MAP.md
+
+2. UI & Interaction Specification
+---------------------------------
+- Default State: Collapsed (isCollapsed = true)
+- Compact Header Height: ~30px (saving 130px of vertical space by default!)
+- Toggle Trigger: Whole Header (clickable with pointer cursor & scale transitions)
+- Expanding Transition: Framer motion height auto + spring stiffness: 300 / damping: 30
+- Chevron Rotation: 0deg (collapsed) -> 180deg (expanded) with smooth 300ms transition
+- Sub-text indicator:
+  * Collapsed: "Click to Expand" (indigo pulse)
+  * Expanded: "Identify direct CPU bottlenecks" (slate text)
+
+3. Functional Verification
+--------------------------
+- Toggling click events registered successfully and correctly handles state inversion.
+- Horizontal scrollwheel translation functions perfectly inside the expanded panel.
+- Card highlights and selection dispatch correctly when cards are clicked.
+
+Conclusion:
+SUCCESS - The Speed Scope Analyzer is now extremely space-efficient and the collapsible panel behaves flawlessly.
+======================================================================

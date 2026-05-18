@@ -266,6 +266,7 @@
 - **Features**:
   - **메인 스레드 자동 탐지**: PID 및 메타데이터 정보를 분석하여 최적의 프로파일 자동 식별. [UPDATED]
   - **Analyze Diff**: 두 JSON 프로파일 간 성능 차이 분석 및 시각화.
+  - **Top 10 Heavy Hitters 접기/열기**: 프로파일 로드 시 타임라인/차트 뷰의 세로 영역 확보를 극대화하기 위해 Heavy Hitters 패널을 기본적으로 접힌(Collapsed) 상태로 렌더링합니다. 헤더 영역을 클릭하면 Framer Motion 기반의 실키하고 부드러운 스프링 트랜지션으로 펼쳐지며, Chevron 회전 애니메이션과 안내 문구가 실시간 업데이트됩니다. [NEW][HOT]
 
 ### [[BlockTest Plugin]]
 - **ID**: `plugin-block-test`
