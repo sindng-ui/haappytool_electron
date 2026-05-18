@@ -38,6 +38,19 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // 🐧 지능형 진입 감지 (등장하는 최초 700ms 동안은 layout 계산을 차단하여 성능 극대화)
+  const [isEntranceDone, setIsEntranceDone] = React.useState(false);
+  React.useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        setIsEntranceDone(true);
+      }, 700);
+      return () => clearTimeout(timer);
+    } else {
+      setIsEntranceDone(false);
+    }
+  }, [isOpen]);
+
   // 🐧 Optimized States & Memoization
   const enabledSet = useMemo(() => new Set(enabledPlugins), [enabledPlugins]);
 
@@ -189,6 +202,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                   isBento={true}
                   isGlassy={true}
                   startIndex={0}
+                  isEntranceDone={isEntranceDone}
                 />
 
                 <Section
@@ -206,6 +220,7 @@ const AppLibraryModal: React.FC<AppLibraryModalProps> = ({
                   startIndex={corePlugins.length}
                   isCollapsed={isLabsCollapsed}
                   onToggleCollapse={toggleLabsCollapse}
+                  isEntranceDone={isEntranceDone}
                 />
               </div>
             </div>

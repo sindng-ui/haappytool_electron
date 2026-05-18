@@ -36,6 +36,7 @@ interface AppCardProps {
   variant?: 'normal' | 'wide' | 'large';
   idx?: number;
   isGlassy?: boolean;
+  isEntranceDone?: boolean;
 }
 
 // 🐧 형님, 성능을 위해 블러는 빼고 '애니메이션 곡선'의 정수로 승부합니다!
@@ -99,7 +100,8 @@ const AppCard: React.FC<AppCardProps> = ({
   onRightClick,
   variant = 'normal',
   idx = 0,
-  isGlassy = false
+  isGlassy = false,
+  isEntranceDone = false
 }) => {
   const Icon = plugin.icon || Lucide.Package;
   const theme = THEME_COLORS[plugin.id] || { base: 'from-slate-600 to-slate-800', glow: 'shadow-slate-500/30', text: 'text-slate-400', bg: 'bg-slate-700', border: 'border-slate-500' };
@@ -115,6 +117,31 @@ const AppCard: React.FC<AppCardProps> = ({
   const iconVariants = React.useMemo(() => getIconVariants(idx), [idx]);
   const auraVariants = React.useMemo(() => getAuraVariants(idx), [idx]);
 
+  // 🐧 실시간 CSS blur 필터 부하를 완전히 해결하기 위해, 각 테마별 초경량 하드웨어 가속 rgba 색상 정의
+  const themeGlowBg = React.useMemo(() => {
+    const themeGlows: Record<string, string> = {
+      [ToolId.LOG_EXTRACTOR]: 'rgba(37, 99, 235, 0.25)',
+      [ToolId.LOG_ANALYSIS_AGENT]: 'rgba(147, 51, 234, 0.25)',
+      [ToolId.GAUSS_CHAT_AGENT]: 'rgba(244, 63, 94, 0.25)',
+      [ToolId.EVERYTHING_SEARCH]: 'rgba(16, 185, 129, 0.25)',
+      [ToolId.RAG_ANALYZER_TEST]: 'rgba(6, 182, 212, 0.25)',
+      [ToolId.NUPKG_SIGNER]: 'rgba(245, 158, 11, 0.25)',
+      [ToolId.RELEASE_HISTORY]: 'rgba(139, 92, 246, 0.25)',
+      [ToolId.NET_TRAFFIC_ANALYZER || 'net-traffic-analyzer']: 'rgba(14, 165, 233, 0.25)',
+      [ToolId.POST_TOOL]: 'rgba(236, 72, 153, 0.25)',
+      [ToolId.JSON_TOOLS]: 'rgba(100, 116, 139, 0.25)',
+      [ToolId.BLOCK_TEST]: 'rgba(79, 70, 229, 0.25)',
+      [ToolId.SPEED_SCOPE]: 'rgba(249, 115, 22, 0.25)',
+      [ToolId.EASY_POST]: 'rgba(234, 179, 8, 0.25)',
+      [ToolId.SMARTTHINGS_LAB]: 'rgba(132, 204, 22, 0.25)',
+      [ToolId.TIZEN_LAB]: 'rgba(6, 182, 212, 0.25)',
+      [ToolId.PERF_TOOL]: 'rgba(239, 68, 68, 0.25)',
+      [ToolId.TPK_EXTRACTOR]: 'rgba(96, 165, 250, 0.25)',
+      [ToolId.SMARTTHINGS_DEVICES]: 'rgba(148, 163, 184, 0.25)',
+    };
+    return themeGlows[plugin.id] || 'rgba(99, 102, 241, 0.25)';
+  }, [plugin.id]);
+
   const sizeClasses = {
     normal: 'col-span-1 row-span-1 h-28 flex-col justify-center gap-3 items-center text-center p-3',
     wide: 'col-span-2 row-span-1 h-28 flex-row items-center justify-start pl-6 pr-14 gap-5 text-left',
@@ -123,7 +150,7 @@ const AppCard: React.FC<AppCardProps> = ({
 
   return (
     <motion.button
-      layout
+      layout={isEntranceDone ? "position" : false}
       transition={{ 
         layout: { type: "spring", stiffness: 250, damping: 28, mass: 0.5 }
       }}
@@ -148,10 +175,13 @@ const AppCard: React.FC<AppCardProps> = ({
           : `bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/[0.05]`
         }`}
     >
-      {/* 🐧 Entrance Aura Pulse - 등장 시 아주 미세하게 피어오르는 빛 */}
+      {/* 🐧 Entrance Aura Pulse - GPU 부하가 극심한 CSS blur-2xl 필터 대신 초경량 하드웨어 가속 radial-gradient 적용 (기존 감성은 100% 동일 유지!) */}
       <motion.div
         variants={auraVariants}
-        className={`absolute inset-0 bg-gradient-to-br ${theme.base} blur-2xl pointer-events-none z-0`}
+        style={{
+          background: `radial-gradient(circle at center, ${themeGlowBg} 0%, transparent 70%)`
+        }}
+        className="absolute inset-0 pointer-events-none z-0"
       />
 
       {/* 💎 Glass Shine - 상단 광택 효과 추가 */}

@@ -18,6 +18,7 @@ interface SectionProps {
   startIndex: number;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  isEntranceDone?: boolean;
 }
 
 import * as Lucide from 'lucide-react';
@@ -36,7 +37,8 @@ const Section: React.FC<SectionProps> = ({
   isGlassy, 
   startIndex,
   isCollapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  isEntranceDone = false
 }) => {
   if (plugins.length === 0) return null;
 
@@ -87,7 +89,7 @@ const Section: React.FC<SectionProps> = ({
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
         <motion.div 
-          layout
+          layout={isEntranceDone ? "position" : false}
           className="grid grid-cols-4 gap-4 grid-flow-row-dense p-1"
         >
           {plugins.map((plugin: HappyPlugin, idx: number) => {
@@ -112,6 +114,7 @@ const Section: React.FC<SectionProps> = ({
                 onTogglePin={onTogglePin}
                 isGlassy={isGlassy}
                 onRightClick={onRightClick}
+                isEntranceDone={isEntranceDone}
               />
             );
           })}
