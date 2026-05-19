@@ -42,6 +42,7 @@ export interface UseLogFileOperationsProps {
     activeLineIndexLeft: number;
     isDualView: boolean; // ✅ Added
     setIsDualView: (val: boolean) => void; // ✅ Added
+    onOpenFile?: (file: File) => void; // 🎯 전역 파일 오픈 위임
 }
 
 export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
@@ -55,7 +56,8 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
         setRightFileName, setRightFilePath, setRightWorkerReady, setRightIndexingProgress,
         setRightTotalLines, setRightFilteredCount, setRightBookmarks, lastFilterHashRight,
         leftFilePath, rightFilePath, activeLineIndexLeft,
-        isDualView, setIsDualView
+        isDualView, setIsDualView,
+        onOpenFile
     } = props;
 
     // Use a ref to track staleness (similar to original code's isStale)
@@ -248,12 +250,25 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
     }, [tabId, initialFile, initialFilePath, loadFile, setIsDualView]);
 
     const handleLeftFileChange = useCallback((file: File) => {
+        // 🎯 [Notepad++ 전역 위임] onOpenFile 허브가 활성화되어 있으면 전권을 전역 위임 처리합니다.
+        if (onOpenFile) {
+            onOpenFile(file);
+            return;
+        }
+
         if (!leftWorkerRef.current) return;
         let path = '';
         if (window.electronAPI && window.electronAPI.getFilePath) {
             path = window.electronAPI.getFilePath(file);
         } else {
             path = ('path' in file && (file as any).path) || '';
+        }
+
+        // 동일 파일명일 경우 새로고침(Reload)을 강제하기 위해 캐시 무효화
+        const isDifferentFile = (path && leftFilePath && path !== leftFilePath) || (file.name !== (leftFilePath.split(/[/\\]/).pop() || ''));
+        if (leftFilePath && !isDifferentFile) {
+            console.log('[useLogFileOperations] Same file dropped on Left. Triggering forced reload.');
+            lastLoadingPathRefLeft.current = null;
         }
 
         if (path) {
@@ -277,7 +292,7 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
         setLeftBookmarks(new Set());
         lastFilterHashLeft.current = '';
         leftWorkerRef.current.postMessage({ type: 'INIT_FILE', payload: file });
-    }, [tabId, onFileChange, rightFilePath, isDualView]);
+    }, [tabId, onFileChange, rightFilePath, isDualView, leftFilePath, onOpenFile]);
 
     const handleRightFileChange = useCallback((file: File) => {
         if (!rightWorkerRef.current) return;
@@ -286,6 +301,13 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
             path = window.electronAPI.getFilePath(file);
         } else {
             path = ('path' in file && (file as any).path) || '';
+        }
+
+        // 동일 파일명일 경우 새로고침(Reload)을 강제하기 위해 캐시 무효화 (Right Pane)
+        const isDifferentRightFile = (path && rightFilePath && path !== rightFilePath) || (file.name !== (rightFilePath.split(/[/\\]/).pop() || ''));
+        if (rightFilePath && !isDifferentRightFile) {
+            console.log('[useLogFileOperations] Same file dropped on Right. Triggering forced reload.');
+            lastLoadingPathRefRight.current = null;
         }
 
         if (path) {
@@ -307,7 +329,7 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
         setRightBookmarks(new Set());
         lastFilterHashRight.current = '';
         rightWorkerRef.current.postMessage({ type: 'INIT_FILE', payload: file });
-    }, [tabId, leftFilePath, isDualView, activeLineIndexLeft]);
+    }, [tabId, leftFilePath, isDualView, activeLineIndexLeft, rightFilePath]);
 
     const lastSavedState = useRef<string>('');
 
@@ -335,6 +357,35 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
         }, 1000);
         return () => clearInterval(timer);
     }, [tabId, leftFilePath, rightFilePath, isDualView, activeLineIndexLeft, tizenSocket]);
+
+    const prevInitialFileRef = useRef<File | null | undefined>(initialFile);
+
+    // 🎯 initialFile이 동적으로 갱신되었을 때(예: 동일 파일 드롭으로 인한 리로드 요청) 로딩 재기동
+    // 최초 마운트 시점의 1회 로딩은 loadState()가 전담하므로 스킵하여 2중 중복 로드를 차단합니다 🐧🛡️
+    useEffect(() => {
+        if (initialFile && initialFile !== prevInitialFileRef.current) {
+            console.log('[useLogOperations] Dynamic initialFile changed, trigger forced reload:', initialFile.name);
+            prevInitialFileRef.current = initialFile; // 레프 업데이트
+            
+            setLeftFileName(initialFile.name);
+            const path = (initialFile as any).path || '';
+            setLeftFilePath(path);
+            setLeftWorkerReady(false);
+            setLeftIndexingProgress(0);
+            setLeftTotalLines(0);
+            setLeftFilteredCount(0);
+            setActiveLineIndexLeft(-1);
+            setSelectedIndicesLeft(new Set());
+            setLeftBookmarks(new Set());
+            lastFilterHashLeft.current = '';
+            
+            // 캐시 무효화로 재로딩 보장
+            lastLoadingPathRefLeft.current = null;
+            leftWorkerRef.current?.postMessage({ type: 'INIT_FILE', payload: initialFile });
+        } else if (!initialFile) {
+            prevInitialFileRef.current = initialFile;
+        }
+    }, [initialFile]);
 
     return {
         loadState,

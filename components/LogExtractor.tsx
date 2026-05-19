@@ -5,7 +5,7 @@ import { LogProvider } from './LogViewer/LogContext';
 import { Plus, X, FileText, Copy, XCircle, Trash2, Archive } from 'lucide-react';
 import { useContextMenu } from './ContextMenu';
 import { useLogArchiveContext } from './LogArchive';
-import { deleteStoredValue } from '../utils/db';
+import { deleteStoredValue, getStoredValue } from '../utils/db';
 import { workerRegistry } from '../hooks/LogWorkerRegistry';
 import { LogViewPreferencesProvider } from './LogViewer/LogViewPreferencesContext';
 
@@ -174,6 +174,79 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     }, [tabCounter]);
 
     /**
+     * 🎯 [Notepad++ 전역 파일 오프너 허브]
+     * - 중복 탭이 다른 곳에 켜져 있으면 해당 탭을 Active 탭으로 스위칭하고 Reload를 실행합니다.
+     * - 중복 탭이 없고, 현재 탭이 빈 탭이면 현재 탭에 덮어씌웁니다.
+     * - 그렇지 않으면 새 탭을 개설하여 엽니다.
+     */
+    const handleOpenFile = useCallback(async (file: File) => {
+        let path = '';
+        if (window.electronAPI && window.electronAPI.getFilePath) {
+            path = window.electronAPI.getFilePath(file);
+        } else {
+            path = ('path' in file && (file as any).path) || '';
+        }
+
+        const fileName = file.name;
+
+        // 1. 이미 동일한 파일(경로 또는 파일명)이 열려 있는 기존 탭이 존재하는지 조사
+        const existingTab = tabs.find(t => {
+            if (path && t.filePath) {
+                return t.filePath === path;
+            }
+            return t.title === fileName;
+        });
+
+        if (existingTab) {
+            console.log(`[LogExtractor] Found existing tab for ${fileName}. Activating tab: ${existingTab.id}`);
+            // 해당 탭을 Active 상태로 전환!
+            setActiveTabId(existingTab.id);
+
+            // 해당 탭의 title과 initialFile을 강제 갱신하여 reload 트리거!
+            setTabs(current => current.map(t => 
+                t.id === existingTab.id 
+                    ? { ...t, title: fileName, initialFile: file, filePath: path || t.filePath } 
+                    : t
+            ));
+            return;
+        }
+
+        // 2. 동일한 파일이 없는 경우: 현재 활성화된 Active 탭이 '빈 탭'인지 확인
+        const activeTab = tabs.find(t => t.id === activeTabId);
+        let activeTabHasFile = false;
+        
+        if (activeTab) {
+            if (activeTab.initialFile || activeTab.filePath) {
+                activeTabHasFile = true;
+            } else {
+                try {
+                    const activeTabStateStr = await getStoredValue(`tabState_${activeTabId}`);
+                    if (activeTabStateStr) {
+                        const parsed = JSON.parse(activeTabStateStr);
+                        if (parsed.filePath) activeTabHasFile = true;
+                    }
+                } catch (e) {
+                    console.error('[LogExtractor] Failed to read active tab state from DB during file drag check', e);
+                }
+            }
+        }
+
+        if (!activeTabHasFile && activeTab) {
+            console.log(`[LogExtractor] Current active tab is empty. Loading file in current tab: ${activeTabId}`);
+            // 현재 빈 탭에 그대로 덮어씌워 로딩
+            setTabs(current => current.map(t => 
+                t.id === activeTabId 
+                    ? { ...t, title: fileName, initialFile: file, filePath: path } 
+                    : t
+            ));
+        } else {
+            console.log(`[LogExtractor] Opening in a new tab: ${fileName}`);
+            // 새 탭을 파서 활성화
+            handleAddTab(file);
+        }
+    }, [tabs, activeTabId, handleAddTab]);
+
+    /**
      * Load archive logs into a new tab
      * Convert content string to File object to utilize existing tab creation flow
      */
@@ -226,9 +299,9 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
 
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const file = e.dataTransfer.files[0];
-            handleAddTab(file);
+            handleOpenFile(file); // 🎯 기존 handleAddTab 대신 전역 파일 오픈 위임으로 변경!
         }
-    }, [handleAddTab]);
+    }, [handleOpenFile]);
 
     // ✅ Tab Context Menu handlers
     const handleDuplicateTab = useCallback((tabId: string) => {
@@ -625,6 +698,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                                 isSearchFocused={isSearchFocused} // ✅ Pass Down
                                 setIsSearchFocused={setIsSearchFocused} // ✅ Pass Down
                                 onAddTab={handleArchiveToTab} // ✅ New Tab Callback
+                                onOpenFile={handleOpenFile} // 🎯 전역 파일 오픈 위임 추가!
                             >
                                 <SessionWrapper
                                     isActive={isActive && tab.id === activeTabId}

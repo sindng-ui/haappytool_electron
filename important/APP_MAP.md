@@ -111,6 +111,7 @@
   - `Mount Cycle Safety`: 언마운트 시 로딩 경로 캐시 강제 초기화로 로딩 누락 원천 차단.
   - `Worker Persistence`: `LogWorkerRegistry`를 통해 탭 재마운트 시 즉각적인 UI 복구 및 재인덱싱 방지.
   - `Worker Idempotency`: 동일 파일에 대한 중복 로딩 요청 무시.
+  - `Notepad++ Tab Drop & Reload`: 이미 백그라운드 탭에 동일한 파일이 켜져 있다면, 해당 탭을 Active 탭으로 휙 포커싱하고 실시간 새로고침(Forced Reload)을 진행함. 빈 탭에 드롭 시에는 현재 탭에 덮어씌우며, 완전히 다른 파일 드롭 시 새 탭을 생성하고 활성화하여 풍성한 다중 탭 연동 UX를 제공함. [NEW][HOT]
 - **Transaction Analysis Fix (2026-04-10)**:
   - **Worker Regex Fix**: `workers/workerAnalysisHandlers.ts` — PID/TID extraction regex logic fixed to handle various log formats accurately. [NEW]
   - **Context Menu UI**: `components/LogSession.tsx` — Concise labels "Analyze PID/TID: {val}" for better UX. [NEW]

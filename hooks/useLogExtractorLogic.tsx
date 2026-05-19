@@ -41,6 +41,7 @@ export interface LogExtractorLogicProps {
     isSearchFocused?: boolean; // ✅ Lifted State
     setIsSearchFocused?: (focused: boolean) => void; // ✅ Lifted State Setter
     onAddTab?: (title: string, content: string) => void; // ✅ New Tab Callback
+    onOpenFile?: (file: File) => void; // 🎯 전역 파일 오픈 위임
 }
 
 // Segmentation for Large Files (Browser Limit workaround)
@@ -73,7 +74,8 @@ export const useLogExtractorLogic = ({
     isActive = true,
     isPanelOpen, setIsPanelOpen,
     isSearchFocused: propIsSearchFocused, setIsSearchFocused: propSetIsSearchFocused, // ✅ Destructure new props
-    onAddTab // ✅ New Tab Callback
+    onAddTab, // ✅ New Tab Callback
+    onOpenFile // 🎯 전역 파일 오픈 위임
 }: LogExtractorLogicProps) => {
 
     // ✅ Search Focus State (Lifted or Local Fallback)
@@ -431,7 +433,8 @@ export const useLogExtractorLogic = ({
         setRightFileName, setRightFilePath, setRightWorkerReady, setRightIndexingProgress,
         setRightTotalLines, setRightFilteredCount, setRightBookmarks, lastFilterHashRight,
         leftFilePath, rightFilePath, activeLineIndexLeft,
-        isDualView, setIsDualView // ✅ Pass Dual View state for aggregate persistence
+        isDualView, setIsDualView, // ✅ Pass Dual View state for aggregate persistence
+        onOpenFile // 🎯 위임 핸들러 전달
     });
  
     // Initialize Left/Right Workers & Load State
