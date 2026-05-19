@@ -3,7 +3,7 @@ import * as Lucide from 'lucide-react';
 import LogViewerPane, { LogViewerHandle } from './LogViewerPane';
 import { MAX_SEGMENT_SIZE } from '../../hooks/useLogExtractorLogic';
 
-const { X, GripVertical } = Lucide;
+const { X, GripVertical, ChevronsUpDown } = Lucide;
 
 interface SplitRawContextViewerProps {
     leftFileName: string;
@@ -136,15 +136,11 @@ export const SplitRawContextViewer: React.FC<SplitRawContextViewerProps> = ({
 
                 {/* Resizer Handle */}
                 <div
-                    className="absolute -bottom-2 left-0 right-0 h-4 cursor-ns-resize z-[100] flex justify-end px-12 group/resizer"
+                    className="absolute -bottom-3.5 left-0 right-0 h-5 cursor-ns-resize z-[100] flex justify-end px-12 group/resizer"
                     onMouseDown={onResizeStart}
                 >
-                    <div className="w-10 h-3 bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-b-full flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.5)] border-x border-b border-white/20 group-hover/resizer:h-4 group-hover/resizer:from-indigo-400 group-hover/resizer:to-indigo-600 transition-all duration-200 origin-top">
-                        <div className="flex gap-0.5 pointer-events-none">
-                            <div className="w-0.5 h-0.5 bg-white/80 rounded-full" />
-                            <div className="w-0.5 h-0.5 bg-white/80 rounded-full" />
-                            <div className="w-0.5 h-0.5 bg-white/80 rounded-full" />
-                        </div>
+                    <div className="w-14 h-4 bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-b-xl flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.6)] border-x border-b border-white/20 group-hover/resizer:h-5 group-hover/resizer:from-indigo-400 group-hover/resizer:to-indigo-600 transition-all duration-200 origin-top">
+                        <ChevronsUpDown size={11} className="text-white/90 animate-pulse pointer-events-none" />
                     </div>
                 </div>
             </div>
