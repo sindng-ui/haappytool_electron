@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - '0430' # 형님이 현재 작업 중인 브랜치 포함
   workflow_dispatch: # 수동 실행 버튼 활성화
 
 jobs:
