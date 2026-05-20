@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Terminal, Plus, X, Play, Edit2, Trash2, ChevronRight, ChevronLeft, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ConfirmDialog } from '../../ui/CommonDialogs';
+import { ConfirmDialog } from '../ui/CommonDialogs';
 
 interface QuickCommand {
     id: string;

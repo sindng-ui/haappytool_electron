@@ -11,7 +11,7 @@ interface LogSettingsSectionProps {
     updateCurrentRule: (updates: Partial<LogRule>) => void;
     isLogging: boolean;
     onToggleLogging: () => void;
-    connectionMode: 'sdb' | 'ssh' | null;
+    connectionMode: 'sdb' | 'ssh' | 'serial' | null;
     hasEverConnected: boolean;     // New prop
     onReconnect: () => void;       // New prop
 }

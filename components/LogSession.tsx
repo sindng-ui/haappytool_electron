@@ -123,6 +123,7 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         splitRatio, setSplitRatio, // ✅ Expose split states
         splitAnalyzerHeight, setSplitAnalyzerHeight, // ✅ Penguin! Added split analyzer height adjustment state
         onAddTab, // ✅ New Tab Callback
+        addQuickFilter, // ✅ Smart entity filter addition callback
         addQuickHighlight,
         clearQuickHighlights
     } = useLogContext();
@@ -1574,6 +1575,12 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                     preferences={logViewPreferences}
                     highlightRange={rawViewHighlightRange}
                     clearCacheTick={clearCacheTick}
+                    onApplyFilter={(val) => {
+                        addQuickFilter(val);
+                    }}
+                    onAddHighlight={(val) => {
+                        addQuickHighlight(val);
+                    }}
                 />
             )}
 

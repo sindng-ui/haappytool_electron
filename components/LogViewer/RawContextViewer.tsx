@@ -2,6 +2,7 @@ import React from 'react';
 import * as Lucide from 'lucide-react';
 import LogViewerPane, { LogViewerHandle } from './LogViewerPane';
 import { MAX_SEGMENT_SIZE } from '../../hooks/useLogExtractorLogic';
+import { EntityChipBar } from './EntityChipBar';
 
 const { X, ChevronsUpDown } = Lucide;
 
@@ -21,13 +22,17 @@ interface RawContextViewerProps {
     preferences?: any;
     highlightRange?: { start: number; end: number } | null;
     clearCacheTick?: number;
+    onApplyFilter?: (value: string) => void;
+    onAddHighlight?: (value: string) => void;
 }
 
 export const RawContextViewer: React.FC<RawContextViewerProps> = ({
     sourcePane, leftFileName, rightFileName, targetLine, onClose, heightPercent, onResizeStart,
     leftTotalLines, rightTotalLines, requestLeftRawLines, requestRightRawLines, preferences,
     highlightRange,
-    clearCacheTick
+    clearCacheTick,
+    onApplyFilter,
+    onAddHighlight
 }) => {
     const rawViewerRef = React.useRef<LogViewerHandle>(null);
     const rawTotalLines = sourcePane === 'left' ? leftTotalLines : rightTotalLines;
@@ -67,6 +72,13 @@ export const RawContextViewer: React.FC<RawContextViewerProps> = ({
                         <X size={18} />
                     </button>
                 </div>
+                {onApplyFilter && onAddHighlight && (
+                    <EntityChipBar
+                        logLineContent={targetLine.content}
+                        onApplyFilter={onApplyFilter}
+                        onAddHighlight={onAddHighlight}
+                    />
+                )}
                 <LogViewerPane
                     key={`raw-${sourcePane}-${rawTargetLineIndex}`}
                     ref={rawViewerRef}

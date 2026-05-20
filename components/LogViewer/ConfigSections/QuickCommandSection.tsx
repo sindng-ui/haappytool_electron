@@ -60,14 +60,14 @@ const DraggableCommandItem = ({
             id={`cmd-${c.id}`}
             layout
             draggable
-            onDragStart={(e) => {
+            onDragStart={(e: any) => {
                 // HTML5 Drag UI 세팅
                 if (e.dataTransfer) {
                     e.dataTransfer.effectAllowed = 'move';
                 }
                 onDragStart(c.id, e);
             }}
-            onDragEnter={(e) => {
+            onDragEnter={(e: any) => {
                 e.preventDefault();
                 onDragEnter(c.id, e);
             }}
@@ -259,7 +259,13 @@ export const QuickCommandSection: React.FC<QuickCommandSectionProps> = ({ onExec
     const [hoveredCmd, setHoveredCmd] = useState<string | null>(null);
     const [hoverPos, setHoverPos] = useState<{ top: number, left: number } | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [dialogConfig, setDialogConfig] = useState<{ title: string, description: string | React.ReactNode, onConfirm: () => void } | null>(null);
+    const [dialogConfig, setDialogConfig] = useState<{
+        title: string;
+        description: React.ReactNode;
+        confirmLabel?: string;
+        isDanger?: boolean;
+        onConfirm: () => void;
+    } | null>(null);
     const [promptConfig, setPromptConfig] = useState<{ title: string, description: string, onConfirm: (val: string) => void, onCancel: () => void } | null>(null);
     const [recentCommands, setRecentCommands] = useState<string[]>([]);
     const [draggedId, setDraggedId] = useState<string | null>(null);

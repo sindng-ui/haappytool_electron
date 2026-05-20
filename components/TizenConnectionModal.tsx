@@ -265,6 +265,14 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
         setStatus('Disconnected');
     }, [socket, mode]);
 
+    // ⚡ Auto-connect for Quick Connect when modal opens and socket is ready
+    useEffect(() => {
+        if (isOpen && isQuickConnect && socket && !isConnected && !isConnecting && !error) {
+            console.log('[TizenConnectionModal] ⚡ Quick Connect Triggered! Auto-connecting with mode:', mode);
+            handleConnect();
+        }
+    }, [isOpen, isQuickConnect, socket, isConnected, isConnecting, error, mode, handleConnect]);
+
     if (!isOpen) return null;
     const effectiveIsConnected = isExternalConnected ?? isConnected;
     const effectiveStatus = isExternalConnected ? 'Connected' : status;

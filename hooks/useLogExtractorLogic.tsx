@@ -1110,6 +1110,40 @@ export const useLogExtractorLogic = ({
         handleCopyRawRangeLeft, handleCopyRawRangeRight,
         handleSelectAllLogs,
         onAddTab,
+        addQuickFilter: (keyword: string) => {
+            if (!currentConfig || !keyword.trim()) return;
+            const targetKeyword = keyword.trim();
+            const happyGroups = currentConfig.happyGroups || [];
+            
+            const existingIdx = happyGroups.findIndex(g => 
+                g.tags.length === 1 && g.tags[0].toLowerCase() === targetKeyword.toLowerCase()
+            );
+
+            if (existingIdx > -1) {
+                const newHappyGroups = happyGroups.filter((_, idx) => idx !== existingIdx);
+                updateCurrentRule({ happyGroups: newHappyGroups });
+                showToast(`Removed Filter: ${targetKeyword}`, 'info');
+            } else {
+                const newGroup = {
+                    id: `quick-filter-${Math.random().toString(36).substring(7)}`,
+                    tags: [targetKeyword],
+                    enabled: true
+                };
+                updateCurrentRule({ happyGroups: [...happyGroups, newGroup] });
+                showToast(`Filtered by: ${targetKeyword}`, 'success');
+            }
+        },
+        clearQuickFilters: () => {
+            if (!currentConfig) return;
+            const happyGroups = currentConfig.happyGroups || [];
+            const remainingGroups = happyGroups.filter(g => !g.id.startsWith('quick-filter-'));
+            const removedCount = happyGroups.length - remainingGroups.length;
+            
+            if (removedCount > 0) {
+                updateCurrentRule({ happyGroups: remainingGroups });
+                showToast(`Cleared ${removedCount} quick filters`, 'info');
+            }
+        },
         addQuickHighlight: (keyword: string) => {
             if (!currentConfig || !keyword.trim()) return;
             const targetKeyword = keyword.trim();
