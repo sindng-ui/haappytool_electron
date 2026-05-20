@@ -289,10 +289,11 @@
 
 ### [[BlockTest Plugin]]
 - **ID**: `plugin-block-test`
-- **Keywords**: [`BlockTest`, `Scenario`, `Pipeline`, `Automation`, `Graph View`]
+- **Keywords**: [`BlockTest`, `Scenario`, `Pipeline`, `Automation`, `Graph View`, `Runner UI`]
 - **Features**:
   - **그래프 뷰 기본화**: 시각적 흐름 파악을 위한 Graph View 레이아웃 기본 적용. [HOT]
   - **Pipeline Management UX**: 파이프라인 이름 변경(Rename) 및 삭제(Delete) 시 안전을 위한 커스텀 모달(PipelineDialogs) 도입. Electron 환경에서의 `prompt()` 미지원 이슈 해결. [NEW][HOT]
+  - **Premium Runner UI & UX**: 테스트 실행 화면(`PipelineRunner`, `ScenarioRunner`) 진입 시 뒤로 가기(복귀) 버튼이 좌상단 앱 허브(`AppHub`) 버튼에 가려지지 않도록 왼쪽 헤더 패딩을 `pl-20`으로 확장 배치하여 사용 편의성과 시각적 조화를 극대화함. [NEW][HOT]
   - **CLI 연동**: Headless 모드에서도 시나리오/파이프라인 실행 지원.
 
 ---

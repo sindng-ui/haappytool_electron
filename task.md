@@ -1,8 +1,12 @@
-# App Hub 버벅임 제로 및 감성 유지 최적화 작업
+# BlockTest 복귀 버튼 배치 개선 작업 진행 상태 🗺️
 
-- [x] `AppCard.tsx` 인터페이스 최적화 (안정된 함수 참조 사용)
-- [x] `AppCard.tsx`에서 `layout` 및 `layoutId` 제거 (연산 부하 제거)
-- [x] `AppCard.tsx` 애니메이션 감성 복구 (엇박자 지연시간 및 Spring 복구)
-- [x] `Section.tsx`에서 `AppCard` 호출 시 인라인 화살표 함수 제거
-- [x] `AppLibraryModal.tsx` 오케스트레이션 최적화 및 엇박자 감성 유지
-- [x] 최종 성능 및 렌더링 확인
+형님! 승인해주신 계획서에 따라 작업을 정밀하게 진행 중입니다. 아래의 세부 태스크 카드를 완벽하게 클리어하겠습니다!
+
+- [x] **[Step 1] UI 코드 수정**
+  - [x] `PipelineRunner.tsx` 헤더의 왼쪽 패딩을 `pl-20`으로 수정
+  - [x] `ScenarioRunner.tsx` 헤더의 edge 패딩을 `pl-20`으로 수정
+- [x] **[Step 2] 빌드 및 타입 검증**
+  - [x] WSL Bash 환경에서 `npx tsc --noEmit` 실행하여 타입 정상 여부 확인 (수정 대상 파일 무결성 입증)
+- [x] **[Step 3] APP_MAP.md 업데이트 및 최종 확인**
+  - [x] `important/APP_MAP.md` 문서에 복귀 버튼 UI 수정 내용 업데이트 및 기록
+  - [x] 최종 결과 보고
