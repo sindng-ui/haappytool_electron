@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, memo } from 'react';
-import { X, Server, Terminal, RefreshCw, Wifi, Usb, ShieldAlert, Settings } from 'lucide-react';
+import { X, Server, Terminal, RefreshCw, Wifi, Usb, ShieldAlert, Settings, Zap } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 
 interface TizenConnectionModalProps {
@@ -68,6 +68,17 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
     const [isConnecting, setIsConnecting] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
 
+    // ⚡ Socket readiness & Quick Connect UI visibility state
+    const [isSocketReady, setIsSocketReady] = useState(false);
+    const [showQuickConnectUI, setShowQuickConnectUI] = useState(!!isQuickConnect);
+
+    // Sync showQuickConnectUI when modal opens or isQuickConnect prop changes
+    useEffect(() => {
+        if (isOpen) {
+            setShowQuickConnectUI(!!isQuickConnect);
+        }
+    }, [isOpen, isQuickConnect]);
+
     const isHandedOver = React.useRef(false);
     const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -104,12 +115,14 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
             setError('');
             setStatus('');
             setIsScanning(false);
+            setIsSocketReady(false);
             isHandedOver.current = false;
             newSocket = io('http://127.0.0.1:3003');
 
             newSocket.on('connect', () => {
                 console.log('[TizenModal] ✓ Socket connected');
                 setStatus('Connected to Local Log Server');
+                setIsSocketReady(true);
                 if (mode === 'serial') {
                     newSocket?.emit('list_serial_ports');
                 }
@@ -204,6 +217,7 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
             if (newSocket) {
                 if (!isHandedOver.current) newSocket.disconnect();
                 setSocket(null);
+                setIsSocketReady(false);
             }
         };
     }, [isOpen]);
@@ -265,17 +279,113 @@ const TizenConnectionModal: React.FC<TizenConnectionModalProps> = memo(({
         setStatus('Disconnected');
     }, [socket, mode]);
 
+    // ⚡ Helper to get reader-friendly connection target details
+    const getConnectionString = useCallback(() => {
+        if (mode === 'sdb') {
+            return `SDB (Device: ${selectedDeviceId || 'Auto-detect'})`;
+        } else if (mode === 'ssh') {
+            return `SSH (Host: ${sshHost || 'N/A'}:${sshPort || '22'})`;
+        } else if (mode === 'serial') {
+            return `Serial (Port: ${serialPort || 'N/A'}, Baud: ${baudRate})`;
+        } else if (mode === 'test') {
+            return `Simulation Mode`;
+        }
+        return '';
+    }, [mode, selectedDeviceId, sshHost, sshPort, serialPort, baudRate]);
+
     // ⚡ Auto-connect for Quick Connect when modal opens and socket is ready
     useEffect(() => {
-        if (isOpen && isQuickConnect && socket && !isConnected && !isConnecting && !error) {
+        if (isOpen && isQuickConnect && showQuickConnectUI && socket && isSocketReady && !isConnected && !isConnecting && !error) {
             console.log('[TizenConnectionModal] ⚡ Quick Connect Triggered! Auto-connecting with mode:', mode);
             handleConnect();
         }
-    }, [isOpen, isQuickConnect, socket, isConnected, isConnecting, error, mode, handleConnect]);
+    }, [isOpen, isQuickConnect, showQuickConnectUI, socket, isSocketReady, isConnected, isConnecting, error, mode, handleConnect]);
 
     if (!isOpen) return null;
     const effectiveIsConnected = isExternalConnected ?? isConnected;
     const effectiveStatus = isExternalConnected ? 'Connected' : status;
+
+    // ⚡ Early return for premium Quick Connect interface
+    if (showQuickConnectUI && !effectiveIsConnected) {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-[500px] h-[380px] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150 transition-all">
+                    {/* Header */}
+                    <div className="bg-slate-950 p-5 border-b border-slate-800 flex justify-between items-center shrink-0">
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <Server size={18} className="text-indigo-500" /> Tizen Quick Connect
+                        </h2>
+                        <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex-1 flex flex-col p-6 items-center justify-center text-center space-y-6 overflow-hidden">
+                        {error ? (
+                            /* Error Panel */
+                            <div className="w-full flex flex-col items-center space-y-4">
+                                <div className="w-16 h-16 rounded-full bg-red-950/30 border border-red-500/30 flex items-center justify-center text-red-500">
+                                    <ShieldAlert size={32} />
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-bold text-slate-200">Unable to establish a connection</h3>
+                                    <p className="text-[10px] text-indigo-400 font-mono">{getConnectionString()}</p>
+                                </div>
+                                <div className="w-full bg-slate-950/80 border border-slate-800 p-3.5 rounded-xl max-h-[100px] overflow-y-auto text-left custom-scrollbar">
+                                    <p className="text-[10px] font-mono text-red-400 leading-normal break-all">{error}</p>
+                                </div>
+                                <div className="w-full flex gap-3 pt-2">
+                                    <button
+                                        onClick={() => setShowQuickConnectUI(false)}
+                                        className="flex-1 py-3 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition-all active:scale-[0.98]"
+                                    >
+                                        Switch to Manual Settings
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setError('');
+                                            setIsConnecting(true);
+                                            handleConnect();
+                                        }}
+                                        className="flex-1 py-3 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-900/40 transition-all active:scale-[0.98]"
+                                    >
+                                        Retry
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            /* Loading Panel */
+                            <div className="w-full flex flex-col items-center space-y-6">
+                                <div className="relative">
+                                    <div className="absolute inset-0 rounded-full bg-yellow-500/10 blur-sm animate-ping" />
+                                    <div className="relative w-16 h-16 rounded-full bg-slate-950 border border-slate-800 flex items-center justify-center text-yellow-500 shadow-xl">
+                                        <Zap size={32} className="animate-bounce" />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-sm font-bold text-slate-200 animate-pulse">Automatically connecting to last settings...</h3>
+                                    <div className="inline-flex items-center gap-2 bg-indigo-950/30 border border-indigo-500/20 px-4 py-1.5 rounded-full text-[10px] font-mono text-indigo-400">
+                                        <Terminal size={10} />
+                                        <span>{getConnectionString()}</span>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-slate-500">
+                                    Waiting for a socket connection. Please wait a moment.
+                                </p>
+                                <button
+                                    onClick={() => setShowQuickConnectUI(false)}
+                                    className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors underline pt-2"
+                                >
+                                    Switch to Manual Settings
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">

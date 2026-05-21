@@ -131,7 +131,7 @@
   - `Space`: 북마크 토글 (황금색 언더라인 강조) [MOD]
   - `Double Click`: 원본 로그 문맥(Raw Context) 보기 [MOD]
   - **스마트 엔티티 칩 필터 연동**: Raw View에서 추출된 PID/TID/Hex 주소 칩 클릭 시, 메인 로그 뷰 세션에 즉각 퀵 필터(Filter)를 먹이거나 퀵 하이라이트(Spark)를 입혀 실시간 다이렉트 분석 지원. [NEW][HOT]
-  - **Quick Connect 자동 연결 복구**: 상단 커넥션 영역 번개(⚡) 버튼 클릭 시, 이전 연결 환경으로 막힘 없이 자동 커넥트(Auto Connect)가 기동되도록 복원 완료. [NEW][HOT]
+  - **Quick Connect 자동 연결 복구 및 프리미엄 UX**: 상단 커넥션 영역 번개(⚡) 버튼 클릭 시, 마지막 성공했던 연결 수단(SDB/SSH/Serial/Simulate) 정보를 읽어 들여 물리적인 소켓 세션 수립(`isSocketReady`) 직후 1초 만에 자동 다이렉트 연결을 수행합니다. 자동 연결 연동 중에는 펄싱 글로우 애니메이션이 포함된 노란색 번개 아이콘 ⚡과 타겟 연결 정보 칩바가 장착된 전용 퀵 커넥팅 로딩 UI를 노출하여 프리미엄 감성을 제공하며, 연결 실패 시에는 예쁘고 디테일한 에러 안내 패널과 `수동 설정으로 전환`, `다시 시도` 버튼을 제공하여 100% 안전한 폴백(Fallback)을 보장합니다. (성능을 저해하는 blur 필터를 완전히 배제한 고화질 모던 다크 디자인) [UPDATED][HOT]
   - **LLM Communication 디버깅 강화**: URL, Method, Headers, Full Body를 포함한 전체 HTTP 트래픽 기록 및 UI 표시. 긴 텍스트 자동 요약(Truncation) 적용. [NEW]
   - **AI 통신 디버그 로깅**: AI와 주고받는 모든 Raw 통신 데이터를 `agent_traffic_debug.log` 파일에 기록 (현재 비활성화, `agentApiService.ts`에서 활성 가능). [UPDATED]
   - **AI 분석 루프 최적화**: 중복 실행 방지 가드 및 정체(Stall) 감지 로직 추가. 정체 및 API 오류 발생 시에도 통신 로그를 남기도록 개선. [UPDATED]
