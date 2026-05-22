@@ -1,33 +1,103 @@
-# App Hub "버벅임 제로" 최적화 계획 (No-Jank Edition)
+# 📋 글로벌 검색 Happy Combo 매칭 누락 버그 진압 계획서 🐧⚡
 
-## 1. 분석: 왜 버벅이는가? (True Causes)
-
-렌더링 엔진 분석 결과, 시각적인 감성 수치보다 "구조적 설계"로 인한 CPU/GPU 병목이 확인되었습니다.
-
-1. **React Memoization 파괴 (심각)**: `Section.tsx`에서 `AppCard`에 함수를 전달할 때 매번 새로운 화살표 함수(`() => onSelect(id)`)를 생성합니다. 이로 인해 `React.memo(AppCard)`가 무력화되어, 모달이 열릴 때 수십 개의 카드가 불필요하게 연쇄 리렌더링됩니다.
-2. **Framer Motion `layout` 오버헤드**: `layout` 속성은 브라우저의 리플로우(Reflow)를 유발하며, 특히 `grid-flow-row-dense` 환경에서는 모든 카드의 좌표를 실시간으로 추적하느라 성능이 급감합니다.
-3. **`layoutId` 공유 레이아웃**: 활성화 표시기(`activeIndicator`)에 사용된 `layoutId`는 컴포넌트 간 복잡한 좌표 동기화 로직을 실행하여 연산 비용을 높입니다.
-4. **중복된 Stagger 관리**: 부모(`Modal`)가 자식들의 순서를 관리(`staggerChildren`)하는 동시에 자식(`Card`)도 개별 지연시간을 갖는 구조는 불필요한 JS 실행 시간을 늘립니다.
+형님! 글로벌 검색 탭에서 `1234` 콤보를 활성화한 상태로 "Search All"을 실행했을 때, 원본 로그 파일에 해당 텍스트가 존재함에도 검색 결과가 비어 나오던 심각한 원인을 찾아내어 진압 계획을 작성했습니다!
 
 ---
 
-## 2. 해결 계획 (Action Plan)
+## 🔍 버그 원인 분석 (Root Cause)
 
-### [MODIFY] components/AppCard.tsx
-- **인터페이스 최적화**: `onSelect`, `onRightClick`이 ID를 직접 받도록 변경하여 Props 참조를 안정화시킵니다. (Memoization 복구)
-- **`layout` 속성 완전 제거**: 성능의 주범인 레이아웃 추적 로직을 삭제합니다.
-- **`layoutId` 제거**: `activeIndicator`를 단순한 CSS Border/Glow 효과로 대체하여 좌표 동기화 부하를 없앱니다.
-- **애니메이션 다이어트**: 가장 가벼운 `tween` 방식과 짧은 거리(`y: 10`)만 사용하여 GPU 연산량을 최소화합니다.
-
-### [MODIFY] components/Section.tsx
-- **함수 래핑 제거**: `AppCard`에 함수를 전달할 때 인라인 화살표 함수 사용을 중지하고, 부모로부터 받은 함수 참조를 그대로 넘깁니다.
-
-### [MODIFY] components/AppLibraryModal.tsx
-- **Stagger 제거**: `staggerChildren`을 없애고 모든 카드가 개별 `random delay`에 따라 독립적으로 애니메이션 되도록 하여 부모의 연산 부하를 제거합니다.
+1. **Happy Combo 데이터 정제 단계의 누락**:
+   - 일반 로그 탭에서 필터링(`FILTER_LOGS`)을 수행할 때는 메인 스레드에서 `assembleIncludeGroups(currentConfig)`를 실행하여, 콤보 그룹과 브랜치(태그) 정보가 조합된 `includeGroups` 배열을 채운 뒤 워커로 전달합니다.
+   - 하지만 전역 검색(`SEARCH_GLOBAL_MISSION`)을 실행할 때는 `hooks/useGlobalSearch.ts`가 `global-mission` 원본 `LogRule` 객체를 정제하지 않고 **워커로 그대로 쏩니다.**
+2. **워커 내부 파싱 구조의 한계**:
+   - 워커(`workers/LogProcessor.worker.ts`)는 전달받은 룰에서 단지 `rule.includeGroups`만 분석합니다. 
+   - 전역 검색 시에는 `includeGroups`가 비어있기 때문에, 워커는 매칭할 키워드가 `[]`로 비어있다고 간주하여 실시간 검색 루프를 돌지 않고 즉시 빈 결과를 뱉어내 버렸던 것입니다.
 
 ---
 
-## User Review Required
-형님, "감성"을 위한 무거운 로직들(`layout`, `layoutId`, `stagger`)을 과감히 걷어내고 **"성능(No-Jank)"**에 올인하겠습니다. 이렇게 하면 렉 없이 번개처럼 열릴 겁니다. 진행할까요?
+## 🛠️ 해결 방안 (Proposed Changes)
 
-### [ PROCEED (진행하기) ]
+글로벌 검색 트리거 단계에서 `assembleIncludeGroups` 유틸리티를 임포트하여, `global-mission`에 있는 `happyGroups`(Happy Combo 콤보 데이터) 설정을 `includeGroups` 2차원 배열로 완벽하게 정제(Pre-normalize)한 후 각 워커에 정제된 룰을 꽂아 전달하도록 수정합니다.
+
+### 1. [MODIFY] [useGlobalSearch.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/hooks/useGlobalSearch.ts)
+- `utils/filterGroupUtils` 로부터 `assembleIncludeGroups`를 임포트합니다.
+- `searchAllOpenFiles` 함수에서 `globalRule`을 받자마자 정제된 `includeGroups`로 오버라이드한 `preparedRule` 객체를 생성하여, 각 워커에 포스트 메시지로 쏠 수 있도록 수정합니다.
+
+---
+
+## 📝 상세 코드 변경 계획 (Diff Preview)
+
+### [hooks/useGlobalSearch.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/hooks/useGlobalSearch.ts)
+
+```typescript
+// 1. 임포트 추가
+import { assembleIncludeGroups } from '../utils/filterGroupUtils';
+
+// 2. searchAllOpenFiles 내부 변경
+    const searchAllOpenFiles = useCallback(async (globalRule: LogRule) => {
+        if (isSearchingAll) return;
+        setIsSearchingAll(true);
+        setSearchResults([]);
+
+        try {
+            // 🐧🎯 형님! 글로벌 검색 시에도 Happy Combo(happyGroups)를 includeGroups로 채우는 전처리 단계를 수행합니다!
+            const refinedIncludeGroups = assembleIncludeGroups(globalRule);
+            const preparedRule: LogRule = {
+                ...globalRule,
+                includeGroups: refinedIncludeGroups
+            };
+
+            const allWorkersMap = workerRegistry.getAllWorkers();
+            const promises: Promise<TabSearchResult | null>[] = [];
+
+            for (const [tabId, workerPair] of allWorkersMap.entries()) {
+                const tabInfo = tabs.find(t => t.id === tabId);
+                const tabName = tabInfo ? tabInfo.title : `Tab ${tabId}`;
+
+                // Left pane search
+                if (workerPair.left && workerPair.left.ready && workerPair.left.path) {
+                    promises.push(
+                        performWorkerSearch(
+                            tabId,
+                            tabName,
+                            'left',
+                            workerPair.left.worker,
+                            workerPair.left.path,
+                            preparedRule // <-- 정제된 룰을 전달!
+                        )
+                    );
+                }
+
+                // Right pane search
+                if (workerPair.right && workerPair.right.ready && workerPair.right.path) {
+                    promises.push(
+                        performWorkerSearch(
+                            tabId,
+                            tabName,
+                            'right',
+                            workerPair.right.worker,
+                            workerPair.right.path,
+                            preparedRule // <-- 정제된 룰을 전달!
+                        )
+                    );
+                }
+            }
+```
+
+---
+
+## 🧪 검증 계획 (Verification Plan)
+
+### 수동 검증 (Manual Verification)
+1. 글로벌 미션의 Happy Combo에 임의의 콤보 그룹(예: `1234`)을 생성하고 체크합니다. (하위 브랜치가 비어있는 상태)
+2. 열린 로그 파일 `2_right.txt`와 `1_left.txt`에 해당 텍스트(`1234`)가 존재하는지 확인합니다.
+3. 글로벌 검색 결과 탭에서 "Search All"을 누르고, 두 파일에서 `1234`가 포함된 라인이 Notepad++ 트리 형태로 완벽히 검출되어 나타나는지 확인합니다.
+
+### 자동 검증 (Automated tsc check)
+- WSL Bash에서 `wsl npx tsc --noEmit`을 수행하여 타입 정밀 컴파일 통과 여부를 검증합니다.
+
+---
+
+## 🚦 형님의 승인 대기 (Proceed Request)
+
+형님! 본 설계에 부합하다면 **Proceed** 버튼을 클릭하시거나 채팅으로 **"고고"** 또는 **"진행해라"**라고 명령을 내려주십시오! 승인하시는 대로 신속하고 완벽하게 코드를 수정하여 버그를 영구 소탕해 올리겠습니다! 🐧🚀🔥

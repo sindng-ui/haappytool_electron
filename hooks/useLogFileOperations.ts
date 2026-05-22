@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { getStoredValue, setStoredValue } from '../utils/db';
 import { LogViewerHandle } from '../components/LogViewer/LogViewerPane';
 import { Socket } from 'socket.io-client';
+import { workerRegistry } from './LogWorkerRegistry';
 
 export interface UseLogFileOperationsProps {
     tabId: string;
@@ -134,6 +135,7 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
             const fileName = targetPath.split(/[/\\]/).pop() || 'log_file.log';
             setFileName(fileName);
             setFilePath(targetPath);
+            workerRegistry.updateState(tabId, pane, { path: targetPath });
 
             if (pane === 'left' && onFileChange) {
                 onFileChange(targetPath);
@@ -195,12 +197,14 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
         // Priority 1: Direct File Object
         if (initialFile) {
             console.log('[useLog] Loading from initialFile object:', initialFile.name);
+            const path = (initialFile as any).path || '';
             setLeftFileName(initialFile.name);
-            setLeftFilePath((initialFile as any).path || '');
+            setLeftFilePath(path);
             setLeftWorkerReady(false);
             setLeftIndexingProgress(0);
             setLeftTotalLines(0);
             setLeftFilteredCount(0);
+            workerRegistry.updateState(tabId, 'left', { path });
             leftWorkerRef.current?.postMessage({ type: 'INIT_FILE', payload: initialFile });
             return;
         }
@@ -272,6 +276,8 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
         }
 
         if (path) {
+            setLeftFilePath(path);
+            workerRegistry.updateState(tabId, 'left', { path });
             setStoredValue(`tabState_${tabId}`, JSON.stringify({
                 filePath: path,
                 rightFilePath: rightFilePath,
@@ -312,6 +318,7 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
 
         if (path) {
             setRightFilePath(path);
+            workerRegistry.updateState(tabId, 'right', { path });
             setStoredValue(`tabState_${tabId}`, JSON.stringify({
                 filePath: leftFilePath,
                 rightFilePath: path,
@@ -381,6 +388,7 @@ export const useLogFileOperations = (props: UseLogFileOperationsProps) => {
             
             // 캐시 무효화로 재로딩 보장
             lastLoadingPathRefLeft.current = null;
+            workerRegistry.updateState(tabId, 'left', { path });
             leftWorkerRef.current?.postMessage({ type: 'INIT_FILE', payload: initialFile });
         } else if (!initialFile) {
             prevInitialFileRef.current = initialFile;

@@ -308,6 +308,19 @@ export const useLogExtractorLogic = ({
         }
     }, [leftSegmentIndex, leftWorkerReady, leftCurrentSegmentLines, leftViewerRef]);
 
+    // 🐧⚡ Event listener for Global Search Line Jump
+    useEffect(() => {
+        const handleJumpLine = (e: Event) => {
+            const customEvent = e as CustomEvent<{ tabId: string; pane: 'left' | 'right'; lineNum: number }>;
+            if (customEvent.detail && customEvent.detail.tabId === tabId) {
+                const { pane, lineNum } = customEvent.detail;
+                jumpToGlobalLine(lineNum, pane, 'center');
+            }
+        };
+        window.addEventListener('global-search-jump-line', handleJumpLine);
+        return () => window.removeEventListener('global-search-jump-line', handleJumpLine);
+    }, [tabId, jumpToGlobalLine]);
+
     useEffect(() => {
         // Dual view일 때만 right logic 발동
         if (pendingJumpLineRight.current && rightWorkerReady && rightCurrentSegmentLines > 0 && isDualView) {

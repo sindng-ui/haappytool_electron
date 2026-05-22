@@ -4,6 +4,9 @@
 
 ### [Log Extractor](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogExtractor.tsx)
 로그 추출 및 실시간 스트리밍 기능을 제공합니다. *(⚠️ Note: 이 섹션은 점점 비대해지고 있으므로 향후 `LOG_EXTRACTOR.md`로 독립할 예정입니다.)*
+- **Global Search & Hyper Jump (2026-05-22)**: [NEW][HOT]
+  - **Search All in Open Files**: global-mission이 활성 미션으로 선택되어 있을 때, 현재 열려있는 모든 파일 탭의 백그라운드 워커를 병렬 기동하여 초고속 검색 수행 및 Notepad++ 트리 스타일 결과 출력. JS Fallback 매칭(OR of ANDs)을 고정 적용해 C++ WASM 엔진 탭 상태 간섭을 원천 배제하여 100% 매칭 무결성을 확보했고, 탭 전환/닫기/추가 및 수동 초기화 시 검색 결과가 깨끗이 비워지는 완벽한 생명주기 제어를 탑재함. 특히 해피콤보 하위에 브랜치가 없어도 그룹명 자체를 검색어로 정상 매칭할 수 있도록 `assembleIncludeGroups`를 연동하여 검색 누락 버그를 완벽 진압함. 🐧🔎⚡ [UPDATED][HOT]
+  - **Tab & Line Hyper Jump**: 검색 결과 항목 클릭 시, 해당 탭으로 즉시 활성화 전환하고 타겟 로그 라인의 위치로 화면을 미려하게 스크롤 및 포커싱 점프. 🐧🚀⚡
 - **Tizen Connection (2026-05-09)**: [NEW]
   - **Serial Support**: SDB, SSH 외에 **Serial(COM Port)** 직접 연결 모드 추가. 🐧🔌
   - **Auto Port Detection**: 사용 가능한 COM 포트 목록 자동 스캔.

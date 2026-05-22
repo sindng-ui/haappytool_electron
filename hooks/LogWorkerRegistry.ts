@@ -20,6 +20,13 @@ class LogWorkerRegistry {
     private workers = new Map<string, WorkerPair>();
 
     /**
+     * 모든 등록된 워커 쌍을 가져옵니다. 🐧⚡
+     */
+    getAllWorkers(): Map<string, WorkerPair> {
+        return this.workers;
+    }
+
+    /**
      * 특정 탭의 워커 쌍을 가져옵니다. 없으면 새로 생성합니다.
      */
     getWorkers(tabId: string): WorkerPair {

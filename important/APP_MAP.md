@@ -104,6 +104,8 @@
 - **Optimizations**:
   - `SharedArrayBuffer Zero-copy Binary Read`: UI(HyperLogRenderer)에서 직접 공유 메모리를 읽어 렌더링 성능 극대화.
   - `글로벌 미션 상시 누적 병합 필터링`: 활성화된 액티브 미션이 무엇이든 상관없이, `global-mission`에 등록된 해피콤보 및 블록 리스트가 상시 누적 병합(OR of ANDs + excludes)되어 실시간으로 반영되는 상시 필터링 파이프라인 탑재. [NEW][HOT]
+  - `글로벌 미션 기반 '열린 파일 모두 검색' (Search All in Open Files)`: global-mission이 활성 미션으로 선택되어 있고 빈 화면일 때 'Search All' 버튼을 노출하고, 클릭 시 열려있는 모든 파일 탭의 백그라운드 워커를 병렬 가동해 초고속 스캔을 수행하고 결과를 Notepad++ 트리 스타일(`GlobalSearchResultView`)로 표출. C++ WASM 엔진 탭 상태 간섭을 배제하기 위한 JS Fallback 매칭(OR of ANDs)을 고정 적용하여 100% 무결성을 보장하고, 탭 전환/닫기/추가 시 및 검색 결과 수동 초기화(`clearSearchResults`) 클릭 시 검색 결과가 깨끗이 초기화되도록 생명주기 제어 메커니즘을 완벽 탑재함. 특히 해피콤보 하위에 브랜치가 없어도 그룹명 자체를 검색어로 정상 매칭할 수 있도록 `assembleIncludeGroups`를 연동하여 검색 누락 버그를 완벽 진압함. [UPDATED][HOT]
+  - `스마트 하이퍼 점프 (Hyper-Jump to Tab Line)`: 검색 결과 트리에서 특정 행을 클릭하면, 타겟 파일의 탭으로 즉시 휙 전환(Switch Tab)되고, 해당 로그 라인의 위치로 화면을 미려하고 정확하게 포커싱 및 스크롤 점프 수행. [NEW][HOT]
   - `ANSI Stripping`: 로딩 시점에서 ANSI 코드를 제거하여 부하 최소화.
   - `Lazy SAB Allocation`: 로컬 파일 모드 시 메모리 할당 지연 (RAM 절약).
   - `Active State Sync`: 백그라운드 탭의 유령 워커 자동 정리. [NEW]
@@ -342,6 +344,8 @@
 
 ### [[500 Lines Rule]] 👮
 - 한 파일이 500줄을 초과할 경우 즉시 리팩토링 및 컴포넌트 분리를 계획하여 제출합니다.
+  - **LogSession.tsx 500줄 초과 대응 리팩토링 계획**: `components/LogSession.tsx` (1,698줄)에 대한 3개 핵심 마이크로 훅 분할 로드맵을 정의함. ([LOGSESSION_REFACTORING_PLAN.md](../docs/LOGSESSION_REFACTORING_PLAN.md)) [NEW]
+  - **글로벌 검색 타입 에러 종결 구현 계획**: `LogSession.tsx` 타입 에러 해결을 위한 세부 연동 설계안. ([implementation_plan_global_search_type_fix.md](../docs/implementation_plan_global_search_type_fix.md)) [NEW]
 
 ### [[Performance First]] 🚀
 - 대용량 데이터 처리 시 무조건 워커(Worker)를 동원하고, 메모이제이션을 통해 UI 부하를 최소화합니다.

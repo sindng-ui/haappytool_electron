@@ -8,6 +8,7 @@ import { useLogArchiveContext } from './LogArchive';
 import { deleteStoredValue, getStoredValue } from '../utils/db';
 import { workerRegistry } from '../hooks/LogWorkerRegistry';
 import { LogViewPreferencesProvider } from './LogViewer/LogViewPreferencesContext';
+import { useGlobalSearch } from '../hooks/useGlobalSearch';
 
 
 
@@ -120,6 +121,27 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         return saved || 'tab-1';
     });
 
+    // 🐧⚡ Global Search Hook initialization
+    const globalSearch = useGlobalSearch(tabs, activeTabId);
+    const { clearSearchResults } = globalSearch;
+
+    // 🐧⚡ 탭 전환 시 검색 결과 자동 초기화
+    useEffect(() => {
+        clearSearchResults();
+    }, [activeTabId, clearSearchResults]);
+
+    // 🐧⚡ Event listener for Global Search Tab Switch
+    useEffect(() => {
+        const handleSwitch = (e: Event) => {
+            const customEvent = e as CustomEvent<{ tabId: string }>;
+            if (customEvent.detail && customEvent.detail.tabId) {
+                setActiveTabId(customEvent.detail.tabId);
+            }
+        };
+        window.addEventListener('global-search-switch-tab', handleSwitch);
+        return () => window.removeEventListener('global-search-switch-tab', handleSwitch);
+    }, []);
+
     // Determine next tab counter based on existing IDs
     const [tabCounter, setTabCounter] = useState(() => {
         const saved = localStorage.getItem('openTabs');
@@ -171,7 +193,10 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         setTabs(prev => [...prev, { id: newTabId, title: newTitle, initialFile: file, filePath }]);
         setActiveTabId(newTabId);
         setTabCounter(prev => prev + 1);
-    }, [tabCounter]);
+
+        // 🐧⚡ 글로벌 검색 결과 초기화!
+        clearSearchResults();
+    }, [tabCounter, clearSearchResults]);
 
     /**
      * 🎯 [Notepad++ 전역 파일 오프너 허브]
@@ -268,6 +293,9 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
         // Cleanup storage & workers
         deleteStoredValue(`tabState_${tabId}`);
 
+        // 🐧⚡ 글로벌 검색 결과 초기화!
+        clearSearchResults();
+
         if (tabs.length === 1) {
             const nextId = `tab-${tabCounter}`;
             deleteStoredValue(`tabState_${nextId}`);
@@ -291,7 +319,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
             const newActiveIndex = Math.max(0, tabIndex - 1);
             setActiveTabId(newTabs[newActiveIndex].id);
         }
-    }, [tabs, activeTabId, tabCounter]);
+    }, [tabs, activeTabId, tabCounter, clearSearchResults]);
 
     const handleGlobalDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -705,6 +733,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                                     title={tab.title}
                                     tabId={tab.id}
                                     onTitleChange={handleTitleChange}
+                                    globalSearch={globalSearch}
                                 />
                             </LogProvider>
                         </div>
@@ -724,13 +753,25 @@ const SessionWrapper: React.FC<{
     title: string;
     onTitleChange: (id: string, title: string) => void;
     tabId: string;
-}> = React.memo(({ isActive, title, onTitleChange, tabId }) => {
+    globalSearch: any;
+}> = React.memo(({ isActive, title, onTitleChange, tabId, globalSearch }) => {
     // We create a stable callback for this specific session instance
     const handleTitleChange = useCallback((newTitle: string) => {
         onTitleChange(tabId, newTitle);
     }, [onTitleChange, tabId]);
 
-    return <LogSession isActive={isActive} currentTitle={title} onTitleChange={handleTitleChange} />;
+    return (
+        <LogSession
+            isActive={isActive}
+            currentTitle={title}
+            onTitleChange={handleTitleChange}
+            searchResults={globalSearch.searchResults}
+            isSearchingAll={globalSearch.isSearchingAll}
+            onSearchAllOpenFiles={globalSearch.searchAllOpenFiles}
+            onJumpToTabLine={globalSearch.handleJumpToTabLine}
+            onClearSearchResults={globalSearch.clearSearchResults}
+        />
+    );
 });
 
 export default LogExtractor;

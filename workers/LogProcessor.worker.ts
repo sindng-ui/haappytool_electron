@@ -1051,5 +1051,79 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
                 respond({ type: 'FIND_RESULT', payload: { foundIndex: -1 }, requestId: requestId || '' });
             }
             break;
+        case 'SEARCH_GLOBAL_MISSION':
+            try {
+                const rule: LogRule = payload.rule;
+                const isHappyCase = !!rule.happyCombosCaseSensitive;
+                const isBlockCase = !!rule.blockListCaseSensitive;
+                const normalizedRule: LogRule = {
+                    ...rule,
+                    excludes: rule.excludes.map(e => e.trim()).filter(e => e !== '').map(e => isBlockCase ? e : e.toLowerCase()),
+                    includeGroups: rule.includeGroups.map(group =>
+                        group.map(t => isHappyCase ? t.trim() : t.trim().toLowerCase()).filter(t => t !== '')
+                    ).filter(g => g.length > 0)
+                };
+
+                // Safeguard: If no active filters are provided, return empty immediately to prevent match-all scan
+                const hasHappy = normalizedRule.includeGroups && normalizedRule.includeGroups.length > 0;
+                const hasBlock = normalizedRule.excludes && normalizedRule.excludes.length > 0;
+                if (!hasHappy && !hasBlock) {
+                    respond({ type: 'SEARCH_GLOBAL_MISSION_RESULT', payload: { results: [] }, requestId } as any);
+                    break;
+                }
+
+                const totalLines = isStreamMode ? streamLineCount : (lineOffsets ? lineOffsets.length : 0);
+                const results: Array<{ lineNum: number; content: string }> = [];
+                const maxMatches = 3000;
+                let matchCount = 0;
+
+                const decoder = new TextDecoder();
+                const searchChunkSize = 20000;
+
+                for (let start = 0; start < totalLines; start += searchChunkSize) {
+                    if (matchCount >= maxMatches) break;
+                    const end = Math.min(start + searchChunkSize, totalLines);
+
+                    for (let j = start; j < end; j++) {
+                        if (matchCount >= maxMatches) break;
+
+                        let lineContent = '';
+                        if (isStreamMode) {
+                            if (logBuffer && lineOffsetsStream && lineLengthsStream) {
+                                const s = lineOffsetsStream[j];
+                                const l = lineLengthsStream[j];
+                                lineContent = decoder.decode(logBuffer.subarray(s, s + l).slice()).replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+                            }
+                        } else if (isLocalFileMode && localFilePath) {
+                            const offset = lineOffsets![j];
+                            const nextOffset = j < lineOffsets!.length - 1 ? lineOffsets![j + 1] : BigInt(localFileSize);
+                            const uint8View = await rpcCall('readFileSegment', { path: localFilePath, start: Number(offset), end: Number(nextOffset) });
+                            lineContent = decoder.decode(uint8View).replace(/\r?\n$/, '').replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+                        } else if (currentFile && lineOffsets) {
+                            const offset = lineOffsets[j];
+                            const nextOffset = j < lineOffsets.length - 1 ? lineOffsets[j + 1] : BigInt(currentFile.size);
+                            const chunkBlob = currentFile.slice(Number(offset), Number(nextOffset));
+                            const arrayBuf = await chunkBlob.arrayBuffer();
+                            const uint8View = new Uint8Array(arrayBuf);
+                            lineContent = decoder.decode(uint8View).replace(/\r?\n$/, '').replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+                        }
+
+                        // 💡 Bypass WASM engine during global search to prevent tab state contamination/inconsistency
+                        if (checkIsMatch(lineContent, normalizedRule, false, 'none', undefined, undefined, undefined)) {
+                            results.push({ lineNum: j, content: lineContent });
+                            matchCount++;
+                        }
+                    }
+                    if (start % 100000 === 0 && !isLocalFileMode) {
+                        await new Promise(resolve => setTimeout(resolve, 0));
+                    }
+                }
+
+                respond({ type: 'SEARCH_GLOBAL_MISSION_RESULT', payload: { results }, requestId } as any);
+            } catch (e) {
+                console.error('[Worker] SEARCH_GLOBAL_MISSION failed', e);
+                respond({ type: 'SEARCH_GLOBAL_MISSION_RESULT', payload: { results: [] }, requestId } as any);
+            }
+            break;
     }
 };

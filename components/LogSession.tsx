@@ -35,9 +35,23 @@ interface LogSessionProps {
     isActive: boolean;
     currentTitle?: string;
     onTitleChange?: (title: string) => void;
+    searchResults?: any[];
+    isSearchingAll?: boolean;
+    onSearchAllOpenFiles?: (globalRule: any) => Promise<void>;
+    onJumpToTabLine?: (tabId: string, pane: 'left' | 'right', lineNum: number) => void;
+    onClearSearchResults?: () => void;
 }
 
-const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitleChange }) => {
+const LogSession: React.FC<LogSessionProps> = ({
+    isActive,
+    currentTitle,
+    onTitleChange,
+    searchResults = [],
+    isSearchingAll = false,
+    onSearchAllOpenFiles,
+    onJumpToTabLine,
+    onClearSearchResults
+}) => {
     const leftFileInputRef = React.useRef<HTMLInputElement>(null);
     const rightFileInputRef = React.useRef<HTMLInputElement>(null);
     const { isFocusMode } = useHappyTool(); // ✅ Use global focus mode state
@@ -128,8 +142,13 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         clearQuickHighlights,
         addWordToGlobalMission,
         clearGlobalMission,
-        rules
+        rules,
+        selectedRuleId
     } = useLogContext();
+
+    const globalRule = React.useMemo(() => {
+        return rules?.find(r => r.id === 'global-mission');
+    }, [rules]);
 
     const [promptConfig, setPromptConfig] = React.useState<any>(null);
 
@@ -1288,6 +1307,13 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     highlightCaseSensitive={!!currentConfig?.happyCombosCaseSensitive || !!currentConfig?.colorHighlightsCaseSensitive}
                                     onLineClick={onLineClickLeft}
                                     onLineDoubleClick={onLineDoubleClickLeft}
+                                    selectedRuleId={selectedRuleId}
+                                    onSearchAllOpenFiles={onSearchAllOpenFiles ? () => onSearchAllOpenFiles(globalRule) : undefined}
+                                    searchResults={searchResults}
+                                    isSearchingAll={isSearchingAll}
+                                    onJumpToTabLine={onJumpToTabLine}
+                                    globalRule={globalRule}
+                                    onClearSearchResults={onClearSearchResults}
                                     activeLineIndex={activeLineIndexLeft}
                                     selectedIndices={selectedIndicesLeft}
                                     onDrop={handleLeftFileChange}
@@ -1398,6 +1424,13 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                         hotkeyScope="alt"
                                         onLineClick={onLineClickRight}
                                         onLineDoubleClick={onLineDoubleClickRight}
+                                        selectedRuleId={selectedRuleId}
+                                        onSearchAllOpenFiles={onSearchAllOpenFiles ? () => onSearchAllOpenFiles(globalRule) : undefined}
+                                        searchResults={searchResults}
+                                        isSearchingAll={isSearchingAll}
+                                        onJumpToTabLine={onJumpToTabLine}
+                                        globalRule={globalRule}
+                                        onClearSearchResults={onClearSearchResults}
                                         activeLineIndex={activeLineIndexRight}
                                         selectedIndices={selectedIndicesRight}
                                         onDrop={handleRightFileChange}
