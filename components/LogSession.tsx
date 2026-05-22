@@ -127,7 +127,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         addQuickHighlight,
         clearQuickHighlights,
         addWordToGlobalMission,
-        clearGlobalMission
+        clearGlobalMission,
+        rules
     } = useLogContext();
 
     const [promptConfig, setPromptConfig] = React.useState<any>(null);
@@ -695,7 +696,16 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
     // Prepare Effective Highlights (Explicit + Auto-generated Highlighting for Happy Combos)
     // Prepare Effective Highlights (Explicit + Auto-generated Highlighting for Happy Combos)
     const effectiveHighlights = React.useMemo(() => {
-        const baseHighlights = appliedConfig?.highlights || [];
+        const baseHighlights = [...(appliedConfig?.highlights || [])];
+
+        // 🐧🎯 형님! 현재 룰이 글로벌 미션이 아니라면, 글로벌 미션의 수동 하이라이트도 병합시킵니다!
+        const globalRule = appliedConfig?.id !== 'global-mission'
+            ? rules?.find(r => r.id === 'global-mission')
+            : null;
+
+        if (globalRule && globalRule.highlights) {
+            baseHighlights.push(...globalRule.highlights);
+        }
 
         // Determine case sensitivity for deduplication
         // Hyungnim, if either is enabled, perform case-sensitive checks during deduplication.
@@ -712,10 +722,9 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         const autoHighlights: any[] = [];
         const termsToHighlight = new Set<string>();
 
-        // Collect terms from Happy Groups
+        // Collect terms from Happy Groups (Current Config)
         if (appliedConfig?.happyGroups) {
             appliedConfig.happyGroups.forEach(group => {
-                // Check if group is enabled (default true if undefined)
                 if (group.enabled !== false) {
                     group.tags.forEach(tag => {
                         if (tag && tag.trim()) termsToHighlight.add(tag.trim());
@@ -724,7 +733,18 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             });
         }
 
-        // Legacy Support
+        // Collect terms from Happy Groups (Global Rule)
+        if (globalRule && globalRule.happyGroups) {
+            globalRule.happyGroups.forEach(group => {
+                if (group.enabled !== false) {
+                    group.tags.forEach(tag => {
+                        if (tag && tag.trim()) termsToHighlight.add(tag.trim());
+                    });
+                }
+            });
+        }
+
+        // Legacy Support (Current Config)
         if (appliedConfig?.includeGroups) {
             appliedConfig.includeGroups.forEach(group => {
                 group.forEach(tag => {
@@ -733,7 +753,14 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
             });
         }
 
-
+        // Legacy Support (Global Rule)
+        if (globalRule && globalRule.includeGroups) {
+            globalRule.includeGroups.forEach(group => {
+                group.forEach(tag => {
+                    if (tag && tag.trim()) termsToHighlight.add(tag.trim());
+                });
+            });
+        }
 
         termsToHighlight.forEach(term => {
             const checkTerm = isCaseSensitive ? term : term.toLowerCase();
@@ -751,10 +778,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         });
 
         // Precedence: Manual Updates > Auto Generated
-        // We put baseHighlights FIRST so find() returns manual highlight if both exist 
-        // (though we try to filter duplicates, partial matches might still occur)
         return [...baseHighlights, ...autoHighlights];
-    }, [appliedConfig]);
+    }, [appliedConfig, rules]);
 
     // Memoized handlers for Right Pane
     const onLineClickRight = React.useCallback((index: number, isShift?: boolean, isCtrl?: boolean) => handleLineClick('right', index, !!isShift, !!isCtrl), [handleLineClick]);

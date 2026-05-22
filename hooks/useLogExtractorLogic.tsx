@@ -535,11 +535,21 @@ export const useLogExtractorLogic = ({
         if (isActive && leftWorkerRef.current && currentConfig && leftWorkerReady) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
             
+            const globalRule = rules.find(r => r.id === 'global-mission');
+            let combinedGroups = [...refinedGroups];
+            let combinedExcludes = [...currentConfig.excludes];
+
+            if (globalRule && currentConfig.id !== 'global-mission') {
+                const globalGroups = assembleIncludeGroups(globalRule);
+                combinedGroups = [...combinedGroups, ...globalGroups];
+                combinedExcludes = [...combinedExcludes, ...globalRule.excludes];
+            }
+
             const applyFilter = () => {
-                const effectiveIncludes = refinedGroups.map(g =>
+                const effectiveIncludes = combinedGroups.map(g =>
                     g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
                 ).filter(g => g.length > 0);
-                const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
+                const effectiveExcludes = combinedExcludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
 
                 const payloadHash = JSON.stringify({
                     inc: effectiveIncludes,
@@ -563,7 +573,7 @@ export const useLogExtractorLogic = ({
                 console.log('[useLog-Left] Debounced FILTER_LOGS. hash:', payloadHash);
                 leftWorkerRef.current?.postMessage({
                     type: 'FILTER_LOGS',
-                    payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
+                    payload: { ...currentConfig, includeGroups: combinedGroups, excludes: combinedExcludes, quickFilter }
                 });
 
                 setActiveLineIndexLeft(-1);
@@ -574,18 +584,28 @@ export const useLogExtractorLogic = ({
             const timer = setTimeout(applyFilter, 150);
             return () => clearTimeout(timer);
         }
-    }, [currentConfig, tizenSocket, quickFilter, leftWorkerReady, isActive]);
+    }, [currentConfig, tizenSocket, quickFilter, leftWorkerReady, isActive, rules]);
 
     // Auto-Apply Filter (Right)
     useEffect(() => {
         if (isActive && isDualView && rightWorkerRef.current && currentConfig && rightWorkerReady && rightTotalLines > 0) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
 
+            const globalRule = rules.find(r => r.id === 'global-mission');
+            let combinedGroups = [...refinedGroups];
+            let combinedExcludes = [...currentConfig.excludes];
+
+            if (globalRule && currentConfig.id !== 'global-mission') {
+                const globalGroups = assembleIncludeGroups(globalRule);
+                combinedGroups = [...combinedGroups, ...globalGroups];
+                combinedExcludes = [...combinedExcludes, ...globalRule.excludes];
+            }
+
             const applyFilter = () => {
-                const effectiveIncludes = refinedGroups.map(g =>
+                const effectiveIncludes = combinedGroups.map(g =>
                     g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
                 ).filter(g => g.length > 0);
-                const effectiveExcludes = currentConfig.excludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
+                const effectiveExcludes = combinedExcludes.map(e => (!currentConfig.blockListCaseSensitive ? e.trim().toLowerCase() : e.trim())).filter(e => e !== '');
 
                 const payloadHash = JSON.stringify({
                     inc: effectiveIncludes,
@@ -609,7 +629,7 @@ export const useLogExtractorLogic = ({
                 console.log('[useLog-Right] Debounced FILTER_LOGS. hash:', payloadHash);
                 rightWorkerRef.current?.postMessage({
                     type: 'FILTER_LOGS',
-                    payload: { ...currentConfig, includeGroups: refinedGroups, quickFilter }
+                    payload: { ...currentConfig, includeGroups: combinedGroups, excludes: combinedExcludes, quickFilter }
                 });
                 setActiveLineIndexRight(-1);
                 setSelectedIndicesRight(new Set());
@@ -618,7 +638,7 @@ export const useLogExtractorLogic = ({
             const timer = setTimeout(applyFilter, 150);
             return () => clearTimeout(timer);
         }
-    }, [currentConfig, rightTotalLines, isDualView, quickFilter, rightWorkerReady, isActive]);
+    }, [currentConfig, rightTotalLines, isDualView, quickFilter, rightWorkerReady, isActive, rules]);
 
 
 

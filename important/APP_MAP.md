@@ -103,6 +103,7 @@
   - `filteredIndices`: 필터링된 결과 라인 번호 배열 (Int32Array)
 - **Optimizations**:
   - `SharedArrayBuffer Zero-copy Binary Read`: UI(HyperLogRenderer)에서 직접 공유 메모리를 읽어 렌더링 성능 극대화.
+  - `글로벌 미션 상시 누적 병합 필터링`: 활성화된 액티브 미션이 무엇이든 상관없이, `global-mission`에 등록된 해피콤보 및 블록 리스트가 상시 누적 병합(OR of ANDs + excludes)되어 실시간으로 반영되는 상시 필터링 파이프라인 탑재. [NEW][HOT]
   - `ANSI Stripping`: 로딩 시점에서 ANSI 코드를 제거하여 부하 최소화.
   - `Lazy SAB Allocation`: 로컬 파일 모드 시 메모리 할당 지연 (RAM 절약).
   - `Active State Sync`: 백그라운드 탭의 유령 워커 자동 정리. [NEW]
