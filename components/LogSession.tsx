@@ -26,6 +26,8 @@ import { extractTransactionIds } from '../utils/transactionAnalysis';
 import { RawContextViewer } from './LogViewer/RawContextViewer';
 import { executeQuickCommand } from './LogViewer/ConfigSections/QuickCommandSection';
 import { PromptDialog } from './ui/CommonDialogs';
+import FindInAllModal from './LogViewer/FindInAllModal';
+import FindInAllResultPanel from './LogViewer/FindInAllResultPanel';
 
 const { X, Eraser, ChevronLeft, ChevronRight, GripHorizontal } = Lucide;
 
@@ -40,6 +42,8 @@ interface LogSessionProps {
     onSearchAllOpenFiles?: (globalRule: any) => Promise<void>;
     onJumpToTabLine?: (tabId: string, pane: 'left' | 'right', lineNum: number) => void;
     onClearSearchResults?: () => void;
+    /** 전체 찾기 시스템 (useFindInAll 훅 반환값) */
+    findInAll?: any;
 }
 
 const LogSession: React.FC<LogSessionProps> = ({
@@ -50,7 +54,8 @@ const LogSession: React.FC<LogSessionProps> = ({
     isSearchingAll = false,
     onSearchAllOpenFiles,
     onJumpToTabLine,
-    onClearSearchResults
+    onClearSearchResults,
+    findInAll,
 }) => {
     const leftFileInputRef = React.useRef<HTMLInputElement>(null);
     const rightFileInputRef = React.useRef<HTMLInputElement>(null);
@@ -1127,6 +1132,14 @@ const LogSession: React.FC<LogSessionProps> = ({
                                     searchInputRef.current?.focus();
                                 }
 
+                                // Ctrl + Shift + F (Find in All Open Files)
+                                if (e.shiftKey && (e.code === 'KeyF' || e.key === 'f' || e.key === 'F')) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    findInAll?.openModal();
+                                    return;
+                                }
+
                                 // Ctrl + G (Go To Line)
                                 if (e.key === 'g' || e.key === 'G') {
                                     e.preventDefault();
@@ -1214,6 +1227,18 @@ const LogSession: React.FC<LogSessionProps> = ({
             {/* Hidden File Inputs for Click-to-Upload */}
             <input type="file" ref={leftFileInputRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleLeftFileChange(e.target.files[0]); e.target.value = ''; } }} />
             <input type="file" ref={rightFileInputRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleRightFileChange(e.target.files[0]); e.target.value = ''; } }} />
+
+            {/* 🐧⚡ Find in All Modal - Ctrl+Shift+F */}
+            {findInAll && (
+                <FindInAllModal
+                    isOpen={findInAll.isModalOpen}
+                    onClose={findInAll.closeModal}
+                    onSearch={findInAll.executeFindInAll}
+                    isSearching={findInAll.isSearching}
+                    lastSearchRule={findInAll.lastSearchRule}
+                />
+            )}
+
 
             {/* Tizen Connection Modal */}
             <TizenConnectionModal
@@ -1388,6 +1413,18 @@ const LogSession: React.FC<LogSessionProps> = ({
                                         </div>
                                     </div>
                                 )}
+                                {/* 🐧⚡ FindInAllResultPanel: 싱글뷰(좌측 패인만 보일 때) 여기에 위치 */}
+                                {!isDualView && findInAll && (
+                                    <FindInAllResultPanel
+                                        isVisible={findInAll.isResultPanelOpen}
+                                        results={findInAll.snapshotResults}
+                                        isSearching={findInAll.isSearching}
+                                        lastSearchRule={findInAll.lastSearchRule}
+                                        onClose={findInAll.closeResultPanel}
+                                        onReSearch={findInAll.reExecuteLastSearch}
+                                        onJumpToTabLine={findInAll.handleJumpToTabLine}
+                                    />
+                                )}
                             </div>
 
                             {/* Divider Between Panes */}
@@ -1501,6 +1538,18 @@ const LogSession: React.FC<LogSessionProps> = ({
                                                 </button>
                                             </div>
                                         </div>
+                                    )}
+                                    {/* 🐧⚡ FindInAllResultPanel: 듀얼뷰(우측 패인) 일 때 여기에 위치 */}
+                                    {isDualView && findInAll && (
+                                        <FindInAllResultPanel
+                                            isVisible={findInAll.isResultPanelOpen}
+                                            results={findInAll.snapshotResults}
+                                            isSearching={findInAll.isSearching}
+                                            lastSearchRule={findInAll.lastSearchRule}
+                                            onClose={findInAll.closeResultPanel}
+                                            onReSearch={findInAll.reExecuteLastSearch}
+                                            onJumpToTabLine={findInAll.handleJumpToTabLine}
+                                        />
                                     )}
                                 </div>
                             </div>

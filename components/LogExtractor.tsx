@@ -9,6 +9,7 @@ import { deleteStoredValue, getStoredValue } from '../utils/db';
 import { workerRegistry } from '../hooks/LogWorkerRegistry';
 import { LogViewPreferencesProvider } from './LogViewer/LogViewPreferencesContext';
 import { useGlobalSearch } from '../hooks/useGlobalSearch';
+import { useFindInAll } from '../hooks/useFindInAll';
 
 
 
@@ -124,6 +125,9 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
     // 🐧⚡ Global Search Hook initialization
     const globalSearch = useGlobalSearch(tabs, activeTabId);
     const { clearSearchResults } = globalSearch;
+
+    // 🐧⚡ Find in All Hook initialization (독립 전체 찾기, Global Mission과 무관)
+    const findInAll = useFindInAll({ tabs });
 
     // 🐧⚡ 탭 전환 시 검색 결과 자동 초기화
     useEffect(() => {
@@ -734,6 +738,7 @@ const LogExtractor: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => 
                                     tabId={tab.id}
                                     onTitleChange={handleTitleChange}
                                     globalSearch={globalSearch}
+                                    findInAll={findInAll}
                                 />
                             </LogProvider>
                         </div>
@@ -754,7 +759,8 @@ const SessionWrapper: React.FC<{
     onTitleChange: (id: string, title: string) => void;
     tabId: string;
     globalSearch: any;
-}> = React.memo(({ isActive, title, onTitleChange, tabId, globalSearch }) => {
+    findInAll: any;
+}> = React.memo(({ isActive, title, onTitleChange, tabId, globalSearch, findInAll }) => {
     // We create a stable callback for this specific session instance
     const handleTitleChange = useCallback((newTitle: string) => {
         onTitleChange(tabId, newTitle);
@@ -770,6 +776,7 @@ const SessionWrapper: React.FC<{
             onSearchAllOpenFiles={globalSearch.searchAllOpenFiles}
             onJumpToTabLine={globalSearch.handleJumpToTabLine}
             onClearSearchResults={globalSearch.clearSearchResults}
+            findInAll={findInAll}
         />
     );
 });
