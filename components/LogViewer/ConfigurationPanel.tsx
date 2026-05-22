@@ -33,10 +33,10 @@ const ConfigurationPanel = React.memo(() => {
 
     const { configActiveTab, setConfigActiveTab } = useHappyTool();
 
-    // 🐧🎯 형님! Ctrl + Shift + Z 단축키로 탭을 토글하는 로직입니다! (최적화 완료)
+    // 🐧🎯 형님! Ctrl + Shift + Z 단축키로 탭을 토글하는 로직입니다! (한글 IME 모드 완벽 지원)
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') {
+            if (e.ctrlKey && e.shiftKey && (e.code === 'KeyZ' || e.key.toLowerCase() === 'z')) {
                 e.preventDefault();
                 setConfigActiveTab(prev => prev === 'settings' ? 'commands' : 'settings');
                 // setIsPanelOpen에 값 자체를 넣으면 현재 상태를 몰라도 무조건 열리게 할 수 있으므로 
