@@ -159,7 +159,7 @@
   - **Local Branch Addition**: 각 그룹 헤더에 배치된 `+` 버튼을 통해 하단 이동 없이 즉시 브랜치 추가 가능. [NEW]
   - **Reliable Quick Command Storage**: `contentEditable` 환경에서의 비동기 상태 불일치 문제를 해결하기 위해 DOM 직접 참조 방식의 저장 엔진 적용. 한국어 IME 및 렌더링 지연 상황에서도 완벽한 저장 보장. [HOT][FIX]
   - **Global Config Tab Sync**: Configuration 패널의 Settings/Commands 탭 상태를 전역 컨텍스트로 관리하여, 여러 로그 탭을 오갈 때도 선택 상태가 초기화되지 않고 완벽하게 동기화됨. [NEW][HOT]
-  - **탭 전환 단축키 (Ctrl + Shift + Z)**: 설정(Settings) 탭과 커맨드(Commands) 탭 간의 빠른 전환을 위한 단축키로, 한글 IME 입력기 상태(`ㅋ`)에서도 키 감지 누락이 전혀 없도록 물리적 키 코드(`e.code === 'KeyZ'`) 기반으로 완벽한 예외 처리가 장착됨. [NEW][HOT]
+  - **탭 전환 단축키 (Ctrl + Shift + Z)**: 설정(Settings) 탭과 커맨드(Commands) 탭 간의 빠른 전환을 위한 단축키로, 한글 IME 입력기 상태(`ㅋ`)에서도 키 감지 누락이 전혀 없도록 물리적 키 코드(`e.code === 'KeyZ'`) 기반으로 완벽한 예외 처리가 장착됨. 특히 멀티 탭 환경에서 백그라운드 탭 리스너들과 단축키 토글 상태가 충돌(토글 취소 현상)하지 않도록 현재 활성화된 Active 탭에서만 이벤트가 동작하도록 차단하는 `isActive` 예외 처리가 적용되어 100% 안전함. [HOT][FIX]
 
 ### [[NetTraffic Analyzer]] 🐧⚡ [CORE]
 - **ID**: `NET_TRAFFIC_ANALYZER`

@@ -1226,6 +1226,7 @@ export const useLogExtractorLogic = ({
         handleCopyRawRangeLeft, handleCopyRawRangeRight,
         handleSelectAllLogs,
         onAddTab,
+        isActive,
         addQuickFilter: (keyword: string) => {
             if (!currentConfig || !keyword.trim()) return;
             const targetKeyword = keyword.trim();

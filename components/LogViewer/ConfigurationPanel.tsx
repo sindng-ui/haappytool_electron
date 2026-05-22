@@ -28,26 +28,28 @@ const ConfigurationPanel = React.memo(() => {
         isLogging, setIsLogging, connectionMode,
         hasEverConnected, setIsTizenQuickConnect, setIsTizenModalOpen,
         tizenSocket,
-        tabId
+        tabId,
+        isActive
     } = useLogContext();
 
     const { configActiveTab, setConfigActiveTab } = useHappyTool();
 
-    // 🐧🎯 형님! Ctrl + Shift + Z 단축키로 탭을 토글하는 로직입니다! (한글 IME 모드 완벽 지원)
+    // 🐧🎯 형님! Ctrl + Shift + Z 단축키로 탭을 토글하는 로직입니다! (한글 IME 모드 완벽 지원 및 활성 탭 대응)
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            // 현재 활성화된 Active 탭일 때만 단축키 로직을 수행합니다.
+            if (!isActive) return;
+
             if (e.ctrlKey && e.shiftKey && (e.code === 'KeyZ' || e.key.toLowerCase() === 'z')) {
                 e.preventDefault();
                 setConfigActiveTab(prev => prev === 'settings' ? 'commands' : 'settings');
-                // setIsPanelOpen에 값 자체를 넣으면 현재 상태를 몰라도 무조건 열리게 할 수 있으므로 
-                // 의존성 배열에서 isPanelOpen을 뺄 수 있습니다.
                 setIsPanelOpen(true); 
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [setIsPanelOpen, setConfigActiveTab]); // 🐧 isPanelOpen을 빼서 마운트 시 1번만 실행되게 최적화!
+    }, [setIsPanelOpen, setConfigActiveTab, isActive]); // 🐧 isActive를 의존성 배열에 추가하여 상태 변화 대응
 
     const onToggle = useCallback(() => setIsPanelOpen(prev => !prev), [setIsPanelOpen]);
 
