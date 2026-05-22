@@ -25,6 +25,8 @@ interface HyperLogRendererProps {
     onKeyDown?: (e: React.KeyboardEvent) => void;
     onQuickHighlight?: (keyword: string) => void;
     onClearQuickHighlights?: () => void;
+    onAddWordToGlobalMission?: (word: string) => void;
+    onClearGlobalMission?: () => void;
     isActive: boolean;
     clearCacheTick?: number;
     sharedBuffers?: {
@@ -98,8 +100,9 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     const {
         totalCount, rowHeight, onScrollRequest, preferences,
         selectedIndices, bookmarks, onLineClick, onLineDoubleClick,
-        onAtBottomChange, onScroll, absoluteOffset, isRawMode,
-        onKeyDown, isActive, clearCacheTick, sharedBuffers, onQuickHighlight, onClearQuickHighlights
+        onAtBottomChange, onScroll, absoluteOffset, isRawMode, performanceHeatmap = [],
+        onKeyDown, onQuickHighlight, onClearQuickHighlights, isActive, clearCacheTick,
+        sharedBuffers, onAddWordToGlobalMission, onClearGlobalMission
     } = props;
 
     // Apply default values for optional props
@@ -109,7 +112,6 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     const lineHighlightRanges = props.lineHighlightRanges ?? [];
     const highlightCaseSensitive = props.highlightCaseSensitive ?? false;
     const levelMatchers = props.levelMatchers ?? [];
-    const performanceHeatmap = props.performanceHeatmap ?? [];
 
     // ✅ Calculate layout constants inside the component to respond immediately to HMR or setting changes.
     const {
@@ -908,6 +910,26 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         return res;
     }, [stableScrollTop, viewportHeight, rowHeight, totalCount, cachedLines, isActive]);
     const handleLineAction = (e: React.MouseEvent, index: number, type: 'click' | 'dbclick' | 'enter') => {
+        // 🐧🎯 Ctrl + Shift + Alt + Mouse Event 인터랙션 감지
+        if (e.ctrlKey && e.shiftKey && e.altKey) {
+            if (type === 'dbclick') {
+                const selection = window.getSelection()?.toString().trim();
+                if (selection && onAddWordToGlobalMission) {
+                    onAddWordToGlobalMission(selection);
+                }
+                return;
+            }
+
+            if (type === 'click' && e.button === 2) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onClearGlobalMission) {
+                    onClearGlobalMission();
+                }
+                return;
+            }
+        }
+
         // ✅ Prevent native browser text selection on normal clicks when Alt key is not pressed.
         if (!e.altKey && type === 'click') {
             // Prevent default browser selection to allow only row selection.
@@ -1083,7 +1105,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 onMouseLeave={handleMouseLeave}
                 onKeyDown={onKeyDown}
                 onContextMenu={(e) => {
-                    if (e.altKey) {
+                    if (e.altKey || (e.ctrlKey && e.shiftKey && e.altKey)) {
                         e.preventDefault();
                     }
                 }}

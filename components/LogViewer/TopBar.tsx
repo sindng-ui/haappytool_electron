@@ -124,7 +124,7 @@ const TopBar: React.FC<{
                 <div className="h-6 w-px bg-slate-700"></div>
                 <div className="flex items-center space-x-2">
                     <button onClick={onCreateRule} className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-500 rounded-full flex items-center text-sm font-medium shadow-lg shadow-indigo-900/50 transition-all hover:scale-105" title="New Rule"><Plus size={16} className="mr-1" /> Create</button>
-                    {selectedRuleId && (
+                    {selectedRuleId && selectedRuleId !== 'global-mission' && (
                         <>
                             <button onClick={onDeleteRule} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-colors"><Trash2 size={18} /></button>
                         </>

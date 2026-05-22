@@ -125,7 +125,9 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
         onAddTab, // ✅ New Tab Callback
         addQuickFilter, // ✅ Smart entity filter addition callback
         addQuickHighlight,
-        clearQuickHighlights
+        clearQuickHighlights,
+        addWordToGlobalMission,
+        clearGlobalMission
     } = useLogContext();
 
     const [promptConfig, setPromptConfig] = React.useState<any>(null);
@@ -1250,6 +1252,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                     ref={leftViewerRef}
                                     onQuickHighlight={addQuickHighlight}
                                     onClearQuickHighlights={clearQuickHighlights}
+                                    onAddWordToGlobalMission={addWordToGlobalMission}
+                                    onClearGlobalMission={clearGlobalMission}
                                     workerReady={leftWorkerReady}
                                     totalMatches={leftCurrentSegmentLines}
                                     onScrollRequest={requestLeftLines}
@@ -1357,6 +1361,8 @@ const LogSession: React.FC<LogSessionProps> = ({ isActive, currentTitle, onTitle
                                         ref={rightViewerRef}
                                         onQuickHighlight={addQuickHighlight}
                                         onClearQuickHighlights={clearQuickHighlights}
+                                        onAddWordToGlobalMission={addWordToGlobalMission}
+                                        onClearGlobalMission={clearGlobalMission}
                                         workerReady={rightWorkerReady}
                                         totalMatches={rightCurrentSegmentLines}
                                         onScrollRequest={requestRightLines}

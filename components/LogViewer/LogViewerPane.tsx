@@ -71,6 +71,8 @@ export interface LogViewerPaneProps {
     onQuickHighlight?: (keyword: string) => void;
     onClearQuickHighlights?: () => void;
     onSelectAll?: () => void;
+    onAddWordToGlobalMission?: (word: string) => void;
+    onClearGlobalMission?: () => void;
 }
 
 export interface LogViewerHandle {
@@ -99,7 +101,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         perfAnalysisResult, isAnalyzingPerformance = false, isActive, onJumpToLine, onJumpToRange,
         onViewRawRange, onCopyRawRange, dashboardHeight: propDashboardHeight, onDashboardHeightChange,
         clearCacheTick, sharedBuffers, onAnalyzeSpam, onHighlightJump, onReset, onQuickHighlight, onClearQuickHighlights,
-        onSelectAll
+        onSelectAll, onAddWordToGlobalMission, onClearGlobalMission
     } = props;
 
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
@@ -326,6 +328,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                 onLineDoubleClick={onLineDoubleClick}
                                 onQuickHighlight={onQuickHighlight}
                                 onClearQuickHighlights={onClearQuickHighlights}
+                                onAddWordToGlobalMission={onAddWordToGlobalMission}
+                                onClearGlobalMission={onClearGlobalMission}
                                 onAtBottomChange={scrollHook.handleAtBottomChange}
                                 absoluteOffset={absoluteOffset}
                                 isRawMode={isRawMode}
