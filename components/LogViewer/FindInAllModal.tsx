@@ -50,7 +50,7 @@ const HistoryTooltip: React.FC<{ item: FindInAllHistoryItem }> = memo(({ item })
                 </div>
                 {item.rule.includeKeywords.length > 0 && (
                     <div className="mb-2">
-                        <div className="text-emerald-400 font-semibold mb-1">🔍 해피콤보</div>
+                        <div className="text-emerald-400 font-semibold mb-1">🔍 Happy Combo</div>
                         <div className="space-y-0.5 max-h-[80px] overflow-hidden">
                             {item.rule.includeKeywords.slice(0, 5).map((kw, i) => (
                                 <div key={i} className="text-slate-300 bg-emerald-950/40 rounded px-1.5 py-0.5 truncate">
@@ -65,7 +65,7 @@ const HistoryTooltip: React.FC<{ item: FindInAllHistoryItem }> = memo(({ item })
                 )}
                 {item.rule.excludeKeywords.length > 0 && (
                     <div>
-                        <div className="text-rose-400 font-semibold mb-1">🚫 블럭리스트</div>
+                        <div className="text-rose-400 font-semibold mb-1">🚫 Block List</div>
                         <div className="space-y-0.5 max-h-[50px] overflow-hidden">
                             {item.rule.excludeKeywords.slice(0, 3).map((kw, i) => (
                                 <div key={i} className="text-slate-300 bg-rose-950/40 rounded px-1.5 py-0.5 truncate">
@@ -231,7 +231,7 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                                                     {item.label}
                                                 </span>
                                                 <span className="text-[9px] text-slate-600 shrink-0">
-                                                    {new Date(item.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                                                    {new Date(item.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                             </button>
 
@@ -263,7 +263,7 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                                     ref={includeRef}
                                     value={includeText}
                                     onChange={e => setIncludeText(e.target.value)}
-                                    placeholder={'키워드를 입력하세요 (줄바꿈 or 콤마로 구분)\n예:\nonCreate\nonResume\nonPause'}
+                                    placeholder={'Enter keywords (newline or comma separated)\ne.g.:\nonCreate\nonResume\nonPause'}
                                     className="w-full bg-slate-950/60 border border-slate-700/60 focus:border-emerald-500/50 rounded-xl text-xs text-slate-200 placeholder-slate-600 font-mono resize-none focus:outline-none p-3 transition-colors"
                                     rows={4}
                                     spellCheck={false}
@@ -307,7 +307,7 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                                 <textarea
                                     value={excludeText}
                                     onChange={e => setExcludeText(e.target.value)}
-                                    placeholder={'제외할 키워드 (줄바꿈 or 콤마로 구분)'}
+                                    placeholder={'Keywords to exclude (newline or comma separated)'}
                                     className="w-full bg-slate-950/60 border border-slate-700/60 focus:border-rose-500/50 rounded-xl text-xs text-slate-200 placeholder-slate-600 font-mono resize-none focus:outline-none p-3 transition-colors"
                                     rows={3}
                                     spellCheck={false}

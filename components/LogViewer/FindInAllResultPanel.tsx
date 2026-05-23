@@ -1,13 +1,17 @@
 /**
  * FindInAllResultPanel.tsx
- * 전체 찾기 결과 패널 — 우측 LogViewerPane 아래 배치 🐧⚡
- * - 상단 드래그 핸들로 높이 조절 (localStorage 저장)
- * - React.memo + 스냅샷 구조로 로깅 성능에 영향 제로
- * - 닫기(X) / 재검색(↻) 버튼
- * - Notepad++ 스타일 트리 결과 (GlobalSearchResultView 재활용)
+ * Find in All result panel — anchored below LogViewerPane 🐧⚡
+ *
+ * Height reset fix: keep DOM mounted even when invisible (display:none).
+ * This prevents useState re-initialization on tab switches.
+ *
+ * - Drag handle to resize (localStorage persisted)
+ * - React.memo + snapshot — zero performance impact during logging
+ * - Close (X) / Re-search (↻) buttons
+ * - Notepad++ tree view via GlobalSearchResultView
  */
 
-import React, { useRef, useState, useCallback, useEffect, memo } from 'react';
+import React, { useRef, useState, useCallback, memo } from 'react';
 import { X, RotateCcw, FileSearch } from 'lucide-react';
 import { GlobalSearchResultView, TabSearchResult } from './GlobalSearchResultView';
 import { FindInAllRule } from '../../hooks/useFindInAllHistory';
@@ -28,7 +32,7 @@ interface FindInAllResultPanelProps {
     onJumpToTabLine: (tabId: string, pane: 'left' | 'right', lineNum: number) => void;
 }
 
-/** FindInAllRule → GlobalSearchResultView가 사용하는 LogRule-like 객체로 변환 */
+/** FindInAllRule → LogRule-like object for GlobalSearchResultView */
 function buildDisplayRule(rule: FindInAllRule | null): LogRule | null {
     if (!rule) return null;
     return {
@@ -51,6 +55,9 @@ const FindInAllResultPanel: React.FC<FindInAllResultPanelProps> = memo(({
     onReSearch,
     onJumpToTabLine,
 }) => {
+    // ✅ Height persisted in localStorage.
+    //    Component stays mounted (display:none when invisible) so height state
+    //    is never reset when the user clicks a result line and triggers a tab switch.
     const [height, setHeight] = useState<number>(() => {
         try {
             const saved = localStorage.getItem(LS_HEIGHT_KEY);
@@ -64,7 +71,6 @@ const FindInAllResultPanel: React.FC<FindInAllResultPanelProps> = memo(({
     const dragStartHeight = useRef(0);
     const panelRef = useRef<HTMLDivElement>(null);
 
-    // 높이 저장 (드래그 완료 시)
     const saveHeight = useCallback((h: number) => {
         try { localStorage.setItem(LS_HEIGHT_KEY, String(h)); } catch {}
     }, []);
@@ -77,7 +83,7 @@ const FindInAllResultPanel: React.FC<FindInAllResultPanelProps> = memo(({
 
         const onMouseMove = (ev: MouseEvent) => {
             if (!isDragging.current) return;
-            const delta = dragStartY.current - ev.clientY; // 위로 드래그 = 높이 증가
+            const delta = dragStartY.current - ev.clientY; // drag up = taller
             const maxH = window.innerHeight * MAX_HEIGHT_RATIO;
             const newH = Math.min(maxH, Math.max(MIN_HEIGHT, dragStartHeight.current + delta));
             setHeight(newH);
@@ -102,24 +108,31 @@ const FindInAllResultPanel: React.FC<FindInAllResultPanelProps> = memo(({
     const totalMatches = results.reduce((sum, r) => sum + r.matches.length, 0);
     const filesWithMatches = results.filter(r => r.matches.length > 0).length;
 
-    if (!isVisible) return null;
-
+    // ✅ KEY FIX: Use display:none instead of returning null.
+    //    Returning null unmounts the component → useState height resets.
+    //    Keeping it in DOM with visibility hidden preserves all state.
     return (
         <div
             ref={panelRef}
             className="shrink-0 flex flex-col border-t border-indigo-500/20 bg-slate-950 relative overflow-hidden"
-            style={{ height }}
+            style={{
+                height: isVisible ? height : 0,
+                minHeight: 0,
+                // transition only on open/close, not while dragging
+                transition: isDragging.current ? 'none' : 'height 150ms ease',
+                pointerEvents: isVisible ? 'auto' : 'none',
+            }}
         >
-            {/* ── 드래그 핸들 (상단) ── */}
+            {/* ── Drag handle (top) ── */}
             <div
                 onMouseDown={handleDragStart}
                 className="h-2 cursor-row-resize bg-slate-900 hover:bg-indigo-500/20 transition-colors flex items-center justify-center shrink-0 group"
-                title="드래그로 높이 조절"
+                title="Drag to resize"
             >
                 <div className="w-12 h-0.5 bg-slate-700 rounded-full group-hover:bg-indigo-400 transition-colors" />
             </div>
 
-            {/* ── 헤더 바 ── */}
+            {/* ── Header bar ── */}
             <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900/80 border-b border-slate-800/60 shrink-0">
                 <div className="flex items-center gap-2">
                     <FileSearch size={13} className="text-indigo-400 shrink-0" />
@@ -130,7 +143,7 @@ const FindInAllResultPanel: React.FC<FindInAllResultPanelProps> = memo(({
                             <span className="text-emerald-400 font-bold">{filesWithMatches}</span>
                             <span>files /</span>
                             <span className="text-yellow-400 font-bold">{totalMatches}</span>
-                            <span>matches</span>
+                            <span>hits</span>
                         </div>
                     )}
 
@@ -146,27 +159,27 @@ const FindInAllResultPanel: React.FC<FindInAllResultPanelProps> = memo(({
                 </div>
 
                 <div className="flex items-center gap-1">
-                    {/* 재검색 버튼 */}
+                    {/* Re-search button */}
                     <button
                         onClick={onReSearch}
                         disabled={isSearching || !lastSearchRule}
                         className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-md transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="재검색 (마지막 룰로 다시 실행)"
+                        title="Re-run last search"
                     >
                         <RotateCcw size={13} className={isSearching ? 'animate-spin' : ''} />
                     </button>
-                    {/* 닫기 버튼 */}
+                    {/* Close button */}
                     <button
                         onClick={onClose}
                         className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-all"
-                        title="결과 패널 닫기"
+                        title="Close result panel"
                     >
                         <X size={13} />
                     </button>
                 </div>
             </div>
 
-            {/* ── 결과 영역 (GlobalSearchResultView 재활용) ── */}
+            {/* ── Result area (GlobalSearchResultView) ── */}
             <div className="flex-1 overflow-hidden">
                 <GlobalSearchResultView
                     results={results}

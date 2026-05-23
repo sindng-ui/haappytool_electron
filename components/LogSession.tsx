@@ -1305,7 +1305,7 @@ const LogSession: React.FC<LogSessionProps> = ({
                     </AnimatePresence>
 
                     <div className="flex-1 flex flex-col overflow-hidden">
-                        <div className="flex w-full h-full">
+                        <div className="flex w-full flex-1 overflow-hidden">
                             {/* Left Pane */}
                             <div
                                 className={`flex flex-col h-full min-w-0 relative transition-[width] duration-500 ease-[cubic-bezier(0.19,1,0.22,1)] will-change-[width] ${isDualView ? '' : 'w-full'}`}
@@ -1412,18 +1412,6 @@ const LogSession: React.FC<LogSessionProps> = ({
                                             </button>
                                         </div>
                                     </div>
-                                )}
-                                {/* 🐧⚡ FindInAllResultPanel: 싱글뷰(좌측 패인만 보일 때) 여기에 위치 */}
-                                {!isDualView && findInAll && (
-                                    <FindInAllResultPanel
-                                        isVisible={findInAll.isResultPanelOpen}
-                                        results={findInAll.snapshotResults}
-                                        isSearching={findInAll.isSearching}
-                                        lastSearchRule={findInAll.lastSearchRule}
-                                        onClose={findInAll.closeResultPanel}
-                                        onReSearch={findInAll.reExecuteLastSearch}
-                                        onJumpToTabLine={findInAll.handleJumpToTabLine}
-                                    />
                                 )}
                             </div>
 
@@ -1539,22 +1527,24 @@ const LogSession: React.FC<LogSessionProps> = ({
                                             </div>
                                         </div>
                                     )}
-                                    {/* 🐧⚡ FindInAllResultPanel: 듀얼뷰(우측 패인) 일 때 여기에 위치 */}
-                                    {isDualView && findInAll && (
-                                        <FindInAllResultPanel
-                                            isVisible={findInAll.isResultPanelOpen}
-                                            results={findInAll.snapshotResults}
-                                            isSearching={findInAll.isSearching}
-                                            lastSearchRule={findInAll.lastSearchRule}
-                                            onClose={findInAll.closeResultPanel}
-                                            onReSearch={findInAll.reExecuteLastSearch}
-                                            onJumpToTabLine={findInAll.handleJumpToTabLine}
-                                        />
-                                    )}
                                 </div>
                             </div>
                         </div>
+                        {/* 🐧⚡ FindInAllResultPanel: 단 한 번만 렌더(싱글/듀얼뷰 전환, 탭 클릭 시 하이트 초기화 방지) */}
+                        {findInAll && (
+                            <FindInAllResultPanel
+                                isVisible={findInAll.isResultPanelOpen}
+                                results={findInAll.snapshotResults}
+                                isSearching={findInAll.isSearching}
+                                lastSearchRule={findInAll.lastSearchRule}
+                                onClose={findInAll.closeResultPanel}
+                                onReSearch={findInAll.reExecuteLastSearch}
+                                onJumpToTabLine={findInAll.handleJumpToTabLine}
+                            />
+                        )}
+                    </div>
                     {/* Tizen Command Input */}
+
                     {tizenSocket && (
                         <div className="h-10 bg-slate-950 border-t border-slate-800 flex items-center px-4 gap-3 shrink-0 z-30">
                             <span className="text-indigo-400 font-bold text-xs whitespace-nowrap flex items-center gap-1"><Lucide.Terminal size={12} /> SHELL &gt;</span>
@@ -1601,9 +1591,9 @@ const LogSession: React.FC<LogSessionProps> = ({
                             </button>
                         </div>
                     )}
-                    </div>
                 </div>
             </div>
+
 
         {/* Go To Line Modal */}
         <GoToLineModal
