@@ -3,6 +3,7 @@ import * as Lucide from 'lucide-react';
 import { useLogContext } from './LogContext';
 import { useToast } from '../../contexts/ToastContext';
 import MissionManagerModal from './MissionManagerModal';
+import LogQuickTagsPopover from './LogQuickTagsPopover';
 import { Settings2, ListOrdered } from 'lucide-react';
 import { ConfirmDialog } from '../ui/CommonDialogs';
 
@@ -161,6 +162,9 @@ const TopBar: React.FC<{
                 )}
 
                 <div className="w-px h-6 bg-slate-700 mx-1"></div>
+
+                {/* 🐧⚡ Log Tags Quick Popover */}
+                <LogQuickTagsPopover />
 
                 <div className="w-px h-6 bg-slate-700 mx-1"></div>
 

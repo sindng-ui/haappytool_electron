@@ -140,6 +140,7 @@
     - `Ctrl + Shift + Alt + Double Click`: 선택된 단어를 삭제 불가한 글로벌 미션(Global Mission)의 Happy Combo 및 실시간 하이라이트에 자동 추가하고 HSL 배경색을 실시간 칠해 렌더링. [NEW][HOT]
     - `Ctrl + Shift + Alt + Right Click`: 글로벌 미션의 Happy Combo 및 하이라이트 단어들을 일괄 초기화할지 여부를 묻는 영어 확인 팝업(Confirm)을 띄우고 `Yes` 선택 시 비우기. [NEW][HOT]
   - **Quick Connect 자동 연결 복구 및 프리미엄 UX**: 상단 커넥션 영역 번개(⚡) 버튼 클릭 시, 마지막 성공했던 연결 수단(SDB/SSH/Serial/Simulate) 정보를 읽어 들여 물리적인 소켓 세션 수립(`isSocketReady`) 직후 1초 만에 자동 다이렉트 연결을 수행합니다. 자동 연결 연동 중에는 펄싱 글로우 애니메이션이 포함된 노란색 번개 아이콘 ⚡과 타겟 연결 정보 칩바가 장착된 전용 퀵 커넥팅 로딩 UI를 노출하여 프리미엄 감성을 제공하며, 연결 실패 시에는 예쁘고 디테일한 에러 안내 패널과 `수동 설정으로 전환`, `다시 시도` 버튼을 제공하여 100% 안전한 폴백(Fallback)을 보장합니다. (성능을 저해하는 blur 필터를 완전히 배제한 고화질 모던 다크 디자인) [UPDATED][HOT]
+  - **`LogQuickTagsPopover` — Log Tags 퀵 팝오버 (TopBar 통합)**: TopBar의 Connection/QuickFilter 사이에 `#` 태그 아이콘 버튼 추가. 클릭 시 팝오버로 Log Tags 칩 편집(Enter로 추가·X로 삭제·Backspace로 마지막 삭제) + Start/Stop Logging 버튼 원스톱 제공. 형님의 요구사항을 반영하여 너비를 `w-[480px]`의 압도적이고 넉넉한 대형 프리미엄 레이아웃으로 리사이징하고, 칩과 입력창의 최소 높이를 `min-h-[96px]`로 확장하여 시각적 개방감과 가독성을 극대화함. 로깅 중에는 🔴 펄싱 REC 도트와 태그 카운트 배지로 상태 명확 표시. `LogSettingsSection`은 설정 패널에 그대로 유지(하위 호환). [UPDATED][HOT]
   - **LLM Communication 디버깅 강화**: URL, Method, Headers, Full Body를 포함한 전체 HTTP 트래픽 기록 및 UI 표시. 긴 텍스트 자동 요약(Truncation) 적용. [NEW]
   - **AI 통신 디버그 로깅**: AI와 주고받는 모든 Raw 통신 데이터를 `agent_traffic_debug.log` 파일에 기록 (현재 비활성화, `agentApiService.ts`에서 활성 가능). [UPDATED]
   - **AI 분석 루프 최적화**: 중복 실행 방지 가드 및 정체(Stall) 감지 로직 추가. 정체 및 API 오류 발생 시에도 통신 로그를 남기도록 개선. [UPDATED]
