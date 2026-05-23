@@ -1,16 +1,23 @@
 /**
  * FindInAllModal.tsx
- * Ctrl+Shift+F 로 여는 전체 찾기 모달 🐧⚡
- * - 독립 룰 (Global Mission과 완전 무관)
- * - 히스토리: 최근 10개, 마우스 호버 시 미리보기, 클릭 시 불러오기
- * - 해피콤보: 줄바꿈/콤마 구분 입력 (단순화)
- * - 블럭리스트: 줄바꿈/콤마 구분 입력
- * - Ctrl+Enter 바로 검색 / Esc 닫기
+ * Ctrl+Shift+F — premium full-width search modal 🐧⚡
+ * - Large, premium dark UI (no blur)
+ * - Tag-chip keyword input (Enter / comma to add)
+ * - Recent search history (no tooltip hover scrollbar)
+ * - Block list open by default
  */
 
-import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { X, Search, History, ChevronDown, ChevronRight, RotateCcw, Clock } from 'lucide-react';
-import { FindInAllRule, FindInAllHistoryItem, useFindInAllHistory, buildHistoryLabel } from '../../hooks/useFindInAllHistory';
+import React, {
+    useState, useEffect, useCallback, useRef, memo, KeyboardEvent
+} from 'react';
+import {
+    X, Search, History, ChevronDown, ChevronRight,
+    RotateCcw, Clock, Plus, Tag, ShieldOff
+} from 'lucide-react';
+import {
+    FindInAllRule, FindInAllHistoryItem,
+    useFindInAllHistory, buildHistoryLabel
+} from '../../hooks/useFindInAllHistory';
 
 interface FindInAllModalProps {
     isOpen: boolean;
@@ -20,126 +27,227 @@ interface FindInAllModalProps {
     lastSearchRule: FindInAllRule | null;
 }
 
-/** 키워드 문자열 → 배열 파싱 (줄바꿈/콤마 구분) */
-function parseKeywords(raw: string): string[] {
-    return raw
-        .split(/[\n,]/)
-        .map(k => k.trim())
-        .filter(k => k.length > 0);
+// ─────────────────────────────────────────────────────────────
+// TagInput: Enter/comma → add chip, Backspace → remove last
+// ─────────────────────────────────────────────────────────────
+interface TagInputProps {
+    tags: string[];
+    onChange: (tags: string[]) => void;
+    placeholder?: string;
+    accentColor?: 'emerald' | 'rose';
+    autoFocus?: boolean;
 }
 
-/** 배열 → 표시용 문자열 (줄바꿈 구분) */
-function joinKeywords(keywords: string[]): string {
-    return keywords.join('\n');
-}
+// ── Happy Combo chip: matches HappyComboSection root tag style exactly
+const TAG_COLORS_EMERALD = 'bg-indigo-900/50 border-indigo-500/50 text-indigo-100 hover:border-indigo-400/70 hover:bg-indigo-900/70';
+// ── Block List chip: rose variant, same light weight feel
+const TAG_COLORS_ROSE    = 'bg-rose-950/60 border-rose-700/50 text-rose-100 hover:border-rose-500/70 hover:bg-rose-950/80';
 
-/** 툴팁용 히스토리 미리보기 카드 */
-const HistoryTooltip: React.FC<{ item: FindInAllHistoryItem }> = memo(({ item }) => {
-    const date = new Date(item.timestamp);
-    const dateStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+const TagInput: React.FC<TagInputProps> = memo(({ tags, onChange, placeholder, accentColor = 'emerald', autoFocus }) => {
+    const [inputVal, setInputVal] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const tagColorClass  = accentColor === 'emerald' ? TAG_COLORS_EMERALD : TAG_COLORS_ROSE;
+    const focusRingClass = accentColor === 'emerald'
+        ? 'focus-within:border-indigo-500/50 focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.10)]'
+        : 'focus-within:border-rose-500/50 focus-within:shadow-[0_0_0_2px_rgba(244,63,94,0.10)]';
+
+    const addTag = useCallback((raw: string) => {
+        const words = raw.split(/[,\n]+/).map(w => w.trim()).filter(w => w.length > 0);
+        if (words.length === 0) return;
+        const unique = Array.from(new Set([...tags, ...words]));
+        if (unique.length !== tags.length) onChange(unique);
+    }, [tags, onChange]);
+
+    const removeTag = useCallback((idx: number) => {
+        onChange(tags.filter((_, i) => i !== idx));
+    }, [tags, onChange]);
+
+    const handleKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addTag(inputVal);
+            setInputVal('');
+        } else if (e.key === 'Backspace' && inputVal === '' && tags.length > 0) {
+            onChange(tags.slice(0, -1));
+        }
+    }, [inputVal, addTag, onChange, tags]);
+
+    const handleBlur = useCallback(() => {
+        if (inputVal.trim()) {
+            addTag(inputVal);
+            setInputVal('');
+        }
+    }, [inputVal, addTag]);
+
+    // click anywhere in box → focus input
+    const handleBoxClick = useCallback(() => {
+        inputRef.current?.focus();
+    }, []);
+
+    useEffect(() => {
+        if (autoFocus) {
+            setTimeout(() => inputRef.current?.focus(), 60);
+        }
+    }, [autoFocus]);
 
     return (
         <div
-            className="absolute left-full top-0 ml-2 z-[200] min-w-[260px] max-w-[340px] pointer-events-none"
-            style={{ transform: 'translateY(-20%)' }}
+            ref={containerRef}
+            onClick={handleBoxClick}
+            className={`
+                min-h-[56px] w-full rounded-xl border border-slate-700/50 bg-slate-950/50
+                p-2 flex flex-wrap gap-1.5 items-start cursor-text
+                transition-all duration-200 ${focusRingClass}
+            `}
         >
-            <div className="bg-slate-800 border border-slate-600/80 rounded-xl shadow-2xl p-3 text-xs">
-                <div className="flex items-center gap-1.5 text-slate-400 mb-2 pb-1.5 border-b border-slate-700">
-                    <Clock size={11} />
-                    <span>{dateStr}</span>
-                </div>
-                {item.rule.includeKeywords.length > 0 && (
-                    <div className="mb-2">
-                        <div className="text-emerald-400 font-semibold mb-1">🔍 Happy Combo</div>
-                        <div className="space-y-0.5 max-h-[80px] overflow-hidden">
-                            {item.rule.includeKeywords.slice(0, 5).map((kw, i) => (
-                                <div key={i} className="text-slate-300 bg-emerald-950/40 rounded px-1.5 py-0.5 truncate">
-                                    {kw}
-                                </div>
-                            ))}
-                            {item.rule.includeKeywords.length > 5 && (
-                                <div className="text-slate-500 text-[10px]">+{item.rule.includeKeywords.length - 5} more...</div>
-                            )}
-                        </div>
-                    </div>
-                )}
-                {item.rule.excludeKeywords.length > 0 && (
-                    <div>
-                        <div className="text-rose-400 font-semibold mb-1">🚫 Block List</div>
-                        <div className="space-y-0.5 max-h-[50px] overflow-hidden">
-                            {item.rule.excludeKeywords.slice(0, 3).map((kw, i) => (
-                                <div key={i} className="text-slate-300 bg-rose-950/40 rounded px-1.5 py-0.5 truncate">
-                                    {kw}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-            {/* 화살표 */}
-            <div
-                className="absolute top-5 -left-1.5 w-3 h-3 bg-slate-800 border-l border-b border-slate-600/80 rotate-45"
-                style={{ transform: 'translateY(-50%) rotate(45deg)' }}
+            {tags.map((tag, i) => (
+                <span
+                    key={`${tag}-${i}`}
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg border text-xs font-mono font-semibold transition-all duration-150 select-none ${tagColorClass}`}
+                >
+                    {tag}
+                    <button
+                        type="button"
+                        onMouseDown={e => { e.preventDefault(); removeTag(i); }}
+                        className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity rounded"
+                        tabIndex={-1}
+                    >
+                        <X size={10} />
+                    </button>
+                </span>
+            ))}
+            <input
+                ref={inputRef}
+                value={inputVal}
+                onChange={e => setInputVal(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={handleBlur}
+                placeholder={tags.length === 0 ? placeholder : ''}
+                className="flex-1 min-w-[120px] bg-transparent text-xs text-slate-200 placeholder-slate-600 font-mono focus:outline-none py-0.5"
+                spellCheck={false}
             />
         </div>
     );
 });
-HistoryTooltip.displayName = 'HistoryTooltip';
+TagInput.displayName = 'TagInput';
 
+// ─────────────────────────────────────────────────────────────
+// History row (no tooltip)
+// ─────────────────────────────────────────────────────────────
+interface HistoryRowProps {
+    item: FindInAllHistoryItem;
+    onLoad: (item: FindInAllHistoryItem) => void;
+}
+
+const HistoryRow: React.FC<HistoryRowProps> = memo(({ item, onLoad }) => {
+    const timeStr = new Date(item.timestamp).toLocaleTimeString('en-US', {
+        hour: '2-digit', minute: '2-digit'
+    });
+    const keywords = item.rule.includeKeywords;
+    const excludes = item.rule.excludeKeywords;
+
+    return (
+        <button
+            onClick={() => onLoad(item)}
+            className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800/70 transition-colors group"
+        >
+            <RotateCcw size={11} className="text-slate-600 group-hover:text-indigo-400 shrink-0 transition-colors" />
+
+            {/* keyword chips preview */}
+            <div className="flex-1 flex items-center gap-1 overflow-hidden">
+                {keywords.slice(0, 4).map((kw, i) => (
+                    <span
+                        key={i}
+                        className="inline-block px-1.5 py-0.5 rounded-md bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 text-[10px] font-mono truncate max-w-[100px]"
+                    >
+                        {kw}
+                    </span>
+                ))}
+                {keywords.length > 4 && (
+                    <span className="text-[10px] text-slate-500">+{keywords.length - 4}</span>
+                )}
+                {excludes.length > 0 && (
+                    <span className="ml-1 text-[10px] text-rose-400/60">
+                        -{excludes.length} excl.
+                    </span>
+                )}
+            </div>
+
+            <span className="text-[10px] text-slate-600 shrink-0 flex items-center gap-1">
+                <Clock size={9} />
+                {timeStr}
+            </span>
+        </button>
+    );
+});
+HistoryRow.displayName = 'HistoryRow';
+
+// ─────────────────────────────────────────────────────────────
+// Section header
+// ─────────────────────────────────────────────────────────────
+interface SectionHeaderProps {
+    isOpen: boolean;
+    onToggle: () => void;
+    icon: React.ReactNode;
+    title: string;
+    badge?: React.ReactNode;
+    accentColor?: 'default' | 'emerald' | 'rose';
+}
+
+const SectionHeader: React.FC<SectionHeaderProps> = ({ isOpen, onToggle, icon, title, badge, accentColor = 'default' }) => {
+    const accentMap = {
+        default: 'text-slate-400 hover:text-slate-200',
+        emerald: 'text-indigo-400/80 hover:text-indigo-300',
+        rose: 'text-rose-400/80 hover:text-rose-300',
+    };
+    return (
+        <button
+            onClick={onToggle}
+            className={`w-full flex items-center gap-2 px-5 py-3 text-xs font-bold hover:bg-white/[0.03] transition-colors ${accentMap[accentColor]}`}
+        >
+            {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            {icon}
+            <span>{title}</span>
+            {badge}
+        </button>
+    );
+};
+
+// ─────────────────────────────────────────────────────────────
+// Main Modal
+// ─────────────────────────────────────────────────────────────
 const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
-    isOpen,
-    onClose,
-    onSearch,
-    isSearching,
-    lastSearchRule,
+    isOpen, onClose, onSearch, isSearching, lastSearchRule
 }) => {
     const { history } = useFindInAllHistory();
 
-    const [includeText, setIncludeText] = useState('');
-    const [excludeText, setExcludeText] = useState('');
+    const [includeTags, setIncludeTags] = useState<string[]>([]);
+    const [excludeTags, setExcludeTags] = useState<string[]>([]);
     const [caseSensitive, setCaseSensitive] = useState(false);
     const [blockListCaseSensitive, setBlockListCaseSensitive] = useState(false);
     const [isHistoryOpen, setIsHistoryOpen] = useState(true);
     const [isIncludeOpen, setIsIncludeOpen] = useState(true);
-    const [isExcludeOpen, setIsExcludeOpen] = useState(false);
-    const [hoveredHistoryId, setHoveredHistoryId] = useState<string | null>(null);
+    const [isExcludeOpen, setIsExcludeOpen] = useState(true); // open by default
 
-    const includeRef = useRef<HTMLTextAreaElement>(null);
-
-    // 모달 열릴 때 마지막 룰 복원
-    useEffect(() => {
-        if (isOpen && lastSearchRule) {
-            setIncludeText(joinKeywords(lastSearchRule.includeKeywords));
-            setExcludeText(joinKeywords(lastSearchRule.excludeKeywords));
-            setCaseSensitive(lastSearchRule.caseSensitive);
-            setBlockListCaseSensitive(lastSearchRule.blockListCaseSensitive);
-        } else if (isOpen) {
-            // 히스토리가 있으면 가장 최근 것 로드
-            if (history.length > 0) {
-                const last = history[0];
-                setIncludeText(joinKeywords(last.rule.includeKeywords));
-                setExcludeText(joinKeywords(last.rule.excludeKeywords));
-                setCaseSensitive(last.rule.caseSensitive);
-                setBlockListCaseSensitive(last.rule.blockListCaseSensitive);
-            }
-        }
-    }, [isOpen]);
-
-    // 모달 열리면 포커스
-    useEffect(() => {
-        if (isOpen) {
-            setTimeout(() => includeRef.current?.focus(), 50);
-        }
-    }, [isOpen]);
-
-    // Esc 닫기
+    // Restore last rule when modal opens
     useEffect(() => {
         if (!isOpen) return;
-        const handler = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                e.stopPropagation();
-                onClose();
-            }
+        const source = lastSearchRule ?? (history.length > 0 ? history[0].rule : null);
+        if (source) {
+            setIncludeTags(source.includeKeywords);
+            setExcludeTags(source.excludeKeywords);
+            setCaseSensitive(source.caseSensitive);
+            setBlockListCaseSensitive(source.blockListCaseSensitive);
+        }
+    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Esc to close
+    useEffect(() => {
+        if (!isOpen) return;
+        const handler = (e: globalThis.KeyboardEvent) => {
+            if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
         };
         window.addEventListener('keydown', handler, true);
         return () => window.removeEventListener('keydown', handler, true);
@@ -147,24 +255,23 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
 
     const handleSearch = useCallback(() => {
         const rule: FindInAllRule = {
-            includeKeywords: parseKeywords(includeText),
-            excludeKeywords: parseKeywords(excludeText),
+            includeKeywords: includeTags,
+            excludeKeywords: excludeTags,
             caseSensitive,
             blockListCaseSensitive,
         };
         onSearch(rule);
-    }, [includeText, excludeText, caseSensitive, blockListCaseSensitive, onSearch]);
+    }, [includeTags, excludeTags, caseSensitive, blockListCaseSensitive, onSearch]);
 
     const handleLoadHistory = useCallback((item: FindInAllHistoryItem) => {
-        setIncludeText(joinKeywords(item.rule.includeKeywords));
-        setExcludeText(joinKeywords(item.rule.excludeKeywords));
+        setIncludeTags(item.rule.includeKeywords);
+        setExcludeTags(item.rule.excludeKeywords);
         setCaseSensitive(item.rule.caseSensitive);
         setBlockListCaseSensitive(item.rule.blockListCaseSensitive);
-        setHoveredHistoryId(null);
-        includeRef.current?.focus();
     }, []);
 
-    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Ctrl+Enter in modal → search
+    const handleModalKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.ctrlKey && e.key === 'Enter') {
             e.preventDefault();
             handleSearch();
@@ -173,181 +280,216 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
 
     if (!isOpen) return null;
 
+    const canSearch = includeTags.length > 0;
+
     return (
         <div
-            className="fixed inset-0 z-[150] flex items-start justify-center pt-[12vh]"
-            style={{ background: 'rgba(0,0,0,0.65)' }}
-            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+            className="fixed inset-0 z-[150] flex items-start justify-center pt-[8vh]"
+            style={{ background: 'rgba(0,0,0,0.72)' }}
+            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
-                className="bg-slate-900 border border-indigo-500/30 rounded-2xl shadow-2xl w-full max-w-[520px] flex flex-col overflow-hidden max-h-[80vh]"
-                onKeyDown={handleKeyDown}
+                className="
+                    w-full max-w-[700px] mx-4
+                    bg-slate-900 border border-slate-700/50
+                    rounded-2xl shadow-[0_32px_80px_rgba(0,0,0,0.7)]
+                    flex flex-col overflow-hidden
+                    max-h-[88vh]
+                "
+                onKeyDown={handleModalKeyDown}
             >
-                {/* ── 헤더 ── */}
-                <div className="bg-slate-950/80 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-2.5">
-                        <div className="p-1.5 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
-                            <Search size={15} className="text-indigo-400" />
+                {/* ── Header ── */}
+                <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between shrink-0 bg-slate-900">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-indigo-500/15 rounded-xl border border-indigo-500/25">
+                            <Search size={17} className="text-indigo-400" />
                         </div>
-                        <h2 className="text-sm font-bold text-slate-200 tracking-wide">Find in All Open Files</h2>
-                        <kbd className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">Ctrl+Shift+F</kbd>
+                        <div>
+                            <h2 className="text-sm font-bold text-slate-100 tracking-wide">Find in All Open Files</h2>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Search across all loaded log tabs simultaneously</p>
+                        </div>
+                        <kbd className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 ml-1">
+                            Ctrl+Shift+F
+                        </kbd>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-1 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                        className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-all"
                     >
                         <X size={18} />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    {/* ── 히스토리 섹션 ── */}
+                {/* ── Scrollable body ── */}
+                <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}>
+
+                    {/* Recent Searches */}
                     {history.length > 0 && (
                         <div className="border-b border-slate-800/60">
-                            <button
-                                onClick={() => setIsHistoryOpen(p => !p)}
-                                className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
-                            >
-                                {isHistoryOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                                <History size={13} />
-                                <span>Recent Searches ({history.length})</span>
-                            </button>
-
+                            <SectionHeader
+                                isOpen={isHistoryOpen}
+                                onToggle={() => setIsHistoryOpen(p => !p)}
+                                icon={<History size={13} />}
+                                title={`Recent Searches`}
+                                badge={
+                                    <span className="ml-1 text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full border border-slate-700">
+                                        {history.length}
+                                    </span>
+                                }
+                            />
                             {isHistoryOpen && (
-                                <div className="pb-2 px-2">
+                                <div className="pb-2 px-3">
                                     {history.map(item => (
-                                        <div
-                                            key={item.id}
-                                            className="relative"
-                                            onMouseEnter={() => setHoveredHistoryId(item.id)}
-                                            onMouseLeave={() => setHoveredHistoryId(null)}
-                                        >
-                                            <button
-                                                onClick={() => handleLoadHistory(item)}
-                                                className="w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-800/60 transition-colors group"
-                                            >
-                                                <RotateCcw size={11} className="text-slate-600 group-hover:text-indigo-400 shrink-0 transition-colors" />
-                                                <span className="text-[11px] text-slate-300 truncate flex-1 font-mono">
-                                                    {item.label}
-                                                </span>
-                                                <span className="text-[9px] text-slate-600 shrink-0">
-                                                    {new Date(item.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            </button>
-
-                                            {/* 호버 미리보기 툴팁 */}
-                                            {hoveredHistoryId === item.id && (
-                                                <HistoryTooltip item={item} />
-                                            )}
-                                        </div>
+                                        <HistoryRow key={item.id} item={item} onLoad={handleLoadHistory} />
                                     ))}
                                 </div>
                             )}
                         </div>
                     )}
 
-                    {/* ── 해피콤보 섹션 ── */}
+                    {/* Happy Combo */}
                     <div className="border-b border-slate-800/60">
-                        <button
-                            onClick={() => setIsIncludeOpen(p => !p)}
-                            className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
-                        >
-                            {isIncludeOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                            <span className="text-emerald-400">✦</span>
-                            <span>Happy Combo (Include Keywords)</span>
-                        </button>
-
+                        <SectionHeader
+                            isOpen={isIncludeOpen}
+                            onToggle={() => setIsIncludeOpen(p => !p)}
+                            icon={<Tag size={13} />}
+                            title="Happy Combo"
+                            badge={
+                                includeTags.length > 0 && (
+                                    <span className="ml-1 text-[10px] bg-indigo-900/50 text-indigo-300 px-1.5 py-0.5 rounded-full border border-indigo-800/50">
+                                        {includeTags.length}
+                                    </span>
+                                )
+                            }
+                            accentColor="emerald"
+                        />
                         {isIncludeOpen && (
-                            <div className="px-4 pb-3">
-                                <textarea
-                                    ref={includeRef}
-                                    value={includeText}
-                                    onChange={e => setIncludeText(e.target.value)}
-                                    placeholder={'Enter keywords (newline or comma separated)\ne.g.:\nonCreate\nonResume\nonPause'}
-                                    className="w-full bg-slate-950/60 border border-slate-700/60 focus:border-emerald-500/50 rounded-xl text-xs text-slate-200 placeholder-slate-600 font-mono resize-none focus:outline-none p-3 transition-colors"
-                                    rows={4}
-                                    spellCheck={false}
+                            <div className="px-5 pb-4">
+                                <TagInput
+                                    tags={includeTags}
+                                    onChange={setIncludeTags}
+                                    placeholder="Type keyword + Enter or comma to add..."
+                                    accentColor="emerald"
+                                    autoFocus
                                 />
-                                <div className="flex items-center gap-1.5 mt-1.5">
+                                <div className="flex items-center gap-2 mt-2">
                                     <button
                                         onClick={() => setCaseSensitive(p => !p)}
-                                        className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${caseSensitive
-                                            ? 'bg-emerald-900/50 border-emerald-500/50 text-emerald-300'
-                                            : 'bg-slate-800/50 border-slate-700 text-slate-500 hover:text-slate-300'
-                                            }`}
+                                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                                            caseSensitive
+                                                ? 'bg-indigo-900/60 border-indigo-500/60 text-indigo-200'
+                                                : 'bg-slate-800/60 border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600'
+                                        }`}
                                     >
-                                        Aa Case
+                                        Aa&nbsp;Case
                                     </button>
-                                    <span className="text-[10px] text-slate-600 ml-1">
-                                        {parseKeywords(includeText).length} keywords
+                                    <span className="text-[10px] text-slate-600">
+                                        {includeTags.length} keyword{includeTags.length !== 1 ? 's' : ''}
+                                        {includeTags.length > 0 && (
+                                            <button
+                                                onClick={() => setIncludeTags([])}
+                                                className="ml-2 text-indigo-400/50 hover:text-indigo-300 transition-colors"
+                                            >
+                                                clear all
+                                            </button>
+                                        )}
                                     </span>
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* ── 블럭리스트 섹션 ── */}
-                    <div className="border-b border-slate-800/60">
-                        <button
-                            onClick={() => setIsExcludeOpen(p => !p)}
-                            className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
-                        >
-                            {isExcludeOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                            <span className="text-rose-400">✕</span>
-                            <span>Block List (Exclude Keywords)</span>
-                            {parseKeywords(excludeText).length > 0 && (
-                                <span className="ml-auto text-[10px] bg-rose-900/40 text-rose-300 px-1.5 py-0.5 rounded-full border border-rose-800/40">
-                                    {parseKeywords(excludeText).length}
-                                </span>
-                            )}
-                        </button>
-
+                    {/* Block List */}
+                    <div>
+                        <SectionHeader
+                            isOpen={isExcludeOpen}
+                            onToggle={() => setIsExcludeOpen(p => !p)}
+                            icon={<ShieldOff size={13} />}
+                            title="Block List"
+                            badge={
+                                excludeTags.length > 0 && (
+                                    <span className="ml-1 text-[10px] bg-rose-900/50 text-rose-300 px-1.5 py-0.5 rounded-full border border-rose-800/50">
+                                        {excludeTags.length}
+                                    </span>
+                                )
+                            }
+                            accentColor="rose"
+                        />
                         {isExcludeOpen && (
-                            <div className="px-4 pb-3">
-                                <textarea
-                                    value={excludeText}
-                                    onChange={e => setExcludeText(e.target.value)}
-                                    placeholder={'Keywords to exclude (newline or comma separated)'}
-                                    className="w-full bg-slate-950/60 border border-slate-700/60 focus:border-rose-500/50 rounded-xl text-xs text-slate-200 placeholder-slate-600 font-mono resize-none focus:outline-none p-3 transition-colors"
-                                    rows={3}
-                                    spellCheck={false}
+                            <div className="px-5 pb-4">
+                                <TagInput
+                                    tags={excludeTags}
+                                    onChange={setExcludeTags}
+                                    placeholder="Type keyword + Enter or comma to exclude..."
+                                    accentColor="rose"
                                 />
-                                <div className="flex items-center gap-1.5 mt-1.5">
+                                <div className="flex items-center gap-2 mt-2">
                                     <button
                                         onClick={() => setBlockListCaseSensitive(p => !p)}
-                                        className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${blockListCaseSensitive
-                                            ? 'bg-rose-900/50 border-rose-500/50 text-rose-300'
-                                            : 'bg-slate-800/50 border-slate-700 text-slate-500 hover:text-slate-300'
-                                            }`}
+                                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                                            blockListCaseSensitive
+                                                ? 'bg-rose-900/60 border-rose-500/60 text-rose-300'
+                                                : 'bg-slate-800/60 border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600'
+                                        }`}
                                     >
-                                        Aa Case
+                                        Aa&nbsp;Case
                                     </button>
+                                    <span className="text-[10px] text-slate-600">
+                                        {excludeTags.length} keyword{excludeTags.length !== 1 ? 's' : ''}
+                                        {excludeTags.length > 0 && (
+                                            <button
+                                                onClick={() => setExcludeTags([])}
+                                                className="ml-2 text-rose-400/50 hover:text-rose-300 transition-colors"
+                                            >
+                                                clear all
+                                            </button>
+                                        )}
+                                    </span>
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* ── 푸터 ── */}
-                <div className="px-4 py-3 bg-slate-950/50 border-t border-slate-800 flex items-center gap-3 shrink-0">
-                    {/* 단축키 힌트 */}
-                    <div className="flex items-center gap-2 text-[10px] text-slate-600 flex-1">
-                        <kbd className="bg-slate-800 text-slate-500 px-1 py-0.5 rounded border border-slate-700">Ctrl+Enter</kbd>
-                        <span>Search</span>
-                        <kbd className="bg-slate-800 text-slate-500 px-1 py-0.5 rounded border border-slate-700 ml-1">Esc</kbd>
-                        <span>Close</span>
+                {/* ── Footer ── */}
+                <div className="px-6 py-4 bg-slate-950/60 border-t border-slate-800/80 flex items-center gap-3 shrink-0">
+                    {/* Shortcut hints */}
+                    <div className="flex items-center gap-2 text-[10px] text-slate-600 flex-1 flex-wrap">
+                        <span className="flex items-center gap-1">
+                            <kbd className="bg-slate-800 text-slate-500 px-1 py-0.5 rounded border border-slate-700">Enter</kbd>
+                            <span>add tag</span>
+                        </span>
+                        <span className="text-slate-700">·</span>
+                        <span className="flex items-center gap-1">
+                            <kbd className="bg-slate-800 text-slate-500 px-1 py-0.5 rounded border border-slate-700">Ctrl+Enter</kbd>
+                            <span>search</span>
+                        </span>
+                        <span className="text-slate-700">·</span>
+                        <span className="flex items-center gap-1">
+                            <kbd className="bg-slate-800 text-slate-500 px-1 py-0.5 rounded border border-slate-700">Esc</kbd>
+                            <span>close</span>
+                        </span>
                     </div>
 
                     <button
                         onClick={onClose}
-                        className="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 rounded-xl transition-all"
+                        className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 rounded-xl transition-all"
                     >
                         Cancel
                     </button>
+
                     <button
                         onClick={handleSearch}
-                        disabled={isSearching || parseKeywords(includeText).length === 0}
-                        className="flex items-center gap-2 px-5 py-1.5 text-xs font-bold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl shadow-lg shadow-indigo-900/30 transition-all active:scale-95"
+                        disabled={isSearching || !canSearch}
+                        className="
+                            flex items-center gap-2 px-6 py-2 text-xs font-bold
+                            bg-gradient-to-r from-indigo-600 to-violet-600
+                            hover:from-indigo-500 hover:to-violet-500
+                            disabled:opacity-40 disabled:cursor-not-allowed
+                            text-white rounded-xl
+                            shadow-lg shadow-indigo-900/40
+                            transition-all active:scale-95
+                        "
                     >
                         {isSearching ? (
                             <>
