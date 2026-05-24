@@ -542,6 +542,24 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
                 if (rangeMatch) bgColor = rangeMatch.canvasColor;
             }
 
+            // ✅ Log Level Background Color with Opacity % 실시간 연동! ⚡ (대소문자 무관 매칭 가드 적용)
+            if (!bgColor) {
+                const lineData = cachedLinesRef.current.get(i);
+                if (lineData && lineData.levelColor) {
+                    const isMatchedLevel = levelMatchers.some(m => m.color.toLowerCase() === lineData.levelColor!.toLowerCase());
+                    if (isMatchedLevel) {
+                        const opacity = preferences?.logLevelOpacity ?? 20;
+                        const hexColor = lineData.levelColor;
+                        if (hexColor.startsWith('#')) {
+                            const alphaHex = Math.round(opacity / 100 * 255).toString(16).padStart(2, '0');
+                            bgColor = `${hexColor}${alphaHex}`;
+                        } else {
+                            bgColor = hexColor.replace(')', `, ${opacity / 100})`).replace('rgb', 'rgba');
+                        }
+                    }
+                }
+            }
+
             // Keyword Line Background (Fallback)
             if (!bgColor && compiledLineHighlights.length > 0) {
                 const lineData = cachedLinesRef.current.get(i);
@@ -855,7 +873,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     useLayoutEffect(() => {
         render();
         renderHeatmap();
-    }, [render, cachedLines, selectedIndices, activeLineIndex, hoveredIndex, bookmarks, performanceHeatmap, isActive]);
+    }, [render, cachedLines, selectedIndices, activeLineIndex, hoveredIndex, bookmarks, performanceHeatmap, isActive, preferences?.logLevelOpacity]);
 
     // ✅ Dynamic Width Calculation (Sample based for performance)
     useEffect(() => {
