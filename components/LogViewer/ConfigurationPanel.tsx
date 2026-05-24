@@ -9,10 +9,10 @@ import { HappyComboSection } from './ConfigSections/HappyComboSection';
 
 import { BlockListSection } from './ConfigSections/BlockListSection';
 import { HighlightSection } from './ConfigSections/HighlightSection';
-import { LogSettingsSection } from './ConfigSections/LogSettingsSection';
+
 import { PerfSettingsSection } from './ConfigSections/PerfSettingsSection';
 
-import { ViewSettingsSection } from './ConfigSections/ViewSettingsSection';
+
 import { QuickCommandSection } from './ConfigSections/QuickCommandSection';
 
 const { ChevronLeft, ChevronRight, Settings, Zap } = Lucide;
@@ -250,24 +250,9 @@ const ConfigurationPanel = React.memo(() => {
                                     />
                                 </div>
 
-                                <div className="card-gradient p-1">
-                                    <LogSettingsSection
-                                        currentConfig={currentConfig}
-                                        updateCurrentRule={updateCurrentRule}
-                                        isLogging={isLogging}
-                                        onToggleLogging={handleToggleLogging}
-                                        connectionMode={connectionMode}
-                                        hasEverConnected={hasEverConnected}
-                                        onReconnect={handleReconnect}
-                                    />
-                                </div>
 
-                                <div className="card-gradient p-1">
-                                    <ViewSettingsSection
-                                        preferences={logViewPreferences}
-                                        onUpdate={updateLogViewPreferences}
-                                    />
-                                </div>
+
+
 
                                 <div className="card-gradient p-1">
                                     <PerfSettingsSection

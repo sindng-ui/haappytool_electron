@@ -28,6 +28,9 @@ const LogQuickTagsPopover: React.FC = memo(() => {
     } = useLogContext() as any;
 
     const [isOpen, setIsOpen] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false); // Popover expandable width control 🐧⚡
+    const [isEditingCommand, setIsEditingCommand] = useState(false); // Command edit mode toggle 🐧🛠️
+    const [commandEditValue, setCommandEditValue] = useState(''); // Temp command template edited value
     const [tagInput, setTagInput] = useState('');
     const popoverRef = useRef<HTMLDivElement>(null);
     const btnRef = useRef<HTMLButtonElement>(null);
@@ -156,13 +159,13 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                 ) : (
                     <SlidersHorizontal size={13} className="text-indigo-400" />
                 )}
-                
+
                 <span className="tracking-tight uppercase">Log Center</span>
 
                 {/* Tag count badge */}
                 {tags.length > 0 && (
-                    <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black border transition-all ${isLogging 
-                        ? 'bg-white/20 text-white border-white/30' 
+                    <span className={`px-1.5 py-0.5 rounded-md text-[11px] font-black border transition-all ${isLogging
+                        ? 'bg-white/20 text-white border-white/30'
                         : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'
                         }`}>
                         {tags.length}
@@ -174,19 +177,39 @@ const LogQuickTagsPopover: React.FC = memo(() => {
             {isOpen && (
                 <div
                     ref={popoverRef}
+                    style={{ width: isExpanded ? '820px' : '500px' }}
                     className="
                         absolute top-full mt-2 right-0 z-[200]
-                        w-[820px] bg-[#0b0f1e] border border-indigo-500/20
+                        bg-[#0b0f1e] border border-indigo-500/20
                         rounded-2xl shadow-[0_20px_50px_rgba(99,102,241,0.18)]
-                        overflow-hidden flex flex-col transition-all duration-300
+                        overflow-hidden flex flex-col transition-[width,transform] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]
                     "
                 >
                     {/* Header */}
-                    <div className="px-5 py-4 border-b border-[#141b36] flex items-center gap-2.5 bg-[#05070e]/40">
+                    <div className="px-5 py-3 border-b border-[#141b36] flex items-center gap-2.5 bg-[#05070e]/40">
                         <Terminal size={15} className="text-cyan-400 animate-pulse" />
-                        <span className="text-sm font-black bg-gradient-to-r from-cyan-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent flex-1">
+                        <span className="text-sm font-black bg-gradient-to-r from-[#00f2fe] via-cyan-400 to-[#0072ff] bg-clip-text text-transparent flex-1 filter drop-shadow-[0_0_8px_rgba(0,242,254,0.3)]">
                             Log Control Center
                         </span>
+
+                        {/* Expand Settings Toggle Button */}
+                        <button
+                            type="button"
+                            onClick={() => setIsExpanded(p => !p)}
+                            className={`
+                                flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-black tracking-wide transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]
+                                ${isExpanded
+                                    ? 'bg-[#1a2342] border-indigo-400 text-indigo-200 shadow-[0_0_12px_rgba(99,102,241,0.3)]'
+                                    : 'bg-[#0f1424] border-indigo-500/20 text-slate-400 hover:text-indigo-300 hover:border-indigo-500/50'
+                                }
+                            `}
+                        >
+                            <Eye size={11} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180 text-cyan-400' : ''}`} />
+                            <span>{isExpanded ? 'Hide Settings ⬅️' : 'Quick Settings ⚙️'}</span>
+                        </button>
+
+                        <span className="w-px h-3 bg-[#141b36]/60 mx-1" />
+
                         {/* Status */}
                         {isLogging ? (
                             <span className="flex items-center gap-1.5 text-xs font-black text-rose-400">
@@ -201,14 +224,14 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                     {/* 2-Column Split View */}
                     <div className="flex divide-x divide-[#141b36]/60">
                         {/* Left Column: Tags & Logging Control (w-[500px]) */}
-                        <div className="w-[500px] p-5 flex flex-col justify-between space-y-4">
+                        <div className="w-[500px] p-5 flex flex-col space-y-4">
                             <div>
                                 <span className="text-[10px] text-cyan-400 uppercase tracking-widest font-black block mb-2">
                                     Target Log Tags
                                 </span>
                                 <div
                                     className="
-                                        min-h-[120px] w-full rounded-xl border border-indigo-500/10 bg-[#05070e]/60
+                                        min-h-[72px] w-full rounded-xl border border-indigo-500/10 bg-[#05070e]/60
                                         p-2.5 flex flex-wrap gap-1.5 items-start cursor-text
                                         focus-within:border-indigo-500/40 focus-within:shadow-[0_0_12px_rgba(99,102,241,0.15)] 
                                         transition-all duration-300 overflow-y-auto max-h-[130px]
@@ -257,19 +280,66 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                                     const cmd = currentConfig?.logCommand ?? defaultCmd;
                                     const tagStr = tags.join(' ').trim();
                                     const finalCmd = cmd.replace(/\$\(TAGS\)/g, tagStr || '[No Tags]');
+
+                                    const handleStartEdit = () => {
+                                        setCommandEditValue(cmd);
+                                        setIsEditingCommand(true);
+                                    };
+
+                                    const handleSaveEdit = () => {
+                                        if (updateCurrentRule) {
+                                            updateCurrentRule({ logCommand: commandEditValue });
+                                        }
+                                        setIsEditingCommand(false);
+                                    };
+
                                     return (
                                         <div className="mt-4 p-3.5 rounded-xl border border-indigo-500/10 bg-[#03050a] space-y-2 shadow-inner">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-[9px] text-[#4d5b94] uppercase tracking-widest font-black">
                                                     ⚡ Live Command Preview
                                                 </span>
-                                                <span className="text-[8px] text-cyan-400 bg-cyan-950/40 border border-cyan-500/20 px-1.5 py-0.5 rounded font-mono font-bold">
-                                                    COMMAND
-                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    {isEditingCommand ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleSaveEdit}
+                                                            className="text-[12px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-black hover:bg-emerald-500/35 hover:text-white transition-all shadow-[0_0_8px_rgba(16,185,129,0.2)] hover:scale-[1.03] active:scale-[0.97]"
+                                                        >
+                                                            SAVE 💾
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleStartEdit}
+                                                            className="text-[12px] bg-[#141b36] text-slate-400 border border-indigo-500/20 px-1.5 py-0.5 rounded font-black hover:border-indigo-400 hover:text-indigo-200 transition-all hover:scale-[1.03] active:scale-[0.97]"
+                                                        >
+                                                            EDIT ✏️
+                                                        </button>
+                                                    )}
+                                                    {/* <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-bold ${isEditingCommand ? 'bg-indigo-950/60 text-indigo-300 border border-indigo-500/20' : 'bg-cyan-950/40 text-cyan-400 border border-cyan-500/20'}`}>
+                                                        {isEditingCommand ? 'TEMPLATE' : 'COMMAND'}
+                                                    </span> */}
+                                                </div>
                                             </div>
-                                            <div className="text-[10px] font-mono text-indigo-300/80 break-all select-all leading-relaxed p-1 hover:text-indigo-200 transition-colors cursor-pointer">
-                                                {finalCmd}
-                                            </div>
+
+                                            {isEditingCommand ? (
+                                                <div className="space-y-1.5">
+                                                    <textarea
+                                                        value={commandEditValue}
+                                                        onChange={e => setCommandEditValue(e.target.value)}
+                                                        className="w-full min-h-[60px] max-h-[100px] p-2 bg-[#090d1a] border border-indigo-500/30 rounded-lg text-[10px] font-mono text-cyan-300 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all placeholder-slate-700 resize-y"
+                                                        spellCheck={false}
+                                                    />
+                                                    <p className="text-[8px] text-cyan-400/70 font-bold leading-normal">
+                                                        * <span className="text-[#00f2fe]">$(TAGS)</span> placeholder will be replaced with selected tags.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="text-[10px] font-mono text-indigo-300/80 break-all select-all leading-relaxed p-1 hover:text-indigo-200 transition-colors cursor-pointer">
+                                                    {finalCmd}
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })()}
@@ -298,10 +368,85 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                         </div>
 
                         {/* Right Column: View Settings (w-[320px]) */}
-                        <div className="w-[320px] p-5 space-y-4 bg-[#070a14]/60">
-                            <div className="flex items-center gap-2 pb-2 border-b border-[#141b36]">
+                        <div
+                            className={`
+                                bg-[#070a14]/60 flex-shrink-0 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] space-y-4
+                                ${isExpanded
+                                    ? 'opacity-100 translate-x-0 visible'
+                                    : 'opacity-0 translate-x-4 invisible pointer-events-none'
+                                }
+                            `}
+                            style={{
+                                width: isExpanded ? '320px' : '0px',
+                                padding: isExpanded ? '20px' : '0px',
+                                maxHeight: isExpanded ? 'none' : '0px',
+                                overflow: 'hidden'
+                            }}
+                        >
+                            <div className="flex items-center gap-2 pb-2 border-b border-[#141b36] min-w-[280px]">
                                 <Eye size={14} className="text-cyan-400 animate-pulse" />
                                 <span className="text-xs font-black text-slate-300 tracking-wide">Quick View Settings</span>
+                            </div>
+
+                            {/* Font Family & Size Control */}
+                            <div className="space-y-2 p-3 rounded-xl border border-indigo-500/10 bg-[#141b36]/20">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] text-slate-300 font-extrabold">Font Settings</span>
+                                    <span className="text-[9px] text-slate-500 uppercase tracking-wider font-mono">Family & Size</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <select
+                                        value={preferences.fontFamily || 'Consolas, monospace'}
+                                        onChange={(e) => updateLogViewPreferences?.({ fontFamily: e.target.value })}
+                                        className="flex-1 bg-[#101530] text-slate-200 text-xs rounded-lg border border-indigo-500/20 focus:ring-1 focus:ring-indigo-500 focus:outline-none p-1.5 cursor-pointer"
+                                    >
+                                        <option value="Consolas, monospace">Consolas</option>
+                                        <option value="'Courier New', monospace">Courier</option>
+                                        <option value="'Lucida Console', monospace">Lucida</option>
+                                        <option value="'Roboto Mono', monospace">Roboto</option>
+                                        <option value="monospace">Mono</option>
+                                    </select>
+                                    <input
+                                        type="number"
+                                        min="8"
+                                        max="24"
+                                        value={preferences.fontSize || 12}
+                                        onChange={(e) => {
+                                            const newSize = parseInt(e.target.value, 10);
+                                            const newRowHeight = Math.ceil(newSize * 1.5);
+                                            updateLogViewPreferences?.({
+                                                fontSize: newSize,
+                                                rowHeight: newRowHeight
+                                            });
+                                        }}
+                                        className="w-14 bg-[#101530] text-slate-200 text-xs rounded-lg border border-indigo-500/20 focus:ring-1 focus:ring-indigo-500 focus:outline-none p-1.5 text-center font-mono"
+                                        title="Font Size (px)"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Line Spacing Control */}
+                            <div className="space-y-2 p-3 rounded-xl border border-indigo-500/10 bg-[#141b36]/20">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] text-slate-300 font-extrabold">Line Spacing</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[9px] text-slate-500 uppercase">Height</span>
+                                        <span className="text-xs text-cyan-400 font-mono font-bold">{preferences.rowHeight}px</span>
+                                    </div>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="12"
+                                    max="60"
+                                    value={preferences.rowHeight}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value, 10);
+                                        if (!isNaN(val) && val >= 10 && val <= 100) {
+                                            updateLogViewPreferences?.({ rowHeight: val });
+                                        }
+                                    }}
+                                    className="w-full h-1 bg-indigo-950 rounded-lg appearance-none cursor-pointer accent-indigo-400"
+                                />
                             </div>
 
                             {/* Show Line Numbers Toggle (iOS Style) */}
@@ -319,6 +464,24 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                                         className="sr-only peer"
                                     />
                                     <div className="w-9 h-5 bg-[#1f294d] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-indigo-500 peer-checked:to-purple-500 peer-checked:after:bg-white peer-checked:after:border-white"></div>
+                                </label>
+                            </div>
+
+                            {/* Bypass Filters Toggle (iOS Style) 🐧⚡ */}
+                            <div className="flex items-center justify-between bg-[#141b36]/30 px-3 py-2.5 rounded-xl border border-indigo-500/10 hover:border-indigo-500/20 transition-all duration-300">
+                                <div className="flex flex-col">
+                                    <span className="text-xs text-slate-200 font-extrabold">Bypass Filters</span>
+                                    <span className="text-[9px] text-slate-500 uppercase tracking-wider font-mono">Show Shell/Raw Text Always</span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        id="popover-toggle-bypass-filters"
+                                        type="checkbox"
+                                        checked={currentConfig?.showRawLogLines !== false}
+                                        onChange={(e) => updateCurrentRule?.({ showRawLogLines: e.target.checked })}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-9 h-5 bg-[#1f294d] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-emerald-500 peer-checked:to-teal-500 peer-checked:after:bg-white peer-checked:after:border-white"></div>
                                 </label>
                             </div>
 
