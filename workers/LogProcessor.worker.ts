@@ -589,13 +589,39 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
         const allKeywords = normalizedRule.includeGroups.flat();
         wasmEngine.update_keywords(allKeywords);
     }
+    
+    // 🐧 [Worker-Debug] 형님을 위한 초정밀 엇박자 추적 로그 가동!
+    console.log('[Worker-Debug] rawIncludeGroups in payload:', JSON.stringify(rawIncludeGroups));
+    console.log('[Worker-Debug] normalizedRule.includeGroups:', JSON.stringify(normalizedRule.includeGroups));
+    console.log('[Worker-Debug] normalizedRule.excludes:', JSON.stringify(normalizedRule.excludes));
+    console.log('[Worker-Debug] isStreamMode:', isStreamMode, 'currentQuickFilter:', currentQuickFilter);
 
-    // Optimization for empty rule (only in File mode, stream might still need re-refilter status)
-    if (!isStreamMode && normalizedRule.excludes.length === 0 && normalizedRule.includeGroups.length === 0 && currentQuickFilter === 'none') {
-        const all = new Int32Array(lineOffsets!.length);
-        for (let i = 0; i < lineOffsets!.length; i++) all[i] = i;
-        filteredIndices = all;
-        respond({ type: 'FILTER_COMPLETE', payload: { matchCount: all.length, totalLines: lineOffsets!.length, visualBookmarks: getVisualBookmarks() } });
+    // Optimization for empty rule (Both File and Stream modes)
+    if (normalizedRule.excludes.length === 0 && normalizedRule.includeGroups.length === 0 && currentQuickFilter === 'none') {
+        const lineCount = isStreamMode ? streamLineCount : (lineOffsets ? lineOffsets.length : 0);
+        const safeMatchCount = Math.min(lineCount, MAX_LINES);
+        
+        console.log(`[Worker-Debug] 🚀 Dynamic Empty rule bypass TRIGGERED! safeMatchCount: ${safeMatchCount}, totalLines: ${lineCount}`);
+        
+        // 🐧 형님! 최초 인덱싱 당시의 완벽한 룰에 맞춰 filteredIndices와 공유 버퍼를 동일하게 초기화 복원합니다!
+        if (lineCount <= filteredIndicesBuffer.length) {
+            for (let i = 0; i < lineCount; i++) {
+                filteredIndicesBuffer[i] = i;
+            }
+            filteredIndices = (filteredIndicesBuffer as any).subarray(0, lineCount);
+        } else {
+            // 대용량 파일 대응 Fallback
+            const all = new Int32Array(lineCount);
+            for (let i = 0; i < lineCount; i++) {
+                all[i] = i;
+            }
+            filteredIndices = all as any;
+        }
+
+        // Notify UI about shared buffers structure
+        sendSharedBuffers();
+
+        respond({ type: 'FILTER_COMPLETE', payload: { matchCount: safeMatchCount, totalLines: lineCount, visualBookmarks: getVisualBookmarks() } });
         respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
         return;
     }
@@ -921,6 +947,7 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
             break;
         case 'FILTER_LOGS':
+            console.log(`[PINGU-DEBUG-WORKER] FILTER_LOGS received! payload config id: ${payload.id}`);
             await applyFilter(payload);
             break;
         case 'TOGGLE_BOOKMARK':
@@ -961,10 +988,10 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             if (payload.startLine === undefined && payload.startFilterIndex !== undefined) {
                 payload.startLine = payload.startFilterIndex; // Fallback for transition
             }
+            console.log(`[PINGU-DEBUG-WORKER] GET_LINES received: start=${payload.startLine}, count=${payload.count}, filteredIndices length=${filteredIndices?.length || 0}`);
             if (!filteredIndices) {
                 console.warn(`[LogProcessorWorker-${workerId}] GET_LINES called but filteredIndices is null! (File: ${currentFile?.name || localFilePath}, Mode: ${isLocalFileMode ? 'Local' : (isStreamMode ? 'Stream' : 'File')})`);
             }
-            console.log(`[LogProcessorWorker-${workerId}] GET_LINES: start=${payload.startLine}, count=${payload.count}, filteredLen=${filteredIndices?.length}`);
             await DataReader.getLines(getDataReaderContext(), payload.startLine, payload.count, requestId || '');
             break;
         case 'GET_SURROUNDING_LINES':

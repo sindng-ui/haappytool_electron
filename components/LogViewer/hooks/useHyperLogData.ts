@@ -51,6 +51,36 @@ export const useHyperLogData = ({
         pendingIndices.current.clear();
     }, [clearCacheTick]);
 
+    // levelMatchers가 변경될 때 캐시되어 있는 라인들의 색상을 즉각 재평가하여 0ms 실시간 반영! ⚡
+    useEffect(() => {
+        if (cachedLines.size === 0) return;
+        setCachedLines(prev => {
+            const next = new Map(prev);
+            let updated = false;
+            next.forEach((cached, key) => {
+                let newLevelColor = '#ccc';
+                if (levelMatchers && levelMatchers.length > 0) {
+                    const prefix = cached.content.substring(0, 100);
+                    for (const m of levelMatchers) {
+                        if (m.regex.test(prefix)) {
+                            newLevelColor = m.color;
+                            break;
+                        }
+                    }
+                }
+                if (cached.levelColor !== newLevelColor) {
+                    next.set(key, { ...cached, levelColor: newLevelColor });
+                    updated = true;
+                }
+            });
+            if (updated) {
+                cachedLinesRef.current = next;
+                return next;
+            }
+            return prev;
+        });
+    }, [levelMatchers]);
+
     const loadVisibleLines = useCallback(async (startIdx: number, endIdx: number) => {
         const needed: number[] = [];
         const currentCache = cachedLinesRef.current;

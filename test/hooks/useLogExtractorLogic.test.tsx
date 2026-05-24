@@ -422,5 +422,53 @@ describe('useLogExtractorLogic (Frontend Logic)', () => {
             expect(mockedAddToast).toHaveBeenCalledWith('Cleared 1 quick highlights', 'info');
         });
     });
+
+    describe('v8 Filtering & Sync Guard', () => {
+        it('should dispatch FILTER_LOGS to worker even on empty rules to maintain sync, but NOT set worker ready to false', async () => {
+            vi.useFakeTimers();
+            
+            const emptyRuleProps = {
+                ...defaultProps,
+                rules: [{
+                    id: 'rule-empty',
+                    name: 'Empty Rule',
+                    highlights: [],
+                    includeGroups: [],
+                    excludes: [],
+                    happyGroups: []
+                }]
+            };
+
+            // Initial mock: Left worker is ready
+            const { result } = renderHook(() => useLogExtractorLogic(emptyRuleProps));
+
+            const leftWorker = MockWorker.instances[0];
+            act(() => {
+                leftWorker.emitMessage({ type: 'INDEX_COMPLETE', payload: { totalLines: 100 } });
+            });
+
+            // 1. Initial State Check: Worker should be ready
+            expect(result.current.leftWorkerReady).toBe(true);
+
+            // 2. Clear postMessage mocks
+            leftWorker.postMessage.mockClear();
+
+            // 3. Trigger debounced filter (which has 150ms timeout)
+            act(() => {
+                vi.advanceTimersByTime(150);
+            });
+
+            // 4. Verification:
+            // - Ready state must STAY true (no setLeftWorkerReady(false) was triggered!)
+            expect(result.current.leftWorkerReady).toBe(true);
+            
+            // - FILTER_LOGS postMessage MUST be dispatched to ensure SAB/Worker sync!
+            expect(leftWorker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+                type: 'FILTER_LOGS'
+            }));
+
+            vi.useRealTimers();
+        });
+    });
 });
 

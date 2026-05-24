@@ -25,8 +25,7 @@ interface HyperLogRendererProps {
     onKeyDown?: (e: React.KeyboardEvent) => void;
     onQuickHighlight?: (keyword: string) => void;
     onClearQuickHighlights?: () => void;
-    onAddWordToGlobalMission?: (word: string) => void;
-    onClearGlobalMission?: () => void;
+
     isActive: boolean;
     clearCacheTick?: number;
     sharedBuffers?: {
@@ -102,7 +101,8 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         selectedIndices, bookmarks, onLineClick, onLineDoubleClick,
         onAtBottomChange, onScroll, absoluteOffset, isRawMode, performanceHeatmap = [],
         onKeyDown, onQuickHighlight, onClearQuickHighlights, isActive, clearCacheTick,
-        sharedBuffers, onAddWordToGlobalMission, onClearGlobalMission
+        sharedBuffers
+
     } = props;
 
     // Apply default values for optional props
@@ -189,6 +189,36 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
     useEffect(() => {
         setCachedLines(new Map());
     }, [clearCacheTick]);
+
+    // levelMatchers가 변경될 때 캐시되어 있는 라인들의 색상을 즉각 재평가하여 0ms 실시간 반영! ⚡
+    useEffect(() => {
+        if (cachedLines.size === 0) return;
+        setCachedLines(prev => {
+            const next = new Map(prev);
+            let updated = false;
+            next.forEach((cached, key) => {
+                let newLevelColor = '#ccc';
+                if (levelMatchers && levelMatchers.length > 0) {
+                    const prefix = cached.decodedContent.substring(0, 100);
+                    for (const m of levelMatchers) {
+                        if (m.regex.test(prefix)) {
+                            newLevelColor = m.color;
+                            break;
+                        }
+                    }
+                }
+                if (cached.levelColor !== newLevelColor) {
+                    next.set(key, { ...cached, levelColor: newLevelColor });
+                    updated = true;
+                }
+            });
+            if (updated) {
+                cachedLinesRef.current = next;
+                return next;
+            }
+            return prev;
+        });
+    }, [levelMatchers]);
 
     const scrollTaskRef = useRef<number | null>(null);
 
@@ -288,13 +318,14 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
             for (let i = batchStart; i < batchStart + batchCount; i++) pendingIndices.current.add(i);
 
             try {
+                console.log(`[PINGU-DEBUG-RENDERER] loadVisibleLines requesting lines: start=${batchStart}, count=${batchCount}, totalCount=${totalCount}`);
                 const lines = await onScrollRequest(batchStart, batchCount);
                 if (!lines || lines.length === 0) {
                     console.warn(`[HyperLog] onScrollRequest(${batchStart}, ${batchCount}) returned NO lines! Total MatchCount: ${totalCount}`);
                     for (let i = batchStart; i < batchStart + batchCount; i++) pendingIndices.current.delete(i);
                     return;
                 }
-                console.debug(`[HyperLog] Successfully loaded ${lines.length} lines for batch ${batchStart}`);
+                console.log(`[PINGU-DEBUG-RENDERER] loadVisibleLines successfully received ${lines.length} lines for batch ${batchStart}`);
                 processLines(batchStart, batchCount, lines);
             } catch (err) {
                 console.error('[Renderer] Batch fetch failed', err);
@@ -304,6 +335,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
 
     // Helper to unify processing
     const processLines = useCallback((batchStart: number, batchCount: number, lines: any[]) => {
+        console.log(`[PINGU-DEBUG-RENDERER] processLines received lines count: ${lines.length}, batchStart: ${batchStart}`);
         setCachedLines(prev => {
             const next = new Map(prev);
             for (let i = batchStart; i < batchStart + batchCount; i++) {
@@ -910,25 +942,7 @@ export const HyperLogRenderer = React.memo(React.forwardRef<HyperLogHandle, Hype
         return res;
     }, [stableScrollTop, viewportHeight, rowHeight, totalCount, cachedLines, isActive]);
     const handleLineAction = (e: React.MouseEvent, index: number, type: 'click' | 'dbclick' | 'enter') => {
-        // 🐧🎯 Ctrl + Shift + Alt + Mouse Event 인터랙션 감지
-        if (e.ctrlKey && e.shiftKey && e.altKey) {
-            if (type === 'dbclick') {
-                const selection = window.getSelection()?.toString().trim();
-                if (selection && onAddWordToGlobalMission) {
-                    onAddWordToGlobalMission(selection);
-                }
-                return;
-            }
 
-            if (type === 'click' && e.button === 2) {
-                e.preventDefault();
-                e.stopPropagation();
-                if (onClearGlobalMission) {
-                    onClearGlobalMission();
-                }
-                return;
-            }
-        }
 
         // ✅ Prevent native browser text selection on normal clicks when Alt key is not pressed.
         if (!e.altKey && type === 'click') {

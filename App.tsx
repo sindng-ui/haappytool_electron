@@ -105,17 +105,6 @@ const AppContent: React.FC = () => {
   // App-wide state (Settings)
   const [logRules, setLogRules] = useState<LogRule[]>([
     {
-      id: 'global-mission',
-      name: 'Global Mission',
-      includeGroups: [['']],
-      happyGroups: [],
-      excludes: [],
-      highlights: [],
-      happyCombosCaseSensitive: false,
-      blockListCaseSensitive: false,
-      colorHighlightsCaseSensitive: false
-    },
-    {
       id: '1',
       name: 'New Analysis',
       includeGroups: [['']],
@@ -227,27 +216,7 @@ const AppContent: React.FC = () => {
             return rule;
           });
 
-          // 🐧🎯 형님! 글로벌 미션이 누락되었다면 첫 번째 순서로 자동 강제 생성/복원합니다!
-          const hasGlobal = migratedRules.some((r: any) => r.id === 'global-mission');
-          if (!hasGlobal) {
-            migratedRules.unshift({
-              id: 'global-mission',
-              name: 'Global Mission',
-              includeGroups: [['']],
-              happyGroups: [],
-              excludes: [],
-              highlights: [],
-              happyCombosCaseSensitive: false,
-              blockListCaseSensitive: false,
-              colorHighlightsCaseSensitive: false
-            });
-          } else {
-            // 존재하더라도 이름은 항상 Global Mission으로 유지하여 무결성 보장
-            const gIdx = migratedRules.findIndex((r: any) => r.id === 'global-mission');
-            if (gIdx !== -1) {
-              migratedRules[gIdx].name = 'Global Mission';
-            }
-          }
+
 
           setLogRules(migratedRules);
         }
@@ -459,26 +428,7 @@ const AppContent: React.FC = () => {
         return rule;
       });
 
-      // 🐧🎯 가져오기 시에도 글로벌 미션 누락 시 최상단 자동 복원!
-      const hasGlobal = migratedRules.some((r: any) => r.id === 'global-mission');
-      if (!hasGlobal) {
-        migratedRules.unshift({
-          id: 'global-mission',
-          name: 'Global Mission',
-          includeGroups: [['']],
-          happyGroups: [],
-          excludes: [],
-          highlights: [],
-          happyCombosCaseSensitive: false,
-          blockListCaseSensitive: false,
-          colorHighlightsCaseSensitive: false
-        });
-      } else {
-        const gIdx = migratedRules.findIndex((r: any) => r.id === 'global-mission');
-        if (gIdx !== -1) {
-          migratedRules[gIdx].name = 'Global Mission';
-        }
-      }
+
 
       setLogRules(current => mergeById(current, migratedRules));
     }

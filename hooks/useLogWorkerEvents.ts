@@ -24,6 +24,7 @@ export function useLogWorkerEvents() {
             workerRef: React.MutableRefObject<Worker | null>;
             pendingRequests: React.MutableRefObject<Map<string, (data: any) => void>>;
             pane: 'left' | 'right';
+            onIndexComplete?: () => void; // 🐧 v9: 인덱스 완료 시 강제 리셋 콜백
         }
     ) => {
         const { type, payload, requestId } = e.data;
@@ -108,13 +109,19 @@ export function useLogWorkerEvents() {
                 break;
 
             case 'INDEX_COMPLETE':
+                console.log(`[PINGU-DEBUG-RECEIVE] INDEX_COMPLETE: totalLines=${payload.totalLines}, pane=${pane}`);
                 setTotalLines(payload.totalLines);
+                // 🐧 형님! 인덱싱이 끝났을 때는 디폴트로 전체 로그가 다 보여야 하므로 filteredCount를 즉시 안전하게 초기화해 줍니다!
+                setFilteredCount(payload.totalLines);
                 setIndexingProgress(100);
                 // 인덱싱 완료 시점에 ready로 전환하여 useEffect 트리거
                 setWorkerReady(true);
+                // 🐧 v9: 인덱스 완료 시 등록된 캐시 초기화 콜백 실행!
+                if (props.onIndexComplete) props.onIndexComplete();
                 break;
 
             case 'FILTER_COMPLETE':
+                console.log(`[PINGU-DEBUG-RECEIVE] FILTER_COMPLETE: matchCount=${payload.matchCount}, totalLines=${payload.totalLines}, pane=${pane}`);
                 setFilteredCount(payload.matchCount);
                 if (typeof payload.totalLines === 'number') setTotalLines(payload.totalLines);
                 if (payload.visualBookmarks) {

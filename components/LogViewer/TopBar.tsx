@@ -112,8 +112,7 @@ const TopBar: React.FC<{
                 <div className="flex items-center space-x-4">
                     <div className="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20"><Sparkles size={18} className="text-indigo-400" /></div>
                     <select className="border-none bg-transparent font-bold text-slate-200 text-lg focus:outline-none cursor-pointer hover:text-indigo-400 transition-colors [&>option]:bg-slate-900 w-64 truncate" value={selectedRuleId || ''} onChange={(e) => onSelectRule(e.target.value)}>
-                        {/* Global Mission은 내부 필터링 전용이므로 드롭다운에서 숨김 */}
-                        {rules.filter(r => r.id !== 'global-mission').map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        {rules.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </select>
                     <button
                         onClick={() => setIsMissionManagerOpen(true)}
@@ -126,7 +125,7 @@ const TopBar: React.FC<{
                 <div className="h-6 w-px bg-slate-700"></div>
                 <div className="flex items-center space-x-2">
                     <button onClick={onCreateRule} className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-500 rounded-full flex items-center text-sm font-medium shadow-lg shadow-indigo-900/50 transition-all hover:scale-105" title="New Rule"><Plus size={16} className="mr-1" /> Create</button>
-                    {selectedRuleId && selectedRuleId !== 'global-mission' && (
+                    {selectedRuleId && (
                         <>
                             <button onClick={onDeleteRule} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-colors"><Trash2 size={18} /></button>
                         </>
@@ -251,12 +250,8 @@ const TopBar: React.FC<{
             <MissionManagerModal
                 isOpen={isMissionManagerOpen}
                 onClose={() => setIsMissionManagerOpen(false)}
-                rules={rules.filter(r => r.id !== 'global-mission')}
-                onUpdateRules={(updatedRules) => {
-                    // Global Mission은 항상 유지하여 내부 필터링 동작 보존
-                    const globalMission = rules.find(r => r.id === 'global-mission');
-                    onUpdateRules(globalMission ? [...updatedRules, globalMission] : updatedRules);
-                }}
+                rules={rules}
+                onUpdateRules={onUpdateRules}
             />
 
             {dialogConfig && (

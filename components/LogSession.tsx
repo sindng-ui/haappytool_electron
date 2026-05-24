@@ -37,11 +37,6 @@ interface LogSessionProps {
     isActive: boolean;
     currentTitle?: string;
     onTitleChange?: (title: string) => void;
-    searchResults?: any[];
-    isSearchingAll?: boolean;
-    onSearchAllOpenFiles?: (globalRule: any) => Promise<void>;
-    onJumpToTabLine?: (tabId: string, pane: 'left' | 'right', lineNum: number) => void;
-    onClearSearchResults?: () => void;
     /** 전체 찾기 시스템 (useFindInAll 훅 반환값) */
     findInAll?: any;
 }
@@ -50,11 +45,6 @@ const LogSession: React.FC<LogSessionProps> = ({
     isActive,
     currentTitle,
     onTitleChange,
-    searchResults = [],
-    isSearchingAll = false,
-    onSearchAllOpenFiles,
-    onJumpToTabLine,
-    onClearSearchResults,
     findInAll,
 }) => {
     const leftFileInputRef = React.useRef<HTMLInputElement>(null);
@@ -145,15 +135,9 @@ const LogSession: React.FC<LogSessionProps> = ({
         addQuickFilter, // ✅ Smart entity filter addition callback
         addQuickHighlight,
         clearQuickHighlights,
-        addWordToGlobalMission,
-        clearGlobalMission,
         rules,
         selectedRuleId
     } = useLogContext();
-
-    const globalRule = React.useMemo(() => {
-        return rules?.find(r => r.id === 'global-mission');
-    }, [rules]);
 
     const [promptConfig, setPromptConfig] = React.useState<any>(null);
 
@@ -722,14 +706,7 @@ const LogSession: React.FC<LogSessionProps> = ({
     const effectiveHighlights = React.useMemo(() => {
         const baseHighlights = [...(appliedConfig?.highlights || [])];
 
-        // 🐧🎯 형님! 현재 룰이 글로벌 미션이 아니라면, 글로벌 미션의 수동 하이라이트도 병합시킵니다!
-        const globalRule = appliedConfig?.id !== 'global-mission'
-            ? rules?.find(r => r.id === 'global-mission')
-            : null;
 
-        if (globalRule && globalRule.highlights) {
-            baseHighlights.push(...globalRule.highlights);
-        }
 
         // Determine case sensitivity for deduplication
         // Hyungnim, if either is enabled, perform case-sensitive checks during deduplication.
@@ -757,16 +734,7 @@ const LogSession: React.FC<LogSessionProps> = ({
             });
         }
 
-        // Collect terms from Happy Groups (Global Rule)
-        if (globalRule && globalRule.happyGroups) {
-            globalRule.happyGroups.forEach(group => {
-                if (group.enabled !== false) {
-                    group.tags.forEach(tag => {
-                        if (tag && tag.trim()) termsToHighlight.add(tag.trim());
-                    });
-                }
-            });
-        }
+
 
         // Legacy Support (Current Config)
         if (appliedConfig?.includeGroups) {
@@ -777,14 +745,7 @@ const LogSession: React.FC<LogSessionProps> = ({
             });
         }
 
-        // Legacy Support (Global Rule)
-        if (globalRule && globalRule.includeGroups) {
-            globalRule.includeGroups.forEach(group => {
-                group.forEach(tag => {
-                    if (tag && tag.trim()) termsToHighlight.add(tag.trim());
-                });
-            });
-        }
+
 
         termsToHighlight.forEach(term => {
             const checkTerm = isCaseSensitive ? term : term.toLowerCase();
@@ -1321,8 +1282,7 @@ const LogSession: React.FC<LogSessionProps> = ({
                                     ref={leftViewerRef}
                                     onQuickHighlight={addQuickHighlight}
                                     onClearQuickHighlights={clearQuickHighlights}
-                                    onAddWordToGlobalMission={addWordToGlobalMission}
-                                    onClearGlobalMission={clearGlobalMission}
+
                                     workerReady={leftWorkerReady}
                                     totalMatches={leftCurrentSegmentLines}
                                     onScrollRequest={requestLeftLines}
@@ -1333,12 +1293,6 @@ const LogSession: React.FC<LogSessionProps> = ({
                                     onLineClick={onLineClickLeft}
                                     onLineDoubleClick={onLineDoubleClickLeft}
                                     selectedRuleId={selectedRuleId}
-                                    onSearchAllOpenFiles={onSearchAllOpenFiles ? () => onSearchAllOpenFiles(globalRule) : undefined}
-                                    searchResults={searchResults}
-                                    isSearchingAll={isSearchingAll}
-                                    onJumpToTabLine={onJumpToTabLine}
-                                    globalRule={globalRule}
-                                    onClearSearchResults={onClearSearchResults}
                                     activeLineIndex={activeLineIndexLeft}
                                     selectedIndices={selectedIndicesLeft}
                                     onDrop={handleLeftFileChange}
@@ -1437,8 +1391,7 @@ const LogSession: React.FC<LogSessionProps> = ({
                                         ref={rightViewerRef}
                                         onQuickHighlight={addQuickHighlight}
                                         onClearQuickHighlights={clearQuickHighlights}
-                                        onAddWordToGlobalMission={addWordToGlobalMission}
-                                        onClearGlobalMission={clearGlobalMission}
+
                                         workerReady={rightWorkerReady}
                                         totalMatches={rightCurrentSegmentLines}
                                         onScrollRequest={requestRightLines}
@@ -1450,12 +1403,6 @@ const LogSession: React.FC<LogSessionProps> = ({
                                         onLineClick={onLineClickRight}
                                         onLineDoubleClick={onLineDoubleClickRight}
                                         selectedRuleId={selectedRuleId}
-                                        onSearchAllOpenFiles={onSearchAllOpenFiles ? () => onSearchAllOpenFiles(globalRule) : undefined}
-                                        searchResults={searchResults}
-                                        isSearchingAll={isSearchingAll}
-                                        onJumpToTabLine={onJumpToTabLine}
-                                        globalRule={globalRule}
-                                        onClearSearchResults={onClearSearchResults}
                                         activeLineIndex={activeLineIndexRight}
                                         selectedIndices={selectedIndicesRight}
                                         onDrop={handleRightFileChange}

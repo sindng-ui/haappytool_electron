@@ -38,6 +38,14 @@ export const checkIsMatch = (line: string, rule: LogRule | null, bypassShellFilt
 
     if (!rule) return true;
 
+    // 🐧 형님! 콤보나 블록리스트가 완전히 없는 빈 룰 상태라면 묻지도 따지지도 않고 무조건 true 패스합니다!
+    // 실질적인 단어가 하나도 없는 가짜 콤보(예: [['']])도 확실하게 빈 룰로 판정하여 WASM 오작동을 차단합니다!
+    const hasHappy = rule.includeGroups && rule.includeGroups.some(g => g.some(t => t.trim() !== ''));
+    const hasBlock = rule.excludes && rule.excludes.some(e => e.trim() !== '');
+    if (!hasHappy && !hasBlock && quickFilter === 'none') {
+        return true;
+    }
+
     // 2. Bypass Logic for Stream Mode (Heuristics to distinguish "Logs" from "Shell Output")
     if (bypassShellFilter && rule.showRawLogLines !== false) {
         const trimmedLine = line.trimStart();

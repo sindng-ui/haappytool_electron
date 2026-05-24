@@ -34,7 +34,10 @@ export function binarySearch(arr: Int32Array, val: number): number {
 export const getLines = async (context: DataReaderContext, startFilterIndex: number, count: number, requestId: string) => {
     const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = context;
 
+    console.log(`[PINGU-DEBUG-READER] getLines invoked! startFilterIndex: ${startFilterIndex}, count: ${count}, filteredIndices length: ${filteredIndices?.length || 0}`);
+
     if (!filteredIndices) {
+        console.log(`[PINGU-DEBUG-READER] getLines aborted: filteredIndices is null!`);
         respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
         return;
     }
@@ -168,6 +171,7 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
         }
     }
 
+    console.log(`[PINGU-DEBUG-READER] getLines responding with: ${resultLines.length} lines!`);
     respond({ type: 'LINES_DATA', payload: { lines: resultLines }, requestId });
 };
 

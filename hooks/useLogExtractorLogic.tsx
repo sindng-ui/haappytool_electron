@@ -108,6 +108,12 @@ export const useLogExtractorLogic = ({
     // === SELECTED RULE ID (탭별 저장/복원) ===
     const { selectedRuleId, setSelectedRuleId } = useSelectedRuleId(rules, tabId);
 
+    // 🐧🎯 형님! 미션(RuleId)이 변경되면 이전 해시 캐시를 강제로 비워 필터 엇박자를 완벽 차단합니다!
+    useEffect(() => {
+        lastFilterHashLeft.current = '';
+        lastFilterHashRight.current = '';
+    }, [selectedRuleId]);
+
     const [isDualView, setIsDualView] = useState(false);
 
 
@@ -145,6 +151,8 @@ export const useLogExtractorLogic = ({
     const [rightFileName, setRightFileName] = useState<string>('');
     const rightPendingRequests = useRef<Map<string, (data: any) => void>>(new Map());
     const [splitRatio, setSplitRatio] = useState(0.5); // ✅ Split Ratio for Dual View
+
+
 
     // --- Tab Background Optimization ---
     useEffect(() => {
@@ -491,7 +499,11 @@ export const useLogExtractorLogic = ({
                 setSharedBuffers: setLeftSharedBuffers,
                 workerRef: leftWorkerRef,
                 pendingRequests: leftPendingRequests,
-                pane: 'left'
+                pane: 'left',
+                onIndexComplete: () => {
+                    console.log('[useLog-Left] INDEX_COMPLETE -> Resetting filter hash cache!');
+                    lastFilterHashLeft.current = '';
+                }
             });
         };
         leftWorkerRef.current.onerror = (e: any) => {
@@ -520,7 +532,11 @@ export const useLogExtractorLogic = ({
                 setSharedBuffers: setRightSharedBuffers,
                 workerRef: rightWorkerRef,
                 pendingRequests: rightPendingRequests,
-                pane: 'right'
+                pane: 'right',
+                onIndexComplete: () => {
+                    console.log('[useLog-Right] INDEX_COMPLETE -> Resetting filter hash cache!');
+                    lastFilterHashRight.current = '';
+                }
             });
         };
         rightWorkerRef.current.onerror = (e: any) => {
@@ -548,17 +564,11 @@ export const useLogExtractorLogic = ({
         if (isActive && leftWorkerRef.current && currentConfig && leftWorkerReady) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
             
-            const globalRule = rules.find(r => r.id === 'global-mission');
-            let combinedGroups = [...refinedGroups];
-            let combinedExcludes = [...currentConfig.excludes];
-
-            if (globalRule && currentConfig.id !== 'global-mission') {
-                const globalGroups = assembleIncludeGroups(globalRule);
-                combinedGroups = [...combinedGroups, ...globalGroups];
-                combinedExcludes = [...combinedExcludes, ...globalRule.excludes];
-            }
+            const combinedGroups = refinedGroups;
+            const combinedExcludes = currentConfig.excludes;
 
             const applyFilter = () => {
+                console.log('[PINGU-DEBUG-APPLY] Left applyFilter triggered! currentConfig.id:', currentConfig.id, 'leftWorkerReady:', leftWorkerReady);
                 const effectiveIncludes = combinedGroups.map(g =>
                     g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
                 ).filter(g => g.length > 0);
@@ -572,18 +582,28 @@ export const useLogExtractorLogic = ({
                     quickFilter,
                 });
 
+                // 🐧🎯 v8 초정밀 깜빡임 제로 & 동기화 가드 수립
+                const isEmptyRule = effectiveIncludes.length === 0 && effectiveExcludes.length === 0 && quickFilter === 'none';
+
+                console.log('[PINGU-DEBUG-APPLY] Left isEmptyRule:', isEmptyRule, 'payloadHash:', payloadHash, 'lastHash:', lastFilterHashLeft.current);
+
+                // 🐧 형님! 해시 캐시 비교 가드를 완벽 복원하여 중복 워커 갱신을 원천 차단합니다!
+                // 빈 룰 상태이더라도 이전 해시와 동일하다면 굳이 워커로 필터 싱크를 쏘지 않아 0.1초 실종 타이밍 버그를 완벽 근절합니다!
                 if (payloadHash === lastFilterHashLeft.current && leftWorkerReady) {
+                    console.log('[PINGU-DEBUG-APPLY] Left filter cache guard hit! Bypassing dispatch.');
                     return;
                 }
                 lastFilterHashLeft.current = payloadHash;
 
-                // 🐧🎯 형님! 작업 직전에 캐시를 비워야 설정창 색깔 변화와 화면 갱신이 한 호흡에 일어납니다!
-                setLeftWorkerReady(false);
+                if (!isEmptyRule) {
+                    // 🐧 실질 필터가 존재할 때만 로딩 상태로 우아하게 강등시켜 엇박자 잔상을 막습니다!
+                    setLeftWorkerReady(false);
+                }
                 setLeftSegmentIndex(0);
                 leftViewerRef.current?.scrollTo(0);
                 if (setClearCacheTick) setClearCacheTick(prev => prev + 1);
 
-                console.log('[useLog-Left] Debounced FILTER_LOGS. hash:', payloadHash);
+                console.log('[PINGU-DEBUG-APPLY] Left FILTER_LOGS dispatching. isEmptyRule:', isEmptyRule);
                 leftWorkerRef.current?.postMessage({
                     type: 'FILTER_LOGS',
                     payload: { ...currentConfig, includeGroups: combinedGroups, excludes: combinedExcludes, quickFilter }
@@ -593,8 +613,10 @@ export const useLogExtractorLogic = ({
                 setSelectedIndicesLeft(new Set());
             };
 
-            // 🐧🎯 형님! 콤보 추가나 수정을 할 때 팬이 돌지 않게 150ms 정도 숨을 고르고 필터링합니다. (400ms는 너무 깁니다!)
-            const timer = setTimeout(applyFilter, 150);
+            // 🐧🎯 형님! 최초 로딩 시(해시 캐시가 완전히 비어있을 때)에는 딜레이 없이 0ms로 즉시 쏘아 화면 깜빡임을 소탕합니다!
+            const isInitialApply = lastFilterHashLeft.current === '';
+            const delay = isInitialApply ? 0 : 150;
+            const timer = setTimeout(applyFilter, delay);
             return () => clearTimeout(timer);
         }
     }, [currentConfig, tizenSocket, quickFilter, leftWorkerReady, isActive, rules]);
@@ -604,17 +626,11 @@ export const useLogExtractorLogic = ({
         if (isActive && isDualView && rightWorkerRef.current && currentConfig && rightWorkerReady && rightTotalLines > 0) {
             const refinedGroups = assembleIncludeGroups(currentConfig);
 
-            const globalRule = rules.find(r => r.id === 'global-mission');
-            let combinedGroups = [...refinedGroups];
-            let combinedExcludes = [...currentConfig.excludes];
-
-            if (globalRule && currentConfig.id !== 'global-mission') {
-                const globalGroups = assembleIncludeGroups(globalRule);
-                combinedGroups = [...combinedGroups, ...globalGroups];
-                combinedExcludes = [...combinedExcludes, ...globalRule.excludes];
-            }
+            const combinedGroups = refinedGroups;
+            const combinedExcludes = currentConfig.excludes;
 
             const applyFilter = () => {
+                console.log('[PINGU-DEBUG-APPLY] Right applyFilter triggered! currentConfig.id:', currentConfig.id, 'rightWorkerReady:', rightWorkerReady);
                 const effectiveIncludes = combinedGroups.map(g =>
                     g.map(t => (!currentConfig.happyCombosCaseSensitive ? t.trim().toLowerCase() : t.trim())).filter(t => t !== '')
                 ).filter(g => g.length > 0);
@@ -628,18 +644,28 @@ export const useLogExtractorLogic = ({
                     quickFilter,
                 });
 
+                // 🐧🎯 v8 우측 패널 대칭형 초정밀 깜빡임 제로 & 동기화 가드 수립
+                const isEmptyRule = effectiveIncludes.length === 0 && effectiveExcludes.length === 0 && quickFilter === 'none';
+
+                console.log('[PINGU-DEBUG-APPLY] Right isEmptyRule:', isEmptyRule, 'payloadHash:', payloadHash, 'lastHash:', lastFilterHashRight.current);
+
+                // 🐧 형님! 해시 캐시 비교 가드를 완벽 복원하여 중복 워커 갱신을 원천 차단합니다!
+                // 빈 룰 상태이더라도 이전 해시와 동일하다면 굳이 워커로 필터 싱크를 쏘지 않아 0.1초 실종 타이밍 버그를 완벽 근절합니다!
                 if (payloadHash === lastFilterHashRight.current && rightWorkerReady) {
+                    console.log('[PINGU-DEBUG-APPLY] Right filter cache guard hit! Bypassing dispatch.');
                     return;
                 }
                 lastFilterHashRight.current = payloadHash;
 
-                // 🐧🎯 우측 패널도 타이밍 일치 작업!
-                setRightWorkerReady(false);
+                if (!isEmptyRule) {
+                    // 🐧 실질 필터가 존재할 때만 로딩 상태로 우아하게 강등시켜 엇박자 잔상을 막습니다!
+                    setRightWorkerReady(false);
+                }
                 setRightSegmentIndex(0);
                 rightViewerRef.current?.scrollTo(0);
                 if (setClearCacheTick) setClearCacheTick(prev => prev + 1);
 
-                console.log('[useLog-Right] Debounced FILTER_LOGS. hash:', payloadHash);
+                console.log('[PINGU-DEBUG-APPLY] Right FILTER_LOGS dispatching. isEmptyRule:', isEmptyRule);
                 rightWorkerRef.current?.postMessage({
                     type: 'FILTER_LOGS',
                     payload: { ...currentConfig, includeGroups: combinedGroups, excludes: combinedExcludes, quickFilter }
@@ -648,7 +674,10 @@ export const useLogExtractorLogic = ({
                 setSelectedIndicesRight(new Set());
             };
 
-            const timer = setTimeout(applyFilter, 150);
+            // 🐧🎯 우측 패널도 마찬가지로 최초 기동 시에는 딜레이를 0ms로 단축시킵니다!
+            const isInitialApply = lastFilterHashRight.current === '';
+            const delay = isInitialApply ? 0 : 150;
+            const timer = setTimeout(applyFilter, delay);
             return () => clearTimeout(timer);
         }
     }, [currentConfig, rightTotalLines, isDualView, quickFilter, rightWorkerReady, isActive, rules]);
@@ -827,10 +856,7 @@ export const useLogExtractorLogic = ({
     }, [rules, onUpdateRules, isPanelOpen]);
 
     const handleDeleteRule = useCallback(() => {
-        if (selectedRuleId === 'global-mission') {
-            showToast('Global Mission cannot be deleted!', 'error');
-            return;
-        }
+
 
         const currentRule = rules.find(r => r.id === selectedRuleId);
         const ruleName = currentRule?.name || 'this mission';
@@ -853,95 +879,7 @@ export const useLogExtractorLogic = ({
         });
     }, [rules, selectedRuleId, onUpdateRules, showToast]);
 
-    const addWordToGlobalMission = useCallback((word: string) => {
-        const trimmed = word.trim();
-        if (!trimmed) return;
 
-        const globalRule = rules.find(r => r.id === 'global-mission');
-        if (!globalRule) {
-            showToast('Global Mission not found!', 'error');
-            return;
-        }
-
-        const currentHappyGroups = globalRule.happyGroups || [];
-        const currentHighlights = globalRule.highlights || [];
-
-        const isDuplicateGroup = currentHappyGroups.some(
-            g => g.tags.length === 1 && g.tags[0].toLowerCase() === trimmed.toLowerCase()
-        );
-
-        let isUpdated = false;
-        let newHappyGroups = [...currentHappyGroups];
-        let newHighlights = [...currentHighlights];
-
-        if (!isDuplicateGroup) {
-            const newGroupId = 'group-' + Math.random().toString(36).substring(7);
-            newHappyGroups.push({
-                id: newGroupId,
-                tags: [trimmed],
-                enabled: true
-            });
-            isUpdated = true;
-        }
-
-        const isDuplicateHighlight = currentHighlights.some(
-            h => h.keyword.toLowerCase() === trimmed.toLowerCase()
-        );
-
-        if (!isDuplicateHighlight) {
-            const newHighlightId = 'hl-' + Math.random().toString(36).substring(7);
-            const colors = ['bg-yellow-200', 'bg-indigo-200', 'bg-red-200', 'bg-green-200', 'bg-blue-200', 'bg-orange-200'];
-            const randomColor = colors[Math.floor(Math.random() * colors.length)];
-
-            newHighlights.push({
-                id: newHighlightId,
-                keyword: trimmed,
-                color: randomColor,
-                lineEffect: false
-            });
-            isUpdated = true;
-        }
-
-        if (isUpdated) {
-            const updatedRules = rules.map(r => 
-                r.id === 'global-mission' 
-                    ? { ...r, happyGroups: newHappyGroups, highlights: newHighlights, happyCombosEnabled: true } 
-                    : r
-            );
-            onUpdateRules(updatedRules);
-            showToast(`Added "${trimmed}" to Global Mission!`, 'success');
-        } else {
-            showToast(`"${trimmed}" is already in Global Mission!`, 'info');
-        }
-    }, [rules, onUpdateRules, showToast]);
-
-    const clearGlobalMission = useCallback(() => {
-        const globalRule = rules.find(r => r.id === 'global-mission');
-        if (!globalRule) {
-            showToast('Global Mission not found!', 'error');
-            return;
-        }
-
-        setDialogConfig({
-            title: 'Clear Global Mission',
-            description: (
-                <div className="space-y-2">
-                    <p>Are you sure you want to clear all words in the Global Mission?</p>
-                    <p className="text-red-400 font-bold">This will remove all Happy Combos and highlights in the Global Mission.</p>
-                </div>
-            ),
-            confirmLabel: 'Yes',
-            onConfirm: () => {
-                const updatedRules = rules.map(r => 
-                    r.id === 'global-mission' 
-                        ? { ...r, happyGroups: [], highlights: [] } 
-                        : r
-                );
-                onUpdateRules(updatedRules);
-                showToast('Global Mission cleared!', 'success');
-            }
-        });
-    }, [rules, onUpdateRules, showToast]);
 
     const handleImportFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -1219,7 +1157,7 @@ export const useLogExtractorLogic = ({
         isSearchFocused, setIsSearchFocused,
         quickFilter, setQuickFilter,
         dialogConfig, setDialogConfig,
-        addWordToGlobalMission, clearGlobalMission,
+
         leftPerfAnalysisResult, rightPerfAnalysisResult,
         isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight,
         handleAnalyzePerformanceLeft, handleAnalyzePerformanceRight,

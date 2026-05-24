@@ -72,15 +72,8 @@ export interface LogViewerPaneProps {
     onQuickHighlight?: (keyword: string) => void;
     onClearQuickHighlights?: () => void;
     onSelectAll?: () => void;
-    onAddWordToGlobalMission?: (word: string) => void;
-    onClearGlobalMission?: () => void;
+
     selectedRuleId?: string;
-    onSearchAllOpenFiles?: () => void;
-    searchResults?: TabSearchResult[];
-    isSearchingAll?: boolean;
-    onJumpToTabLine?: (tabId: string, pane: 'left' | 'right', lineNum: number) => void;
-    globalRule?: LogHighlight[] | any;
-    onClearSearchResults?: () => void;
 }
 
 export interface LogViewerHandle {
@@ -109,9 +102,8 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
         perfAnalysisResult, isAnalyzingPerformance = false, isActive, onJumpToLine, onJumpToRange,
         onViewRawRange, onCopyRawRange, dashboardHeight: propDashboardHeight, onDashboardHeightChange,
         clearCacheTick, sharedBuffers, onAnalyzeSpam, onHighlightJump, onReset, onQuickHighlight, onClearQuickHighlights,
-        onSelectAll, onAddWordToGlobalMission, onClearGlobalMission,
-        selectedRuleId, onSearchAllOpenFiles, searchResults, isSearchingAll, onJumpToTabLine, globalRule,
-        onClearSearchResults
+        onSelectAll,
+        selectedRuleId
     } = props;
 
     const rowHeight = preferences?.rowHeight || DEFAULT_ROW_HEIGHT;
@@ -338,8 +330,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                                 onLineDoubleClick={onLineDoubleClick}
                                 onQuickHighlight={onQuickHighlight}
                                 onClearQuickHighlights={onClearQuickHighlights}
-                                onAddWordToGlobalMission={onAddWordToGlobalMission}
-                                onClearGlobalMission={onClearGlobalMission}
+
                                 onAtBottomChange={scrollHook.handleAtBottomChange}
                                 absoluteOffset={absoluteOffset}
                                 isRawMode={isRawMode}
@@ -368,44 +359,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                         </div>
                     </>
                 ) : (
-                    selectedRuleId === 'global-mission' ? (
-                        <div className="flex-1 flex flex-col p-6 overflow-hidden h-full">
-                            {(!searchResults || searchResults.length === 0) && !isSearchingAll ? (
-                                <div className="flex-1 flex flex-col items-center justify-center text-center">
-                                    <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-8 max-w-md w-full shadow-2xl relative overflow-hidden transition-all hover:border-slate-700/60">
-                                        <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-5 border border-emerald-500/20">
-                                            <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                            </svg>
-                                        </div>
-                                        <h3 className="text-lg font-bold text-slate-200 mb-2">Search All in Open Files</h3>
-                                        <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-                                            글로벌 미션(Global Mission)의 해피콤보 및 블록 리스트 필터를 기준으로 현재 열려있는 모든 파일 탭의 로그를 초고속 병렬 검색합니다.
-                                        </p>
-                                        <button
-                                            onClick={onSearchAllOpenFiles}
-                                            className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/20 transition-all duration-150 active:scale-95 border border-emerald-500/30 flex items-center justify-center space-x-2"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                            </svg>
-                                            <span>Search All</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <GlobalSearchResultView
-                                    results={searchResults}
-                                    rule={globalRule || null}
-                                    onJumpToTabLine={onJumpToTabLine || (() => {})}
-                                    isSearching={!!isSearchingAll}
-                                    onClear={onClearSearchResults}
-                                />
-                            )}
-                        </div>
-                    ) : (
-                        <LogViewerEmptyState fileName={fileName} onBrowse={onBrowse} />
-                    )
+                    <LogViewerEmptyState fileName={fileName} onBrowse={onBrowse} />
                 )}
             </div>
 

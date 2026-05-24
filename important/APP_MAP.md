@@ -103,11 +103,15 @@
   - `filteredIndices`: 필터링된 결과 라인 번호 배열 (Int32Array)
 - **Optimizations**:
   - `SharedArrayBuffer Zero-copy Binary Read`: UI(HyperLogRenderer)에서 직접 공유 메모리를 읽어 렌더링 성능 극대화.
-  - `글로벌 미션 상시 누적 병합 필터링`: 활성화된 액티브 미션이 무엇이든 상관없이, `global-mission`에 등록된 해피콤보 및 블록 리스트가 상시 누적 병합(OR of ANDs + excludes)되어 실시간으로 반영되는 상시 필터링 파이프라인 탑재. [NEW][HOT]
-  - `글로벌 미션 기반 '열린 파일 모두 검색' (Search All in Open Files)`: global-mission이 활성 미션으로 선택되어 있고 빈 화면일 때 'Search All' 버튼을 노출하고, 클릭 시 열려있는 모든 파일 탭의 백그라운드 워커를 병렬 가동해 초고속 스캔을 수행하고 결과를 Notepad++ 트리 스타일(`GlobalSearchResultView`)로 표출. C++ WASM 엔진 탭 상태 간섭을 배제하기 위한 JS Fallback 매칭(OR of ANDs)을 고정 적용하여 100% 무결성을 보장하고, 탭 전환/닫기/추가 시 및 검색 결과 수동 초기화(`clearSearchResults`) 클릭 시 검색 결과가 깨끗이 초기화되도록 생명주기 제어 메커니즘을 완벽 탑재함. 특히 해피콤보 하위에 브랜치가 없어도 그룹명 자체를 검색어로 정상 매칭할 수 있도록 `assembleIncludeGroups`를 연동하여 검색 누락 버그를 완벽 진압함. [UPDATED][HOT]
+  - `빈 룰 초광속 바이패스 SharedArrayBuffer 동기화 & 스트림 확장`: 해피콤보가 없을 때 필터링 루프를 거치지 않고 전체 인덱스를 넘겨주는 최적화 분기에서, SharedArrayBuffer(filteredIndicesBuffer)에 인덱스 데이터를 직접 채우고 sendSharedBuffers()를 쏘도록 개선하여 UI 렌더러와 동기화가 끊기던 버그를 완벽 해결하고, `!isStreamMode` 제약을 완전 제거하여 실시간 스트림 모드까지 빈 룰 초광속 바이패스 최적화가 상시 적용되도록 영토 확장함. [UPDATED][HOT]
+  - `빈 룰 로그 실종 완전 진압 & 깜빡임 제로 동기화 가드 완성 (v8)`: 최초 인덱싱 완료(`INDEX_COMPLETE`) 시점에 `filteredCount`를 즉시 전체 라인 수로 초기 세팅하는 기반 위에, 빈 룰 적용 시 워커로의 `FILTER_LOGS` 디스패치를 전면 유지하여 SharedArrayBuffer 동기화를 100% 보장함으로써 탭 전환/파일 재오픈 시의 먹통 실종 버그를 완전 소탕하고, 동시에 `setWorkerReady(false)` 로딩창 강등만 영리하게 차단하여 단 1프레임의 깜빡임 jank도 허용하지 않는 궁극의 60fps 무결성을 마침내 달성함. [UPDATED][HOT]
+  - `필터 유틸 최종 2중 방어가드 수립 & 빈 문자열 감지 보완`: 만에 하나 병렬 서브워커(`LogFilterSub.worker.ts`) 필터링으로 우회하더라도, 필터 조건이 아예 없는 빈 룰 상태(신규 미션의 `[['']]` 같은 가짜 빈 콤보 포함)라면 `checkIsMatch` 매칭 함수 초입부에서 실질 키워드가 없는 빈 룰임을 100% 탐색하여 0.0001초 만에 `true` (무조건 통과)를 즉시 리턴하도록 최종 초광속 가드를 고도화 수립하여 WASM 오작동 오매칭을 원천 차단함. [UPDATED][HOT]
+  - `해피콤보 빈 룰 로그 0.1초 실종 타이밍 버그 완전 진압 및 캐시 가드 복원 (v10)`: 빈 룰 시 무조건 필터싱크를 쏘는 가드 우회로 인해 발생하던 0.1초 중복 워커 갱신 및 lineCount=0 엇박자 실종 버그를 종식시키기 위해, 가드 우회를 완전히 제거하고 순수 해시 캐시 비교 가드를 완벽 복원하여 중복 워커 갱신을 차단하고 0.1초 실종 버그를 완벽 진압함. [UPDATED][HOT]
+  - `로그 레벨 색상 & 토글 0ms 즉각 반영 동기화 가드 (HyperLogRenderer.tsx)`: 사용자가 퀵 제어 창(Log Center)에서 로그 레벨 체크박스를 토글하거나 컬러 피커로 색을 바꾸었을 때, 기존에 렌더러 캐시(`cachedLines`)에 저장되어 있던 로그 라인들의 `levelColor`를 0ms 즉각 재평가하여 루프 갱신하는 2중 동기화 가드 장착. 워커로의 불필요한 비동기 재요청을 차단하여 단 1프레임의 껌벅임도 없는 완벽한 실시간 반응성을 완성함. [NEW][HOT]
+
   - `스마트 하이퍼 점프 (Hyper-Jump to Tab Line)`: 검색 결과 트리에서 특정 행을 클릭하면, 타겟 파일의 탭으로 즉시 휙 전환(Switch Tab)되고, 해당 로그 라인의 위치로 화면을 미려하고 정확하게 포커싱 및 스크롤 점프 수행. [NEW][HOT]
   - `독립형 전체 찾기 (Find in All Open Files, Ctrl+Shift+F)`: Global Mission과 완전 독립된 룰로 열린 모든 파일을 즉시 검색. `FindInAllModal`(700px 대형 프리미엄 모달, blur 제로, `TagInput` 칩 방식 키워드 입력(Enter/comma로 추가·Backspace로 마지막 삭제·X로 개별 삭제), Recent Searches 항목 칩 미리보기(가로 스크롤 버그 완전 제거·HistoryTooltip 삭제), Block List 기본 열림), `FindInAllResultPanel`(공통 부모 단 한 번 렌더·높이 리셋 차단, localStorage 영구 저장), `GlobalSearchResultView`(파일별 Copy to Clipboard, Collapse/Expand All, 영어 UI), `useFindInAllHistory`(최근 10개 Dexie DB 영구 저장), `useFindInAll`(Static 스냅샷·LogSession 격리). [UPDATED][HOT]
-  - `Global Mission 드롭다운 숨기기`: Global Mission은 내부 필터링 전용이므로 미션 선택 드롭다운 및 MissionManager에서 유저에게 노출하지 않음. 내부 필터링(글로벌 해피콤보 누적 병합) 동작은 100% 유지. [NEW]
+
   - `ANSI Stripping`: 로딩 시점에서 ANSI 코드를 제거하여 부하 최소화.
   - `Lazy SAB Allocation`: 로컬 파일 모드 시 메모리 할당 지연 (RAM 절약).
   - `Active State Sync`: 백그라운드 탭의 유령 워커 자동 정리. [NEW]
@@ -136,11 +140,9 @@
   - `Space`: 북마크 토글 (황금색 언더라인 강조) [MOD]
   - `Double Click`: 원본 로그 문맥(Raw Context) 보기 [MOD]
   - **스마트 엔티티 칩 필터 연동**: Raw View에서 추출된 PID/TID/Hex 주소 칩 클릭 시, 메인 로그 뷰 세션에 즉각 퀵 필터(Filter)를 먹이거나 퀵 하이라이트(Spark)를 입혀 실시간 다이렉트 분석 지원. [NEW][HOT]
-  - **글로벌 미션 마우스 단축 인터랙션**:
-    - `Ctrl + Shift + Alt + Double Click`: 선택된 단어를 삭제 불가한 글로벌 미션(Global Mission)의 Happy Combo 및 실시간 하이라이트에 자동 추가하고 HSL 배경색을 실시간 칠해 렌더링. [NEW][HOT]
-    - `Ctrl + Shift + Alt + Right Click`: 글로벌 미션의 Happy Combo 및 하이라이트 단어들을 일괄 초기화할지 여부를 묻는 영어 확인 팝업(Confirm)을 띄우고 `Yes` 선택 시 비우기. [NEW][HOT]
+
   - **Quick Connect 자동 연결 복구 및 프리미엄 UX**: 상단 커넥션 영역 번개(⚡) 버튼 클릭 시, 마지막 성공했던 연결 수단(SDB/SSH/Serial/Simulate) 정보를 읽어 들여 물리적인 소켓 세션 수립(`isSocketReady`) 직후 1초 만에 자동 다이렉트 연결을 수행합니다. 자동 연결 연동 중에는 펄싱 글로우 애니메이션이 포함된 노란색 번개 아이콘 ⚡과 타겟 연결 정보 칩바가 장착된 전용 퀵 커넥팅 로딩 UI를 노출하여 프리미엄 감성을 제공하며, 연결 실패 시에는 예쁘고 디테일한 에러 안내 패널과 `수동 설정으로 전환`, `다시 시도` 버튼을 제공하여 100% 안전한 폴백(Fallback)을 보장합니다. (성능을 저해하는 blur 필터를 완전히 배제한 고화질 모던 다크 디자인) [UPDATED][HOT]
-  - **`LogQuickTagsPopover` — Log Tags 퀵 팝오버 (TopBar 통합)**: TopBar의 Connection/QuickFilter 사이에 `#` 태그 아이콘 버튼 추가. 클릭 시 팝오버로 Log Tags 칩 편집(Enter로 추가·X로 삭제·Backspace로 마지막 삭제) + Start/Stop Logging 버튼 원스톱 제공. 형님의 요구사항을 반영하여 너비를 `w-[480px]`의 압도적이고 넉넉한 대형 프리미엄 레이아웃으로 리사이징하고, 칩과 입력창의 최소 높이를 `min-h-[96px]`로 확장하여 시각적 개방감과 가독성을 극대화함. 로깅 중에는 🔴 펄싱 REC 도트와 태그 카운트 배지로 상태 명확 표시. `LogSettingsSection`은 설정 패널에 그대로 유지(하위 호환). [UPDATED][HOT]
+  - **`LogQuickTagsPopover` — Log Control Center 퀵 팝오버 (TopBar 통합)**: 툴바 내 SlidersHorizontal 아이콘과 "Log Center" 텍스트 라벨을 포함한 중요 버튼으로 격상. 호버 시 은은한 인디고 네온 글로우 및 쫀득한 스케일 트랜지션(`hover:scale-104 active:scale-96`)을 적용하여 비주얼 프리미엄 실현. 로깅 활성화 시 웅장한 로즈-레드 그라데이션 및 실시간 🔴 REC 펄싱 광원으로 동적 전환. 내부 팝오버는 깊고 고급스러운 미드나잇 스페이스 블루(`#0b0f1e`) 네온 테마와 3D 입체형 바이올렛 태그 칩, Live Command Preview 딥 블랙 웰 디자인, 고휘도 에메랄드-민트 그라데이션 Start 버튼, 그리고 iOS-Style 슬라이딩 토글 스위치(Line Numbers 및 각 Level 필터 전용)를 이식하여 60fps 무결성 성능 속에서 최고의 테크 감성을 선사. [UPDATED][HOT]
   - **LLM Communication 디버깅 강화**: URL, Method, Headers, Full Body를 포함한 전체 HTTP 트래픽 기록 및 UI 표시. 긴 텍스트 자동 요약(Truncation) 적용. [NEW]
   - **AI 통신 디버그 로깅**: AI와 주고받는 모든 Raw 통신 데이터를 `agent_traffic_debug.log` 파일에 기록 (현재 비활성화, `agentApiService.ts`에서 활성 가능). [UPDATED]
   - **AI 분석 루프 최적화**: 중복 실행 방지 가드 및 정체(Stall) 감지 로직 추가. 정체 및 API 오류 발생 시에도 통신 로그를 남기도록 개선. [UPDATED]
