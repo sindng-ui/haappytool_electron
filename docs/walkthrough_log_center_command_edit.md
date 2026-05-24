@@ -1,43 +1,37 @@
-# [워크스루] Live Command Preview 실시간 편집 및 저장 기능 완료 보고서 🐧🏆✨
+# [워크스루] Live Command Preview 실시간 편집 및 자동 로깅 차단 완료 보고서 🐧🏆✨
 
-형님! `TARGET LOG TAGS` 하단에 표시되는 실시간 커맨드 명령어를 형님의 입맛대로 실시간 커스터마이징하고 저장할 수 있도록, **`Edit` ↔ `Save` 실시간 템플릿 에디터 및 Context 영구 저장 기능**을 기분 좋게 이식 완료했습니다!
+형님! `Live Command Preview`의 템플릿 실시간 편집 모드 탑재에 이어, **단말 연결(SSH/SDB/Serial) 완료 직후 자동으로 로그 스트리밍 커맨드가 기동되던 문제를 원천 차단**하여, 형님께서 직접 시작하실 때만 수동 발사되도록 제어권을 전면 이식 완료했습니다!
 
 ---
 
 ## 🛠️ 수정 사항 요약
 
-### 1. 실시간 템플릿 편집 모드 및 SAVE 💾 버튼 이식 ⚡
-- **파일**: [LogQuickTagsPopover.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/LogQuickTagsPopover.tsx)
+### 1. 단말 연결 수립 완료 시 자동 로깅 팽창 차단 ⚡
+- **파일**: [useTizenConnection.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/hooks/useTizenConnection.ts)
 - **수정 내용**:
-  - `isEditingCommand` 및 `commandEditValue` 로컬 상태를 탑재하여, 커맨드 프리뷰 영역을 뷰 모드와 편집 모드로 유연하게 0ms 동적 전환하도록 설계했습니다.
-  - 프리뷰 영역 우상단의 `COMMAND` 배지 좌측에 **EDIT ✏️** 버튼을 배치했으며, 클릭 시 **SAVE 💾** 버튼(에메랄드 네온 빛깔로 쨍하게 강조)으로 변화합니다.
-  - EDIT 클릭 시 형님이 직관적으로 조작 상태를 파악할 수 있도록 배지 텍스트가 `TEMPLATE`로 자동 변경되어 상황 가시성을 보장합니다.
+  - 기존 소켓 통신 연결 완료 콜백(`handleTizenStreamStart`) 내에서 기동되던 `setIsLogging(true);` 강제 활성화 호출을 과감하게 **`setIsLogging(false);`** 대기 상태로 변경했습니다.
+  - 이로써 장비 연결 복구가 끝난 직후 로그가 갑자기 우르르 스트리밍되거나 `REC`로 오인하게 만드는 자동 팽창 문제를 완전 차단했습니다.
+  - 이제 연결이 끝나더라도 팝오버 및 UI는 안정적으로 **`IDLE` (대기)** 상태를 기분 좋게 유지하며, 형님께서 태그 칩들과 프리뷰를 튜닝하신 뒤 직접 `Start Logging`을 클릭하실 때 비로소 로그 명령어 스트림이 쏘아집니다!
 
-### 2. 다크 테마 에디터 인풋창 & $(TAGS) 안내 배너 장착 🎨
+### 2. Live Command 템플릿 실시간 편집 및 SAVE 💾 버튼 이식 ✏️
 - **파일**: [LogQuickTagsPopover.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/LogQuickTagsPopover.tsx)
 - **수정 내용**:
-  - 편집 모드 진입 시, 다크 스페이스 블루 컬러의 눈이 편안하고 또렷한 `textarea` 입력창이 나타나며, 현재 적용되어 있는 커맨드 템플릿 원본이 실시간 로드됩니다.
-  - 입력창 하단에는 `* $(TAGS) placeholder will be replaced with selected tags.` 라는 친절한 아쿠아 네온 빛깔의 안내 문구를 띄워주어, 플레이스홀더를 형님께서 안전하게 튜닝할 수 있도록 훌륭한 팁 가이드를 제공합니다!
-
-### 3. 0ms 실시간 전역 저장 및 프리뷰 연동 🔄
-- **파일**: [LogQuickTagsPopover.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/LogViewer/LogQuickTagsPopover.tsx)
-- **수정 내용**:
-  - `SAVE` 클릭 시 `updateCurrentRule({ logCommand: commandEditValue })`를 즉시 호출하여 현재 전역 세션 Context에 영구 저장합니다.
-  - 저장과 동시에 편집 모드가 풀리고, 0ms 만에 형님이 수정해주신 새로운 템플릿에 맞추어 태그 칩들이 완벽 치환된 최종 쉘 명령어가 프리뷰 화면에 예쁘게 표출됩니다!
+  - `Live Command Preview` 영역에 **EDIT ✏️** 및 **SAVE 💾** 실시간 토글 인프라를 마련하여 템플릿 원본(selected tags용 플레이스홀더 `$(TAGS)`)을 직접 편집할 수 있습니다.
+  - 아쿠아 네온 컬러의 플레이스홀더(`$(TAGS)`) 사용 팁 배너를 배치하여 형님의 원활한 커스텀 편집을 돕습니다.
 
 ---
 
 ## 🎯 최종 정밀 검증 결과
 
-### 1. 비주얼 및 인터랙션 무결성 확인
-- `EDIT ✏️` 버튼 클릭 시, 텍스트가 `textarea`로 부드럽게 0ms 전환되며 현재 커맨드 템플릿이 잘 채워져 나오는 것을 확인했습니다.
-- 에디터 내에서 `$(TAGS)` 구조를 유지하고 명령어 포맷을 바꾼 뒤 `SAVE 💾`를 클릭하면, 즉시 편집 모드가 종료되고 태그들이 실시간 바인딩되어 바뀐 명령어 포맷이 프리뷰에 나타남을 육안 확인했습니다.
-- 로그 시작(`Start Logging`) 클릭 시, 형님이 편집하여 저장해주신 새로운 커맨드가 물리 단말로 정상 전달되어 실시간 60fps 무결성 로깅 세션이 정상 구동됨을 검증했습니다.
+### 1. 비주얼 및 단말 동작 연동 무결성 확인
+- 장비 연결 번개(⚡) 버튼 클릭 시, 소켓 통신 수립 직후 메인 화면이나 팝오버가 멋대로 `REC` 상태로 강등되지 않고 차분하고 선명한 `IDLE` 상태로 대기함을 확인했습니다.
+- 형님께서 팝오버의 `Start Logging`을 클릭하시는 즉시 `isLogging`이 `true`로 활성화되며, 저장되어 있던 에디터 템플릿 명령어(예: `dlogutil ...`)가 단말로 정상 전송되어 실시간 스트리밍이 찰지게 개시됨을 확인했습니다.
+- 다시 `Stop Logging`을 누르면 SIGINT(`\x03`)를 장비에 던져 안전하게 세션을 회수함을 검증했습니다.
 
 ### 2. WSL bash 빌드 컴파일 무결성 검증
-- WSL bash 환경에서 `npx tsc --noEmit` 검증을 구동하여 수정한 팝오버 파일에서 컴파일러 에러 0건임을 확실히 입증하고 종결 마감하였습니다.
+- WSL bash 환경에서 `npx tsc --noEmit` 검증을 진행해, 수정한 커넥션 훅과 팝오버 파일에서 컴파일러 에러 0건의 완벽 무결성 상태임을 완결 마감하였습니다.
 
 ---
 
 > [!TIP]
-> 형님! `important/APP_MAP.md` 명세에도 Live Command Editor 기능과 템플릿 저장 연동 사양을 100% 최신 등재 완료했습니다! 훨씬 똑똑하고 편리해진 프리미엄 로그 센터에서 기분 좋은 디버깅을 느껴보십시오! 🐧💎🏆✨
+> 형님! `important/APP_MAP.md` 명세에도 장비 연결 시 자동 로깅 차단 및 IDLE 대기 상태 제어권을 100% 최신 등재 완료했습니다! 형님의 제어권 아래에서 쾌적하게 로깅 장비를 드라이브해보십시오! 🐧💎🏆✨

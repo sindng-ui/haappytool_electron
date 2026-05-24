@@ -93,7 +93,7 @@ export function useTizenConnection({
         setSelectedIndicesLeft(new Set());
         shouldAutoScroll.current = true;
         setConnectionMode(mode === 'test' ? null : mode as 'sdb' | 'ssh' | 'serial');
-        setIsLogging(true);
+        setIsLogging(false); // 연결 완료 후 자동으로 로그 커맨드가 실행되지 않고 대기하도록 false 지정 🐧⚡
 
         leftWorkerRef.current?.postMessage({ type: 'INIT_STREAM', payload: { isLive: true } });
 
