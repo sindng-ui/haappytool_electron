@@ -8,7 +8,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import {
-    Tag, Play, Square, X, Plus, Terminal, Eye, SlidersHorizontal
+    Tag, Play, Square, X, Plus, Terminal, Eye, SlidersHorizontal, Trash2, Save
 } from 'lucide-react';
 import { useLogContext } from './LogContext';
 
@@ -31,12 +31,91 @@ const LogQuickTagsPopover: React.FC = memo(() => {
     const [isExpanded, setIsExpanded] = useState(false); // Popover expandable width control 🐧⚡
     const [isEditingCommand, setIsEditingCommand] = useState(false); // Command edit mode toggle 🐧🛠️
     const [commandEditValue, setCommandEditValue] = useState(''); // Temp command template edited value
+
+    // Smart Tag Presets States 🐧🏷️
+    const [customPresets, setCustomPresets] = useState<{ name: string, tags: string[] }[]>(() => {
+        try {
+            const saved = localStorage.getItem('happytool_tag_presets');
+            return saved ? JSON.parse(saved) : [];
+        } catch (e) {
+            return [];
+        }
+    });
+    const [newPresetName, setNewPresetName] = useState('');
+    const [isSavingPreset, setIsSavingPreset] = useState(false);
+    const [selectedPresetName, setSelectedPresetName] = useState(''); // Selected preset state for dropdown 🐧✨
+
     const [tagInput, setTagInput] = useState('');
     const popoverRef = useRef<HTMLDivElement>(null);
     const btnRef = useRef<HTMLButtonElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const tags: string[] = currentConfig?.logTags || [];
+
+    // Save custom presets to localStorage
+    useEffect(() => {
+        try {
+            localStorage.setItem('happytool_tag_presets', JSON.stringify(customPresets));
+        } catch (e) {
+            console.error('Failed to save tag presets', e);
+        }
+    }, [customPresets]);
+
+    // Apply selected tag preset 🐧⚡
+    const handleApplyPreset = useCallback((presetTags: string[]) => {
+        if (updateCurrentRule) {
+            updateCurrentRule({ logTags: presetTags });
+        }
+    }, [updateCurrentRule]);
+
+    // Track current tags to auto-match dropdown preset 🐧✨
+    useEffect(() => {
+        const matched = customPresets.find(p =>
+            p.tags.length === tags.length &&
+            p.tags.every(t => tags.includes(t)) &&
+            tags.every(t => p.tags.includes(t))
+        );
+        if (matched) {
+            setSelectedPresetName(matched.name);
+        } else {
+            setSelectedPresetName('');
+        }
+    }, [tags, customPresets]);
+
+    // Handle dropdown select preset 🐧✨
+    const handleSelectPreset = useCallback((presetName: string) => {
+        setSelectedPresetName(presetName);
+        if (!presetName) return;
+
+        const custom = customPresets.find(p => p.name === presetName);
+        if (custom) {
+            handleApplyPreset(custom.tags);
+        }
+    }, [customPresets, handleApplyPreset]);
+
+    // Save current tags as a custom preset
+    const handleSavePreset = useCallback(() => {
+        const name = newPresetName.trim();
+        if (!name) return;
+        const currentTags = currentConfig?.logTags || [];
+        if (currentTags.length === 0) return;
+
+        // Prevent duplicate names
+        if (customPresets.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+            return;
+        }
+
+        setCustomPresets(prev => [...prev, { name, tags: currentTags }]);
+        setNewPresetName('');
+        setIsSavingPreset(false);
+    }, [newPresetName, currentConfig, customPresets]);
+
+    // Delete custom preset
+    const handleDeletePreset = useCallback((nameToDelete: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setCustomPresets(prev => prev.filter(p => p.name !== nameToDelete));
+    }, []);
 
     // Close on outside click
     useEffect(() => {
@@ -139,7 +218,7 @@ const LogQuickTagsPopover: React.FC = memo(() => {
             <button
                 ref={btnRef}
                 onClick={() => setIsOpen(p => !p)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-300 text-[11px] font-black shadow-md hover:scale-[1.04] active:scale-[0.96] ${isLogging
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-300 text-xs font-black shadow-md hover:scale-[1.04] active:scale-[0.96] ${isLogging
                     ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 border-rose-500/80 text-white hover:from-red-500 hover:to-rose-500 hover:shadow-[0_0_15px_rgba(244,63,94,0.4)]'
                     : isOpen
                         ? 'bg-[#161f42] border-indigo-400 text-indigo-200 shadow-[0_0_18px_rgba(99,102,241,0.4)]'
@@ -164,7 +243,7 @@ const LogQuickTagsPopover: React.FC = memo(() => {
 
                 {/* Tag count badge */}
                 {tags.length > 0 && (
-                    <span className={`px-1.5 py-0.5 rounded-md text-[11px] font-black border transition-all ${isLogging
+                    <span className={`px-1.5 py-0.5 rounded-md text-xs font-black border transition-all ${isLogging
                         ? 'bg-white/20 text-white border-white/30'
                         : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'
                         }`}>
@@ -177,7 +256,7 @@ const LogQuickTagsPopover: React.FC = memo(() => {
             {isOpen && (
                 <div
                     ref={popoverRef}
-                    style={{ width: isExpanded ? '820px' : '500px' }}
+                    style={{ width: isExpanded ? '880px' : '560px' }}
                     className="
                         absolute top-full mt-2 right-0 z-[200]
                         bg-[#0b0f1e] border border-indigo-500/20
@@ -197,14 +276,14 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                             type="button"
                             onClick={() => setIsExpanded(p => !p)}
                             className={`
-                                flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-black tracking-wide transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]
+                                flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-black tracking-wide transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]
                                 ${isExpanded
                                     ? 'bg-[#1a2342] border-indigo-400 text-indigo-200 shadow-[0_0_12px_rgba(99,102,241,0.3)]'
                                     : 'bg-[#0f1424] border-indigo-500/20 text-slate-400 hover:text-indigo-300 hover:border-indigo-500/50'
                                 }
                             `}
                         >
-                            <Eye size={11} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180 text-cyan-400' : ''}`} />
+                            <Eye size={13} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180 text-cyan-400' : ''}`} />
                             <span>{isExpanded ? 'Hide Settings ⬅️' : 'Quick Settings ⚙️'}</span>
                         </button>
 
@@ -223,15 +302,98 @@ const LogQuickTagsPopover: React.FC = memo(() => {
 
                     {/* 2-Column Split View */}
                     <div className="flex divide-x divide-[#141b36]/60">
-                        {/* Left Column: Tags & Logging Control (w-[500px]) */}
-                        <div className="w-[500px] p-5 flex flex-col space-y-4">
+                        {/* Left Column: Tags & Logging Control (w-[560px]) */}
+                        <div className="w-[560px] p-5 flex flex-col space-y-4">
                             <div>
-                                <span className="text-[10px] text-cyan-400 uppercase tracking-widest font-black block mb-2">
-                                    Target Log Tags
-                                </span>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs text-cyan-400 uppercase tracking-widest font-black">
+                                        Target Log Tags
+                                    </span>
+
+                                    {/* Presets 드롭다운 🐧🏷️ */}
+                                    <div className="flex items-center gap-1.5 py-0.5 pr-0.5">
+                                        <select
+                                            value={selectedPresetName}
+                                            onChange={(e) => handleSelectPreset(e.target.value)}
+                                            className="bg-[#101530] text-slate-300 text-[12px] font-black rounded-lg border border-indigo-500/20 focus:ring-1 focus:ring-indigo-500 focus:outline-none p-1.5 cursor-pointer max-w-[170px]"
+                                        >
+                                            <option value="">Select Preset...</option>
+                                            {customPresets.map((p) => (
+                                                <option key={p.name} value={p.name}>{p.name}</option>
+                                            ))}
+                                        </select>
+
+                                        {/* 프리셋 선택 시 삭제 쓰레기통 버튼 노출 */}
+                                        {!!selectedPresetName && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    handleDeletePreset(selectedPresetName, e);
+                                                    setSelectedPresetName('');
+                                                }}
+                                                className="p-1.5 rounded-lg border border-red-500/20 bg-red-950/20 text-red-400 hover:bg-red-950/40 hover:text-red-300 hover:border-red-400/50 transition-all duration-200 active:scale-90 shrink-0"
+                                                title="Delete Custom Preset"
+                                            >
+                                                <Trash2 size={13} />
+                                            </button>
+                                        )}
+
+                                        {/* Save Preset Mini Button */}
+                                        {tags.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsSavingPreset(p => !p)}
+                                                className={`
+                                                    p-1.5 rounded-lg border transition-all duration-200 hover:scale-[1.1] active:scale-[0.9] shrink-0
+                                                    ${isSavingPreset
+                                                        ? 'bg-indigo-950 border-indigo-400 text-indigo-300'
+                                                        : 'bg-[#101530] border-indigo-500/20 text-slate-400 hover:text-indigo-300 hover:border-indigo-500/50'
+                                                    }
+                                                `}
+                                                title="Save Current Tags as Preset"
+                                            >
+                                                <Save size={13} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Custom Preset Save Mini Dialog */}
+                                {isSavingPreset && (
+                                    <div className="flex items-center gap-1.5 p-2 mb-2 rounded-xl border border-indigo-500/20 bg-[#0d1224] animate-fadeIn">
+                                        <input
+                                            type="text"
+                                            value={newPresetName}
+                                            onChange={e => setNewPresetName(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') { e.preventDefault(); handleSavePreset(); }
+                                                else if (e.key === 'Escape') setIsSavingPreset(false);
+                                            }}
+                                            placeholder="Enter Preset Name..."
+                                            className="flex-1 bg-[#05070e] text-xs text-slate-200 rounded-md border border-indigo-500/20 focus:ring-1 focus:ring-indigo-500 focus:outline-none px-2 py-1 font-bold font-sans"
+                                            maxLength={15}
+                                            spellCheck={false}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleSavePreset}
+                                            disabled={!newPresetName.trim()}
+                                            className="px-2 py-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 text-xs font-black rounded-md disabled:opacity-30 disabled:cursor-not-allowed transition-all shrink-0"
+                                        >
+                                            SAVE
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsSavingPreset(false)}
+                                            className="px-2 py-1 bg-[#141b36] hover:bg-[#1f2952] text-slate-400 hover:text-slate-200 text-xs font-black rounded-md transition-all shrink-0"
+                                        >
+                                            CANCEL
+                                        </button>
+                                    </div>
+                                )}
                                 <div
                                     className="
-                                        min-h-[72px] w-full rounded-xl border border-indigo-500/10 bg-[#05070e]/60
+                                        min-h-[96px] w-full rounded-xl border border-indigo-500/10 bg-[#05070e]/60
                                         p-2.5 flex flex-wrap gap-1.5 items-start cursor-text
                                         focus-within:border-indigo-500/40 focus-within:shadow-[0_0_12px_rgba(99,102,241,0.15)] 
                                         transition-all duration-300 overflow-y-auto max-h-[130px]
@@ -268,9 +430,9 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                                 {tagInput.trim() && (
                                     <button
                                         onClick={addTag}
-                                        className="mt-2 flex items-center gap-1 text-[10px] text-cyan-400/70 hover:text-cyan-300 transition-colors font-bold"
+                                        className="mt-2 flex items-center gap-1 text-xs text-cyan-400/70 hover:text-cyan-300 transition-colors font-bold"
                                     >
-                                        <Plus size={11} /> Add "{tagInput.trim()}"
+                                        <Plus size={13} /> Add "{tagInput.trim()}"
                                     </button>
                                 )}
 
@@ -296,7 +458,7 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                                     return (
                                         <div className="mt-4 p-3.5 rounded-xl border border-indigo-500/10 bg-[#03050a] space-y-2 shadow-inner">
                                             <div className="flex items-center justify-between">
-                                                <span className="text-[9px] text-[#4d5b94] uppercase tracking-widest font-black">
+                                                <span className="text-xs text-[#4d5b94] uppercase tracking-widest font-black">
                                                     ⚡ Live Command Preview
                                                 </span>
                                                 <div className="flex items-center gap-1.5">
@@ -317,9 +479,6 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                                                             EDIT ✏️
                                                         </button>
                                                     )}
-                                                    {/* <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-bold ${isEditingCommand ? 'bg-indigo-950/60 text-indigo-300 border border-indigo-500/20' : 'bg-cyan-950/40 text-cyan-400 border border-cyan-500/20'}`}>
-                                                        {isEditingCommand ? 'TEMPLATE' : 'COMMAND'}
-                                                    </span> */}
                                                 </div>
                                             </div>
 
@@ -328,15 +487,15 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                                                     <textarea
                                                         value={commandEditValue}
                                                         onChange={e => setCommandEditValue(e.target.value)}
-                                                        className="w-full min-h-[60px] max-h-[100px] p-2 bg-[#090d1a] border border-indigo-500/30 rounded-lg text-[10px] font-mono text-cyan-300 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all placeholder-slate-700 resize-y"
+                                                        className="w-full min-h-[60px] max-h-[100px] p-2 bg-[#090d1a] border border-indigo-500/30 rounded-lg text-xs font-mono text-cyan-300 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all placeholder-slate-700 resize-y"
                                                         spellCheck={false}
                                                     />
-                                                    <p className="text-[8px] text-cyan-400/70 font-bold leading-normal">
+                                                    <p className="text-xs text-cyan-400/70 font-bold leading-normal">
                                                         * <span className="text-[#00f2fe]">$(TAGS)</span> placeholder will be replaced with selected tags.
                                                     </p>
                                                 </div>
                                             ) : (
-                                                <div className="text-[10px] font-mono text-indigo-300/80 break-all select-all leading-relaxed p-1 hover:text-indigo-200 transition-colors cursor-pointer">
+                                                <div className="text-xs font-mono text-indigo-300/80 break-all select-all leading-relaxed p-1 hover:text-indigo-200 transition-colors cursor-pointer">
                                                     {finalCmd}
                                                 </div>
                                             )}
@@ -360,7 +519,7 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                                     {isLogging ? 'Stop Logging' : 'Start Logging'}
                                 </button>
                                 {!canLog && hasEverConnected && (
-                                    <p className="text-[10px] text-amber-400/70 text-center mt-1.5 font-bold animate-pulse">
+                                    <p className="text-xs text-amber-400/70 text-center mt-1.5 font-bold animate-pulse">
                                         Disconnected — click to reconnect
                                     </p>
                                 )}
@@ -391,8 +550,8 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                             {/* Font Family & Size Control */}
                             <div className="space-y-2 p-3 rounded-xl border border-indigo-500/10 bg-[#141b36]/20">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[11px] text-slate-300 font-extrabold">Font Settings</span>
-                                    <span className="text-[9px] text-slate-500 uppercase tracking-wider font-mono">Family & Size</span>
+                                    <span className="text-xs text-slate-300 font-extrabold">Font Settings</span>
+                                    <span className="text-xs text-slate-500 uppercase tracking-wider font-mono">Family & Size</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <select
@@ -428,9 +587,9 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                             {/* Line Spacing Control */}
                             <div className="space-y-2 p-3 rounded-xl border border-indigo-500/10 bg-[#141b36]/20">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[11px] text-slate-300 font-extrabold">Line Spacing</span>
+                                    <span className="text-xs text-slate-300 font-extrabold">Line Spacing</span>
                                     <div className="flex items-center gap-1.5">
-                                        <span className="text-[9px] text-slate-500 uppercase">Height</span>
+                                        <span className="text-xs text-slate-500 uppercase">Height</span>
                                         <span className="text-xs text-cyan-400 font-mono font-bold">{preferences.rowHeight}px</span>
                                     </div>
                                 </div>
@@ -453,7 +612,7 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                             <div className="flex items-center justify-between bg-[#141b36]/30 px-3 py-2.5 rounded-xl border border-indigo-500/10 hover:border-indigo-500/20 transition-all duration-300">
                                 <div className="flex flex-col">
                                     <span className="text-xs text-slate-200 font-extrabold">Line Numbers</span>
-                                    <span className="text-[9px] text-slate-500 uppercase tracking-wider font-mono">Index & Line Num</span>
+                                    <span className="text-xs text-slate-500 uppercase tracking-wider font-mono">Index & Line Num</span>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                     <input
@@ -471,7 +630,7 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                             <div className="flex items-center justify-between bg-[#141b36]/30 px-3 py-2.5 rounded-xl border border-indigo-500/10 hover:border-indigo-500/20 transition-all duration-300">
                                 <div className="flex flex-col">
                                     <span className="text-xs text-slate-200 font-extrabold">Bypass Filters</span>
-                                    <span className="text-[9px] text-slate-500 uppercase tracking-wider font-mono">Show Shell/Raw Text Always</span>
+                                    <span className="text-xs text-slate-500 uppercase tracking-wider font-mono">Show Shell/Raw Text Always</span>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                     <input
@@ -488,9 +647,9 @@ const LogQuickTagsPopover: React.FC = memo(() => {
                             {/* Opacity Control */}
                             <div className="space-y-2 p-3 rounded-xl border border-indigo-500/10 bg-[#141b36]/20">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[11px] text-slate-300 font-extrabold">Log Level Colors</span>
+                                    <span className="text-xs text-slate-300 font-extrabold">Log Level Colors</span>
                                     <div className="flex items-center gap-1.5">
-                                        <span className="text-[9px] text-slate-500 uppercase">Opacity</span>
+                                        <span className="text-xs text-slate-500 uppercase">Opacity</span>
                                         <span className="text-xs text-cyan-400 font-mono font-bold">{(preferences.logLevelOpacity ?? 20)}%</span>
                                     </div>
                                 </div>
@@ -506,7 +665,7 @@ const LogQuickTagsPopover: React.FC = memo(() => {
 
                             {/* Log Level Toggles */}
                             <div className="space-y-2">
-                                <span className="text-[9px] text-slate-500 uppercase tracking-widest font-black block">
+                                <span className="text-xs text-slate-500 uppercase tracking-widest font-black block">
                                     Level Filters & Colors
                                 </span>
                                 <div className="grid grid-cols-1 gap-1.5">
