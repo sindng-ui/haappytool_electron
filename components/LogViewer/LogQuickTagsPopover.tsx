@@ -33,6 +33,7 @@ const LogQuickTagsPopover: React.FC = memo(() => {
     const [commandEditValue, setCommandEditValue] = useState(''); // Temp command template edited value
 
     const [tagInput, setTagInput] = useState('');
+    const [pendingLoggingStart, setPendingLoggingStart] = useState(false); // 자동 로깅 예약 플래그 🐧⚡
     const popoverRef = useRef<HTMLDivElement>(null);
     const btnRef = useRef<HTMLButtonElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +59,25 @@ const LogQuickTagsPopover: React.FC = memo(() => {
     useEffect(() => {
         if (isOpen) setTimeout(() => inputRef.current?.focus(), 60);
     }, [isOpen]);
+
+    // connectionMode가 활성화되는 순간을 감시하여 자동 로깅 예약 처리 🐧⚡
+    useEffect(() => {
+        if (connectionMode && pendingLoggingStart) {
+            setPendingLoggingStart(false);
+            // 소켓 세션 및 단말 쉘 안착 시간(타이밍 이슈 방지)을 고려하여 1000ms 대기 후 실행
+            const timer = setTimeout(() => {
+                if (!isLogging && sendTizenCommand && currentConfig) {
+                    const defaultCmd = 'dlogutil -c;logger-mgr --filter $(TAGS); dlogutil -v kerneltime $(TAGS) &';
+                    const cmd = currentConfig.logCommand ?? defaultCmd;
+                    const tagStr = tags.join(' ').trim();
+                    const finalCmd = cmd.replace(/\$\(TAGS\)/g, tagStr);
+                    sendTizenCommand(finalCmd + '\n');
+                    setIsLogging(true);
+                }
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [connectionMode, pendingLoggingStart, isLogging, sendTizenCommand, currentConfig, tags, setIsLogging]);
 
     const addTag = useCallback(() => {
         const val = tagInput.trim();
@@ -98,6 +118,7 @@ const LogQuickTagsPopover: React.FC = memo(() => {
         } else {
             // Start - check connection
             if (!connectionMode && hasEverConnected) {
+                setPendingLoggingStart(true); // 자동 로깅 예약 플래그 ON! 🐧🔥
                 setIsTizenQuickConnect?.(true);
                 setIsTizenModalOpen?.(true);
                 return;
@@ -112,7 +133,7 @@ const LogQuickTagsPopover: React.FC = memo(() => {
             setIsLogging(true);
         }
     }, [isLogging, setIsLogging, currentConfig, connectionMode, hasEverConnected,
-        setIsTizenQuickConnect, setIsTizenModalOpen, sendTizenCommand, tags]);
+        setIsTizenQuickConnect, setIsTizenModalOpen, sendTizenCommand, tags, setPendingLoggingStart]);
 
     const canLog = !!connectionMode;
 
