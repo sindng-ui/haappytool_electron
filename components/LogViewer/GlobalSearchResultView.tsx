@@ -92,8 +92,18 @@ export const GlobalSearchResultView: React.FC<GlobalSearchResultViewProps> = ({
         }).catch(() => {});
     }, []);
 
+// 🐧⚡ Premium multi-word neon color palette for search result highlighting (different colors for each word!)
+const COLOR_PALETTES = [
+    { className: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30', textShadow: '0 0 4px rgba(99, 102, 241, 0.35)' },
+    { className: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', textShadow: '0 0 4px rgba(16, 185, 129, 0.35)' },
+    { className: 'bg-amber-500/20 text-amber-300 border-amber-500/30', textShadow: '0 0 4px rgba(245, 158, 11, 0.35)' },
+    { className: 'bg-rose-500/20 text-rose-300 border-rose-500/30', textShadow: '0 0 4px rgba(244, 63, 94, 0.35)' },
+    { className: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30', textShadow: '0 0 4px rgba(6, 182, 212, 0.35)' },
+    { className: 'bg-orange-500/20 text-orange-300 border-orange-500/30', textShadow: '0 0 4px rgba(249, 115, 22, 0.35)' }
+];
+
     /**
-     * Highlight matching keywords in content string.
+     * Highlight matching keywords in content string with unique distinct colors.
      */
     const renderHighlightedContent = useCallback((content: string) => {
         if (keywords.length === 0) return <span>{content}</span>;
@@ -104,17 +114,18 @@ export const GlobalSearchResultView: React.FC<GlobalSearchResultViewProps> = ({
         return (
             <>
                 {parts.map((part, index) => {
-                    const isMatch = keywords.some(k => {
+                    const matchedIdx = keywords.findIndex(k => {
                         const w1 = caseSensitive ? k : k.toLowerCase();
                         const w2 = caseSensitive ? part : part.toLowerCase();
                         return w1 === w2;
                     });
-                    if (isMatch) {
+                    if (matchedIdx !== -1) {
+                        const palette = COLOR_PALETTES[matchedIdx % COLOR_PALETTES.length];
                         return (
                             <mark
                                 key={index}
-                                className="bg-yellow-500/30 text-yellow-200 border border-yellow-500/50 rounded px-0.5 font-semibold"
-                                style={{ textShadow: '0 0 4px rgba(234, 179, 8, 0.4)' }}
+                                className={`border rounded px-1.5 py-0.5 font-semibold font-mono text-[11px] select-all ${palette.className}`}
+                                style={{ textShadow: palette.textShadow }}
                             >
                                 {part}
                             </mark>
