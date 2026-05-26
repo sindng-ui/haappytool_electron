@@ -354,10 +354,11 @@ const handleSocketConnection = (socket, deps = {}) => {
                     // ✅ Save for clearing logic later
                     currentSshCommand = cmdToSend;
 
-                    console.log('[SSH] Writing command to stream:', cmdToSend.trim());
-                    stream.write(cmdToSend);
-                    logDebug(`Command sent to shell: ${cmdToSend.trim()}`);
-                    console.log('[SSH] Command sent, waiting for log data...');
+                    console.log('[SSH] Writing command to stream (Bypassed for manual start):', cmdToSend.trim());
+                    // 🐧 형님! 연결 즉시 dlogutil이 자동으로 실행되는 것을 방지하기 위해 주석 처리했습니다.
+                    // stream.write(cmdToSend);
+                    // logDebug(`Command sent to shell: ${cmdToSend.trim()}`);
+                    console.log('[SSH] Shell connected and waiting for user start command...');
                 }, 500);
 
                 // Emit connected status
@@ -762,9 +763,11 @@ const handleSocketConnection = (socket, deps = {}) => {
                                 // ✅ Save for clearing logic later
                                 currentSdbCommand = cmdToSend;
 
-                                if (sdbProcess && sdbProcess.stdin) {
-                                    sdbProcess.stdin.write(cmdToSend);
-                                }
+                                // 🐧 형님! 연결 즉시 dlogutil이 자동으로 실행되는 것을 방지하기 위해 주석 처리했습니다.
+                                // if (sdbProcess && sdbProcess.stdin) {
+                                //     sdbProcess.stdin.write(cmdToSend);
+                                // }
+                                console.log('[SDB] SDB shell connected and waiting for user start command...');
                             }, 500);
 
                             // CRITICAL: Notify client that connection succeeded
