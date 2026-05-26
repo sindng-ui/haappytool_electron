@@ -76,8 +76,14 @@ describe('Live Logging Ecosystem Integration', () => {
 
             const logProcess = mockSpawn.mock.results[1].value;
 
-            // Advance timers to trigger the command sending (setTimeout 500ms)
+            // Advance timers to trigger the connection establishment
             await vi.advanceTimersByTimeAsync(600);
+
+            // 🐧 To-Be: 연결 완료 즉시 자동으로 dlogutil 명령어가 전송되지 않음을 검증합니다!
+            expect(logProcess.stdin.write).not.toHaveBeenCalledWith(expect.stringContaining('dlogutil'));
+
+            // 사용자가 Start Logging(dlogutil)을 발사하는 상황을 시뮬레이션합니다!
+            socket.emit('sdb_write', 'dlogutil TAG_X TAG_Y kerneltime\n');
 
             // Verify command was sent via stdin
             expect(logProcess.stdin.write).toHaveBeenCalledWith(expect.stringContaining('dlogutil'));
@@ -114,6 +120,12 @@ describe('Live Logging Ecosystem Integration', () => {
             const logProcess = mockSpawn.mock.results[1].value;
             await vi.advanceTimersByTimeAsync(600);
 
+            // 🐧 To-Be: 연결 완료 즉시 자동으로 dlogutil 명령어가 전송되지 않음을 검증!
+            expect(logProcess.stdin.write).not.toHaveBeenCalledWith(expect.stringContaining('dlogutil'));
+
+            // 사용자가 Start Logging(dlogutil)을 발사하는 상황을 시뮬레이션!
+            socket.emit('sdb_write', 'dlogutil QUICK_TAG\n');
+
             expect(logProcess.stdin.write).toHaveBeenCalledWith(expect.stringContaining('dlogutil'));
             expect(logProcess.stdin.write).toHaveBeenCalledWith(expect.stringContaining('QUICK_TAG'));
         });
@@ -141,6 +153,12 @@ describe('Live Logging Ecosystem Integration', () => {
 
             mockSSHConnection.emit('ready');
             vi.advanceTimersByTime(600); // Server timeout
+
+            // 🐧 To-Be: 연결 완료 즉시 자동으로 dlogutil 명령어가 전송되지 않음을 검증!
+            expect(mockSSHStream.write).not.toHaveBeenCalledWith(expect.stringContaining('dlogutil'));
+
+            // 사용자가 Start Logging(dlogutil)을 발사하는 상황을 시뮬레이션!
+            socket.emit('ssh_write', 'dlogutil SSH_1 SSH_2 kerneltime\n');
 
             // Verify command substitution
             expect(mockSSHStream.write).toHaveBeenCalledWith('dlogutil SSH_1 SSH_2 kerneltime\n');
@@ -196,6 +214,12 @@ describe('Live Logging Ecosystem Integration', () => {
 
             mockSSHConnection.emit('ready');
             vi.advanceTimersByTime(600);
+
+            // 🐧 To-Be: 연결 완료 즉시 자동으로 dlogutil 명령어가 전송되지 않음을 검증!
+            expect(mockSSHStream.write).not.toHaveBeenCalledWith(expect.stringContaining('dlogutil'));
+
+            // 사용자가 Start Logging(dlogutil)을 발사하는 상황을 시뮬레이션!
+            socket.emit('ssh_write', 'dlogutil -v kerneltime\n');
 
             // Correct: Should be just dlogutil -v kerneltime (NOT logger-mgr --filter ;)
             expect(mockSSHStream.write).toHaveBeenCalledWith('dlogutil -v kerneltime\n');

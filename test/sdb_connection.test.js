@@ -250,6 +250,12 @@ describe('SDB Connection Critical Path', () => {
             const logProcess = mockSpawn.mock.results[1].value;
             await vi.advanceTimersByTimeAsync(600);
 
+            // 🐧 To-Be: 연결 성공 직후에는 dlogutil 명령어가 자동으로 쏘아지지 않음을 보장!
+            expect(logProcess.stdin.write).not.toHaveBeenCalledWith(expect.stringContaining('dlogutil'));
+
+            // 사용자가 Start Logging(dlogutil)을 발사하는 상황을 시뮬레이션!
+            socket.emit('sdb_write', 'dlogutil MyTag1 MyTag2 -v kerneltime\n');
+
             // Verify command was sent via stdin with tags substituted
             const writeCall = logProcess.stdin.write.mock.calls.find(call =>
                 call[0].includes('dlogutil') &&

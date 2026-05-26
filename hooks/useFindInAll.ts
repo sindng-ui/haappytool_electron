@@ -87,14 +87,15 @@ export const useFindInAll = ({ tabs }: UseFindInAllProps) => {
                 const tabInfo = tabs.find(t => t.id === tabId);
                 const tabName = tabInfo ? tabInfo.title : `Tab ${tabId}`;
 
-                if (workerPair.left?.ready && workerPair.left?.path) {
+                // 🐧 Ready 상태만 충족되면 스트림 모드(path가 없음) 탭도 전방위 검색 가능하도록 가드를 해제합니다!
+                if (workerPair.left?.ready) {
                     promises.push(
-                        performFindInAllSearch(tabId, tabName, 'left', workerPair.left.worker, workerPair.left.path, preparedRule)
+                        performFindInAllSearch(tabId, tabName, 'left', workerPair.left.worker, workerPair.left.path || '', preparedRule)
                     );
                 }
-                if (workerPair.right?.ready && workerPair.right?.path) {
+                if (workerPair.right?.ready) {
                     promises.push(
-                        performFindInAllSearch(tabId, tabName, 'right', workerPair.right.worker, workerPair.right.path, preparedRule)
+                        performFindInAllSearch(tabId, tabName, 'right', workerPair.right.worker, workerPair.right.path || '', preparedRule)
                     );
                 }
             }
@@ -160,7 +161,8 @@ function performFindInAllSearch(
 ): Promise<TabSearchResult | null> {
     return new Promise((resolve) => {
         const requestId = `find-in-all-${tabId}-${pane}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-        const fileName = filePath.split(/[/\\]/).pop() || '';
+        // 🐧 path가 빈 문자열(스트림 모드 등)일 경우 tabName이나 기본 텍스트를 할당하여 디펜시브하게 대응합니다.
+        const fileName = filePath ? (filePath.split(/[/\\]/).pop() || '') : `${tabName} (Live)`;
 
         const messageHandler = (e: MessageEvent) => {
             const data = e.data;

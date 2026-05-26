@@ -29,7 +29,8 @@ vi.mock('../../components/LogViewer/LogContext', () => ({
         setIsTizenQuickConnect: vi.fn(),
         setIsTizenModalOpen: vi.fn(),
         tizenSocket: null,
-        tabId: 'test-tab'
+        tabId: 'test-tab',
+        isActive: true
     })
 }));
 

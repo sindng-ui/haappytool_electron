@@ -1111,36 +1111,65 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
                     if (matchCount >= maxMatches) break;
                     const end = Math.min(start + searchChunkSize, totalLines);
 
-                    for (let j = start; j < end; j++) {
-                        if (matchCount >= maxMatches) break;
-
-                        let lineContent = '';
-                        if (isStreamMode) {
-                            if (logBuffer && lineOffsetsStream && lineLengthsStream) {
+                    if (isStreamMode) {
+                        if (logBuffer && lineOffsetsStream && lineLengthsStream) {
+                            for (let j = start; j < end; j++) {
+                                if (matchCount >= maxMatches) break;
                                 const s = lineOffsetsStream[j];
                                 const l = lineLengthsStream[j];
-                                lineContent = decoder.decode(logBuffer.subarray(s, s + l).slice()).replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
-                            }
-                        } else if (isLocalFileMode && localFilePath) {
-                            const offset = lineOffsets![j];
-                            const nextOffset = j < lineOffsets!.length - 1 ? lineOffsets![j + 1] : BigInt(localFileSize);
-                            const uint8View = await rpcCall('readFileSegment', { path: localFilePath, start: Number(offset), end: Number(nextOffset) });
-                            lineContent = decoder.decode(uint8View).replace(/\r?\n$/, '').replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
-                        } else if (currentFile && lineOffsets) {
-                            const offset = lineOffsets[j];
-                            const nextOffset = j < lineOffsets.length - 1 ? lineOffsets[j + 1] : BigInt(currentFile.size);
-                            const chunkBlob = currentFile.slice(Number(offset), Number(nextOffset));
-                            const arrayBuf = await chunkBlob.arrayBuffer();
-                            const uint8View = new Uint8Array(arrayBuf);
-                            lineContent = decoder.decode(uint8View).replace(/\r?\n$/, '').replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
-                        }
+                                const lineBytes = logBuffer.subarray(s, s + l);
+                                const lineContent = decoder.decode(lineBytes).replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
 
-                        // 💡 Bypass WASM engine during global search to prevent tab state contamination/inconsistency
-                        if (checkIsMatch(lineContent, normalizedRule, false, 'none', undefined, undefined, undefined)) {
-                            results.push({ lineNum: j, content: lineContent });
-                            matchCount++;
+                                if (checkIsMatch(lineContent, normalizedRule, false, 'none', undefined, undefined, undefined)) {
+                                    results.push({ lineNum: j, content: lineContent });
+                                    matchCount++;
+                                }
+                            }
+                        }
+                    } else if (isLocalFileMode && localFilePath) {
+                        const startByte = Number(lineOffsets![start]);
+                        const endByte = Number(end < lineOffsets!.length ? lineOffsets![end] : localFileSize);
+                        const chunkBuffer: Uint8Array = await rpcCall('readFileSegment', { path: localFilePath, start: startByte, end: endByte });
+
+                        for (let j = start; j < end; j++) {
+                            if (matchCount >= maxMatches) break;
+                            const offsetInChunk = Number(lineOffsets![j]) - startByte;
+                            const nextOffsetInChunk = Number(j < lineOffsets!.length - 1 ? lineOffsets![j + 1] : BigInt(localFileSize)) - startByte;
+
+                            if (offsetInChunk >= 0 && nextOffsetInChunk <= chunkBuffer.length && offsetInChunk < nextOffsetInChunk) {
+                                const lineBytes = chunkBuffer.subarray(offsetInChunk, nextOffsetInChunk);
+                                const lineContent = decoder.decode(lineBytes).replace(/\r?\n$/, '').replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+
+                                if (checkIsMatch(lineContent, normalizedRule, false, 'none', undefined, undefined, undefined)) {
+                                    results.push({ lineNum: j, content: lineContent });
+                                    matchCount++;
+                                }
+                            }
+                        }
+                    } else if (currentFile && lineOffsets) {
+                        const startByte = Number(lineOffsets[start]);
+                        const endByte = Number(end < lineOffsets.length ? lineOffsets[end] : currentFile.size);
+                        const chunkBlob = currentFile.slice(startByte, endByte);
+                        const arrayBuf = await chunkBlob.arrayBuffer();
+                        const chunkBuffer = new Uint8Array(arrayBuf);
+
+                        for (let j = start; j < end; j++) {
+                            if (matchCount >= maxMatches) break;
+                            const offsetInChunk = Number(lineOffsets[j]) - startByte;
+                            const nextOffsetInChunk = Number(j < lineOffsets.length - 1 ? lineOffsets[j + 1] : BigInt(currentFile.size)) - startByte;
+
+                            if (offsetInChunk >= 0 && nextOffsetInChunk <= chunkBuffer.length && offsetInChunk < nextOffsetInChunk) {
+                                const lineBytes = chunkBuffer.subarray(offsetInChunk, nextOffsetInChunk);
+                                const lineContent = decoder.decode(lineBytes).replace(/\r?\n$/, '').replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+
+                                if (checkIsMatch(lineContent, normalizedRule, false, 'none', undefined, undefined, undefined)) {
+                                    results.push({ lineNum: j, content: lineContent });
+                                    matchCount++;
+                                }
+                            }
                         }
                     }
+
                     if (start % 100000 === 0 && !isLocalFileMode) {
                         await new Promise(resolve => setTimeout(resolve, 0));
                     }
