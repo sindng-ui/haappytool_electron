@@ -25,6 +25,8 @@ interface FindInAllModalProps {
     onSearch: (rule: FindInAllRule) => void;
     isSearching: boolean;
     lastSearchRule: FindInAllRule | null;
+    targetTabId?: string;       // 🐧⚡ 추가: 현재 탭 전용 검색 모드인 경우의 탭 ID
+    targetTabTitle?: string;    // 🐧⚡ 추가: 현재 탭의 타이틀
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -219,7 +221,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ isOpen, onToggle, icon, t
 // Main Modal
 // ─────────────────────────────────────────────────────────────
 const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
-    isOpen, onClose, onSearch, isSearching, lastSearchRule
+    isOpen, onClose, onSearch, isSearching, lastSearchRule, targetTabId, targetTabTitle
 }) => {
     const { history } = useFindInAllHistory();
 
@@ -259,9 +261,10 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
             excludeKeywords: excludeTags,
             caseSensitive,
             blockListCaseSensitive,
+            targetTabId, // 🐧⚡ 스코프 전달!
         };
         onSearch(rule);
-    }, [includeTags, excludeTags, caseSensitive, blockListCaseSensitive, onSearch]);
+    }, [includeTags, excludeTags, caseSensitive, blockListCaseSensitive, onSearch, targetTabId]);
 
     const handleLoadHistory = useCallback((item: FindInAllHistoryItem) => {
         setIncludeTags(item.rule.includeKeywords);
@@ -305,11 +308,15 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                             <Search size={17} className="text-indigo-400" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-bold text-slate-100 tracking-wide">Find in All Open Files</h2>
-                            <p className="text-[10px] text-slate-500 mt-0.5">Search across all loaded log tabs simultaneously</p>
+                            <h2 className="text-sm font-bold text-slate-100 tracking-wide">
+                                {targetTabId ? `Find in Tab: ${targetTabTitle}` : 'Find in All Open Files'}
+                            </h2>
+                            <p className="text-[10px] text-slate-500 mt-0.5">
+                                {targetTabId ? 'Search within the active log tab only' : 'Search across all loaded log tabs simultaneously'}
+                            </p>
                         </div>
                         <kbd className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 ml-1">
-                            Ctrl+Shift+F
+                            {targetTabId ? 'Ctrl+F' : 'Ctrl+Shift+F'}
                         </kbd>
                     </div>
                     <button
@@ -502,7 +509,7 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                         ) : (
                             <>
                                 <Search size={13} />
-                                <span>Search All</span>
+                                <span>{targetTabId ? 'Search Tab' : 'Search All'}</span>
                             </>
                         )}
                     </button>

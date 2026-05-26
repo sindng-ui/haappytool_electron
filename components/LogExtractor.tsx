@@ -764,8 +764,8 @@ const SessionWrapper: React.FC<{
             isActive={isActive}
             currentTitle={title}
             onTitleChange={handleTitleChange}
-
             findInAll={findInAll}
+            tabId={tabId} // 🐧⚡ 추가!
         />
     );
 });

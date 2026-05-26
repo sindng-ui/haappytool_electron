@@ -21,6 +21,8 @@ export interface FindInAllRule {
     caseSensitive: boolean;
     /** 블럭리스트 대소문자 구분 */
     blockListCaseSensitive: boolean;
+    /** 특정 탭만 검색 대상인 경우 탭 ID 🐧⚡ */
+    targetTabId?: string;
 }
 
 export interface FindInAllHistoryItem {

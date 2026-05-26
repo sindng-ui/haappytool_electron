@@ -27,14 +27,23 @@ export const useFindInAll = ({ tabs }: UseFindInAllProps) => {
     const [lastSearchRule, setLastSearchRule] = useState<FindInAllRule | null>(null);
     const isSearchingRef = useRef(false);
 
+    // 🐧⚡ 특정 탭 전용 검색을 위한 상태 선언
+    const [targetTabId, setTargetTabId] = useState<string | undefined>(undefined);
+    const [targetTabTitle, setTargetTabTitle] = useState<string | undefined>(undefined);
+
     const { addHistory } = useFindInAllHistory();
 
-    const openModal = useCallback(() => setIsModalOpen(true), []);
+    const openModal = useCallback((tabId?: string, tabTitle?: string) => {
+        setTargetTabId(tabId);
+        setTargetTabTitle(tabTitle);
+        setIsModalOpen(true);
+    }, []);
     const closeModal = useCallback(() => setIsModalOpen(false), []);
     const closeResultPanel = useCallback(() => setIsResultPanelOpen(false), []);
 
     /** 전체 찾기 실행 — 결과를 스냅샷으로 고정 */
     const executeFindInAll = useCallback(async (rule: FindInAllRule) => {
+        console.log("[FindInAll] executeFindInAll triggered with rule:", rule);
         if (isSearchingRef.current) return;
         isSearchingRef.current = true;
         setIsSearching(true);
@@ -64,8 +73,17 @@ export const useFindInAll = ({ tabs }: UseFindInAllProps) => {
 
             const allWorkersMap = workerRegistry.getAllWorkers();
             const promises: Promise<TabSearchResult | null>[] = [];
+            console.log("[FindInAll] Active Workers Count:", allWorkersMap.size, "Registered Keys:", Array.from(allWorkersMap.keys()));
 
             for (const [tabId, workerPair] of allWorkersMap.entries()) {
+                // 🐧⚡ 만약 특정 탭만 검색 대상인 경우(비어있지 않은 문자열 스코프), 현재 돌고 있는 탭과 다르면 검색 스킵!
+                if (rule.targetTabId && typeof rule.targetTabId === 'string' && rule.targetTabId.trim() !== '') {
+                    if (tabId !== rule.targetTabId) {
+                        console.log(`[FindInAll] Skipping tab ${tabId} because search is restricted to ${rule.targetTabId}`);
+                        continue;
+                    }
+                }
+
                 const tabInfo = tabs.find(t => t.id === tabId);
                 const tabName = tabInfo ? tabInfo.title : `Tab ${tabId}`;
 
@@ -119,6 +137,8 @@ export const useFindInAll = ({ tabs }: UseFindInAllProps) => {
         isSearching,
         snapshotResults,
         lastSearchRule,
+        targetTabId, // 🐧⚡ 추가
+        targetTabTitle, // 🐧⚡ 추가
         openModal,
         closeModal,
         closeResultPanel,

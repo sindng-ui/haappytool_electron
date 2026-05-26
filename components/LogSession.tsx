@@ -39,6 +39,7 @@ interface LogSessionProps {
     onTitleChange?: (title: string) => void;
     /** 전체 찾기 시스템 (useFindInAll 훅 반환값) */
     findInAll?: any;
+    tabId?: string; // 🐧⚡ 추가: 현재 탭 ID
 }
 
 const LogSession: React.FC<LogSessionProps> = ({
@@ -46,6 +47,7 @@ const LogSession: React.FC<LogSessionProps> = ({
     currentTitle,
     onTitleChange,
     findInAll,
+    tabId, // 🐧⚡ 추가
 }) => {
     const leftFileInputRef = React.useRef<HTMLInputElement>(null);
     const rightFileInputRef = React.useRef<HTMLInputElement>(null);
@@ -1090,7 +1092,11 @@ const LogSession: React.FC<LogSessionProps> = ({
                                     }
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    searchInputRef.current?.focus();
+                                    
+                                    // 🐧⚡ Ctrl+Shift+F와 동일한 UI의 대형 모달을 띄워 현재 탭 범위에서 찾기 실행!
+                                    if (findInAll && tabId) {
+                                        findInAll.openModal(tabId, currentTitle || '');
+                                    }
                                 }
 
                                 // Ctrl + Shift + F (Find in All Open Files)
@@ -1189,7 +1195,7 @@ const LogSession: React.FC<LogSessionProps> = ({
             <input type="file" ref={leftFileInputRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleLeftFileChange(e.target.files[0]); e.target.value = ''; } }} />
             <input type="file" ref={rightFileInputRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleRightFileChange(e.target.files[0]); e.target.value = ''; } }} />
 
-            {/* 🐧⚡ Find in All Modal - Ctrl+Shift+F */}
+            {/* ── Find in All Modal - Ctrl+Shift+F ── */}
             {findInAll && (
                 <FindInAllModal
                     isOpen={findInAll.isModalOpen}
@@ -1197,6 +1203,8 @@ const LogSession: React.FC<LogSessionProps> = ({
                     onSearch={findInAll.executeFindInAll}
                     isSearching={findInAll.isSearching}
                     lastSearchRule={findInAll.lastSearchRule}
+                    targetTabId={findInAll.targetTabId}
+                    targetTabTitle={findInAll.targetTabTitle}
                 />
             )}
 

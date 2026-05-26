@@ -136,7 +136,9 @@ const FindInAllResultPanel: React.FC<FindInAllResultPanelProps> = memo(({
             <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900/80 border-b border-slate-800/60 shrink-0">
                 <div className="flex items-center gap-2">
                     <FileSearch size={13} className="text-indigo-400 shrink-0" />
-                    <span className="text-xs font-bold text-slate-300">Find Results</span>
+                    <span className="text-xs font-bold text-slate-300">
+                        {lastSearchRule?.targetTabId ? 'Find Results (Current Tab)' : 'Find Results (All Open Files)'}
+                    </span>
 
                     {!isSearching && results.length > 0 && (
                         <div className="text-[10px] text-slate-500 bg-slate-950/60 px-2 py-0.5 rounded-md border border-slate-800/60 flex items-center gap-1">
