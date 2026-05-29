@@ -117,7 +117,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "useZip": true
     },
     "extraResources": [
       {

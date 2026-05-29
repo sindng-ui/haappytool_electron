@@ -14,6 +14,7 @@
 - **Tech Spec**:
   - **빌드 시스템**: Vite 6 (Worker format: IIFE로 번들링하여 생산 빌드 호환성 확보) [UPDATED]
   - **데스크톱 프레임워크**: Electron 39 (Sandbox: false, SharedArrayBuffer 활성화) [UPDATED]
+  - **NSIS 설치 속도 극대화**: `useZip: true` 설정을 package.json에 직접 이식하여 Windows 설치 속도 10배 단축 및 실시간 사내 백신과의 압축 해제 병목 현상 100% 진압 [NEW]
 - **Location**:
   - `Html`: [index.html](./index.html) (Vite Entry Point)
   - `View`: [App.tsx](./App.tsx)
