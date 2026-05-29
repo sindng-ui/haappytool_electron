@@ -95,6 +95,7 @@
   "build": {
     "appId": "com.sindng.happytool",
     "productName": "HappyTool",
+    "compression": "store",
     "directories": {
       "output": "dist_electron"
     },
@@ -117,8 +118,7 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "useZip": true
+      "allowToChangeInstallationDirectory": true
     },
     "extraResources": [
       {
