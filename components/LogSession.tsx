@@ -88,7 +88,7 @@ const LogSession: React.FC<LogSessionProps> = ({
         appliedConfig,
 
         leftViewerRef, leftWorkerReady, leftFilteredCount, requestLeftLines, setActiveLineIndexLeft,
-        handleLineDoubleClickAction, activeLineIndexLeft, selectedIndicesLeft, setSelectedIndicesLeft, handleLeftFileChange, handleLeftReset, leftIndexingProgress,
+        handleLineDoubleClickAction, activeLineIndexLeft, selectedIndicesLeft, setSelectedIndicesLeft, handleLeftFileChange, handleLeftReset, leftIndexingProgress, handlePasteClipboard,
 
         rightViewerRef, rightWorkerReady, rightFilteredCount, requestRightLines, setActiveLineIndexRight,
         activeLineIndexRight, selectedIndicesRight, setSelectedIndicesRight, handleRightFileChange, handleRightReset, rightIndexingProgress,
@@ -1107,6 +1107,28 @@ const LogSession: React.FC<LogSessionProps> = ({
                                     return;
                                 }
 
+                                // Ctrl + V: Paste from Clipboard (Empty Pane only)
+                                if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V' || e.key === 'ㅍ')) {
+                                    // Determine active or focused pane
+                                    let targetPane: 'left' | 'right' = 'left';
+                                    if (isDualView) {
+                                        const activeEl = document.activeElement;
+                                        if (activeEl && activeEl.closest('[data-pane-id="right"]')) {
+                                            targetPane = 'right';
+                                        }
+                                    }
+                                    
+                                    const targetHasFile = targetPane === 'left' ? !!leftFileName : !!rightFileName;
+                                    const targetReady = targetPane === 'left' ? leftWorkerReady : rightWorkerReady;
+                                    
+                                    // Only trigger if target pane does not have a loaded log file
+                                    if (!targetHasFile && !targetReady) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handlePasteClipboard(targetPane);
+                                    }
+                                }
+
                                 // Ctrl + G (Go To Line)
                                 if (e.key === 'g' || e.key === 'G') {
                                     e.preventDefault();
@@ -1305,6 +1327,7 @@ const LogSession: React.FC<LogSessionProps> = ({
                                     selectedIndices={selectedIndicesLeft}
                                     onDrop={handleLeftFileChange}
                                     onBrowse={onBrowseLeft}
+                                    onPasteClipboard={() => handlePasteClipboard('left')}
                                     paneId="left"
                                     fileName={leftFileName || undefined}
                                     onReset={handleLeftReset}
@@ -1415,6 +1438,7 @@ const LogSession: React.FC<LogSessionProps> = ({
                                         selectedIndices={selectedIndicesRight}
                                         onDrop={handleRightFileChange}
                                         onBrowse={onBrowseRight}
+                                        onPasteClipboard={() => handlePasteClipboard('right')}
                                         paneId="right"
                                         fileName={rightFileName || undefined}
                                         onReset={handleRightReset}

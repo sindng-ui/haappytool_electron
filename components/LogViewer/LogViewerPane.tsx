@@ -34,6 +34,7 @@ export interface LogViewerPaneProps {
     onLineDoubleClick?: (index: number) => void;
     onDrop?: (file: File) => void;
     onBrowse?: () => void;
+    onPasteClipboard?: () => void;
     paneId?: 'left' | 'right' | 'single';
     fileName?: string;
     onViewBookmarks?: () => void;
@@ -95,7 +96,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
     const {
         workerReady, totalMatches, onScrollRequest, placeholderText, onSyncScroll, isRawMode = false,
         highlights, highlightCaseSensitive = false, activeLineIndex = -1, selectedIndices,
-        onLineClick, onLineDoubleClick, onDrop, onBrowse, paneId = 'single', fileName, onViewBookmarks, onCopy, onSave, onCopyAsConfluenceTable,
+        onLineClick, onLineDoubleClick, onDrop, onBrowse, onPasteClipboard, paneId = 'single', fileName, onViewBookmarks, onCopy, onSave, onCopyAsConfluenceTable,
         bookmarks = new Set(), onToggleBookmark, onFocusPaneRequest, onShowBookmarks, absoluteOffset = 0,
         initialScrollIndex, onPageNavRequest, onScrollToBottomRequest, preferences, onContextMenu, onArchiveSave,
         isArchiveSaveEnabled = false, lineHighlightRanges, performanceHeatmap, onAnalyzePerformance,
@@ -359,7 +360,7 @@ const LogViewerPane = React.memo(forwardRef<LogViewerHandle, LogViewerPaneProps>
                         </div>
                     </>
                 ) : (
-                    <LogViewerEmptyState fileName={fileName} onBrowse={onBrowse} />
+                    <LogViewerEmptyState fileName={fileName} onBrowse={onBrowse} onPasteClipboard={onPasteClipboard} />
                 )}
             </div>
 

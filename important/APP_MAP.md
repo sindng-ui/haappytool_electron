@@ -134,11 +134,13 @@
   - `Pane`: [LogViewerPane.tsx](./components/LogViewer/LogViewerPane.tsx)
   - `Renderer`: [HyperLogRenderer.tsx](./components/LogViewer/HyperLogRenderer.tsx)
   - `RawContextViewer`: 로그 라인 더블 클릭 시 원본 로그 문맥 오버레이. [NEW]
+  - `LogViewerEmptyState`: 빈 탭에 파일 드롭존과 함께 은은한 Glassmorphism 스타일의 **"Paste from Clipboard"** 프리미엄 버튼을 제공하여 클립보드 텍스트 로그의 즉시 로딩 실현. [NEW]
   - `EntityChipBar`: Raw View 헤더 아래에 렌더링되는 가로 스크롤 스마트 칩바. [NEW]
   - `logEntityDetector`: 타겟 로그 텍스트에서 PID, TID, Hex 주소를 정교하게 파싱하는 유틸리티. [NEW]
 - **Interactions**:
   - `Space`: 북마크 토글 (황금색 언더라인 강조) [MOD]
   - `Double Click`: 원본 로그 문맥(Raw Context) 보기 [MOD]
+  - `Ctrl + V`: 빈 탭이 활성화된 상태에서 클립보드 텍스트가 있을 경우, 즉시 `[Clipboard] YYYY-MM-DD HH-mm.log` 가상 파일 객체로 감싸 자동 로딩을 수행하는 고속 단축키. [NEW]
   - **스마트 엔티티 칩 필터 연동**: Raw View에서 추출된 PID/TID/Hex 주소 칩 클릭 시, 메인 로그 뷰 세션에 즉각 퀵 필터(Filter)를 먹이거나 퀵 하이라이트(Spark)를 입혀 실시간 다이렉트 분석 지원. [NEW][HOT]
 
   - **Quick Connect 자동 연결 복구 및 프리미엄 UX [UPDATED]**: 상단 커넥션 영역 번개(⚡) 버튼 클릭 시, 마지막 성공했던 연결 수단(SDB/SSH/Serial/Simulate) 정보를 읽어 들여 물리적인 소켓 세션 수립(`isSocketReady`) 직후 1초 만에 자동 다이렉트 연결을 수행합니다. 자동 연결 연동 중에는 펄싱 글로우 애니메이션이 포함된 노란색 번개 아이콘 ⚡과 타겟 연결 정보 칩바가 장착된 전용 퀵 커넥팅 로딩 UI를 노출하여 프리미엄 감성을 제공하며, 연결 실패 시에는 예쁘고 디테일한 에러 안내 패널과 `수동 설정으로 전환`, `다시 시도` 버튼을 제공하여 100% 안전한 폴백(Fallback)을 보장합니다. **단말(SSH/SDB/Serial) 연결 수립 완료 직후에는 자동으로 로그 스트리밍 커맨드가 쏘아지지 않도록 백엔드(server/index.cjs) 내의 자동 시작 명령을 전격 주석 처리하여 완전 대기시켰으며, 오직 형님께서 Start Logging 버튼을 누를 때 비로소 실행되도록 제어권을 이식함**. (성능을 저해하는 blur 필터를 완전히 배제한 고화질 모던 다크 디자인) [UPDATED][HOT]

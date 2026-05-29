@@ -808,6 +808,32 @@ export const useLogExtractorLogic = ({
         lastFilterHashRight.current = '';
     }, []);
 
+    const handlePasteClipboard = useCallback(async (pane: 'left' | 'right' = 'left') => {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (!text) {
+                addToast('Clipboard is empty', 'warning');
+                return;
+            }
+
+            const dateStr = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '').replace(/:/g, '-');
+            const fileName = `[Clipboard] ${dateStr}.log`;
+            
+            const blob = new Blob([text], { type: 'text/plain' });
+            const file = new File([blob], fileName, { type: 'text/plain' });
+            
+            if (pane === 'left') {
+                handleLeftFileChange(file);
+            } else {
+                handleRightFileChange(file);
+            }
+            addToast('Pasted content from clipboard!', 'success');
+        } catch (err) {
+            console.error('Failed to read clipboard', err);
+            addToast('Failed to read clipboard: Permission denied or unsupported', 'error');
+        }
+    }, [handleLeftFileChange, handleRightFileChange, addToast]);
+
     const handleSelectAllLogs = useCallback((paneId: 'left' | 'right') => {
         const count = paneId === 'left' ? leftFilteredCount : rightFilteredCount;
         if (count <= 0) return;
@@ -1134,7 +1160,7 @@ export const useLogExtractorLogic = ({
         handleLineDoubleClickAction,
         leftFileName, leftWorkerReady, leftIndexingProgress, leftTotalLines, leftFilteredCount,
         activeLineIndexLeft, setActiveLineIndexLeft, selectedIndicesLeft, setSelectedIndicesLeft,
-        handleLeftFileChange, handleLeftReset, requestLeftLines, requestLeftRawLines,
+        handleLeftFileChange, handleLeftReset, requestLeftLines, requestLeftRawLines, handlePasteClipboard,
         rightFileName, rightWorkerReady, rightIndexingProgress, rightTotalLines, rightFilteredCount,
         activeLineIndexRight, setActiveLineIndexRight, selectedIndicesRight, setSelectedIndicesRight,
         leftBookmarks, rightBookmarks, toggleLeftBookmark, toggleRightBookmark,

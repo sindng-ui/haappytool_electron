@@ -1,0 +1,41 @@
+======================================================================
+ HappyTool Log Extractor Clipboard Paste Feature Unit Test Result 🐧🏆
+======================================================================
+
+Date: 2026-05-29
+Test Runner: Vitest v4.0.18
+Target Test File: test/hooks/useLogExtractorLogic.test.tsx
+
+----------------------------------------------------------------------
+[RUN] useLogExtractorLogic (Frontend Logic)
+----------------------------------------------------------------------
+ ✓ should initialize and spawn workers (13ms)
+ ✓ should handle Tizen connection start (sdb) (5ms)
+ ↓ should BUFFER log_data for 250ms before sending to worker (skipped)
+ ✓ should FLUSH IMMEDIATELY if buffer exceeds limit (>500 items) (4ms)
+ ✓ should reset state on disconnect (5ms)
+ ✓ should handle SSH Error event (4ms)
+ ✓ should handle SSH Auth Request and Response (3ms)
+ ✓ should handle logical disconnect (sdb_status) (2ms)
+ ↓ should load logViewPreferences from DB on mount (skipped)
+ 
+ [Quick Highlighting]
+   ✓ should add a quick highlight if it does not exist (2ms)
+   ✓ should remove a quick highlight if it already exists (toggle) (3ms)
+   ✓ should clear all quick highlights but keep permanent ones (2ms)
+   
+ [v8 Filtering & Sync Guard]
+   ✓ should dispatch FILTER_LOGS to worker even on empty rules to maintain sync, but NOT set worker ready to false (4ms)
+   
+ [Clipboard Paste & View - NEW]
+   ✓ should paste log data from clipboard and trigger file change flow (3ms)
+   ✓ should alert if clipboard content is empty (6ms)
+   ✓ should handle permission or other clipboard read failures gracefully (3ms)
+
+----------------------------------------------------------------------
+ Test Files  1 passed (1)
+      Tests  14 passed | 2 skipped (16)
+   Duration  19.33s
+======================================================================
+🐧💎 결론: 클립보드 붙여넣기 코어 로직 단위 테스트 100% ALL PASS 무결성 보장 완료!
+======================================================================

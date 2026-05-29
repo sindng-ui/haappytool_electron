@@ -68,6 +68,7 @@ vi.stubGlobal('Worker', MockWorker);
 describe('useLogExtractorLogic (Frontend Logic)', () => {
 
     beforeEach(() => {
+        vi.stubGlobal('Worker', MockWorker);
         vi.clearAllMocks();
         mockedAddToast.mockClear();
         MockWorker.reset();
@@ -468,6 +469,74 @@ describe('useLogExtractorLogic (Frontend Logic)', () => {
             }));
 
             vi.useRealTimers();
+        });
+    });
+
+    describe('Clipboard Paste & View', () => {
+        let mockReadText: any;
+
+        beforeEach(() => {
+            mockReadText = vi.fn();
+            vi.stubGlobal('navigator', {
+                clipboard: {
+                    readText: mockReadText
+                }
+            });
+        });
+
+        afterEach(() => {
+            vi.stubGlobal('navigator', undefined);
+        });
+
+        it('should paste log data from clipboard and trigger file change flow', async () => {
+            const { result } = renderHook(() => useLogExtractorLogic(defaultProps));
+            
+            // Setup clipboard mock return
+            const testLog = 'Line 1: Clipboard Log\nLine 2: Test Data';
+            mockReadText.mockResolvedValueOnce(testLog);
+
+            const leftWorker = MockWorker.instances[0];
+            leftWorker.postMessage.mockClear();
+
+            // Trigger clipboard paste
+            await act(async () => {
+                await result.current.handlePasteClipboard('left');
+            });
+
+            // 1. Should show success toast
+            expect(mockedAddToast).toHaveBeenCalledWith('Pasted content from clipboard!', 'success');
+
+            // 2. Left worker should receive INIT_FILE with a mock File containing the clipboard data
+            expect(leftWorker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+                type: 'INIT_FILE',
+                payload: expect.any(File)
+            }));
+
+            const sentFile = leftWorker.postMessage.mock.calls[0][0].payload;
+            expect(sentFile.name).toContain('[Clipboard]');
+            expect(sentFile.name).toContain('.log');
+        });
+
+        it('should alert if clipboard content is empty', async () => {
+            const { result } = renderHook(() => useLogExtractorLogic(defaultProps));
+            mockReadText.mockResolvedValueOnce('');
+
+            await act(async () => {
+                await result.current.handlePasteClipboard('left');
+            });
+
+            expect(mockedAddToast).toHaveBeenCalledWith('Clipboard is empty', 'warning');
+        });
+
+        it('should handle permission or other clipboard read failures gracefully', async () => {
+            const { result } = renderHook(() => useLogExtractorLogic(defaultProps));
+            mockReadText.mockRejectedValueOnce(new Error('Permission Denied'));
+
+            await act(async () => {
+                await result.current.handlePasteClipboard('left');
+            });
+
+            expect(mockedAddToast).toHaveBeenCalledWith(expect.stringContaining('Failed to read clipboard'), 'error');
         });
     });
 });

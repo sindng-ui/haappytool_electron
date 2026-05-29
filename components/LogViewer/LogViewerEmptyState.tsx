@@ -5,9 +5,10 @@ import * as Lucide from 'lucide-react';
 interface LogViewerEmptyStateProps {
     fileName?: string;
     onBrowse?: () => void;
+    onPasteClipboard?: () => void;
 }
 
-export const LogViewerEmptyState: React.FC<LogViewerEmptyStateProps> = ({ fileName, onBrowse }) => {
+export const LogViewerEmptyState: React.FC<LogViewerEmptyStateProps> = ({ fileName, onBrowse, onPasteClipboard }) => {
     return (
         <div className="absolute inset-0 flex items-center justify-center text-slate-400 pointer-events-none">
             {fileName ? (
@@ -34,6 +35,21 @@ export const LogViewerEmptyState: React.FC<LogViewerEmptyStateProps> = ({ fileNa
                             or click to browse
                         </span>
                     </div>
+                    {onPasteClipboard && (
+                        <>
+                            <div className="text-[10px] text-slate-600 font-bold my-1">— OR —</div>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onPasteClipboard();
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-700/60 bg-slate-800/40 hover:bg-indigo-500/20 hover:border-indigo-500/50 hover:text-indigo-200 text-slate-400 text-xs font-semibold transition-all duration-200 shadow-lg active:scale-95 group/paste"
+                            >
+                                <Lucide.ClipboardPaste size={14} className="group-hover/paste:scale-110 transition-transform text-slate-500 group-hover/paste:text-indigo-400" />
+                                Paste from Clipboard
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
         </div>
