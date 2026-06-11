@@ -248,7 +248,7 @@ export const GlobalSearchResultView: React.FC<GlobalSearchResultViewProps> = ({
 
                         return (
                             <div className="bg-emerald-950 border-b border-emerald-900/60 px-3 py-1.5 flex items-center justify-between group">
-                                {/* Left: toggle + file info */}
+                                {/* Left: toggle + file info + hits — Notepad++ style */}
                                 <div
                                     className="flex items-center space-x-2 overflow-hidden flex-1 cursor-pointer min-w-0"
                                     onClick={() => toggleTabCollapse(uniqueKey)}
@@ -262,16 +262,16 @@ export const GlobalSearchResultView: React.FC<GlobalSearchResultViewProps> = ({
                                     <svg className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>
-                                    <span className="text-emerald-300 font-medium truncate text-xs" title={tabRes.filePath}>
+                                    <span className="text-emerald-300 font-medium truncate text-xs min-w-0" title={tabRes.filePath}>
                                         {tabRes.filePath || tabRes.fileName}
+                                    </span>
+                                    <span className="text-yellow-400 text-xs shrink-0 font-semibold">
+                                        ({matchesCount} hits)
                                     </span>
                                 </div>
 
-                                {/* Right: badges + copy button */}
+                                {/* Right: tab info + copy button */}
                                 <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                                    <span className="bg-emerald-900/60 text-emerald-300 text-xs px-2 py-0.5 rounded-full border border-emerald-800/40 font-bold">
-                                        {matchesCount} hits
-                                    </span>
                                     <span className="text-[10px] text-slate-500 bg-slate-950/60 border border-slate-800/60 px-1.5 py-0.5 rounded">
                                         {tabRes.tabName} ({tabRes.pane === 'left' ? 'L' : 'R'})
                                     </span>
