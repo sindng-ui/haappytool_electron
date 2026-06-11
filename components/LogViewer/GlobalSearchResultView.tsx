@@ -10,6 +10,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { LogRule } from '../../types';
 import { Copy, ChevronsDownUp, ChevronsUpDown, Check } from 'lucide-react';
+import { Virtuoso } from 'react-virtuoso';
 
 interface SearchMatch {
     lineNum: number;
@@ -82,6 +83,14 @@ export const GlobalSearchResultView: React.FC<GlobalSearchResultViewProps> = ({
 
     const caseSensitive = rule?.happyCombosCaseSensitive ?? false;
 
+    // Compile regex only when keywords or case-sensitivity changes to avoid RegExp construction overhead on every line
+    const searchRegex = useMemo(() => {
+        if (keywords.length === 0) return null;
+        const escapedKeywords = keywords.map(k => k.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+        const regexStr = `(${escapedKeywords.join('|')})`;
+        return new RegExp(regexStr, caseSensitive ? 'g' : 'gi');
+    }, [keywords, caseSensitive]);
+
     /** Copy file matches to clipboard */
     const handleCopyFile = useCallback((tabRes: TabSearchResult, uniqueKey: string) => {
         const lines = tabRes.matches.map(m => `L${m.lineNum + 1}: ${m.content}`).join('\n');
@@ -106,11 +115,8 @@ const COLOR_PALETTES = [
      * Highlight matching keywords in content string with unique distinct colors.
      */
     const renderHighlightedContent = useCallback((content: string) => {
-        if (keywords.length === 0) return <span>{content}</span>;
-        const escapedKeywords = keywords.map(k => k.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
-        const regexStr = `(${escapedKeywords.join('|')})`;
-        const regex = new RegExp(regexStr, caseSensitive ? 'g' : 'gi');
-        const parts = content.split(regex);
+        if (!searchRegex || keywords.length === 0) return <span>{content}</span>;
+        const parts = content.split(searchRegex);
         return (
             <>
                 {parts.map((part, index) => {
@@ -135,7 +141,7 @@ const COLOR_PALETTES = [
                 })}
             </>
         );
-    }, [keywords, caseSensitive]);
+    }, [keywords, caseSensitive, searchRegex]);
 
     if (isSearching) {
         return (
@@ -260,12 +266,16 @@ const COLOR_PALETTES = [
 
                             {/* Match lines */}
                             {!isCollapsed && (
-                                <div className="divide-y divide-slate-900/50 font-mono text-xs max-h-[400px] overflow-y-auto bg-slate-950/10">
-                                    {tabRes.matches.map((match) => (
+                                <Virtuoso
+                                    style={{ height: Math.min(matchesCount * 28, 400) }}
+                                    className="font-mono text-xs bg-slate-950/10"
+                                    data={tabRes.matches}
+                                    totalCount={matchesCount}
+                                    itemContent={(index, match) => (
                                         <div
                                             key={match.lineNum}
                                             onClick={() => onJumpToTabLine(tabRes.tabId, tabRes.pane, match.lineNum)}
-                                            className="flex items-start py-1.5 px-4 hover:bg-slate-800/35 cursor-pointer group transition-colors duration-100"
+                                            className="flex items-start py-1.5 px-4 border-b border-slate-900/50 hover:bg-slate-800/35 cursor-pointer group transition-colors duration-100"
                                         >
                                             {/* Line number */}
                                             <span className="w-16 text-right text-rose-400 font-semibold pr-3 border-r border-slate-800/60 select-none flex-shrink-0">
@@ -276,8 +286,8 @@ const COLOR_PALETTES = [
                                                 {renderHighlightedContent(match.content)}
                                             </span>
                                         </div>
-                                    ))}
-                                </div>
+                                    )}
+                                />
                             )}
                         </div>
                     );
