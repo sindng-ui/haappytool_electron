@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { LogRule, LogWorkerResponse, SpamLogResult, LatencySpot } from '../types';
+import { LogRule, LogWorkerResponse, SpamLogResult, LatencySpot, HistogramData } from '../types';
 import { LogViewerHandle } from '../components/LogViewer/LogViewerPane';
 
 export interface UseLogAnalysisActionsProps {
@@ -77,6 +77,10 @@ export const useLogAnalysisActions = (props: UseLogAnalysisActionsProps) => {
     // --- State: Latency Spotlight ---
     const [isAnalyzingLatency, setIsAnalyzingLatency] = useState(false);
     const [latencyResults, setLatencyResults] = useState<LatencySpot[]>([]);
+
+    // --- State: Log Histogram ---
+    const [leftHistogramData, setLeftHistogramData] = useState<HistogramData | null>(null);
+    const [rightHistogramData, setRightHistogramData] = useState<HistogramData | null>(null);
 
     // --- Effects ---
     // Clear transaction results when drawer is closed
@@ -295,12 +299,18 @@ export const useLogAnalysisActions = (props: UseLogAnalysisActionsProps) => {
                     setLatencyResults(payload.results || []);
                     setIsAnalyzingLatency(false);
                     return true;
+                case 'HISTOGRAM_DATA':
+                    setLeftHistogramData(payload);
+                    return true;
             }
         } else {
             switch (type) {
                 case 'PERF_ANALYSIS_RESULT':
                     setRightPerfAnalysisResult(payload);
                     setIsAnalyzingPerformanceRight(false);
+                    return true;
+                case 'HISTOGRAM_DATA':
+                    setRightHistogramData(payload);
                     return true;
             }
         }
@@ -347,6 +357,11 @@ export const useLogAnalysisActions = (props: UseLogAnalysisActionsProps) => {
         isAnalyzingLatency,
         latencyResults,
         setLatencyResults,
-        requestLatencyAnalysis
+        requestLatencyAnalysis,
+
+        leftHistogramData,
+        rightHistogramData,
+        setLeftHistogramData,
+        setRightHistogramData
     };
 };

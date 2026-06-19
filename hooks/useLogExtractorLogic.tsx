@@ -271,6 +271,9 @@ export const useLogExtractorLogic = ({
     const [rightLineHighlightRanges, setRightLineHighlightRanges] = useState<{ start: number; end: number; color: string }[]>([]);
     const [rawViewHighlightRange, setRawViewHighlightRange] = useState<{ start: number; end: number } | null>(null);
 
+    // --- State: Log Histogram Panel Toggle ---
+    const [isHistogramOpen, setIsHistogramOpen] = useState(false);
+
     // Segmentation Derived Values (Left)
     const leftTotalSegments = Math.ceil(leftFilteredCount / MAX_SEGMENT_SIZE) || 1;
     const leftCurrentSegmentLines = Math.min(MAX_SEGMENT_SIZE, Math.max(0, leftFilteredCount - (leftSegmentIndex * MAX_SEGMENT_SIZE)));
@@ -290,7 +293,8 @@ export const useLogExtractorLogic = ({
         leftPerfAnalysisResult, rightPerfAnalysisResult,
         isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight,
         isAnalyzingSpam, spamResultsLeft, setSpamResultsLeft,
-        isAnalyzingLatency, latencyResults, requestLatencyAnalysis
+        isAnalyzingLatency, latencyResults, requestLatencyAnalysis,
+        leftHistogramData, rightHistogramData, setLeftHistogramData, setRightHistogramData
     } = useLogAnalysisActions({
         leftWorkerRef, rightWorkerRef, leftViewerRef, rightViewerRef, rawViewerRef,
         currentConfig,
@@ -1204,6 +1208,9 @@ export const useLogExtractorLogic = ({
         isAnalyzingLatency, latencyResults, requestLatencyAnalysis,
         leftPerformanceHeatmap, rightPerformanceHeatmap,
         leftSharedBuffers, rightSharedBuffers,
+        leftHistogramData, rightHistogramData,
+        setLeftHistogramData, setRightHistogramData,
+        isHistogramOpen, setIsHistogramOpen,
         clearCacheTick,
         handleViewRawRangeLeft, handleViewRawRangeRight,
         handleCopyRawRangeLeft, handleCopyRawRangeRight,

@@ -15,6 +15,7 @@ import { LatencySpotlightPanel } from './LogViewer/LatencySpotlightPanel';
 import { SplitAnalyzerPanel } from './LogViewer/SplitAnalyzerPanel';
 import { useSplitAnalysis, SplitAnalysisResult } from '../hooks/useSplitAnalysis';
 import { SplitRawContextViewer } from './LogViewer/SplitRawContextViewer';
+import { LogHistogramPanel } from './LogViewer/LogHistogramPanel';
 
 import { useLogSelection } from './LogArchive/hooks/useLogSelection';
 import { useLogArchiveContext } from './LogArchive/LogArchiveProvider';
@@ -140,7 +141,9 @@ const LogSession: React.FC<LogSessionProps> = ({
         addQuickHighlight,
         clearQuickHighlights,
         rules,
-        selectedRuleId
+        selectedRuleId,
+        leftHistogramData, rightHistogramData,
+        isHistogramOpen, setIsHistogramOpen
     } = useLogContext();
 
     const [promptConfig, setPromptConfig] = React.useState<any>(null);
@@ -1145,7 +1148,7 @@ const LogSession: React.FC<LogSessionProps> = ({
                                 }
 
                                 // Ctrl + G (Go To Line)
-                                if (e.key === 'g' || e.key === 'G') {
+                                if ((e.key === 'g' || e.key === 'G') && !e.shiftKey) {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setIsGoToLineModalOpen((prev: boolean) => !prev);
@@ -1199,6 +1202,14 @@ const LogSession: React.FC<LogSessionProps> = ({
                                         setSplitRatio(prev => (prev < 0.49 ? 0.5 : 0.9));
                                     }
                                 }
+
+                                // Ctrl + Shift + G: Toggle Log Histogram Chart
+                                if (e.shiftKey && (e.code === 'KeyG' || e.key === 'g' || e.key === 'G')) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setIsHistogramOpen(prev => !prev);
+                                    return;
+                                }
                             }
                         };
 
@@ -1223,7 +1234,7 @@ const LogSession: React.FC<LogSessionProps> = ({
                             window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
                             window.removeEventListener('copy', handleGlobalCopy);
                         };
-                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, tizenSocket, handleClearLogs, isTransactionDrawerOpen, setIsTransactionDrawerOpen, addToast, leftPerfAnalysisResult, rightPerfAnalysisResult, isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight, setSplitRatio, handleSplitAnimateStart]);
+                    }, [isActive, isDualView, onShowBookmarksLeft, onShowBookmarksRight, jumpToHighlight, handlePageNavRequestLeft, handlePageNavRequestRight, toggleLeftBookmark, toggleRightBookmark, setIsGoToLineModalOpen, setIsPanelOpen, updateLogViewPreferences, logViewPreferences, handleCopyLogs, tizenSocket, handleClearLogs, isTransactionDrawerOpen, setIsTransactionDrawerOpen, addToast, leftPerfAnalysisResult, rightPerfAnalysisResult, isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight, setSplitRatio, handleSplitAnimateStart, setIsHistogramOpen]);
                     return null;
                 })()
             )}
@@ -1282,6 +1293,29 @@ const LogSession: React.FC<LogSessionProps> = ({
                     <SpamAnalyzerPanel />
                     {/* Integrated Latency Spotlight Panel */}
                     <LatencySpotlightPanel />
+                    {/* Integrated Log Histogram Panel */}
+                    {isHistogramOpen && (
+                        <div className="px-4 py-2 shrink-0 flex gap-4">
+                            <div className="flex-1" style={{ width: isDualView ? `${splitRatio * 100}%` : '100%', flexGrow: isDualView ? splitRatio : 1 }}>
+                                <LogHistogramPanel
+                                    data={leftHistogramData}
+                                    paneId="left"
+                                    onJump={jumpToGlobalLine}
+                                    onClose={() => setIsHistogramOpen(false)}
+                                />
+                            </div>
+                            {isDualView && (
+                                <div className="flex-1" style={{ width: `${(1 - splitRatio) * 100}%`, flexGrow: 1 - splitRatio }}>
+                                    <LogHistogramPanel
+                                        data={rightHistogramData}
+                                        paneId="right"
+                                        onJump={jumpToGlobalLine}
+                                        onClose={() => setIsHistogramOpen(false)}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <AnimatePresence>
                         {(splitAnalysisResults || isSplitAnalyzing) && isDualView && (
                             <>

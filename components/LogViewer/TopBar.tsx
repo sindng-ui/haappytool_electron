@@ -39,6 +39,7 @@ const TopBar: React.FC<{
         dialogConfig, setDialogConfig, // ✅ Added for Global Dialogs
         isSpamAnalyzerOpen, setIsSpamAnalyzerOpen,
         isLatencySpotlightOpen, setIsLatencySpotlightOpen,
+        isHistogramOpen, setIsHistogramOpen,
     } = useLogContext();
 
     // Quick Connect Handler
@@ -189,11 +190,12 @@ const TopBar: React.FC<{
 
                 <div className="w-px h-6 bg-slate-700 mx-1"></div>
 
-                {/* ⏱️ Analysis Tools (Spam & Latency) */}
+                {/* ⏱️ Analysis Tools (Spam, Latency & Histogram) */}
                 <div className="flex items-center gap-1 bg-slate-900 rounded-lg border border-slate-800 p-0.5">
                     <button
                         onClick={() => {
                             setIsLatencySpotlightOpen(false);
+                            setIsHistogramOpen(false);
                             setIsSpamAnalyzerOpen(!isSpamAnalyzerOpen);
                         }}
                         className={`p-1.5 rounded transition-colors ${isSpamAnalyzerOpen ? 'bg-rose-500/20 text-rose-400' : 'text-slate-500 hover:text-rose-400 hover:bg-slate-800'}`}
@@ -204,12 +206,24 @@ const TopBar: React.FC<{
                     <button
                         onClick={() => {
                             setIsSpamAnalyzerOpen(false);
+                            setIsHistogramOpen(false);
                             setIsLatencySpotlightOpen(!isLatencySpotlightOpen);
                         }}
                         className={`p-1.5 rounded transition-colors ${isLatencySpotlightOpen ? 'bg-amber-500/20 text-amber-400' : 'text-slate-500 hover:text-amber-400 hover:bg-slate-800'}`}
                         title="Latency Spotlight"
                     >
                         <Lucide.Timer size={14} />
+                    </button>
+                    <button
+                        onClick={() => {
+                            setIsSpamAnalyzerOpen(false);
+                            setIsLatencySpotlightOpen(false);
+                            setIsHistogramOpen(!isHistogramOpen);
+                        }}
+                        className={`p-1.5 rounded transition-colors ${isHistogramOpen ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-500 hover:text-indigo-400 hover:bg-slate-800'}`}
+                        title="Log Histogram Chart"
+                    >
+                        <Lucide.BarChart3 size={14} />
                     </button>
                 </div>
 

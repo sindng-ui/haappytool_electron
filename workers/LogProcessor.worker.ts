@@ -3,6 +3,7 @@ const workerId = Math.random().toString(36).substring(7);
 console.log(`[LogProcessorWorker-${workerId}] Script loaded`);
 import { LogRule, LogWorkerMessage, LogWorkerResponse } from '../types';
 import { BookmarkManager } from './workerBookmarkHandlers';
+import { buildTimestampCache, calculateHistogram } from './workerHistogramHandler';
 import * as DataReader from './workerDataReader';
 import { checkIsMatch } from '../utils/logFiltering';
 import { extractTimestamp } from '../utils/logTime';
@@ -145,6 +146,7 @@ let currentRule: LogRule | null = null;
 let currentQuickFilter: 'none' | 'error' | 'exception' = 'none'; // ✅ New State
 
 let logBufferPtr = 0;
+let timestampCache: Float64Array | null = null;
 let streamLineCount = 0;
 let filteredIndices: Int32Array | null = null;
 const textEncoder = new TextEncoder();
@@ -354,6 +356,35 @@ const buildFileIndex = async (file: File) => {
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 100 } });
     respond({ type: 'INDEX_COMPLETE', payload: { totalLines: lineCount } });
+
+    // Background timestamp cache building
+    timestampCache = null; // Reset
+    buildTimestampCache({
+        currentFile,
+        lineOffsets,
+        filteredIndices,
+        isStreamMode,
+        isLocalFileMode,
+        localFilePath,
+        localFileSize,
+        rpcCall,
+        respond,
+        timestampCache,
+        setTimestampCache: (cache) => { timestampCache = cache; }
+    }).then((cache) => {
+        timestampCache = cache;
+        console.log(`[Worker] Timestamp cache built: ${cache ? cache.length : 0} lines`);
+        calculateHistogram({
+            filteredIndices,
+            timestampCache,
+            respond,
+            currentFile,
+            lineOffsets,
+            isStreamMode
+        });
+    }).catch(err => {
+        console.error('[Worker] buildTimestampCache failed', err);
+    });
 };
 
 // --- Handler: Local File Indexing (RPC 2GB+ OOM Free) ---
@@ -428,6 +459,35 @@ const buildLocalFileIndex = async (path: string, size: number) => {
 
     respond({ type: 'STATUS_UPDATE', payload: { status: 'indexing', progress: 100 } });
     respond({ type: 'INDEX_COMPLETE', payload: { totalLines: lineCount } });
+
+    // Background timestamp cache building
+    timestampCache = null; // Reset
+    buildTimestampCache({
+        currentFile,
+        lineOffsets,
+        filteredIndices,
+        isStreamMode,
+        isLocalFileMode,
+        localFilePath,
+        localFileSize,
+        rpcCall,
+        respond,
+        timestampCache,
+        setTimestampCache: (cache) => { timestampCache = cache; }
+    }).then((cache) => {
+        timestampCache = cache;
+        console.log(`[Worker] Timestamp cache built (Local): ${cache ? cache.length : 0} lines`);
+        calculateHistogram({
+            filteredIndices,
+            timestampCache,
+            respond,
+            currentFile,
+            lineOffsets,
+            isStreamMode
+        });
+    }).catch(err => {
+        console.error('[Worker] buildTimestampCache (Local) failed', err);
+    });
 };
 
 // --- Handler: Stream Init ---
@@ -446,6 +506,7 @@ const initStream = (payload?: { isLive?: boolean }) => {
     BookmarkManager.clearAll();
     streamBuffer = '';
     filteredIndices = (filteredIndicesBuffer as any).subarray(0, 0);
+    timestampCache = new Float64Array(MAX_LINES);
     lastFilterNotifyTime = 0;
     currentFilterRequestId++;
     respond({ type: 'STATUS_UPDATE', payload: { status: 'loading', mode: 'stream' } });
@@ -517,6 +578,12 @@ const processChunk = (chunk: string) => {
         lineOffsetsStream[streamLineCount] = logBufferPtr;
         lineLengthsStream[streamLineCount] = len;
 
+        // Cache timestamp
+        const ts = extractTimestamp(cleanLine);
+        if (timestampCache && streamLineCount < timestampCache.length) {
+            timestampCache[streamLineCount] = ts !== null ? ts : 0;
+        }
+
         // Filtering check (Checked immediately in binary state for real-time matching)
         if (checkIsMatch(cleanLine, currentRule, isLiveStream, currentQuickFilter, wasmEngine, wasmMemory || undefined, textEncoder)) {
             // Append to filteredIndices (Shared Buffer Strategy)
@@ -552,6 +619,14 @@ const processChunk = (chunk: string) => {
                 }
             });
             lastFilterNotifyTime = now;
+            calculateHistogram({
+                filteredIndices,
+                timestampCache,
+                respond,
+                currentFile,
+                lineOffsets,
+                isStreamMode
+            });
         }
     }
 };
@@ -623,6 +698,15 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
 
         respond({ type: 'FILTER_COMPLETE', payload: { matchCount: safeMatchCount, totalLines: lineCount, visualBookmarks: getVisualBookmarks() } });
         respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
+
+        calculateHistogram({
+            filteredIndices,
+            timestampCache,
+            respond,
+            currentFile,
+            lineOffsets,
+            isStreamMode
+        });
         return;
     }
 
@@ -710,6 +794,14 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
                 }
             });
 
+            calculateHistogram({
+                filteredIndices,
+                timestampCache,
+                respond,
+                currentFile,
+                lineOffsets,
+                isStreamMode
+            });
         }
     };
 

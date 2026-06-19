@@ -127,6 +127,7 @@
   - **Context Menu UI**: `components/LogSession.tsx` — Concise labels "Analyze PID/TID: {val}" for better UX. [NEW]
 - **Data Flow**: Log Worker(Main) ↔ Log Worker(Sub/WASM) ↔ UI (Binary Read)
 - **Latency Spotlight (지연 시간 스포트라이트) [NEW]**: 필터링된 로그 라인들의 타임스탬프 차이를 백그라운드 워커에서 O(n) 속도로 스캔하여, 지정된 임계값(기본 500ms)을 초과하는 지연 구간을 자동 탐지하고 TOP 20 지연 구간을 리스트로 시각화. 클릭 시 해당 라인으로 Hyper-Jump 이동 및 `Ctrl+Shift+H` 전용 토글 단축키(한글 입력기 상태에서도 오작동 없는 KeyH 바인딩) 지원.
+- **Log Histogram (로그 히스토그램 빈도 차트) [NEW]**: 시간축 로그 발생 빈도 차트. 최초 파일 인덱싱 완료 시점에 백그라운드에서 타임스탬프를 1회 파싱하여 `Float64Array`로 캐싱합니다. 필터링/검색 완료 또는 실시간 스트리밍 시, 메모리 캐시를 O(n) 1-pass 초광속 스캔하여 150개 버킷으로 집계합니다. UI에서는 반응형 SVG 차트로 가볍게 렌더링되며, 특정 바 클릭 시 해당 범위 내 첫 번째 visual index(`firstVisualIndex` 캐시 기반)로 0ms 초광속 스마트 하이퍼 점프를 연동합니다. `Ctrl+Shift+G` 단축키(한글 입력 상태 KeyG 바인딩 대응)로 토글을 지원하며, 분할 뷰(Split Mode) 사용 시 좌우 splitRatio 너비에 비례해 쫀득하게 렌더링됩니다.
 
 ### [[Log Viewer UI Architecture]]
 - **ID**: `ui-log-viewer-hierarchy`

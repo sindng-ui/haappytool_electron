@@ -236,7 +236,7 @@ export interface LogWorkerMessage {
 }
 
 export interface LogWorkerResponse {
-  type: 'RPC_REQUEST' | 'RPC_RESPONSE' | 'RPC_ERROR' | 'STATUS_UPDATE' | 'INDEX_COMPLETE' | 'FILTER_COMPLETE' | 'LINES_DATA' | 'ERROR' | 'STREAM_FLUSH' | 'FIND_RESULT' | 'FULL_TEXT_DATA' | 'BOOKMARKS_UPDATED' | 'HEATMAP_DATA' | 'PERF_ANALYSIS_RESULT' | 'SPAM_ANALYSIS_RESULT' | 'LATENCY_ANALYSIS_RESULT' | 'STREAM_DONE' | 'BUFFER_SHARED' | 'ALL_METADATA_RESULT' | 'ANALYSIS_METRICS_RESULT' | 'ALIAS_EVENTS_RESULT' | 'SEARCH_GLOBAL_MISSION_RESULT';
+  type: 'RPC_REQUEST' | 'RPC_RESPONSE' | 'RPC_ERROR' | 'STATUS_UPDATE' | 'INDEX_COMPLETE' | 'FILTER_COMPLETE' | 'LINES_DATA' | 'ERROR' | 'STREAM_FLUSH' | 'FIND_RESULT' | 'FULL_TEXT_DATA' | 'BOOKMARKS_UPDATED' | 'HEATMAP_DATA' | 'PERF_ANALYSIS_RESULT' | 'SPAM_ANALYSIS_RESULT' | 'LATENCY_ANALYSIS_RESULT' | 'HISTOGRAM_DATA' | 'STREAM_DONE' | 'BUFFER_SHARED' | 'ALL_METADATA_RESULT' | 'ANALYSIS_METRICS_RESULT' | 'ALIAS_EVENTS_RESULT' | 'SEARCH_GLOBAL_MISSION_RESULT';
   payload?: any;
   requestId?: string;
 }
@@ -285,4 +285,17 @@ export interface LogMetadata {
   codeLineNum?: string | null; // 🐧⚡ 로그 본문 내의 라인 번호 (예: OnResume(350) -> 350)
   signature?: string;         // 🐧⚡ 분석 최적화를 위한 사전 계산된 시그니처
   alias?: string | null;      // 🐧⚡ Happy Combo Alias 매칭 정보
+}
+
+export interface HistogramBucket {
+  startTime: number;
+  endTime: number;
+  count: number;
+  firstVisualIndex?: number;
+}
+
+export interface HistogramData {
+  buckets: HistogramBucket[];
+  maxCount: number;
+  totalCount: number;
 }
