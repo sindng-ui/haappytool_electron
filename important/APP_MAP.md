@@ -126,6 +126,7 @@
   - **Worker Regex Fix**: `workers/workerAnalysisHandlers.ts` — PID/TID extraction regex logic fixed to handle various log formats accurately. [NEW]
   - **Context Menu UI**: `components/LogSession.tsx` — Concise labels "Analyze PID/TID: {val}" for better UX. [NEW]
 - **Data Flow**: Log Worker(Main) ↔ Log Worker(Sub/WASM) ↔ UI (Binary Read)
+- **Latency Spotlight (지연 시간 스포트라이트) [NEW]**: 필터링된 로그 라인들의 타임스탬프 차이를 백그라운드 워커에서 O(n) 속도로 스캔하여, 지정된 임계값(기본 500ms)을 초과하는 지연 구간을 자동 탐지하고 TOP 20 지연 구간을 리스트로 시각화. 클릭 시 해당 라인으로 Hyper-Jump 이동 및 `Ctrl+Shift+H` 전용 토글 단축키(한글 입력기 상태에서도 오작동 없는 KeyH 바인딩) 지원.
 
 ### [[Log Viewer UI Architecture]]
 - **ID**: `ui-log-viewer-hierarchy`

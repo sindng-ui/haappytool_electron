@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { LogRule, LogWorkerResponse, SpamLogResult } from '../types';
+import { LogRule, LogWorkerResponse, SpamLogResult, LatencySpot } from '../types';
 import { LogViewerHandle } from '../components/LogViewer/LogViewerPane';
 
 export interface UseLogAnalysisActionsProps {
@@ -73,6 +73,10 @@ export const useLogAnalysisActions = (props: UseLogAnalysisActionsProps) => {
     // --- State: Spam Analysis ---
     const [isAnalyzingSpam, setIsAnalyzingSpam] = useState(false);
     const [spamResultsLeft, setSpamResultsLeft] = useState<SpamLogResult[]>([]);
+
+    // --- State: Latency Spotlight ---
+    const [isAnalyzingLatency, setIsAnalyzingLatency] = useState(false);
+    const [latencyResults, setLatencyResults] = useState<LatencySpot[]>([]);
 
     // --- Effects ---
     // Clear transaction results when drawer is closed
@@ -240,6 +244,15 @@ export const useLogAnalysisActions = (props: UseLogAnalysisActionsProps) => {
         leftWorkerRef.current.postMessage({ type: 'ANALYZE_SPAM' });
     }, [leftFilteredCount, leftWorkerRef]);
 
+    const requestLatencyAnalysis = useCallback((thresholdMs?: number) => {
+        if (!leftWorkerRef.current || leftFilteredCount === 0) return;
+        setIsAnalyzingLatency(true);
+        leftWorkerRef.current.postMessage({
+            type: 'ANALYZE_LATENCY',
+            payload: { thresholdMs }
+        });
+    }, [leftFilteredCount, leftWorkerRef]);
+
     const handleJumpToLineLeft = useCallback((lineNum: number) => {
         jumpToGlobalLine(lineNum, 'left', 'center');
     }, [jumpToGlobalLine]);
@@ -277,6 +290,10 @@ export const useLogAnalysisActions = (props: UseLogAnalysisActionsProps) => {
                 case 'SPAM_ANALYSIS_RESULT':
                     setSpamResultsLeft(payload.results || []);
                     setIsAnalyzingSpam(false);
+                    return true;
+                case 'LATENCY_ANALYSIS_RESULT':
+                    setLatencyResults(payload.results || []);
+                    setIsAnalyzingLatency(false);
                     return true;
             }
         } else {
@@ -325,6 +342,11 @@ export const useLogAnalysisActions = (props: UseLogAnalysisActionsProps) => {
 
         isAnalyzingSpam,
         spamResultsLeft,
-        setSpamResultsLeft
+        setSpamResultsLeft,
+
+        isAnalyzingLatency,
+        latencyResults,
+        setLatencyResults,
+        requestLatencyAnalysis
     };
 };

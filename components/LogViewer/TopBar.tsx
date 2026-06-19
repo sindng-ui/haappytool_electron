@@ -37,6 +37,8 @@ const TopBar: React.FC<{
         setIsSearchFocused, // ✅ Consumed
         quickFilter, setQuickFilter, // ✅ Quick Filter
         dialogConfig, setDialogConfig, // ✅ Added for Global Dialogs
+        isSpamAnalyzerOpen, setIsSpamAnalyzerOpen,
+        isLatencySpotlightOpen, setIsLatencySpotlightOpen,
     } = useLogContext();
 
     // Quick Connect Handler
@@ -182,6 +184,32 @@ const TopBar: React.FC<{
                         title="Collect Exceptions (Text Match)"
                     >
                         <Lucide.AlertTriangle size={14} />
+                    </button>
+                </div>
+
+                <div className="w-px h-6 bg-slate-700 mx-1"></div>
+
+                {/* ⏱️ Analysis Tools (Spam & Latency) */}
+                <div className="flex items-center gap-1 bg-slate-900 rounded-lg border border-slate-800 p-0.5">
+                    <button
+                        onClick={() => {
+                            setIsLatencySpotlightOpen(false);
+                            setIsSpamAnalyzerOpen(!isSpamAnalyzerOpen);
+                        }}
+                        className={`p-1.5 rounded transition-colors ${isSpamAnalyzerOpen ? 'bg-rose-500/20 text-rose-400' : 'text-slate-500 hover:text-rose-400 hover:bg-slate-800'}`}
+                        title="Spam Analyzer"
+                    >
+                        <Lucide.Activity size={14} />
+                    </button>
+                    <button
+                        onClick={() => {
+                            setIsSpamAnalyzerOpen(false);
+                            setIsLatencySpotlightOpen(!isLatencySpotlightOpen);
+                        }}
+                        className={`p-1.5 rounded transition-colors ${isLatencySpotlightOpen ? 'bg-amber-500/20 text-amber-400' : 'text-slate-500 hover:text-amber-400 hover:bg-slate-800'}`}
+                        title="Latency Spotlight"
+                    >
+                        <Lucide.Timer size={14} />
                     </button>
                 </div>
 

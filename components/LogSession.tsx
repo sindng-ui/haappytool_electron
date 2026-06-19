@@ -11,6 +11,7 @@ import LoadingOverlay from './ui/LoadingOverlay';
 import { BookmarksModal } from './BookmarksModal';
 import GoToLineModal from './GoToLineModal';
 import { SpamAnalyzerPanel } from './LogViewer/SpamAnalyzerPanel';
+import { LatencySpotlightPanel } from './LogViewer/LatencySpotlightPanel';
 import { SplitAnalyzerPanel } from './LogViewer/SplitAnalyzerPanel';
 import { useSplitAnalysis, SplitAnalysisResult } from '../hooks/useSplitAnalysis';
 import { SplitRawContextViewer } from './LogViewer/SplitRawContextViewer';
@@ -127,6 +128,7 @@ const LogSession: React.FC<LogSessionProps> = ({
         quickFilter, setQuickFilter,
         isSpamAnalyzerOpen, setIsSpamAnalyzerOpen,
         isAnalyzingSpam, spamResultsLeft, requestSpamAnalysisLeft,
+        isLatencySpotlightOpen, setIsLatencySpotlightOpen,
         isLogging, setIsLogging, connectionMode, // ✅ Added for Serial mode and logging state
         clearCacheTick,
         leftSharedBuffers, rightSharedBuffers,
@@ -184,6 +186,19 @@ const LogSession: React.FC<LogSessionProps> = ({
         window.addEventListener('keydown', handleKeyDown, true);
         return () => window.removeEventListener('keydown', handleKeyDown, true);
     }, [sendTizenCommand]);
+
+    // ⏱️ Ctrl+Shift+H: Latency Spotlight Toggle
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.shiftKey && e.code === 'KeyH') {
+                e.preventDefault();
+                setIsSpamAnalyzerOpen(false);
+                setIsLatencySpotlightOpen(prev => !prev);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [setIsSpamAnalyzerOpen, setIsLatencySpotlightOpen]);
 
     const [isAnimatingSplit, setIsAnimatingSplit] = React.useState(false);
     const splitAnimTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -1265,6 +1280,8 @@ const LogSession: React.FC<LogSessionProps> = ({
                 <div className={`flex-1 flex flex-col overflow-hidden relative z-0 transition-[padding-top] duration-400 ease-[cubic-bezier(0.4,0,0.2,1)] ${isFocusMode ? 'pt-0' : 'pt-8'}`}>
                     {/* Integrated Spam Analyzer Panel */}
                     <SpamAnalyzerPanel />
+                    {/* Integrated Latency Spotlight Panel */}
+                    <LatencySpotlightPanel />
                     <AnimatePresence>
                         {(splitAnalysisResults || isSplitAnalyzing) && isDualView && (
                             <>

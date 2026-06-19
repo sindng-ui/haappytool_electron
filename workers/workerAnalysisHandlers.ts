@@ -896,3 +896,5 @@ export const extractAliasEvents = async (
     respond({ type: 'ALIAS_EVENTS_RESULT', payload: { events }, requestId });
     respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
 };
+
+export { analyzeLatencySpots } from './latencyAnalysisHandler';

@@ -1045,6 +1045,14 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
                 respond({ type: 'SPAM_ANALYSIS_RESULT', payload: { results: [] }, requestId } as any);
             }
             break;
+        case 'ANALYZE_LATENCY':
+            try {
+                await AnalysisHandlers.analyzeLatencySpots(getAnalysisContext(), payload, requestId || '');
+            } catch (e) {
+                console.error('[Worker] ANALYZE_LATENCY failed', e);
+                respond({ type: 'LATENCY_ANALYSIS_RESULT', payload: { results: [] }, requestId });
+            }
+            break;
         case 'GET_ALL_METADATA':
             try {
                 await AnalysisHandlers.extractAllMetadata(getAnalysisContext(), requestId || '');

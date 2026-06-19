@@ -264,6 +264,9 @@ export const useLogExtractorLogic = ({
     // Spam Analyzer State
     const [isSpamAnalyzerOpen, setIsSpamAnalyzerOpen] = useState(false);
 
+    // Latency Spotlight State
+    const [isLatencySpotlightOpen, setIsLatencySpotlightOpen] = useState(false);
+
     const [leftLineHighlightRanges, setLeftLineHighlightRanges] = useState<{ start: number; end: number; color: string }[]>([]);
     const [rightLineHighlightRanges, setRightLineHighlightRanges] = useState<{ start: number; end: number; color: string }[]>([]);
     const [rawViewHighlightRange, setRawViewHighlightRange] = useState<{ start: number; end: number } | null>(null);
@@ -286,7 +289,8 @@ export const useLogExtractorLogic = ({
         isAnalyzingTransaction, isTransactionDrawerOpen, setIsTransactionDrawerOpen,
         leftPerfAnalysisResult, rightPerfAnalysisResult,
         isAnalyzingPerformanceLeft, isAnalyzingPerformanceRight,
-        isAnalyzingSpam, spamResultsLeft, setSpamResultsLeft
+        isAnalyzingSpam, spamResultsLeft, setSpamResultsLeft,
+        isAnalyzingLatency, latencyResults, requestLatencyAnalysis
     } = useLogAnalysisActions({
         leftWorkerRef, rightWorkerRef, leftViewerRef, rightViewerRef, rawViewerRef,
         currentConfig,
@@ -1196,6 +1200,8 @@ export const useLogExtractorLogic = ({
         jumpToAbsoluteLine,
         isSpamAnalyzerOpen, setIsSpamAnalyzerOpen,
         isAnalyzingSpam, spamResultsLeft, requestSpamAnalysisLeft,
+        isLatencySpotlightOpen, setIsLatencySpotlightOpen,
+        isAnalyzingLatency, latencyResults, requestLatencyAnalysis,
         leftPerformanceHeatmap, rightPerformanceHeatmap,
         leftSharedBuffers, rightSharedBuffers,
         clearCacheTick,

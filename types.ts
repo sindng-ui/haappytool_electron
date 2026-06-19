@@ -229,14 +229,14 @@ export interface PerfResponse {
 export type WorkerStatus = 'idle' | 'indexing' | 'filtering' | 'ready' | 'error';
 
 export interface LogWorkerMessage {
-  type: 'INIT_FILE' | 'INIT_LOCAL_FILE_STREAM' | 'RPC_RESPONSE' | 'RPC_ERROR' | 'FILTER_LOGS' | 'GET_LINES' | 'GET_SURROUNDING_LINES' | 'GET_RAW_LINES' | 'INIT_STREAM' | 'PROCESS_CHUNK' | 'UPDATE_RULES' | 'FIND_HIGHLIGHT' | 'GET_LINES_BY_INDICES' | 'TOGGLE_BOOKMARK' | 'CLEAR_BOOKMARKS' | 'ANALYZE_TRANSACTION' | 'GET_PERFORMANCE_HEATMAP' | 'PERF_ANALYSIS' | 'ANALYZE_SPAM' | 'FIND_VISUAL_INDEX' | 'STREAM_DONE' | 'GET_FULL_TEXT' | 'SET_ACTIVE_STATE' | 'GET_ALL_METADATA' | 'GET_ANALYSIS_METRICS' | 'GET_ALIAS_EVENTS' | 'SEARCH_GLOBAL_MISSION';
+  type: 'INIT_FILE' | 'INIT_LOCAL_FILE_STREAM' | 'RPC_RESPONSE' | 'RPC_ERROR' | 'FILTER_LOGS' | 'GET_LINES' | 'GET_SURROUNDING_LINES' | 'GET_RAW_LINES' | 'INIT_STREAM' | 'PROCESS_CHUNK' | 'UPDATE_RULES' | 'FIND_HIGHLIGHT' | 'GET_LINES_BY_INDICES' | 'TOGGLE_BOOKMARK' | 'CLEAR_BOOKMARKS' | 'ANALYZE_TRANSACTION' | 'GET_PERFORMANCE_HEATMAP' | 'PERF_ANALYSIS' | 'ANALYZE_SPAM' | 'ANALYZE_LATENCY' | 'FIND_VISUAL_INDEX' | 'STREAM_DONE' | 'GET_FULL_TEXT' | 'SET_ACTIVE_STATE' | 'GET_ALL_METADATA' | 'GET_ANALYSIS_METRICS' | 'GET_ALIAS_EVENTS' | 'SEARCH_GLOBAL_MISSION';
   payload?: any;
   requestId?: string;
   workerSide?: 'left' | 'right';
 }
 
 export interface LogWorkerResponse {
-  type: 'RPC_REQUEST' | 'RPC_RESPONSE' | 'RPC_ERROR' | 'STATUS_UPDATE' | 'INDEX_COMPLETE' | 'FILTER_COMPLETE' | 'LINES_DATA' | 'ERROR' | 'STREAM_FLUSH' | 'FIND_RESULT' | 'FULL_TEXT_DATA' | 'BOOKMARKS_UPDATED' | 'HEATMAP_DATA' | 'PERF_ANALYSIS_RESULT' | 'SPAM_ANALYSIS_RESULT' | 'STREAM_DONE' | 'BUFFER_SHARED' | 'ALL_METADATA_RESULT' | 'ANALYSIS_METRICS_RESULT' | 'ALIAS_EVENTS_RESULT' | 'SEARCH_GLOBAL_MISSION_RESULT';
+  type: 'RPC_REQUEST' | 'RPC_RESPONSE' | 'RPC_ERROR' | 'STATUS_UPDATE' | 'INDEX_COMPLETE' | 'FILTER_COMPLETE' | 'LINES_DATA' | 'ERROR' | 'STREAM_FLUSH' | 'FIND_RESULT' | 'FULL_TEXT_DATA' | 'BOOKMARKS_UPDATED' | 'HEATMAP_DATA' | 'PERF_ANALYSIS_RESULT' | 'SPAM_ANALYSIS_RESULT' | 'LATENCY_ANALYSIS_RESULT' | 'STREAM_DONE' | 'BUFFER_SHARED' | 'ALL_METADATA_RESULT' | 'ANALYSIS_METRICS_RESULT' | 'ALIAS_EVENTS_RESULT' | 'SEARCH_GLOBAL_MISSION_RESULT';
   payload?: any;
   requestId?: string;
 }
@@ -258,6 +258,18 @@ export interface SpamLogResult {
   count: number;
   lineNum?: number; // 패턴이 처음 발견된 라인 번호
   indices: number[]; // ✅ NEW: 모든 발견 지점의 인덱스 목록
+}
+
+export interface LatencySpot {
+  gapMs: number;           // Time gap in milliseconds
+  beforeIndex: number;     // Visual index of the line before the gap
+  afterIndex: number;      // Visual index of the line after the gap
+  beforeLineNum: number;   // Original line number (1-based) of the line before
+  afterLineNum: number;    // Original line number (1-based) of the line after
+  beforePreview: string;   // Preview text of the line before (max 120 chars)
+  afterPreview: string;    // Preview text of the line after (max 120 chars)
+  beforeTimestamp: number; // Timestamp of the line before
+  afterTimestamp: number;  // Timestamp of the line after
 }
 
 export interface LogMetadata {
