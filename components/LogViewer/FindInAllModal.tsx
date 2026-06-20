@@ -3,21 +3,24 @@
  * Ctrl+Shift+F — premium full-width search modal 🐧⚡
  * - Large, premium dark UI (no blur)
  * - Tag-chip keyword input (Enter / comma to add)
- * - Recent search history (no tooltip hover scrollbar)
+ * - Recent search history in vertical compact list with expand capability
  * - Block list open by default
  */
 
 import React, {
-    useState, useEffect, useCallback, useRef, memo, KeyboardEvent
+    useState, useEffect, useCallback, memo
 } from 'react';
 import {
-    X, Search, History, ChevronDown, ChevronRight,
-    RotateCcw, Clock, Plus, Tag, ShieldOff
+    X, Search, Tag, ShieldOff
 } from 'lucide-react';
 import {
     FindInAllRule, FindInAllHistoryItem,
-    useFindInAllHistory, buildHistoryLabel
+    useFindInAllHistory
 } from '../../hooks/useFindInAllHistory';
+
+import TagInput from './FindInAll/TagInput';
+import SectionHeader from './FindInAll/SectionHeader';
+import HistoryList from './FindInAll/HistoryList';
 
 interface FindInAllModalProps {
     isOpen: boolean;
@@ -30,206 +33,17 @@ interface FindInAllModalProps {
 }
 
 // ─────────────────────────────────────────────────────────────
-// TagInput: Enter/comma → add chip, Backspace → remove last
-// ─────────────────────────────────────────────────────────────
-interface TagInputProps {
-    tags: string[];
-    onChange: (tags: string[]) => void;
-    placeholder?: string;
-    accentColor?: 'emerald' | 'rose';
-    autoFocus?: boolean;
-}
-
-// ── Happy Combo chip: matches HappyComboSection root tag style exactly
-const TAG_COLORS_EMERALD = 'bg-indigo-900/50 border-indigo-500/50 text-indigo-100 hover:border-indigo-400/70 hover:bg-indigo-900/70';
-// ── Block List chip: rose variant, same light weight feel
-const TAG_COLORS_ROSE    = 'bg-rose-950/60 border-rose-700/50 text-rose-100 hover:border-rose-500/70 hover:bg-rose-950/80';
-
-const TagInput: React.FC<TagInputProps> = memo(({ tags, onChange, placeholder, accentColor = 'emerald', autoFocus }) => {
-    const [inputVal, setInputVal] = useState('');
-    const inputRef = useRef<HTMLInputElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    const tagColorClass  = accentColor === 'emerald' ? TAG_COLORS_EMERALD : TAG_COLORS_ROSE;
-    const focusRingClass = accentColor === 'emerald'
-        ? 'focus-within:border-indigo-500/50 focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.10)]'
-        : 'focus-within:border-rose-500/50 focus-within:shadow-[0_0_0_2px_rgba(244,63,94,0.10)]';
-
-    const addTag = useCallback((raw: string) => {
-        const words = raw.split(/[,\n]+/).map(w => w.trim()).filter(w => w.length > 0);
-        if (words.length === 0) return;
-        const unique = Array.from(new Set([...tags, ...words]));
-        if (unique.length !== tags.length) onChange(unique);
-    }, [tags, onChange]);
-
-    const removeTag = useCallback((idx: number) => {
-        onChange(tags.filter((_, i) => i !== idx));
-    }, [tags, onChange]);
-
-    const handleKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' || e.key === ',') {
-            e.preventDefault();
-            addTag(inputVal);
-            setInputVal('');
-        } else if (e.key === 'Backspace' && inputVal === '' && tags.length > 0) {
-            onChange(tags.slice(0, -1));
-        }
-    }, [inputVal, addTag, onChange, tags]);
-
-    const handleBlur = useCallback(() => {
-        if (inputVal.trim()) {
-            addTag(inputVal);
-            setInputVal('');
-        }
-    }, [inputVal, addTag]);
-
-    // click anywhere in box → focus input
-    const handleBoxClick = useCallback(() => {
-        inputRef.current?.focus();
-    }, []);
-
-    useEffect(() => {
-        if (autoFocus) {
-            setTimeout(() => inputRef.current?.focus(), 60);
-        }
-    }, [autoFocus]);
-
-    return (
-        <div
-            ref={containerRef}
-            onClick={handleBoxClick}
-            className={`
-                min-h-[56px] w-full rounded-xl border border-slate-700/50 bg-slate-950/50
-                p-2 flex flex-wrap gap-1.5 items-start cursor-text
-                transition-all duration-200 ${focusRingClass}
-            `}
-        >
-            {tags.map((tag, i) => (
-                <span
-                    key={`${tag}-${i}`}
-                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg border text-xs font-mono font-semibold transition-all duration-150 select-none ${tagColorClass}`}
-                >
-                    {tag}
-                    <button
-                        type="button"
-                        onMouseDown={e => { e.preventDefault(); removeTag(i); }}
-                        className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity rounded"
-                        tabIndex={-1}
-                    >
-                        <X size={10} />
-                    </button>
-                </span>
-            ))}
-            <input
-                ref={inputRef}
-                value={inputVal}
-                onChange={e => setInputVal(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onBlur={handleBlur}
-                placeholder={tags.length === 0 ? placeholder : ''}
-                className="flex-1 min-w-[120px] bg-transparent text-xs text-slate-200 placeholder-slate-600 font-mono focus:outline-none py-0.5"
-                spellCheck={false}
-            />
-        </div>
-    );
-});
-TagInput.displayName = 'TagInput';
-
-// ─────────────────────────────────────────────────────────────
-// History row (no tooltip)
-// ─────────────────────────────────────────────────────────────
-interface HistoryRowProps {
-    item: FindInAllHistoryItem;
-    onLoad: (item: FindInAllHistoryItem) => void;
-}
-
-const HistoryRow: React.FC<HistoryRowProps> = memo(({ item, onLoad }) => {
-    const timeStr = new Date(item.timestamp).toLocaleTimeString('en-US', {
-        hour: '2-digit', minute: '2-digit'
-    });
-    const keywords = item.rule.includeKeywords;
-    const excludes = item.rule.excludeKeywords;
-
-    return (
-        <button
-            onClick={() => onLoad(item)}
-            className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800/70 transition-colors group"
-        >
-            <RotateCcw size={11} className="text-slate-600 group-hover:text-indigo-400 shrink-0 transition-colors" />
-
-            {/* keyword chips preview */}
-            <div className="flex-1 flex items-center gap-1 overflow-hidden">
-                {keywords.slice(0, 4).map((kw, i) => (
-                    <span
-                        key={i}
-                        className="inline-block px-1.5 py-0.5 rounded-md bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 text-[10px] font-mono truncate max-w-[100px]"
-                    >
-                        {kw}
-                    </span>
-                ))}
-                {keywords.length > 4 && (
-                    <span className="text-[10px] text-slate-500">+{keywords.length - 4}</span>
-                )}
-                {excludes.length > 0 && (
-                    <span className="ml-1 text-[10px] text-rose-400/60">
-                        -{excludes.length} excl.
-                    </span>
-                )}
-            </div>
-
-            <span className="text-[10px] text-slate-600 shrink-0 flex items-center gap-1">
-                <Clock size={9} />
-                {timeStr}
-            </span>
-        </button>
-    );
-});
-HistoryRow.displayName = 'HistoryRow';
-
-// ─────────────────────────────────────────────────────────────
-// Section header
-// ─────────────────────────────────────────────────────────────
-interface SectionHeaderProps {
-    isOpen: boolean;
-    onToggle: () => void;
-    icon: React.ReactNode;
-    title: string;
-    badge?: React.ReactNode;
-    accentColor?: 'default' | 'emerald' | 'rose';
-}
-
-const SectionHeader: React.FC<SectionHeaderProps> = ({ isOpen, onToggle, icon, title, badge, accentColor = 'default' }) => {
-    const accentMap = {
-        default: 'text-slate-400 hover:text-slate-200',
-        emerald: 'text-indigo-400/80 hover:text-indigo-300',
-        rose: 'text-rose-400/80 hover:text-rose-300',
-    };
-    return (
-        <button
-            onClick={onToggle}
-            className={`w-full flex items-center gap-2 px-5 py-3 text-xs font-bold hover:bg-white/[0.03] transition-colors ${accentMap[accentColor]}`}
-        >
-            {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-            {icon}
-            <span>{title}</span>
-            {badge}
-        </button>
-    );
-};
-
-// ─────────────────────────────────────────────────────────────
 // Main Modal
 // ─────────────────────────────────────────────────────────────
 const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
     isOpen, onClose, onSearch, isSearching, lastSearchRule, targetTabId, targetTabTitle
 }) => {
-    const { history } = useFindInAllHistory();
+    const { history, clearHistory } = useFindInAllHistory();
 
     const [includeTags, setIncludeTags] = useState<string[]>([]);
     const [excludeTags, setExcludeTags] = useState<string[]>([]);
     const [caseSensitive, setCaseSensitive] = useState(false);
     const [blockListCaseSensitive, setBlockListCaseSensitive] = useState(false);
-    const [isHistoryOpen, setIsHistoryOpen] = useState(true);
     const [isIncludeOpen, setIsIncludeOpen] = useState(true);
     const [isExcludeOpen, setIsExcludeOpen] = useState(true); // open by default
 
@@ -330,31 +144,7 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                 {/* ── Scrollable body ── */}
                 <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}>
 
-                    {/* Recent Searches */}
-                    {history.length > 0 && (
-                        <div className="border-b border-slate-800/60">
-                            <SectionHeader
-                                isOpen={isHistoryOpen}
-                                onToggle={() => setIsHistoryOpen(p => !p)}
-                                icon={<History size={13} />}
-                                title={`Recent Searches`}
-                                badge={
-                                    <span className="ml-1 text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full border border-slate-700">
-                                        {history.length}
-                                    </span>
-                                }
-                            />
-                            {isHistoryOpen && (
-                                <div className="pb-2 px-3">
-                                    {history.map(item => (
-                                        <HistoryRow key={item.id} item={item} onLoad={handleLoadHistory} />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Happy Combo */}
+                    {/* Happy Combo [1st] */}
                     <div className="border-b border-slate-800/60">
                         <SectionHeader
                             isOpen={isIncludeOpen}
@@ -381,6 +171,7 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                                 />
                                 <div className="flex items-center gap-2 mt-2">
                                     <button
+                                        type="button"
                                         onClick={() => setCaseSensitive(p => !p)}
                                         className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
                                             caseSensitive
@@ -394,6 +185,7 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                                         {includeTags.length} keyword{includeTags.length !== 1 ? 's' : ''}
                                         {includeTags.length > 0 && (
                                             <button
+                                                type="button"
                                                 onClick={() => setIncludeTags([])}
                                                 className="ml-2 text-indigo-400/50 hover:text-indigo-300 transition-colors"
                                             >
@@ -406,8 +198,8 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                         )}
                     </div>
 
-                    {/* Block List */}
-                    <div>
+                    {/* Block List [2nd] */}
+                    <div className="border-b border-slate-800/60">
                         <SectionHeader
                             isOpen={isExcludeOpen}
                             onToggle={() => setIsExcludeOpen(p => !p)}
@@ -432,6 +224,7 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                                 />
                                 <div className="flex items-center gap-2 mt-2">
                                     <button
+                                        type="button"
                                         onClick={() => setBlockListCaseSensitive(p => !p)}
                                         className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
                                             blockListCaseSensitive
@@ -445,6 +238,7 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                                         {excludeTags.length} keyword{excludeTags.length !== 1 ? 's' : ''}
                                         {excludeTags.length > 0 && (
                                             <button
+                                                type="button"
                                                 onClick={() => setExcludeTags([])}
                                                 className="ml-2 text-rose-400/50 hover:text-rose-300 transition-colors"
                                             >
@@ -456,6 +250,13 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                             </div>
                         )}
                     </div>
+
+                    {/* Recent Searches [3rd] */}
+                    <HistoryList
+                        history={history}
+                        onLoad={handleLoadHistory}
+                        onClear={clearHistory}
+                    />
                 </div>
 
                 {/* ── Footer ── */}
@@ -479,6 +280,7 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                     </div>
 
                     <button
+                        type="button"
                         onClick={onClose}
                         className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 rounded-xl transition-all"
                     >
@@ -486,6 +288,7 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
                     </button>
 
                     <button
+                        type="button"
                         onClick={handleSearch}
                         disabled={isSearching || !canSearch}
                         className="
@@ -521,3 +324,4 @@ const FindInAllModal: React.FC<FindInAllModalProps> = memo(({
 
 FindInAllModal.displayName = 'FindInAllModal';
 export default FindInAllModal;
+
