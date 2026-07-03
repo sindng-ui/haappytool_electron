@@ -192,4 +192,70 @@ describe('ReleaseHistoryPlugin Hardcore Test Suite', () => {
         expect(mockElectronAPI.copyToClipboard).toHaveBeenCalledWith('Copy Me');
         expect(await screen.findByText(/Documentation copied to clipboard/i)).toBeDefined();
     });
+
+    it('should support multi-division workflow', async () => {
+        render(<ReleaseHistoryPlugin context={mockContext} />);
+        await switchToListView();
+
+        // Check active division is 'Default' by default
+        expect(screen.getByTestId('active-division-text').textContent).toBe('Default');
+
+        // 1. Add new division 'Mobile'
+        const addDivBtn = screen.getByTitle('Add New Division');
+        fireEvent.click(addDivBtn);
+
+        // Fill division name in PromptDialog
+        const divNameInput = await screen.findByPlaceholderText(/e.g. Mobile/i);
+        fireEvent.change(divNameInput, { target: { value: 'Mobile' } });
+        
+        // Confirm creation
+        const addConfirmBtn = screen.getByRole('button', { name: 'Add' });
+        fireEvent.click(addConfirmBtn);
+
+        // Division should switch to 'Mobile'
+        expect(screen.getByTestId('active-division-text').textContent).toBe('Mobile');
+
+        // 2. Add release item in 'Mobile' division
+        fireEvent.click(await screen.findByText(/ADD RELEASE/i));
+        const nameInput = await screen.findByPlaceholderText(/e.g. 25R1/i);
+        fireEvent.change(nameInput, { target: { value: 'Mobile Release' } });
+        fireEvent.change(screen.getByPlaceholderText(/e.g. 5.0.328/i), { target: { value: '2.0.0' } });
+        
+        const publishBtns = await screen.findAllByText(/Publish Node/i);
+        fireEvent.click(publishBtns[0]);
+
+        // Expect Mobile Release to be shown
+        expect(await screen.findByText('Mobile Release')).toBeDefined();
+
+        // 3. Switch back to 'Default' division
+        const selectorBtn = screen.getByTestId('division-selector-trigger');
+        fireEvent.click(selectorBtn);
+
+        const defaultOption = screen.getByTestId('division-option-Default');
+        fireEvent.click(defaultOption);
+
+        // Should not see 'Mobile Release' in Default division list
+        expect(screen.queryByText('Mobile Release')).toBeNull();
+
+        // 4. Delete 'Mobile' division
+        // Open dropdown again
+        const selectorBtn2 = screen.getByTestId('division-selector-trigger');
+        fireEvent.click(selectorBtn2);
+
+        // Click delete trash icon next to 'Mobile'
+        const deleteDivBtn = screen.getByTitle('Delete Mobile');
+        fireEvent.click(deleteDivBtn);
+
+        // Confirm delete in ConfirmDialog
+        const deleteConfirmBtn = screen.getByRole('button', { name: 'Delete' });
+        fireEvent.click(deleteConfirmBtn);
+
+        // Mobile division dropdown option should be gone
+        await waitFor(() => {
+            expect(screen.queryByTitle('Delete Mobile')).toBeNull();
+        });
+
+        // Close dropdown
+        fireEvent.click(screen.getByTestId('division-selector-trigger'));
+    });
 });

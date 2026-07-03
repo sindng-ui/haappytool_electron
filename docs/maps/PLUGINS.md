@@ -52,12 +52,16 @@ RAG 서버와 연동하여 이슈 분석 힌트를 검색하는 테스트용 플
 
 ### [Release History](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/ReleaseHistory/ReleaseHistoryPlugin.tsx) [NEW]
 앱 릴리즈 버전을 제품별/릴리즈별로 타임라인과 리스트 형태로 관리하는 도구입니다.
-- **UI Components**:
-  - `ReleaseHistoryPlugin`: 듀얼 뷰 모드(List/Timeline).
+- **UI Components & Hooks**:
+  - `ReleaseHistoryPlugin`: 듀얼 뷰 모드(List/Timeline)의 컨트롤러 컴포넌트.
+  - `DivisionSelector` ([DivisionSelector.tsx](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/ReleaseHistory/components/DivisionSelector.tsx)): Division을 추가, 삭제, 전환할 수 있는 프리미엄 글래스모피즘 드롭다운 UI. [NEW]
+  - `useReleaseHistoryDivisions` ([useReleaseHistoryDivisions.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/ReleaseHistory/hooks/useReleaseHistoryDivisions.ts)): 다중 Division의 마이그레이션, 상태 변경, 조회 등을 전담 캡슐화한 커스텀 훅. [NEW]
   - `ListView`: 릴리즈 버전 아코디언형 리스트.
   - `TimelineGraphView`: 시각화된 2D 타임라인 뷰.
   - `ReleaseDetailModal` & `AddReleaseModal`: 마크다운 지원 모달.
 - **Features**:
+  - **다중 Division 관리**: 여러 개의 Division별로 릴리즈 리스트를 완벽하게 격리하여 관리하는 기능. [NEW]
+  - **자동 하위 호환 마이그레이션**: 기존의 단일 세트 데이터 포맷 로드 시, `"Default"` 디비전의 데이터로 자동 변환하여 보존. [NEW]
   - **Tag System**: `Hotfix`, `Feature`, `Major` 등 프리셋 태그 지원.
 
 ### [SmartThings Presentation Dictionary](file:///k:/Antigravity_Projects/gitbase/happytool_electron/plugins/STPresentationDictionary) [NEW]

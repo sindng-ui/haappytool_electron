@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { PluginContext } from '../types';
-import { ReleaseItem, ViewMode, YearConfig, ReleaseHistoryData } from './types';
+import { ReleaseItem, ViewMode, YearConfig } from './types';
 import ListView from './components/ListView';
 import TimelineGraphView from './components/TimelineGraphView';
 import ReleaseDetailModal from './components/ReleaseDetailModal';
 import AddReleaseModal from './components/AddReleaseModal';
+import DivisionSelector from './components/DivisionSelector';
+import { PromptDialog, ConfirmDialog } from '../../components/ui/CommonDialogs';
+import { useReleaseHistoryDivisions } from './hooks/useReleaseHistoryDivisions';
 import { exportToJson, importFromJson, exportToMarkdown, downloadDataUri } from './utils/ExportImportUtils';
 import { Search, Plus, Download, Upload, Image as ImageIcon, FileText, LayoutList, CalendarRange } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
@@ -14,51 +17,7 @@ interface ReleaseHistoryPluginProps {
     context: PluginContext;
 }
 
-const STORAGE_KEY = 'happytool_release_history';
-
 const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) => {
-    const [items, setItems] = useState<ReleaseItem[]>([]);
-    const [yearConfigs, setYearConfigs] = useState<Record<number, YearConfig>>({});
-
-    // Load and Migrate data
-    useEffect(() => {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            try {
-                const parsed = JSON.parse(stored);
-                let loadedItems: any[] = [];
-                let loadedConfigs: Record<number, YearConfig> = {};
-
-                if (Array.isArray(parsed)) {
-                    loadedItems = parsed;
-                } else if (parsed.items) {
-                    loadedItems = parsed.items;
-                    loadedConfigs = parsed.yearConfigs || {};
-                }
-
-                const migratedItems: ReleaseItem[] = loadedItems.map((item: any) => {
-                    const releaseName = item.releaseName || item.appName || 'Unknown';
-                    let years = item.years;
-                    if (!years) {
-                        // Migration from productName
-                        if (item.productName && /^\d{4}$/.test(item.productName)) {
-                            years = [parseInt(item.productName)];
-                        } else {
-                            // Fallback to year of releaseDate
-                            years = [new Date(item.releaseDate).getFullYear()];
-                        }
-                    }
-                    return { ...item, releaseName, years };
-                });
-
-                setItems(migratedItems);
-                setYearConfigs(loadedConfigs);
-            } catch (e) {
-                console.error('Failed to parse stored release history', e);
-            }
-        }
-    }, []);
-
     const [viewMode, setViewMode] = useState<ViewMode>('timeline');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedItem, setSelectedItem] = useState<ReleaseItem | null>(null);
@@ -66,6 +25,10 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
     const [editingItem, setEditingItem] = useState<ReleaseItem | null>(null);
     const [isExporting, setIsExporting] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+    const [isAddDivOpen, setIsAddDivOpen] = useState(false);
+    const [isDeleteDivOpen, setIsDeleteDivOpen] = useState(false);
+    const [divToDelete, setDivToDelete] = useState<string | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -81,13 +44,17 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
         }
     }, [toast]);
 
-    // Save to local storage whenever items or configs change
-    useEffect(() => {
-        if (items.length > 0 || Object.keys(yearConfigs).length > 0) {
-            const data: ReleaseHistoryData = { items, yearConfigs };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        }
-    }, [items, yearConfigs]);
+    const {
+        divisions,
+        activeDivision,
+        items,
+        yearConfigs,
+        setActiveDivision,
+        updateActiveDivisionItems,
+        updateActiveDivisionYearConfigs,
+        handleAddDivision,
+        handleDeleteDivision
+    } = useReleaseHistoryDivisions(showToast);
 
     // Filtering logic (Memoized for performance)
     const filteredItems = useMemo(() => {
@@ -110,7 +77,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
     const handleSaveRelease = (newItemData: Omit<ReleaseItem, 'id'>) => {
         if (editingItem) {
             // Update existing
-            setItems(prev => prev.map(item => 
+            updateActiveDivisionItems(prev => prev.map(item => 
                 item.id === editingItem.id ? { ...newItemData, id: item.id } : item
             ));
             setEditingItem(null);
@@ -120,13 +87,13 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
                 ...newItemData,
                 id: `rel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
             };
-            setItems(prev => [...prev, item]);
+            updateActiveDivisionItems(prev => [...prev, item]);
         }
         setIsAddModalOpen(false);
     };
 
     const handleDeleteItem = (id: string) => {
-        setItems(prev => prev.filter(item => item.id !== id));
+        updateActiveDivisionItems(prev => prev.filter(item => item.id !== id));
         setSelectedItem(null);
     };
 
@@ -137,7 +104,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
     };
 
     const handleUpdateYearConfig = (config: YearConfig) => {
-        setYearConfigs(prev => ({
+        updateActiveDivisionYearConfigs(prev => ({
             ...prev,
             [config.year]: config
         }));
@@ -152,7 +119,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
             const content = event.target?.result as string;
             const parsed = importFromJson(content);
             if (parsed) {
-                setItems(prev => {
+                updateActiveDivisionItems(prev => {
                     const existingIds = new Set(prev.map(i => i.id));
                     const newItems = parsed.filter(p => !existingIds.has(p.id));
                     return [...prev, ...newItems];
@@ -185,7 +152,7 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
                 const content = event.target?.result as string;
                 const parsed = importFromJson(content);
                 if (parsed) {
-                    setItems(prev => {
+                    updateActiveDivisionItems(prev => {
                         const existingIds = new Set(prev.map(i => i.id));
                         const newItems = parsed.filter(p => !existingIds.has(p.id));
                         return [...prev, ...newItems];
@@ -250,6 +217,19 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
             >
                 {/* Left Side: Actions & Search */}
                 <div className="flex items-center space-x-2 flex-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
+                    <DivisionSelector
+                        divisions={Object.keys(divisions)}
+                        activeDivision={activeDivision}
+                        onSelect={setActiveDivision}
+                        onAddClick={() => setIsAddDivOpen(true)}
+                        onDeleteClick={(div) => {
+                            setDivToDelete(div);
+                            setIsDeleteDivOpen(true);
+                        }}
+                    />
+
+                    <div className="h-6 w-px bg-white/10 mx-2" />
+
                     <button
                         onClick={() => {
                             setEditingItem(null);
@@ -361,6 +341,35 @@ const ReleaseHistoryPlugin: React.FC<ReleaseHistoryPluginProps> = ({ context }) 
                     existingYears={existingYears}
                     initialData={editingItem}
                     showToast={showToast}
+                />,
+                document.body
+            )}
+
+            {createPortal(
+                <PromptDialog
+                    isOpen={isAddDivOpen}
+                    onClose={() => setIsAddDivOpen(false)}
+                    onConfirm={handleAddDivision}
+                    title="Add Division"
+                    description="Enter the name of the new division to manage."
+                    placeholder="e.g. Mobile, Visual Display"
+                    confirmLabel="Add"
+                />,
+                document.body
+            )}
+
+            {createPortal(
+                <ConfirmDialog
+                    isOpen={isDeleteDivOpen}
+                    onClose={() => {
+                        setIsDeleteDivOpen(false);
+                        setDivToDelete(null);
+                    }}
+                    onConfirm={() => divToDelete && handleDeleteDivision(divToDelete)}
+                    title="Delete Division"
+                    description={`Are you sure you want to delete division "${divToDelete}"? All release items in this division will be permanently deleted.`}
+                    confirmLabel="Delete"
+                    isDanger={true}
                 />,
                 document.body
             )}

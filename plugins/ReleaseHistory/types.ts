@@ -14,10 +14,16 @@ export interface YearConfig {
     latestReleaseId?: string;
 }
 
-export interface ReleaseHistoryData {
+export interface DivisionData {
     items: ReleaseItem[];
     yearConfigs: Record<number, YearConfig>;
 }
+
+export interface ReleaseHistoryData {
+    divisions: Record<string, DivisionData>;
+    activeDivision: string;
+}
+
 
 export type ViewMode = 'list' | 'timeline';
 
