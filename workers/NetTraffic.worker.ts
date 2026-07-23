@@ -40,10 +40,33 @@ export let patterns: TrafficPattern[] = [];
 export let uaPattern: UAPattern | null = null;
 export let uaRegex: RegExp | null = null;
 
-export const setPatterns = (p: TrafficPattern[]) => { patterns = p; };
+// Pre-parsed patterns cache (computed on setPatterns/setUAPattern to avoid per-line re-parsing)
+let parsedPatterns: Array<TrafficPattern & { keywords: string[] }> = [];
+let parsedUAKeywords: string[] = [];
+
+// Compiled RegExp cache: extractRegex string -> RegExp
+const compiledRegexCache = new Map<string, RegExp>();
+const getCompiledRegex = (regexStr: string): RegExp => {
+  let rx = compiledRegexCache.get(regexStr);
+  if (!rx) {
+    rx = new RegExp(regexStr, 'g');
+    compiledRegexCache.set(regexStr, rx);
+  }
+  return rx;
+};
+
+export const setPatterns = (p: TrafficPattern[]) => {
+  patterns = p;
+  parsedPatterns = p.map(pat => ({
+    ...pat,
+    keywords: pat.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
+  }));
+  compiledRegexCache.clear();
+};
 export const setUAPattern = (ua: UAPattern | null) => { 
   uaPattern = ua; 
   uaRegex = templateToRegex(ua?.template || '');
+  parsedUAKeywords = ua?.keywords ? ua.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean) : [];
 };
 
 // Stateful parsing
@@ -157,9 +180,8 @@ export const processLine = (line: string, targetStats: StatsMap, targetUAMap: UA
   
   // 1. Check for User Agent line
   if (uaPattern?.enabled && uaRegex) {
-    const uaKeywords = uaPattern.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
     const lineLower = cleanLine.toLowerCase();
-    if (uaKeywords.every(kw => lineLower.includes(kw))) {
+    if (parsedUAKeywords.every(kw => lineLower.includes(kw))) {
       const match = cleanLine.match(uaRegex);
       if (match && match.groups) {
         currentUAVars = match.groups;
@@ -178,9 +200,9 @@ export const processLine = (line: string, targetStats: StatsMap, targetUAMap: UA
   const lineLower = cleanLine.toLowerCase();
   let matched = false;
 
-  for (const p of patterns) {
+  for (const p of parsedPatterns) {
     if (!p.enabled) continue;
-    const keywords = p.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+    const keywords = p.keywords;
     
     // Match everything if no keywords specified, otherwise check every keyword
     if (keywords.length === 0 || keywords.every(kw => lineLower.includes(kw))) {
@@ -190,7 +212,9 @@ export const processLine = (line: string, targetStats: StatsMap, targetUAMap: UA
       // URI Extraction
       if (p.extractRegex) {
         try {
-          urisFound = cleanLine.match(new RegExp(p.extractRegex, 'g')) || [];
+          const rx = p.compiledExtractRegex || getCompiledRegex(p.extractRegex);
+          rx.lastIndex = 0;
+          urisFound = cleanLine.match(rx) || [];
         } catch (e) {
           console.error('Invalid extractRegex:', p.extractRegex, e);
           urisFound = cleanLine.match(URI_REGEX) || [];
@@ -198,8 +222,6 @@ export const processLine = (line: string, targetStats: StatsMap, targetUAMap: UA
       } else {
         urisFound = cleanLine.match(URI_REGEX) || [];
       }
-
-      console.log(`[NetTraffic] Line: "${cleanLine.substring(0, 100)}..." -> Found: ${urisFound.length} URIs`);
 
       if (urisFound.length > 0) {
         const bucket = extractBucket(cleanLine);
@@ -211,8 +233,6 @@ export const processLine = (line: string, targetStats: StatsMap, targetUAMap: UA
           const templateUri = normalizeUri(rawUri);
           const host = extractHost(rawUri);
           const method = detectMethod(cleanLine);
-
-          console.log(`[NetTraffic] Hit: [${method || '?'}] ${templateUri} (Raw: ${rawUri})`);
 
           if (host) targetInsights.hosts.set(host, (targetInsights.hosts.get(host) || 0) + 1);
           if (method) targetInsights.methods.set(method, (targetInsights.methods.get(method) || 0) + 1);
@@ -252,8 +272,6 @@ export const processLine = (line: string, targetStats: StatsMap, targetUAMap: UA
         // [LOG] hit (No specific URI found, but keywords matched)
         const templateUri = `[LOG] ${p.alias || 'General'}`;
         const rawUri = cleanLine.length > 100 ? cleanLine.substring(0, 100) + '...' : cleanLine;
-        console.log(`[NetTraffic] LOG Hit: ${templateUri}`);
-
         targetInsights.totalRequests++; 
 
         const recordLogHit = (stats: StatsMap) => {
@@ -318,6 +336,13 @@ self.onmessage = (e: MessageEvent) => {
       patterns = payload.patterns || [];
       uaPattern = payload.uaPattern || null;
       uaRegex = templateToRegex(uaPattern?.template || '');
+      // Pre-parse for performance
+      parsedPatterns = patterns.map((pat: TrafficPattern) => ({
+        ...pat,
+        keywords: pat.keywords.split(',').map((k: string) => k.trim().toLowerCase()).filter(Boolean)
+      }));
+      parsedUAKeywords = uaPattern?.keywords ? uaPattern.keywords.split(',').map((k: string) => k.trim().toLowerCase()).filter(Boolean) : [];
+      compiledRegexCache.clear();
       break;
       
     case 'PROCESS_CHUNK': {

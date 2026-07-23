@@ -1046,8 +1046,14 @@ const handleSocketConnection = (socket, deps = {}) => {
     });
 
     // --- Block Test Plugin Handlers ---
+    const activeProcessesMap = new Map();
 
-    // 1. Run Host Command
+    function parseCmdArgs(cmdStr) {
+        const tokens = cmdStr.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
+        return tokens.map(t => t.replace(/^"|"$/g, ''));
+    }
+
+    // 1. Run Host Command (High Performance Spawn Engine for SDB/Host commands)
     socket.on('run_host_command', ({ command, requestId }) => {
         if (!command || typeof command !== 'string') {
             socket.emit('host_command_result', { requestId, success: false, output: 'Invalid command' });
@@ -1055,38 +1061,171 @@ const handleSocketConnection = (socket, deps = {}) => {
         }
 
         const cmdString = command.trim();
-        console.log(`[DEBUG_RUN] Received command: ${cmdString}`);
-        console.log(`[DEBUG_RUN] Executing via exec...`);
+        console.log(`[FAST_RUN] Received command: ${cmdString} (requestId: ${requestId})`);
 
-        // Use exec with a backend timeout (15s) to prevent runaway processes
-        const execOpts = { 
-            maxBuffer: 1024 * 1024 * 5, 
-            timeout: 15000,
-            killSignal: 'SIGKILL'
+        const isWin = process.platform === 'win32';
+        let child;
+        let stdoutData = '';
+        let stderrData = '';
+        let isDone = false;
+
+        const destroyStreams = () => {
+            if (!child) return;
+            if (child.stdout && !child.stdout.destroyed) {
+                try { child.stdout.destroy(); } catch (e) {}
+            }
+            if (child.stderr && !child.stderr.destroyed) {
+                try { child.stderr.destroy(); } catch (e) {}
+            }
+            if (child.stdin && !child.stdin.destroyed) {
+                try { child.stdin.end(); child.stdin.destroy(); } catch (e) {}
+            }
         };
 
-        const child = exec(cmdString, execOpts, (error, stdout, stderr) => {
-            const isTimeout = error && (error.killed || error.code === 'ETIMEDOUT');
-            
-            console.log(`[DEBUG_RUN] Exec completed. Error: ${error ? error.message : 'None'} (Timeout: ${isTimeout})`);
-            console.log(`[DEBUG_RUN] stdout: ${stdout.length} bytes, stderr: ${stderr.length} bytes`);
+        const cleanupProcess = () => {
+            destroyStreams();
+            if (requestId) {
+                activeProcessesMap.delete(requestId);
+            }
+        };
 
-            const finalOutput = (stdout + stderr).trim();
-            const success = !error;
+        const timeoutTimer = setTimeout(() => {
+            if (!isDone) {
+                isDone = true;
+                cleanupProcess();
+                if (child) {
+                    try { child.kill('SIGKILL'); } catch (e) {}
+                }
+                console.log(`[FAST_RUN] Command timed out after 15s: ${cmdString}`);
+                socket.emit('host_command_debug', { requestId, message: `Backend Timeout (15s)` });
+                socket.emit('host_command_result', {
+                    command,
+                    requestId,
+                    success: false,
+                    output: (stdoutData + stderrData).trim() || 'Error: Backend Timeout (15s)'
+                });
+            }
+        }, 15000);
 
-            if (isTimeout) {
-                socket.emit('host_command_debug', { requestId, message: `Exec timed out after 15s on backend.` });
+        try {
+            // Check for shell special characters: &, |, >, <, ;
+            const hasSpecialChars = /[&|><;]/.test(cmdString);
+
+            if (!hasSpecialChars) {
+                // Native direct execution (shell: false) to bypass cmd.exe overhead and antivirus hooking delay
+                const parsedArgs = parseCmdArgs(cmdString);
+                const execFile = parsedArgs.shift();
+                child = spawn(execFile, parsedArgs, {
+                    windowsHide: true,
+                    shell: false,
+                    env: process.env
+                });
             } else {
-                socket.emit('host_command_debug', { requestId, message: `Exec completed. Success: ${success}` });
+                if (isWin) {
+                    child = spawn('cmd.exe', ['/c', cmdString], {
+                        windowsHide: true,
+                        env: process.env
+                    });
+                } else {
+                    child = spawn('/bin/sh', ['-c', cmdString], {
+                        env: process.env
+                    });
+                }
             }
 
-            socket.emit('host_command_result', {
-                command,
-                requestId,
-                success,
-                output: finalOutput || (isTimeout ? 'Error: Backend Timeout (15s)' : (success ? 'Success (No output)' : `Failed: ${error.message}`))
-            });
-        });
+            if (requestId && child) {
+                activeProcessesMap.set(requestId, child);
+            }
+
+            // Immediately close stdin so non-interactive SDB shell commands do not hang waiting for input
+            if (child && child.stdin) {
+                try { child.stdin.end(); } catch (e) {}
+            }
+
+            if (child && child.stdout) {
+                child.stdout.on('data', (chunk) => {
+                    stdoutData += chunk.toString('utf-8');
+                });
+            }
+
+            if (child && child.stderr) {
+                child.stderr.on('data', (chunk) => {
+                    stderrData += chunk.toString('utf-8');
+                });
+            }
+
+            const finish = (code, signal) => {
+                if (isDone) return;
+                isDone = true;
+                clearTimeout(timeoutTimer);
+                cleanupProcess();
+
+                const finalOutput = (stdoutData + stderrData).trim();
+                const success = code === 0;
+
+                console.log(`[FAST_RUN] Completed in time. Code: ${code}, output length: ${finalOutput.length}`);
+                socket.emit('host_command_debug', { requestId, message: `Completed with code ${code}` });
+                socket.emit('host_command_result', {
+                    command,
+                    requestId,
+                    success,
+                    output: finalOutput || (success ? 'Success (No output)' : `Failed with code ${code}`)
+                });
+            };
+
+            if (child) {
+                child.on('close', finish);
+                child.on('error', (err) => {
+                    if (isDone) return;
+                    isDone = true;
+                    clearTimeout(timeoutTimer);
+                    cleanupProcess();
+                    console.error(`[FAST_RUN] Spawn error:`, err);
+                    socket.emit('host_command_result', {
+                        command,
+                        requestId,
+                        success: false,
+                        output: `Process execution error: ${err.message}`
+                    });
+                });
+            } else {
+                throw new Error("Failed to spawn child process");
+            }
+
+        } catch (err) {
+            if (!isDone) {
+                isDone = true;
+                clearTimeout(timeoutTimer);
+                cleanupProcess();
+                socket.emit('host_command_result', {
+                    command,
+                    requestId,
+                    success: false,
+                    output: `Execution exception: ${err.message}`
+                });
+            }
+        }
+    });
+
+    // 1-1. Kill Host Command Handler
+    socket.on('kill_host_command', ({ requestId }) => {
+        if (!requestId) return;
+        console.log(`[FAST_RUN] Kill request received for requestId: ${requestId}`);
+        const child = activeProcessesMap.get(requestId);
+        if (child) {
+            try {
+                if (child.stdout && !child.stdout.destroyed) child.stdout.destroy();
+                if (child.stderr && !child.stderr.destroyed) child.stderr.destroy();
+                if (child.stdin && !child.stdin.destroyed) { child.stdin.end(); child.stdin.destroy(); }
+                child.kill('SIGKILL');
+                console.log(`[FAST_RUN] Process killed for requestId: ${requestId}`);
+            } catch (e) {
+                console.error(`[FAST_RUN] Kill error:`, e);
+            }
+            activeProcessesMap.delete(requestId);
+        } else {
+            console.log(`[FAST_RUN] No active process found for requestId: ${requestId}`);
+        }
     });
 
     // 2. File Persistence (BlockTest Folder)

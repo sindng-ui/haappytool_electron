@@ -150,6 +150,7 @@ let timestampCache: Float64Array | null = null;
 let streamLineCount = 0;
 let filteredIndices: Int32Array | null = null;
 const textEncoder = new TextEncoder();
+const sharedDecoder = new TextDecoder();
 
 // Helper: Send shared buffer info to UI
 const sendSharedBuffers = () => {
@@ -189,25 +190,24 @@ const getVisualBookmarks = (): number[] => BookmarkManager.getVisualBookmarks(fi
 // Imported from ./workerUtils
 
 const getSingleLineContent = async (originalIdx: number): Promise<string> => {
-    const decoder = new TextDecoder();
     try {
         if (isStreamMode) {
             if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) return '';
             const start = lineOffsetsStream[originalIdx];
             const len = lineLengthsStream[originalIdx];
-            return decoder.decode(logBuffer.subarray(start, start + len).slice()).replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+            return sharedDecoder.decode(logBuffer.subarray(start, start + len).slice()).replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
         } else if (isLocalFileMode && localFilePath) {
             const offset = lineOffsets![originalIdx];
             const nextOffset = originalIdx < lineOffsets!.length - 1 ? lineOffsets![originalIdx + 1] : BigInt(localFileSize);
             const uint8View = await rpcCall('readFileSegment', { path: localFilePath, start: Number(offset), end: Number(nextOffset) });
-            return decoder.decode(uint8View).replace(/\r?\n$/, '').replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+            return sharedDecoder.decode(uint8View).replace(/\r?\n$/, '').replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
         } else if (currentFile && lineOffsets) {
             const offset = lineOffsets[originalIdx];
             const nextOffset = originalIdx < lineOffsets.length - 1 ? lineOffsets[originalIdx + 1] : BigInt(currentFile.size);
             const chunkBlob = currentFile.slice(Number(offset), Number(nextOffset));
             const arrayBuf = await chunkBlob.arrayBuffer();
             const uint8View = new Uint8Array(arrayBuf);
-            return decoder.decode(uint8View).replace(/\r?\n$/, '').replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+            return sharedDecoder.decode(uint8View).replace(/\r?\n$/, '').replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
         }
     } catch (e) {
         console.error('[Worker] getSingleLineContent failed', e);
@@ -664,12 +664,6 @@ const applyFilter = async (payload: LogRule & { quickFilter?: 'none' | 'error' |
         const allKeywords = normalizedRule.includeGroups.flat();
         wasmEngine.update_keywords(allKeywords);
     }
-    
-    // 🐧 [Worker-Debug] 형님을 위한 초정밀 엇박자 추적 로그 가동!
-    console.log('[Worker-Debug] rawIncludeGroups in payload:', JSON.stringify(rawIncludeGroups));
-    console.log('[Worker-Debug] normalizedRule.includeGroups:', JSON.stringify(normalizedRule.includeGroups));
-    console.log('[Worker-Debug] normalizedRule.excludes:', JSON.stringify(normalizedRule.excludes));
-    console.log('[Worker-Debug] isStreamMode:', isStreamMode, 'currentQuickFilter:', currentQuickFilter);
 
     // Optimization for empty rule (Both File and Stream modes)
     if (normalizedRule.excludes.length === 0 && normalizedRule.includeGroups.length === 0 && currentQuickFilter === 'none') {
@@ -1039,7 +1033,6 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             respond({ type: 'STATUS_UPDATE', payload: { status: 'ready' } });
             break;
         case 'FILTER_LOGS':
-            console.log(`[PINGU-DEBUG-WORKER] FILTER_LOGS received! payload config id: ${payload.id}`);
             await applyFilter(payload);
             break;
         case 'TOGGLE_BOOKMARK':
@@ -1080,7 +1073,6 @@ ctx.onmessage = async (evt: MessageEvent<LogWorkerMessage>) => {
             if (payload.startLine === undefined && payload.startFilterIndex !== undefined) {
                 payload.startLine = payload.startFilterIndex; // Fallback for transition
             }
-            console.log(`[PINGU-DEBUG-WORKER] GET_LINES received: start=${payload.startLine}, count=${payload.count}, filteredIndices length=${filteredIndices?.length || 0}`);
             if (!filteredIndices) {
                 console.warn(`[LogProcessorWorker-${workerId}] GET_LINES called but filteredIndices is null! (File: ${currentFile?.name || localFilePath}, Mode: ${isLocalFileMode ? 'Local' : (isStreamMode ? 'Stream' : 'File')})`);
             }

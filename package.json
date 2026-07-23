@@ -13,9 +13,9 @@
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"npx cross-env CHOKIDAR_USEPOLLING=true vite\" \"wait-on --no-proxy tcp:127.0.0.1:3000 && electron .\"",
     "cli": "electron . cli",
-    "electron:build": "node scripts/cleanup_build.cjs && vite build && electron-builder",
-    "electron:build:dir": "node scripts/cleanup_build.cjs && vite build && electron-builder --dir --win --x64",
-    "electron:build:fast": "node scripts/cleanup_build.cjs && vite build && electron-builder --win --x64 --config.compression=store",
+    "electron:build": "npx cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ node scripts/cleanup_build.cjs && vite build && electron-builder",
+    "electron:build:dir": "npx cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ node scripts/cleanup_build.cjs && vite build && electron-builder --dir --win --x64",
+    "electron:build:fast": "npx cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ node scripts/cleanup_build.cjs && vite build && electron-builder --win --x64 --config.compression=store",
     "test": "vitest run --no-color",
     "test:all": "vitest run --no-color",
     "test:log-archive": "vitest run --no-color test/log-archive.test.ts",
@@ -93,6 +93,9 @@
     "wait-on": "^9.0.3"
   },
   "build": {
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
+    },
     "appId": "com.sindng.happytool",
     "productName": "HappyTool",
     "compression": "store",

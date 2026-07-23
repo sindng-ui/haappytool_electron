@@ -14,9 +14,7 @@ import { LogArchiveProvider, LogArchive, useLogArchiveContext } from './componen
 import PluginContainer from './components/PluginContainer';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import LoadingSplash from './components/LoadingSplash';
-import * as Lucide from 'lucide-react';
-
-const { Settings, Monitor, Terminal, Database, Code, Activity, Home, FileUp, FileDown } = Lucide;
+import { Settings, Monitor, Terminal, Database, Code, Activity, Home, FileUp, FileDown, Archive } from 'lucide-react';
 
 // Component to register global commands (runs inside CommandProvider)
 const CommandRegistrar: React.FC<{
@@ -46,7 +44,7 @@ const CommandRegistrar: React.FC<{
       id: 'open-log-archive',
       title: 'Open Log Archive',
       section: 'Tools',
-      icon: <Lucide.Archive size={18} />,
+      icon: <Archive size={18} />,
       action: openSidebar,
       shortcut: 'Ctrl+Shift+A'
     });
@@ -363,11 +361,11 @@ const AppContent: React.FC = () => {
       };
 
       try {
-        localStorage.setItem('devtool_suite_settings', JSON.stringify(settings));
+        const settingsJson = JSON.stringify(settings);
+        localStorage.setItem('devtool_suite_settings', settingsJson);
 
         // ✅ CLI와 공유를 위해 파일로도 저장 🐧📁
         if (window.electronAPI?.saveSettingsToFile) {
-          const settingsJson = JSON.stringify(settings);
           window.electronAPI.saveSettingsToFile(settingsJson).catch(err => {
             console.error("Failed to sync settings to file:", err);
           });

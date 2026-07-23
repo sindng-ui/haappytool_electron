@@ -18,6 +18,8 @@ export interface DataReaderContext {
     postMessage: (message: any, transferables?: Transferable[]) => void;
 }
 
+const sharedDecoder = new TextDecoder();
+
 export function binarySearch(arr: Int32Array, val: number): number {
     let low = 0;
     let high = arr.length - 1;
@@ -34,17 +36,13 @@ export function binarySearch(arr: Int32Array, val: number): number {
 export const getLines = async (context: DataReaderContext, startFilterIndex: number, count: number, requestId: string) => {
     const { filteredIndices, isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = context;
 
-    console.log(`[PINGU-DEBUG-READER] getLines invoked! startFilterIndex: ${startFilterIndex}, count: ${count}, filteredIndices length: ${filteredIndices?.length || 0}`);
-
     if (!filteredIndices) {
-        console.log(`[PINGU-DEBUG-READER] getLines aborted: filteredIndices is null!`);
         respond({ type: 'LINES_DATA', payload: { lines: [] }, requestId });
         return;
     }
 
     const resultLines: { lineNum: number, content: string }[] = [];
     const max = Math.min(startFilterIndex + count, filteredIndices.length);
-    const decoder = new TextDecoder();
 
     if (isStreamMode) {
         if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) {
@@ -57,7 +55,7 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
             const len = lineLengthsStream[originalIdx];
             // ✅ Zero-copy (with slice fallback): SharedArrayBuffer cannot be decoded directly by TextDecoder
             // slice() creates a tiny non-shared copy for the decoder.
-            const rawText = decoder.decode(logBuffer.subarray(start, start + len).slice());
+            const rawText = sharedDecoder.decode(logBuffer.subarray(start, start + len).slice());
             // Strip ANSI (LogProcessor.worker.ts already does this for Stream mode, but we keep it for consistency)
             const text = rawText.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
             resultLines.push({ lineNum: originalIdx + 1, content: text });
@@ -147,7 +145,7 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
                         if (realEnd > relStart && uint8View[realEnd - 1] === 10) realEnd--; // \n
                         if (realEnd > relStart && uint8View[realEnd - 1] === 13) realEnd--; // \r
 
-                        const text = decoder.decode(uint8View.subarray(relStart, realEnd)).replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+                        const text = sharedDecoder.decode(uint8View.subarray(relStart, realEnd)).replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
                         results.push({ lineNum: originalIdx + 1, content: text });
                     }
                 } catch (e) {
@@ -171,7 +169,6 @@ export const getLines = async (context: DataReaderContext, startFilterIndex: num
         }
     }
 
-    console.log(`[PINGU-DEBUG-READER] getLines responding with: ${resultLines.length} lines!`);
     respond({ type: 'LINES_DATA', payload: { lines: resultLines }, requestId });
 };
 
@@ -179,7 +176,6 @@ export const getRawLines = async (context: DataReaderContext, startLineNum: numb
     const { isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = context;
     const startIdx = startLineNum;
     const resultLines: { lineNum: number, content: string }[] = [];
-    const decoder = new TextDecoder();
 
     if (isStreamMode) {
         if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) {
@@ -193,7 +189,7 @@ export const getRawLines = async (context: DataReaderContext, startLineNum: numb
             const start = lineOffsetsStream[i];
             const len = lineLengthsStream[i];
             if (len === 0 && start === 0 && i > 0) break; // Break if empty data segment reached (rough safety guard)
-            const text = decoder.decode(logBuffer.subarray(start, start + len).slice());
+            const text = sharedDecoder.decode(logBuffer.subarray(start, start + len).slice());
             resultLines.push({ lineNum: i + 1, content: text });
         }
     } else {
@@ -227,7 +223,7 @@ export const getRawLines = async (context: DataReaderContext, startLineNum: numb
                     const arrayBuf = await chunkBlob.arrayBuffer();
                     uint8View = new Uint8Array(arrayBuf);
                 }
-                const rawText = decoder.decode(uint8View).replace(/\r?\n$/, '');
+                const rawText = sharedDecoder.decode(uint8View).replace(/\r?\n$/, '');
                 const text = rawText.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
                 const lines = text.split('\n');
 
@@ -244,7 +240,6 @@ export const getRawLines = async (context: DataReaderContext, startLineNum: numb
 
 export const getSurroundingLines = async (context: DataReaderContext, absoluteIndex: number, count: number, requestId: string) => {
     const { isStreamMode, logBuffer, lineOffsetsStream, lineLengthsStream, currentFile, lineOffsets, respond } = context;
-    const decoder = new TextDecoder();
     const resultLines: { lineNum: number, content: string }[] = [];
 
     const startIdx = Math.max(0, absoluteIndex - Math.floor(count / 2));
@@ -260,7 +255,7 @@ export const getSurroundingLines = async (context: DataReaderContext, absoluteIn
             const start = lineOffsetsStream[i];
             const len = lineLengthsStream[i];
             if (len === 0 && start === 0 && i > 0) break;
-            const text = decoder.decode(logBuffer.subarray(start, start + len).slice());
+            const text = sharedDecoder.decode(logBuffer.subarray(start, start + len).slice());
             resultLines.push({ lineNum: i + 1, content: text });
         }
     } else {
@@ -293,7 +288,7 @@ export const getSurroundingLines = async (context: DataReaderContext, absoluteIn
                     const arrayBuf = await chunkBlob.arrayBuffer();
                     uint8View = new Uint8Array(arrayBuf);
                 }
-                const text = decoder.decode(uint8View).replace(/\r?\n$/, '');
+                const text = sharedDecoder.decode(uint8View).replace(/\r?\n$/, '');
                 const lines = text.split('\n');
                 for (let i = 0; i < lines.length; i++) {
                     resultLines.push({ lineNum: startIdx + i + 1, content: lines[i] });
@@ -316,7 +311,6 @@ export const getLinesByIndices = async (context: DataReaderContext, indices: num
 
     const resultLines: any[] = [];
     const sortedIndices = [...indices].sort((a, b) => a - b);
-    const decoder = new TextDecoder();
 
     if (isStreamMode) {
         if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) {
@@ -337,7 +331,7 @@ export const getLinesByIndices = async (context: DataReaderContext, indices: num
             if (originalIdx !== -1 && visualIdx !== -1) {
                 const start = lineOffsetsStream[originalIdx];
                 const len = lineLengthsStream[originalIdx];
-                const text = decoder.decode(logBuffer.subarray(start, start + len).slice());
+                const text = sharedDecoder.decode(logBuffer.subarray(start, start + len).slice());
                 resultLines.push({
                     lineNum: originalIdx + 1,
                     content: text,
@@ -384,7 +378,7 @@ export const getLinesByIndices = async (context: DataReaderContext, indices: num
                     let text = '';
                     if (context.isLocalFileMode) {
                         const buffer = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: startByte, end: endByte });
-                        text = decoder.decode(buffer);
+                        text = sharedDecoder.decode(buffer);
                     } else {
                         text = await readSlice(currentFile!.slice(startByte, endByte));
                     }
@@ -414,7 +408,6 @@ export const findHighlight = async (context: DataReaderContext, keyword: string,
 
     const isCaseSensitive = currentRule?.colorHighlightsCaseSensitive || false;
     const effectiveKeyword = isCaseSensitive ? keyword : keyword.toLowerCase();
-    const decoder = new TextDecoder();
 
     if (isStreamMode) {
         if (!logBuffer || !lineOffsetsStream || !lineLengthsStream) return;
@@ -422,7 +415,7 @@ export const findHighlight = async (context: DataReaderContext, keyword: string,
             const originalIdx = filteredIndices[searchIdx];
             const start = lineOffsetsStream[originalIdx];
             const len = lineLengthsStream[originalIdx];
-            const line = decoder.decode(logBuffer.subarray(start, start + len).slice());
+            const line = sharedDecoder.decode(logBuffer.subarray(start, start + len).slice());
             const lineCheck = isCaseSensitive ? line : line.toLowerCase();
             if (lineCheck.includes(effectiveKeyword)) {
                 respond({ type: 'FIND_RESULT', payload: { foundIndex: searchIdx, originalLineNum: originalIdx + 1 }, requestId });
@@ -452,7 +445,7 @@ export const findHighlight = async (context: DataReaderContext, keyword: string,
                 let line = '';
                 if (context.isLocalFileMode) {
                     const buffer = await context.rpcCall!('readFileSegment', { path: context.localFilePath, start: startByte, end: endByte });
-                    line = decoder.decode(buffer);
+                    line = sharedDecoder.decode(buffer);
                 } else {
                     line = await readSlice(currentFile!.slice(startByte, endByte));
                 }
@@ -482,13 +475,12 @@ export const getFullText = async (context: DataReaderContext, requestId: string)
             respond({ type: 'FULL_TEXT_DATA', payload: { text: '' }, requestId } as any);
             return;
         }
-        const decoder = new TextDecoder();
         const lines: string[] = [];
         for (let i = 0; i < filteredIndices.length; i++) {
             const originalIdx = filteredIndices[i];
             const start = lineOffsetsStream[originalIdx];
             const len = lineLengthsStream[originalIdx];
-            lines.push(decoder.decode(logBuffer.subarray(start, start + len).slice()));
+            lines.push(sharedDecoder.decode(logBuffer.subarray(start, start + len).slice()));
         }
         const fullText = lines.join('\n');
         try {
