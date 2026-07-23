@@ -45,6 +45,9 @@
 Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진.
 - **Reliability Update (2026-04-08)**: 
   - 타임아웃 12초 상향, `SIGKILL` 도입으로 좀비 프로세스 방지.
+- **UI Restoration & High-Performance SDB Engine (2026-07-23)**: [NEW][HOT]
+  - **UI Restoration**: 리팩토링으로 인한 UI 깨짐 이슈 해결을 위해 stable 커밋(`9e65ed2f`)으로 베이스 복구 완료. 🐧💎
+  - **SDB Command Helper** ([sdbCommandHelper.ts](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/BlockTest/utils/sdbCommandHelper.ts)): SDB 커맨드 포맷팅 및 장치 ID 자동 맵핑 유틸리티 추가. 🐧🚀⚡
 
 ### [AppHub](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/AppHub.tsx) [NEW]
 앱 라이브러리 및 설정을 호출하는 메인 진입점 컴포넌트입니다.
