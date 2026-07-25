@@ -69,6 +69,31 @@ const DeviceItem: React.FC<{
             <IconComponent size={12} className={isSelected ? 'text-indigo-400' : 'text-slate-400'} />
             <span className="truncate flex-1">{device.label}</span>
 
+            {/* Health State Badge (ONLINE / OFFLINE / UNHEALTHY) */}
+            {status?.healthState && (
+                <span
+                    data-testid={`st-health-${device.deviceId}`}
+                    className={`flex items-center gap-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full border shadow-sm ${
+                        status.healthState === 'ONLINE'
+                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                            : status.healthState === 'OFFLINE'
+                            ? 'bg-red-500/15 text-red-400 border-red-500/30'
+                            : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                    }`}
+                >
+                    <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                            status.healthState === 'ONLINE'
+                                ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)] animate-pulse'
+                                : status.healthState === 'OFFLINE'
+                                ? 'bg-red-500'
+                                : 'bg-amber-400'
+                        }`}
+                    />
+                    {status.healthState}
+                </span>
+            )}
+
             {/* Quick View Status Badges */}
             {status?.loading && (
                 <Lucide.Loader2 size={10} className="animate-spin text-indigo-400" />
@@ -101,7 +126,7 @@ const DeviceItem: React.FC<{
                 </span>
             )}
 
-            {device.deviceTypeName && !status?.switch && status?.temperature === undefined && (
+            {device.deviceTypeName && !status?.healthState && !status?.switch && status?.temperature === undefined && (
                 <span className="text-[9px] text-slate-500 font-mono truncate max-w-[70px]">
                     {device.deviceTypeName}
                 </span>

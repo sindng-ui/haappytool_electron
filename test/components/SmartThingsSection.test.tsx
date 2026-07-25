@@ -161,18 +161,25 @@ describe('SmartThingsSection Component', () => {
         expect(screen.getByText('Network error failure')).toBeInTheDocument();
     });
 
-    it('renders tree view when discoveryData is provided', () => {
-        const mockData: STDiscoveryData = {
-            locations: [{ locationId: 'loc1', name: 'Home Location', raw: {} }],
-            rooms: [{ roomId: 'room1', locationId: 'loc1', name: 'Living Room', raw: {} }],
-            devices: [{ deviceId: 'dev1', locationId: 'loc1', roomId: 'room1', label: 'Smart Lamp', raw: {} }],
-            fetchedAt: Date.now(),
-        };
+    it('calls onLoadMockData when Mock Data button is clicked', () => {
+        const mockFn = vi.fn();
+        render(<SmartThingsSection {...defaultProps} onLoadMockData={mockFn} />);
 
-        render(<SmartThingsSection {...defaultProps} discoveryData={mockData} />);
+        const mockBtn = screen.getByTestId('st-mock-btn');
+        expect(mockBtn).toBeInTheDocument();
+        fireEvent.click(mockBtn);
+        expect(mockFn).toHaveBeenCalledTimes(1);
+    });
 
-        expect(screen.getByText('Home Location')).toBeInTheDocument();
-        expect(screen.getByText('Living Room')).toBeInTheDocument();
-        expect(screen.getByText('Smart Lamp')).toBeInTheDocument();
+    it('renders treeViewSlot when treeViewSlot is provided', () => {
+        render(
+            <SmartThingsSection
+                {...defaultProps}
+                treeViewSlot={<div data-testid="custom-tree-slot">Custom Tree Slot</div>}
+            />
+        );
+
+        expect(screen.getByTestId('custom-tree-slot')).toBeInTheDocument();
+        expect(screen.getByText('Custom Tree Slot')).toBeInTheDocument();
     });
 });

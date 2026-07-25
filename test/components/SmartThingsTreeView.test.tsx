@@ -88,4 +88,22 @@ describe('SmartThingsTreeView Component', () => {
         fireEvent.click(screen.getByTestId('st-tree-device-dev-1'));
         expect(mockOnSelectNode).toHaveBeenCalledWith(mockData.devices[0].raw, 'device', 'dev-1');
     });
+
+    it('renders ONLINE and OFFLINE healthState badges for devices', () => {
+        const deviceStatusMap = {
+            'dev-1': { healthState: 'ONLINE' as const },
+            'dev-2': { healthState: 'OFFLINE' as const },
+        };
+
+        render(
+            <SmartThingsTreeView
+                data={mockData}
+                onSelectNode={mockOnSelectNode}
+                deviceStatusMap={deviceStatusMap}
+            />
+        );
+
+        expect(screen.getByTestId('st-health-dev-1')).toHaveTextContent('ONLINE');
+        expect(screen.getByTestId('st-health-dev-2')).toHaveTextContent('OFFLINE');
+    });
 });

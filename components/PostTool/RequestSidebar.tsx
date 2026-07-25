@@ -14,6 +14,7 @@ export interface RequestSidebarSTProps {
     onLoadSpecialRequest: (req: STSpecialRequest) => void;
     isDiscovering: boolean;
     onDiscover: () => void;
+    onLoadMockData?: () => void;
     discoveryData: STDiscoveryData | null;
     discoveryError: string | null;
     onSelectNode: (raw: any | null, type?: STNodeType, id?: string) => void;
@@ -345,7 +346,7 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                 onMouseDown={onResizeStart}
             />
 
-            {/* ⚡ SmartThings Section */}
+            {/* ⚡ SmartThings Section (Compact Cards & Discover / Mock Buttons) */}
             {stProps && (
                 <SmartThingsSection
                     specialRequests={stProps.specialRequests}
@@ -353,12 +354,12 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                     onLoadRequest={stProps.onLoadSpecialRequest}
                     isDiscovering={stProps.isDiscovering}
                     onDiscover={stProps.onDiscover}
+                    onLoadMockData={stProps.onLoadMockData}
                     discoveryData={stProps.discoveryData}
                     discoveryError={stProps.discoveryError}
                     onSelectNode={stProps.onSelectNode}
                     selectedNodeRaw={stProps.selectedNodeRaw}
-                    deviceStatusMap={stProps.deviceStatusMap}
-                    onFetchDeviceStatus={stProps.onFetchDeviceStatus}
+                    treeViewSlot={<></>} // Tree view renders in right drawer
                 />
             )}
 

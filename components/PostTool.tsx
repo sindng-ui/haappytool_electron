@@ -13,8 +13,10 @@ import { PostGlobalAuth, STSpecialRequest } from '../types';
 import { ConfirmDialog } from './ui/CommonDialogs';
 import { resolveSTSpecialRequests } from '../utils/stDefaults';
 import { useSmartThingsDiscover } from './PostTool/useSmartThingsDiscover';
+import CapabilityInspector from './PostTool/CapabilityInspector';
+import SmartThingsExplorerDrawer from './PostTool/SmartThingsExplorerDrawer';
 
-const { Shield, ShieldCheck, Terminal } = Lucide;
+const { Shield, ShieldCheck, Terminal, Zap } = Lucide;
 
 
 const generateUUID = () => {
@@ -49,7 +51,8 @@ const PostTool: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [responseCache, setResponseCache] = useState<Map<string, PerfResponse>>(new Map());
 
-    // ⚡ SmartThings State & Discover Hook
+    // ⚡ SmartThings State & Drawer Toggle
+    const [isSTDrawerOpen, setIsSTDrawerOpen] = useState(false);
     const [specialRequests, setSpecialRequests] = useState<STSpecialRequest[]>(() => resolveSTSpecialRequests(undefined));
 
     const {
@@ -61,6 +64,7 @@ const PostTool: React.FC = () => {
         selectNode,
         deviceStatusMap,
         fetchDeviceStatus,
+        loadMockData,
     } = useSmartThingsDiscover({
         globalVariables,
         envProfiles,
@@ -407,6 +411,28 @@ const PostTool: React.FC = () => {
                         <Terminal size={16} />
                         <span className="text-xs font-bold hidden lg:inline">Code</span>
                     </button>
+
+                    <div className="w-px h-8 bg-white/5 mx-1" />
+
+                    {/* ⚡ SmartThings Explorer Toggle Button */}
+                    <button
+                        data-testid="st-drawer-toggle"
+                        onClick={() => setIsSTDrawerOpen((v) => !v)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all border font-bold text-xs ${
+                            isSTDrawerOpen
+                                ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30 ring-1 ring-indigo-500/30'
+                                : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/20'
+                        }`}
+                        title="Toggle SmartThings Explorer Dock"
+                    >
+                        <Zap size={14} className={isSTDrawerOpen ? 'text-indigo-400' : 'text-amber-400'} />
+                        <span>SmartThings</span>
+                        {discoveryData && (
+                            <span className="text-[9px] px-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                {discoveryData.devices.length}
+                            </span>
+                        )}
+                    </button>
                 </div>
             </div>
 
@@ -455,7 +481,14 @@ const PostTool: React.FC = () => {
                                 });
                             },
                             isDiscovering,
-                            onDiscover: () => discover(specialRequests),
+                            onDiscover: () => {
+                                setIsSTDrawerOpen(true);
+                                discover(specialRequests);
+                            },
+                            onLoadMockData: () => {
+                                setIsSTDrawerOpen(true);
+                                loadMockData();
+                            },
                             discoveryData,
                             discoveryError,
                             onSelectNode: (raw) => {
@@ -510,6 +543,38 @@ const PostTool: React.FC = () => {
                             <ResponseViewer response={response} />
                         </div>
                     </div>
+
+                    {/* ⚡ SmartThings Explorer Sliding Drawer (Right Dock) */}
+                    <SmartThingsExplorerDrawer
+                        isOpen={isSTDrawerOpen}
+                        onClose={() => setIsSTDrawerOpen(false)}
+                        specialRequests={specialRequests}
+                        onUpdateSpecialRequests={setSpecialRequests}
+                        onLoadRequest={(req) => {
+                            selectNode(null);
+                            setActiveRequestId(null);
+                            setCurrentRequest({
+                                id: generateUUID(),
+                                name: req.label,
+                                method: req.method,
+                                url: req.url,
+                                headers: [{ key: '', value: '' }],
+                                body: '',
+                            });
+                        }}
+                        isDiscovering={isDiscovering}
+                        onDiscover={() => discover(specialRequests)}
+                        onLoadMockData={loadMockData}
+                        discoveryData={discoveryData}
+                        discoveryError={discoveryError}
+                        onSelectNode={(raw) => selectNode(raw)}
+                        selectedNodeRaw={selectedNodeRaw}
+                        deviceStatusMap={deviceStatusMap}
+                        onFetchDeviceStatus={fetchDeviceStatus}
+                        globalVariables={globalVariables}
+                        envProfiles={envProfiles}
+                        globalAuth={globalAuth}
+                    />
                 </div>
 
                 {/* Global Auth Modal */}

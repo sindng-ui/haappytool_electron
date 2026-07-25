@@ -22,6 +22,7 @@ export interface UseSmartThingsDiscoverParams {
 }
 
 export interface STDeviceStatusSummary {
+    healthState?: 'ONLINE' | 'OFFLINE' | 'UNHEALTHY';
     switch?: 'on' | 'off';
     temperature?: number;
     unit?: string;
@@ -41,6 +42,7 @@ export interface UseSmartThingsDiscoverReturn {
     selectNode: (raw: any | null) => void;
     deviceStatusMap: Record<string, STDeviceStatusSummary>;
     fetchDeviceStatus: (deviceId: string) => Promise<void>;
+    loadMockData: () => void;
 }
 
 // ─── Internal Helpers ────────────────────────────────────────────────────────
@@ -159,8 +161,18 @@ function normalizeDevices(items: any[]): STDevice[] {
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
-export function parseDeviceStatus(statusRaw: any): STDeviceStatusSummary {
+export function parseDeviceStatus(statusRaw: any, healthRaw?: any): STDeviceStatusSummary {
     const summary: STDeviceStatusSummary = { rawStatus: statusRaw };
+
+    // 1. Health state parsing (ONLINE, OFFLINE, UNHEALTHY)
+    const rawState = healthRaw?.state || healthRaw?.healthStatus || statusRaw?.healthState || statusRaw?.state;
+    if (rawState) {
+        const upper = String(rawState).toUpperCase();
+        if (upper === 'ONLINE' || upper === 'OFFLINE' || upper === 'UNHEALTHY') {
+            summary.healthState = upper as any;
+        }
+    }
+
     if (!statusRaw?.components?.main) return summary;
 
     const main = statusRaw.components.main;
@@ -201,6 +213,7 @@ export function useSmartThingsDiscover({
             const replaceVars = makeReplaceVariables(globalVariables, envProfiles);
             const baseUrl = replaceVars('{{baseUrl}}');
             const statusUrl = `${baseUrl}/v1/devices/${deviceId}/status`;
+            const healthUrl = `${baseUrl}/v1/devices/${deviceId}/health`;
 
             setDeviceStatusMap((prev) => ({
                 ...prev,
@@ -315,6 +328,102 @@ export function useSmartThingsDiscover({
         setSelectedNodeRaw(raw);
     }, []);
 
+    const loadMockData = useCallback(() => {
+        const mockLocations: STLocation[] = [
+            {
+                locationId: 'mock-loc-1',
+                name: '🏠 Smart Home Hub',
+                raw: { locationId: 'mock-loc-1', name: 'Smart Home Hub', countryCode: 'KR' },
+            },
+            {
+                locationId: 'mock-loc-2',
+                name: '🏢 Innovation Office',
+                raw: { locationId: 'mock-loc-2', name: 'Innovation Office', countryCode: 'KR' },
+            },
+        ];
+
+        const mockRooms: STRoom[] = [
+            {
+                roomId: 'mock-room-1',
+                locationId: 'mock-loc-1',
+                name: 'Living Room',
+                raw: { roomId: 'mock-room-1', locationId: 'mock-loc-1', name: 'Living Room' },
+            },
+            {
+                roomId: 'mock-room-2',
+                locationId: 'mock-loc-1',
+                name: 'Master Bedroom',
+                raw: { roomId: 'mock-room-2', locationId: 'mock-loc-1', name: 'Master Bedroom' },
+            },
+            {
+                roomId: 'mock-room-3',
+                locationId: 'mock-loc-2',
+                name: 'Meeting Room A',
+                raw: { roomId: 'mock-room-3', locationId: 'mock-loc-2', name: 'Meeting Room A' },
+            },
+        ];
+
+        const mockDevices: STDevice[] = [
+            {
+                deviceId: 'mock-dev-1',
+                locationId: 'mock-loc-1',
+                roomId: 'mock-room-1',
+                label: 'Living Main Light',
+                deviceTypeName: 'c2c-color-bulb',
+                raw: { deviceId: 'mock-dev-1', label: 'Living Main Light', type: 'c2c-color-bulb' },
+            },
+            {
+                deviceId: 'mock-dev-2',
+                locationId: 'mock-loc-1',
+                roomId: 'mock-room-1',
+                label: 'Smart Air Conditioner',
+                deviceTypeName: 'samsung-air-conditioner',
+                raw: { deviceId: 'mock-dev-2', label: 'Smart Air Conditioner', type: 'samsung-air-conditioner' },
+            },
+            {
+                deviceId: 'mock-dev-3',
+                locationId: 'mock-loc-1',
+                roomId: 'mock-room-2',
+                label: 'Front Smart Doorlock',
+                deviceTypeName: 'smart-lock',
+                raw: { deviceId: 'mock-dev-3', label: 'Front Smart Doorlock', type: 'smart-lock' },
+            },
+            {
+                deviceId: 'mock-dev-4',
+                locationId: 'mock-loc-2',
+                roomId: 'mock-room-3',
+                label: 'Motion Sensor',
+                deviceTypeName: 'motion-sensor',
+                raw: { deviceId: 'mock-dev-4', label: 'Motion Sensor', type: 'motion-sensor' },
+            },
+            {
+                deviceId: 'mock-dev-5',
+                locationId: 'mock-loc-1',
+                // Unassigned
+                label: 'Robot Vacuum Cleaner',
+                deviceTypeName: 'robot-cleaner',
+                raw: { deviceId: 'mock-dev-5', label: 'Robot Vacuum Cleaner', type: 'robot-cleaner' },
+            },
+        ];
+
+        setDiscoveryData({
+            locations: mockLocations,
+            rooms: mockRooms,
+            devices: mockDevices,
+            fetchedAt: Date.now(),
+        });
+        setDiscoveryError(null);
+
+        // Populate Mock Statuses with Health States (ONLINE / OFFLINE)
+        setDeviceStatusMap({
+            'mock-dev-1': { healthState: 'ONLINE', switch: 'on', level: 80 },
+            'mock-dev-2': { healthState: 'ONLINE', temperature: 22, unit: '°C' },
+            'mock-dev-3': { healthState: 'OFFLINE', switch: 'off' },
+            'mock-dev-4': { healthState: 'ONLINE', motion: 'active' },
+            'mock-dev-5': { healthState: 'OFFLINE', switch: 'off' },
+        });
+    }, []);
+
     return {
         isDiscovering,
         discoveryData,
@@ -325,5 +434,6 @@ export function useSmartThingsDiscover({
         selectNode,
         deviceStatusMap,
         fetchDeviceStatus,
+        loadMockData,
     };
 }

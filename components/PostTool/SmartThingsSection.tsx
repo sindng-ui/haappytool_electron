@@ -12,6 +12,7 @@ export interface SmartThingsSectionProps {
     onLoadRequest: (req: STSpecialRequest) => void;
     isDiscovering: boolean;
     onDiscover: () => void;
+    onLoadMockData?: () => void;
     discoveryData: STDiscoveryData | null;
     discoveryError: string | null;
     onSelectNode: (raw: any | null) => void;
@@ -63,6 +64,7 @@ const SmartThingsSection: React.FC<SmartThingsSectionProps> = ({
     onLoadRequest,
     isDiscovering,
     onDiscover,
+    onLoadMockData,
     discoveryData,
     discoveryError,
     onSelectNode,
@@ -163,27 +165,17 @@ const SmartThingsSection: React.FC<SmartThingsSectionProps> = ({
                         )}
                     </button>
 
-                    {/* ── Search Input Filter (when discovery data exists) ── */}
-                    {discoveryData && (
-                        <div className="relative mt-1.5">
-                            <input
-                                data-testid="st-search-input"
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Filter devices or types..."
-                                className="w-full text-xs bg-slate-950 border border-slate-700/60 rounded-lg pl-7 pr-7 py-1 text-slate-200 focus:outline-none focus:border-indigo-500/50"
-                            />
-                            <Lucide.Search size={12} className="absolute left-2.5 top-2 text-slate-500" />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => setSearchQuery('')}
-                                    className="absolute right-2 top-2 text-slate-500 hover:text-slate-300"
-                                >
-                                    <Lucide.X size={12} />
-                                </button>
-                            )}
-                        </div>
+                    {/* 🧪 Mock Test Button */}
+                    {onLoadMockData && (
+                        <button
+                            data-testid="st-mock-btn"
+                            onClick={onLoadMockData}
+                            className="w-full flex items-center justify-center gap-1.5 py-1 px-3 rounded-lg text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-all"
+                            title="Load mock data for UI testing"
+                        >
+                            <Lucide.FlaskConical size={12} />
+                            🧪 Load Mock Data (UI Test)
+                        </button>
                     )}
 
                     {/* ── Error Message ── */}
@@ -198,18 +190,7 @@ const SmartThingsSection: React.FC<SmartThingsSectionProps> = ({
                     )}
 
                     {/* ── Tree View Slot ── */}
-                    {treeViewSlot ?? (
-                        discoveryData && (
-                            <SmartThingsTreeView
-                                data={discoveryData}
-                                onSelectNode={(raw, type, id) => onSelectNode(raw)}
-                                selectedNodeId={selectedNodeRaw?.deviceId || selectedNodeRaw?.roomId || selectedNodeRaw?.locationId}
-                                deviceStatusMap={deviceStatusMap}
-                                onFetchDeviceStatus={onFetchDeviceStatus}
-                                searchQuery={searchQuery}
-                            />
-                        )
-                    )}
+                    {treeViewSlot}
                 </div>
             )}
         </div>

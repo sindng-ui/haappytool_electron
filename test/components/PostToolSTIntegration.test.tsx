@@ -44,14 +44,17 @@ describe('PostTool SmartThings Integration (Step 5)', () => {
         };
     });
 
-    it('renders SmartThings section in PostTool sidebar', () => {
+    it('renders SmartThings section in PostTool drawer', () => {
         render(
             <HappyToolProvider value={mockContextValue}>
                 <PostTool />
             </HappyToolProvider>
         );
 
-        expect(screen.getByTestId('st-section')).toBeInTheDocument();
+        // Open Drawer
+        fireEvent.click(screen.getByTestId('st-drawer-toggle'));
+
+        expect(screen.getByTestId('st-explorer-drawer')).toBeInTheDocument();
         expect(screen.getByText('Locations')).toBeInTheDocument();
         expect(screen.getByText('Rooms')).toBeInTheDocument();
         expect(screen.getByText('Devices')).toBeInTheDocument();
@@ -65,6 +68,7 @@ describe('PostTool SmartThings Integration (Step 5)', () => {
             </HappyToolProvider>
         );
 
+        fireEvent.click(screen.getByTestId('st-drawer-toggle'));
         fireEvent.click(screen.getByTestId('st-card-locations'));
 
         // URL input should now have {{baseUrl}}/v1/locations
@@ -114,7 +118,8 @@ describe('PostTool SmartThings Integration (Step 5)', () => {
             </HappyToolProvider>
         );
 
-        // Click Discover All
+        // Open Drawer and Click Discover All
+        fireEvent.click(screen.getByTestId('st-drawer-toggle'));
         fireEvent.click(screen.getByTestId('st-discover-btn'));
 
         // Wait for Tree View to render

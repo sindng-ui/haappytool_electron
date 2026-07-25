@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import SmartThingsSection from '../../components/PostTool/SmartThingsSection';
 import SmartThingsTreeView from '../../components/PostTool/SmartThingsTreeView';
+import SmartThingsExplorerDrawer from '../../components/PostTool/SmartThingsExplorerDrawer';
 import { STDiscoveryData } from '../../types';
 import { DEFAULT_ST_SPECIAL_REQUESTS } from '../../utils/stDefaults';
 
@@ -61,9 +62,11 @@ describe('Device Search & Filter (Step 8)', () => {
         expect(screen.getByText('No devices match "nonexistent"')).toBeInTheDocument();
     });
 
-    it('renders search input in SmartThingsSection and filters tree live', () => {
+    it('renders search input in SmartThingsExplorerDrawer and filters tree live', () => {
         render(
-            <SmartThingsSection
+            <SmartThingsExplorerDrawer
+                isOpen={true}
+                onClose={vi.fn()}
                 specialRequests={DEFAULT_ST_SPECIAL_REQUESTS}
                 onUpdateSpecialRequests={vi.fn()}
                 onLoadRequest={vi.fn()}
@@ -73,6 +76,8 @@ describe('Device Search & Filter (Step 8)', () => {
                 discoveryError={null}
                 onSelectNode={mockOnSelectNode}
                 selectedNodeRaw={null}
+                globalVariables={[]}
+                envProfiles={[]}
             />
         );
 
