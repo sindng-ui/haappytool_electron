@@ -875,6 +875,12 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
         URL.revokeObjectURL(url);
     }, []);
 
+    const openLogFolder = useCallback(() => {
+        if (socketRef.current) {
+            socketRef.current.emit('open_block_test_dir');
+        }
+    }, []);
+
     return {
         blocks,
         pipelines,
@@ -895,6 +901,7 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
         stopPipeline,
         closePipelineRunner,
         downloadLogs,
+        openLogFolder,
         uploadTemplate: (name: string, data: string) => {
             return new Promise<{ success: boolean, path: string, url?: string }>((resolve) => {
                 if (!socketRef.current) return resolve({ success: false, path: '' });

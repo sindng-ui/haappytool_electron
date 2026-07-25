@@ -28,6 +28,8 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
         executePipeline,
         stopPipeline,
         closePipelineRunner,
+        downloadLogs,
+        openLogFolder,
         isRunning,
         executionLogs,
         activePipelineItemId, // This is for highlighting
@@ -253,6 +255,13 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
                                             title="Delete Current Pipeline"
                                         >
                                             <Lucide.Trash2 size={16} />
+                                        </button>
+                                        <button
+                                            onClick={openLogFolder}
+                                            className={`p-1.5 rounded transition-colors ${THEME.subHeader.deleteBtn} text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/30`}
+                                            title="Open Log Storage Folder"
+                                        >
+                                            <Lucide.FolderOpen size={16} />
                                         </button>
                                     </>
                                 )}
