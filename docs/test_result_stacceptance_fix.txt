@@ -1,0 +1,17 @@
+===================================================================
+PostTool SmartThings ACC (stacceptance.com) Request Fix Test Result
+===================================================================
+Date: 2026-07-25
+Status: PASSED
+
+[Test Summary]
+1. Main Process proxyRequest Sanitize & Manual Redirect Test:
+   - Conflict Host Header ('Host: client.smartthings.com') with ACC Target URL ('https://client.stacceptance.com/locations')
+   - Result: Host header automatically sanitized, HTTP Request completed without SNI/Routing mismatch exceptions.
+   - Status 401 Unauthorized / Response Body successfully returned and unwrapped.
+
+2. Redirection Auth Preservation Test:
+   - Verified manual redirect tracking retains Authorization Bearer token header on 301/302/307 redirects.
+
+3. PostTool UI Exception Unwrapping:
+   - Verified res.error is no longer masking HTTP statuses, ensuring UI ResponseViewer displays real HTTP status codes (200, 401, 403, etc.) and response bodies cleanly.

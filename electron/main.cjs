@@ -371,20 +371,65 @@ app.whenReady().then(async () => {
 
     ipcMain.handle('proxyRequest', async (event, { method, url, headers, body }) => {
         try {
-            const fetchOptions = {
-                method, headers,
-                body: ['GET', 'HEAD'].includes(method) ? undefined : body
-            };
-            const response = await fetch(url, fetchOptions);
+            const reqHeaders = { ...(headers || {}) };
+            
+            // 🐧 1. Host Header Sanitize: target URL의 host와 불일치하는 Host 헤더 제거/정제
+            try {
+                const targetUrlObj = new URL(url);
+                Object.keys(reqHeaders).forEach(k => {
+                    if (k.toLowerCase() === 'host') {
+                        delete reqHeaders[k];
+                    }
+                });
+            } catch (e) {
+                // Invalid URL -> pass as is
+            }
+
+            // 🐧 2. Manual Redirect Handling to preserve Authorization Header on redirects
+            let currentUrl = url;
+            let response;
+            let redirectCount = 0;
+            const maxRedirects = 5;
+
+            while (redirectCount < maxRedirects) {
+                const fetchOptions = {
+                    method,
+                    headers: reqHeaders,
+                    body: ['GET', 'HEAD'].includes(method) ? undefined : body,
+                    redirect: 'manual'
+                };
+
+                response = await fetch(currentUrl, fetchOptions);
+
+                // Handle Redirects (301, 302, 303, 307, 308)
+                if ([301, 302, 303, 307, 308].includes(response.status)) {
+                    const location = response.headers.get('location');
+                    if (!location) break;
+                    currentUrl = new URL(location, currentUrl).toString();
+                    redirectCount++;
+                    if ((response.status === 303 || response.status === 302) && method !== 'GET' && method !== 'HEAD') {
+                        method = 'GET';
+                        body = undefined;
+                    }
+                } else {
+                    break;
+                }
+            }
+
             const responseHeaders = {};
             for (const [key, value] of response.headers.entries()) { responseHeaders[key] = value; }
             let data;
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
                 try { data = await response.json(); } catch { data = await response.text(); }
-            } else { data = await response.text(); }
+            } else {
+                data = await response.text();
+            }
             return { status: response.status, statusText: response.statusText, headers: responseHeaders, data: data };
-        } catch (error) { console.error('Proxy Request failed:', error); return { error: true, message: error.message }; }
+        } catch (error) {
+            console.error('Proxy Request failed:', error);
+            return { error: true, message: error.message };
+        }
     });
 
     // ✅ 스트리밍 프록시 요청 핸들러 (실시간 데이터 청크 전송용) 🐧🚀
