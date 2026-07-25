@@ -1,9 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as Lucide from 'lucide-react';
-import { SavedRequest, RequestGroup, RequestHistoryItem } from '../../types';
+import { SavedRequest, RequestGroup, RequestHistoryItem, STSpecialRequest, STDiscoveryData, STNodeType } from '../../types';
 import { ConfirmDialog } from '../ui/CommonDialogs';
+import SmartThingsSection from './SmartThingsSection';
 
 const { List, Plus, Trash2, Folder, FolderOpen, ChevronRight, ChevronDown, FolderPlus, Copy, MoreVertical, History } = Lucide;
+
+import { STDeviceStatusSummary } from './useSmartThingsDiscover';
+
+export interface RequestSidebarSTProps {
+    specialRequests: STSpecialRequest[];
+    onUpdateSpecialRequests: (reqs: STSpecialRequest[]) => void;
+    onLoadSpecialRequest: (req: STSpecialRequest) => void;
+    isDiscovering: boolean;
+    onDiscover: () => void;
+    onLoadMockData?: () => void;
+    discoveryData: STDiscoveryData | null;
+    discoveryError: string | null;
+    onSelectNode: (raw: any | null, type?: STNodeType, id?: string) => void;
+    selectedNodeRaw: any | null;
+    deviceStatusMap?: Record<string, STDeviceStatusSummary>;
+    onFetchDeviceStatus?: (deviceId: string) => void;
+}
 
 interface RequestSidebarProps {
     width: number;
@@ -22,6 +40,7 @@ interface RequestSidebarProps {
     onOpenSettings?: () => void;
     requestHistory?: RequestHistoryItem[];
     onSelectHistory?: (item: RequestHistoryItem) => void;
+    stProps?: RequestSidebarSTProps;
 }
 
 const RequestSidebar: React.FC<RequestSidebarProps> = ({
@@ -29,7 +48,8 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
     savedRequests, activeRequestId, currentRequest,
     onSelectRequest, onNewRequest, onDeleteRequest, onDuplicateRequest, onChangeCurrentRequest, onUpdateRequests,
     savedRequestGroups = [], onUpdateGroups, onOpenSettings,
-    requestHistory = [], onSelectHistory
+    requestHistory = [], onSelectHistory,
+    stProps
 }) => {
     const [sidebarTab, setSidebarTab] = useState<'COLLECTIONS' | 'HISTORY'>('COLLECTIONS');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -325,6 +345,23 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                 className="absolute right-0 top-0 bottom-0 w-1 hover:w-1.5 bg-transparent hover:bg-indigo-500/50 cursor-col-resize z-50 transition-all"
                 onMouseDown={onResizeStart}
             />
+
+            {/* ⚡ SmartThings Section (Compact Cards & Discover / Mock Buttons) */}
+            {stProps && (
+                <SmartThingsSection
+                    specialRequests={stProps.specialRequests}
+                    onUpdateSpecialRequests={stProps.onUpdateSpecialRequests}
+                    onLoadRequest={stProps.onLoadSpecialRequest}
+                    isDiscovering={stProps.isDiscovering}
+                    onDiscover={stProps.onDiscover}
+                    onLoadMockData={stProps.onLoadMockData}
+                    discoveryData={stProps.discoveryData}
+                    discoveryError={stProps.discoveryError}
+                    onSelectNode={stProps.onSelectNode}
+                    selectedNodeRaw={stProps.selectedNodeRaw}
+                    treeViewSlot={<></>} // Tree view renders in right drawer
+                />
+            )}
 
             {/* Header Tabs */}
             <div className="flex flex-col bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-white/5 shrink-0">
