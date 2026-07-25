@@ -1320,6 +1320,23 @@ const handleSocketConnection = (socket, deps = {}) => {
         }
     });
 
+    socket.on('open_block_test_dir', () => {
+        try {
+            if (!fs.existsSync(BLOCK_TEST_DIR)) {
+                fs.mkdirSync(BLOCK_TEST_DIR, { recursive: true });
+            }
+            const { shell } = require('electron');
+            if (shell) {
+                shell.openPath(BLOCK_TEST_DIR);
+            } else {
+                const cmd = process.platform === 'win32' ? `explorer "${BLOCK_TEST_DIR}"` : `open "${BLOCK_TEST_DIR}"`;
+                exec(cmd);
+            }
+        } catch (e) {
+            console.error('Failed to open block test directory:', e);
+        }
+    });
+
     socket.on('save_uploaded_template', ({ name, data }) => {
         console.log(`[Server] Received save_uploaded_template: ${name}, Data Length: ${data ? data.length : 0}`);
         try {
