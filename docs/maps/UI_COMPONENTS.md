@@ -60,13 +60,19 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진.
 
 ### [PostTool](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/PostTool.tsx) [NEW][HOT]
 HTTP API 요청 및 테스트 도구 컴포넌트입니다.
+- **SmartThings Advanced Discovery & Hierarchy Visualization (2026-07-25)**: [NEW][HOT]
+  - **Special Requests 3종**: Locations, Rooms, Devices 요청을 상단에 ⚡ 뱃지와 함께 전치 배치하고, URL 인라인 편집 및 개별 로드 기능 제공. 🐧⚡
+  - **Discover All 1-Click Engine**: `useSmartThingsDiscover` 훅을 통해 Locations + Devices 및 각 Location별 Rooms를 병렬 수신하여 Location → Room → Device 3계층 트리 시각화 (`SmartThingsTreeView.tsx`). 🐧🌳
+  - **5분 스마트 캐싱 & LRU**: 동일 환경 중복 요청 방지 및 캐시 무효화 제어. 🐧⚡
+  - **Device Status Quick View**: 기기 노드 클릭 시 상태 API (`/v1/devices/{deviceId}/status`)를 자동 조회하여 `[ON]`, `[OFF]`, `[23°C]`, `[active]` 등의 미니 뱃지 인라인 표시 (`parseDeviceStatus`). 🐧💎
+  - **Capability Inspector**: 선택된 기기에 대해 `turnOn`, `turnOff`, `lock`, `unlock` 등 원클릭 커맨드 실행 및 커스텀 커맨드 전송 패널 지원 (`CapabilityInspector.tsx`). 🐧🎮
+  - **Live Device Search & Filter**: 기기 라벨 및 디바이스 타입 기반 실시간 키워드 검색 및 부모 노드 자동 펼침 (`forceExpand`). 🐧🔎
 - **SmartThings ACC & Proxy Reliability Update (2026-07-25)**: [NEW][HOT]
   - **Host Header Automatic Sanitization**: 요청 URL과 상이한 잔여 `Host` 헤더 자동 제거/정제하여 SmartThings ACC (`client.stacceptance.com`) 및 Prod (`client.smartthings.com`) 간 통신 무결성 확보. 🐧🛡️⚡
   - **Manual Redirection & Auth Header Retention**: HTTP 3xx 리다이렉트 발생 시 수동 리다이렉트 추적을 수행하여 `Authorization` Bearer 토큰 유실을 방지. 🐧🚀
   - **Transparent HTTP Error Response Unwrapping**: Electron `proxyRequest` 응답 시 HTTP 3xx/4xx/5xx 에러 및 응답 바디를 숨김없이 UI Response Viewer에 투명하게 바인딩. 🐧💎
 - **Zero-Regression Minimal Refactoring (2026-07-25)**: [NEW]
-  - 기존 동작 및 상태 무결성을 100% 보존하면서 **`PostTool.tsx` 라인 수를 760줄 → 492줄로 단축**하여 500줄 규칙을 완벽 준수.
-  - 서브 컴포넌트 및 훅 분리: `CodeSnippetModal.tsx` (코드 스니펫 생성 모달), `EnvironmentDropdown.tsx` (환경 전환 드롭다운), `usePostToolResize.ts` (패널 리사이징 훅). 🐧✨
+  - 기존 동작 및 상태 무결성을 100% 보존하면서 서브 컴포넌트 및 훅으로 철저히 역할 분리 (`SpecialRequestCard`, `SmartThingsSection`, `SmartThingsTreeView`, `CapabilityInspector`, `useSmartThingsDiscover`). 🐧✨
 
 <br>
 

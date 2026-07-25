@@ -129,6 +129,60 @@ export interface RequestHistoryItem extends SavedRequest {
   executedAt: number;
 }
 
+// --- SmartThings Types ---
+
+/** Special Request 타입: Locations / Rooms / Devices 전용 편집 가능 요청 */
+export type STSpecialRequestId = 'locations' | 'rooms' | 'devices';
+
+export interface STSpecialRequest {
+  id: STSpecialRequestId;
+  label: string;
+  icon: string;        // lucide icon name (e.g. 'MapPin', 'Home', 'Cpu')
+  method: HttpMethod;
+  url: string;         // 유저 편집 가능 (환경 변수 치환 적용)
+  description: string;
+}
+
+/** Discover API 정규화 타입 */
+export interface STLocation {
+  locationId: string;
+  name: string;
+  raw: any; // 원본 API 응답 전체 보존
+}
+
+export interface STRoom {
+  roomId: string;
+  locationId: string;
+  name: string;
+  raw: any;
+}
+
+export interface STDevice {
+  deviceId: string;
+  locationId: string;
+  roomId?: string;     // optional: 방에 배정되지 않은 기기 존재 가능
+  label: string;
+  deviceTypeName?: string;
+  components?: any[];
+  raw: any;
+}
+
+export interface STDiscoveryData {
+  locations: STLocation[];
+  rooms: STRoom[];     // locationId 기준 연결
+  devices: STDevice[]; // locationId + roomId 기준 연결
+  fetchedAt: number;   // 캐시 유효성 확인용 unix timestamp (ms)
+}
+
+/** Discover에서 선택된 트리 노드 */
+export type STNodeType = 'location' | 'room' | 'device';
+
+export interface STSelectedNode {
+  type: STNodeType;
+  id: string;
+  raw: any;
+}
+
 export interface AppSettings {
   logRules: LogRule[];
   savedRequests: SavedRequest[];
@@ -150,6 +204,7 @@ export interface AppSettings {
   netTrafficSettings?: NetTrafficSettings; // ✅ NEW: NetTraffic Analyer Settings for CLI sync
   pluginSizes?: Record<string, 'normal' | 'wide' | 'large'>; // ✅ NEW: App Hub Card Sizes
   zoomFactor?: number; // ✅ NEW: Global UI zoom factor
+  stSpecialRequests?: STSpecialRequest[]; // ✅ NEW: SmartThings Special Requests (유저 커스터마이즈)
 }
 
 export interface RequestGroup {

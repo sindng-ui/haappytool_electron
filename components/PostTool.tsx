@@ -9,8 +9,10 @@ import GlobalAuthModal from './PostTool/GlobalAuthModal';
 import EnvironmentDropdown from './PostTool/EnvironmentDropdown';
 import CodeSnippetModal from './PostTool/CodeSnippetModal';
 import usePostToolResize from './PostTool/usePostToolResize';
-import { PostGlobalAuth } from '../types';
+import { PostGlobalAuth, STSpecialRequest } from '../types';
 import { ConfirmDialog } from './ui/CommonDialogs';
+import { resolveSTSpecialRequests } from '../utils/stDefaults';
+import { useSmartThingsDiscover } from './PostTool/useSmartThingsDiscover';
 
 const { Shield, ShieldCheck, Terminal } = Lucide;
 
@@ -24,9 +26,6 @@ const generateUUID = () => {
 };
 
 import { useHappyTool } from '../contexts/HappyToolContext';
-// ... imports
-
-// ... generateUUID
 
 const PostTool: React.FC = () => {
     const {
@@ -49,8 +48,38 @@ const PostTool: React.FC = () => {
     const [dialogConfig, setDialogConfig] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [responseCache, setResponseCache] = useState<Map<string, PerfResponse>>(new Map());
-    // Derived response for current view
-    const response = activeRequestId ? responseCache.get(activeRequestId) || null : null;
+
+    // ⚡ SmartThings State & Discover Hook
+    const [specialRequests, setSpecialRequests] = useState<STSpecialRequest[]>(() => resolveSTSpecialRequests(undefined));
+
+    const {
+        isDiscovering,
+        discoveryData,
+        discoveryError,
+        discover,
+        selectedNodeRaw,
+        selectNode,
+        deviceStatusMap,
+        fetchDeviceStatus,
+    } = useSmartThingsDiscover({
+        globalVariables,
+        envProfiles,
+        activeEnvId,
+        globalAuth,
+    });
+
+    // Derived response for current view (if node is selected from tree, construct virtual PerfResponse)
+    const response = selectedNodeRaw
+        ? {
+              status: 200,
+              statusText: 'Discovered Node Data',
+              headers: { 'content-type': 'application/json' },
+              data: selectedNodeRaw,
+              timeTaken: 0,
+          }
+        : activeRequestId
+        ? responseCache.get(activeRequestId) || null
+        : null;
 
     const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -389,8 +418,14 @@ const PostTool: React.FC = () => {
                         savedRequests={savedRequests}
                         activeRequestId={activeRequestId}
                         currentRequest={currentRequest}
-                        onSelectRequest={handleSelectRequest}
-                        onNewRequest={handleNewRequest}
+                        onSelectRequest={(id) => {
+                            selectNode(null);
+                            handleSelectRequest(id);
+                        }}
+                        onNewRequest={(groupId) => {
+                            selectNode(null);
+                            handleNewRequest(groupId);
+                        }}
                         onDeleteRequest={handleDeleteRequest}
                         onDuplicateRequest={handleDuplicateRequest}
                         onChangeCurrentRequest={setCurrentRequest}
@@ -400,9 +435,35 @@ const PostTool: React.FC = () => {
                         onOpenSettings={() => setIsEnvModalOpen(true)}
                         requestHistory={requestHistory}
                         onSelectHistory={(item) => {
+                            selectNode(null);
                             setActiveRequestId(null);
                             setCurrentRequest({ ...item, id: generateUUID() }); // Clone as new
-                            // Response will be derived from cache (no cached response = null)
+                        }}
+                        stProps={{
+                            specialRequests,
+                            onUpdateSpecialRequests: setSpecialRequests,
+                            onLoadSpecialRequest: (req) => {
+                                selectNode(null);
+                                setActiveRequestId(null);
+                                setCurrentRequest({
+                                    id: generateUUID(),
+                                    name: req.label,
+                                    method: req.method,
+                                    url: req.url,
+                                    headers: [{ key: '', value: '' }],
+                                    body: '',
+                                });
+                            },
+                            isDiscovering,
+                            onDiscover: () => discover(specialRequests),
+                            discoveryData,
+                            discoveryError,
+                            onSelectNode: (raw) => {
+                                selectNode(raw);
+                            },
+                            selectedNodeRaw,
+                            deviceStatusMap,
+                            onFetchDeviceStatus: fetchDeviceStatus,
                         }}
                     />
 
