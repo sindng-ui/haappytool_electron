@@ -58,10 +58,15 @@ Tizen 기기 테스트를 위한 블록 기반 파이프라인 엔진.
   - **Card Size Persistence (2026-04-30)**: App 카드 크기 LocalStorage 영구 보존.
   - **Section Collapse Default (2026-05-01)**: Labs 섹션 기본 접힘 처리.
 
-### [Common Dialog System](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/ui/CommonDialogs.tsx) [NEW]
-- **Standardization (2026-05-15)**:
-  - **Unified Interaction**: 기존 `window.confirm()` 등을 대체하는 커스텀 다이얼로그 전역 도입. 🐧💎⚡
-  - **Component Suite**: `ConfirmDialog`, `PromptDialog`.
+### [PostTool](file:///k:/Antigravity_Projects/gitbase/happytool_electron/components/PostTool.tsx) [NEW][HOT]
+HTTP API 요청 및 테스트 도구 컴포넌트입니다.
+- **SmartThings ACC & Proxy Reliability Update (2026-07-25)**: [NEW][HOT]
+  - **Host Header Automatic Sanitization**: 요청 URL과 상이한 잔여 `Host` 헤더 자동 제거/정제하여 SmartThings ACC (`client.stacceptance.com`) 및 Prod (`client.smartthings.com`) 간 통신 무결성 확보. 🐧🛡️⚡
+  - **Manual Redirection & Auth Header Retention**: HTTP 3xx 리다이렉트 발생 시 수동 리다이렉트 추적을 수행하여 `Authorization` Bearer 토큰 유실을 방지. 🐧🚀
+  - **Transparent HTTP Error Response Unwrapping**: Electron `proxyRequest` 응답 시 HTTP 3xx/4xx/5xx 에러 및 응답 바디를 숨김없이 UI Response Viewer에 투명하게 바인딩. 🐧💎
+- **Zero-Regression Minimal Refactoring (2026-07-25)**: [NEW]
+  - 기존 동작 및 상태 무결성을 100% 보존하면서 **`PostTool.tsx` 라인 수를 760줄 → 492줄로 단축**하여 500줄 규칙을 완벽 준수.
+  - 서브 컴포넌트 및 훅 분리: `CodeSnippetModal.tsx` (코드 스니펫 생성 모달), `EnvironmentDropdown.tsx` (환경 전환 드롭다운), `usePostToolResize.ts` (패널 리사이징 훅). 🐧✨
 
 <br>
 

@@ -120,14 +120,21 @@ export const useRequestRunner = () => {
                 });
 
                 if (res.error) {
-                    throw new Error(res.message || 'Proxy Request Failed');
+                    const endTime = performance.now();
+                    return {
+                        status: 0,
+                        statusText: 'Network / Proxy Error',
+                        headers: {},
+                        data: res.message || 'Proxy Request Failed',
+                        timeTaken: endTime - startTime
+                    };
                 }
 
                 const endTime = performance.now();
                 return {
                     status: res.status,
                     statusText: res.statusText,
-                    headers: res.headers,
+                    headers: res.headers || {},
                     data: res.data,
                     timeTaken: endTime - startTime
                 };

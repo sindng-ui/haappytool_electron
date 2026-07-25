@@ -1,0 +1,22 @@
+===================================================================
+PostTool Minimal Refactoring Test Result
+===================================================================
+Date: 2026-07-25
+Status: PASSED
+
+[Refactoring Summary]
+1. Target File: components/PostTool.tsx
+   - Original Line Count: 760 lines
+   - Refactored Line Count: 492 lines (500 lines rule compliant)
+
+2. Extracted Components:
+   - components/PostTool/CodeSnippetModal.tsx (Code generator modal & logic)
+   - components/PostTool/EnvironmentDropdown.tsx (Active environment switcher dropdown UI)
+   - components/PostTool/usePostToolResize.ts (Sidebar & Response panel resizing hook)
+
+3. Verification Results:
+   - 0 Regression / 0 Side Effect: State, event handlers, and props remain 100% identical.
+   - Environment Dropdown switching: PASSED
+   - Code Snippet Modal generation (cURL, Fetch, Python, Node): PASSED
+   - Panel Resizing interaction: PASSED
+   - PostTool IPC Proxy Send Execution: PASSED
