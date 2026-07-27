@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Pipeline, PipelineItem, CommandBlock } from '../types';
 import * as Lucide from 'lucide-react';
 import { THEME } from '../theme';
+import { CoordinatePickerModal } from './CoordinatePickerModal';
 
 interface PipelineEditorProps {
     pipeline: Pipeline;
@@ -11,6 +12,7 @@ interface PipelineEditorProps {
     hasResults?: boolean;
     onViewResults?: () => void;
     onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string, message?: string }>;
+    onCaptureScreen?: (deviceId?: string) => Promise<{ success: boolean, url?: string, message?: string }>;
 }
 
 // Simple Undo/Redo Hook
@@ -62,6 +64,7 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [lastClickedId, setLastClickedId] = useState<string | null>(null);
     const [editingHintId, setEditingHintId] = useState<string | null>(null);
+    const [pickerTargetItem, setPickerTargetItem] = useState<PipelineItem | null>(null);
 
     // Toast State
     const [toast, setToast] = useState<{ message: string, visible: boolean }>({ message: '', visible: false });
@@ -575,10 +578,39 @@ const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onCha
                             direction="row"
                             containerId="root"
                             onUploadTemplate={onUploadTemplate}
+                            onOpenPicker={(item) => setPickerTargetItem(item)}
                         />
                     </div>
                 </div>
             </div>
+
+            {pickerTargetItem && (
+                <CoordinatePickerModal
+                    isOpen={!!pickerTargetItem}
+                    onClose={() => setPickerTargetItem(null)}
+                    initialX={pickerTargetItem.touchX ?? 0}
+                    initialY={pickerTargetItem.touchY ?? 0}
+                    onSelect={(x, y) => {
+                        const updateItemInTree = (items: PipelineItem[]): PipelineItem[] => {
+                            return items.map(it => {
+                                if (it.id === pickerTargetItem.id) {
+                                    return { ...it, touchX: x, touchY: y };
+                                }
+                                if (it.children) {
+                                    return { ...it, children: updateItemInTree(it.children) };
+                                }
+                                if (it.elseChildren) {
+                                    return { ...it, elseChildren: updateItemInTree(it.elseChildren) };
+                                }
+                                return it;
+                            });
+                        };
+                        updateItems(updateItemInTree(currentPipeline.items));
+                        setPickerTargetItem(null);
+                    }}
+                    onCaptureScreen={onCaptureScreen || (async () => ({ success: false, message: 'Screen capture handler not provided' }))}
+                />
+            )}
         </div>
     );
 };
@@ -596,7 +628,8 @@ const GraphFlow: React.FC<{
     isNested?: boolean;
     containerId?: string;
     onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string, message?: string }>;
-}> = ({ items, blocks, onChange, onDrop, selectedIds, onSelect, editingHintId, onEditHint, onUploadTemplate, direction = 'row', isNested = false, containerId = 'root' }) => {
+    onOpenPicker?: (item: PipelineItem) => void;
+}> = ({ items, blocks, onChange, onDrop, selectedIds, onSelect, editingHintId, onEditHint, onUploadTemplate, onOpenPicker, direction = 'row', isNested = false, containerId = 'root' }) => {
     const isRow = direction === 'row';
 
     return (
@@ -648,6 +681,7 @@ const GraphFlow: React.FC<{
                                     editingHintId={editingHintId}
                                     onEditHint={onEditHint}
                                     onUploadTemplate={onUploadTemplate}
+                                    onOpenPicker={onOpenPicker}
                                 />
                             </div>
                         ) : item.type === 'loop' ? (
@@ -678,6 +712,7 @@ const GraphFlow: React.FC<{
                                     editingHintId={editingHintId}
                                     onEditHint={onEditHint}
                                     onUploadTemplate={onUploadTemplate}
+                                    onOpenPicker={onOpenPicker}
                                 />
                             </div>
                         ) : (
@@ -791,7 +826,8 @@ const BlockNode: React.FC<{
     editingHintId: string | null;
     onEditHint: (id: string | null) => void;
     onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string, message?: string }>;
-}> = ({ item, blocks, selected, onChange, editingHintId, onEditHint, onUploadTemplate }) => {
+    onOpenPicker?: (item: PipelineItem) => void;
+}> = ({ item, blocks, selected, onChange, editingHintId, onEditHint, onUploadTemplate, onOpenPicker }) => {
     const block = blocks.find(b => b.id === item.blockId);
     if (!block) return <div className="p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-xl ">Unknown</div>;
     const isPredefined = block.type === 'predefined';
@@ -799,7 +835,7 @@ const BlockNode: React.FC<{
 
     return (
         <div
-            className={`relative w-56 rounded-xl border transition-all hover:scale-105 active:scale-95 cursor-default group h-[48px] ${THEME.editor.node.base} ${selected ? THEME.editor.node.selected : isPredefined ? THEME.editor.node.predefined : isSpecial ? THEME.editor.node.special : THEME.editor.node.custom}`}
+            className={`relative w-64 rounded-xl border transition-all hover:scale-105 active:scale-95 cursor-default group h-[48px] ${THEME.editor.node.base} ${selected ? THEME.editor.node.selected : isPredefined ? THEME.editor.node.predefined : isSpecial ? THEME.editor.node.special : THEME.editor.node.custom}`}
             onDoubleClick={(e) => {
                 e.stopPropagation();
                 onEditHint(item.id);
@@ -863,7 +899,7 @@ const BlockNode: React.FC<{
                     </div>
                 )}
 
-                {/* Touch X/Y Coordinate Inputs */}
+                {/* Touch X/Y Coordinate Inputs & Picker Button */}
                 {isSpecial && block.id === 'special_touch' && (
                     <div className="ml-auto flex items-center gap-1" onClick={e => e.stopPropagation()}>
                         <Lucide.MousePointer size={11} className="text-cyan-500 shrink-0" />
@@ -871,11 +907,11 @@ const BlockNode: React.FC<{
                             <span className="text-[10px] text-cyan-500 font-mono">x</span>
                             <input
                                 type="number"
-                                className="w-12 bg-transparent text-right outline-none text-xs text-cyan-200 font-mono focus:text-white"
+                                className="w-10 bg-transparent text-right outline-none text-xs text-cyan-200 font-mono focus:text-white"
                                 placeholder="0"
-                                defaultValue={item.touchX ?? 0}
+                                value={item.touchX ?? 0}
                                 min={0}
-                                onBlur={(e) => {
+                                onChange={(e) => {
                                     const val = parseInt(e.target.value);
                                     onChange({ ...item, touchX: isNaN(val) ? 0 : val });
                                 }}
@@ -888,11 +924,11 @@ const BlockNode: React.FC<{
                             <span className="text-[10px] text-cyan-500 font-mono">y</span>
                             <input
                                 type="number"
-                                className="w-12 bg-transparent text-right outline-none text-xs text-cyan-200 font-mono focus:text-white"
+                                className="w-10 bg-transparent text-right outline-none text-xs text-cyan-200 font-mono focus:text-white"
                                 placeholder="0"
-                                defaultValue={item.touchY ?? 0}
+                                value={item.touchY ?? 0}
                                 min={0}
-                                onBlur={(e) => {
+                                onChange={(e) => {
                                     const val = parseInt(e.target.value);
                                     onChange({ ...item, touchY: isNaN(val) ? 0 : val });
                                 }}
@@ -901,6 +937,19 @@ const BlockNode: React.FC<{
                                 }}
                             />
                         </div>
+                        {onOpenPicker && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpenPicker(item);
+                                }}
+                                className="p-1 text-cyan-400 hover:text-white bg-black/40 hover:bg-cyan-600 rounded border border-cyan-500/30 transition-all ml-0.5"
+                                title="Open Coordinate Picker (Screen Capture)"
+                            >
+                                <Lucide.Crosshair size={12} />
+                            </button>
+                        )}
                     </div>
                 )}
 
@@ -1160,7 +1209,8 @@ const ConditionalNode: React.FC<{
     editingHintId: string | null;
     onEditHint: (id: string | null) => void;
     onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string, message?: string }>;
-}> = ({ item, blocks, onChange, onDrop, selectedIds, onSelect, selected, editingHintId, onEditHint, onUploadTemplate }) => {
+    onOpenPicker?: (item: PipelineItem) => void;
+}> = ({ item, blocks, onChange, onDrop, selectedIds, onSelect, selected, editingHintId, onEditHint, onUploadTemplate, onOpenPicker }) => {
     // Drop Handler for "Then" branch (children)
     const handleThenDrop = (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void, targetContainerId?: string) => {
         if (parentItems && updateParent) {
@@ -1275,6 +1325,7 @@ const ConditionalNode: React.FC<{
                             isNested={true}
                             containerId={item.id}
                             onUploadTemplate={onUploadTemplate}
+                            onOpenPicker={onOpenPicker}
                         />
                     ) : (
                         <div className="w-full flex-1 min-h-[60px] rounded-lg border-2 border-dashed border-green-500/30 bg-green-500/5 flex flex-col items-center justify-center pointer-events-none">
@@ -1305,6 +1356,7 @@ const ConditionalNode: React.FC<{
                             isNested={true}
                             containerId={item.id + '_else'}
                             onUploadTemplate={onUploadTemplate}
+                            onOpenPicker={onOpenPicker}
                         />
                     ) : (
                         <div className="w-full flex-1 min-h-[60px] rounded-lg border-2 border-dashed border-red-500/30 bg-red-500/5 flex flex-col items-center justify-center pointer-events-none">

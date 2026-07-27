@@ -40,6 +40,7 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
         isRunnerOpen,
         setIsRunnerOpen,
         uploadTemplate,
+        captureScreen,
         // Scenario
         scenarios,
         addScenario,
@@ -291,6 +292,7 @@ const BlockTest: React.FC<BlockTestProps> = ({ isActive = false }) => {
                             hasResults={!!runningPipeline}
                             onViewResults={() => setIsRunnerOpen(true)}
                             onUploadTemplate={uploadTemplate}
+                            onCaptureScreen={captureScreen}
                         />
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center text-slate-400">

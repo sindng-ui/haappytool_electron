@@ -922,6 +922,28 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
                 socketRef.current.emit('save_uploaded_template', { name, data });
             });
         },
+        captureScreen: (deviceId?: string) => {
+            return new Promise<{ success: boolean, url?: string, absolutePath?: string, message?: string }>((resolve) => {
+                if (!socketRef.current) return resolve({ success: false, message: 'Socket not connected' });
+
+                const handler = (res: any) => {
+                    console.log("DEBUG: [useBlockTest] Capture Result:", res);
+                    socketRef.current?.off('capture_result', handler);
+                    if (res.success && res.path) {
+                        resolve({
+                            success: true,
+                            url: `http://127.0.0.1:3003${res.path}`,
+                            absolutePath: res.absolutePath
+                        });
+                    } else {
+                        resolve({ success: false, message: res.message || 'Screen capture failed' });
+                    }
+                };
+
+                socketRef.current.on('capture_result', handler);
+                socketRef.current.emit('capture_screen', { deviceId });
+            });
+        },
         isRunning,
         executionLogs,
         currentBlockId,

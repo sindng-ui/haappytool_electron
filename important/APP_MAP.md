@@ -322,8 +322,9 @@
   - **Premium Runner UI & UX**: 테스트 실행 화면(`PipelineRunner`, `ScenarioRunner`) 진입 시 뒤로 가기(복귀) 버튼이 좌상단 앱 허브(`AppHub`) 버튼에 가려지지 않도록 왼쪽 헤더 패딩을 `pl-20`으로 확장 배치하여 사용 편의성과 시각적 조화를 극대화함. [NEW][HOT]
   - **로그 저장 폴더 열기 (Open Log Storage Folder)**: Delete Pipeline 버튼 바로 오른쪽에 `FolderOpen` 아이콘 버튼 진입점을 배치하여 `log start block` 실행 결과 파일들이 모이는 `BlockTest` 데이터 디렉터리를 윈도우 탐색기로 0ms 만에 즉시 열 수 있는 편의 기능 제공. [NEW][HOT]
   - **Touch Block (Special Block)**: `$(x)`, `$(y)` 특수 변수를 지원하는 터치 명령어 블록. 파이프라인 캔버스에 드롭 시 X/Y 좌표 입력창이 노드 안에 표시(Cyan 테마)되며, 실행 시 명령어 내 `$(x)`, `$(y)`를 입력된 좌표값으로 자동 치환하여 실행. Runner 목록에서도 좌표값 `(x, y)` 형식으로 표시. BlockManager에서 `MousePointer` 아이콘으로 식별. [NEW]
+    - **Coordinate Picker (좌표 픽커) 🎯**: Touch Block 노드 내 십자선 아이콘 버튼 클릭 시 오픈되는 모달(`CoordinatePickerModal.tsx`). SDB 연결된 타이젠 단말 화면을 원클릭 캡처(`capture_screen`)하거나 클립보드/이미지 파일 업로드 지원. 마우스 호버 시 십자선 가이드 및 원본 해상도 비율(100% 정밀도) 기반 실시간 X/Y 좌표 툴팁 안내, 클릭한 지점의 좌표를 Touch Block에 원클릭 자동 입력. [NEW][HOT]
     - **특수 변수 확장**: `SPECIAL_VARS`에 `$(x)`, `$(y)` 추가하여 블록 편집 모달에서도 힌트로 제공.
-    - **실행 파일**: `constants.ts`, `types.ts`, `BlockManager.tsx`, `PipelineEditor.tsx`, `useBlockTest.ts`, `PipelineRunner.tsx`
+    - **실행 파일**: `constants.ts`, `types.ts`, `BlockManager.tsx`, `PipelineEditor.tsx`, `useBlockTest.ts`, `PipelineRunner.tsx`, `CoordinatePickerModal.tsx`
   - **CLI 연동**: Headless 모드에서도 시나리오/파이프라인 실행 지원.
 
 ---
