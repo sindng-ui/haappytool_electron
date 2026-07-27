@@ -836,7 +836,8 @@ const BlockNode: React.FC<{
                         block.id === 'special_wait_image' ? <Lucide.Image size={16} /> :
                             block.id === 'special_log_start' ? <Lucide.FileText size={16} /> :
                                 block.id === 'special_log_stop' ? <Lucide.Square size={16} /> :
-                                    <Lucide.Moon size={16} />
+                                    block.id === 'special_touch' ? <Lucide.MousePointer size={16} /> :
+                                        <Lucide.Moon size={16} />
                     ) : isPredefined ? <Lucide.Package size={16} /> : <Lucide.Terminal size={16} />}
                 </div>
                 <div className="flex-1 min-w-0"><h4 className="font-bold text-sm text-slate-100 truncate">{block.name}</h4></div>
@@ -859,6 +860,47 @@ const BlockNode: React.FC<{
                             }}
                         />
                         <span className="text-[10px] text-violet-500">ms</span>
+                    </div>
+                )}
+
+                {/* Touch X/Y Coordinate Inputs */}
+                {isSpecial && block.id === 'special_touch' && (
+                    <div className="ml-auto flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <Lucide.MousePointer size={11} className="text-cyan-500 shrink-0" />
+                        <div className="flex items-center gap-0.5 bg-black/40 rounded px-1.5 py-0.5 border border-cyan-500/30 transition-colors hover:border-cyan-400">
+                            <span className="text-[10px] text-cyan-500 font-mono">x</span>
+                            <input
+                                type="number"
+                                className="w-12 bg-transparent text-right outline-none text-xs text-cyan-200 font-mono focus:text-white"
+                                placeholder="0"
+                                defaultValue={item.touchX ?? 0}
+                                min={0}
+                                onBlur={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    onChange({ ...item, touchX: isNaN(val) ? 0 : val });
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') e.currentTarget.blur();
+                                }}
+                            />
+                        </div>
+                        <div className="flex items-center gap-0.5 bg-black/40 rounded px-1.5 py-0.5 border border-cyan-500/30 transition-colors hover:border-cyan-400">
+                            <span className="text-[10px] text-cyan-500 font-mono">y</span>
+                            <input
+                                type="number"
+                                className="w-12 bg-transparent text-right outline-none text-xs text-cyan-200 font-mono focus:text-white"
+                                placeholder="0"
+                                defaultValue={item.touchY ?? 0}
+                                min={0}
+                                onBlur={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    onChange({ ...item, touchY: isNaN(val) ? 0 : val });
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') e.currentTarget.blur();
+                                }}
+                            />
+                        </div>
                     </div>
                 )}
 

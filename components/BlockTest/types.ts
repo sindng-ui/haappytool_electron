@@ -15,6 +15,9 @@ export interface PipelineItem {
     type: 'block' | 'loop' | 'conditional';
     blockId?: string; // If type is block
     sleepDuration?: number; // If block is Sleep type
+    // Touch Specific
+    touchX?: number; // X coordinate for Touch block
+    touchY?: number; // Y coordinate for Touch block
     // Image Match Specific
     imageTemplatePath?: string; // Path (Server absolute)
     imageTemplateUrl?: string; // URL (Client relative)

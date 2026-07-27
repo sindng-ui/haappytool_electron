@@ -321,6 +321,9 @@
   - **Pipeline Management UX**: 파이프라인 이름 변경(Rename) 및 삭제(Delete) 시 안전을 위한 커스텀 모달(PipelineDialogs) 도입. Electron 환경에서의 `prompt()` 미지원 이슈 해결. [NEW][HOT]
   - **Premium Runner UI & UX**: 테스트 실행 화면(`PipelineRunner`, `ScenarioRunner`) 진입 시 뒤로 가기(복귀) 버튼이 좌상단 앱 허브(`AppHub`) 버튼에 가려지지 않도록 왼쪽 헤더 패딩을 `pl-20`으로 확장 배치하여 사용 편의성과 시각적 조화를 극대화함. [NEW][HOT]
   - **로그 저장 폴더 열기 (Open Log Storage Folder)**: Delete Pipeline 버튼 바로 오른쪽에 `FolderOpen` 아이콘 버튼 진입점을 배치하여 `log start block` 실행 결과 파일들이 모이는 `BlockTest` 데이터 디렉터리를 윈도우 탐색기로 0ms 만에 즉시 열 수 있는 편의 기능 제공. [NEW][HOT]
+  - **Touch Block (Special Block)**: `$(x)`, `$(y)` 특수 변수를 지원하는 터치 명령어 블록. 파이프라인 캔버스에 드롭 시 X/Y 좌표 입력창이 노드 안에 표시(Cyan 테마)되며, 실행 시 명령어 내 `$(x)`, `$(y)`를 입력된 좌표값으로 자동 치환하여 실행. Runner 목록에서도 좌표값 `(x, y)` 형식으로 표시. BlockManager에서 `MousePointer` 아이콘으로 식별. [NEW]
+    - **특수 변수 확장**: `SPECIAL_VARS`에 `$(x)`, `$(y)` 추가하여 블록 편집 모달에서도 힌트로 제공.
+    - **실행 파일**: `constants.ts`, `types.ts`, `BlockManager.tsx`, `PipelineEditor.tsx`, `useBlockTest.ts`, `PipelineRunner.tsx`
   - **CLI 연동**: Headless 모드에서도 시나리오/파이프라인 실행 지원.
 
 ---

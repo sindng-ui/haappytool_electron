@@ -56,6 +56,8 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
         { label: '$(loop_index)', desc: 'Current loop index (1-based)' },
         { label: '$(time_current)', desc: 'Current local time (yyyy-mm-dd...)' },
         { label: '$(time_start)', desc: 'Pipeline start time' },
+        { label: '$(x)', desc: 'Touch X coordinate (Touch block)' },
+        { label: '$(y)', desc: 'Touch Y coordinate (Touch block)' },
     ];
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -258,13 +260,15 @@ const BlockManager: React.FC<BlockManagerProps> = ({ blocks, onAddBlock, onUpdat
                                                 <Lucide.Image size={14} className="text-violet-400 shrink-0" />
                                             ) : block.id === 'special_condition' ? (
                                                 <Lucide.Split size={14} className="text-violet-400 shrink-0" />
+                                            ) : block.id === 'special_touch' ? (
+                                                <Lucide.MousePointer size={14} className="text-cyan-400 shrink-0" />
                                             ) : (
                                                 <Lucide.Moon size={14} className="text-violet-400 shrink-0" />
                                             )}
                                             <span className={`font-medium text-sm truncate ${THEME.sidebar.text}`}>{block.name}</span>
                                         </div>
-                                        {/* Edit Button for Log Blocks */}
-                                        {(block.id === 'special_log_start' || block.id === 'special_log_stop') && (
+                                        {/* Edit Button for Log Blocks and Touch Block */}
+                                        {(block.id === 'special_log_start' || block.id === 'special_log_stop' || block.id === 'special_touch') && (
                                             <div className="hidden group-hover:flex gap-2 shrink-0 ml-2">
                                                 <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEdit(block); }} onMouseDown={(e) => e.stopPropagation()} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all">
                                                     <Lucide.Edit2 size={16} />

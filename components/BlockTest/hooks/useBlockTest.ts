@@ -359,7 +359,7 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
         });
     };
 
-    const replaceVariables = (cmd: string, context: { loopIndex?: number, loopTotal?: number, timeStart: string }) => {
+    const replaceVariables = (cmd: string, context: { loopIndex?: number, loopTotal?: number, timeStart: string, touchX?: number, touchY?: number }) => {
         const now = new Date();
         const timeCurrent = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
 
@@ -367,7 +367,9 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
             .replace(/\$\(loop_total\)/g, String(context.loopTotal || 1))
             .replace(/\$\(loop_index\)/g, String(context.loopIndex || 1))
             .replace(/\$\(time_current\)/g, timeCurrent)
-            .replace(/\$\(time_start\)/g, context.timeStart);
+            .replace(/\$\(time_start\)/g, context.timeStart)
+            .replace(/\$\(x\)/g, String(context.touchX ?? 0))
+            .replace(/\$\(y\)/g, String(context.touchY ?? 0));
     };
 
     const saveReport = (pipelineName: string, stats: any, logs: string[], startTimeStr?: string, isFailure: boolean = false) => {
@@ -830,7 +832,12 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
                     for (const rawCmd of block.commands) {
                         if (abortController.current?.signal.aborted) throw new Error('Pipeline Stopped');
 
-                        const cmd = replaceVariables(rawCmd, context);
+                        // For Touch block, pass touchX/touchY from the pipeline item
+                        const cmdContext = item.blockId === SPECIAL_BLOCK_IDS.TOUCH
+                            ? { ...context, touchX: item.touchX ?? 0, touchY: item.touchY ?? 0 }
+                            : context;
+
+                        const cmd = replaceVariables(rawCmd, cmdContext);
                         log(`  $ ${cmd}`);
 
                         const output = await runCommand(cmd, abortController.current?.signal);

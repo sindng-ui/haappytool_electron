@@ -71,6 +71,7 @@ export const PREDEFINED_BLOCKS: CommandBlock[] = [
 
 export const SPECIAL_BLOCK_IDS = {
     SLEEP: 'special_sleep',
+    TOUCH: 'special_touch',
     WAIT_FOR_IMAGE: 'special_wait_image',
     LOG_START: 'special_log_start',
     LOG_STOP: 'special_log_stop',
@@ -84,6 +85,13 @@ export const SPECIAL_BLOCKS: CommandBlock[] = [
         type: 'special',
         description: 'Wait for specified time',
         commands: []
+    },
+    {
+        id: SPECIAL_BLOCK_IDS.TOUCH,
+        name: 'Touch',
+        type: 'special',
+        description: 'Tap at specified x, y coordinates. Use $(x) and $(y) in commands.',
+        commands: ['sdb shell input tap $(x) $(y)']
     },
     {
         id: SPECIAL_BLOCK_IDS.WAIT_FOR_IMAGE,
