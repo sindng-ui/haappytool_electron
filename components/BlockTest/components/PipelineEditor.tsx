@@ -55,7 +55,7 @@ function useUndoRedo<T>(initialState: T, onChange: (state: T) => void): [T, (new
     return [history[index] || initialState, setState, undo, redo, index > 0, index < history.length - 1];
 }
 
-const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onChange, onRun, hasResults, onViewResults, onUploadTemplate }) => {
+const PipelineEditor: React.FC<PipelineEditorProps> = ({ pipeline, blocks, onChange, onRun, hasResults, onViewResults, onUploadTemplate, onCaptureScreen }) => {
     const [scale, setScale] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
     const [isPanning, setIsPanning] = useState(false);
@@ -1077,7 +1077,8 @@ const LoopNode: React.FC<{
     editingHintId: string | null;
     onEditHint: (id: string | null) => void;
     onUploadTemplate: (name: string, data: string) => Promise<{ success: boolean, path: string, url?: string, message?: string }>;
-}> = ({ item, blocks, onChange, onDrop, selectedIds, onSelect, selected, editingHintId, onEditHint, onUploadTemplate }) => {
+    onOpenPicker?: (item: PipelineItem) => void;
+}> = ({ item, blocks, onChange, onDrop, selectedIds, onSelect, selected, editingHintId, onEditHint, onUploadTemplate, onOpenPicker }) => {
     const [isDragOver, setIsDragOver] = useState(false);
 
     const handleInternalDrop = (e: React.DragEvent, index: number, parentItems?: PipelineItem[], updateParent?: (items: PipelineItem[]) => void, targetContainerId?: string) => {
@@ -1186,6 +1187,7 @@ const LoopNode: React.FC<{
                         isNested={true}
                         containerId={item.id}
                         onUploadTemplate={onUploadTemplate}
+                        onOpenPicker={onOpenPicker}
                     />
                 ) : (
                     <div className="w-full h-full min-h-[80px] rounded-xl border-2 border-dashed border-orange-500/30 bg-orange-500/5 text-orange-500/50 flex flex-col items-center justify-center pointer-events-none">
