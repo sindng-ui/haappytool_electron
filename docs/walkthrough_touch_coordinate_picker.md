@@ -17,9 +17,9 @@ Tizen 단말에 SDB로 연결된 화면을 실시간 캡처하거나, 이미지 
 ### 2. `useBlockTest.ts` 훅 기능 추가
 - `captureScreen`: 백엔드 `capture_screen` 소켓 호출 및 결과 핸들링 훅 메서드 추가.
 
-### 3. `PipelineEditor.tsx` 노드 UI 확장
+### 3. `PipelineEditor.tsx` 노드 UI 확장 & 슬림화 🎨
 - Special Block 중 `Touch` 노드에 **🎯 좌표 픽커 버튼 (Lucide.Crosshair)** 추가.
-- Touch Block 입력 필드 옆 🎯 버튼 클릭 시 `CoordinatePickerModal`을 띄워 시각적 좌표 선택 제공.
+- 불필요하게 공간을 차지하던 `T..` (Touch) 텍스트 명칭과 중복 픽커 아이콘을 제거하고 `[ ↖ ]  [ x  0 ]  [ y  0 ]  [ 🎯 ]` 형태로 **노드 폭을 대폭 축소하여 초경량 슬림 노드 디자인** 적용.
 
 ### 4. `index.tsx` 연동
 - `useBlockTest`에서 `captureScreen`을 꺼내 `PipelineEditor`에 prop으로 전달.

@@ -835,7 +835,7 @@ const BlockNode: React.FC<{
 
     return (
         <div
-            className={`relative w-64 rounded-xl border transition-all hover:scale-105 active:scale-95 cursor-default group h-[48px] ${THEME.editor.node.base} ${selected ? THEME.editor.node.selected : isPredefined ? THEME.editor.node.predefined : isSpecial ? THEME.editor.node.special : THEME.editor.node.custom}`}
+            className={`relative ${isSpecial && block.id === 'special_touch' ? 'w-auto min-w-fit' : 'w-64'} rounded-xl border transition-all hover:scale-105 active:scale-95 cursor-default group h-[48px] ${THEME.editor.node.base} ${selected ? THEME.editor.node.selected : isPredefined ? THEME.editor.node.predefined : isSpecial ? THEME.editor.node.special : THEME.editor.node.custom}`}
             onDoubleClick={(e) => {
                 e.stopPropagation();
                 onEditHint(item.id);
@@ -866,7 +866,7 @@ const BlockNode: React.FC<{
                 </div>
             )}
 
-            <div className="p-3 flex items-center gap-3 h-full">
+            <div className="p-2.5 flex items-center gap-2 h-full">
                 <div className={`p-1.5 rounded-lg ${isPredefined ? 'bg-slate-700 text-slate-300' : isSpecial ? 'bg-violet-900/50 text-violet-300' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'}`}>
                     {isSpecial ? (
                         block.id === 'special_wait_image' ? <Lucide.Image size={16} /> :
@@ -876,7 +876,9 @@ const BlockNode: React.FC<{
                                         <Lucide.Moon size={16} />
                     ) : isPredefined ? <Lucide.Package size={16} /> : <Lucide.Terminal size={16} />}
                 </div>
-                <div className="flex-1 min-w-0"><h4 className="font-bold text-sm text-slate-100 truncate">{block.name}</h4></div>
+                {!(isSpecial && block.id === 'special_touch') && (
+                    <div className="flex-1 min-w-0"><h4 className="font-bold text-sm text-slate-100 truncate">{block.name}</h4></div>
+                )}
 
                 {isSpecial && block.id === 'special_sleep' && (
                     <div className="ml-auto flex items-center gap-1 bg-black/40 rounded px-2 py-0.5 border border-violet-500/30 transition-colors hover:border-violet-400" onClick={e => e.stopPropagation()}>
@@ -901,8 +903,7 @@ const BlockNode: React.FC<{
 
                 {/* Touch X/Y Coordinate Inputs & Picker Button */}
                 {isSpecial && block.id === 'special_touch' && (
-                    <div className="ml-auto flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                        <Lucide.MousePointer size={11} className="text-cyan-500 shrink-0" />
+                    <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-0.5 bg-black/40 rounded px-1.5 py-0.5 border border-cyan-500/30 transition-colors hover:border-cyan-400">
                             <span className="text-[10px] text-cyan-500 font-mono">x</span>
                             <input
