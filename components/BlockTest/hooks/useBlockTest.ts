@@ -12,12 +12,22 @@ import { io, Socket } from 'socket.io-client';
 // I'll assume I can get a socket or create one.
 // EXISTING PATTERN: `const socket = io('http://localhost:3002');` in components.
 
+const mergeWithPredefinedAndSpecial = (loaded: CommandBlock[]): CommandBlock[] => {
+    if (!Array.isArray(loaded)) return [...PREDEFINED_BLOCKS, ...SPECIAL_BLOCKS];
+    const loadedMap = new Map(loaded.map(b => [b.id, b]));
+    const mergedPredefined = PREDEFINED_BLOCKS.map(b => loadedMap.get(b.id) || b);
+    const mergedSpecial = SPECIAL_BLOCKS.map(b => loadedMap.get(b.id) || b);
+    const custom = loaded.filter(b => b.type === 'custom');
+    return [...mergedPredefined, ...mergedSpecial, ...custom];
+};
+
 export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => void) => {
     const [blocks, setBlocks] = useState<CommandBlock[]>(() => {
         try {
             const saved = localStorage.getItem('happytool_blocks');
             if (saved) {
-                return JSON.parse(saved);
+                const parsed = JSON.parse(saved);
+                return mergeWithPredefinedAndSpecial(parsed);
             }
         } catch (e) {
             console.error("Failed to load blocks from localStorage", e);
@@ -126,16 +136,7 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
             try {
                 if (filename === 'blocks.json') {
                     const loaded: CommandBlock[] = JSON.parse(content);
-
-                    // Merge loaded blocks with predefined/special to ensure we have all required blocks,
-                    // but prefer the loaded version if it exists (to persist edits).
-                    const loadedMap = new Map(loaded.map(b => [b.id, b]));
-
-                    const mergedPredefined = PREDEFINED_BLOCKS.map(b => loadedMap.get(b.id) || b);
-                    const mergedSpecial = SPECIAL_BLOCKS.map(b => loadedMap.get(b.id) || b);
-                    const custom = loaded.filter(b => b.type === 'custom');
-
-                    setBlocks([...mergedPredefined, ...mergedSpecial, ...custom]);
+                    setBlocks(mergeWithPredefinedAndSpecial(loaded));
                 } else if (filename === 'pipelines.json') {
                     setPipelines(JSON.parse(content));
                 } else if (filename === 'scenarios.json') {
@@ -161,8 +162,9 @@ export const useBlockTest = (isActive: boolean = true, onLog?: (msg: string) => 
             if (b) {
                 try {
                     const parsedBlocks = JSON.parse(b);
-                    setBlocks(parsedBlocks);
-                    socketRef.current?.emit('save_file', { filename: 'blocks.json', content: b });
+                    const merged = mergeWithPredefinedAndSpecial(parsedBlocks);
+                    setBlocks(merged);
+                    socketRef.current?.emit('save_file', { filename: 'blocks.json', content: JSON.stringify(merged, null, 2) });
                 } catch (e) {
                     console.error("Failed to import blocks", e);
                 }
