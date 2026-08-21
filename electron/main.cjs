@@ -4,6 +4,8 @@ const path = require('path');
 const fs = require('fs/promises');
 const originalFs = require('fs');
 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 // ✅ CLI 실행 시 GUI와 데이터 잠금 충돌을 피하기 위해 전용 경로 설정
 // 이 로직은 app.whenReady() 이전에 실행되어야 안전합니다.
 const args = process.defaultApp ? process.argv.slice(2) : process.argv.slice(1);
@@ -15,6 +17,7 @@ if (isCliMode) {
 
 // ✅ WSL/Virtual Drive(Y:) Environment Fixes & SharedArrayBuffer Enable
 if (app && app.commandLine) {
+  app.commandLine.appendSwitch('ignore-certificate-errors');
   app.commandLine.appendSwitch('lang', 'en-US'); // ✅ 형님, 달력 등 네이티브 UI 언어를 영어로 강제 고정합니다! 🐧🇺🇸
   app.commandLine.appendSwitch('disable-gpu');
   app.commandLine.appendSwitch('disable-software-rasterizer');
@@ -410,6 +413,12 @@ app.whenReady().then(async () => {
                     if ((response.status === 303 || response.status === 302) && method !== 'GET' && method !== 'HEAD') {
                         method = 'GET';
                         body = undefined;
+                        Object.keys(reqHeaders).forEach(k => {
+                            const lowerK = k.toLowerCase();
+                            if (['content-length', 'content-type', 'transfer-encoding'].includes(lowerK)) {
+                                delete reqHeaders[k];
+                            }
+                        });
                     }
                 } else {
                     break;

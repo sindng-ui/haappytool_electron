@@ -10,6 +10,9 @@
   - **Non-Blocking Spawn Engine**: `run_host_command` 핸들러에서 15초 타임아웃 및 버퍼 락의 원인이던 `exec()`를 `spawn()` 기반으로 전환. 특수문자가 없을 경우 `shell:false` 직접 실행으로 `cmd.exe` 오버헤드 bypass.
   - **Stream Protection & Stdin auto-close**: stdout/stderr 스트림 강제 destroy 및 stdin 즉시종료로 비인터랙티브 SDB 쉘 무한대기 방지.
   - **Process Management**: `activeProcessesMap` 및 `kill_host_command` 핸들러 추가로 호스트 프로세스 강제 종료 기능 확보. 🐧⚡
+- **Proxy Request Enhancement for Internal Network (2026-08-21)**: [NEW]
+  - **SSL Validation Bypass**: 사내 프록시 환경의 CRL/OCSP 검증 차단으로 인한 `ECONNRESET` 에러 해결을 위해 `NODE_TLS_REJECT_UNAUTHORIZED = '0'` 및 `ignore-certificate-errors` 스위치 적용 (`electron/main.cjs`).
+  - **Redirect Header Sanitize**: `proxyRequest` 핸들러에서 302/303 리다이렉트 시 `POST` -> `GET` 변환에 맞춰 불필요한 바디 관련 헤더(`content-length`, `content-type`, `transfer-encoding`) 자동 제거 로직 추가.
 
 ### [SW Issue Analyst RAG](file:///k:/Antigravity_Projects/gitbase/happytool_electron/server/rag_analyzer)
 과거 S/W 문제점 사례를 기반으로 신규 이슈에 대한 1차 분석 힌트를 제공하는 RAG 서버입니다.
