@@ -12,6 +12,7 @@ export interface RequestSidebarSTProps {
     specialRequests: STSpecialRequest[];
     onUpdateSpecialRequests: (reqs: STSpecialRequest[]) => void;
     onLoadSpecialRequest: (req: STSpecialRequest) => void;
+    activeRequestId?: string | null;
     isDiscovering: boolean;
     onDiscover: () => void;
     onLoadMockData?: () => void;
@@ -352,6 +353,7 @@ const RequestSidebar: React.FC<RequestSidebarProps> = ({
                     specialRequests={stProps.specialRequests}
                     onUpdateSpecialRequests={stProps.onUpdateSpecialRequests}
                     onLoadRequest={stProps.onLoadSpecialRequest}
+                    activeRequestId={stProps.activeRequestId ?? activeRequestId}
                     isDiscovering={stProps.isDiscovering}
                     onDiscover={stProps.onDiscover}
                     onLoadMockData={stProps.onLoadMockData}

@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import PostTool from '../../components/PostTool';
 import { HappyToolProvider } from '../../contexts/HappyToolContext';
+import { DEFAULT_ST_SPECIAL_REQUESTS } from '../../utils/stDefaults';
 
 // Mock ResponseViewer to avoid LogArchiveContext dependency in pure PostTool test
 vi.mock('../../components/PostTool/ResponseViewer', () => ({
@@ -18,62 +19,83 @@ vi.mock('../../components/PostTool/ResponseViewer', () => ({
 const mockProxyRequest = vi.fn();
 
 describe('PostTool SmartThings Integration (Step 5)', () => {
-    const mockContextValue: any = {
-        savedRequests: [],
-        setSavedRequests: vi.fn(),
-        savedRequestGroups: [],
-        setSavedRequestGroups: vi.fn(),
-        requestHistory: [],
-        setRequestHistory: vi.fn(),
-        postGlobalVariables: [
-            { id: '1', key: 'baseUrl', value: 'https://api.smartthings.com', enabled: true },
-        ],
-        setPostGlobalVariables: vi.fn(),
-        envProfiles: [],
-        setEnvProfiles: vi.fn(),
-        activeEnvId: 'prod',
-        setActiveEnvId: vi.fn(),
-        postGlobalAuth: { enabled: true, type: 'bearer', bearerToken: 'test-pat-token' },
-        setPostGlobalAuth: vi.fn(),
-    };
+    let mockSetStSpecialRequests: any;
+    let mockContextValue: any;
 
     beforeEach(() => {
         vi.clearAllMocks();
+        localStorage.clear();
         (window as any).electronAPI = {
             proxyRequest: mockProxyRequest,
         };
+
+        mockSetStSpecialRequests = vi.fn();
+        mockContextValue = {
+            savedRequests: [],
+            setSavedRequests: vi.fn(),
+            savedRequestGroups: [],
+            setSavedRequestGroups: vi.fn(),
+            requestHistory: [],
+            setRequestHistory: vi.fn(),
+            stSpecialRequests: DEFAULT_ST_SPECIAL_REQUESTS,
+            setStSpecialRequests: mockSetStSpecialRequests,
+            postGlobalVariables: [
+                { id: '1', key: 'baseUrl', value: 'https://api.smartthings.com', enabled: true },
+            ],
+            setPostGlobalVariables: vi.fn(),
+            envProfiles: [],
+            setEnvProfiles: vi.fn(),
+            activeEnvId: 'prod',
+            setActiveEnvId: vi.fn(),
+            postGlobalAuth: { enabled: true, type: 'bearer', bearerToken: 'test-pat-token' },
+            setPostGlobalAuth: vi.fn(),
+        };
     });
 
-    it('renders SmartThings section in PostTool drawer', () => {
+    it('renders SmartThings section in sidebar and opens on toggle click', () => {
         render(
             <HappyToolProvider value={mockContextValue}>
                 <PostTool />
             </HappyToolProvider>
         );
 
-        // Open Drawer
-        fireEvent.click(screen.getByTestId('st-drawer-toggle'));
+        // Sidebar SmartThings Section Toggle 클릭 (기본 접힘 상태에서 펼침)
+        fireEvent.click(screen.getByTestId('st-section-toggle'));
 
-        expect(screen.getByTestId('st-explorer-drawer')).toBeInTheDocument();
         expect(screen.getByText('Locations')).toBeInTheDocument();
         expect(screen.getByText('Rooms')).toBeInTheDocument();
         expect(screen.getByText('Devices')).toBeInTheDocument();
         expect(screen.getByTestId('st-discover-btn')).toBeInTheDocument();
     });
 
-    it('loads Special Request into editor when Special Request card is clicked', () => {
+    it('loads Special Request into editor and debounces save to stSpecialRequests when edited', async () => {
         render(
             <HappyToolProvider value={mockContextValue}>
                 <PostTool />
             </HappyToolProvider>
         );
 
-        fireEvent.click(screen.getByTestId('st-drawer-toggle'));
+        // Expand ST section
+        fireEvent.click(screen.getByTestId('st-section-toggle'));
+
+        // Click Locations card
         fireEvent.click(screen.getByTestId('st-card-locations'));
 
         // URL input should now have {{baseUrl}}/v1/locations
         const urlInput = screen.getByDisplayValue('{{baseUrl}}/v1/locations');
         expect(urlInput).toBeInTheDocument();
+
+        // Edit URL
+        fireEvent.change(urlInput, { target: { value: '{{baseUrl}}/v1/locations/custom' } });
+
+        // Wait for debounce save (500ms)
+        await waitFor(() => {
+            expect(mockSetStSpecialRequests).toHaveBeenCalled();
+        }, { timeout: 1500 });
+
+        const updatedArgs = mockSetStSpecialRequests.mock.calls[0][0];
+        const updatedLocationReq = updatedArgs.find((r: any) => r.id === 'locations');
+        expect(updatedLocationReq.url).toBe('{{baseUrl}}/v1/locations/custom');
     });
 
     it('performs Discover All and renders tree view, and displays node JSON on node click', async () => {
@@ -118,11 +140,11 @@ describe('PostTool SmartThings Integration (Step 5)', () => {
             </HappyToolProvider>
         );
 
-        // Open Drawer and Click Discover All
-        fireEvent.click(screen.getByTestId('st-drawer-toggle'));
+        // Open ST section and Click Discover All
+        fireEvent.click(screen.getByTestId('st-section-toggle'));
         fireEvent.click(screen.getByTestId('st-discover-btn'));
 
-        // Wait for Tree View to render
+        // Wait for Tree View to render in Drawer
         await waitFor(() => {
             expect(screen.getByText('Smart Home Hub')).toBeInTheDocument();
             expect(screen.getByText('Master Bedroom')).toBeInTheDocument();

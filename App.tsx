@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import AppHub from './components/AppHub';
 import AppLibraryModal from './components/AppLibraryModal';
 import TopRightActions from './components/TopRightActions';
-import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem, PostGlobalAuth, EnvironmentProfile, NetTrafficSettings, TrafficPattern, UAPattern } from './types';
+import { ToolId, LogRule, AppSettings, SavedRequest, RequestGroup, PostGlobalVariable, RequestHistoryItem, PostGlobalAuth, EnvironmentProfile, NetTrafficSettings, TrafficPattern, UAPattern, STSpecialRequest } from './types';
 
 import { mergeById } from './utils/settingsHelper';
+import { resolveSTSpecialRequests } from './utils/stDefaults';
 import { SettingsModal } from './components/SettingsModal';
 import { ALL_PLUGINS } from './plugins/registry';
 import { HappyToolProvider, HappyToolContextType } from './contexts/HappyToolContext';
@@ -120,6 +121,7 @@ const AppContent: React.FC = () => {
   const [savedRequests, setSavedRequests] = useState<SavedRequest[]>([]);
   const [savedRequestGroups, setSavedRequestGroups] = useState<RequestGroup[]>([]);
   const [requestHistory, setRequestHistory] = useState<RequestHistoryItem[]>([]);
+  const [stSpecialRequests, setStSpecialRequests] = useState<STSpecialRequest[]>(() => resolveSTSpecialRequests(undefined));
 
   // Environment Profiles State
   const [envProfiles, setEnvProfiles] = useState<EnvironmentProfile[]>([]);
@@ -248,6 +250,9 @@ const AppContent: React.FC = () => {
         if (parsed.postGlobalAuth) {
           setPostGlobalAuth(parsed.postGlobalAuth);
         }
+        if (parsed.stSpecialRequests) {
+          setStSpecialRequests(resolveSTSpecialRequests(parsed.stSpecialRequests));
+        }
         if (parsed.lastEndpoint) setLastApiUrl(parsed.lastEndpoint);
         if (parsed.defaultOutputFolder) setDefaultOutputFolder(parsed.defaultOutputFolder);
         
@@ -350,6 +355,7 @@ const AppContent: React.FC = () => {
         envProfiles,
         activeEnvId,
         postGlobalAuth,
+        stSpecialRequests,
         lastEndpoint: lastApiUrl,
         lastMethod,
         enabledPlugins,
@@ -376,7 +382,7 @@ const AppContent: React.FC = () => {
     }, 1000); // ✅ 1-second debounce
  
     return () => clearTimeout(timer);
-  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, enabledPlugins, toolOrder, defaultOutputFolder, netTrafficSettings, pluginSizes, zoomFactor]);
+  }, [logRules, lastApiUrl, lastMethod, savedRequests, savedRequestGroups, requestHistory, envProfiles, activeEnvId, postGlobalAuth, stSpecialRequests, enabledPlugins, toolOrder, defaultOutputFolder, netTrafficSettings, pluginSizes, zoomFactor]);
 
   // Sync Config Active Tab to localStorage
   useEffect(() => {
@@ -389,6 +395,7 @@ const AppContent: React.FC = () => {
       logRules,
       savedRequests,
       savedRequestGroups,
+      stSpecialRequests,
       envProfiles,
       activeEnvId,
       postGlobalAuth,
@@ -409,7 +416,7 @@ const AppContent: React.FC = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [logRules, savedRequests, savedRequestGroups, envProfiles, activeEnvId, postGlobalAuth, lastApiUrl, lastMethod, enabledPlugins, defaultOutputFolder]);
+  }, [logRules, savedRequests, savedRequestGroups, stSpecialRequests, envProfiles, activeEnvId, postGlobalAuth, lastApiUrl, lastMethod, enabledPlugins, defaultOutputFolder]);
 
   const handleImportSettings = React.useCallback((settings: AppSettings) => {
     if (settings.logRules) {
@@ -433,6 +440,10 @@ const AppContent: React.FC = () => {
 
     if (settings.savedRequests) {
       setSavedRequests(current => mergeById(current, settings.savedRequests));
+    }
+
+    if (settings.stSpecialRequests) {
+      setStSpecialRequests(resolveSTSpecialRequests(settings.stSpecialRequests));
     }
 
     if (settings.savedRequestGroups) {
@@ -543,6 +554,8 @@ const AppContent: React.FC = () => {
     setRequestHistory,
     postGlobalVariables, // ✅ Already memoized
     setPostGlobalVariables, // ✅ Stable callback
+    stSpecialRequests,
+    setStSpecialRequests,
     envProfiles,
     setEnvProfiles,
     activeEnvId,
@@ -568,6 +581,7 @@ const AppContent: React.FC = () => {
     requestHistory,
     postGlobalVariables, // ✅ Now stable
     setPostGlobalVariables, // ✅ Now stable
+    stSpecialRequests,
     envProfiles,
     setEnvProfiles,
     activeEnvId,

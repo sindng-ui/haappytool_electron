@@ -44,7 +44,9 @@ const PostTool: React.FC = () => {
         postGlobalAuth: globalAuth,
         setPostGlobalAuth: onUpdateGlobalAuth,
         requestHistory,
-        setRequestHistory
+        setRequestHistory,
+        stSpecialRequests: contextSTSpecialRequests,
+        setStSpecialRequests: setContextSTSpecialRequests,
     } = useHappyTool();
     const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
     const [dialogConfig, setDialogConfig] = useState<any>(null);
@@ -53,7 +55,9 @@ const PostTool: React.FC = () => {
 
     // ⚡ SmartThings State & Drawer Toggle
     const [isSTDrawerOpen, setIsSTDrawerOpen] = useState(false);
-    const [specialRequests, setSpecialRequests] = useState<STSpecialRequest[]>(() => resolveSTSpecialRequests(undefined));
+    const [localSpecialRequests, setLocalSpecialRequests] = useState<STSpecialRequest[]>(() => resolveSTSpecialRequests(undefined));
+    const specialRequests = contextSTSpecialRequests || localSpecialRequests;
+    const setSpecialRequests = setContextSTSpecialRequests || setLocalSpecialRequests;
 
     const {
         isDiscovering,
@@ -109,6 +113,30 @@ const PostTool: React.FC = () => {
         if (!activeRequestId || activeRequestId === 'temp') return;
 
         const timer = setTimeout(() => {
+            // ⚡ Special Request 수정인 경우 (locations, rooms, devices)
+            const isSpecial = specialRequests.some(s => s.id === activeRequestId);
+            if (isSpecial) {
+                const updatedSpecial = specialRequests.map(s => {
+                    if (s.id === activeRequestId) {
+                        return {
+                            ...s,
+                            label: currentRequest.name || s.label,
+                            method: currentRequest.method,
+                            url: currentRequest.url,
+                            headers: currentRequest.headers,
+                            body: currentRequest.body,
+                            auth: currentRequest.auth,
+                            tests: currentRequest.tests,
+                            extractors: currentRequest.extractors,
+                        };
+                    }
+                    return s;
+                });
+                setSpecialRequests(updatedSpecial);
+                return;
+            }
+
+            // 일반 SavedRequest 수정인 경우
             const updated = savedRequests.map(r =>
                 r.id === activeRequestId ? currentRequest : r
             );
@@ -116,7 +144,23 @@ const PostTool: React.FC = () => {
         }, 500); // 500ms debounce
 
         return () => clearTimeout(timer);
-    }, [currentRequest, activeRequestId]); // ✅ Removed savedRequests, onUpdateRequests to prevent infinite loop
+    }, [currentRequest, activeRequestId, specialRequests]);
+
+    const handleLoadSpecialRequest = (req: STSpecialRequest) => {
+        selectNode(null);
+        setActiveRequestId(req.id);
+        setCurrentRequest({
+            id: req.id,
+            name: req.label,
+            method: req.method,
+            url: req.url,
+            headers: req.headers && req.headers.length > 0 ? req.headers : [{ key: 'Accept', value: 'application/json' }, { key: '', value: '' }],
+            body: req.body || '',
+            auth: req.auth,
+            tests: req.tests,
+            extractors: req.extractors,
+        });
+    };
 
     const handleNewRequest = (groupId?: string) => {
         const newId = generateUUID();
@@ -468,18 +512,8 @@ const PostTool: React.FC = () => {
                         stProps={{
                             specialRequests,
                             onUpdateSpecialRequests: setSpecialRequests,
-                            onLoadSpecialRequest: (req) => {
-                                selectNode(null);
-                                setActiveRequestId(null);
-                                setCurrentRequest({
-                                    id: generateUUID(),
-                                    name: req.label,
-                                    method: req.method,
-                                    url: req.url,
-                                    headers: [{ key: '', value: '' }],
-                                    body: '',
-                                });
-                            },
+                            onLoadSpecialRequest: handleLoadSpecialRequest,
+                            activeRequestId,
                             isDiscovering,
                             onDiscover: () => {
                                 setIsSTDrawerOpen(true);
@@ -550,18 +584,7 @@ const PostTool: React.FC = () => {
                         onClose={() => setIsSTDrawerOpen(false)}
                         specialRequests={specialRequests}
                         onUpdateSpecialRequests={setSpecialRequests}
-                        onLoadRequest={(req) => {
-                            selectNode(null);
-                            setActiveRequestId(null);
-                            setCurrentRequest({
-                                id: generateUUID(),
-                                name: req.label,
-                                method: req.method,
-                                url: req.url,
-                                headers: [{ key: '', value: '' }],
-                                body: '',
-                            });
-                        }}
+                        onLoadRequest={handleLoadSpecialRequest}
                         isDiscovering={isDiscovering}
                         onDiscover={() => discover(specialRequests)}
                         onLoadMockData={loadMockData}

@@ -13,6 +13,8 @@ export const DEFAULT_ST_SPECIAL_REQUESTS: STSpecialRequest[] = [
         method: 'GET',
         url: '{{baseUrl}}/v1/locations',
         description: 'List all SmartThings locations',
+        headers: [{ key: 'Accept', value: 'application/json' }, { key: '', value: '' }],
+        body: '',
     },
     {
         id: 'rooms',
@@ -21,6 +23,8 @@ export const DEFAULT_ST_SPECIAL_REQUESTS: STSpecialRequest[] = [
         method: 'GET',
         url: '{{baseUrl}}/v1/locations/{{locationId}}/rooms',
         description: 'List rooms for a specific location',
+        headers: [{ key: 'Accept', value: 'application/json' }, { key: '', value: '' }],
+        body: '',
     },
     {
         id: 'devices',
@@ -29,6 +33,8 @@ export const DEFAULT_ST_SPECIAL_REQUESTS: STSpecialRequest[] = [
         method: 'GET',
         url: '{{baseUrl}}/v1/devices',
         description: 'List all SmartThings devices',
+        headers: [{ key: 'Accept', value: 'application/json' }, { key: '', value: '' }],
+        body: '',
     },
 ];
 
@@ -43,10 +49,15 @@ export function resolveSTSpecialRequests(
         return DEFAULT_ST_SPECIAL_REQUESTS;
     }
 
-    // 기본 3종의 순서를 유지하면서 유저 데이터로 override
     return DEFAULT_ST_SPECIAL_REQUESTS.map((def) => {
         const userOverride = saved.find((s) => s.id === def.id);
-        return userOverride ? { ...def, ...userOverride } : def;
+        if (!userOverride) return def;
+        return {
+            ...def,
+            ...userOverride,
+            headers: userOverride.headers ?? def.headers,
+            body: userOverride.body ?? def.body,
+        };
     });
 }
 

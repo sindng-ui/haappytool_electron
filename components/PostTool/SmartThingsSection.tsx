@@ -10,6 +10,7 @@ export interface SmartThingsSectionProps {
     specialRequests: STSpecialRequest[];
     onUpdateSpecialRequests: (reqs: STSpecialRequest[]) => void;
     onLoadRequest: (req: STSpecialRequest) => void;
+    activeRequestId?: string | null;
     isDiscovering: boolean;
     onDiscover: () => void;
     onLoadMockData?: () => void;
@@ -23,45 +24,14 @@ export interface SmartThingsSectionProps {
     treeViewSlot?: React.ReactNode;
 }
 
-// ─── Discovery Summary (placeholder until 4단계 TreeView) ─────────────────────
-const DiscoverySummary: React.FC<{ data: STDiscoveryData }> = ({ data }) => (
-    <div className="mt-2 p-2.5 rounded-lg bg-slate-800/50 border border-slate-700/40 space-y-1">
-        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Lucide.CheckCircle2 size={11} className="text-emerald-400" />
-            Discovery Complete
-        </div>
-        <div className="flex items-center justify-between text-xs">
-            <span className="flex items-center gap-1.5 text-slate-400">
-                <Lucide.MapPin size={11} className="text-indigo-400" />
-                Locations
-            </span>
-            <span className="font-bold text-slate-200">{data.locations.length}</span>
-        </div>
-        <div className="flex items-center justify-between text-xs">
-            <span className="flex items-center gap-1.5 text-slate-400">
-                <Lucide.Home size={11} className="text-purple-400" />
-                Rooms
-            </span>
-            <span className="font-bold text-slate-200">{data.rooms.length}</span>
-        </div>
-        <div className="flex items-center justify-between text-xs">
-            <span className="flex items-center gap-1.5 text-slate-400">
-                <Lucide.Cpu size={11} className="text-cyan-400" />
-                Devices
-            </span>
-            <span className="font-bold text-slate-200">{data.devices.length}</span>
-        </div>
-        <div className="text-[9px] text-slate-600 pt-1 border-t border-slate-700/40">
-            Updated: {new Date(data.fetchedAt).toLocaleTimeString()}
-        </div>
-    </div>
-);
+const ST_SECTION_COLLAPSED_KEY = 'happytool_st_section_collapsed';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const SmartThingsSection: React.FC<SmartThingsSectionProps> = ({
     specialRequests,
     onUpdateSpecialRequests,
     onLoadRequest,
+    activeRequestId,
     isDiscovering,
     onDiscover,
     onLoadMockData,
@@ -73,8 +43,26 @@ const SmartThingsSection: React.FC<SmartThingsSectionProps> = ({
     onFetchDeviceStatus,
     treeViewSlot,
 }) => {
-    const [isCollapsed, setIsCollapsed] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
+    // ✅ Default is collapsed (true), with localStorage persistence
+    const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const saved = localStorage.getItem(ST_SECTION_COLLAPSED_KEY);
+            if (saved !== null) {
+                return saved === 'true';
+            }
+        }
+        return true; // 기본값: 접힘
+    });
+
+    const toggleCollapse = useCallback(() => {
+        setIsCollapsed((prev) => {
+            const next = !prev;
+            if (typeof window !== 'undefined' && window.localStorage) {
+                localStorage.setItem(ST_SECTION_COLLAPSED_KEY, String(next));
+            }
+            return next;
+        });
+    }, []);
 
     const handleUpdateCard = useCallback(
         (updatedReq: STSpecialRequest) => {
@@ -93,7 +81,7 @@ const SmartThingsSection: React.FC<SmartThingsSectionProps> = ({
             {/* ── Section Header ── */}
             <button
                 data-testid="st-section-toggle"
-                onClick={() => setIsCollapsed((v) => !v)}
+                onClick={toggleCollapse}
                 className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/5 transition-colors group"
             >
                 <div className="flex items-center gap-2">
@@ -126,7 +114,7 @@ const SmartThingsSection: React.FC<SmartThingsSectionProps> = ({
             {/* ── Collapsed Content ── */}
             {!isCollapsed && (
                 <div className="px-2 pb-2 space-y-1.5">
-                    {/* Special Request Cards */}
+                    {/* Special Request Cards (1-Line Compact UI) */}
                     <div className="space-y-1.5">
                         {specialRequests.map((req) => (
                             <SpecialRequestCard
@@ -134,6 +122,7 @@ const SmartThingsSection: React.FC<SmartThingsSectionProps> = ({
                                 req={req}
                                 onLoad={onLoadRequest}
                                 onUpdate={handleUpdateCard}
+                                isActive={activeRequestId === req.id}
                             />
                         ))}
                     </div>

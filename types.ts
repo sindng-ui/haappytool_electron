@@ -141,6 +141,16 @@ export interface STSpecialRequest {
   method: HttpMethod;
   url: string;         // 유저 편집 가능 (환경 변수 치환 적용)
   description: string;
+  headers?: { key: string; value: string }[];
+  body?: string;
+  auth?: {
+    type: 'none' | 'bearer' | 'basic';
+    bearerToken?: string;
+    basicUsername?: string;
+    basicPassword?: string;
+  };
+  tests?: TestAssertion[];
+  extractors?: ResponseExtractor[];
 }
 
 /** Discover API 정규화 타입 */

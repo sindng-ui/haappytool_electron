@@ -25,4 +25,4 @@ Node 기반 IPC/Socket 통신 및 파이썬 기반 RAG(검색 증강 생성) 백
 - 👉 **[상세 보기](./docs/maps/STANDARD_GUIDES.md)**
 
 ---
-*Last Updated: 2026-08-21 (Proxy Request Enhancement & SSL Bypass)*
+*Last Updated: 2026-08-21 (PostTool SmartThings Special Requests Live Persistence & 1-Line Compact UI)*

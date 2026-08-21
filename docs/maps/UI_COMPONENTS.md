@@ -71,6 +71,10 @@ HTTP API 요청 및 테스트 도구 컴포넌트입니다.
   - **Host Header Automatic Sanitization**: 요청 URL과 상이한 잔여 `Host` 헤더 자동 제거/정제하여 SmartThings ACC (`client.stacceptance.com`) 및 Prod (`client.smartthings.com`) 간 통신 무결성 확보. 🐧🛡️⚡
   - **Manual Redirection & Auth Header Retention**: HTTP 3xx 리다이렉트 발생 시 수동 리다이렉트 추적을 수행하여 `Authorization` Bearer 토큰 유실을 방지. 🐧🚀
   - **Transparent HTTP Error Response Unwrapping**: Electron `proxyRequest` 응답 시 HTTP 3xx/4xx/5xx 에러 및 응답 바디를 숨김없이 UI Response Viewer에 투명하게 바인딩. 🐧💎
+- **SmartThings Special Requests Real-time Persistence & 1-Line Compact UI (2026-08-21)**: [NEW][HOT]
+  - **Bidirectional Live Persistence**: 우측 RequestEditor에서 Special Requests(Locations, Rooms, Devices)의 Headers, URL, Body, Auth 수정 시 `activeRequestId` 바인딩을 통해 일반 Request와 동일하게 실시간 디바운스(500ms)로 `stSpecialRequests` 및 `AppSettings` / localStorage / Electron 설정 파일에 자동 반영 및 영구 저장. 🐧💾⚡
+  - **1-Line Compact Sidebar UI**: 기존 2줄 카드 형태(긴 URL 노출 및 연필 인라인 편집기)를 일반 Request 아이템과 동일한 깔끔한 1줄 행(`[GET 배지] [아이콘] [이름] [⚡ 뱃지]`)으로 개편하고, URL은 우측 에디터에서 자유롭게 확인 및 수정 (`SpecialRequestCard.tsx`). 🐧✨
+  - **Default Collapsed & Persistent State**: SmartThings 섹션을 기본 접힘(`collapsed: true`)으로 시작하도록 설정하고, 유저가 토글한 펼침/접힘 상태를 `localStorage`에 영구 저장하여 앱 재실행 시에도 상태 유지 (`SmartThingsSection.tsx`). 🐧🛡️
 - **Zero-Regression Minimal Refactoring (2026-07-25)**: [NEW]
   - 기존 동작 및 상태 무결성을 100% 보존하면서 서브 컴포넌트 및 훅으로 철저히 역할 분리 (`SpecialRequestCard`, `SmartThingsSection`, `SmartThingsTreeView`, `CapabilityInspector`, `useSmartThingsDiscover`). 🐧✨
 
