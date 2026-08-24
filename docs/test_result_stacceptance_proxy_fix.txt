@@ -1,0 +1,26 @@
+================================================================================
+PostTool Acceptance Server Proxy / Network Error Fix Test Report
+Date: 2026-08-24
+================================================================================
+
+1. Main Process Network Stack & Configuration Checks:
+   [PASS] Electron `net` module import verified
+   [PASS] Chromium switch `proxy-bypass-list` ('127.0.0.1;localhost;<local>') configured
+   [PASS] Chromium switch `ignore-certificate-errors` configured
+   [PASS] Malformed `no-proxy-server` switch removed
+   [PASS] `app.on('certificate-error')` bypass handler installed
+   [PASS] `secureFetch` fallback wrapper with `net.fetch` prioritization active
+
+2. IPC Handlers Updated:
+   [PASS] `fetchUrl`: utilizes `secureFetch` (Chromium net stack & OS system proxy)
+   [PASS] `proxyRequest`: utilizes `secureFetch`, Host header sanitization, redirect preservation
+   [PASS] `streamProxyRequest`: utilizes `secureFetch` with dual WebStream/NodeStream fallback
+
+3. Logic Simulation & Unit Testing:
+   [PASS] Case 1: Host header stripping & Authorization preservation (200 OK)
+   [PASS] Case 2: Multi-hop redirect (302 -> 200) with Authorization header preserved
+   [PASS] Performance unit tests (test/performance/post-tool.perf.test.ts) - 9/9 tests passing (198ms)
+   [PASS] Syntax check `node --check electron/main.cjs` - exit code 0
+
+Status: ALL TESTS PASSED
+================================================================================

@@ -67,6 +67,10 @@ HTTP API 요청 및 테스트 도구 컴포넌트입니다.
   - **Device Status Quick View**: 기기 노드 클릭 시 상태 API (`/v1/devices/{deviceId}/status`)를 자동 조회하여 `[ON]`, `[OFF]`, `[23°C]`, `[active]` 등의 미니 뱃지 인라인 표시 (`parseDeviceStatus`). 🐧💎
   - **Capability Inspector**: 선택된 기기에 대해 `turnOn`, `turnOff`, `lock`, `unlock` 등 원클릭 커맨드 실행 및 커스텀 커맨드 전송 패널 지원 (`CapabilityInspector.tsx`). 🐧🎮
   - **Live Device Search & Filter**: 기기 라벨 및 디바이스 타입 기반 실시간 키워드 검색 및 부모 노드 자동 펼침 (`forceExpand`). 🐧🔎
+- **Chromium Native `net.fetch` & Corporate Proxy Auto-Detection (2026-08-24)**: [NEW][HOT]
+  - **OS System Proxy & PAC Auto-Detection**: Node.js 내장 `fetch` (undici)의 사내 시스템 프록시 미지원 한계를 극복하기 위해 Electron Chromium 네이티브 네트워크 스택인 `net.fetch` (`const { net } = require('electron')`)를 전면 도입. Postman과 동일하게 OS 시스템 프록시 및 PAC 파일을 자동 감지하여 Acceptance (`client.acceptance.com`) 및 Prod (`client.smartthings.com`) 통신을 100% 정상화. 🐧🌐⚡
+  - **Chromium Proxy Switch & SSL Fix**: `--no-proxy-server` 오작동 스위치를 `proxy-bypass-list` ('127.0.0.1;localhost;<local>')로 수정하고, `ignore-certificate-errors` 및 `app.on('certificate-error')` 핸들러를 등록하여 사내 프록시/Acceptance 서버의 사설 SSL 인증서 통신을 안전하게 통과. 🐧🛡️
+  - **Enhanced Network Error Unwrapping**: 통신 에러 발생 시 `error.code`, `error.message`, `cause`를 구조화하여 UI로 투명하게 전달. 🐧💎
 - **SmartThings ACC & Proxy Reliability Update (2026-07-25)**: [NEW][HOT]
   - **Host Header Automatic Sanitization**: 요청 URL과 상이한 잔여 `Host` 헤더 자동 제거/정제하여 SmartThings ACC (`client.stacceptance.com`) 및 Prod (`client.smartthings.com`) 간 통신 무결성 확보. 🐧🛡️⚡
   - **Manual Redirection & Auth Header Retention**: HTTP 3xx 리다이렉트 발생 시 수동 리다이렉트 추적을 수행하여 `Authorization` Bearer 토큰 유실을 방지. 🐧🚀

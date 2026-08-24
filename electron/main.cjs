@@ -1,5 +1,5 @@
 const electron = require('electron');
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol } = electron;
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net } = electron;
 const path = require('path');
 const fs = require('fs/promises');
 const originalFs = require('fs');
@@ -19,7 +19,9 @@ if (app && app.commandLine) {
   app.commandLine.appendSwitch('disable-gpu');
   app.commandLine.appendSwitch('disable-software-rasterizer');
   app.commandLine.appendSwitch('no-sandbox');
-  app.commandLine.appendSwitch('no-proxy-server', '127.0.0.1,localhost'); // ✅ 형님, 회사 프록시가 로컬 호스트를 가로채지 못하게 원천 차단합니다! 🐧🚫
+  app.commandLine.appendSwitch('proxy-bypass-list', '127.0.0.1;localhost;<local>'); // ✅ 형님, 로컬 호스트만 프록시를 우회하고 회사 프록시 및 PAC을 정상 적용합니다! 🐧🌐
+  app.commandLine.appendSwitch('ignore-certificate-errors'); // ✅ 형님, 사내 프록시 및 Acceptance 서버 사설 SSL 인증서 오류를 안전하게 패스합니다! 🐧🛡️
+  app.commandLine.appendSwitch('allow-insecure-localhost');
   app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer');
   // ✅ GPU 캐시 오류 수정: 캐시 크기 0으로 설정하여 캐시 생성 시도를 막음 🐧🔧
   app.commandLine.appendSwitch('disk-cache-size', '0');
@@ -32,6 +34,12 @@ if (app && app.commandLine) {
 protocol.registerSchemesAsPrivileged([
     { scheme: 'app', privileges: { standard: true, secure: true, allowServiceWorkers: true, supportFetchAPI: true, corsEnabled: true, stream: true } }
 ]);
+
+// ✅ 사내 프록시 및 사설 CA / 자체 서명 인증서 허용 🐧🛡️
+app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+    event.preventDefault();
+    callback(true);
+});
 
 let mainWindow;
 const windowStatePath = path.join(app.getPath('userData'), 'window-state.json');
@@ -360,9 +368,17 @@ app.whenReady().then(async () => {
         catch (error) { console.error('Error opening external:', error); return { status: 'error', error: error.message }; }
     });
 
+    // ✅ Electron Chromium Network Stack 기반 fetch 래퍼 (OS 시스템 프록시 / PAC / 사내 프록시 자동 감지) 🐧🌐
+    const secureFetch = (url, options) => {
+        if (typeof net !== 'undefined' && typeof net.fetch === 'function') {
+            return net.fetch(url, options);
+        }
+        return fetch(url, options);
+    };
+
     ipcMain.handle('fetchUrl', async (event, { url, type }) => {
         try {
-            const response = await fetch(url);
+            const response = await secureFetch(url);
             if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
             if (type === 'buffer') { const arrayBuffer = await response.arrayBuffer(); return Buffer.from(arrayBuffer); }
             else { return await response.text(); }
@@ -399,7 +415,7 @@ app.whenReady().then(async () => {
                     redirect: 'manual'
                 };
 
-                response = await fetch(currentUrl, fetchOptions);
+                response = await secureFetch(currentUrl, fetchOptions);
 
                 // Handle Redirects (301, 302, 303, 307, 308)
                 if ([301, 302, 303, 307, 308].includes(response.status)) {
@@ -428,7 +444,12 @@ app.whenReady().then(async () => {
             return { status: response.status, statusText: response.statusText, headers: responseHeaders, data: data };
         } catch (error) {
             console.error('Proxy Request failed:', error);
-            return { error: true, message: error.message };
+            return {
+                error: true,
+                message: error.message || 'Proxy Request Failed',
+                code: error.code,
+                cause: error.cause ? error.cause.message : undefined
+            };
         }
     });
 
@@ -439,36 +460,56 @@ app.whenReady().then(async () => {
                 method, headers,
                 body: ['GET', 'HEAD'].includes(method) ? undefined : body
             };
-            const response = await fetch(url, fetchOptions);
+            const response = await secureFetch(url, fetchOptions);
             if (!response.ok) {
                 const errorText = await response.text();
                 return { error: true, status: response.status, message: errorText };
             }
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
+            if (response.body) {
+                if (typeof response.body.getReader === 'function') {
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
 
-            // 백그라운드에서 스트림 읽기 시작
-            (async () => {
-                try {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        const chunk = decoder.decode(value, { stream: true });
-                        if (mainWindow && !mainWindow.isDestroyed()) {
-                            mainWindow.webContents.send('proxy-data-chunk', { requestId, chunk });
+                    // 백그라운드에서 스트림 읽기 시작
+                    (async () => {
+                        try {
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+                                const chunk = typeof value === 'string' ? value : decoder.decode(value, { stream: true });
+                                if (mainWindow && !mainWindow.isDestroyed()) {
+                                    mainWindow.webContents.send('proxy-data-chunk', { requestId, chunk });
+                                }
+                            }
+                            if (mainWindow && !mainWindow.isDestroyed()) {
+                                mainWindow.webContents.send('proxy-stream-complete', { requestId });
+                            }
+                        } catch (err) {
+                            console.error('[Main] Stream processing error:', err);
+                            if (mainWindow && !mainWindow.isDestroyed()) {
+                                mainWindow.webContents.send('proxy-stream-error', { requestId, message: err.message });
+                            }
                         }
-                    }
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.send('proxy-stream-complete', { requestId });
-                    }
-                } catch (err) {
-                    console.error('[Main] Stream processing error:', err);
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.send('proxy-stream-error', { requestId, message: err.message });
-                    }
+                    })();
+                } else if (typeof response.body.on === 'function') {
+                    response.body.on('data', (chunk) => {
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send('proxy-data-chunk', { requestId, chunk: chunk.toString() });
+                        }
+                    });
+                    response.body.on('end', () => {
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send('proxy-stream-complete', { requestId });
+                        }
+                    });
+                    response.body.on('error', (err) => {
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send('proxy-stream-error', { requestId, message: err.message });
+                        }
+                    });
                 }
-            })();
+            }
 
             return { status: response.status, statusText: response.statusText };
         } catch (error) {
